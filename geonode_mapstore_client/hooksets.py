@@ -177,6 +177,12 @@ class MapStoreHookSet(BaseHookSet):
             callback=ms2_config_converter.convert)
         return 'geonode-mapstore-client/map_embed.html'
 
+    def project_setup_map_template(self, context=None):
+        self.initialize_context(
+            context,
+            callback=ms2_config_converter.convert)
+        return 'geonode-mapstore-client/project_setup_map.html'
+
     # def map_download_template(self, context=None):
     #    self.initialize_context(
     #        context,
