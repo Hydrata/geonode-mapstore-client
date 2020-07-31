@@ -52,6 +52,7 @@ var MS2_EDIT_PLUGINS = {
 		"FilterLayer",
 		"FeatureEditor",
 		"WidgetsBuilder",
+		"AddGroup",
 		{
 			"name": "Save",
 			"cfg": {

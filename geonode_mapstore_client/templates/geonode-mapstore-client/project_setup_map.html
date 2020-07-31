@@ -1,0 +1,114 @@
+{% extends "geonode-mapstore-client/base_ms.html" %}
+{% load static %}
+{% block plugins %}
+<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_project_map_plugins.js' %}"></script>
+{% endblock %}
+{% block style %}
+<style>
+    #project_setup_map {
+        position: relative;
+        height: 400px;
+        z-index: 1029;
+        overflow: hidden;
+    }
+    #mapstore2-embedded, #map, .fill {
+        width: 100%;
+        height: 100%;
+    }
+    ._ms2_init_center {
+        position: absolute;
+    }
+</style>
+{% endblock %}
+{% block app_config %}
+{% autoescape off %}
+<script type="text/javascript">
+    const ms2_config = {{ ms2_config|default:"false"|safe }};
+    document.addEventListener('DOMContentLoaded', function () {
+        const userDetails = {
+            "User": user,
+            "access_token": accessToken
+        }
+        $('#project_setup_map').addClass('ms2');
+        $('#project_setup_map').html('<div class="_ms2_init_spinner _ms2_init_center"><div></div> <div class="_ms2_init_text _ms2_init_center">Loading Project</div>');
+        MS2_PLUGINS = MS2_PROJECT_MAP_PLUGINS;
+        MS2_PLUGINS["mobile"] = MS2_PLUGINS.desktop;
+        let localConfig = defaultConfig.localConfig;
+        initMapstore2Api('edit', function(MapStore2, options) {
+            if (options && options.setLocale) {
+                options.setLocale('{{ LANGUAGE_CODE }}');
+            }
+            MapStore2.create('project_setup_map', {
+                mode: "embedded",
+                config: ms2_config,
+                theme: {theme: "preview"},
+                initialState: {
+                    defaultState: {
+                        map: {center: {x: 13, y: 45, crs: "EPSG:4326"}},
+                        maptype: {mapType: maptype},
+                        mode: "embedded",
+                        maps : {
+                            enabled: false,
+                            showMapDetails: true,
+                            errors: [],
+                            searchText: "",
+                            results: ""},
+                        mousePosition: {enabled: false},
+                        controls: {
+                            toolbar: {
+                                active: null,
+                                expanded: false
+                            }
+                        },
+                        mapInfo: {enabled: true, infoFormat: "text/html" },
+                        security: {
+                            token: "{{ ACCESS_TOKEN }}"
+                        }
+                    }
+                },
+                proxy: defaultConfig.proxy,
+                printingEnabled: defaultConfig.printingEnabled,
+                localConfig: localConfig,
+                plugins: MS2_PLUGINS
+            });
+            if (user && user.id) {
+                MapStore2.triggerAction({type: "LOGIN_SUCCESS", userDetails: userDetails});
+            }
+        if (ms2_config) {
+                MapStore2.triggerAction({
+                    type: "MAP_CONFIG_LOADED",
+                    config: ms2_config,
+                    legacy: !!ms2_config.map && ms2_config.map.info && ms2_config.map.info.id,
+                    mapId: ms2_config.map && ms2_config.map.info && ms2_config.map.info.id
+                });
+            }
+        var isMap = !!(ms2_config.map && ms2_config.map.info && ms2_config.map.info.id)
+        createMapThumbnail = function() {
+            MapStore2.triggerAction({
+                type: isMap && "GEONODE:CREATE_MAP_THUMBNAIL" || "GEONODE:CREATE_LAYER_THUMBNAIL"
+            });
+        }
+        if(!isMap && ms2_config &&  ms2_config.map) {
+        var layer = ms2_config.map.layers[ms2_config.map.layers.length - 1];
+        var id = (layer && layer.name) + "__" + (ms2_config.map.layers.length - 1);
+            $("input[name='style']").click(function (ev) {
+                var title = $("#legend_sld_title");
+                title.text(ev.target.value);
+                var src = $("#legend_icon").attr("src");
+                if (src != undefined) {
+                    $("#legend_icon").attr("src", src.split("&STYLE")[0] + "&STYLE=" + ev.target.id);
+                }
+                MapStore2.triggerAction({ type: 'UPDATE_NODE',
+                node: id,
+                nodeType: 'layers',
+                options: {style: ev.target.id}
+                });
+
+            });
+
+        }
+        });
+    });
+</script>
+{% endautoescape %}
+{% endblock %}
