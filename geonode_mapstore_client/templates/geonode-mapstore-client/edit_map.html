@@ -1,9 +1,10 @@
 {% extends "./base_ms.html" %}
 {% load static %}
 {% block plugins %}
-<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_base_plugins.js' %}"></script>
-<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_map_viewer_plugins.js' %}"></script>
-<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_composer_plugins.js' %}"></script>
+{#<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_base_plugins.js' %}"></script>#}
+{#<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_map_viewer_plugins.js' %}"></script>#}
+{#<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_composer_plugins.js' %}"></script>#}
+<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_project_map_plugins.js' %}"></script>
 {% endblock %}
 {% block style %}
 <style>
@@ -32,7 +33,7 @@
         }
         initMapstore2Api('edit', function(MapStore2, options) {
             // you have to add the configuration for stylerplugin
-            MS2_PLUGINS = window.squashMS2PlugCfg(MS2_BASE_PLUGINS, MS2_MAP_PLUGINS, MS2_EDIT_PLUGINS);
+            MS2_PLUGINS = window.squashMS2PlugCfg(MS2_PROJECT_MAP_PLUGINS);
             if (options && options.setLocale) {
                 options.setLocale('{{ LANGUAGE_CODE }}');
             }
