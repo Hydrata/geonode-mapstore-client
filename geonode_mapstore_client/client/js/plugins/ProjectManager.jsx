@@ -17,21 +17,36 @@ const style = {
     padding: "5px 10px",
     fontSize: "12px",
     lineHeight: "1.5",
-    borderRadius: "3px"
+    borderRadius: "3px",
+    color: "white",
+    textAlign: "center"
 };
 
-const Component = (props) => (<div style={style}>MenuTime {props.projection}</div>);
+const MenuButton = (props) => {
+    // const {isOpen, label} = props;
+    return (
+        <div style={style}>MenuTime {props.isOpen} {props.label}</div>
+    );
+};
 
 // const mapStateToProps = state => {
 //     return {
 //         projection: projectionSelector(state)
 //     };
 // };
-//
-// const ConnectedComponent = connect(mapStateToProps, {
-//     changeZoomLevel: changeZoomLevel
-// })(Component);
 
-export default createPlugin('ProjectManager', {
-    component: Component
-});
+const ConnectedComponent = connect(
+    state => {
+        return {
+            isOpen: state?.projectManager?.isOpen,
+            label: state?.projectManager?.label
+        };
+    }
+)(MenuButton);
+
+export default createPlugin(
+    'ProjectManager',
+    {
+        component: ConnectedComponent
+    }
+);
