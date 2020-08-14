@@ -90,6 +90,7 @@ var MS2_BASE_PLUGINS = {
 		"Undo",
 		"Redo",
 		"BurgerMenu",
+		"ProjectManager",
 		"MapFooter",
 		"Measure",
 		{

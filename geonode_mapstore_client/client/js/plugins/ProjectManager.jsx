@@ -1,8 +1,9 @@
 import React from 'react';
 import { connect } from 'react-redux';
 import { createPlugin } from '../../MapStore2/web/client/utils/PluginsUtils';
-import { changeZoomLevel } from '../../MapStore2/web/client/actions/map';
+// import { changeZoomLevel } from '../../MapStore2/web/client/actions/map';
 import { projectionSelector } from '../../MapStore2/web/client/selectors/map';
+// import {get} from 'lodash';
 
 const style = {
     position: "absolute",
@@ -23,30 +24,50 @@ const style = {
 };
 
 const MenuButton = (props) => {
-    // const {isOpen, label} = props;
+    const {projection} = props;
     return (
-        <div style={style}>MenuTime {props.isOpen} {props.label}</div>
+        <div style={style}>MenuTime {projection}</div>
     );
 };
 
-// const mapStateToProps = state => {
-//     return {
-//         projection: projectionSelector(state)
-//     };
-// };
+const mapStateToProps = state => {
+    return {
+        projection: projectionSelector(state)
+    };
+};
 
 const ConnectedComponent = connect(
-    state => {
-        return {
-            isOpen: state?.projectManager?.isOpen,
-            label: state?.projectManager?.label
-        };
-    }
+    mapStateToProps
 )(MenuButton);
 
-export default createPlugin(
-    'ProjectManager',
-    {
-        component: ConnectedComponent
+export default createPlugin('ProjectManager', {
+    component: ConnectedComponent,
+    containers: {
+        BurgerMenu: {
+            name: 'exmpale',
+            position: 1500,
+            text: "testsd",
+            doNotHide: true
+        }
     }
-);
+});
+// export const ProjectManagerPlugin = ConnectedComponent;
+
+/**
+ * Copyright 2016, GeoSolutions Sas.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+// const React = require('react');
+// const {connect} = require('react-redux');
+//
+// const MessagePlugin = connect((state) => ({
+//     content: state.my.content
+// }))((props) => props.content ? <div className="myMessage" style={props.style}>{props.content}</div> : <span/>);
+//
+// module.exports = {
+//     MessagePlugin,
+//     reducers: {}
+// };

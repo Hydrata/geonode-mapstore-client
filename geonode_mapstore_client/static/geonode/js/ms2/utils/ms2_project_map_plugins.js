@@ -123,6 +123,7 @@ var MS2_PROJECT_MAP_PLUGINS = {
 				"compact": true
 			}
 		},
+		"BurgerMenu",
 		"ProjectManager",
 	]
 }
