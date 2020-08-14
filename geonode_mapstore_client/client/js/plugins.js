@@ -58,7 +58,7 @@ module.exports = {
             },
             epics
         },
-        ProjectManagerPlugin: require('../MapStore2/web/client/plugins/projectManager').default
+        ProjectManagerPlugin: require('../MapStore2/web/client/plugins/ProjectManager').default
     },
     requires: {
         ReactSwipe: require('react-swipeable-views').default,
