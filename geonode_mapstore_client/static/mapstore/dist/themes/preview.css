@@ -11325,20 +11325,24 @@ Ported to CodeMirror by Peter Kroon
   outline: auto !important;
   /* outline it disable globally with !important */
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner {
   /* floating add section button */
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-body {
   display: flex;
   margin: auto;
   align-self: center;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title > .add-bar {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title > .add-bar,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner > .add-bar {
   position: absolute;
   top: auto;
   bottom: 0;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title > .ms-content-toolbar {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title > .ms-content-toolbar,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner > .ms-content-toolbar {
   position: absolute;
   z-index: 10;
   top: 0;
@@ -11348,7 +11352,8 @@ Ported to CodeMirror by Peter Kroon
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text {
   display: flex;
   padding: 64px 0;
   /* render the toolbar has a floating container at top left corner of title container */
@@ -11360,7 +11365,8 @@ Ported to CodeMirror by Peter Kroon
   /* text on full size should fill all the width of container */
   /* themes of text contents */
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text .ms-content-toolbar {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text .ms-content-toolbar,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text .ms-content-toolbar {
   position: absolute;
   margin-left: -16px;
   margin-top: -19.2px;
@@ -11370,65 +11376,81 @@ Ported to CodeMirror by Peter Kroon
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-center .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-center .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-align-center .ms-content-body {
   margin-left: auto;
   margin-right: auto;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-left .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-left .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-align-left .ms-content-body {
   margin-left: 40px;
   margin-right: auto;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-right .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-right .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-align-right .ms-content-body {
   margin-left: auto;
   margin-right: 40px;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full {
   width: 100%;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body {
   margin-right: 0;
   margin-left: 0;
 }
 .msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body,
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body > div {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body > div,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body > div {
   width: 100%;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body .ms-content-toolbar {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body .ms-content-toolbar,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body .ms-content-toolbar {
   width: auto;
   margin-left: 8px;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright .ms-content-body {
   color: #000000;
   background-color: rgba(255, 255, 255, 0.75);
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body .ms-text-placeholder {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body .ms-text-placeholder,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright .ms-content-body .ms-text-placeholder {
   color: #000000;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright-text .ms-content-body {
   color: #ffffff;
   background-color: transparent;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body .ms-text-placeholder {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body .ms-text-placeholder,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright-text .ms-content-body .ms-text-placeholder {
   color: #ffffff;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark .ms-content-body {
   color: #ffffff;
   background-color: rgba(0, 0, 0, 0.75);
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body .ms-text-placeholder {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body .ms-text-placeholder,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark .ms-content-body .ms-text-placeholder {
   color: #ffffff;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark-text .ms-content-body {
   color: #000000;
   background-color: transparent;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body .ms-text-placeholder {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body .ms-text-placeholder,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark-text .ms-content-body .ms-text-placeholder {
   color: #000000;
 }
 .msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-section.ms-section-paragraph {
@@ -11982,17 +12004,21 @@ Ported to CodeMirror by Peter Kroon
   border-left: 2px dashed #0571b0;
   border-right: 2px dashed #0571b0;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title > .ms-content-toolbar {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title > .ms-content-toolbar,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-banner > .ms-content-toolbar {
   border-top: 2px solid #0571b0;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-banner .ms-content {
   border-left: 2px dashed #ca0020;
   border-right: 2px dashed #ca0020;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content .ms-content-toolbar {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content .ms-content-toolbar,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-banner .ms-content .ms-content-toolbar {
   border-top: 2px solid #ca0020;
 }
-.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content-text {
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content-text,
+.msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-banner .ms-content-text {
   padding-bottom: 160px;
 }
 .msgapi .fill:-webkit-full-screen .ms-cascade-story.ms-edit .ms-section.ms-section-paragraph .ms-section-contents {
@@ -18921,11 +18947,10 @@ Ported to CodeMirror by Peter Kroon
   margin-right: 0;
 }
 .msgapi .fill:-webkit-full-screen .ms-resizable-modal > .modal-content > .modal-body {
-  overflow-y: auto;
-  flex: 1;
+  flex: 1 1 auto;
   padding: 0;
   display: flex;
-  height: auto;
+  height: inherit;
   flex-direction: column;
 }
 .msgapi .fill:-webkit-full-screen .ms-resizable-modal > .modal-content > .modal-body > div {
@@ -22488,20 +22513,24 @@ Ported to CodeMirror by Peter Kroon
   outline: auto !important;
   /* outline it disable globally with !important */
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner {
   /* floating add section button */
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-body {
   display: flex;
   margin: auto;
   align-self: center;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title > .add-bar {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title > .add-bar,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner > .add-bar {
   position: absolute;
   top: auto;
   bottom: 0;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title > .ms-content-toolbar {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title > .ms-content-toolbar,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner > .ms-content-toolbar {
   position: absolute;
   z-index: 10;
   top: 0;
@@ -22511,7 +22540,8 @@ Ported to CodeMirror by Peter Kroon
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text {
   display: flex;
   padding: 64px 0;
   /* render the toolbar has a floating container at top left corner of title container */
@@ -22523,7 +22553,8 @@ Ported to CodeMirror by Peter Kroon
   /* text on full size should fill all the width of container */
   /* themes of text contents */
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text .ms-content-toolbar {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text .ms-content-toolbar,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text .ms-content-toolbar {
   position: absolute;
   margin-left: -16px;
   margin-top: -19.2px;
@@ -22533,65 +22564,81 @@ Ported to CodeMirror by Peter Kroon
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-center .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-center .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-align-center .ms-content-body {
   margin-left: auto;
   margin-right: auto;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-left .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-left .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-align-left .ms-content-body {
   margin-left: 40px;
   margin-right: auto;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-right .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-align-right .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-align-right .ms-content-body {
   margin-left: auto;
   margin-right: 40px;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full {
   width: 100%;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body {
   margin-right: 0;
   margin-left: 0;
 }
 .msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body,
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body > div {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body > div,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body > div {
   width: 100%;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body .ms-content-toolbar {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-size-full .ms-content-body .ms-content-toolbar,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-size-full .ms-content-body .ms-content-toolbar {
   width: auto;
   margin-left: 8px;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright .ms-content-body {
   color: #000000;
   background-color: rgba(255, 255, 255, 0.75);
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body .ms-text-placeholder {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright .ms-content-body .ms-text-placeholder,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright .ms-content-body .ms-text-placeholder {
   color: #000000;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright-text .ms-content-body {
   color: #ffffff;
   background-color: transparent;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body .ms-text-placeholder {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-bright-text .ms-content-body .ms-text-placeholder,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-bright-text .ms-content-body .ms-text-placeholder {
   color: #ffffff;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark .ms-content-body {
   color: #ffffff;
   background-color: rgba(0, 0, 0, 0.75);
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body .ms-text-placeholder {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark .ms-content-body .ms-text-placeholder,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark .ms-content-body .ms-text-placeholder {
   color: #ffffff;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark-text .ms-content-body {
   color: #000000;
   background-color: transparent;
 }
-.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body .ms-text-placeholder {
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-title .ms-content-text.ms-dark-text .ms-content-body .ms-text-placeholder,
+.msgapi .fill .ms-cascade-story .ms-section.ms-section-banner .ms-content-text.ms-dark-text .ms-content-body .ms-text-placeholder {
   color: #000000;
 }
 .msgapi .fill .ms-cascade-story .ms-section.ms-section-paragraph {
@@ -23145,17 +23192,21 @@ Ported to CodeMirror by Peter Kroon
   border-left: 2px dashed #0571b0;
   border-right: 2px dashed #0571b0;
 }
-.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title > .ms-content-toolbar {
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title > .ms-content-toolbar,
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-banner > .ms-content-toolbar {
   border-top: 2px solid #0571b0;
 }
-.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content {
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content,
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-banner .ms-content {
   border-left: 2px dashed #ca0020;
   border-right: 2px dashed #ca0020;
 }
-.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content .ms-content-toolbar {
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content .ms-content-toolbar,
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-banner .ms-content .ms-content-toolbar {
   border-top: 2px solid #ca0020;
 }
-.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content-text {
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-title .ms-content-text,
+.msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-banner .ms-content-text {
   padding-bottom: 160px;
 }
 .msgapi .fill .ms-cascade-story.ms-edit .ms-section.ms-section-paragraph .ms-section-contents {
@@ -30084,11 +30135,10 @@ Ported to CodeMirror by Peter Kroon
   margin-right: 0;
 }
 .msgapi .fill .ms-resizable-modal > .modal-content > .modal-body {
-  overflow-y: auto;
-  flex: 1;
+  flex: 1 1 auto;
   padding: 0;
   display: flex;
-  height: auto;
+  height: inherit;
   flex-direction: column;
 }
 .msgapi .fill .ms-resizable-modal > .modal-content > .modal-body > div {
