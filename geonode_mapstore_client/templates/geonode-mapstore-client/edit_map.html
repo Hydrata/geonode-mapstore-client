@@ -40,10 +40,11 @@
             const stylerCfg = {
                 "name": "StyleEditor",
                     "cfg": {
-                            "styleService": {
+                        "styleService": {
                             "baseUrl": "{{ SITEURL }}gs/",
                             "formats": ['css','sld'],
-                            "availableUrls": [geoserver, "{{ SITEURL }}gs/"]
+                            "availableUrls": [geoserver, "{{ SITEURL }}gs/"],
+                            "fonts": ["Arial", "Courier New", "Monospaced", "SansSerif", "Serif", "Times New Roman"]
                         },
                         "editingAllowedRoles": null
                     }

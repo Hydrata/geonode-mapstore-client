@@ -96,6 +96,7 @@ var MS2_BASE_PLUGINS = {
 		{
 			"name": "Print",
 			"cfg": {
+				"disablePluginIf": "{state('mapType') === 'cesium'}",
 				"useFixedScales": true,
 				"mapWidth": 256
 			}
