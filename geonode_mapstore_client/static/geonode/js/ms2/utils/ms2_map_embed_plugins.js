@@ -53,7 +53,7 @@ var MS2_EMBED_PLUGINS = {
 		// ZoomAll, ZoomIn, ZoomOut from base
 		"Widgets",
 		"WidgetsTray",
-		"Notifications",
-		"SearchServicesConfig"
+		"Notifications"
+		// "SearchServicesConfig"
 	]
 }

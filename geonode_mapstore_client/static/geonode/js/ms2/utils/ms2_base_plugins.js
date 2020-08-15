@@ -1,6 +1,7 @@
 /** Base configuration for map and layer preview These are maps are shown embedded in geonode */
 var MS2_BASE_PLUGINS = {
-	"desktop": [{
+	"desktop": [
+		{
 			"name": "Map",
 			"cfg": {
 				"tools": ["locate", "measurement", "draw"],
@@ -34,7 +35,6 @@ var MS2_BASE_PLUGINS = {
 				}
 			}
 		},
-
 		{
 			"name": "Identify",
 			"cfg": {
@@ -68,14 +68,16 @@ var MS2_BASE_PLUGINS = {
 			"cfg": {
 				"wrap": true
 			}
-		}, {
+		},
+		{
 			"name": "Toolbar",
 			"id": "NavigationBar",
 			"cfg": {
 				"id": "navigationBar",
 				"layout": "horizontal"
 			}
-		}, {
+		},
+		{
 			"name": "MapLoading",
 			"override": {
 				"Toolbar": {
@@ -85,7 +87,7 @@ var MS2_BASE_PLUGINS = {
 		},
 		"DrawerMenu",
 		"Cookie",
-		"OmniBar",
+		// "OmniBar",
 		"Expander",
 		"Undo",
 		"Redo",
@@ -124,7 +126,8 @@ var MS2_BASE_PLUGINS = {
 					"alwaysVisible": true
 				}
 			}
-		}, {
+		},
+		{
 			"name": "Timeline",
 			"cfg": {
 				"style": {
@@ -134,6 +137,7 @@ var MS2_BASE_PLUGINS = {
 				},
 				"compact": true
 			}
-		}, "Playback"
+		},
+		"Playback"
 	]
 }
