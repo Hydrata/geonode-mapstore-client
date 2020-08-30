@@ -41,6 +41,7 @@
             MapStore2.create('project_setup_map', {
                 mode: "embedded",
                 config: ms2_config,
+                mapId: ms2_config.map && ms2_config.map.info && ms2_config.map.info.id,
                 theme: {theme: "preview"},
                 initialState: {
                     defaultState: {

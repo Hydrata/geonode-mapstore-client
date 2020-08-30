@@ -38,6 +38,7 @@ var MS2_BASE_PLUGINS = {
 		{
 			"name": "Identify",
 			"cfg": {
+				"showHighlightFeatureButton": true,
 				"showFullscreen": false,
 				"dock": true,
 				"position": "right",
