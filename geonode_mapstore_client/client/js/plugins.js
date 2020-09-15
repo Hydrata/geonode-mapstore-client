@@ -49,6 +49,8 @@ module.exports = {
         MousePositionPlugin: require('../MapStore2/web/client/plugins/MousePosition'),
         SearchPlugin: require('../MapStore2/web/client/plugins/Search'),
         SearchServicesConfigPlugin: require('../MapStore2/web/client/plugins/SearchServicesConfig'),
+        ProjectManagerGnPlugin: require('./plugins/ProjectManagerGn').default,
+        // ProjectManagerPlugin: require('../MapStore2/web/client/plugins/ProjectManager').default,
         AddReducersAndEpics: {
             reducers: {
                 security: require('../MapStore2/web/client/reducers/security'),
@@ -57,8 +59,7 @@ module.exports = {
                 maplayout: require('../MapStore2/web/client/reducers/maplayout')
             },
             epics
-        },
-        ProjectManagerPlugin: require('../MapStore2/web/client/plugins/ProjectManager').default
+        }
     },
     requires: {
         ReactSwipe: require('react-swipeable-views').default,

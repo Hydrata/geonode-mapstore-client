@@ -4,7 +4,7 @@
 <script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_base_plugins.js' %}"></script>
 <script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_map_viewer_plugins.js' %}"></script>
 <script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_composer_plugins.js' %}"></script>
-<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_project_map_plugins.js' %}"></script>
+{#<script type="text/javascript" src="{% static 'geonode/js/ms2/utils/ms2_project_map_plugins.js' %}"></script>#}
 {% endblock %}
 {% block style %}
 <style>
@@ -92,6 +92,10 @@
                     type: "MAP_CONFIG_LOADED",
                     config: ms2_config,
                     legacy: !!ms2_config.map && ms2_config.map.info && ms2_config.map.info.id,
+                    mapId: ms2_config.map && ms2_config.map.info && ms2_config.map.info.id
+                });
+                MapStore2.triggerAction({
+                    type: "LOAD_PROJECT_MANAGER_CONFIG",
                     mapId: ms2_config.map && ms2_config.map.info && ms2_config.map.info.id
                 });
             }
