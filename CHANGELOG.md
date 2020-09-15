@@ -1,5 +1,54 @@
 # Change Log
 
+## 2.0.8 [2020-07-31]
+
+### Main features
+
+- Install `pip install django-mapstore-adapter>=2.0.4` instructions [Here](https://pypi.org/project/django-mapstore-adapter/)
+- Install `pip install django-geonode-mapstore-client==2.0.8` instructions [Here](https://pypi.org/project/django-geonode-mapstore-client/2.0.8/)
+- Based on [GeoNode MapStore Adapter v2.0.4+](https://github.com/GeoNode/django-mapstore-adapter/releases/tag/2.0.4)
+- Based on [MapStore2 - v2020.02.00](https://github.com/geosolutions-it/MapStore2/releases/tag/v2020.02.00)
+
+    ### Main Features
+    - **Story Map**: build your fascinating stories using MapStore contents and more.  You are invited to discover this new interesting functionality by looking at the online documentation [here](https://mapstore.readthedocs.io/en/latest/user-guide/exploring-stories/). Special thanks to the MapStore team for this.
+    - **Application Contexts**:  as administrator you can now build and configure your own map viewer, share it and create maps on it, learn more looking at the online documentation [here](https://mapstore.readthedocs.io/en/latest/user-guide/managing-contexts/). Special thanks to the MapStore team for this.
+
+    ### Other Improvements
+
+    - **Attribute Table**: the features selection by clicking on map now available, the online docomentation [here](https://mapstore.readthedocs.io/en/latest/user-guide/filtering-layers/#quick-filter-by-clicked-point)
+    - **Measurements**:  more advanced improvements have been provided, look at the online documentation  [here](https://mapstore.readthedocs.io/en/latest/user-guide/measure/) to learn more
+    - **Import/Export**: the WMC format is now available, the online documentation [here](https://mapstore.readthedocs.io/en/latest/user-guide/import/)
+    - **Catalog Tool**: new source types are available like TMS and WFS, the online documentation [here](https://mapstore.readthedocs.io/en/latest/user-guide/catalog/#catalog-types)
+    - **Identify Tool**: some new entries like the identify popup mode and the posibility to switch in edit mode by opening the attribute table, the online documentation [here](https://mapstore.readthedocs.io/en/latest/user-guide/side-bar/#identify-tool)
+    - **Layer Settings**: you can now edit the legend size, look at the online documentation [here](https://mapstore.readthedocs.io/en/latest/user-guide/layer-settings/#display)
+
+
+    ### Links
+
+    - **[Full Changelog](https://github.com/geosolutions-it/MapStore2/compare/v2020.01.01...v2020.02.00)**
+
+    - **[Implemented enhancements](https://github.com/geosolutions-it/MapStore2/issues?q=is%3Aissue+milestone%3A%222020.02.00%22+is%3Aclosed+label%3Aenhancement)**
+
+    - **[Fixed bugs](https://github.com/geosolutions-it/MapStore2/issues?q=is%3Aissue+milestone%3A%222020.02.00%22+is%3Aclosed+label%3Abug)**
+
+    - **[Closed issues](https://github.com/geosolutions-it/MapStore2/issues?q=is%3Aissue+milestone%3A%222020.02.00%22+is%3Aclosed)**
+
+[Full Changelog](https://github.com/GeoNode/geonode-mapstore-client/compare/2.0.7...2.0.8)
+
+<li> 2020-07-31: afabiani <a href="https://github.com/GeoNode/geonode-mapstore-client/commit/be8de8268c9667bc8e9bd4bad0feec9cb463525b" target="blank">  - Bump MapStore2 to v2020.02.00 (https://github.com/geosolutions-it/MapStore2/releases/tag/v2020.02.00)</a></li> 
+
+## 2.0.7 [2020-07-14]
+
+ - <a href="https://github.com/GeoNode/geonode-mapstore-client/issues/62">Print Button not showing up anymore with latest updates</a>
+
+[Full Changelog](https://github.com/GeoNode/geonode-mapstore-client/compare/2.0.6...2.0.7)
+
+## 2.0.6 [2020-07-10]
+
+ - <a href="https://github.com/GeoNode/geonode-mapstore-client/issues/61">Visual style editor</a>
+
+[Full Changelog](https://github.com/GeoNode/geonode-mapstore-client/compare/2.0.5...2.0.6)
+
 ## 2.0.5 [2020-05-05]
 
  - Updated MapStore2 to <a href="https://github.com/geosolutions-it/MapStore2/commit/8d8f455e4e9c8fccba7f102d7c6bfbb9d2243be9">2020.02.00</a>
