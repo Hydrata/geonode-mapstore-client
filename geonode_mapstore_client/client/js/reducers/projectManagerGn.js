@@ -1,11 +1,14 @@
-import { LOAD_PROJECT_MANAGER_CONFIG } from "../actions/projectManagerGn";
+import { SET_PROJECT_MANAGER_CONFIG, FETCH_PROJECT_MANAGER_CONFIG } from "../actions/projectManagerGn";
 
 export default ( state = {}, action) => {
     switch (action.type) {
-    case LOAD_PROJECT_MANAGER_CONFIG:
+    case FETCH_PROJECT_MANAGER_CONFIG:
+        return {
+            ...state
+        };
+    case SET_PROJECT_MANAGER_CONFIG:
         return {
             ...state,
-            something: 'something',
             projectConfig: action.projectConfig
         };
     default:
