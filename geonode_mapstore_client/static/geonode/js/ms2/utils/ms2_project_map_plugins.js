@@ -124,6 +124,5 @@ var MS2_PROJECT_MAP_PLUGINS = {
 			}
 		},
 		"BurgerMenu",
-		"ProjectManager",
 	]
 }

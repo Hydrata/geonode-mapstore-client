@@ -49,8 +49,8 @@ module.exports = {
         MousePositionPlugin: require('../MapStore2/web/client/plugins/MousePosition'),
         SearchPlugin: require('../MapStore2/web/client/plugins/Search'),
         SearchServicesConfigPlugin: require('../MapStore2/web/client/plugins/SearchServicesConfig'),
-        ProjectManagerGnPlugin: require('./plugins/ProjectManagerGn').default,
-        // ProjectManagerPlugin: require('../MapStore2/web/client/plugins/ProjectManager').default,
+        // ProjectManagerGnPlugin: require('./plugins/ProjectManagerGn').default,
+        ProjectManagerPlugin: require('../MapStore2/web/client/hydrata/plugins/ProjectManager').default,
         AddReducersAndEpics: {
             reducers: {
                 security: require('../MapStore2/web/client/reducers/security'),

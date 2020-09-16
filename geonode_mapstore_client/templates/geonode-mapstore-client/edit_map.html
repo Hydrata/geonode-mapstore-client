@@ -93,10 +93,6 @@
                     legacy: !!ms2_config.map && ms2_config.map.info && ms2_config.map.info.id,
                     mapId: ms2_config.map && ms2_config.map.info && ms2_config.map.info.id
                 });
-                MapStore2.triggerAction({
-                    type: "FETCH_PROJECT_MANAGER_CONFIG",
-                    mapId: ms2_config.map && ms2_config.map.info && ms2_config.map.info.id
-                });
             }
         });
     });

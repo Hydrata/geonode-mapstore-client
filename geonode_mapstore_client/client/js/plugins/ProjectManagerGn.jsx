@@ -1,35 +1,34 @@
-import React, { useEffect, useState, setState } from 'react';
+import React from 'react';
+import { connect } from 'react-redux';
 import { createPlugin } from '../../MapStore2/web/client/utils/PluginsUtils';
 import projectManagerGn from "../reducers/projectManagerGn";
 import fetchProjectManagerConfig from "../actions/projectManagerGn";
 
-const Component = (props) => {
-    // useEffect(fetchProjectManagerConfig);
-    useEffect(() => {
-        let isMounted = true; // note this flag denote mount status
-        fetchProjectManagerConfig().then(data => {
-            if (isMounted) setState(data);
-        });
-        return () => { isMounted = false; }; // use effect cleanup to set flag false, if unmounted
-    });
-    // const [count, setCount] = useState(0);
-    // useEffect(() => {
-    //     // Update the document title using the browser API
-    //     document.title = `You clicked ${count} times`;
-    // });
-    return (
-        <div>
-            nope
-            {/*<p>You clicked {count} times</p>*/}
-            {/*<button onClick={() => setCount(count + 1)}>*/}
-            {/*    Click me*/}
-            {/*</button>*/}
-        </div>
-    );
-};
+class Component extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {date: new Date()};
+    }
+
+    render() {
+        return (
+            <div>
+                <h1>Hello, world!</h1>
+                <h2>It is {this.state.date.toLocaleTimeString()}.</h2>
+            </div>
+        );
+    }
+}
+
+const ConnectedComponent = connect((state) => ({
+    // active: state.controls && state.controls.drawer && state.controls.drawer.active,
+    // disabled: state.controls && state.controls.drawer && state.controls.drawer.disabled
+}), {
+    // toggleMenu: fetchProjectManagerConfig.bind(null, 'drawer', null)
+})(Component);
 
 export default createPlugin('ProjectManagerGn', {
-    component: Component,
+    component: ConnectedComponent,
     reducers: {
         projectManagerGn
     }
