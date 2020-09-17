@@ -130,7 +130,7 @@ var MS2_MAP_PLUGINS = {
 			}
 		},
 		{
-			"name": "Search",
+			// "name": "Search",
 			"cfg": {
 				"withToggle": ["max-width: 768px", "min-width: 768px"]
 			}
