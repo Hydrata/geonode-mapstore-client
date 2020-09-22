@@ -31,7 +31,7 @@
             "access_token": accessToken
         }
         MS2_PLUGINS = window.squashMS2PlugCfg(MS2_BASE_PLUGINS, MS2_MAP_PLUGINS);
-        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, ["Save", "SaveAs", "Drawer"]);
+        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, ["Save", "SaveAs", "DrawerMenu", "TOC"]);
         MS2_PLUGINS["mobile"] = MS2_PLUGINS.desktop;
         let localConfig = defaultConfig.localConfig;
             localConfig.disableCheckEditPermissions = true;
@@ -89,6 +89,6 @@
         <div class="_ms2_init_spinner _ms2_init_center">
             <div></div>
         </div>
-        <div class="_ms2_init_text _ms2_init_center">Loading MapStore</div>
+        <div class="_ms2_init_text _ms2_init_center">Loading SWAMM</div>
 </div>
 {% endblock %}
