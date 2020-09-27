@@ -98,7 +98,7 @@ var MS2_PLUGINS = {
 		"Redo",
 		"BurgerMenu",
 		"MapFooter",
-		"SearchServicesConfig",
+		// "SearchServicesConfig",
 		{
 			"name": "Print",
 			"cfg": {

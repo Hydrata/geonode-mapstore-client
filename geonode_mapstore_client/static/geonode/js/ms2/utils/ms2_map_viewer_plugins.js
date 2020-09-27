@@ -129,12 +129,12 @@ var MS2_MAP_PLUGINS = {
 				"additionalCRS": {}
 			}
 		},
-		{
-			// "name": "Search",
-			"cfg": {
-				"withToggle": ["max-width: 768px", "min-width: 768px"]
-			}
-		},
+		// {
+		// 	"name": "Search",
+		// 	"cfg": {
+		// 		"withToggle": ["max-width: 768px", "min-width: 768px"]
+		// 	}
+		// },
 		{
 			"name": "GoFull",
 			"override": {
@@ -169,7 +169,7 @@ var MS2_MAP_PLUGINS = {
 		"Notifications",
 		"Timeline",
 		"Playback",
-		"ProjectManager",
-		"SearchServicesConfig"
+		"ProjectManager"
+		// "SearchServicesConfig"
 	]
 }
