@@ -72,10 +72,17 @@
     }
 }
 
-.ms-side-panel > div > div {
-    width: 400px !important;
-    height: 50% !important;
-    min-height: 500px !important;
-    left: auto !important;
-    right: 0 !important;
+.ms-side-panel {
+    &.ms-absolute-dock {
+        > div {
+            position: absolute !important;
+            height: 50% !important;
+            pointer-events: none;
+
+            > div {
+                pointer-events: auto;
+                position: absolute !important;
+            }
+        }
+    }
 }
