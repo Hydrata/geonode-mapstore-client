@@ -42,7 +42,7 @@ var MS2_PLUGINS = {
 				"showFullscreen": false,
 				"dock": true,
 				"position": "left",
-				"size": 0.4,
+				"size": 300,
 				"fluid": true,
 				"viewerOptions": {
 					"container": "{context.ReactSwipe}"
