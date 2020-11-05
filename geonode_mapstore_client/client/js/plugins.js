@@ -51,6 +51,8 @@ module.exports = {
         SearchServicesConfigPlugin: require('../MapStore2/web/client/plugins/SearchServicesConfig'),
         ProjectManagerPlugin: require('../MapStore2/web/client/hydrata/ProjectManager/ProjectManager').default,
         SwammPlugin: require('../MapStore2/web/client/hydrata/Swamm/Swamm').default,
+        BmwhiPlugin: require('../MapStore2/web/client/hydrata/Bmwhi/Bmwhi').default,
+        HaitiBiblioPlugin: require('../MapStore2/web/client/hydrata/HaitiBiblio/HaitiBiblio').default,
         AddReducersAndEpics: {
             reducers: {
                 security: require('../MapStore2/web/client/reducers/security'),
