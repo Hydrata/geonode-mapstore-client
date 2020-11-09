@@ -169,10 +169,6 @@ var MS2_MAP_PLUGINS = {
 		"Notifications",
 		"Timeline",
 		"Playback",
-		"ProjectManager",
-		"Swamm",
-		"HaitiBiblio",
-		"Bmwhi",
 		// "SearchServicesConfig"
 	]
 }
