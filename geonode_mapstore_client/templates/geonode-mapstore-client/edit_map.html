@@ -25,8 +25,9 @@
 <script type="text/javascript">
     const geoserver = "{{ OGC_SERVER.default.PUBLIC_LOCATION|default:"" }}";
     const ms2_config = {{ ms2_config|default:"false"|safe }};
-    const MS2_HYDRATA_PLUGINS = {"desktop": [{{ front_end_plugins }}]}
-    console.log('hydrata plugins edit_map.html: ', MS2_HYDRATA_PLUGINS)
+    const MS2_HYDRATA_PLUGINS = {"desktop": {{ front_end_plugins }}}
+    console.log('MS2_HYDRATA_PLUGINS edit_map.html: ', MS2_HYDRATA_PLUGINS)
+    console.log('MS2_BASE_PLUGINS edit_map.html: ', MS2_BASE_PLUGINS)
     document.addEventListener('DOMContentLoaded', function () {
         const userDetails = {
             "User": user,
@@ -35,6 +36,7 @@
         initMapstore2Api('edit', function(MapStore2, options) {
             // you have to add the configuration for stylerplugin
             MS2_PLUGINS = window.squashMS2PlugCfg(MS2_BASE_PLUGINS, MS2_MAP_PLUGINS, MS2_EDIT_PLUGINS, MS2_HYDRATA_PLUGINS);
+            console.log('MS2_PLUGINS edit_map.html: ', MS2_PLUGINS)
             if (options && options.setLocale) {
                 options.setLocale('{{ LANGUAGE_CODE }}');
             }
