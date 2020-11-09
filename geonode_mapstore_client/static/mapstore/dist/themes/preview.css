@@ -3275,12 +3275,12 @@ structure .glyphicon-{iconName}-content
   line-height: inherit;
 }
 .msgapi a {
-  color: #2c689c;
+  color: #155481;
   text-decoration: none;
 }
 .msgapi a:hover,
 .msgapi a:focus {
-  color: #1b4060;
+  color: #0a293f;
   text-decoration: underline;
 }
 .msgapi a:focus {
@@ -3516,11 +3516,11 @@ structure .glyphicon-{iconName}-content
   color: #777777;
 }
 .msgapi .text-primary {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi a.text-primary:hover,
 .msgapi a.text-primary:focus {
-  color: #204d74;
+  color: #0e3755;
 }
 .msgapi .text-success {
   color: #3c763d;
@@ -3552,11 +3552,11 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .bg-primary {
   color: #fff;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi a.bg-primary:hover,
 .msgapi a.bg-primary:focus {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .bg-success {
   background-color: #dff0d8;
@@ -4743,10 +4743,10 @@ structure .glyphicon-{iconName}-content
   transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
 }
 .msgapi .form-control:focus {
-  border-color: #3175af;
+  border-color: #196297;
   outline: 0;
-  -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(49, 117, 175, 0.6);
-  box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(49, 117, 175, 0.6);
+  -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(25, 98, 151, 0.6);
+  box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(25, 98, 151, 0.6);
 }
 .msgapi .form-control::-moz-placeholder {
   color: #999999;
@@ -5207,7 +5207,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn:hover,
 .msgapi .btn:focus,
 .msgapi .btn.focus {
-  color: #2c689c;
+  color: #155481;
   text-decoration: none;
 }
 .msgapi .btn:active,
@@ -5231,27 +5231,27 @@ structure .glyphicon-{iconName}-content
   pointer-events: none;
 }
 .msgapi .btn-default {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
-  border-color: #2c689c;
+  border-color: #155481;
 }
 .msgapi .btn-default:focus,
 .msgapi .btn-default.focus {
-  color: #2c689c;
+  color: #155481;
   background-color: #e6e6e6;
-  border-color: #102538;
+  border-color: #030d13;
 }
 .msgapi .btn-default:hover {
-  color: #2c689c;
+  color: #155481;
   background-color: #e6e6e6;
-  border-color: #1e486c;
+  border-color: #0c324c;
 }
 .msgapi .btn-default:active,
 .msgapi .btn-default.active,
 .msgapi .open > .dropdown-toggle.btn-default {
-  color: #2c689c;
+  color: #155481;
   background-color: #e6e6e6;
-  border-color: #1e486c;
+  border-color: #0c324c;
 }
 .msgapi .btn-default:active:hover,
 .msgapi .btn-default.active:hover,
@@ -5262,9 +5262,9 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-default:active.focus,
 .msgapi .btn-default.active.focus,
 .msgapi .open > .dropdown-toggle.btn-default.focus {
-  color: #2c689c;
+  color: #155481;
   background-color: #d4d4d4;
-  border-color: #102538;
+  border-color: #030d13;
 }
 .msgapi .btn-default:active,
 .msgapi .btn-default.active,
@@ -5290,34 +5290,34 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-default[disabled].active,
 .msgapi fieldset[disabled] .btn-default.active {
   background-color: #ffffff;
-  border-color: #2c689c;
+  border-color: #155481;
 }
 .msgapi .btn-default .badge {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .btn-primary {
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .btn-primary:focus,
 .msgapi .btn-primary.focus {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #0a1824;
+  background-color: #0e3755;
+  border-color: #000000;
 }
 .msgapi .btn-primary:hover {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #0e3755;
+  border-color: #092336;
 }
 .msgapi .btn-primary:active,
 .msgapi .btn-primary.active,
 .msgapi .open > .dropdown-toggle.btn-primary {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #0e3755;
+  border-color: #092336;
 }
 .msgapi .btn-primary:active:hover,
 .msgapi .btn-primary.active:hover,
@@ -5329,8 +5329,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-primary.active.focus,
 .msgapi .open > .dropdown-toggle.btn-primary.focus {
   color: #ffffff;
-  background-color: #193b58;
-  border-color: #0a1824;
+  background-color: #092336;
+  border-color: #000000;
 }
 .msgapi .btn-primary:active,
 .msgapi .btn-primary.active,
@@ -5355,11 +5355,11 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-primary.disabled.active,
 .msgapi .btn-primary[disabled].active,
 .msgapi fieldset[disabled] .btn-primary.active {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .btn-primary .badge {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
 }
 .msgapi .btn-success {
@@ -5430,26 +5430,26 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .btn-info {
   color: #ffffff;
-  background-color: #1fa0a0;
-  border-color: #1b8b8b;
+  background-color: #016fb8;
+  border-color: #01609f;
 }
 .msgapi .btn-info:focus,
 .msgapi .btn-info.focus {
   color: #ffffff;
-  background-color: #177575;
-  border-color: #062020;
+  background-color: #015085;
+  border-color: #001320;
 }
 .msgapi .btn-info:hover {
   color: #ffffff;
-  background-color: #177575;
-  border-color: #115757;
+  background-color: #015085;
+  border-color: #013b62;
 }
 .msgapi .btn-info:active,
 .msgapi .btn-info.active,
 .msgapi .open > .dropdown-toggle.btn-info {
   color: #ffffff;
-  background-color: #177575;
-  border-color: #115757;
+  background-color: #015085;
+  border-color: #013b62;
 }
 .msgapi .btn-info:active:hover,
 .msgapi .btn-info.active:hover,
@@ -5461,8 +5461,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-info.active.focus,
 .msgapi .open > .dropdown-toggle.btn-info.focus {
   color: #ffffff;
-  background-color: #115757;
-  border-color: #062020;
+  background-color: #013b62;
+  border-color: #001320;
 }
 .msgapi .btn-info:active,
 .msgapi .btn-info.active,
@@ -5487,11 +5487,11 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-info.disabled.active,
 .msgapi .btn-info[disabled].active,
 .msgapi fieldset[disabled] .btn-info.active {
-  background-color: #1fa0a0;
-  border-color: #1b8b8b;
+  background-color: #016fb8;
+  border-color: #01609f;
 }
 .msgapi .btn-info .badge {
-  color: #1fa0a0;
+  color: #016fb8;
   background-color: #ffffff;
 }
 .msgapi .btn-warning {
@@ -5627,7 +5627,7 @@ structure .glyphicon-{iconName}-content
   background-color: #ffffff;
 }
 .msgapi .btn-link {
-  color: #2c689c;
+  color: #155481;
   font-weight: normal;
   border-radius: 0;
 }
@@ -5648,7 +5648,7 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .btn-link:hover,
 .msgapi .btn-link:focus {
-  color: #1b4060;
+  color: #0a293f;
   text-decoration: underline;
   background-color: transparent;
 }
@@ -5794,7 +5794,7 @@ structure .glyphicon-{iconName}-content
   color: #ffffff;
   text-decoration: none;
   outline: 0;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .dropdown-menu > .disabled > a,
 .msgapi .dropdown-menu > .disabled > a:hover,
@@ -6223,7 +6223,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .nav .open > a:hover,
 .msgapi .nav .open > a:focus {
   background-color: #eeeeee;
-  border-color: #2c689c;
+  border-color: #155481;
 }
 .msgapi .nav .nav-divider {
   height: 1px;
@@ -6316,7 +6316,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .nav-pills > li.active > a:hover,
 .msgapi .nav-pills > li.active > a:focus {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .nav-stacked > li {
   float: none;
@@ -6713,28 +6713,28 @@ structure .glyphicon-{iconName}-content
   border-color: #eeeeee;
 }
 .msgapi .navbar-default .navbar-brand {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .navbar-default .navbar-brand:hover,
 .msgapi .navbar-default .navbar-brand:focus {
-  color: #204d74;
+  color: #0e3755;
   background-color: transparent;
 }
 .msgapi .navbar-default .navbar-text {
   color: #333333;
 }
 .msgapi .navbar-default .navbar-nav > li > a {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .navbar-default .navbar-nav > li > a:hover,
 .msgapi .navbar-default .navbar-nav > li > a:focus {
-  color: #3175af;
+  color: #196297;
   background-color: transparent;
 }
 .msgapi .navbar-default .navbar-nav > .active > a,
 .msgapi .navbar-default .navbar-nav > .active > a:hover,
 .msgapi .navbar-default .navbar-nav > .active > a:focus {
-  color: #204d74;
+  color: #0e3755;
   background-color: #eeeeee;
 }
 .msgapi .navbar-default .navbar-nav > .disabled > a,
@@ -6761,21 +6761,21 @@ structure .glyphicon-{iconName}-content
 .msgapi .navbar-default .navbar-nav > .open > a:hover,
 .msgapi .navbar-default .navbar-nav > .open > a:focus {
   background-color: #eeeeee;
-  color: #204d74;
+  color: #0e3755;
 }
 @media (max-width: 767px) {
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > li > a {
-    color: #2c689c;
+    color: #155481;
   }
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > li > a:hover,
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > li > a:focus {
-    color: #3175af;
+    color: #196297;
     background-color: transparent;
   }
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .active > a,
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .active > a:hover,
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .active > a:focus {
-    color: #204d74;
+    color: #0e3755;
     background-color: #eeeeee;
   }
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .disabled > a,
@@ -6786,17 +6786,17 @@ structure .glyphicon-{iconName}-content
   }
 }
 .msgapi .navbar-default .navbar-link {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .navbar-default .navbar-link:hover {
-  color: #3175af;
+  color: #196297;
 }
 .msgapi .navbar-default .btn-link {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .navbar-default .btn-link:hover,
 .msgapi .navbar-default .btn-link:focus {
-  color: #3175af;
+  color: #196297;
 }
 .msgapi .navbar-default .btn-link[disabled]:hover,
 .msgapi fieldset[disabled] .navbar-default .btn-link:hover,
@@ -6940,7 +6940,7 @@ structure .glyphicon-{iconName}-content
   padding: 4px 8px;
   line-height: 1.42857143;
   text-decoration: none;
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
   border: 1px solid #dddddd;
   margin-left: -1px;
@@ -6961,7 +6961,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .pagination > li > a:focus,
 .msgapi .pagination > li > span:focus {
   z-index: 3;
-  color: #1b4060;
+  color: #0a293f;
   background-color: #eeeeee;
   border-color: #dddddd;
 }
@@ -6973,8 +6973,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .pagination > .active > span:focus {
   z-index: 2;
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #2c689c;
+  background-color: #155481;
+  border-color: #155481;
   cursor: default;
 }
 .msgapi .pagination > .disabled > span,
@@ -7084,18 +7084,18 @@ structure .glyphicon-{iconName}-content
   top: -1px;
 }
 .msgapi .label-default {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .label-default[href]:hover,
 .msgapi .label-default[href]:focus {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .label-primary {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .label-primary[href]:hover,
 .msgapi .label-primary[href]:focus {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .label-success {
   background-color: #27ca3b;
@@ -7105,11 +7105,11 @@ structure .glyphicon-{iconName}-content
   background-color: #1f9f2f;
 }
 .msgapi .label-info {
-  background-color: #1fa0a0;
+  background-color: #016fb8;
 }
 .msgapi .label-info[href]:hover,
 .msgapi .label-info[href]:focus {
-  background-color: #177575;
+  background-color: #015085;
 }
 .msgapi .label-warning {
   background-color: #ff8f31;
@@ -7159,7 +7159,7 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .list-group-item.active > .badge,
 .msgapi .nav-pills > .active > a > .badge {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
 }
 .msgapi .list-group-item > .badge {
@@ -7232,7 +7232,7 @@ structure .glyphicon-{iconName}-content
 .msgapi a.thumbnail:hover,
 .msgapi a.thumbnail:focus,
 .msgapi a.thumbnail.active {
-  border-color: #2c689c;
+  border-color: #155481;
 }
 .msgapi .thumbnail .caption {
   padding: 9px;
@@ -7346,7 +7346,7 @@ structure .glyphicon-{iconName}-content
   line-height: 20px;
   color: #ffffff;
   text-align: center;
-  background-color: #2c689c;
+  background-color: #155481;
   -webkit-box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
   -webkit-transition: width 0.6s ease;
@@ -7375,7 +7375,7 @@ structure .glyphicon-{iconName}-content
   background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
 }
 .msgapi .progress-bar-info {
-  background-color: #1fa0a0;
+  background-color: #016fb8;
 }
 .msgapi .progress-striped .progress-bar-info {
   background-image: -webkit-linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
@@ -7509,8 +7509,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .list-group-item.active:focus {
   z-index: 2;
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #2c689c;
+  background-color: #155481;
+  border-color: #155481;
 }
 .msgapi .list-group-item.active .list-group-item-heading,
 .msgapi .list-group-item.active:hover .list-group-item-heading,
@@ -7526,7 +7526,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .list-group-item.active .list-group-item-text,
 .msgapi .list-group-item.active:hover .list-group-item-text,
 .msgapi .list-group-item.active:focus .list-group-item-text {
-  color: #accce8;
+  color: #79bae9;
 }
 .msgapi .list-group-item-success {
   color: #3c763d;
@@ -7906,22 +7906,22 @@ structure .glyphicon-{iconName}-content
   border-bottom-color: #dddddd;
 }
 .msgapi .panel-primary {
-  border-color: #2c689c;
+  border-color: #155481;
 }
 .msgapi .panel-primary > .panel-heading {
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #2c689c;
+  background-color: #155481;
+  border-color: #155481;
 }
 .msgapi .panel-primary > .panel-heading + .panel-collapse > .panel-body {
-  border-top-color: #2c689c;
+  border-top-color: #155481;
 }
 .msgapi .panel-primary > .panel-heading .badge {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
 }
 .msgapi .panel-primary > .panel-footer + .panel-collapse > .panel-body {
-  border-bottom-color: #2c689c;
+  border-bottom-color: #155481;
 }
 .msgapi .panel-success {
   border-color: #d6e9c6;
@@ -8975,12 +8975,12 @@ structure .glyphicon-{iconName}-content
   font-size: 21px;
 }
 .msgapi .btn-primary:hover {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .btn-primary:focus,
 .msgapi .btn-primary.focus {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .btn-success:hover {
   background-color: #1f9f2f;
@@ -8991,12 +8991,12 @@ structure .glyphicon-{iconName}-content
   border-color: #23b535;
 }
 .msgapi .btn-info:hover {
-  background-color: #177575;
+  background-color: #015085;
 }
 .msgapi .btn-info:focus,
 .msgapi .btn-info.focus {
-  background-color: #1fa0a0;
-  border-color: #1b8b8b;
+  background-color: #016fb8;
+  border-color: #01609f;
 }
 .msgapi .btn-warning:hover {
   background-color: #fd7300;
@@ -9022,7 +9022,7 @@ structure .glyphicon-{iconName}-content
   margin: auto;
 }
 .msgapi .modal-header {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 @media (min-width: 768px) {
@@ -9206,7 +9206,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .option-icon {
   font-size: 14px;
   margin-right: 13px;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .bg-body {
   background-color: #ffffff;
@@ -9338,7 +9338,7 @@ Ported to CodeMirror by Peter Kroon
   padding: 0;
 }
 .msgapi .fill:-webkit-full-screen div#sync-popover.popover h3 {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen div#sync-popover.popover .mapstore-switch-btn {
@@ -9378,29 +9378,29 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .btn-tray {
   color: #4d4d4d;
   background-color: #ffffff;
-  border-color: #3782c3;
+  border-color: #1c71ad;
   border-left: none;
   border-top: none;
   border-right: none;
-  border-bottom: 3px solid #3782c3;
+  border-bottom: 3px solid #1c71ad;
 }
 .msgapi .fill:-webkit-full-screen .btn-tray:focus,
 .msgapi .fill:-webkit-full-screen .btn-tray.focus {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #1b4060;
+  border-color: #0a293f;
 }
 .msgapi .fill:-webkit-full-screen .btn-tray:hover {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #296294;
+  border-color: #144e78;
 }
 .msgapi .fill:-webkit-full-screen .btn-tray:active,
 .msgapi .fill:-webkit-full-screen .btn-tray.active,
 .msgapi .open > .dropdown-toggle.fill:-webkit-full-screen .btn-tray {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #296294;
+  border-color: #144e78;
 }
 .msgapi .fill:-webkit-full-screen .btn-tray:active:hover,
 .msgapi .fill:-webkit-full-screen .btn-tray.active:hover,
@@ -9413,7 +9413,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .open > .dropdown-toggle.fill:-webkit-full-screen .btn-tray.focus {
   color: #4d4d4d;
   background-color: #d4d4d4;
-  border-color: #1b4060;
+  border-color: #0a293f;
 }
 .msgapi .fill:-webkit-full-screen .btn-tray:active,
 .msgapi .fill:-webkit-full-screen .btn-tray.active,
@@ -9439,7 +9439,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .btn-tray[disabled].active,
 .msgapi fieldset[disabled] .fill:-webkit-full-screen .btn-tray.active {
   background-color: #ffffff;
-  border-color: #3782c3;
+  border-color: #1c71ad;
 }
 .msgapi .fill:-webkit-full-screen .btn-tray .badge {
   color: #ffffff;
@@ -9447,14 +9447,14 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .btn-tray:active,
 .msgapi .fill:-webkit-full-screen .btn-tray.active {
-  color: #2c689c;
+  color: #155481;
   border-bottom: 3px solid #bfbfbf;
 }
 .msgapi .fill:-webkit-full-screen .btn-tray:focus,
 .msgapi .fill:-webkit-full-screen .btn-tray.focus {
   background-color: #ffffff;
   color: #4d4d4d;
-  border-bottom: 3px solid #3782c3;
+  border-bottom: 3px solid #1c71ad;
 }
 .msgapi .fill:-webkit-full-screen .error-container {
   height: 100%;
@@ -9485,11 +9485,11 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .error-container .runtime-error-message .refresh-icon:hover {
   cursor: pointer;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .ag-fresh .ag-header,
 .msgapi .fill:-webkit-full-screen .ag-fresh .ag-tool-panel-container {
-  background: #2c689c !important;
+  background: #155481 !important;
   color: #ffffff;
   font-family: 'Lato', sans-serif;
 }
@@ -9497,12 +9497,12 @@ Ported to CodeMirror by Peter Kroon
   color: #000000;
 }
 .msgapi .fill:-webkit-full-screen .ag-fresh .ag-paging-button {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
-  border: #2c689c 1px solid;
+  border: #155481 1px solid;
 }
 .msgapi .fill:-webkit-full-screen .ag-fresh .ag-paging-page-summary-panel {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .ag-fresh .ag-paging-panel {
   background-color: #ffffff;
@@ -9518,14 +9518,14 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .autocompleteField .autocomplete-toolbar .chevron-left {
   float: left;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .autocompleteField .autocomplete-toolbar .chevron-right {
   float: right;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .autocompleteField .autocomplete-toolbar .rw-list-option:hover {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .autocompleteField ul li:last-child {
   border: none !important;
@@ -9627,7 +9627,7 @@ Ported to CodeMirror by Peter Kroon
   margin: 0px 0px 5px;
   padding: 0px;
   font-weight: bold;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .cookie-action,
 .msgapi .fill:-webkit-full-screen .cookie-message {
@@ -9642,7 +9642,7 @@ Ported to CodeMirror by Peter Kroon
   width: 100%;
 }
 .msgapi .fill:-webkit-full-screen .cookie-header {
-  color: #2c689c;
+  color: #155481;
   height: 44px;
 }
 .msgapi .fill:-webkit-full-screen .cookie-header > span {
@@ -10080,7 +10080,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen #mapstore-drawermenu .navHeader > .glyphicon:hover {
   background-color: transparent;
-  color: #204d74;
+  color: #0e3755;
 }
 .msgapi .fill:-webkit-full-screen #mapstore-drawermenu .react-resizable-handle {
   position: absolute;
@@ -10101,7 +10101,7 @@ Ported to CodeMirror by Peter Kroon
   overflow: auto;
 }
 .msgapi .fill:-webkit-full-screen .dropdown-menu .dropdown-header {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   padding: 15px;
   font-weight: bold;
@@ -10122,7 +10122,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .dropdown-menu .glyphicon {
   font-size: 16px;
   margin-right: 15px;
-  color: #2c689c;
+  color: #155481;
   vertical-align: middle;
 }
 .msgapi .fill:-webkit-full-screen .dropdown-menu .active .glyphicon {
@@ -10130,7 +10130,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .navbar-dx .dropdown-menu .dropdown-header,
 .msgapi .fill:-webkit-full-screen .navbar-home .dropdown-menu .dropdown-header {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .navbar-dx .dropdown-menu,
 .msgapi .fill:-webkit-full-screen .navbar-home .dropdown-menu {
@@ -10155,7 +10155,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen #mapstore-navbar-container .dropdown-toggle,
 .msgapi .fill:-webkit-full-screen #mapstore-navbar-container .square-button {
-  border-left: 1px solid #1fa0a0;
+  border-left: 1px solid #016fb8;
 }
 .msgapi .fill:-webkit-full-screen #mapstore-navbar-container .dropdown-menu > .btn-group {
   width: 100%;
@@ -10350,7 +10350,7 @@ Ported to CodeMirror by Peter Kroon
   opacity: 0.75;
 }
 .msgapi .fill:-webkit-full-screen .ms-thumbnail .ms-thumbnail-dropzone-active {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #238dd9;
 }
 .msgapi .fill:-webkit-full-screen .ms-thumbnail .ms-thumbnail-dropzone-active .dropzone-content-image,
 .msgapi .fill:-webkit-full-screen .ms-thumbnail .ms-thumbnail-dropzone-active .dropzone-content-image-added {
@@ -10433,7 +10433,7 @@ Ported to CodeMirror by Peter Kroon
   color: white;
 }
 .msgapi .fill:-webkit-full-screen .export-panel .export-panel-formats-container .btn-default.format-selected {
-  border-color: #2c689c;
+  border-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .feature-grid-drag-handle-show .drag-handle {
   display: inline;
@@ -10461,7 +10461,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen .featuregrid-geometry-filter.filter-enabled {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .featuregrid-geometry-filter.filter-deactivated {
   opacity: 0.7;
@@ -10491,16 +10491,6 @@ Ported to CodeMirror by Peter Kroon
     max-width: calc(100% - 80px);
     margin-left: 40px;
   }
-}
-.msgapi .fill:-webkit-full-screen #share-container .coordinateRow.aeronautical.coord-editor.row {
-  border: none !important;
-  margin: unset !important;
-  padding: unset !important;
-}
-.msgapi .fill:-webkit-full-screen #share-container .coordinateRow.decimal.coord-editor.row {
-  border: none !important;
-  margin: unset !important;
-  padding: unset !important;
 }
 .msgapi .fill:-webkit-full-screen .ms-identify-swipe-header {
   display: flex;
@@ -10762,7 +10752,7 @@ Ported to CodeMirror by Peter Kroon
   padding: 0;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-builder .msSideGrid .mapstore-side-card.ms-highlight {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #238dd9;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-builder .msSideGrid .mapstore-side-card {
   transition: none;
@@ -10775,11 +10765,11 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-builder .msSideGrid .ms-over:not(.ms-dragging).ms-above > div {
   padding-bottom: 32px;
-  border-bottom: 2px solid #2c689c;
+  border-bottom: 2px solid #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-builder .msSideGrid .ms-over:not(.ms-dragging).ms-below > div {
   padding-top: 32px;
-  border-top: 2px solid #2c689c;
+  border-top: 2px solid #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-builder .ms-section-preview {
   position: relative;
@@ -11811,7 +11801,7 @@ Ported to CodeMirror by Peter Kroon
   /* changed border color of color picker tab*/
 }
 .msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-option-active {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #238dd9;
 }
 .msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-colorpicker-modal-options {
   overflow-x: auto;
@@ -11823,7 +11813,7 @@ Ported to CodeMirror by Peter Kroon
   font-size: 12px;
 }
 .msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-colorpicker-modal-style-label-active {
-  border-bottom-color: #5c9bd1;
+  border-bottom-color: #238dd9;
 }
 .msgapi .fill:-webkit-full-screen .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-link-modal-label {
   font-size: 12px;
@@ -12254,7 +12244,7 @@ Ported to CodeMirror by Peter Kroon
   color: inherit;
   background-color: inherit;
   border-color: transparent;
-  outline: 1px auto #2c689c !important;
+  outline: 1px auto #155481 !important;
   outline-color: inherit !important;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-navigation .btn-default:active:hover {
@@ -12266,7 +12256,7 @@ Ported to CodeMirror by Peter Kroon
   color: inherit;
   background-color: inherit;
   border-color: transparent;
-  outline: 2px auto #2c689c !important;
+  outline: 2px auto #155481 !important;
   outline-color: inherit !important;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-navigation .ms-geostory-navigation-bar {
@@ -12285,7 +12275,7 @@ Ported to CodeMirror by Peter Kroon
   width: 100%;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-navigation .ms-geostory-navigation-bar .progress-bar .progress-percent {
-  background-color: #2c689c;
+  background-color: #155481;
   height: 4px;
   transition: width 0.3s;
 }
@@ -12350,16 +12340,16 @@ Ported to CodeMirror by Peter Kroon
   margin: 0 6px;
 }
 .msgapi .fill:-webkit-full-screen .ms-geostory-navigation .ms-horizontal-menu .ms-menu-item .active {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen #helpbadge-scaleBox {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen #mapstore-navbar #helpbadge-search-help {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-langselector {
   height: 52px;
@@ -12441,10 +12431,10 @@ Ported to CodeMirror by Peter Kroon
   }
 }
 .msgapi .fill:-webkit-full-screen .leaflet-control-minimap {
-  border: solid #2c689c 4px !important;
+  border: solid #155481 4px !important;
 }
 .msgapi .fill:-webkit-full-screen .leaflet-control-minimap a {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .leaflet-control-minimap-toggle-display {
   background-image: url(/static/mapstore/dist/toggle.svg) !important;
@@ -12477,7 +12467,7 @@ Ported to CodeMirror by Peter Kroon
   max-height: 2.6em;
 }
 .msgapi .fill:-webkit-full-screen .leaflet-control-attribution a {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .leaflet-bottom.leaflet-right {
   margin-bottom: 0 !important;
@@ -12497,18 +12487,18 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: none !important;
 }
 .msgapi .fill:-webkit-full-screen .ms2-loading {
-  background-color: #2c689c !important;
-  border-bottom: 2px solid #1fa0a0 !important;
+  background-color: #155481 !important;
+  border-bottom: 2px solid #016fb8 !important;
 }
 .msgapi .fill:-webkit-full-screen .ms2-loading .sk-circle-wrapper .sk-circle:before {
   background-color: #ffffff !important;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-small-size-loader {
   text-indent: -9999em;
-  border-top: 2px solid rgba(44, 104, 156, 0.2);
-  border-right: 2px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 2px solid rgba(44, 104, 156, 0.2);
-  border-left: 2px solid #2c689c;
+  border-top: 2px solid rgba(21, 84, 129, 0.2);
+  border-right: 2px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 2px solid rgba(21, 84, 129, 0.2);
+  border-left: 2px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -12525,10 +12515,10 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .mapstore-medium-size-loader {
   text-indent: -9999em;
-  border-top: 6px solid rgba(44, 104, 156, 0.2);
-  border-right: 6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 6px solid rgba(44, 104, 156, 0.2);
-  border-left: 6px solid #2c689c;
+  border-top: 6px solid rgba(21, 84, 129, 0.2);
+  border-right: 6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 6px solid rgba(21, 84, 129, 0.2);
+  border-left: 6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -12545,10 +12535,10 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .mapstore-full-size-loader {
   text-indent: -9999em;
-  border-top: 12px solid rgba(44, 104, 156, 0.2);
-  border-right: 12px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 12px solid rgba(44, 104, 156, 0.2);
-  border-left: 12px solid #2c689c;
+  border-top: 12px solid rgba(21, 84, 129, 0.2);
+  border-right: 12px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 12px solid rgba(21, 84, 129, 0.2);
+  border-left: 12px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -12566,10 +12556,10 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .mapstore-inline-loader {
   margin: 8px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-right: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-left: 1.6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -12779,8 +12769,8 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary {
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
   box-shadow: none;
   border-width: 1px;
   border: transparent;
@@ -12788,20 +12778,20 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary:focus,
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.focus {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #0a1824;
+  background-color: #0e3755;
+  border-color: #000000;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary:hover {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #0e3755;
+  border-color: #092336;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary:active,
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.active,
 .msgapi .open > .dropdown-toggle.fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #0e3755;
+  border-color: #092336;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary:active:hover,
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.active:hover,
@@ -12813,8 +12803,8 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.active.focus,
 .msgapi .open > .dropdown-toggle.fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.focus {
   color: #ffffff;
-  background-color: #193b58;
-  border-color: #0a1824;
+  background-color: #092336;
+  border-color: #000000;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary:active,
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.active,
@@ -12839,20 +12829,20 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.disabled.active,
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary[disabled].active,
 .msgapi fieldset[disabled] .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.active {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary .badge {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary:hover {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary:focus,
 .msgapi .fill:-webkit-full-screen .ms-prj-selector .dropdown-toggle-primary.focus {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .fill:-webkit-full-screen .ms-prj-selector.open .dropdown-toggle-primary {
   background-color: #27ca3b;
@@ -12954,49 +12944,25 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen #mapstore-navbar .navbar-dx .MapSearchBar .input-group {
   background-color: #ffffff;
+  width: 500px;
   border-radius: 0;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  box-shadow: unset;
-  display: table;
-  border-collapse: separate;
 }
 .msgapi .fill:-webkit-full-screen div.MapSearchBar .form-control:focus {
   box-shadow: none;
 }
-.msgapi .fill:-webkit-full-screen #mapstore-navbar .MapSearchBar {
-  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-}
-.msgapi .fill:-webkit-full-screen #mapstore-navbar .MapSearchBar .square-button-md .ms-loader > div {
-  border-top-color: rgba(7, 138, 163, 0.2);
-  border-right-color: rgba(7, 138, 163, 0.2);
-  border-bottom-color: rgba(7, 138, 163, 0.2);
-  border-left-color: #078aa3;
-}
-.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group-addon {
-  background-color: #f2f2f2 !important;
+.msgapi .fill:-webkit-full-screen div.MapSearchBar .input-group-addon {
+  height: 52px;
+  width: 52px;
+  color: #155481;
+  background-color: #ffffff;
+  border: 0;
+  border-radius: 0;
+  font-size: 18px;
 }
 .msgapi .fill:-webkit-full-screen #mapstore-navbar .navbar-dx .search-result-list {
   top: 65px;
 }
-.msgapi .fill:-webkit-full-screen .navbar-dx .MapSearchBar .input-group {
-  background-color: #ffffff;
-  border-radius: 0;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  position: relative;
-  -webkit-box-shadow: unset;
-  box-shadow: unset;
-  flex: 1 1 0%;
-  margin-right: 8px;
-  display: table;
-  border-collapse: separate;
-}
+.msgapi .fill:-webkit-full-screen .navbar-dx .MapSearchBar .input-group,
 .msgapi .fill:-webkit-full-screen .navbar-dx .MapSearchBar .advanced-search-panel,
 .msgapi .fill:-webkit-full-screen .navbar-dx.shadow {
   -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
@@ -13076,37 +13042,19 @@ Ported to CodeMirror by Peter Kroon
   background-color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .searchInput {
+  width: 75%;
+  height: 52px !important;
   border: none;
   outline: none !important;
-  flex: 1;
-  height: 100%;
-  position: relative;
-  min-height: 52px;
-  align-items: center;
-}
-.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-select {
-  display: flex;
-  flex: 1;
-  height: 100%;
-  position: relative;
-  min-height: 52px;
-  align-items: center;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor {
   width: 75%;
   align-items: center;
   box-sizing: border-box;
-  margin: 6px 0 !important;
-  display: flex;
-  flex: 1 1 0%;
-  justify-content: space-between;
-  padding: 0 6px;
+  margin: 8px 15px !important;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor .entryRow {
-  margin-left: unset;
-  margin-right: unset;
   padding: 5px;
-  flex: 1 1 0%;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor .entryRow .coordinateLabel {
   margin-top: 9px;
@@ -13115,25 +13063,12 @@ Ported to CodeMirror by Peter Kroon
   width: 100%;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor .entryRow input {
-  font-family: inherit;
-}
-.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor .entryRow .degrees,
-.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor .entryRow .minutes {
-  display: flex;
-  flex: 1 1 0%;
-}
-.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor .entryRow .seconds {
-  min-width: 80px;
-  display: flex;
-  flex: 1 1 0%;
-}
-.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .coordinateEditor .entryRow .direction-select select.form-control {
-  min-width: 55px;
-  display: flex;
-  flex: 1 1 0%;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+  height: 34px;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-toolbar-options {
-  padding-right: 4px;
+  width: 25%;
+  padding: 0;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-toolbar-options .magnifying-glass {
   pointer-events: none;
@@ -13150,11 +13085,19 @@ Ported to CodeMirror by Peter Kroon
   color: #ffffff;
   text-decoration: none;
   outline: 0;
-  background-color: #2c689c;
+  background-color: #155481;
+}
+.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options,
+.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options-format {
+  position: absolute;
+  top: 13px;
+  right: 5px;
+  display: block;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options [disabled],
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options-format [disabled] {
   background-color: #ffffff;
+  color: #155481;
   opacity: 0.75;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options.btn-group .btn-danger,
@@ -13582,14 +13525,14 @@ Ported to CodeMirror by Peter Kroon
   height: 52px;
 }
 .msgapi .fill:-webkit-full-screen .ol-custom-overviewmap button {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .ol-custom-overviewmap .ol-control button:focus,
 .msgapi .fill:-webkit-full-screen .ol-custom-overviewmap button:hover {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .ol-custom-overviewmap:not(.ol-collapsed) {
-  background: #2c689c !important;
+  background: #155481 !important;
   border-radius: 3px !important;
 }
 .msgapi .fill:-webkit-full-screen .ol-custom-overviewmap .ol-overviewmap-map {
@@ -13711,15 +13654,15 @@ Ported to CodeMirror by Peter Kroon
   height: 52px;
   width: 52px;
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .fill:-webkit-full-screen .ol-rotate .ol-rotate-reset .ol-compass {
   font-size: 36px;
 }
 .msgapi .fill:-webkit-full-screen .ol-rotate .ol-rotate-reset:hover,
 .msgapi .fill:-webkit-full-screen .ol-rotate .ol-rotate-reset:focus {
-  background-color: #265a88;
+  background-color: #11466b;
 }
 .msgapi .fill:-webkit-full-screen .ol-rotate:hover {
   background: none;
@@ -13747,12 +13690,12 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .Select .paged-select-bar-container .paged-select-bar .prev-page-button.glyphicon,
 .msgapi .fill:-webkit-full-screen .Select .paged-select-bar-container .paged-select-bar .next-page-button.glyphicon {
-  color: #2c689c;
+  color: #155481;
   cursor: auto;
 }
 .msgapi .fill:-webkit-full-screen .Select .paged-select-bar-container .paged-select-bar .prev-page-button.glyphicon:hover,
 .msgapi .fill:-webkit-full-screen .Select .paged-select-bar-container .paged-select-bar .next-page-button.glyphicon:hover {
-  color: #2c689c;
+  color: #155481;
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen .ms-side-panel {
@@ -13854,7 +13797,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .ms-side-panel .ms-header.ms-primary .row:first-child {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-side-panel .ms-header.ms-primary .row:first-child .col-xs-8 {
   color: #ffffff;
@@ -13932,8 +13875,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen #mapstore-print-panel,
 .msgapi .fill:-webkit-full-screen #measure-dialog,
 .msgapi .fill:-webkit-full-screen #mapstore-about,
-.msgapi .fill:-webkit-full-screen #share-panel-dialog,
-.msgapi .fill:-webkit-full-screen #bookmark-panel-dialog {
+.msgapi .fill:-webkit-full-screen #share-panel-dialog {
   position: fixed;
   top: 0%;
   left: 20%;
@@ -13956,7 +13898,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen #mapstore-print-panel .panel-body {
-  border: solid 1px #2c689c;
+  border: solid 1px #155481;
 }
 .msgapi .fill:-webkit-full-screen .shadow-soft-up {
   -webkit-box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.06), 0 -4px 8px rgba(0, 0, 0, 0.12);
@@ -14005,7 +13947,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .mapstore-string-select .m-options ul li:hover {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .m-caption {
   font-style: italic;
@@ -14055,6 +13997,47 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .mapstore-query-builder .ms2-border-layout-body .mapstore-switch-panel .panel-title {
   font-weight: bold;
 }
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group {
+  padding: 5px;
+  margin-bottom: 10px;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .col-xs-2 {
+  padding: 0;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .mapstore-conditions-group {
+  padding-bottom: 5px;
+  padding-left: 20px;
+  border-left: 2px solid #000000;
+  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
+  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .remove-filter-button {
+  background: none;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .col-xs-2 {
+  padding: 0;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .query-content .filter-field-row {
+  padding-left: 0;
+  padding-right: 0;
+  height: 52px;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .query-content .filter-field-row .filter-logig-header-text {
+  height: 52px;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .query-content .filter-field-row > div,
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .query-content .filter-field-row > div.col-xs-2 {
+  padding-left: 7px;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .query-content .filter-field-row > div:not(:last-child) {
+  padding-right: 0px;
+}
+.msgapi .fill:-webkit-full-screen .mapstore-query-builder .m-label {
+  margin-top: 10px;
+  height: 32px;
+  line-height: 32px;
+}
 .msgapi .fill:-webkit-full-screen .mapstore-query-builder .filter-field-fixed-row {
   height: 52px;
 }
@@ -14095,63 +14078,6 @@ Ported to CodeMirror by Peter Kroon
   margin-right: 60px;
   margin-left: 10px;
 }
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group {
-  position: relative;
-  width: 100%;
-  padding: 8px;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-logic-header {
-  padding: 8px 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-logic-header .filter-logic-header-text {
-  flex: 1;
-  min-width: 300px;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .mapstore-conditions-group {
-  padding-left: 20px;
-  padding-right: 0;
-  border-left: 2px solid #000000;
-  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .mapstore-conditions-group + .filter-field-row,
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .mapstore-conditions-group + .mapstore-conditions-group {
-  margin-top: 8px;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-field-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-field-row .filter-field-operator {
-  width: 100px;
-  min-width: 100px;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-field-row .filter-field-attribute,
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-field-row .filter-field-value {
-  flex: 1;
-  min-width: 100px;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-field-row > * + * {
-  margin-left: 8px;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-field-row + .filter-field-row,
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .filter-field-row + .mapstore-conditions-group {
-  margin-top: 8px;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .query-field {
-  display: flex;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .query-field .query-field-value {
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .mapstore-conditions-group .query-field .query-field-value + .query-field-value {
-  margin-left: 8px;
-}
 .msgapi .fill:-webkit-full-screen .dockpanel-wrapped-component .react-grid-Grid {
   min-height: 100% !important;
 }
@@ -14176,7 +14102,7 @@ Ported to CodeMirror by Peter Kroon
   border: 1px solid #dddddd;
 }
 .msgapi .fill:-webkit-full-screen .react-grid-checkbox:checked + .react-grid-checkbox-label:before {
-  background: #2c689c;
+  background: #155481;
   box-shadow: inset 0 0 0 4px #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .radio-custom + .radio-custom-label:before,
@@ -14202,12 +14128,12 @@ Ported to CodeMirror by Peter Kroon
   border-bottom: 1px solid #dddddd;
 }
 .msgapi .fill:-webkit-full-screen .react-grid-Cell:hover {
-  color: #2c689c;
+  color: #155481;
   background-color: #f2f2f2 !important;
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen .react-grid-Cell:focus {
-  outline: 2px solid #2c689c;
+  outline: 2px solid #155481;
 }
 .msgapi .fill:-webkit-full-screen .react-grid-Cell.row-selected.editing input {
   background-color: #ffffff !important;
@@ -14220,13 +14146,13 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .react-grid-Row.row-selected,
 .msgapi .fill:-webkit-full-screen .react-grid-Row .row-selected,
 .msgapi .fill:-webkit-full-screen .react-grid-Row .row-selected .react-grid-Cell {
-  color: #2c689c !important;
+  color: #155481 !important;
   background-color: #f2f2f2 !important;
   font-weight: bold;
 }
 .msgapi .fill:-webkit-full-screen .react-grid-Row .row-context-menu .react-grid-Cell,
 .msgapi .fill:-webkit-full-screen .react-grid-Row:hover .react-grid-Cell {
-  color: #2c689c;
+  color: #155481;
   background-color: #f2f2f2 !important;
   cursor: pointer;
 }
@@ -14236,7 +14162,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .react-grid-Row:hover .react-grid-Cell.modified {
   background-color: #ffffff !important;
   color: #333333 !important;
-  border-bottom: 2px solid #2c689c;
+  border-bottom: 2px solid #155481;
 }
 .msgapi .fill:-webkit-full-screen .react-grid-Row .react-grid-Cell.modified.invalid,
 .msgapi .fill:-webkit-full-screen .react-grid-Row .react-grid-Cell.invalid,
@@ -14363,8 +14289,8 @@ Ported to CodeMirror by Peter Kroon
   background: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen #container .Select.is-focused:not(.is-open) > .Select-control {
-  border-color: #3782c3;
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(55, 130, 195, 0.1);
+  border-color: #1c71ad;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(28, 113, 173, 0.1);
   background: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen #container .Select.has-value.is-clearable.Select--single > .Select-control .Select-value {
@@ -14383,7 +14309,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen #container .Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:hover,
 .msgapi .fill:-webkit-full-screen #container .Select.has-value.Select--single > .Select-control .Select-value a.Select-value-label:focus,
 .msgapi .fill:-webkit-full-screen #container .Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:focus {
-  color: #3782c3;
+  color: #1c71ad;
   outline: none;
   text-decoration: underline;
 }
@@ -14606,15 +14532,15 @@ Ported to CodeMirror by Peter Kroon
   border-bottom-left-radius: 0;
 }
 .msgapi .fill:-webkit-full-screen #container .Select-option.is-selected {
-  background-color: #f7f9fb;
+  background-color: #f6f8fa;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.04);
+  background-color: rgba(21, 84, 129, 0.04);
   color: #333333;
 }
 .msgapi .fill:-webkit-full-screen #container .Select-option.is-focused {
-  background-color: #eef3f7;
+  background-color: #ecf1f5;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.08);
+  background-color: rgba(21, 84, 129, 0.08);
   color: #333333;
 }
 .msgapi .fill:-webkit-full-screen #container .Select-option.is-disabled {
@@ -14641,13 +14567,13 @@ Ported to CodeMirror by Peter Kroon
   margin-left: 5px;
 }
 .msgapi .fill:-webkit-full-screen #container .Select--multi .Select-value {
-  background-color: #eef3f7;
+  background-color: #ecf1f5;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.08);
+  background-color: rgba(21, 84, 129, 0.08);
   border-radius: 0;
-  border: 1px solid #ccdbe7;
+  border: 1px solid #c7d6e1;
   /* Fallback color for IE 8 */
-  border: 1px solid rgba(44, 104, 156, 0.24);
+  border: 1px solid rgba(21, 84, 129, 0.24);
   color: #ffffff;
   display: inline-block;
   font-size: 14px;
@@ -14679,22 +14605,22 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
   border-bottom-left-radius: 0;
   border-top-left-radius: 0;
-  border-right: 1px solid #ccdbe7;
+  border-right: 1px solid #c7d6e1;
   /* Fallback color for IE 8 */
-  border-right: 1px solid rgba(44, 104, 156, 0.24);
+  border-right: 1px solid rgba(21, 84, 129, 0.24);
   padding: 1px 5px 3px;
 }
 .msgapi .fill:-webkit-full-screen #container .Select--multi .Select-value-icon:hover,
 .msgapi .fill:-webkit-full-screen #container .Select--multi .Select-value-icon:focus {
-  background-color: #dee7ee;
+  background-color: #dbe4ea;
   /* Fallback color for IE 8 */
-  background-color: rgba(38, 90, 136, 0.08);
+  background-color: rgba(17, 70, 107, 0.08);
   color: #f2f2f2;
 }
 .msgapi .fill:-webkit-full-screen #container .Select--multi .Select-value-icon:active {
-  background-color: #ccdbe7;
+  background-color: #c7d6e1;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.24);
+  background-color: rgba(21, 84, 129, 0.24);
 }
 .msgapi .fill:-webkit-full-screen #container .Select--multi.Select--rtl .Select-value {
   margin-left: 0;
@@ -14702,9 +14628,9 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen #container .Select--multi.Select--rtl .Select-value-icon {
   border-right: none;
-  border-left: 1px solid #ccdbe7;
+  border-left: 1px solid #c7d6e1;
   /* Fallback color for IE 8 */
-  border-left: 1px solid rgba(44, 104, 156, 0.24);
+  border-left: 1px solid rgba(21, 84, 129, 0.24);
 }
 .msgapi .fill:-webkit-full-screen #container .Select--multi.is-disabled .Select-value {
   background-color: #fcfcfc;
@@ -15089,7 +15015,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .rules-manager .ms-row-select .react-grid-Cell {
   font-weight: bold;
   background-color: #e6e6e6;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .rules-manager .ms-row-select .react-grid-Cell:focus {
   outline: none;
@@ -15236,7 +15162,7 @@ Ported to CodeMirror by Peter Kroon
   right: 55px;
   top: 10px;
 }
-.msgapi .fill:-webkit-full-screen .maps-search .input-group-addon {
+.msgapi .fill:-webkit-full-screen .MapSearchBar .input-group-addon {
   background-color: white;
   border-top: 1px solid lightgrey;
   border-bottom: 1px solid lightgrey;
@@ -15261,8 +15187,6 @@ Ported to CodeMirror by Peter Kroon
   overflow: auto;
 }
 .msgapi .fill:-webkit-full-screen .search-result-list .search-result {
-  display: flex;
-  flex-direction: row;
   padding: 15px;
   border-bottom: 1px solid lightgray;
   cursor: pointer;
@@ -15276,9 +15200,6 @@ Ported to CodeMirror by Peter Kroon
   display: block;
   vertical-align: middle;
   float: left;
-}
-.msgapi .fill:-webkit-full-screen .search-result-list .search-result .search-result-left-container {
-  flex-grow: 1;
 }
 .msgapi .fill:-webkit-full-screen .search-result-list .search-result:last-child {
   border-bottom: none;
@@ -15354,11 +15275,6 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .maps-search.MapSearchBar .input-group {
   width: 100%;
-  display: flex;
-}
-.msgapi .fill:-webkit-full-screen .maps-search .search-toolbar-options {
-  display: flex;
-  align-items: center;
 }
 @media (min-width: 768px) {
   .msgapi .fill:-webkit-full-screen .maps-search.MapSearchBar {
@@ -15376,11 +15292,6 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .user-search.MapSearchBar .input-group {
   width: 100%;
-  display: flex;
-}
-.msgapi .fill:-webkit-full-screen .user-search .search-toolbar-options {
-  display: flex;
-  align-items: center;
 }
 .msgapi .fill:-webkit-full-screen .MapSearchBar.user-search input {
   z-index: 0;
@@ -15397,25 +15308,25 @@ Ported to CodeMirror by Peter Kroon
   text-overflow: ellipsis;
 }
 .msgapi .fill:-webkit-full-screen .rw-widget {
-  color: #2c689c !important;
+  color: #155481 !important;
   background-color: #ffffff !important;
   border: 1px solid #dddddd !important;
 }
 .msgapi .fill:-webkit-full-screen .rw-list-option:hover {
   color: #ffffff !important;
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .rw-list-option:focus {
   outline: none;
 }
 .msgapi .fill:-webkit-full-screen .rw-state-focus {
-  color: #2c689c !important;
+  color: #155481 !important;
   background-color: transparent !important;
-  border: 1px solid #2c689c !important;
+  border: 1px solid #155481 !important;
   outline: none;
 }
 .msgapi .fill:-webkit-full-screen .rw-i {
-  color: #2c689c !important;
+  color: #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .rw-placeholder {
   color: #333333 !important;
@@ -15425,7 +15336,7 @@ Ported to CodeMirror by Peter Kroon
   color: #333333;
 }
 .msgapi .fill:-webkit-full-screen .rw-filter-input {
-  border: 1px solid #2c689c !important;
+  border: 1px solid #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .rw-select {
   border-left: 1px solid #dddddd !important;
@@ -15450,12 +15361,12 @@ Ported to CodeMirror by Peter Kroon
   float: right;
   bottom: 2em;
   right: 2.3em;
-  color: #2c689c !important;
+  color: #155481 !important;
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen .rw-combo-clearable.disabled .rw-combo-clear {
   cursor: not-allowed;
-  color: rgba(44, 104, 156, 0.7) !important;
+  color: rgba(21, 84, 129, 0.7) !important;
 }
 .msgapi .fill:-webkit-full-screen select.form-control {
   border: 1px solid #dddddd;
@@ -15559,63 +15470,6 @@ Ported to CodeMirror by Peter Kroon
   right: 10px;
   top: 4px;
   border-radius: 6px;
-}
-.msgapi .fill:-webkit-full-screen #bookmark-tools button {
-  background-color: unset;
-  color: #078aa3;
-}
-.msgapi .fill:-webkit-full-screen #bookmark-tools button:hover {
-  background-color: #e6e6e6;
-}
-.msgapi .fill:-webkit-full-screen #bookmark-list .search-bookmark-name {
-  padding-top: 10px;
-  margin-left: -5px;
-  font-weight: 600;
-}
-.msgapi .fill:-webkit-full-screen #bookmark-list .bookmark-card {
-  max-height: 400px;
-  scrollbar-width: thin;
-  overflow: auto;
-  padding: 5px;
-}
-.msgapi .fill:-webkit-full-screen .bookmark-card::-webkit-scrollbar {
-  width: 8px;
-  background: #fff;
-}
-.msgapi .fill:-webkit-full-screen .bookmark-card::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
-}
-.msgapi .fill:-webkit-full-screen #add-new-bookmark .form-control {
-  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-}
-.msgapi .fill:-webkit-full-screen #add-new-bookmark .bookmark-title {
-  font-family: inherit;
-}
-.msgapi .fill:-webkit-full-screen #add-new-bookmark .bbox-field-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.msgapi .fill:-webkit-full-screen #add-new-bookmark .field-top-bottom {
-  width: 100%;
-  padding: 4px;
-  max-width: 200px;
-}
-.msgapi .fill:-webkit-full-screen #add-new-bookmark .field-center-group {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  flex-wrap: wrap;
-}
-.msgapi .fill:-webkit-full-screen #add-new-bookmark .field-left-right {
-  flex: 1 1 0%;
-  padding: 4px;
-  max-width: 200px;
-  min-width: 200px;
-}
-.msgapi .fill:-webkit-full-screen #bookmark-panel-dialog {
-  z-index: 1000 !important;
 }
 .msgapi .fill:-webkit-full-screen #mapstore-settings {
   background-color: #ffffff !important;
@@ -15857,7 +15711,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .noUi-target {
   border-color: none;
   cursor: pointer;
-  background-color: #3782c3;
+  background-color: #1c71ad;
 }
 .msgapi .fill:-webkit-full-screen .noUi-target.noUi-horizontal {
   height: 4px;
@@ -15878,12 +15732,12 @@ Ported to CodeMirror by Peter Kroon
   -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
-  background-color: #2c689c;
+  background-color: #155481;
   cursor: pointer;
   border-radius: 0;
 }
 .msgapi .fill:-webkit-full-screen .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:hover {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .fill:-webkit-full-screen .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:before,
 .msgapi .fill:-webkit-full-screen .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:after {
@@ -15902,7 +15756,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle .noUi-tooltip:hover {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .fill:-webkit-full-screen .noUi-target.noUi-horizontal .noUi-pips.noUi-pips-horizontal .noUi-value {
   text-align: right;
@@ -15922,11 +15776,11 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .noUi-target[disabled="true"].noUi-horizontal .noUi-base .noUi-origin .noUi-handle .noUi-tooltip:hover {
   cursor: not-allowed;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .noUi-target[disabled="true"].noUi-horizontal .noUi-base .noUi-origin .noUi-handle:hover {
   cursor: not-allowed;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-slider.with-tooltip .noUi-target.noUi-horizontal {
   padding: 0 13px;
@@ -15966,7 +15820,7 @@ Ported to CodeMirror by Peter Kroon
   font-size: 10px;
   border: none;
   border-radius: 0;
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   height: 15px;
   width: 36px;
@@ -15984,7 +15838,7 @@ Ported to CodeMirror by Peter Kroon
   margin-top: 8px;
   padding: 4px;
   box-sizing: border-box;
-  border: 1px dashed #2c689c;
+  border: 1px dashed #155481;
   background-color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .msSideGrid .ms-drag-over.ms-sm {
@@ -16109,14 +15963,14 @@ Ported to CodeMirror by Peter Kroon
   flex-direction: column;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-side-card.selected {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
 .msgapi .fill:-webkit-full-screen .mapstore-side-card.selected .mapstore-side-glyph {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-side-card.selected .mapstore-side-card-tool > .glyphicon {
@@ -16212,7 +16066,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen .ms-square-card.ms-selected {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
@@ -16236,7 +16090,7 @@ Ported to CodeMirror by Peter Kroon
 }
 @media (min-width: 768px) {
   .msgapi .fill:-webkit-full-screen .share-win {
-    width: 500px;
+    width: 400px;
   }
 }
 .msgapi .fill:-webkit-full-screen .share-win .input-link .input-link-head {
@@ -16286,16 +16140,6 @@ Ported to CodeMirror by Peter Kroon
   -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  overflow-x: auto;
-  max-height: 210px;
-  scrollbar-width: thin;
-}
-.msgapi .fill:-webkit-full-screen .share-win .mapstore-switch-panel::-webkit-scrollbar {
-  width: 8px;
-  background: #fff;
-}
-.msgapi .fill:-webkit-full-screen .share-win .mapstore-switch-panel::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
 }
 .msgapi .fill:-webkit-full-screen .ms2-stepper .footer-button-toolbar-div {
   display: flex;
@@ -16434,7 +16278,7 @@ Ported to CodeMirror by Peter Kroon
   color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen ul.CodeMirror-hints li.CodeMirror-hint.CodeMirror-hint-active {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-style-template-title {
   margin: 0 16px;
@@ -16615,7 +16459,7 @@ Ported to CodeMirror by Peter Kroon
   background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
 }
 .msgapi .fill:-webkit-full-screen .ms-color-picker .ms-color-picker-swatch {
-  position: static;
+  position: relative;
   width: 100%;
   height: 100%;
   text-align: center;
@@ -16671,233 +16515,9 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .ms-color-selector .ms-color-picker .ms-color-picker-swatch > span {
   position: absolute;
   right: 0;
-  top: 0;
   padding: 4px;
   margin: 0;
   font-size: 14px;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-editor-switch {
-  text-align: right;
-  padding: 4px;
-  border-bottom: 1px solid #dddddd;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-editor-switch .btn-group {
-  border: 1px solid #dddddd;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-editor-switch .btn-group span {
-  display: inline-flex;
-  align-items: center;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 8px;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rules-editor-head {
-  display: flex;
-  flex-wrap: wrap;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rules-editor-head .ms-style-rules-editor-left {
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rules-editor-head .ms-style-rules-editor-left .btn-group > span {
-  display: flex;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rules-editor-head .ms-style-rules-editor-right {
-  text-align: right;
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor ul,
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor li {
-  padding: 0;
-  margin: 0;
-  list-style-type: none;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rule-head {
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rule-head .ms-style-rule-head-info,
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rule-head .form-group {
-  flex: 1;
-  margin-right: 8px;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rule-head-tools {
-  display: flex;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rules-editor-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rule {
-  padding: 8px;
-  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rule + .ms-style-rule {
-  margin-top: 8px;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-style-rule:last-child {
-  margin-bottom: 8px;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-symbolizer-info {
-  padding: 4px;
-  display: flex;
-  align-items: center;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-symbolizer-info > *:not(.ms-symbolizer-tools) {
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-symbolizer {
-  padding: 8px;
-  border: 1px solid #dddddd;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .ms-symbolizer + .ms-symbolizer {
-  border-top: none;
-}
-.msgapi .fill:-webkit-full-screen .ms-style-rules-editor .form-group {
-  margin: 0;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field {
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  min-height: 40px;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .form-group {
-  margin: 0;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field > .ms-symbolizer-value,
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field > .ms-symbolizer-label {
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .ms-symbolizer-value {
-  display: flex;
-  align-items: center;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .ms-symbolizer-value > *:not(.ms-symbolizer-tools) {
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .ms-symbolizer-value .ms-popover {
-  text-align: center;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .ms-symbolizer-value .btn-group span {
-  display: flex;
-  flex-wrap: wrap;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .ms-symbolizer-value .btn-group span > .btn {
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .ms-symbolizer-value.ms-symbolizer-value-invalid {
-  outline: 1px solid #af0900;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field .ms-symbolizer-value.ms-symbolizer-value-disabled {
-  opacity: 0.4;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer-field-divider {
-  border-bottom: 1px solid #dddddd;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer {
-  padding: 8px;
-  margin: 0;
-  list-style-type: none;
-  background-color: #ffffff;
-}
-.msgapi .fill:-webkit-full-screen .ms-symbolizer .Select-menu-outer {
-  z-index: 2 !important;
-}
-.msgapi .fill:-webkit-full-screen .ms-mark-list {
-  background-color: #ffffff;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-}
-.msgapi .fill:-webkit-full-screen .ms-mark-list ul,
-.msgapi .fill:-webkit-full-screen .ms-mark-list li {
-  padding: 0;
-  margin: 0;
-  list-style-type: none;
-}
-.msgapi .fill:-webkit-full-screen .ms-mark-list ul {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.msgapi .fill:-webkit-full-screen .ms-mark-list .ms-mark-preview {
-  margin: 4px;
-}
-.msgapi .fill:-webkit-full-screen .ms-mark-preview {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-}
-.msgapi .fill:-webkit-full-screen .ms-popover-overlay .ms-style-rule-scale {
-  background-color: #ffffff;
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  width: 350px;
-  overflow: visible;
-  padding: 8px;
-}
-.msgapi .fill:-webkit-full-screen .ms-popover-overlay .ms-style-rule-filter {
-  background-color: #ffffff;
-  font-size: 12px;
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  width: 450px;
-  height: 300px;
-  overflow: auto;
-}
-.msgapi .fill:-webkit-full-screen .ms-popover-overlay .ms-style-rule-filter * {
-  font-size: 12px;
-}
-.msgapi .fill:-webkit-full-screen .ms-popover-overlay .ms-mark-list {
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  width: 256px;
-  max-height: 256px;
-}
-.msgapi .fill:-webkit-full-screen .ms-classification-popover {
-  width: 400px;
-  height: 300px;
-  padding: 8px;
-  background-color: #ffffff;
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  overflow: auto;
-}
-.msgapi .fill:-webkit-full-screen .thema-classes-editor {
-  padding: 8px 0;
-}
-.msgapi .fill:-webkit-full-screen .thema-classes-editor .form-group {
-  display: flex;
-  margin: 0;
-  align-items: center;
-}
-.msgapi .fill:-webkit-full-screen .thema-classes-editor .form-group > * {
-  flex: 1;
-}
-.msgapi .fill:-webkit-full-screen .thema-classes-editor .form-group > * + * {
-  margin-left: 4px;
-}
-.msgapi .fill:-webkit-full-screen .thema-classes-editor .form-group + .form-group {
-  margin-top: 4px;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-switch-panel .panel {
   margin: 0;
@@ -16929,7 +16549,7 @@ Ported to CodeMirror by Peter Kroon
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #2c689c;
+  background-color: #155481;
   opacity: 0.4;
   -webkit-transition: 0.4s;
   transition: 0.4s;
@@ -16949,7 +16569,7 @@ Ported to CodeMirror by Peter Kroon
   display: none;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-switch-btn input:checked + .m-slider {
-  background-color: #2c689c;
+  background-color: #155481;
   opacity: 1.0;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-switch-btn input:checked + .m-slider:before {
@@ -17296,10 +16916,10 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .mapstore-toc-head .toc-inline-loader {
   margin: 8px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-right: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-left: 1.6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -17322,7 +16942,7 @@ Ported to CodeMirror by Peter Kroon
   vertical-align: middle;
   width: 270px;
   height: 52px;
-  color: #2c689c;
+  color: #155481;
   font-weight: bold;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-toc-head .mapstore-toc-head-title-container .mapstore-toc-head-title .glyphicon {
@@ -17468,10 +17088,10 @@ Ported to CodeMirror by Peter Kroon
   margin: 0 5px;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .glyphicon:hover {
-  color: #204d74;
+  color: #0e3755;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-status-icon,
 .msgapi .fill:-webkit-full-screen .toc-default-group .visibility-check,
@@ -17513,7 +17133,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-group-head .toc-group-title:hover {
   font-weight: bold;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-group-children {
   margin-left: 8px;
@@ -17523,7 +17143,7 @@ Ported to CodeMirror by Peter Kroon
   opacity: 0.6;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group.selected .toc-default-group-head {
-  background-color: #49657e;
+  background-color: #2c506b;
   color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group.selected .toc-default-group-head .glyphicon {
@@ -17557,7 +17177,7 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12), 2px -2px 6px rgba(0, 0, 0, 0.06);
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer .noUi-target {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer .noUi-target.noUi-horizontal {
   margin: 0;
@@ -17580,16 +17200,16 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer .toc-default-layer-head .toc-title:hover {
   font-weight: bold;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer .toc-default-layer-head .toc-inline-loader {
   float: right;
   margin: 0 10px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-right: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-left: 1.6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -17637,7 +17257,7 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer.selected .toc-default-layer-head {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer.selected .toc-default-layer-head .glyphicon {
@@ -17690,16 +17310,16 @@ Ported to CodeMirror by Peter Kroon
   color: #af0900;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer.layer-error.selected {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer.layer-error.selected .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer.layer-error.selected .toc-error {
   color: #af0900;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer.layer-error.selected .toc-title {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .toc-default-group .toc-default-layer.layer-error.selected .toc-default-layer-head {
   box-sizing: border-box;
@@ -17731,7 +17351,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer.selected {
   background-color: #ffffff !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   height: 52px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -17740,11 +17360,11 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer .toc-default-layer-head,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer.selected .toc-default-layer-head {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer .toc-default-layer-head .glyphicon,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer.selected .toc-default-layer-head .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer .toc-default-layer-head .toc-title,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-layer.selected .toc-default-layer-head .toc-title {
@@ -17757,7 +17377,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .is-placeholder.toc-default-layer,
 .msgapi .fill:-webkit-full-screen .is-placeholder.toc-default-layer.selected {
   background-color: transparent !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   height: 52px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -17777,7 +17397,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group.selected {
   background-color: #ffffff !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   height: 52px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -17786,12 +17406,12 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group .toc-default-group-head,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group.selected .toc-default-group-head {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
   margin-top: 0;
 }
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group .toc-default-group-head .glyphicon,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group.selected .toc-default-group-head .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group .toc-default-group-head .toc-group-title,
 .msgapi .fill:-webkit-full-screen .is-dragging.toc-default-group.selected .toc-default-group-head .toc-group-title {
@@ -17805,14 +17425,14 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .is-placeholder.toc-default-group.selected {
   background-color: #ffffff !important;
   border: none !important;
-  border-bottom: 1px solid #2c689c !important;
+  border-bottom: 1px solid #155481 !important;
   height: 57px !important;
   overflow: hidden;
   border-radius: 0 !important;
 }
 .msgapi .fill:-webkit-full-screen .is-placeholder.toc-default-group .toc-default-group-head,
 .msgapi .fill:-webkit-full-screen .is-placeholder.toc-default-group.selected .toc-default-group-head {
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   margin: 2px 0;
 }
 .msgapi .fill:-webkit-full-screen .is-placeholder.toc-default-group .toc-default-group-head *,
@@ -17870,7 +17490,7 @@ Ported to CodeMirror by Peter Kroon
   font-style: italic;
 }
 .msgapi .fill:-webkit-full-screen .compact-legend-grid .noUi-target {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .compact-legend-grid .noUi-target.noUi-horizontal {
   margin: 0;
@@ -17913,7 +17533,7 @@ Ported to CodeMirror by Peter Kroon
   align-items: center;
 }
 .msgapi .fill:-webkit-full-screen .ms-legend-action .panel-heading .panel-title .row .ms-legend-header > .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-legend-action .panel-heading .panel-title .row .ms-legend-header > div {
   flex: 1;
@@ -17980,7 +17600,7 @@ Ported to CodeMirror by Peter Kroon
   font-style: italic;
 }
 .msgapi .fill:-webkit-full-screen .ms-legend-action .panel-collapse .panel-body .msSideGrid .noUi-target {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-legend-action .panel-collapse .panel-body .msSideGrid .noUi-target.noUi-horizontal {
   margin: 0;
@@ -18109,6 +17729,20 @@ Ported to CodeMirror by Peter Kroon
   overflow-y: visible;
   z-index: 10;
 }
+.msgapi .fill:-webkit-full-screen .thematic_layer .thema-classes-editor {
+  margin-left: 15px;
+  margin-right: 15px;
+}
+.msgapi .fill:-webkit-full-screen .thematic_layer .thema-classes-editor.loading:after {
+  content: "";
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  position: absolute;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 999;
+}
 .msgapi .fill:-webkit-full-screen .thematic_layer .mapstore-switch-panel .col-xs-12 {
   padding-left: 0;
   padding-right: 0;
@@ -18139,12 +17773,12 @@ Ported to CodeMirror by Peter Kroon
   z-index: 4000 !important;
 }
 .msgapi .fill:-webkit-full-screen .joyride-tooltip__button--primary {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .joyride-tooltip__button--primary:active,
 .msgapi .fill:-webkit-full-screen .joyride-tooltip__button--primary:focus,
 .msgapi .fill:-webkit-full-screen .joyride-tooltip__button--primary:hover {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill:-webkit-full-screen .draggableHandle {
   cursor: -webkit-grab;
@@ -18210,7 +17844,7 @@ Ported to CodeMirror by Peter Kroon
   font-size: 22px;
   font-weight: bold;
   border-bottom: 1px solid #dddddd;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .widget-container .mapstore-widget-card .mapstore-widget-header .widget-title {
   text-overflow: ellipsis;
@@ -18222,7 +17856,7 @@ Ported to CodeMirror by Peter Kroon
   position: absolute;
   left: 22px;
   font-size: 14px;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .widget-container .mapstore-widget-card .mapstore-widget-header .widget-icons {
   text-align: left;
@@ -18244,7 +17878,7 @@ Ported to CodeMirror by Peter Kroon
   padding-right: 4px;
 }
 .msgapi .fill:-webkit-full-screen .widget-container .mapstore-widget-card .mapstore-widget-header .widget-icons .btn-group button .glyphicon.active::before {
-  color: #2c689c;
+  color: #155481;
   transform: rotate(45deg);
   display: inline-block;
 }
@@ -18267,7 +17901,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .widget-container .mapstore-widget-card .mapstore-widget-options {
   position: absolute;
   font-size: 18px;
-  color: #2c689c;
+  color: #155481;
   right: 7px;
   top: 10px;
 }
@@ -18767,7 +18401,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover input,
 .msgapi .fill:-webkit-full-screen .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover select,
 .msgapi .fill:-webkit-full-screen .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover .col-xs-5 span {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-dragg.ms-below .coordinateRow,
 .msgapi .fill:-webkit-full-screen .ms-dragg.ms-above .coordinateRow {
@@ -18783,7 +18417,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .ms-dragg.ms-above .coordinateRow:hover select,
 .msgapi .fill:-webkit-full-screen .ms-dragg.ms-below .coordinateRow:hover .col-xs-5 span,
 .msgapi .fill:-webkit-full-screen .ms-dragg.ms-above .coordinateRow:hover .col-xs-5 span {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill:-webkit-full-screen .mapstore-identify-viewer .mapstore-annotations-info-viewer .mapstore-annotations-info-viewer-buttons {
   -webkit-box-shadow: none;
@@ -18835,7 +18469,7 @@ Ported to CodeMirror by Peter Kroon
   box-sizing: border-box;
 }
 .msgapi .fill:-webkit-full-screen .ms-over .coordinateRow {
-  border: 1px dashed #2c689c;
+  border: 1px dashed #155481;
 }
 .msgapi .fill:-webkit-full-screen .ms-over.ms-above .coordinateRow {
   border-bottom-width: 2px;
@@ -19313,7 +18947,7 @@ Ported to CodeMirror by Peter Kroon
   margin-right: 0;
 }
 .msgapi .fill:-webkit-full-screen .ms-resizable-modal > .modal-content > .modal-body {
-  flex: 1;
+  flex: 1 1 auto;
   padding: 0;
   display: flex;
   height: inherit;
@@ -19491,7 +19125,7 @@ Ported to CodeMirror by Peter Kroon
   float: right;
 }
 .msgapi .fill:-webkit-full-screen .details-panel .panel-heading {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .details-panel div div div.ms2-border-layout-body {
@@ -19981,7 +19615,7 @@ Ported to CodeMirror by Peter Kroon
   z-index: 10;
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group.selected {
-  background-color: rgba(44, 104, 156, 0.05);
+  background-color: rgba(21, 84, 129, 0.05);
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group.loading .vis-item.vis-dot {
   animation: timeline-loading 0.3s linear infinite;
@@ -19994,18 +19628,18 @@ Ported to CodeMirror by Peter Kroon
   display: none;
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-dot {
-  border-color: rgba(44, 104, 156, 0.5);
+  border-color: rgba(21, 84, 129, 0.5);
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range {
-  background-color: rgba(44, 104, 156, 0.5);
+  background-color: rgba(21, 84, 129, 0.5);
   background-color: transparent;
   border-color: transparent;
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range .vis-item-content {
   padding: 0 5px;
   margin: 5px 0;
-  background-color: rgba(44, 104, 156, 0.5);
-  border-color: #204d74;
+  background-color: rgba(21, 84, 129, 0.5);
+  border-color: #0e3755;
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range.histogram-item {
   background: none;
@@ -20028,8 +19662,8 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range.histogram-item .vis-item-overflow .vis-item-content .histogram-box {
   width: 100%;
   position: absolute;
-  background-color: rgba(44, 104, 156, 0.5);
-  border-color: #204d74;
+  background-color: rgba(21, 84, 129, 0.5);
+  border-color: #0e3755;
   bottom: 0;
   left: 0;
   right: 0;
@@ -20056,7 +19690,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label.selected {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label.selected .vis-inner .timeline-layer-label-container .timeline-layer-icon .timeline-spinner {
@@ -20088,10 +19722,10 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill:-webkit-full-screen .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label .vis-inner .timeline-layer-label-container .timeline-layer-icon .timeline-spinner {
   text-indent: -9999em;
-  border-top: 1px solid rgba(44, 104, 156, 0.2);
-  border-right: 1px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1px solid rgba(44, 104, 156, 0.2);
-  border-left: 1px solid #2c689c;
+  border-top: 1px solid rgba(21, 84, 129, 0.2);
+  border-right: 1px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1px solid rgba(21, 84, 129, 0.2);
+  border-left: 1px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -20545,7 +20179,7 @@ Ported to CodeMirror by Peter Kroon
   left: 50%;
   transform: translateX(-50%);
   display: block;
-  color: #2c689c;
+  color: #155481;
   content: "\F108";
 }
 .msgapi .fill:-webkit-full-screen .ms-map-popup {
@@ -20760,7 +20394,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .option-icon {
   font-size: 14px;
   margin-right: 9px;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .bg-body {
   background-color: #ffffff;
@@ -20892,7 +20526,7 @@ Ported to CodeMirror by Peter Kroon
   padding: 0;
 }
 .msgapi .fill div#sync-popover.popover h3 {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill div#sync-popover.popover .mapstore-switch-btn {
@@ -20932,29 +20566,29 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .btn-tray {
   color: #4d4d4d;
   background-color: #ffffff;
-  border-color: #3782c3;
+  border-color: #1c71ad;
   border-left: none;
   border-top: none;
   border-right: none;
-  border-bottom: 3px solid #3782c3;
+  border-bottom: 3px solid #1c71ad;
 }
 .msgapi .fill .btn-tray:focus,
 .msgapi .fill .btn-tray.focus {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #1b4060;
+  border-color: #0a293f;
 }
 .msgapi .fill .btn-tray:hover {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #296294;
+  border-color: #144e78;
 }
 .msgapi .fill .btn-tray:active,
 .msgapi .fill .btn-tray.active,
 .msgapi .open > .dropdown-toggle.fill .btn-tray {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #296294;
+  border-color: #144e78;
 }
 .msgapi .fill .btn-tray:active:hover,
 .msgapi .fill .btn-tray.active:hover,
@@ -20967,7 +20601,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .open > .dropdown-toggle.fill .btn-tray.focus {
   color: #4d4d4d;
   background-color: #d4d4d4;
-  border-color: #1b4060;
+  border-color: #0a293f;
 }
 .msgapi .fill .btn-tray:active,
 .msgapi .fill .btn-tray.active,
@@ -20993,7 +20627,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .btn-tray[disabled].active,
 .msgapi fieldset[disabled] .fill .btn-tray.active {
   background-color: #ffffff;
-  border-color: #3782c3;
+  border-color: #1c71ad;
 }
 .msgapi .fill .btn-tray .badge {
   color: #ffffff;
@@ -21001,14 +20635,14 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .btn-tray:active,
 .msgapi .fill .btn-tray.active {
-  color: #2c689c;
+  color: #155481;
   border-bottom: 3px solid #bfbfbf;
 }
 .msgapi .fill .btn-tray:focus,
 .msgapi .fill .btn-tray.focus {
   background-color: #ffffff;
   color: #4d4d4d;
-  border-bottom: 3px solid #3782c3;
+  border-bottom: 3px solid #1c71ad;
 }
 .msgapi .fill .error-container {
   height: 100%;
@@ -21039,11 +20673,11 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .error-container .runtime-error-message .refresh-icon:hover {
   cursor: pointer;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .ag-fresh .ag-header,
 .msgapi .fill .ag-fresh .ag-tool-panel-container {
-  background: #2c689c !important;
+  background: #155481 !important;
   color: #ffffff;
   font-family: 'Lato', sans-serif;
 }
@@ -21051,12 +20685,12 @@ Ported to CodeMirror by Peter Kroon
   color: #000000;
 }
 .msgapi .fill .ag-fresh .ag-paging-button {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
-  border: #2c689c 1px solid;
+  border: #155481 1px solid;
 }
 .msgapi .fill .ag-fresh .ag-paging-page-summary-panel {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .ag-fresh .ag-paging-panel {
   background-color: #ffffff;
@@ -21072,14 +20706,14 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .autocompleteField .autocomplete-toolbar .chevron-left {
   float: left;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .autocompleteField .autocomplete-toolbar .chevron-right {
   float: right;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .autocompleteField .autocomplete-toolbar .rw-list-option:hover {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .autocompleteField ul li:last-child {
   border: none !important;
@@ -21181,7 +20815,7 @@ Ported to CodeMirror by Peter Kroon
   margin: 0px 0px 5px;
   padding: 0px;
   font-weight: bold;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .cookie-action,
 .msgapi .fill .cookie-message {
@@ -21196,7 +20830,7 @@ Ported to CodeMirror by Peter Kroon
   width: 100%;
 }
 .msgapi .fill .cookie-header {
-  color: #2c689c;
+  color: #155481;
   height: 44px;
 }
 .msgapi .fill .cookie-header > span {
@@ -21634,7 +21268,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill #mapstore-drawermenu .navHeader > .glyphicon:hover {
   background-color: transparent;
-  color: #204d74;
+  color: #0e3755;
 }
 .msgapi .fill #mapstore-drawermenu .react-resizable-handle {
   position: absolute;
@@ -21655,7 +21289,7 @@ Ported to CodeMirror by Peter Kroon
   overflow: auto;
 }
 .msgapi .fill .dropdown-menu .dropdown-header {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   padding: 15px;
   font-weight: bold;
@@ -21676,7 +21310,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .dropdown-menu .glyphicon {
   font-size: 16px;
   margin-right: 15px;
-  color: #2c689c;
+  color: #155481;
   vertical-align: middle;
 }
 .msgapi .fill .dropdown-menu .active .glyphicon {
@@ -21684,7 +21318,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .navbar-dx .dropdown-menu .dropdown-header,
 .msgapi .fill .navbar-home .dropdown-menu .dropdown-header {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .navbar-dx .dropdown-menu,
 .msgapi .fill .navbar-home .dropdown-menu {
@@ -21709,7 +21343,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill #mapstore-navbar-container .dropdown-toggle,
 .msgapi .fill #mapstore-navbar-container .square-button {
-  border-left: 1px solid #1fa0a0;
+  border-left: 1px solid #016fb8;
 }
 .msgapi .fill #mapstore-navbar-container .dropdown-menu > .btn-group {
   width: 100%;
@@ -21904,7 +21538,7 @@ Ported to CodeMirror by Peter Kroon
   opacity: 0.75;
 }
 .msgapi .fill .ms-thumbnail .ms-thumbnail-dropzone-active {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #238dd9;
 }
 .msgapi .fill .ms-thumbnail .ms-thumbnail-dropzone-active .dropzone-content-image,
 .msgapi .fill .ms-thumbnail .ms-thumbnail-dropzone-active .dropzone-content-image-added {
@@ -21987,7 +21621,7 @@ Ported to CodeMirror by Peter Kroon
   color: white;
 }
 .msgapi .fill .export-panel .export-panel-formats-container .btn-default.format-selected {
-  border-color: #2c689c;
+  border-color: #155481;
 }
 .msgapi .fill .feature-grid-drag-handle-show .drag-handle {
   display: inline;
@@ -22015,7 +21649,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill .featuregrid-geometry-filter.filter-enabled {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .featuregrid-geometry-filter.filter-deactivated {
   opacity: 0.7;
@@ -22045,16 +21679,6 @@ Ported to CodeMirror by Peter Kroon
     max-width: calc(100% - 80px);
     margin-left: 40px;
   }
-}
-.msgapi .fill #share-container .coordinateRow.aeronautical.coord-editor.row {
-  border: none !important;
-  margin: unset !important;
-  padding: unset !important;
-}
-.msgapi .fill #share-container .coordinateRow.decimal.coord-editor.row {
-  border: none !important;
-  margin: unset !important;
-  padding: unset !important;
 }
 .msgapi .fill .ms-identify-swipe-header {
   display: flex;
@@ -22316,7 +21940,7 @@ Ported to CodeMirror by Peter Kroon
   padding: 0;
 }
 .msgapi .fill .ms-geostory-builder .msSideGrid .mapstore-side-card.ms-highlight {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #238dd9;
 }
 .msgapi .fill .ms-geostory-builder .msSideGrid .mapstore-side-card {
   transition: none;
@@ -22329,11 +21953,11 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .ms-geostory-builder .msSideGrid .ms-over:not(.ms-dragging).ms-above > div {
   padding-bottom: 32px;
-  border-bottom: 2px solid #2c689c;
+  border-bottom: 2px solid #155481;
 }
 .msgapi .fill .ms-geostory-builder .msSideGrid .ms-over:not(.ms-dragging).ms-below > div {
   padding-top: 32px;
-  border-top: 2px solid #2c689c;
+  border-top: 2px solid #155481;
 }
 .msgapi .fill .ms-geostory-builder .ms-section-preview {
   position: relative;
@@ -23365,7 +22989,7 @@ Ported to CodeMirror by Peter Kroon
   /* changed border color of color picker tab*/
 }
 .msgapi .fill .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-option-active {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #238dd9;
 }
 .msgapi .fill .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-colorpicker-modal-options {
   overflow-x: auto;
@@ -23377,7 +23001,7 @@ Ported to CodeMirror by Peter Kroon
   font-size: 12px;
 }
 .msgapi .fill .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-colorpicker-modal-style-label-active {
-  border-bottom-color: #5c9bd1;
+  border-bottom-color: #238dd9;
 }
 .msgapi .fill .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-link-modal-label {
   font-size: 12px;
@@ -23808,7 +23432,7 @@ Ported to CodeMirror by Peter Kroon
   color: inherit;
   background-color: inherit;
   border-color: transparent;
-  outline: 1px auto #2c689c !important;
+  outline: 1px auto #155481 !important;
   outline-color: inherit !important;
 }
 .msgapi .fill .ms-geostory-navigation .btn-default:active:hover {
@@ -23820,7 +23444,7 @@ Ported to CodeMirror by Peter Kroon
   color: inherit;
   background-color: inherit;
   border-color: transparent;
-  outline: 2px auto #2c689c !important;
+  outline: 2px auto #155481 !important;
   outline-color: inherit !important;
 }
 .msgapi .fill .ms-geostory-navigation .ms-geostory-navigation-bar {
@@ -23839,7 +23463,7 @@ Ported to CodeMirror by Peter Kroon
   width: 100%;
 }
 .msgapi .fill .ms-geostory-navigation .ms-geostory-navigation-bar .progress-bar .progress-percent {
-  background-color: #2c689c;
+  background-color: #155481;
   height: 4px;
   transition: width 0.3s;
 }
@@ -23904,16 +23528,16 @@ Ported to CodeMirror by Peter Kroon
   margin: 0 6px;
 }
 .msgapi .fill .ms-geostory-navigation .ms-horizontal-menu .ms-menu-item .active {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill #helpbadge-scaleBox {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill #mapstore-navbar #helpbadge-search-help {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .mapstore-langselector {
   height: 36px;
@@ -23995,10 +23619,10 @@ Ported to CodeMirror by Peter Kroon
   }
 }
 .msgapi .fill .leaflet-control-minimap {
-  border: solid #2c689c 4px !important;
+  border: solid #155481 4px !important;
 }
 .msgapi .fill .leaflet-control-minimap a {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill .leaflet-control-minimap-toggle-display {
   background-image: url(/static/mapstore/dist/toggle.svg) !important;
@@ -24031,7 +23655,7 @@ Ported to CodeMirror by Peter Kroon
   max-height: 2.6em;
 }
 .msgapi .fill .leaflet-control-attribution a {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .leaflet-bottom.leaflet-right {
   margin-bottom: 0 !important;
@@ -24051,18 +23675,18 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: none !important;
 }
 .msgapi .fill .ms2-loading {
-  background-color: #2c689c !important;
-  border-bottom: 2px solid #1fa0a0 !important;
+  background-color: #155481 !important;
+  border-bottom: 2px solid #016fb8 !important;
 }
 .msgapi .fill .ms2-loading .sk-circle-wrapper .sk-circle:before {
   background-color: #ffffff !important;
 }
 .msgapi .fill .mapstore-small-size-loader {
   text-indent: -9999em;
-  border-top: 2px solid rgba(44, 104, 156, 0.2);
-  border-right: 2px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 2px solid rgba(44, 104, 156, 0.2);
-  border-left: 2px solid #2c689c;
+  border-top: 2px solid rgba(21, 84, 129, 0.2);
+  border-right: 2px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 2px solid rgba(21, 84, 129, 0.2);
+  border-left: 2px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -24079,10 +23703,10 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .mapstore-medium-size-loader {
   text-indent: -9999em;
-  border-top: 6px solid rgba(44, 104, 156, 0.2);
-  border-right: 6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 6px solid rgba(44, 104, 156, 0.2);
-  border-left: 6px solid #2c689c;
+  border-top: 6px solid rgba(21, 84, 129, 0.2);
+  border-right: 6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 6px solid rgba(21, 84, 129, 0.2);
+  border-left: 6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -24099,10 +23723,10 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .mapstore-full-size-loader {
   text-indent: -9999em;
-  border-top: 12px solid rgba(44, 104, 156, 0.2);
-  border-right: 12px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 12px solid rgba(44, 104, 156, 0.2);
-  border-left: 12px solid #2c689c;
+  border-top: 12px solid rgba(21, 84, 129, 0.2);
+  border-right: 12px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 12px solid rgba(21, 84, 129, 0.2);
+  border-left: 12px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -24120,10 +23744,10 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .mapstore-inline-loader {
   margin: 8px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-right: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-left: 1.6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -24333,8 +23957,8 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary {
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
   box-shadow: none;
   border-width: 1px;
   border: transparent;
@@ -24342,20 +23966,20 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary:focus,
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary.focus {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #0a1824;
+  background-color: #0e3755;
+  border-color: #000000;
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary:hover {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #0e3755;
+  border-color: #092336;
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary:active,
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary.active,
 .msgapi .open > .dropdown-toggle.fill .ms-prj-selector .dropdown-toggle-primary {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #0e3755;
+  border-color: #092336;
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary:active:hover,
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary.active:hover,
@@ -24367,8 +23991,8 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary.active.focus,
 .msgapi .open > .dropdown-toggle.fill .ms-prj-selector .dropdown-toggle-primary.focus {
   color: #ffffff;
-  background-color: #193b58;
-  border-color: #0a1824;
+  background-color: #092336;
+  border-color: #000000;
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary:active,
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary.active,
@@ -24393,20 +24017,20 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary.disabled.active,
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary[disabled].active,
 .msgapi fieldset[disabled] .fill .ms-prj-selector .dropdown-toggle-primary.active {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary .badge {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary:hover {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary:focus,
 .msgapi .fill .ms-prj-selector .dropdown-toggle-primary.focus {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .fill .ms-prj-selector.open .dropdown-toggle-primary {
   background-color: #27ca3b;
@@ -24508,49 +24132,25 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill #mapstore-navbar .navbar-dx .MapSearchBar .input-group {
   background-color: #ffffff;
+  width: 500px;
   border-radius: 0;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  box-shadow: unset;
-  display: table;
-  border-collapse: separate;
 }
 .msgapi .fill div.MapSearchBar .form-control:focus {
   box-shadow: none;
 }
-.msgapi .fill #mapstore-navbar .MapSearchBar {
-  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-}
-.msgapi .fill #mapstore-navbar .MapSearchBar .square-button-md .ms-loader > div {
-  border-top-color: rgba(7, 138, 163, 0.2);
-  border-right-color: rgba(7, 138, 163, 0.2);
-  border-bottom-color: rgba(7, 138, 163, 0.2);
-  border-left-color: #078aa3;
-}
-.msgapi .fill .MapSearchBar .input-group-addon {
-  background-color: #f2f2f2 !important;
+.msgapi .fill div.MapSearchBar .input-group-addon {
+  height: 36px;
+  width: 36px;
+  color: #155481;
+  background-color: #ffffff;
+  border: 0;
+  border-radius: 0;
+  font-size: 18px;
 }
 .msgapi .fill #mapstore-navbar .navbar-dx .search-result-list {
   top: 45px;
 }
-.msgapi .fill .navbar-dx .MapSearchBar .input-group {
-  background-color: #ffffff;
-  border-radius: 0;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  position: relative;
-  -webkit-box-shadow: unset;
-  box-shadow: unset;
-  flex: 1 1 0%;
-  margin-right: 8px;
-  display: table;
-  border-collapse: separate;
-}
+.msgapi .fill .navbar-dx .MapSearchBar .input-group,
 .msgapi .fill .navbar-dx .MapSearchBar .advanced-search-panel,
 .msgapi .fill .navbar-dx.shadow {
   -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
@@ -24630,37 +24230,19 @@ Ported to CodeMirror by Peter Kroon
   background-color: #ffffff;
 }
 .msgapi .fill .MapSearchBar .input-group .searchInput {
+  width: 75%;
+  height: 36px !important;
   border: none;
   outline: none !important;
-  flex: 1;
-  height: 100%;
-  position: relative;
-  min-height: 52px;
-  align-items: center;
-}
-.msgapi .fill .MapSearchBar .input-group .search-select {
-  display: flex;
-  flex: 1;
-  height: 100%;
-  position: relative;
-  min-height: 52px;
-  align-items: center;
 }
 .msgapi .fill .MapSearchBar .input-group .coordinateEditor {
   width: 75%;
   align-items: center;
   box-sizing: border-box;
-  margin: 6px 0 !important;
-  display: flex;
-  flex: 1 1 0%;
-  justify-content: space-between;
-  padding: 0 6px;
+  margin: 8px 15px !important;
 }
 .msgapi .fill .MapSearchBar .input-group .coordinateEditor .entryRow {
-  margin-left: unset;
-  margin-right: unset;
   padding: 5px;
-  flex: 1 1 0%;
 }
 .msgapi .fill .MapSearchBar .input-group .coordinateEditor .entryRow .coordinateLabel {
   margin-top: 9px;
@@ -24669,25 +24251,12 @@ Ported to CodeMirror by Peter Kroon
   width: 100%;
 }
 .msgapi .fill .MapSearchBar .input-group .coordinateEditor .entryRow input {
-  font-family: inherit;
-}
-.msgapi .fill .MapSearchBar .input-group .coordinateEditor .entryRow .degrees,
-.msgapi .fill .MapSearchBar .input-group .coordinateEditor .entryRow .minutes {
-  display: flex;
-  flex: 1 1 0%;
-}
-.msgapi .fill .MapSearchBar .input-group .coordinateEditor .entryRow .seconds {
-  min-width: 80px;
-  display: flex;
-  flex: 1 1 0%;
-}
-.msgapi .fill .MapSearchBar .input-group .coordinateEditor .entryRow .direction-select select.form-control {
-  min-width: 55px;
-  display: flex;
-  flex: 1 1 0%;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+  height: 34px;
 }
 .msgapi .fill .MapSearchBar .input-group .search-toolbar-options {
-  padding-right: 4px;
+  width: 25%;
+  padding: 0;
 }
 .msgapi .fill .MapSearchBar .input-group .search-toolbar-options .magnifying-glass {
   pointer-events: none;
@@ -24704,11 +24273,19 @@ Ported to CodeMirror by Peter Kroon
   color: #ffffff;
   text-decoration: none;
   outline: 0;
-  background-color: #2c689c;
+  background-color: #155481;
+}
+.msgapi .fill .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options,
+.msgapi .fill .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options-format {
+  position: absolute;
+  top: 13px;
+  right: 5px;
+  display: block;
 }
 .msgapi .fill .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options [disabled],
 .msgapi .fill .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options-format [disabled] {
   background-color: #ffffff;
+  color: #155481;
   opacity: 0.75;
 }
 .msgapi .fill .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options.btn-group .btn-danger,
@@ -25136,14 +24713,14 @@ Ported to CodeMirror by Peter Kroon
   height: 36px;
 }
 .msgapi .fill .ol-custom-overviewmap button {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill .ol-custom-overviewmap .ol-control button:focus,
 .msgapi .fill .ol-custom-overviewmap button:hover {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill .ol-custom-overviewmap:not(.ol-collapsed) {
-  background: #2c689c !important;
+  background: #155481 !important;
   border-radius: 3px !important;
 }
 .msgapi .fill .ol-custom-overviewmap .ol-overviewmap-map {
@@ -25265,15 +24842,15 @@ Ported to CodeMirror by Peter Kroon
   height: 36px;
   width: 36px;
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #155481;
+  border-color: #11466b;
 }
 .msgapi .fill .ol-rotate .ol-rotate-reset .ol-compass {
   font-size: 36px;
 }
 .msgapi .fill .ol-rotate .ol-rotate-reset:hover,
 .msgapi .fill .ol-rotate .ol-rotate-reset:focus {
-  background-color: #265a88;
+  background-color: #11466b;
 }
 .msgapi .fill .ol-rotate:hover {
   background: none;
@@ -25301,12 +24878,12 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .Select .paged-select-bar-container .paged-select-bar .prev-page-button.glyphicon,
 .msgapi .fill .Select .paged-select-bar-container .paged-select-bar .next-page-button.glyphicon {
-  color: #2c689c;
+  color: #155481;
   cursor: auto;
 }
 .msgapi .fill .Select .paged-select-bar-container .paged-select-bar .prev-page-button.glyphicon:hover,
 .msgapi .fill .Select .paged-select-bar-container .paged-select-bar .next-page-button.glyphicon:hover {
-  color: #2c689c;
+  color: #155481;
   cursor: pointer;
 }
 .msgapi .fill .ms-side-panel {
@@ -25408,7 +24985,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .ms-side-panel .ms-header.ms-primary .row:first-child {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .ms-side-panel .ms-header.ms-primary .row:first-child .col-xs-8 {
   color: #ffffff;
@@ -25486,8 +25063,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill #mapstore-print-panel,
 .msgapi .fill #measure-dialog,
 .msgapi .fill #mapstore-about,
-.msgapi .fill #share-panel-dialog,
-.msgapi .fill #bookmark-panel-dialog {
+.msgapi .fill #share-panel-dialog {
   position: fixed;
   top: 0%;
   left: 20%;
@@ -25510,7 +25086,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill #mapstore-print-panel .panel-body {
-  border: solid 1px #2c689c;
+  border: solid 1px #155481;
 }
 .msgapi .fill .shadow-soft-up {
   -webkit-box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.06), 0 -4px 8px rgba(0, 0, 0, 0.12);
@@ -25559,7 +25135,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .mapstore-string-select .m-options ul li:hover {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .m-caption {
   font-style: italic;
@@ -25609,6 +25185,47 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .mapstore-query-builder .ms2-border-layout-body .mapstore-switch-panel .panel-title {
   font-weight: bold;
 }
+.msgapi .fill .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group {
+  padding: 5px;
+  margin-bottom: 10px;
+}
+.msgapi .fill .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .col-xs-2 {
+  padding: 0;
+}
+.msgapi .fill .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .mapstore-conditions-group {
+  padding-bottom: 5px;
+  padding-left: 20px;
+  border-left: 2px solid #000000;
+  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
+  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+.msgapi .fill .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .remove-filter-button {
+  background: none;
+}
+.msgapi .fill .mapstore-query-builder .ms2-border-layout-body .mapstore-conditions-group .col-xs-2 {
+  padding: 0;
+}
+.msgapi .fill .mapstore-query-builder .query-content .filter-field-row {
+  padding-left: 0;
+  padding-right: 0;
+  height: 52px;
+}
+.msgapi .fill .mapstore-query-builder .query-content .filter-field-row .filter-logig-header-text {
+  height: 52px;
+}
+.msgapi .fill .mapstore-query-builder .query-content .filter-field-row > div,
+.msgapi .fill .mapstore-query-builder .query-content .filter-field-row > div.col-xs-2 {
+  padding-left: 7px;
+}
+.msgapi .fill .mapstore-query-builder .query-content .filter-field-row > div:not(:last-child) {
+  padding-right: 0px;
+}
+.msgapi .fill .mapstore-query-builder .m-label {
+  margin-top: 2px;
+  height: 32px;
+  line-height: 32px;
+}
 .msgapi .fill .mapstore-query-builder .filter-field-fixed-row {
   height: 52px;
 }
@@ -25649,63 +25266,6 @@ Ported to CodeMirror by Peter Kroon
   margin-right: 60px;
   margin-left: 10px;
 }
-.msgapi .fill .mapstore-conditions-group {
-  position: relative;
-  width: 100%;
-  padding: 8px;
-}
-.msgapi .fill .mapstore-conditions-group .filter-logic-header {
-  padding: 8px 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.msgapi .fill .mapstore-conditions-group .filter-logic-header .filter-logic-header-text {
-  flex: 1;
-  min-width: 300px;
-}
-.msgapi .fill .mapstore-conditions-group .mapstore-conditions-group {
-  padding-left: 20px;
-  padding-right: 0;
-  border-left: 2px solid #000000;
-  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-}
-.msgapi .fill .mapstore-conditions-group .mapstore-conditions-group + .filter-field-row,
-.msgapi .fill .mapstore-conditions-group .mapstore-conditions-group + .mapstore-conditions-group {
-  margin-top: 8px;
-}
-.msgapi .fill .mapstore-conditions-group .filter-field-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.msgapi .fill .mapstore-conditions-group .filter-field-row .filter-field-operator {
-  width: 100px;
-  min-width: 100px;
-}
-.msgapi .fill .mapstore-conditions-group .filter-field-row .filter-field-attribute,
-.msgapi .fill .mapstore-conditions-group .filter-field-row .filter-field-value {
-  flex: 1;
-  min-width: 100px;
-}
-.msgapi .fill .mapstore-conditions-group .filter-field-row > * + * {
-  margin-left: 8px;
-}
-.msgapi .fill .mapstore-conditions-group .filter-field-row + .filter-field-row,
-.msgapi .fill .mapstore-conditions-group .filter-field-row + .mapstore-conditions-group {
-  margin-top: 8px;
-}
-.msgapi .fill .mapstore-conditions-group .query-field {
-  display: flex;
-}
-.msgapi .fill .mapstore-conditions-group .query-field .query-field-value {
-  flex: 1;
-}
-.msgapi .fill .mapstore-conditions-group .query-field .query-field-value + .query-field-value {
-  margin-left: 8px;
-}
 .msgapi .fill .dockpanel-wrapped-component .react-grid-Grid {
   min-height: 100% !important;
 }
@@ -25730,7 +25290,7 @@ Ported to CodeMirror by Peter Kroon
   border: 1px solid #dddddd;
 }
 .msgapi .fill .react-grid-checkbox:checked + .react-grid-checkbox-label:before {
-  background: #2c689c;
+  background: #155481;
   box-shadow: inset 0 0 0 4px #ffffff;
 }
 .msgapi .fill .radio-custom + .radio-custom-label:before,
@@ -25756,12 +25316,12 @@ Ported to CodeMirror by Peter Kroon
   border-bottom: 1px solid #dddddd;
 }
 .msgapi .fill .react-grid-Cell:hover {
-  color: #2c689c;
+  color: #155481;
   background-color: #f2f2f2 !important;
   cursor: pointer;
 }
 .msgapi .fill .react-grid-Cell:focus {
-  outline: 2px solid #2c689c;
+  outline: 2px solid #155481;
 }
 .msgapi .fill .react-grid-Cell.row-selected.editing input {
   background-color: #ffffff !important;
@@ -25774,13 +25334,13 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .react-grid-Row.row-selected,
 .msgapi .fill .react-grid-Row .row-selected,
 .msgapi .fill .react-grid-Row .row-selected .react-grid-Cell {
-  color: #2c689c !important;
+  color: #155481 !important;
   background-color: #f2f2f2 !important;
   font-weight: bold;
 }
 .msgapi .fill .react-grid-Row .row-context-menu .react-grid-Cell,
 .msgapi .fill .react-grid-Row:hover .react-grid-Cell {
-  color: #2c689c;
+  color: #155481;
   background-color: #f2f2f2 !important;
   cursor: pointer;
 }
@@ -25790,7 +25350,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .react-grid-Row:hover .react-grid-Cell.modified {
   background-color: #ffffff !important;
   color: #333333 !important;
-  border-bottom: 2px solid #2c689c;
+  border-bottom: 2px solid #155481;
 }
 .msgapi .fill .react-grid-Row .react-grid-Cell.modified.invalid,
 .msgapi .fill .react-grid-Row .react-grid-Cell.invalid,
@@ -25917,8 +25477,8 @@ Ported to CodeMirror by Peter Kroon
   background: #ffffff;
 }
 .msgapi .fill #container .Select.is-focused:not(.is-open) > .Select-control {
-  border-color: #3782c3;
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(55, 130, 195, 0.1);
+  border-color: #1c71ad;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(28, 113, 173, 0.1);
   background: #ffffff;
 }
 .msgapi .fill #container .Select.has-value.is-clearable.Select--single > .Select-control .Select-value {
@@ -25937,7 +25497,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill #container .Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:hover,
 .msgapi .fill #container .Select.has-value.Select--single > .Select-control .Select-value a.Select-value-label:focus,
 .msgapi .fill #container .Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:focus {
-  color: #3782c3;
+  color: #1c71ad;
   outline: none;
   text-decoration: underline;
 }
@@ -26160,15 +25720,15 @@ Ported to CodeMirror by Peter Kroon
   border-bottom-left-radius: 0;
 }
 .msgapi .fill #container .Select-option.is-selected {
-  background-color: #f7f9fb;
+  background-color: #f6f8fa;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.04);
+  background-color: rgba(21, 84, 129, 0.04);
   color: #333333;
 }
 .msgapi .fill #container .Select-option.is-focused {
-  background-color: #eef3f7;
+  background-color: #ecf1f5;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.08);
+  background-color: rgba(21, 84, 129, 0.08);
   color: #333333;
 }
 .msgapi .fill #container .Select-option.is-disabled {
@@ -26195,13 +25755,13 @@ Ported to CodeMirror by Peter Kroon
   margin-left: 5px;
 }
 .msgapi .fill #container .Select--multi .Select-value {
-  background-color: #eef3f7;
+  background-color: #ecf1f5;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.08);
+  background-color: rgba(21, 84, 129, 0.08);
   border-radius: 0;
-  border: 1px solid #ccdbe7;
+  border: 1px solid #c7d6e1;
   /* Fallback color for IE 8 */
-  border: 1px solid rgba(44, 104, 156, 0.24);
+  border: 1px solid rgba(21, 84, 129, 0.24);
   color: #ffffff;
   display: inline-block;
   font-size: 14px;
@@ -26233,22 +25793,22 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
   border-bottom-left-radius: 0;
   border-top-left-radius: 0;
-  border-right: 1px solid #ccdbe7;
+  border-right: 1px solid #c7d6e1;
   /* Fallback color for IE 8 */
-  border-right: 1px solid rgba(44, 104, 156, 0.24);
+  border-right: 1px solid rgba(21, 84, 129, 0.24);
   padding: 1px 5px 3px;
 }
 .msgapi .fill #container .Select--multi .Select-value-icon:hover,
 .msgapi .fill #container .Select--multi .Select-value-icon:focus {
-  background-color: #dee7ee;
+  background-color: #dbe4ea;
   /* Fallback color for IE 8 */
-  background-color: rgba(38, 90, 136, 0.08);
+  background-color: rgba(17, 70, 107, 0.08);
   color: #f2f2f2;
 }
 .msgapi .fill #container .Select--multi .Select-value-icon:active {
-  background-color: #ccdbe7;
+  background-color: #c7d6e1;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.24);
+  background-color: rgba(21, 84, 129, 0.24);
 }
 .msgapi .fill #container .Select--multi.Select--rtl .Select-value {
   margin-left: 0;
@@ -26256,9 +25816,9 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill #container .Select--multi.Select--rtl .Select-value-icon {
   border-right: none;
-  border-left: 1px solid #ccdbe7;
+  border-left: 1px solid #c7d6e1;
   /* Fallback color for IE 8 */
-  border-left: 1px solid rgba(44, 104, 156, 0.24);
+  border-left: 1px solid rgba(21, 84, 129, 0.24);
 }
 .msgapi .fill #container .Select--multi.is-disabled .Select-value {
   background-color: #fcfcfc;
@@ -26643,7 +26203,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .rules-manager .ms-row-select .react-grid-Cell {
   font-weight: bold;
   background-color: #e6e6e6;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .rules-manager .ms-row-select .react-grid-Cell:focus {
   outline: none;
@@ -26790,7 +26350,7 @@ Ported to CodeMirror by Peter Kroon
   right: 55px;
   top: 10px;
 }
-.msgapi .fill .maps-search .input-group-addon {
+.msgapi .fill .MapSearchBar .input-group-addon {
   background-color: white;
   border-top: 1px solid lightgrey;
   border-bottom: 1px solid lightgrey;
@@ -26815,8 +26375,6 @@ Ported to CodeMirror by Peter Kroon
   overflow: auto;
 }
 .msgapi .fill .search-result-list .search-result {
-  display: flex;
-  flex-direction: row;
   padding: 15px;
   border-bottom: 1px solid lightgray;
   cursor: pointer;
@@ -26830,9 +26388,6 @@ Ported to CodeMirror by Peter Kroon
   display: block;
   vertical-align: middle;
   float: left;
-}
-.msgapi .fill .search-result-list .search-result .search-result-left-container {
-  flex-grow: 1;
 }
 .msgapi .fill .search-result-list .search-result:last-child {
   border-bottom: none;
@@ -26908,11 +26463,6 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .maps-search.MapSearchBar .input-group {
   width: 100%;
-  display: flex;
-}
-.msgapi .fill .maps-search .search-toolbar-options {
-  display: flex;
-  align-items: center;
 }
 @media (min-width: 768px) {
   .msgapi .fill .maps-search.MapSearchBar {
@@ -26930,11 +26480,6 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .user-search.MapSearchBar .input-group {
   width: 100%;
-  display: flex;
-}
-.msgapi .fill .user-search .search-toolbar-options {
-  display: flex;
-  align-items: center;
 }
 .msgapi .fill .MapSearchBar.user-search input {
   z-index: 0;
@@ -26951,25 +26496,25 @@ Ported to CodeMirror by Peter Kroon
   text-overflow: ellipsis;
 }
 .msgapi .fill .rw-widget {
-  color: #2c689c !important;
+  color: #155481 !important;
   background-color: #ffffff !important;
   border: 1px solid #dddddd !important;
 }
 .msgapi .fill .rw-list-option:hover {
   color: #ffffff !important;
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill .rw-list-option:focus {
   outline: none;
 }
 .msgapi .fill .rw-state-focus {
-  color: #2c689c !important;
+  color: #155481 !important;
   background-color: transparent !important;
-  border: 1px solid #2c689c !important;
+  border: 1px solid #155481 !important;
   outline: none;
 }
 .msgapi .fill .rw-i {
-  color: #2c689c !important;
+  color: #155481 !important;
 }
 .msgapi .fill .rw-placeholder {
   color: #333333 !important;
@@ -26979,7 +26524,7 @@ Ported to CodeMirror by Peter Kroon
   color: #333333;
 }
 .msgapi .fill .rw-filter-input {
-  border: 1px solid #2c689c !important;
+  border: 1px solid #155481 !important;
 }
 .msgapi .fill .rw-select {
   border-left: 1px solid #dddddd !important;
@@ -27004,12 +26549,12 @@ Ported to CodeMirror by Peter Kroon
   float: right;
   bottom: 2em;
   right: 2.3em;
-  color: #2c689c !important;
+  color: #155481 !important;
   cursor: pointer;
 }
 .msgapi .fill .rw-combo-clearable.disabled .rw-combo-clear {
   cursor: not-allowed;
-  color: rgba(44, 104, 156, 0.7) !important;
+  color: rgba(21, 84, 129, 0.7) !important;
 }
 .msgapi .fill select.form-control {
   border: 1px solid #dddddd;
@@ -27113,63 +26658,6 @@ Ported to CodeMirror by Peter Kroon
   right: 10px;
   top: 4px;
   border-radius: 6px;
-}
-.msgapi .fill #bookmark-tools button {
-  background-color: unset;
-  color: #078aa3;
-}
-.msgapi .fill #bookmark-tools button:hover {
-  background-color: #e6e6e6;
-}
-.msgapi .fill #bookmark-list .search-bookmark-name {
-  padding-top: 10px;
-  margin-left: -5px;
-  font-weight: 600;
-}
-.msgapi .fill #bookmark-list .bookmark-card {
-  max-height: 400px;
-  scrollbar-width: thin;
-  overflow: auto;
-  padding: 5px;
-}
-.msgapi .fill .bookmark-card::-webkit-scrollbar {
-  width: 8px;
-  background: #fff;
-}
-.msgapi .fill .bookmark-card::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
-}
-.msgapi .fill #add-new-bookmark .form-control {
-  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-}
-.msgapi .fill #add-new-bookmark .bookmark-title {
-  font-family: inherit;
-}
-.msgapi .fill #add-new-bookmark .bbox-field-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.msgapi .fill #add-new-bookmark .field-top-bottom {
-  width: 100%;
-  padding: 4px;
-  max-width: 200px;
-}
-.msgapi .fill #add-new-bookmark .field-center-group {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  flex-wrap: wrap;
-}
-.msgapi .fill #add-new-bookmark .field-left-right {
-  flex: 1 1 0%;
-  padding: 4px;
-  max-width: 200px;
-  min-width: 200px;
-}
-.msgapi .fill #bookmark-panel-dialog {
-  z-index: 1000 !important;
 }
 .msgapi .fill #mapstore-settings {
   background-color: #ffffff !important;
@@ -27411,7 +26899,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .noUi-target {
   border-color: none;
   cursor: pointer;
-  background-color: #3782c3;
+  background-color: #1c71ad;
 }
 .msgapi .fill .noUi-target.noUi-horizontal {
   height: 4px;
@@ -27432,12 +26920,12 @@ Ported to CodeMirror by Peter Kroon
   -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
-  background-color: #2c689c;
+  background-color: #155481;
   cursor: pointer;
   border-radius: 0;
 }
 .msgapi .fill .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:hover {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .fill .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:before,
 .msgapi .fill .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:after {
@@ -27456,7 +26944,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle .noUi-tooltip:hover {
-  background-color: #204d74;
+  background-color: #0e3755;
 }
 .msgapi .fill .noUi-target.noUi-horizontal .noUi-pips.noUi-pips-horizontal .noUi-value {
   text-align: right;
@@ -27476,11 +26964,11 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .noUi-target[disabled="true"].noUi-horizontal .noUi-base .noUi-origin .noUi-handle .noUi-tooltip:hover {
   cursor: not-allowed;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .noUi-target[disabled="true"].noUi-horizontal .noUi-base .noUi-origin .noUi-handle:hover {
   cursor: not-allowed;
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .mapstore-slider.with-tooltip .noUi-target.noUi-horizontal {
   padding: 0 13px;
@@ -27520,7 +27008,7 @@ Ported to CodeMirror by Peter Kroon
   font-size: 10px;
   border: none;
   border-radius: 0;
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   height: 15px;
   width: 36px;
@@ -27538,7 +27026,7 @@ Ported to CodeMirror by Peter Kroon
   margin-top: 8px;
   padding: 4px;
   box-sizing: border-box;
-  border: 1px dashed #2c689c;
+  border: 1px dashed #155481;
   background-color: #ffffff;
 }
 .msgapi .fill .msSideGrid .ms-drag-over.ms-sm {
@@ -27663,14 +27151,14 @@ Ported to CodeMirror by Peter Kroon
   flex-direction: column;
 }
 .msgapi .fill .mapstore-side-card.selected {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
 .msgapi .fill .mapstore-side-card.selected .mapstore-side-glyph {
-  color: #2c689c;
+  color: #155481;
   background-color: #ffffff;
 }
 .msgapi .fill .mapstore-side-card.selected .mapstore-side-card-tool > .glyphicon {
@@ -27766,7 +27254,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill .ms-square-card.ms-selected {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
@@ -27790,7 +27278,7 @@ Ported to CodeMirror by Peter Kroon
 }
 @media (min-width: 768px) {
   .msgapi .fill .share-win {
-    width: 500px;
+    width: 400px;
   }
 }
 .msgapi .fill .share-win .input-link .input-link-head {
@@ -27840,16 +27328,6 @@ Ported to CodeMirror by Peter Kroon
   -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  overflow-x: auto;
-  max-height: 210px;
-  scrollbar-width: thin;
-}
-.msgapi .fill .share-win .mapstore-switch-panel::-webkit-scrollbar {
-  width: 8px;
-  background: #fff;
-}
-.msgapi .fill .share-win .mapstore-switch-panel::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
 }
 .msgapi .fill .ms2-stepper .footer-button-toolbar-div {
   display: flex;
@@ -27988,7 +27466,7 @@ Ported to CodeMirror by Peter Kroon
   color: #ffffff;
 }
 .msgapi .fill ul.CodeMirror-hints li.CodeMirror-hint.CodeMirror-hint-active {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .ms-style-template-title {
   margin: 0 16px;
@@ -28169,7 +27647,7 @@ Ported to CodeMirror by Peter Kroon
   background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
 }
 .msgapi .fill .ms-color-picker .ms-color-picker-swatch {
-  position: static;
+  position: relative;
   width: 100%;
   height: 100%;
   text-align: center;
@@ -28225,233 +27703,9 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .ms-color-selector .ms-color-picker .ms-color-picker-swatch > span {
   position: absolute;
   right: 0;
-  top: 0;
   padding: 4px;
   margin: 0;
   font-size: 14px;
-}
-.msgapi .fill .ms-style-editor-switch {
-  text-align: right;
-  padding: 4px;
-  border-bottom: 1px solid #dddddd;
-}
-.msgapi .fill .ms-style-editor-switch .btn-group {
-  border: 1px solid #dddddd;
-}
-.msgapi .fill .ms-style-editor-switch .btn-group span {
-  display: inline-flex;
-  align-items: center;
-}
-.msgapi .fill .ms-style-rules-editor {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 8px;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rules-editor-head {
-  display: flex;
-  flex-wrap: wrap;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rules-editor-head .ms-style-rules-editor-left {
-  flex: 1;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rules-editor-head .ms-style-rules-editor-left .btn-group > span {
-  display: flex;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rules-editor-head .ms-style-rules-editor-right {
-  text-align: right;
-  flex: 1;
-}
-.msgapi .fill .ms-style-rules-editor ul,
-.msgapi .fill .ms-style-rules-editor li {
-  padding: 0;
-  margin: 0;
-  list-style-type: none;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rule-head {
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rule-head .ms-style-rule-head-info,
-.msgapi .fill .ms-style-rules-editor .ms-style-rule-head .form-group {
-  flex: 1;
-  margin-right: 8px;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rule-head-tools {
-  display: flex;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rules-editor-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rule {
-  padding: 8px;
-  -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rule + .ms-style-rule {
-  margin-top: 8px;
-}
-.msgapi .fill .ms-style-rules-editor .ms-style-rule:last-child {
-  margin-bottom: 8px;
-}
-.msgapi .fill .ms-style-rules-editor .ms-symbolizer-info {
-  padding: 4px;
-  display: flex;
-  align-items: center;
-}
-.msgapi .fill .ms-style-rules-editor .ms-symbolizer-info > *:not(.ms-symbolizer-tools) {
-  flex: 1;
-}
-.msgapi .fill .ms-style-rules-editor .ms-symbolizer {
-  padding: 8px;
-  border: 1px solid #dddddd;
-}
-.msgapi .fill .ms-style-rules-editor .ms-symbolizer + .ms-symbolizer {
-  border-top: none;
-}
-.msgapi .fill .ms-style-rules-editor .form-group {
-  margin: 0;
-}
-.msgapi .fill .ms-symbolizer-field {
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  min-height: 40px;
-}
-.msgapi .fill .ms-symbolizer-field .form-group {
-  margin: 0;
-}
-.msgapi .fill .ms-symbolizer-field > .ms-symbolizer-value,
-.msgapi .fill .ms-symbolizer-field > .ms-symbolizer-label {
-  flex: 1;
-}
-.msgapi .fill .ms-symbolizer-field .ms-symbolizer-value {
-  display: flex;
-  align-items: center;
-}
-.msgapi .fill .ms-symbolizer-field .ms-symbolizer-value > *:not(.ms-symbolizer-tools) {
-  flex: 1;
-}
-.msgapi .fill .ms-symbolizer-field .ms-symbolizer-value .ms-popover {
-  text-align: center;
-}
-.msgapi .fill .ms-symbolizer-field .ms-symbolizer-value .btn-group span {
-  display: flex;
-  flex-wrap: wrap;
-}
-.msgapi .fill .ms-symbolizer-field .ms-symbolizer-value .btn-group span > .btn {
-  flex: 1;
-}
-.msgapi .fill .ms-symbolizer-field .ms-symbolizer-value.ms-symbolizer-value-invalid {
-  outline: 1px solid #af0900;
-}
-.msgapi .fill .ms-symbolizer-field .ms-symbolizer-value.ms-symbolizer-value-disabled {
-  opacity: 0.4;
-}
-.msgapi .fill .ms-symbolizer-field-divider {
-  border-bottom: 1px solid #dddddd;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-}
-.msgapi .fill .ms-symbolizer {
-  padding: 8px;
-  margin: 0;
-  list-style-type: none;
-  background-color: #ffffff;
-}
-.msgapi .fill .ms-symbolizer .Select-menu-outer {
-  z-index: 2 !important;
-}
-.msgapi .fill .ms-mark-list {
-  background-color: #ffffff;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-}
-.msgapi .fill .ms-mark-list ul,
-.msgapi .fill .ms-mark-list li {
-  padding: 0;
-  margin: 0;
-  list-style-type: none;
-}
-.msgapi .fill .ms-mark-list ul {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.msgapi .fill .ms-mark-list .ms-mark-preview {
-  margin: 4px;
-}
-.msgapi .fill .ms-mark-preview {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-}
-.msgapi .fill .ms-popover-overlay .ms-style-rule-scale {
-  background-color: #ffffff;
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  width: 350px;
-  overflow: visible;
-  padding: 8px;
-}
-.msgapi .fill .ms-popover-overlay .ms-style-rule-filter {
-  background-color: #ffffff;
-  font-size: 12px;
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  width: 450px;
-  height: 300px;
-  overflow: auto;
-}
-.msgapi .fill .ms-popover-overlay .ms-style-rule-filter * {
-  font-size: 12px;
-}
-.msgapi .fill .ms-popover-overlay .ms-mark-list {
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  width: 256px;
-  max-height: 256px;
-}
-.msgapi .fill .ms-classification-popover {
-  width: 400px;
-  height: 300px;
-  padding: 8px;
-  background-color: #ffffff;
-  -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
-  overflow: auto;
-}
-.msgapi .fill .thema-classes-editor {
-  padding: 8px 0;
-}
-.msgapi .fill .thema-classes-editor .form-group {
-  display: flex;
-  margin: 0;
-  align-items: center;
-}
-.msgapi .fill .thema-classes-editor .form-group > * {
-  flex: 1;
-}
-.msgapi .fill .thema-classes-editor .form-group > * + * {
-  margin-left: 4px;
-}
-.msgapi .fill .thema-classes-editor .form-group + .form-group {
-  margin-top: 4px;
 }
 .msgapi .fill .mapstore-switch-panel .panel {
   margin: 0;
@@ -28483,7 +27737,7 @@ Ported to CodeMirror by Peter Kroon
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #2c689c;
+  background-color: #155481;
   opacity: 0.4;
   -webkit-transition: 0.4s;
   transition: 0.4s;
@@ -28503,7 +27757,7 @@ Ported to CodeMirror by Peter Kroon
   display: none;
 }
 .msgapi .fill .mapstore-switch-btn input:checked + .m-slider {
-  background-color: #2c689c;
+  background-color: #155481;
   opacity: 1.0;
 }
 .msgapi .fill .mapstore-switch-btn input:checked + .m-slider:before {
@@ -28850,10 +28104,10 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .mapstore-toc-head .toc-inline-loader {
   margin: 8px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-right: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-left: 1.6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -28876,7 +28130,7 @@ Ported to CodeMirror by Peter Kroon
   vertical-align: middle;
   width: 270px;
   height: 36px;
-  color: #2c689c;
+  color: #155481;
   font-weight: bold;
 }
 .msgapi .fill .mapstore-toc-head .mapstore-toc-head-title-container .mapstore-toc-head-title .glyphicon {
@@ -29022,10 +28276,10 @@ Ported to CodeMirror by Peter Kroon
   margin: 0 5px;
 }
 .msgapi .fill .toc-default-group .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .toc-default-group .glyphicon:hover {
-  color: #204d74;
+  color: #0e3755;
 }
 .msgapi .fill .toc-default-group .toc-status-icon,
 .msgapi .fill .toc-default-group .visibility-check,
@@ -29067,7 +28321,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .toc-default-group .toc-default-group-head .toc-group-title:hover {
   font-weight: bold;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .toc-default-group .toc-group-children {
   margin-left: 8px;
@@ -29077,7 +28331,7 @@ Ported to CodeMirror by Peter Kroon
   opacity: 0.6;
 }
 .msgapi .fill .toc-default-group.selected .toc-default-group-head {
-  background-color: #49657e;
+  background-color: #2c506b;
   color: #ffffff;
 }
 .msgapi .fill .toc-default-group.selected .toc-default-group-head .glyphicon {
@@ -29111,7 +28365,7 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12), 2px -2px 6px rgba(0, 0, 0, 0.06);
 }
 .msgapi .fill .toc-default-group .toc-default-layer .noUi-target {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .toc-default-group .toc-default-layer .noUi-target.noUi-horizontal {
   margin: 0;
@@ -29134,16 +28388,16 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .toc-default-group .toc-default-layer .toc-default-layer-head .toc-title:hover {
   font-weight: bold;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .toc-default-group .toc-default-layer .toc-default-layer-head .toc-inline-loader {
   float: right;
   margin: 0 10px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-right: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1.6px solid rgba(21, 84, 129, 0.2);
+  border-left: 1.6px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -29191,7 +28445,7 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
 .msgapi .fill .toc-default-group .toc-default-layer.selected .toc-default-layer-head {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill .toc-default-group .toc-default-layer.selected .toc-default-layer-head .glyphicon {
@@ -29244,16 +28498,16 @@ Ported to CodeMirror by Peter Kroon
   color: #af0900;
 }
 .msgapi .fill .toc-default-group .toc-default-layer.layer-error.selected {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .toc-default-group .toc-default-layer.layer-error.selected .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .toc-default-group .toc-default-layer.layer-error.selected .toc-error {
   color: #af0900;
 }
 .msgapi .fill .toc-default-group .toc-default-layer.layer-error.selected .toc-title {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .toc-default-group .toc-default-layer.layer-error.selected .toc-default-layer-head {
   box-sizing: border-box;
@@ -29285,7 +28539,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .is-dragging.toc-default-layer,
 .msgapi .fill .is-dragging.toc-default-layer.selected {
   background-color: #ffffff !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   height: 36px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -29294,11 +28548,11 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .is-dragging.toc-default-layer .toc-default-layer-head,
 .msgapi .fill .is-dragging.toc-default-layer.selected .toc-default-layer-head {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .is-dragging.toc-default-layer .toc-default-layer-head .glyphicon,
 .msgapi .fill .is-dragging.toc-default-layer.selected .toc-default-layer-head .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .is-dragging.toc-default-layer .toc-default-layer-head .toc-title,
 .msgapi .fill .is-dragging.toc-default-layer.selected .toc-default-layer-head .toc-title {
@@ -29311,7 +28565,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .is-placeholder.toc-default-layer,
 .msgapi .fill .is-placeholder.toc-default-layer.selected {
   background-color: transparent !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   height: 36px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -29331,7 +28585,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .is-dragging.toc-default-group,
 .msgapi .fill .is-dragging.toc-default-group.selected {
   background-color: #ffffff !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   height: 36px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -29340,12 +28594,12 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .is-dragging.toc-default-group .toc-default-group-head,
 .msgapi .fill .is-dragging.toc-default-group.selected .toc-default-group-head {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #155481;
   margin-top: 0;
 }
 .msgapi .fill .is-dragging.toc-default-group .toc-default-group-head .glyphicon,
 .msgapi .fill .is-dragging.toc-default-group.selected .toc-default-group-head .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .is-dragging.toc-default-group .toc-default-group-head .toc-group-title,
 .msgapi .fill .is-dragging.toc-default-group.selected .toc-default-group-head .toc-group-title {
@@ -29359,14 +28613,14 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .is-placeholder.toc-default-group.selected {
   background-color: #ffffff !important;
   border: none !important;
-  border-bottom: 1px solid #2c689c !important;
+  border-bottom: 1px solid #155481 !important;
   height: 41px !important;
   overflow: hidden;
   border-radius: 0 !important;
 }
 .msgapi .fill .is-placeholder.toc-default-group .toc-default-group-head,
 .msgapi .fill .is-placeholder.toc-default-group.selected .toc-default-group-head {
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #155481 !important;
   margin: 2px 0;
 }
 .msgapi .fill .is-placeholder.toc-default-group .toc-default-group-head *,
@@ -29424,7 +28678,7 @@ Ported to CodeMirror by Peter Kroon
   font-style: italic;
 }
 .msgapi .fill .compact-legend-grid .noUi-target {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .compact-legend-grid .noUi-target.noUi-horizontal {
   margin: 0;
@@ -29467,7 +28721,7 @@ Ported to CodeMirror by Peter Kroon
   align-items: center;
 }
 .msgapi .fill .ms-legend-action .panel-heading .panel-title .row .ms-legend-header > .glyphicon {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .ms-legend-action .panel-heading .panel-title .row .ms-legend-header > div {
   flex: 1;
@@ -29534,7 +28788,7 @@ Ported to CodeMirror by Peter Kroon
   font-style: italic;
 }
 .msgapi .fill .ms-legend-action .panel-collapse .panel-body .msSideGrid .noUi-target {
-  background-color: #2c689c;
+  background-color: #155481;
 }
 .msgapi .fill .ms-legend-action .panel-collapse .panel-body .msSideGrid .noUi-target.noUi-horizontal {
   margin: 0;
@@ -29663,6 +28917,20 @@ Ported to CodeMirror by Peter Kroon
   overflow-y: visible;
   z-index: 10;
 }
+.msgapi .fill .thematic_layer .thema-classes-editor {
+  margin-left: 15px;
+  margin-right: 15px;
+}
+.msgapi .fill .thematic_layer .thema-classes-editor.loading:after {
+  content: "";
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  position: absolute;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 999;
+}
 .msgapi .fill .thematic_layer .mapstore-switch-panel .col-xs-12 {
   padding-left: 0;
   padding-right: 0;
@@ -29693,12 +28961,12 @@ Ported to CodeMirror by Peter Kroon
   z-index: 4000 !important;
 }
 .msgapi .fill .joyride-tooltip__button--primary {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill .joyride-tooltip__button--primary:active,
 .msgapi .fill .joyride-tooltip__button--primary:focus,
 .msgapi .fill .joyride-tooltip__button--primary:hover {
-  background-color: #2c689c !important;
+  background-color: #155481 !important;
 }
 .msgapi .fill .draggableHandle {
   cursor: -webkit-grab;
@@ -29764,7 +29032,7 @@ Ported to CodeMirror by Peter Kroon
   font-size: 22px;
   font-weight: bold;
   border-bottom: 1px solid #dddddd;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .widget-container .mapstore-widget-card .mapstore-widget-header .widget-title {
   text-overflow: ellipsis;
@@ -29776,7 +29044,7 @@ Ported to CodeMirror by Peter Kroon
   position: absolute;
   left: 22px;
   font-size: 14px;
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .widget-container .mapstore-widget-card .mapstore-widget-header .widget-icons {
   text-align: left;
@@ -29798,7 +29066,7 @@ Ported to CodeMirror by Peter Kroon
   padding-right: 4px;
 }
 .msgapi .fill .widget-container .mapstore-widget-card .mapstore-widget-header .widget-icons .btn-group button .glyphicon.active::before {
-  color: #2c689c;
+  color: #155481;
   transform: rotate(45deg);
   display: inline-block;
 }
@@ -29821,7 +29089,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .widget-container .mapstore-widget-card .mapstore-widget-options {
   position: absolute;
   font-size: 18px;
-  color: #2c689c;
+  color: #155481;
   right: 7px;
   top: 10px;
 }
@@ -30321,7 +29589,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover input,
 .msgapi .fill .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover select,
 .msgapi .fill .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover .col-xs-5 span {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .ms-dragg.ms-below .coordinateRow,
 .msgapi .fill .ms-dragg.ms-above .coordinateRow {
@@ -30337,7 +29605,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .ms-dragg.ms-above .coordinateRow:hover select,
 .msgapi .fill .ms-dragg.ms-below .coordinateRow:hover .col-xs-5 span,
 .msgapi .fill .ms-dragg.ms-above .coordinateRow:hover .col-xs-5 span {
-  color: #2c689c;
+  color: #155481;
 }
 .msgapi .fill .mapstore-identify-viewer .mapstore-annotations-info-viewer .mapstore-annotations-info-viewer-buttons {
   -webkit-box-shadow: none;
@@ -30389,7 +29657,7 @@ Ported to CodeMirror by Peter Kroon
   box-sizing: border-box;
 }
 .msgapi .fill .ms-over .coordinateRow {
-  border: 1px dashed #2c689c;
+  border: 1px dashed #155481;
 }
 .msgapi .fill .ms-over.ms-above .coordinateRow {
   border-bottom-width: 2px;
@@ -30867,7 +30135,7 @@ Ported to CodeMirror by Peter Kroon
   margin-right: 0;
 }
 .msgapi .fill .ms-resizable-modal > .modal-content > .modal-body {
-  flex: 1;
+  flex: 1 1 auto;
   padding: 0;
   display: flex;
   height: inherit;
@@ -31045,7 +30313,7 @@ Ported to CodeMirror by Peter Kroon
   float: right;
 }
 .msgapi .fill .details-panel .panel-heading {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill .details-panel div div div.ms2-border-layout-body {
@@ -31535,7 +30803,7 @@ Ported to CodeMirror by Peter Kroon
   z-index: 10;
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group.selected {
-  background-color: rgba(44, 104, 156, 0.05);
+  background-color: rgba(21, 84, 129, 0.05);
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group.loading .vis-item.vis-dot {
   animation: timeline-loading 0.3s linear infinite;
@@ -31548,18 +30816,18 @@ Ported to CodeMirror by Peter Kroon
   display: none;
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-dot {
-  border-color: rgba(44, 104, 156, 0.5);
+  border-color: rgba(21, 84, 129, 0.5);
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range {
-  background-color: rgba(44, 104, 156, 0.5);
+  background-color: rgba(21, 84, 129, 0.5);
   background-color: transparent;
   border-color: transparent;
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range .vis-item-content {
   padding: 0 5px;
   margin: 5px 0;
-  background-color: rgba(44, 104, 156, 0.5);
-  border-color: #204d74;
+  background-color: rgba(21, 84, 129, 0.5);
+  border-color: #0e3755;
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range.histogram-item {
   background: none;
@@ -31582,8 +30850,8 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range.histogram-item .vis-item-overflow .vis-item-content .histogram-box {
   width: 100%;
   position: absolute;
-  background-color: rgba(44, 104, 156, 0.5);
-  border-color: #204d74;
+  background-color: rgba(21, 84, 129, 0.5);
+  border-color: #0e3755;
   bottom: 0;
   left: 0;
   right: 0;
@@ -31610,7 +30878,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label.selected {
-  background-color: #2c689c;
+  background-color: #155481;
   color: #ffffff;
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label.selected .vis-inner .timeline-layer-label-container .timeline-layer-icon .timeline-spinner {
@@ -31642,10 +30910,10 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .fill .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label .vis-inner .timeline-layer-label-container .timeline-layer-icon .timeline-spinner {
   text-indent: -9999em;
-  border-top: 1px solid rgba(44, 104, 156, 0.2);
-  border-right: 1px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1px solid rgba(44, 104, 156, 0.2);
-  border-left: 1px solid #2c689c;
+  border-top: 1px solid rgba(21, 84, 129, 0.2);
+  border-right: 1px solid rgba(21, 84, 129, 0.2);
+  border-bottom: 1px solid rgba(21, 84, 129, 0.2);
+  border-left: 1px solid #155481;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -32099,7 +31367,7 @@ Ported to CodeMirror by Peter Kroon
   left: 50%;
   transform: translateX(-50%);
   display: block;
-  color: #2c689c;
+  color: #155481;
   content: "\F108";
 }
 .msgapi .fill .ms-map-popup {
@@ -32250,6 +31518,15 @@ Ported to CodeMirror by Peter Kroon
   .msgapi #mapstore-about {
     width: 98%;
   }
+}
+.msgapi .ms-side-panel.ms-absolute-dock > div {
+  position: absolute !important;
+  height: 50% !important;
+  pointer-events: none;
+}
+.msgapi .ms-side-panel.ms-absolute-dock > div > div {
+  pointer-events: auto;
+  position: absolute !important;
 }
 .msgapi #map {
   bottom: 0px !important;
