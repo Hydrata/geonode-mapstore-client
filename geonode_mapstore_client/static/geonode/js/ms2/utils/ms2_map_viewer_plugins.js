@@ -6,6 +6,7 @@ var MS2_MAP_PLUGINS = {
 		{
 			"name": "Identify",
 			"cfg": {
+				"size": 400,
 				"viewerOptions": {
 					"container": "{context.ReactSwipe}"
 				}
