@@ -26,7 +26,7 @@
     const ms2_config = {{ ms2_config|default:"false"|safe }};
     document.addEventListener('DOMContentLoaded', function () {
         $('#embedded_map').addClass('ms2');
-        $('#embedded_map').html('<div class="_ms2_init_spinner _ms2_init_center"><div></div> <div class="_ms2_init_text _ms2_init_center">Loading SWAMM</div>');
+        $('#embedded_map').html('<div class="_ms2_init_spinner _ms2_init_center"><div></div> <div class="_ms2_init_text _ms2_init_center">Loading Project</div>');
         MS2_PLUGINS = MS2_BASE_PLUGINS;
         MS2_PLUGINS["mobile"] = MS2_PLUGINS.desktop;
         let localConfig = defaultConfig.localConfig;
