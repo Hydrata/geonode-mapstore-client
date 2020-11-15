@@ -32,7 +32,7 @@
             "access_token": accessToken
         }
         MS2_PLUGINS = window.squashMS2PlugCfg(MS2_BASE_PLUGINS, MS2_MAP_PLUGINS, MS2_EDIT_PLUGINS);
-        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, ["Save", "SaveAs","WidgetsBuilder","Widgets"]);
+        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, ["Save", "SaveAs","WidgetsBuilder","Widgets", "Swipe", "Locate"]);
         MS2_PLUGINS["mobile"] = MS2_PLUGINS.desktop;
         let localConfig = defaultConfig.localConfig;
         initMapstore2Api('edit', function(MapStore2, options) {

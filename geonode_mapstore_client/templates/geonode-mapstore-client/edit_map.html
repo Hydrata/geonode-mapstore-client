@@ -98,6 +98,15 @@
                     mapId: ms2_config.map && ms2_config.map.info && ms2_config.map.info.id
                 });
             }
+            {% block additional_ms_actions %}
+            MapStore2.triggerAction({
+                type: "GEONODE:SET_RESOURCE_PERMISSIONS",
+                permissions: {
+                    canEdit: canEdit,
+                    canView: canView
+                }
+            });
+            {% endblock %}
         });
     });
 </script>

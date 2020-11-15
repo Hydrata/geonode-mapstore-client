@@ -111,6 +111,9 @@
     localStorage.setItem("showPopoverSync", false);
     const accessToken = "{{ ACCESS_TOKEN }}";
     const user = {{ USER|default:"false" }};
+    const permsList = {{ perms_list|default:'[]' }};
+    const canEdit = permsList.indexOf('change_resourcebase') !== -1;
+    const canView = permsList.indexOf('view_resourcebase') !== -1;
 </script>
 
 {% endautoescape %}

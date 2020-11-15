@@ -6,32 +6,34 @@
  * LICENSE file in the root directory of this source tree.
  */
 const Rx = require("rxjs");
-const {_setThumbnail, updateMapLayoutEpic} = require("./epics");
-module.exports = {
+const {_setThumbnail, updateMapLayoutEpic} = require("@js/epics");
+
+const { extendPluginsDefinition } = require("@extend/jsapi/previewPlugins");
+
+const pluginsDefinition = {
     plugins: {
-        MapPlugin: require('../MapStore2/web/client/plugins/Map'),
-        IdentifyPlugin: require('../MapStore2/web/client/plugins/Identify'),
-        ToolbarPlugin: require('../MapStore2/web/client/plugins/Toolbar'),
-        ZoomAllPlugin: require('../MapStore2/web/client/plugins/ZoomAll'),
-        MapLoadingPlugin: require('../MapStore2/web/client/plugins/MapLoading'),
-        OmniBarPlugin: require('../MapStore2/web/client/plugins/OmniBar'),
-        BackgroundSelectorPlugin: require('../MapStore2/web/client/plugins/BackgroundSelector'),
-        FullScreenPlugin: require('../MapStore2/web/client/plugins/FullScreen'),
-        ZoomInPlugin: require('../MapStore2/web/client/plugins/ZoomIn'),
-        ZoomOutPlugin: require('../MapStore2/web/client/plugins/ZoomOut'),
-        ExpanderPlugin: require('../MapStore2/web/client/plugins/Expander'),
-        BurgerMenuPlugin: require('../MapStore2/web/client/plugins/BurgerMenu'),
-        ScaleBoxPlugin: require('../MapStore2/web/client/plugins/ScaleBox'),
-        MapFooterPlugin: require('../MapStore2/web/client/plugins/MapFooter'),
-        PrintPlugin: require('../MapStore2/web/client/plugins/Print'),
-        TimelinePlugin: require('../MapStore2/web/client/plugins/Timeline'),
-        PlaybackPlugin: require('../MapStore2/web/client/plugins/Playback'),
+        MapPlugin: require('@mapstore/framework/plugins/Map').default,
+        IdentifyPlugin: require('@mapstore/framework/plugins/Identify'),
+        ToolbarPlugin: require('@mapstore/framework/plugins/Toolbar'),
+        ZoomAllPlugin: require('@mapstore/framework/plugins/ZoomAll'),
+        MapLoadingPlugin: require('@mapstore/framework/plugins/MapLoading'),
+        OmniBarPlugin: require('@mapstore/framework/plugins/OmniBar'),
+        BackgroundSelectorPlugin: require('@mapstore/framework/plugins/BackgroundSelector').default,
+        FullScreenPlugin: require('@mapstore/framework/plugins/FullScreen'),
+        ZoomInPlugin: require('@mapstore/framework/plugins/ZoomIn'),
+        ZoomOutPlugin: require('@mapstore/framework/plugins/ZoomOut'),
+        ExpanderPlugin: require('@mapstore/framework/plugins/Expander'),
+        BurgerMenuPlugin: require('@mapstore/framework/plugins/BurgerMenu'),
+        ScaleBoxPlugin: require('@mapstore/framework/plugins/ScaleBox'),
+        MapFooterPlugin: require('@mapstore/framework/plugins/MapFooter'),
+        PrintPlugin: require('@mapstore/framework/plugins/Print'),
+        TimelinePlugin: require('@mapstore/framework/plugins/Timeline'),
+        PlaybackPlugin: require('@mapstore/framework/plugins/Playback'),
         AddReducersAndEpics: {
             reducers: {
-                security: require('../MapStore2/web/client/reducers/security'),
-                maps: require('../MapStore2/web/client/reducers/maps'),
-                currentMap: require('../MapStore2/web/client/reducers/currentMap'),
-                maplayout: require('../MapStore2/web/client/reducers/maplayout')
+                security: require('@mapstore/framework/reducers/security').default,
+                maps: require('@mapstore/framework/reducers/maps').default,
+                maplayout: require('@mapstore/framework/reducers/maplayout').default
             },
             epics: {
                 _setThumbnail,
@@ -42,6 +44,12 @@ module.exports = {
     },
     requires: {
         ReactSwipe: require('react-swipeable-views').default,
-        SwipeHeader: require('../MapStore2/web/client/components/data/identify/SwipeHeader')
+        SwipeHeader: require('@mapstore/framework/components/data/identify/SwipeHeader')
     }
 };
+
+const extendedPluginsDefinition = extendPluginsDefinition
+    ? extendPluginsDefinition(pluginsDefinition)
+    : pluginsDefinition;
+
+module.exports = extendedPluginsDefinition;

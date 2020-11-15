@@ -7,19 +7,20 @@
  */
 require('react-widgets/dist/css/react-widgets.css');
 const assign = require("object-assign");
-const ConfigUtils = require('../MapStore2/web/client/utils/ConfigUtils');
-const LocaleUtils = require('../MapStore2/web/client/utils/LocaleUtils');
-const LayersUtils = require('../MapStore2/web/client/utils/LayersUtils');
+const ConfigUtils = require('@mapstore/framework/utils/ConfigUtils');
+const LocaleUtils = require('@mapstore/framework/utils/LocaleUtils');
+const LayersUtils = require('@mapstore/framework/utils/LayersUtils');
 LayersUtils.setRegGeoserverRule(/\/[\w- ]*geoserver[\w- ]*\/|\/[\w- ]*gs[\w- ]*\//);
 const {keyBy, values} = require('lodash');
+
+require('react-select/dist/react-select.css');
 /**
  * Add custom (overriding) translations with:
  *
  * ConfigUtils.setConfigProp('translationsPath', ['./MapStore2/web/client/translations', './translations']);
  */
-ConfigUtils.setConfigProp('translationsPath', ['../MapStore2/web/client', './'] );
 ConfigUtils.setConfigProp('themePrefix', 'msgapi');
-const Persistence = require("../MapStore2/web/client/api/persistence");
+const Persistence = require("@mapstore/framework/api/persistence");
 Persistence.addApi("geonode", require("./api/geonode"));
 Persistence.setApi("geonode");
 
@@ -50,21 +51,23 @@ Persistence.setApi("geonode");
 
 const getScriptPath = function() {
     const scriptEl = document.getElementById('ms2-api');
-    return scriptEl && scriptEl.src && scriptEl.src.substring(0, scriptEl.src.lastIndexOf('/')) || 'https://dev.mapstore2.geo-solutions.it/mapstore/dist';
+    return scriptEl && scriptEl.src && scriptEl.src.substring(0, scriptEl.src.lastIndexOf('/')) || '';
 };
 
+const translationsPath = __GEONODE_PROJECT_CONFIG__.translationsPath || getScriptPath() + '/../ms-translations';
+
 // Set X-CSRFToken in axios;
-const axios = require('../MapStore2/web/client/libs/ajax');
+const axios = require('@mapstore/framework/libs/ajax');
 axios.defaults.xsrfHeaderName = "X-CSRFToken";
 axios.defaults.xsrfCookieName = "csrftoken";
 
 const createMapStore2Api = function(plugins) {
-    const MapStore2 = require('../MapStore2/web/client/jsapi/MapStore2').withPlugins(plugins, {
+    const MapStore2 = require('@mapstore/framework/jsapi/MapStore2').withPlugins(plugins, {
         theme: {
             path: getScriptPath() + '/themes'
         },
         noLocalConfig: true,
-        translations: getScriptPath() + '/../MapStore2/web/client'
+        translations: translationsPath
     });
     // window.MapStore2 = MapStore2;
     return assign({}, MapStore2, { create: function(container, opts) {

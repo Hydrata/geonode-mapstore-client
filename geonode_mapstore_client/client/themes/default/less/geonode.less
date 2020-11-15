@@ -72,6 +72,13 @@
     }
 }
 
+// hide di edit, remove and add buttons
+// because these functionalities are not supported on the geonode catalog
+.background-preview-button > .btn-group,
+.background-tool-buttons {
+    display: none;
+}
+
 .ms-side-panel {
     &.ms-absolute-dock {
         > div {

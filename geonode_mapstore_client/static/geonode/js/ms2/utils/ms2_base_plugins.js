@@ -15,6 +15,11 @@ var MS2_BASE_PLUGINS = {
 							"altShiftDragRotate": false
 						}
 					}
+				},
+				"toolsOptions": {
+					"locate": {
+						// "maxZoom": 5 use a custom max zoom
+					}
 				}
 			}
 		},

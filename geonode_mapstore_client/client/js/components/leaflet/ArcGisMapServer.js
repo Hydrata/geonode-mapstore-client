@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const Layers = require('../../../MapStore2/web/client/utils/leaflet/Layers');
+const Layers = require('@mapstore/framework/utils/leaflet/Layers');
 var L = require('leaflet');
 
 Layers.registerType('arcgis', (options) => {

@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import Layers from '../../../MapStore2/web/client/utils/openlayers/Layers';
+import Layers from '@mapstore/framework/utils/openlayers/Layers';
 
 import TileLayer from 'ol/layer/Tile';
 import TileArcGISRest from 'ol/source/TileArcGISRest';

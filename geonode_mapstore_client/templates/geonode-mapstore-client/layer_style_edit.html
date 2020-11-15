@@ -46,7 +46,7 @@
                     }
                 }
         MS2_PLUGINS.desktop.push(stylerCfg);
-        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, ["Save", "SaveAs", "Widgets", "WidgetsBuilder"]);
+        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, ["Save", "SaveAs", "Widgets", "WidgetsBuilder", "Swipe", "Locate"]);
         MS2_PLUGINS["mobile"] = MS2_PLUGINS.desktop;
         let localConfig = defaultConfig.localConfig;
         initMapstore2Api('edit', function(MapStore2, options) {
