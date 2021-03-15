@@ -196,6 +196,7 @@
     "react-draggable": "2.2.6",
     "react-dropzone": "3.13.1",
     "react-error-boundary": "1.2.5",
+    "react-force-graph-3d": "^1.19.1",
     "react-grid-layout": "0.16.6",
     "react-image-lightbox": "4.2.2",
     "react-input-autosize": "1.1.4",
