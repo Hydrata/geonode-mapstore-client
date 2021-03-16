@@ -238,6 +238,8 @@
     "screenfull": "4.0.0",
     "shpjs": "3.4.2",
     "stickybits": "3.6.6",
+    "three": "^0.126.1",
+    "three-css2drender": "^1.0.0",
     "tinycolor2": "1.4.1",
     "turf-bbox": "3.0.10",
     "turf-buffer": "3.0.10",
