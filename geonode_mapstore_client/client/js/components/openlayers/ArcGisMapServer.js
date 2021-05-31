@@ -6,12 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import Layers from '@mapstore/framework/utils/openlayers/Layers';
+import { registerType } from '@mapstore/framework/utils/openlayers/Layers';
 
 import TileLayer from 'ol/layer/Tile';
 import TileArcGISRest from 'ol/source/TileArcGISRest';
 
-Layers.registerType('arcgis', {
+registerType('arcgis', {
     create: (options) => {
         return new TileLayer({
             opacity: options.opacity !== undefined ? options.opacity : 1,

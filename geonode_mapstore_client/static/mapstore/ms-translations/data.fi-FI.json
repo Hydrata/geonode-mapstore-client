@@ -86,6 +86,8 @@
       "propertiesFormatDescription": "Näyttää ominaisuustietojen tulokset ominaisuusluettelona",
       "templateFormatTitle": "MALLI",
       "templateFormatDescription": "Mukauta ominaisuustietojen tulokset",
+      "hideFormatTitle": "VAMMAISEN TUNNISTAMINEN",
+      "hideFormatDescription": "Poista ominaisuuden tiedot tältä tasolta",
       "templateFormatInfoAlert1": "Napsauta Muokkaa-painiketta lisätäksesi uuden mallin.",
       "templateFormatInfoAlert2": "Käytä ${ attribute } kääriäksesi näytettävät ominaisuudet",
       "templateFormatInfoAlertExample": "Kohteen ID on ${ properties }",
@@ -192,7 +194,7 @@
       "Examples": "Esimerkit",
       "LinkedinGroup": "Mapstore Linkedin Group",
       "scrollTop": "Vieritä sivun yläosaan",
-      "footerDescription": "<small>GeoSolutions S.a.s. | Via di Montramito 3/A, 55054 Massarosa (Lucca) - Italy info@geo-solutions.it | Tel: +39 0584 962313 | Fax: +39 0584 1660272</small>",
+      "footerDescription": "<strong>GeoSolutions</strong> <a href=\"mailto:info@geosolutionsgroup.com\">info@geosolutionsgroup.com</a> <strong>US</strong> +1 (301) 337-7055 -  <strong>Italy</strong>: +39 0584 962313",
       "ml": {
         "title": "Ota yhteyttä ja pysy ajan tasalla postituslistojen avulla",
         "subscribe_users": "Liity käyttäjien postituslistalle",
@@ -898,7 +900,8 @@
         "operation": "Toiminto",
         "placeholder": "Valitse taso",
         "errors": {
-          "noCrossLayerAvailable": "Ristiinsuodatus ei ole käytettävissä valitulle tasolle"
+          "noCrossLayerAvailable": "Ristiinsuodatus ei ole käytettävissä valitulle tasolle",
+          "layersExcluded": "Vain kerrokset, jotka tulevat samasta lähteestä, voidaan valita tämän kerroksen suodattimen kohdekerrokseksi"
         }
       },
       "changedFilter": "Suodatin vaihdettu",
@@ -1405,7 +1408,7 @@
         "createNewChart": "Luo kaavio valitulle tasolle"
       }
     },
-    "wfsdownload": {
+    "layerdownload": {
       "title": "Vie tietoja",
       "format": "Tiedostomuoto",
       "srs": "SRS",
@@ -2319,7 +2322,7 @@
         "descriptionGeorchestra": "Näyttää GeOrchestra-version kartta-asetukset -työkalussa",
         "title": "Versio"
       },
-      "WFSDownload": {
+      "LayerDownload": {
         "description": "Mahdollistaa tietojen lataamisen attribuuttitaulusta",
         "title": "Lataa tiedot"
       },

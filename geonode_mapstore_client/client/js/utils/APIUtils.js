@@ -7,6 +7,9 @@
  */
 
 import url from 'url';
+
+let requestOptions = {};
+
 /**
 * Utilities for api requests
 * @name utils.APIUtils
@@ -20,7 +23,7 @@ import url from 'url';
 * @return {string} correct url for localhost
 */
 export const parseDevHostname = (requestUrl) => {
-    if (__DEVTOOLS__ && requestUrl.indexOf('localhost:8000') !== -1) {
+    if (__DEVTOOLS__ && requestUrl.indexOf('localhost') !== -1) {
         const parsedUrl = url.parse(requestUrl);
         return url.format({
             ...parsedUrl,
@@ -33,4 +36,13 @@ export const parseDevHostname = (requestUrl) => {
         });
     }
     return requestUrl;
+};
+
+export const setRequestOptions = (name, options) => { requestOptions[name] = options; };
+export const getRequestOptions = name => requestOptions[name];
+
+export default {
+    parseDevHostname,
+    setRequestOptions,
+    getRequestOptions
 };

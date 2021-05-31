@@ -27,6 +27,7 @@
         "showMore": "Show more...",
         "collapse": "Collapse",
         "expand": "Expand",
+        "Links": "Links",
         "Forbidden": "Forbidden",
         "layerNameChangeError": {
             "title": "Name change error",
@@ -70,7 +71,6 @@
             "styleCustom": "Use style named \"{value}\"",
             "styleListLoadError": "There was an error loading the styles list",
             "stylesRefreshList": "Refresh Styles List",
-            "format": "Format",
             "delete": "Delete",
             "deleteLayer":"Delete Layer",
             "deleteLayerMessage": "Do you really want to delete this layer?",
@@ -97,10 +97,31 @@
             "propertiesFormatDescription": "Shows feature info results as properties list",
             "templateFormatTitle": "TEMPLATE",
             "templateFormatDescription": "Customize feature info results format",
+            "hideFormatTitle": "DISABLE IDENTIFY",
+            "hideFormatDescription": "Disable the feature info for this layer",
             "templateFormatInfoAlert1": "Click on edit button to add a new template.",
             "templateFormatInfoAlert2": "Use ${ attribute } to wrap the properties you need to display",
             "templateFormatInfoAlertExample": "The id of the feature is ${ properties }",
             "templatePreview": "Template preview",
+            "visibilityLimits": {
+                "title": "Visibility limits",
+                "serverValuesUpdateUndefined": "The server did not provided scale visibility limits for this layer",
+                "serverValuesUpdate": "The server provided minimum and maximum scale visibility limits for this layer",
+                "serverValuesUpdateMinScale": "The server provided only minimum scale visibility limit for this layer",
+                "serverValuesUpdateMaxScale": "The server provided only maximum scale visibility limit for this layer",
+                "rangeError": "The minimum value is greater than the maximum value. Please provide a range where the maximum value is greater than the minimum value",
+                "serverValuesError": "It is not possible to request minimum and maximum scale visibility limits to the server. Probably due to error in the network connection or missing capability endpoint",
+                "updateWMSCapabilities": "Request minimum and maximum scale visibility limits to the server",
+                "maxValue": "Max value (excluded)",
+                "maxValuePlaceholder": "Select max value",
+                "valueNoResultsText": "No options match the input value",
+                "createOption": "Add new value {label}",
+                "minValue": "Min value (included)",
+                "minValuePlaceholder": "Select min value",
+                "type": "Limits type",
+                "scale": "Scale",
+                "resolution": "Resolution"
+            },
             "tooltip": {
                 "label": "Tooltip",
                 "title": "Title",
@@ -124,6 +145,16 @@
             "enableLocalizedLayerStyles": {
                 "label": "Enable localized style",
                 "tooltip": "Note: This parameter requires specific configurations on GeoServer"
+            },
+            "format": {
+                "title": "Format",
+                "refresh": "Fetch supported format",
+                "loading": "Loading...",
+                "noOption": "No option",
+                "error": {
+                    "title": "Error",
+                    "message": "Failed to fetch format"
+                }
             }
         },
         "longitude": "Lon",
@@ -253,7 +284,7 @@
             "Examples": "Examples",
             "LinkedinGroup": "Mapstore Linkedin Group",
             "scrollTop": "Scroll to the top of the page",
-            "footerDescription": "<small>GeoSolutions S.a.s. | Via di Montramito 3/A, 55054 Massarosa (Lucca) - Italy info@geo-solutions.it | Tel: +39 0584 962313 | Fax: +39 0584 1660272</small>",
+            "footerDescription": "<strong>GeoSolutions</strong> <a href=\"mailto:info@geosolutionsgroup.com\">info@geosolutionsgroup.com</a> <strong>US</strong> +1 (301) 337-7055 -  <strong>Italy</strong>: +39 0584 962313",
             "ml": {
                 "title": "Keep in touch and stay up-to-date with the mailing lists",
                 "subscribe_users": "Subscribe Users Mailing List",
@@ -388,14 +419,14 @@
                 "unsavedMapCancelButtonText": "Close"
             },
             "geostories": {
-                "newGeostory": "New StoryMap",
-                "title": "StoryMaps ({count})",
-                "titleNoCount": "StoryMaps",
-                "create": "Create StoryMap",
-                "noGeostoryAvailable": "No StoryMap available",
-                "createANewOne": "Create a new StoryMap",
-                "deleteError": "There was an error deleting the StoryMap",
-                "errorLoadingGeostories": "There was an error loading StoryMaps"
+                "newGeostory": "New GeoStory",
+                "title": "GeoStories ({count})",
+                "titleNoCount": "GeoStories",
+                  "create": "Create GeoStory",
+                "noGeostoryAvailable": "No GeoStory available",
+                "createANewOne": "Create a new GeoStory",
+                "deleteError": "There was an error deleting the GeoStory",
+                "errorLoadingGeostories": "There was an error loading GeoStories"
             }
         },
         "map": {
@@ -531,6 +562,8 @@
             "radius": "Radius",
             "filterIconEnabled": "Disable layer filter",
             "filterIconDisabled": "Enable layer filter",
+            "notVisibleZoomIn": "The layer is not visible because it is outside the resolution limits. Zoom in to show the layer",
+            "notVisibleZoomOut": "The layer is not visible because it is outside the resolution limits. Zoom out to show the layer",
             "refreshOptions": {
                 "bbox": "Update BBOX",
                 "search": "Update search options",
@@ -608,6 +641,7 @@
                 "interval_limit": "Intervals should be a number between {min} and {max}",
                 "invalid_object": "Invalid service response",
                 "invalid_geometry": "Geometry type is not valid, not a point, line or polygon",
+                "invalid_attribute": "Invalid attribute type in selection. Please select a valid attribute from the list for the classification method",
                 "invalid_classes": "Max must be greater than min in every class"
             },
             "error": {
@@ -694,7 +728,7 @@
             "MeasureArea": "Measure area",
             "MeasureBearing": "Measure bearing",
             "MeasureTrueBearing": "Measure true bearing",
-            "tooltip": "Measure length and area",
+            "tooltip": "Measure length, area and bearing",
             "title": "Measure",
             "lengthButtonText": "Line",
             "areaButtonText": "Area",
@@ -786,7 +820,7 @@
                 "single_layer": "Single Layer",
                 "no_info_description": "Identify panel will not show up on search",
                 "all_layers_description": "Identify panel will show up displaying information of all layers visible in map",
-                "single_layer_description": "Identify panel will show up with the data already available through the WFS search",
+                "single_layer_description": "Identify panel will show up displaying information only for this layer",
                 "openFeatureInfoButtonCheckbox": "Use button to open feature info",
                 "forceSearchLayerVisibility": "Force search layer visibility"
             },
@@ -982,6 +1016,7 @@
             "attributefilter":{
                 "add_condition": " Add Condition",
                 "delete": " Delete",
+                "deleteGroup": "Delete Group",
                 "add_group": " Add Group",
                 "group_label_a": "Match",
                 "group_label_b": "of the following conditions:",
@@ -1050,7 +1085,8 @@
                 "operation": "Operation",
                 "placeholder": "Select layer",
                 "errors": {
-                    "noCrossLayerAvailable": "Cross layer filtering is not available for the selected layer"
+                    "noCrossLayerAvailable": "Cross layer filtering is not available for the selected layer",
+                    "layersExcluded": "Only layers coming from the same source can be selected as target layer for this layer filter"
                 }
             },
             "changedFilter": "Filter Changed",
@@ -1247,6 +1283,7 @@
             "msgToCopyUrl": "Click to copy",
             "sharedTitle": "Check out my new map: ",
             "addCenterAndZoomParam": "Add center and zoom to sharing link",
+            "addMarkerAndZoomParam": "Add placemark and zoom to sharing link",
             "zoom": "Zoom",
             "marker": "Add marker on loaded map",
             "coordinate": "Coordinate",
@@ -1261,7 +1298,8 @@
             "wrongBboxParamTitle": "Invalid bounding box param",
             "wrongBboxParamMessage": "Bounding box params must be in EPSG:4326 and wrote as bbox=minx,miny,maxx,maxy",
             "showHomeButton": "Link to MapStore home",
-            "showSectionId": "Include scroll position"
+            "showSectionId": "Include scroll position",
+            "showConnections": "Show connections"
         },
         "snapshot": {
             "title": "Snapshot Preview",
@@ -1295,7 +1333,8 @@
             "next": "Next",
             "skip": "Skip",
             "finish": "Finish",
-            "layerOf": "Layer {count} of {total}:"
+            "layerOf": "Layer {count} of {total}:",
+            "styleCustomizationDisabled": "This layer has already a style defined and is not possible to customize it."
         },
         "mapImport": {
             "title": "Import",
@@ -1386,6 +1425,7 @@
             "showPreview": "Show preview",
             "advancedSettings": "Advanced settings",
             "templateMetadataAvailable": "Metadata available from Dublin Core format: abstract, boundingBox, contributor, creator, description, format, identifier, references, rights, source, subject, temporal, title, type, uri",
+            "invalidUrlHttpProtocol": "Thìs catalog cannot be added to the available ones because it uses an http protocol. Please provide a catalog url that uses https protocol",
             "notification": {
                 "errorTitle": "Error",
                 "errorSearchingRecords": "Some records have not been found: {records} Please check the query URL and its parameters.",
@@ -1399,6 +1439,10 @@
             "enableLocalizedLayerStyles": {
                 "label": "Enable localized styles",
                 "tooltip": "Note: This parameter requires specific configurations on GeoServer"
+            },
+            "format": {
+                "noOption": "No option",
+                "loading": "Loading..."
             }
         },
         "uploader": {
@@ -1541,7 +1585,8 @@
             "deselectall": "Clear Selection",
             "backtosearch": "Back to search",
             "resultInfo": "{total, plural, =0 {No items} =1 {{total} Item of {total}} other {{start}-{end} of {total}}}",
-            "resultInfoVirtual": "{total, plural, =0 {No items} =1 {{total} Item of {total}} other {{total} Items}}",
+            "resultInfoVirtual": "{total, plural, =0 {No items} =1 {{total} Item} other {{total} Items}}",
+            "selectedInfo": "( {selected} Selected )",
             "pageInfo": "{totalPages, plural, =0 {No pages} =1 {Page {totalPages} of {totalPages}} other {Page {page} of {totalPages}}}",
             "pagination": {
                 "page": "Page",
@@ -1575,9 +1620,9 @@
                     "number": "Type a number or an expression. Examples: 10, > 2, < 10",
                     "date": "Type a date or an expression. Use {format} for the date.",
                     "geometry": {
-                        "disabled": "Filter clicking on the map",
-                        "enabled": "Click on the map to filter the results",
-                        "applied": "Remove the filter by mouse click"
+                        "disabled": "Filter clicking on map / Alt + mouse drag to draw a box filter. Hold also ctrl to add more features to the current filter",
+                        "enabled": "Click on map to select a feature / Alt + mouse drag to draw a box filter. Hold ctrl and click to select multiple features",
+                        "applied": "Clean the selection"
                     }
                 }
             },
@@ -1607,16 +1652,43 @@
                 "createNewChart": "Create a chart for the selected layer"
             }
         },
-        "wfsdownload": {
+        "layerdownload": {
             "title": "Export Data",
             "format": "File Format",
             "srs":  "Spatial Reference System",
             "export": "Export",
             "downloadonlycurrentpage": "Download only current page",
+            "cropDataSet": "Crop dataset to current viewport",
+            "downloadFilteredDataSet": "Download filtered dataset",
+            "advancedOptions": "Advanced options",
+            "compression": "Compression",
+            "tileWidth": "Tile width",
+            "tileHeight": "Tile height",
+            "quality": "Quality",
             "error": {
                 "title": "Error during export",
-                "invalidOutputFormat": "The selected export format is not available"
-            }
+                "invalidOutputFormat": "The selected export format is not available",
+                "downloadEstimatorTitle": "DownloadEstimator error",
+                "downloadEstimatorFailed": "DownloadEstimator request failed which means that exported file exceeds configured server limits. Try to change download options or add filter to your layer and try again."
+            },
+            "exportResultsMessages": {
+                "newExport": "The file will be available here when the export completes",
+                "exportFailure": "Export for layer \"{layerTitle}\" failed! Open export results dialog for more information.",
+                "exportSuccess": "Export for layer \"{layerTitle}\" finished successfully.",
+                "invalidHref": "The response from server did not contain a valid url address for exported files!"
+            },
+            "wpsExecuteError": {
+                "processFailed": "Download process failed! The server has returned the following exception report: \"{exceptionReport}\"",
+                "badResponse": "Download process failed! The server has returned incorrect data, error code: \"{errorCode}\"",
+                "executeProcessXhrFailed": "ExecuteProcess request failed! The server might be misconfigured or it has become unreachable",
+                "getExecutionStatusXhrFailed": "GetExecutionStatus request failed! The server might be misconfigured or it has become unreachable",
+                "unexpectedError": "Unexpected error occurred"
+            },
+            "noSupportedServiceFound": "The server doesn't support WFS or WPS download for this layer!"
+        },
+        "exportDataResults": {
+            "title": "Export data results",
+            "emptyStateMessage": "Export list is empty"
         },
         "widgets": {
             "types": {
@@ -1696,6 +1768,8 @@
                     "textPlaceholder": "Insert text...",
                     "useThisMap": "Use this map",
                     "configureMapOptions": "Configure map options",
+                    "enableIdentifyTool": "Enable identify tool",
+                    "disableIdentifyTool": "Disable identify tool",
                     "preview": "Preview",
                     "addLayer": "Add a layer to the map",
                     "useTheSelectedLayer": "Use the selected layer",
@@ -1724,6 +1798,8 @@
                     "confirmDelete": "Are you sure?",
                     "downloadData": "Download Data",
                     "exportImage": "Export Image",
+                    "maximize": "Maximize",
+                    "minimize": "Minimize",
                     "pin": "Pin",
                     "unpin": "Unpin",
                     "hide": "Hide",
@@ -1758,6 +1834,15 @@
             "widgetOptionsTitle": "Configure Widget Info",
             "placeHolder":{
                 "default":"Select attribute"
+            },
+            "operations": {
+              "COUNT": "COUNT",
+              "SUM":"SUM",
+              "AVG":"AVG",
+              "STDDEV":"STDDEV",
+              "MIN":"MIN",
+              "MAX":"MAX",
+              "NONE": "No Operation"
             },
             "groupByAttributes": {
                 "line": "X Attribute",
@@ -1806,25 +1891,33 @@
                 "bar": "Display Legend",
                 "gauge": "Display labels"
             },
-            "displayCartesian": {
-                "line": "Hide Grid",
-                "bar": "Hide Grid"
-            },
-            "xAxisAngle":{
-                "line": "X Axis: Label rotation angle °",
-                "bar": "X Axis: Label rotation angle °"
-            },
-            "yAxis":{
-                "line": "Hide Y axis",
-                "bar": "Hide Y axis"
-            },
-            "yAxisLabel":{
-                "line": "Legend Label",
-                "bar": "Legend Label"
-            },
-            "advancedOptions":{
-                "line": "Advanced Options",
-                "bar": "Advanced Options"
+            "advanced": {
+              "displayCartesian": "Hide Grid",
+              "xAxis": "X axis",
+              "xAxisAngle": "Label rotation",
+              "hideLabels": "Hide labels",
+              "format": "Format",
+              "prefix": "Prefix",
+              "suffix": "Suffix",
+              "examples": "Examples",
+              "formatExamples": "<div><ul><li><code>.0%</code>: rounded percentage, '12%'</li><li><code>.2s</code>:SI-prefix with two significant digits, '42M'</li><li><code>,.2r</code>: grouped thousands with two significant digits '4,200'</li></ul><em>More information about formatting syntax <a target=\"_blank\" href=\"https://d3-wiki.readthedocs.io/zh_CN/master/Formatting/\">here</a>.</em></div>",
+              "formula": "Formula",
+              "formulaExamples": "<div>Transform the value using a formula. Use the variable <code>value</code> in the expression:<h5>Examples</h5><ul><li><code>value + 2</code></li><li><code>value / 100</code></li></ul><em>More information about the syntax <a target=\"_blank\" href=\"https://github.com/m93a/filtrex#expressions\">here</a>.</em></div>",
+              "xAxisType": "Type",
+              "forceTicks": "Never skip labels",
+              "maxXAxisLabels": "The labels can not anyway be more than {max}",
+              "yAxis":  "Y axis",
+              "yAxisType": "Type",
+              "yAxisLabel": "Legend Label",
+              "title": "Advanced Options",
+              "legend": "Legend",
+              "axisTypes": {
+                "auto": "Auto",
+                "linear": "Linear",
+                "category": "Category",
+                "log": "Log",
+                "date": "Date"
+              }
             },
             "tray": {
                 "title": "Widgets",
@@ -1862,6 +1955,21 @@
                 "addACardToTheDashboard": "Add a widget to the dashboard",
                 "showConnections": "Show connections",
                 "hideConnections": "HideConnections"
+            },
+            "emptyTitle": "The dashboard is empty"
+        },
+        "dashboardEmbedded": {
+            "loadingSpinner": "Loading Dashboard",
+            "errors":{
+                "loading": {
+                    "title": "Error loading dashboard",
+                    "dashboardNotAccessible": "You don't have permission to access this dashboard",
+                    "pleaseLogin": "This dashboard is not public",
+                    "dashboardDoesNotExist": "The dashboard you are trying to access doesn't exist",
+                    "unknownError": "There was an error loading the dashboard",
+                    "notFound": "Dashboard not found",
+	                "notAccessible": "Dashboard not accessible"
+                }
             },
             "emptyTitle": "The dashboard is empty"
         },
@@ -1974,7 +2082,9 @@
             "deletedStyleErrorMessage": "Could not delete current style",
             "savedStyleTitle": "Style saved",
             "savedStyleMessage": "Style has been successfully saved",
-            "missingAvailableStyles": "Missing styles",
+            "errorTitle": "StyleEditor error",
+            "parsingCapabilitiesError": "<h4>Possible causes:</h4> it was not possible parse the capabilities and retrieve the styles",
+            "globalError": "<h4>Possible causes:</h4> it was not possible to connect to the service",
             "missingAvailableStylesMessage": "<ul><h4>Possible causes:</h4> <li>Selected layer is a layer group</li><li>Layer is not correctly configured server side</li></ul>",
             "createTmpErrorTitle": "New Temporary Style",
             "createTmpStyleErrorMessage": "Temporary style could not be created. This could due an unsupported style format on the style service",
@@ -2096,6 +2206,7 @@
             "redoStyle": "Redo style",
 
             "equalInterval": "Equal interval",
+            "uniqueInterval": "Unique interval",
             "quantile": "Quantile",
             "jenks": "Natural breaks (Jenks)",
             "standardDeviation": "Standard deviation",
@@ -2111,6 +2222,7 @@
             "emptyRuleEditor": "There are not rules for this style. Add a new rule by clicking on the desidered symbolizer type in the toolbar",
             "classificationError": "Service unavailable. Currently it is not possible to create a classification",
             "classificationRasterError": "Service unavailable. Currently it is not possible to create a raster classification",
+            "classificationUniqueIntervalError": "Maximum intervals limits exceeded! You are trying to generate an unique interval classification with an attribute that contains more than {intervalsForUnique} different classes. Unique Interval classification should be applied to attributes with a limited set of intervals to allow a better readability of the style. You could try different method for the selected attribute",
             "redChannel": "Red channel",
             "greenChannel": "Green channel",
             "blueChannel": "Blue channel",
@@ -2120,7 +2232,10 @@
             "customInterval": "Custom Interval",
             "styleEmpty": "This style has no rules",
             "incompleteClassification": "The classification is incomplete bacause the entries are not available. Ensure all properties are corretly provided",
-            "emptyImageIconSymbolizer": "Missing image url in the icon style",
+            "imageSrcEmpty": "Missing image source url in the icon style",
+            "imageSrcLoadError": "The provided image source could not be loaded. Try with a different url or ensure the source is reachable by MapStore",
+            "imageSrcInvalidBase64": "This is not a valid base64 image. Some style renderer does not support this type of source, you could use an external url source instead",
+            "imageSrcNotSupportedBase64Image": "Some style renderer does not support base64 images even if the current source is valid",
             "warningTextOrderTitle": "Warning",
             "warningTextOrder": "The order of rule containing text style could not match the rendering order on map. This behaviour is related to some rendering engine that draw label on top of other rules"
         },
@@ -2279,6 +2394,7 @@
             "selectworkspace": "You need to select the workspace to enable advanced options"
         },
         "geostory": {
+            "storyResources": "Story Resources",
             "geostoreMap": "MapStore Maps",
             "loadingSpinner": "Loading Story",
             "addTitleSection": "Add Title Section",
@@ -2397,12 +2513,15 @@
             },
             "errors": {
                 "loading": {
+                    "notFound": "Geostory not found",
                     "title": "Error",
                     "unknownError": "Unknown error",
                     "pleaseLogin": "Please login",
                     "notAccessible": "This story is not accessible",
                     "geostoryNotAccessible": "You don't have permission to access this story. Please contact the resource owner",
-                    "geostoryDoesNotExist": "This story does not exist"
+                    "geostoryDoesNotExist": "This story does not exist",
+                    "video": "Sorry! An error has occurred, please try again later."
+
                 }
             },
             "mapEditor": {
@@ -2432,6 +2551,20 @@
                 "shadowLabel": "Shadow",
                 "useAlternativeTextColor": "Use alternative text color",
                 "alternativeTextColorPopover": "<p>Warning: the selected text color could be not readable on this background.</p><p>An alternative text color is {color} &nbsp;<span class=\"ms-custom-theme-picker-alternative-text\" style=\"background-color:{color}\"></span></p>"
+            }
+        },
+        "geostoryEmbedded" : {
+            "loadingSpinner": "Loading Story",
+            "errors": {
+                "loading": {
+                    "notFound": "Geostory not found",
+                    "title": "Error",
+                    "unknownError": "Unknown error",
+                    "notAccessible": "This story is not accessible",
+                    "pleaseLogin": "Resource is not public",
+                    "geostoryNotAccessible": "You don't have permission to access this story",
+                    "geostoryDoesNotExist": "This story does not exist"
+                }
             }
         },
         "saveDialog": {
@@ -2504,7 +2637,8 @@
             "mediaList" : {
                 "removeResourceTitle": "Are you sure?",
                 "confirmRemoveResource": "Do you want to remove this media resource from the story?",
-                "confirmRemoveUsedResource": "This resource will also be removed from all the sections/contents where It's used leaving them empty. Do you want to remove It from the story?"
+                "confirmRemoveUsedResource": "This resource will also be removed from all the sections/contents where It's used leaving them empty. Do you want to remove It from the story?",
+                "resultsCount": "{count} of {total} {total, plural, one {Result} other {Results}}"
             },
             "imageList": {
                 "emptyList": "Click on the plus button to add a new image. See the user guide <a href='https://mapstore.readthedocs.io/en/latest/user-guide/media-editor-window/#images' target='_blank'/>here</a>"
@@ -2700,7 +2834,7 @@
             "descriptionGeorchestra": "Shows the version of GeOrchestra in map settings tool",
             "title": "Version"
           },
-          "WFSDownload": {
+          "LayerDownload": {
             "description": "Allows to download data from the Attribute Table",
             "title": "Download Data"
           },
@@ -2711,6 +2845,10 @@
           "WidgetsTray": {
             "description": "A tray to collapse and expand widgets on map. ",
             "title": "Widgets Tray"
+          },
+          "Globe": {
+            "description": "Sidebar button to toggle 3D mode on/off",
+            "title": "3D"
           },
           "ZoomAll": {
             "description": "Sidebar button to zoom to the map extent of the map",

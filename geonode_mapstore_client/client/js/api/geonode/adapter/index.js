@@ -22,8 +22,8 @@ import { parseDevHostname } from '@js/utils/APIUtils';
 * @return {promise} it returns an object with the success map object response
 */
 export const creatMapStoreMap = (body = {}) => {
-    const baseUrl = getConfigProp('genode_rest_api') || '/mapstore/rest/';
-    return axios.post(parseDevHostname(`${baseUrl}resources/`),
+    const { endpointAdapter = '/mapstore/rest' } = getConfigProp('geoNodeApi') || {};
+    return axios.post(parseDevHostname(`${endpointAdapter}/resources/`),
         body,
         {
             timeout: 10000,
@@ -42,9 +42,26 @@ export const creatMapStoreMap = (body = {}) => {
 * @return {promise} it returns an object with the success map object response
 */
 export const updateMapStoreMap = (id, body = {}) => {
-    const baseUrl = getConfigProp('genode_rest_api') || '/mapstore/rest/';
-    return axios.patch(parseDevHostname(`${baseUrl}resources/${id}/`),
+    const { endpointAdapter = '/mapstore/rest' } = getConfigProp('geoNodeApi') || {};
+    return axios.patch(parseDevHostname(`${endpointAdapter}/resources/${id}/`),
         body,
+        {
+            params: {
+                full: true
+            }
+        })
+        .then(({ data }) => data);
+};
+
+/**
+* Get a map configuration
+* @memberof api.geonode.adapter
+* @param {number|string} id resource id
+* @return {promise} it returns an object with the success map object response
+*/
+export const getMapStoreMapById = (id) => {
+    const { endpointAdapter = '/mapstore/rest' } = getConfigProp('geoNodeApi') || {};
+    return axios.get(parseDevHostname(`${endpointAdapter}/resources/${id}/`),
         {
             params: {
                 full: true
@@ -55,5 +72,6 @@ export const updateMapStoreMap = (id, body = {}) => {
 
 export default {
     creatMapStoreMap,
-    updateMapStoreMap
+    updateMapStoreMap,
+    getMapStoreMapById
 };

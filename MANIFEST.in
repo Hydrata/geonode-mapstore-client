@@ -1,4 +1,7 @@
 include README.md
 include VERSION
+recursive-include locale *
 recursive-include geonode_mapstore_client/static *
 recursive-include geonode_mapstore_client/templates *
+recursive-include mapstore2_adapter/static *
+recursive-include mapstore2_adapter/templates *

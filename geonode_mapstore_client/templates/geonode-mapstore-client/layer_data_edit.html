@@ -1,0 +1,34 @@
+<script>
+    (function(window) {
+        function openAttributeTable(MapStoreAPI, config) {
+            const layers = config.resourceConfig && config.resourceConfig.map && config.resourceConfig.map.layers;
+            // on the page initialization the last layer is the last one on the configuration
+            var layer = layers && layers[layers.length - 1];
+            if (layer) {
+                // layer id is undefined so we are using the structure used by masptore {layerName}__{layerIndex-1}
+                layer.id = layer.name + '__' + (layers.length - 1);
+                // with the CHANGE_MAP_VIEW event
+                // the app should allow to select a layer
+                // and trigger the BROWSE_DATA event to open the grid
+                function layerActionListener(action) {
+                    MapStoreAPI.offAction('CHANGE_MAP_VIEW', layerActionListener);
+                    MapStoreAPI.triggerAction({
+                        type: 'LAYERS:SELECT_NODE',
+                        id: layer.id,
+                        nodeType: 'layer',
+                        ctrlKey: false
+                    });
+                    MapStoreAPI.triggerAction({
+                        type: 'LAYERS:BROWSE_DATA',
+                        layer
+                    });
+                }
+                MapStoreAPI.onAction('CHANGE_MAP_VIEW', layerActionListener);
+            }
+        }
+        window.onInitMapStoreAPI = function(MapStoreAPI, config) {
+            openAttributeTable(MapStoreAPI, config);
+        };
+    })(window);
+</script>
+{% include "./map_edit.html" with plugins_config_key="layer_data_edit" %}

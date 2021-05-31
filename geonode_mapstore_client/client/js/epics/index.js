@@ -9,133 +9,85 @@
 /**
  * Epics needed to adapt mapstore2 to geonode backend
  */
-const Rx = require("rxjs");
+import Rx from "rxjs";
 
-const { SELECT_NODE } = require("@mapstore/framework/actions/layers");
-const { setPermission } = require("@mapstore/framework/actions/featuregrid");
-const { setEditPermissionStyleEditor, INIT_STYLE_SERVICE } = require("@mapstore/framework/actions/styleeditor");
-const { layerEditPermissions, styleEditPermissions, updateThumb } = require("../api/geonode");
-const { getSelectedLayer, layersSelector } = require("@mapstore/framework/selectors/layers");
-const { mapSelector } = require("@mapstore/framework/selectors/map");
-const ConfigUtils = require("@mapstore/framework/utils/ConfigUtils");
+import { setEditPermissionStyleEditor, INIT_STYLE_SERVICE } from "@mapstore/framework/actions/styleeditor";
+import { getSelectedLayer, layersSelector } from "@mapstore/framework/selectors/layers";
+import { getConfigProp } from "@mapstore/framework/utils/ConfigUtils";
+import { getLayerByName, getLayersByName } from '@js/api/geonode/v2';
+import { updateMapLayout } from '@mapstore/framework/actions/maplayout';
+import { TOGGLE_CONTROL, SET_CONTROL_PROPERTY, SET_CONTROL_PROPERTIES } from '@mapstore/framework/actions/controls';
+import { MAP_CONFIG_LOADED } from '@mapstore/framework/actions/config';
+import { SIZE_CHANGE, CLOSE_FEATURE_GRID, OPEN_FEATURE_GRID, setPermission } from '@mapstore/framework/actions/featuregrid';
+import { CLOSE_IDENTIFY, ERROR_FEATURE_INFO, TOGGLE_MAPINFO_STATE, LOAD_FEATURE_INFO, EXCEPTIONS_FEATURE_INFO, PURGE_MAPINFO_RESULTS } from '@mapstore/framework/actions/mapInfo';
+import { SHOW_SETTINGS, HIDE_SETTINGS, SELECT_NODE, updateNode, ADD_LAYER } from '@mapstore/framework/actions/layers';
+import { isMapInfoOpen } from '@mapstore/framework/selectors/mapInfo';
+import { setSelectedLayerPermissions } from '@js/actions/gnresource';
+import { isFeatureGridOpen, getDockSize } from '@mapstore/framework/selectors/featuregrid';
+import head from 'lodash/head';
+import get from 'lodash/get';
 
-const { updateMapLayout } = require('@mapstore/framework/actions/maplayout');
-const { TOGGLE_CONTROL, SET_CONTROL_PROPERTY, SET_CONTROL_PROPERTIES } = require('@mapstore/framework/actions/controls');
-const { MAP_CONFIG_LOADED } = require('@mapstore/framework/actions/config');
-const { SIZE_CHANGE, CLOSE_FEATURE_GRID, OPEN_FEATURE_GRID } = require('@mapstore/framework/actions/featuregrid');
-const { CLOSE_IDENTIFY, ERROR_FEATURE_INFO, TOGGLE_MAPINFO_STATE, LOAD_FEATURE_INFO, EXCEPTIONS_FEATURE_INFO, NO_QUERYABLE_LAYER } = require('@mapstore/framework/actions/mapInfo');
-const { SHOW_SETTINGS, HIDE_SETTINGS } = require('@mapstore/framework/actions/layers');
-const { PURGE_MAPINFO_RESULTS } = require('@mapstore/framework/actions/mapInfo');
-const { isMapInfoOpen } = require('@mapstore/framework/selectors/mapInfo');
-
-const { isFeatureGridOpen, getDockSize } = require('@mapstore/framework/selectors/featuregrid');
-const { head, get } = require('lodash');
-// const {updateMapLayoutEpic} = require('@mapstore/framework/epics/maplayout');
-
-// const {basicError} = require('@mapstore/framework/utils/NotificationUtils');
 /**
  * We need to include missing epics. The plugins that normally include this epic is not used.
  */
-const { mapSaveMapResourceEpic } = require("@mapstore/framework/epics/maps");
-const { showCoordinateEditorSelector } = require('@mapstore/framework/selectors/controls');
-
+import { showCoordinateEditorSelector } from '@mapstore/framework/selectors/controls';
 
 /**
- * When a user selects a layer, the app checks for layer editing permission.
+ * Handles checking and for permissions of a layer when its selected
  */
-const _setFeatureEditPermission = (action$, { getState } = {}) =>
-    action$.ofType(SELECT_NODE).filter(({ nodeType }) => nodeType === "layer" && !ConfigUtils.getConfigProp("disableCheckEditPermissions"))
+export const gnCheckSelectedLayerPermissions = (action$, { getState } = {}) =>
+    action$.ofType(SELECT_NODE, INIT_STYLE_SERVICE)
+        .filter(({ nodeType }) => nodeType && nodeType === "layer" && !getConfigProp("disableCheckEditPermissions")
+        || !nodeType && !getConfigProp("disableCheckEditPermissions"))
         .switchMap(() => {
-            const layer = getSelectedLayer(getState() || {});
-            return layer ? layerEditPermissions(layer)
-                .map(permissions => setPermission(permissions))
-                .startWith(setPermission({ canEdit: false }))
-                .catch(() => Rx.Observable.empty()) : Rx.Observable.of(setPermission({ canEdit: false }));
-        });
-/**
- * When a user selects a layer, the app checks for style editing permission.
- * INIT_STYLE_SERVICE si needed for map editing, it ensures an user has permission to edit style of a specific layer retrieved from catalog
- */
-const _setStyleEditorPermission = (action$, { getState } = {}) =>
-    action$.ofType(INIT_STYLE_SERVICE, SELECT_NODE)
-        .filter(({ nodeType }) =>
-            nodeType && nodeType === "layer" && !ConfigUtils.getConfigProp("disableCheckEditPermissions")
-            || !nodeType && !ConfigUtils.getConfigProp("disableCheckEditPermissions"))
-        .switchMap((action) => {
-            const layer = getSelectedLayer(getState() || {});
+            const state = getState() || {};
+            const layer = getSelectedLayer(state);
+            const permissions = layer?.perms || [];
+            const canEditStyles = permissions.includes("change_layer_style");
+            const canEdit = permissions.includes("change_layer_data");
             return layer
-                ? styleEditPermissions(layer)
-                    .map(({ canEdit }) => setEditPermissionStyleEditor(canEdit))
-                    .startWith(setEditPermissionStyleEditor(action.canEdit))
-                    .catch(() => Rx.Observable.empty())
-                : Rx.Observable.of(setEditPermissionStyleEditor(false));
+                ? Rx.Observable.of(
+                    setPermission({canEdit}),
+                    setEditPermissionStyleEditor(canEditStyles),
+                    setSelectedLayerPermissions(permissions)
+                )
+                : Rx.Observable.of(
+                    setPermission({canEdit: false}),
+                    setEditPermissionStyleEditor(false),
+                    setSelectedLayerPermissions([])
+                );
         });
-/**
- * Update geonode thumbnail for layers or maps
- */
-const _setThumbnail = (action$, { getState } = {}) =>
-    action$.ofType("GEONODE:CREATE_MAP_THUMBNAIL", "GEONODE:CREATE_LAYER_THUMBNAIL")
-        .do(() => {
-            try {
-                $("#_thumbnail_processing").modal("show");// eslint-disable-line
-            } catch (err) {
-                console.log(err);// eslint-disable-line
-            }
-        })
-        .exhaustMap(({ type }) => {
-            const state = getState();
-            const layers = layersSelector(state);
-            const map = mapSelector(state);
-            const isMap = type === "GEONODE:CREATE_MAP_THUMBNAIL";
-            const id = isMap ? get(map, "info.id") : (layers[layers.length - 1]).name;
-            const endPoint = isMap ? "maps" : "layers";
-            const { width, height } = map.size;
-            const { maxx, minx, maxy, miny } = map.bbox.bounds;
-            const body = {
-                'bbox': [minx, maxx, miny, maxy],
-                'srid': map.bbox.crs,
-                center: map.center,
-                zoom: map.zoom,
-                width,
-                height,
-                'layers': layers.filter(l => l.group !== 'background' && l.visibility).map(({ name }) => name).join(',')
-            };
-            return updateThumb(endPoint, id, body).do(({ data, status } = {}) => {
-                try {
-                    $("#_thumbnail_feedbacks").find('.modal-title').text(status);// eslint-disable-line
-                    $("#_thumbnail_feedbacks").find('.modal-body').text(data);// eslint-disable-line
-                    $("#_thumbnail_feedbacks").modal("show");// eslint-disable-line
-                } catch (err) {
-                    console.log(err);// eslint-disable-line
-                }
-            }).mapTo({ type: "THUMBNAIL_UPDATE" }).catch(({ code, message }) => {
-                try {
-                    if (code === "ECONNABORTED") {
-                        $("#_thumbnail_feedbacks").find('.modal-title').text('Timeout');// eslint-disable-line
-                        $("#_thumbnail_feedbacks").find('.modal-body').text('Failed from timeout: Could not create Thumbnail');// eslint-disable-line
-                        $("#_thumbnail_feedbacks").modal("show");// eslint-disable-line
-                    } else {
-                        $("#_thumbnail_feedbacks").find('.modal-title').text('Error: ' + message);// eslint-disable-line
-                        $("#_thumbnail_feedbacks").find('.modal-body').text('Could not create Thumbnail');// eslint-disable-line
-                        $("#_thumbnail_feedbacks").modal("show");// eslint-disable-line
-                    }
-                } catch (err) {
-                    console.log(err);// eslint-disable-line
-                } finally {
-                    return Rx.Observable.of({ type: "THUMBNAIL_UPDATE_ERROR" });
-                }
-            }).do(() => {
-                try {
-                    $("#_thumbnail_processing").modal("hide");// eslint-disable-line
-                } catch (err) {
-                    console.log(err);// eslint-disable-line
-                }
-            });
-        });
-// Modified to accept map-layout from Config diff less NO_QUERYABLE_LAYERS, SET_CONTROL_PROPERTIES more action$.ofType(PURGE_MAPINFO_RESULTS)
-const updateMapLayoutEpic = (action$, store) =>
 
-    action$.ofType(MAP_CONFIG_LOADED, SIZE_CHANGE, NO_QUERYABLE_LAYER, SET_CONTROL_PROPERTIES, CLOSE_FEATURE_GRID, OPEN_FEATURE_GRID, CLOSE_IDENTIFY, TOGGLE_MAPINFO_STATE, LOAD_FEATURE_INFO, EXCEPTIONS_FEATURE_INFO, TOGGLE_CONTROL, SET_CONTROL_PROPERTY, SHOW_SETTINGS, HIDE_SETTINGS, ERROR_FEATURE_INFO, PURGE_MAPINFO_RESULTS)
+
+/**
+ * Checks the permissions for layers when a map is loaded and when a new layer is added
+ * to a map
+ */
+export const gnSetLayersPermissions = (actions$, { getState = () => {}} = {}) =>
+    actions$.ofType(MAP_CONFIG_LOADED, ADD_LAYER)
+        .switchMap((action) => {
+            if (action.type === MAP_CONFIG_LOADED) {
+                const layerNames = action.config?.map?.layers?.filter((l) => l?.group !== "background").map((l) => l.name);
+                return Rx.Observable.defer(() => getLayersByName(layerNames))
+                    .switchMap((layers = []) => {
+                        const stateLayers = layers.map((l) => ({
+                            ...l,
+                            id: layersSelector(getState())?.find((la) => la.name === l.alternate)?.id
+                        }));
+                        return Rx.Observable.of(...stateLayers.map((l) => updateNode(l.id, 'layer', {perms: l.perms || []}) ));
+                    });
+            }
+            return Rx.Observable.defer(() => getLayerByName(action.layer?.name))
+                .switchMap((layer = {}) => {
+                    const layerId = layersSelector(getState())?.find((la) => la.name === layer.alternate)?.id;
+                    return Rx.Observable.of(updateNode(layerId, 'layer', {perms: layer.perms}));
+                });
+        });
+
+// Modified to accept map-layout from Config diff less NO_QUERYABLE_LAYERS, SET_CONTROL_PROPERTIES more action$.ofType(PURGE_MAPINFO_RESULTS)
+export const updateMapLayoutEpic = (action$, store) =>
+
+    action$.ofType(MAP_CONFIG_LOADED, SIZE_CHANGE, SET_CONTROL_PROPERTIES, CLOSE_FEATURE_GRID, OPEN_FEATURE_GRID, CLOSE_IDENTIFY, TOGGLE_MAPINFO_STATE, LOAD_FEATURE_INFO, EXCEPTIONS_FEATURE_INFO, TOGGLE_CONTROL, SET_CONTROL_PROPERTY, SHOW_SETTINGS, HIDE_SETTINGS, ERROR_FEATURE_INFO, PURGE_MAPINFO_RESULTS)
         .switchMap(() => {
             const state = store.getState();
 
@@ -150,7 +102,7 @@ const updateMapLayoutEpic = (action$, store) =>
                 }));
             }
 
-            const mapLayout = ConfigUtils.getConfigProp("mapLayout") || { left: { sm: 300, md: 500, lg: 600 }, right: { md: 658 }, bottom: { sm: 30 } };
+            const mapLayout = getConfigProp("mapLayout") || { left: { sm: 300, md: 500, lg: 600 }, right: { md: 658 }, bottom: { sm: 30 } };
 
             if (get(state, "mode") === 'embedded') {
                 const height = { height: 'calc(100% - ' + mapLayout.bottom.sm + 'px)' };
@@ -202,10 +154,8 @@ const updateMapLayoutEpic = (action$, store) =>
                 boundingMapRect
             }));
         });
-module.exports = {
-    mapSaveMapResourceEpic,
-    _setFeatureEditPermission,
-    _setThumbnail,
-    _setStyleEditorPermission,
-    updateMapLayoutEpic
+export default {
+    gnCheckSelectedLayerPermissions,
+    updateMapLayoutEpic,
+    gnSetLayersPermissions
 };

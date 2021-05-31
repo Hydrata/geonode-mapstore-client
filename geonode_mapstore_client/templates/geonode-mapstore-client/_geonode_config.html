@@ -1,0 +1,82 @@
+{% load client_lib_tags %}
+{% comment %}
+    app and map configuration need to be normalized
+{% endcomment %}
+<script>
+    {% autoescape off %}
+    (function(){
+
+        localStorage.setItem('showPopoverSync', false);
+
+        const username = '{{ user|default:"" }}' || null;
+        const token = '{{ access_token|default:"" }}' || '{{ ACCESS_TOKEN|default:"" }}' || null;
+        window.__GEONODE_CONFIG__ = {
+            languageCode: '{{ LANGUAGE_CODE }}',
+            resourceId: {{ appId|default:'null' }},
+            {% if is_app %}
+                resourceConfig: {{ config|default:'false'|safe }},
+            {% else %}
+                resourceConfig: {{ ms2_config|default:'false'|safe }},
+            {% endif %}
+            isNewResource: {{ is_new_resource|default:'false'|safe }},
+            isEmbed: {{ is_embed|default:'false'|safe }},
+            perms: {{ perms_list|default:'[]' }},
+            pluginsConfigKey: '{{ plugins_config_key|default:"" }}',
+            userDetails: username && token && {
+                user: {
+                    name: username
+                },
+                token: token
+            },
+            localConfig: {
+                proxyUrl: {
+                    url: '{{ PROXY_URL|default:"/proxy/?url=" }}',
+                    useCORS: []
+                },
+                geoNodeApi: {
+                    endpointAdapter: '{{ SITEURL }}mapstore/rest',
+                    endpointAutocomplete: '{{ SITEURL }}base/autocomplete_response',
+                    endpointV1: '{{ SITEURL }}api',
+                    endpointV2: '{{ SITEURL }}api/v2'
+                },
+                geonodeUrl: '{{ SITEURL }}',
+                geoserverUrl: '{{ OGC_SERVER.default.PUBLIC_LOCATION|default:"" }}',
+                printUrl: '{{ GEOSERVER_PUBLIC_LOCATION }}pdf/info.json',
+                bingApiKey: '{% bing_api_key %}'
+            }
+        };
+    })();
+    {% endautoescape %}
+</script>
+{% block override_local_config %}
+{% comment %}
+<script>
+    window.__GEONODE_CONFIG__.overrideLocalConfig = function(localConfig, _) {
+        /*
+        _ is a subset of lodash and contains following functions
+        {
+            mergeWith,
+            merge,
+            isArray,
+            isString,
+            isObject,
+            castArray,
+            get
+        }
+        */
+        return _.mergeWith(localConfig, {
+            // ...my override config
+        }, function(objValue, srcValue, key) {
+            if (_.isArray(objValue)) {
+                return srcValue;
+            }
+            // supportedLocales is an object so it's merged with the default one
+            // so to remove the default languages we should take only the supportedLocales from override
+            if (key === 'supportedLocales') {
+                return srcValue;
+            }
+        });
+    };
+</script>
+{% endcomment %}
+{% endblock %}

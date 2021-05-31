@@ -1,14 +1,1 @@
-{% extends "./edit_map.html" %}
-{% block additional_ms_actions %}
-// set the resource to new to hide Save button
-MapStore2.triggerAction({
-    type: "GEONODE:SET_NEW_RESOURCE"
-});
-MapStore2.triggerAction({
-    type: "GEONODE:SET_RESOURCE_PERMISSIONS",
-    permissions: {
-        canEdit: true,
-        canView: true
-    }
-});
-{% endblock %}
+{% include "./map_edit.html" with is_new="true" %}

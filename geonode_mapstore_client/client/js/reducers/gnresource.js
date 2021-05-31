@@ -14,10 +14,14 @@ import {
     SET_RESOURCE_TYPE,
     SET_NEW_RESOURCE,
     SET_RESOURCE_ID,
-    SET_RESOURCE_PERMISSIONS
+    SET_RESOURCE_PERMISSIONS,
+    EDIT_TITLE_RESOURCE,
+    EDIT_ABSTRACT_RESOURCE,
+    EDIT_THUMBNAIL_RESOURCE,
+    SET_SELECTED_LAYER_PERMISSIONS
 } from '@js/actions/gnresource';
 
-function gnresource(state = {}, action) {
+function gnresource(state = {selectedLayerPermissions: []}, action) {
     switch (action.type) {
     case RESOURCE_LOADING: {
         return {
@@ -74,6 +78,44 @@ function gnresource(state = {}, action) {
             permissions: action.permissions
         };
     }
+
+    case EDIT_TITLE_RESOURCE: {
+        return {
+            ...state,
+            data: {
+                ...state?.data,
+                title: action?.title,
+                name: action?.title
+            }
+        };
+    }
+
+    case EDIT_ABSTRACT_RESOURCE: {
+        return {
+            ...state,
+            data: {
+                ...state?.data,
+                "abstract": action?.abstract
+            }
+        };
+    }
+
+    case EDIT_THUMBNAIL_RESOURCE: {
+        return {
+            ...state,
+            data: {
+                ...state?.data,
+                thumbnail_url: action?.thumbnail_url
+            }
+        };
+    }
+
+
+    case SET_SELECTED_LAYER_PERMISSIONS:
+        return {
+            ...state,
+            selectedLayerPermissions: action.permissions
+        };
     default:
         return state;
     }

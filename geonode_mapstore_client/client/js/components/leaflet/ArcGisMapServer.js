@@ -6,10 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-const Layers = require('@mapstore/framework/utils/leaflet/Layers');
-var L = require('leaflet');
+import { registerType } from '@mapstore/framework/utils/leaflet/Layers';
+import L from 'leaflet';
 
-Layers.registerType('arcgis', (options) => {
+registerType('arcgis', (options) => {
     return L.esri.dynamicMapLayer({
         url: options.url,
         opacity: options.opacity || 1,

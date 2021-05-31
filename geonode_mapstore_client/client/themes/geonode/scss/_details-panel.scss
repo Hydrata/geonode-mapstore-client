@@ -1,0 +1,124 @@
+/*
+ * Copyright 2020, GeoSolutions Sas.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+.gn-details-panel {
+    position: relative;
+    color: $gn-body-color;
+    background-color: $gn-body-bg;
+    z-index: 10;
+    section {
+        @extend .shadow;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        overflow-y: scroll;
+    }
+    &.loading .gn-details-panel-content {
+        h1,
+        a,
+        p {
+            color: transparent;
+            background-color: $gn-placeholder-bg;
+        }
+        a, .btn {
+            display: none;
+        }
+    }
+
+    .editContainer {
+        flex: 1;
+        [contenteditable] {
+            padding: 0.5em;
+            border: 1px solid $gn-focus-color;
+            border-radius: 5px;
+            border-color: $gn-body-border-color;
+            margin-right: 0.5rem;
+        }
+        &.imagepreview {
+            padding: 0rem 5rem;
+            z-index: 1;
+            .dropzone-thumbnail-container {
+                height: 340px;
+            }
+            .icon-image-preview {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 4.5em;
+                color: #ddd;
+                opacity: 0.5;
+                z-index: 0;
+                pointer-events: none;
+            }
+        }
+      }
+}
+
+.gn-edit-toogle{
+    background-color: $gn-placeholder-bg;
+}
+
+.gn-details-panel-header {
+    display: flex;
+    flex-direction: row-reverse;
+}
+
+.gn-details-panel-preview {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%;
+    color: $gn-image-color;
+    background-color: $gn-image-bg;
+    .gn-details-panel-preview-loader {
+        background-color: $gn-image-bg;
+    }
+    &.inediting{
+        padding-bottom:0
+    }
+}
+
+.gn-details-panel-content {
+    padding: 1rem;
+    font-size: 0.9em;
+    .inEdit{
+        margin-right: 0.5rem;
+    }
+}
+
+.gn-details-panel-title {
+    display: flex;
+    margin-bottom: 1rem;
+    h1 {
+        flex: 1;
+        word-break: break-word;
+        font-size: 1rem;
+        margin: 0;
+        .fa {
+            margin: 0;
+            margin-right: 0.6rem;
+        }
+    }
+    .gn-details-panel-tools{
+        button, a{
+            padding: 0 0 0 0.5rem;
+        }
+    }
+
+}
+
+.gn-details-panel-description {
+    font-size: 0.9rem;
+    text-align: justify;
+    word-break: break-word;
+    // force styles of html coming from WYSIWYG
+    img {
+        width: 100% !important;
+        height: auto !important;
+    }
+}

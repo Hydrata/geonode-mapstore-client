@@ -1,0 +1,102 @@
+<style>
+#embedded_map {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    z-index: 1029;
+    overflow: hidden;
+}
+</style>
+<script type="text/javascript">
+    (function(window) {
+
+        const pluginsConfigName = '{{ plugins_config_name|default:"layer_detail" }}';
+        const theme = 'preview';
+        const isMap = {{ is_map|default:"false" }};
+
+        // inside the django template page of layer_detail
+        // there is a list of styles where a user can select with an input checkbox
+        // this function allows to synchronize an update the style of the layers inside the detail preview
+        function setupUpdateLayerStyle(MapStoreAPI, config) {
+            if (!isMap) {
+                const layers = config.resourceConfig && config.resourceConfig.map && config.resourceConfig.map.layers || [];
+                var layer = layers[layers.length - 1];
+                // layer id is undefined so we are using the structure used by masptore {layerName}__{layerIndex-1}
+                layer.id = layer.name + '__' + (layers.length - 1);
+                const id = layer.id;
+                const styleInputs = document.querySelectorAll('input[name=\'style\']');
+                for (var i = 0; i < styleInputs.length; i++) {
+                    styleInputs[i].addEventListener('click', function(event) {
+                        const style = event.target.id;
+                        const legendTitle = document.getElementById('legend_sld_title');
+                        legendTitle.innerHTML = event.target.value;
+                        const legendIcon = document.getElementById('legend_icon');
+                        const legendIconSrc = legendIcon.getAttribute('src');
+                        if (legendIconSrc !== undefined) {
+                            legendIcon.setAttribute('src', legendIconSrc.split('&STYLE')[0] + '&STYLE=' + style);
+                        }
+                        MapStoreAPI.triggerAction(
+                            {
+                                type: 'UPDATE_NODE',
+                                node: id,
+                                nodeType: 'layers',
+                                options: {
+                                    style: style
+                                }
+                            }
+                        );
+                    });
+                }
+            }
+        }
+
+        // the django page allows the user to update the thumbnail
+        // this function overrides the global getThumbnailOptions
+        // to provide the current bbox and projection of the layer preview
+        function setupCreateThumbnail(MapStoreAPI) {
+            window.getThumbnailOptions = function() {
+                const map = MapStoreAPI.getMapState() || {};
+                const bbox = map.bbox || {};
+                const bounds = bbox.bounds || {};
+                const crs = bbox.crs;
+                const body = {
+                    srid: crs,
+                    bbox: [
+                        bounds.minx,
+                        bounds.maxx,
+                        bounds.miny,
+                        bounds.maxy
+                    ]
+                };
+                return body;
+            };
+        }
+
+        window.document.addEventListener('DOMContentLoaded', function () {
+            const embedMapNode = window.document.getElementById('embedded_map');
+            if (embedMapNode) {
+                embedMapNode.innerHTML = '';
+                // use the embed viewer
+                // instead to create a new MapStore app inside the template
+                const iframe = window.document.createElement('iframe');
+                iframe.setAttribute('src', '{{ resource.embed_url }}?config=' + pluginsConfigName + '&theme=' + theme);
+                iframe.setAttribute('frameBorder', 0);
+                iframe.style.position = 'absolute';
+                iframe.style.top = 0;
+                iframe.style.left = 0;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.padding = 0;
+                iframe.style.margin = 0;
+                embedMapNode.appendChild(iframe);
+                // use the mapstore api with onInitMapStoreAPI
+                // to ensure the correct loading of MapStoreAPI
+                iframe.contentWindow.onInitMapStoreAPI = function(MapStoreAPI, config) {
+                    setupUpdateLayerStyle(MapStoreAPI, config);
+                    setupCreateThumbnail(MapStoreAPI);
+                };
+            }
+        });
+    })(window);
+</script>

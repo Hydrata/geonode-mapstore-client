@@ -1,6 +1,6 @@
 {
   "name": "geonode-mapstore-client",
-  "version": "2.0.4",
+  "version": "2.0.9",
   "description": "MapStore 2 Api bundle specific to geonode framework",
   "main": "api.js",
   "eslintConfig": {
@@ -13,7 +13,7 @@
       }
     },
     "globals": {
-      "__GEONODE_PROJECT_CONFIG__": false
+      "__MAPSTORE_PROJECT_CONFIG__": false
     }
   },
   "scripts": {
@@ -21,14 +21,27 @@
     "start": "mapstore-project start geonode",
     "test": "mapstore-project test geonode",
     "test:watch": "mapstore-project test:watch geonode",
-    "update-project": "mapstore-project update geonode"
+    "update-project": "mapstore-project update geonode",
+    "lint": "eslint js --ext .jsx,.js"
   },
   "author": "GeoSolutions",
   "license": "BSD-2-Clause",
   "devDependencies": {
-    "@mapstore/project": "git+https://github.com/geosolutions-it/mapstore-project.git#b752ff71f58f73addb164aeb472a9d353ca17c50"
+    "@mapstore/project": "1.0.7"
   },
   "dependencies": {
-    "mapstore": "file:MapStore2"
+    "@fortawesome/fontawesome-free": "5.15.1",
+    "bootstrap-v4": "npm:bootstrap@4.5.0",
+    "dompurify": "2.2.6",
+    "js-cookie": "2.2.1",
+    "mapstore": "file:MapStore2",
+    "react-bootstrap-v1": "npm:react-bootstrap@1.3.0"
+  },
+  "geonode": {
+    "devServer": {
+      "host": "localhost",
+      "proxyTargetHost": "localhost:8000",
+      "protocol": "http"
+    }
   }
 }
