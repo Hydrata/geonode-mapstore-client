@@ -31521,7 +31521,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .ms-side-panel.ms-absolute-dock > div {
   position: absolute !important;
-  height: 50% !important;
+  height: 90% !important;
   pointer-events: none;
 }
 .msgapi .ms-side-panel.ms-absolute-dock > div > div {
