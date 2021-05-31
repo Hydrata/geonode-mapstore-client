@@ -33,7 +33,9 @@
         const MS2_HYDRATA_PLUGINS = {"desktop": {{ front_end_plugins }}}
         console.log('hydrata plugins view_map.html: ', MS2_HYDRATA_PLUGINS)
         MS2_PLUGINS = window.squashMS2PlugCfg(MS2_BASE_PLUGINS, MS2_MAP_PLUGINS, MS2_HYDRATA_PLUGINS);
-        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, ["Save", "SaveAs", "DrawerMenu", "TOC", "Catalog", "Search", "SearchServicesConfig"]);
+        MS2_PLUGINS = window.excludeMS2Plugins(MS2_PLUGINS, [
+          "Save", "SaveAs", "DrawerMenu", "TOC", "Catalog", "Search", "SearchServicesConfig", "BackgroundSelector"
+        ]);
         MS2_PLUGINS["mobile"] = MS2_PLUGINS.desktop;
         let localConfig = defaultConfig.localConfig;
             localConfig.disableCheckEditPermissions = true;
