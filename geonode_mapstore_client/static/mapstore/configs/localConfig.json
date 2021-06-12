@@ -1789,7 +1789,7 @@
                 "name": "ZoomIn",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": true
+                        "alwaysVisible": false
                     }
                 }
             },
@@ -1883,7 +1883,7 @@
                 "name": "MousePosition",
                 "cfg": {
                     "editCRS": true,
-                    "showLabels": true,
+                    "showLabels": false,
                     "showToggle": true,
                     "filterAllowedCRS": [
                         "EPSG:4326",

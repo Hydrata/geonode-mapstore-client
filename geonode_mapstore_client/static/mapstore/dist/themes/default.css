@@ -3335,12 +3335,12 @@ structure .glyphicon-{iconName}-content
   line-height: inherit;
 }
 .msgapi a {
-  color: #2c689c;
+  color: #2b4552;
   text-decoration: none;
 }
 .msgapi a:hover,
 .msgapi a:focus {
-  color: #1b4060;
+  color: #111b20;
   text-decoration: underline;
 }
 .msgapi a:focus {
@@ -3575,11 +3575,11 @@ structure .glyphicon-{iconName}-content
   color: #777777;
 }
 .msgapi .text-primary {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi a.text-primary:hover,
 .msgapi a.text-primary:focus {
-  color: #204d74;
+  color: #192931;
 }
 .msgapi .text-success {
   color: #3c763d;
@@ -3611,11 +3611,11 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .bg-primary {
   color: #fff;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi a.bg-primary:hover,
 .msgapi a.bg-primary:focus {
-  background-color: #204d74;
+  background-color: #192931;
 }
 .msgapi .bg-success {
   background-color: #dff0d8;
@@ -4801,10 +4801,10 @@ structure .glyphicon-{iconName}-content
   transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
 }
 .msgapi .form-control:focus {
-  border-color: #3175af;
+  border-color: #345363;
   outline: 0;
-  -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(49, 117, 175, 0.6);
-  box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(49, 117, 175, 0.6);
+  -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(52, 83, 99, 0.6);
+  box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(52, 83, 99, 0.6);
 }
 .msgapi .form-control::-moz-placeholder {
   color: #999999;
@@ -5268,7 +5268,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn:hover,
 .msgapi .btn:focus,
 .msgapi .btn.focus {
-  color: #2c689c;
+  color: #2b4552;
   text-decoration: none;
 }
 .msgapi .btn:active,
@@ -5292,27 +5292,27 @@ structure .glyphicon-{iconName}-content
   pointer-events: none;
 }
 .msgapi .btn-default {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
-  border-color: #2c689c;
+  border-color: #2b4552;
 }
 .msgapi .btn-default:focus,
 .msgapi .btn-default.focus {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #e6e6e6;
-  border-color: #102538;
+  border-color: #000000;
 }
 .msgapi .btn-default:hover {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #e6e6e6;
-  border-color: #1e486c;
+  border-color: #16232a;
 }
 .msgapi .btn-default:active,
 .msgapi .btn-default.active,
 .msgapi .open > .dropdown-toggle.btn-default {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #e6e6e6;
-  border-color: #1e486c;
+  border-color: #16232a;
 }
 .msgapi .btn-default:active:hover,
 .msgapi .btn-default.active:hover,
@@ -5323,9 +5323,9 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-default:active.focus,
 .msgapi .btn-default.active.focus,
 .msgapi .open > .dropdown-toggle.btn-default.focus {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #d4d4d4;
-  border-color: #102538;
+  border-color: #000000;
 }
 .msgapi .btn-default:active,
 .msgapi .btn-default.active,
@@ -5342,34 +5342,34 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-default[disabled].focus,
 .msgapi fieldset[disabled] .btn-default.focus {
   background-color: #ffffff;
-  border-color: #2c689c;
+  border-color: #2b4552;
 }
 .msgapi .btn-default .badge {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .btn-primary {
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #2b4552;
+  border-color: #223741;
 }
 .msgapi .btn-primary:focus,
 .msgapi .btn-primary.focus {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #0a1824;
+  background-color: #192931;
+  border-color: #000000;
 }
 .msgapi .btn-primary:hover {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #192931;
+  border-color: #0d1519;
 }
 .msgapi .btn-primary:active,
 .msgapi .btn-primary.active,
 .msgapi .open > .dropdown-toggle.btn-primary {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #192931;
+  border-color: #0d1519;
 }
 .msgapi .btn-primary:active:hover,
 .msgapi .btn-primary.active:hover,
@@ -5381,8 +5381,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-primary.active.focus,
 .msgapi .open > .dropdown-toggle.btn-primary.focus {
   color: #ffffff;
-  background-color: #193b58;
-  border-color: #0a1824;
+  background-color: #0d1519;
+  border-color: #000000;
 }
 .msgapi .btn-primary:active,
 .msgapi .btn-primary.active,
@@ -5398,11 +5398,11 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-primary.disabled.focus,
 .msgapi .btn-primary[disabled].focus,
 .msgapi fieldset[disabled] .btn-primary.focus {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #2b4552;
+  border-color: #223741;
 }
 .msgapi .btn-primary .badge {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
 }
 .msgapi .btn-success {
@@ -5634,7 +5634,7 @@ structure .glyphicon-{iconName}-content
   background-color: #ffffff;
 }
 .msgapi .btn-link {
-  color: #2c689c;
+  color: #2b4552;
   font-weight: normal;
   border-radius: 0;
 }
@@ -5655,7 +5655,7 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .btn-link:hover,
 .msgapi .btn-link:focus {
-  color: #1b4060;
+  color: #111b20;
   text-decoration: underline;
   background-color: transparent;
 }
@@ -5801,7 +5801,7 @@ structure .glyphicon-{iconName}-content
   color: #ffffff;
   text-decoration: none;
   outline: 0;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .dropdown-menu > .disabled > a,
 .msgapi .dropdown-menu > .disabled > a:hover,
@@ -6235,7 +6235,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .nav .open > a:hover,
 .msgapi .nav .open > a:focus {
   background-color: #eeeeee;
-  border-color: #2c689c;
+  border-color: #2b4552;
 }
 .msgapi .nav .nav-divider {
   height: 1px;
@@ -6328,7 +6328,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .nav-pills > li.active > a:hover,
 .msgapi .nav-pills > li.active > a:focus {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .nav-stacked > li {
   float: none;
@@ -6729,28 +6729,28 @@ structure .glyphicon-{iconName}-content
   border-color: #eeeeee;
 }
 .msgapi .navbar-default .navbar-brand {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .navbar-default .navbar-brand:hover,
 .msgapi .navbar-default .navbar-brand:focus {
-  color: #204d74;
+  color: #192931;
   background-color: transparent;
 }
 .msgapi .navbar-default .navbar-text {
   color: #333333;
 }
 .msgapi .navbar-default .navbar-nav > li > a {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .navbar-default .navbar-nav > li > a:hover,
 .msgapi .navbar-default .navbar-nav > li > a:focus {
-  color: #3175af;
+  color: #345363;
   background-color: transparent;
 }
 .msgapi .navbar-default .navbar-nav > .active > a,
 .msgapi .navbar-default .navbar-nav > .active > a:hover,
 .msgapi .navbar-default .navbar-nav > .active > a:focus {
-  color: #204d74;
+  color: #192931;
   background-color: #eeeeee;
 }
 .msgapi .navbar-default .navbar-nav > .disabled > a,
@@ -6777,21 +6777,21 @@ structure .glyphicon-{iconName}-content
 .msgapi .navbar-default .navbar-nav > .open > a:hover,
 .msgapi .navbar-default .navbar-nav > .open > a:focus {
   background-color: #eeeeee;
-  color: #204d74;
+  color: #192931;
 }
 @media (max-width: 767px) {
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > li > a {
-    color: #2c689c;
+    color: #2b4552;
   }
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > li > a:hover,
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > li > a:focus {
-    color: #3175af;
+    color: #345363;
     background-color: transparent;
   }
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .active > a,
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .active > a:hover,
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .active > a:focus {
-    color: #204d74;
+    color: #192931;
     background-color: #eeeeee;
   }
   .msgapi .navbar-default .navbar-nav .open .dropdown-menu > .disabled > a,
@@ -6802,17 +6802,17 @@ structure .glyphicon-{iconName}-content
   }
 }
 .msgapi .navbar-default .navbar-link {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .navbar-default .navbar-link:hover {
-  color: #3175af;
+  color: #345363;
 }
 .msgapi .navbar-default .btn-link {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .navbar-default .btn-link:hover,
 .msgapi .navbar-default .btn-link:focus {
-  color: #3175af;
+  color: #345363;
 }
 .msgapi .navbar-default .btn-link[disabled]:hover,
 .msgapi fieldset[disabled] .navbar-default .btn-link:hover,
@@ -6956,7 +6956,7 @@ structure .glyphicon-{iconName}-content
   padding: 4px 8px;
   line-height: 1.42857143;
   text-decoration: none;
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
   border: 1px solid #dddddd;
   margin-left: -1px;
@@ -6977,7 +6977,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .pagination > li > a:focus,
 .msgapi .pagination > li > span:focus {
   z-index: 2;
-  color: #1b4060;
+  color: #111b20;
   background-color: #eeeeee;
   border-color: #dddddd;
 }
@@ -6989,8 +6989,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .pagination > .active > span:focus {
   z-index: 3;
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #2c689c;
+  background-color: #2b4552;
+  border-color: #2b4552;
   cursor: default;
 }
 .msgapi .pagination > .disabled > span,
@@ -7100,18 +7100,18 @@ structure .glyphicon-{iconName}-content
   top: -1px;
 }
 .msgapi .label-default {
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .label-default[href]:hover,
 .msgapi .label-default[href]:focus {
-  background-color: #204d74;
+  background-color: #192931;
 }
 .msgapi .label-primary {
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .label-primary[href]:hover,
 .msgapi .label-primary[href]:focus {
-  background-color: #204d74;
+  background-color: #192931;
 }
 .msgapi .label-success {
   background-color: #27ca3b;
@@ -7175,7 +7175,7 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .list-group-item.active > .badge,
 .msgapi .nav-pills > .active > a > .badge {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
 }
 .msgapi .list-group-item > .badge {
@@ -7250,7 +7250,7 @@ structure .glyphicon-{iconName}-content
 .msgapi a.thumbnail:hover,
 .msgapi a.thumbnail:focus,
 .msgapi a.thumbnail.active {
-  border-color: #2c689c;
+  border-color: #2b4552;
 }
 .msgapi .thumbnail .caption {
   padding: 9px;
@@ -7364,7 +7364,7 @@ structure .glyphicon-{iconName}-content
   line-height: 20px;
   color: #ffffff;
   text-align: center;
-  background-color: #2c689c;
+  background-color: #2b4552;
   -webkit-box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
   -webkit-transition: width 0.6s ease;
@@ -7527,8 +7527,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .list-group-item.active:focus {
   z-index: 2;
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #2c689c;
+  background-color: #2b4552;
+  border-color: #2b4552;
 }
 .msgapi .list-group-item.active .list-group-item-heading,
 .msgapi .list-group-item.active:hover .list-group-item-heading,
@@ -7544,7 +7544,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .list-group-item.active .list-group-item-text,
 .msgapi .list-group-item.active:hover .list-group-item-text,
 .msgapi .list-group-item.active:focus .list-group-item-text {
-  color: #accce8;
+  color: #88aec1;
 }
 .msgapi .list-group-item-success {
   color: #3c763d;
@@ -7924,22 +7924,22 @@ structure .glyphicon-{iconName}-content
   border-bottom-color: #dddddd;
 }
 .msgapi .panel-primary {
-  border-color: #2c689c;
+  border-color: #2b4552;
 }
 .msgapi .panel-primary > .panel-heading {
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #2c689c;
+  background-color: #2b4552;
+  border-color: #2b4552;
 }
 .msgapi .panel-primary > .panel-heading + .panel-collapse > .panel-body {
-  border-top-color: #2c689c;
+  border-top-color: #2b4552;
 }
 .msgapi .panel-primary > .panel-heading .badge {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
 }
 .msgapi .panel-primary > .panel-footer + .panel-collapse > .panel-body {
-  border-bottom-color: #2c689c;
+  border-bottom-color: #2b4552;
 }
 .msgapi .panel-success {
   border-color: #d6e9c6;
@@ -8993,12 +8993,12 @@ structure .glyphicon-{iconName}-content
   font-size: 21px;
 }
 .msgapi .btn-primary:hover {
-  background-color: #204d74;
+  background-color: #192931;
 }
 .msgapi .btn-primary:focus,
 .msgapi .btn-primary.focus {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #2b4552;
+  border-color: #223741;
 }
 .msgapi .btn-success:hover {
   background-color: #1f9f2f;
@@ -9040,7 +9040,7 @@ structure .glyphicon-{iconName}-content
   margin: auto;
 }
 .msgapi .modal-header {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
 }
 @media (min-width: 768px) {
@@ -9111,7 +9111,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .option-icon {
   font-size: 14px;
   margin-right: 13px;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .bg-body {
   background-color: #ffffff;
@@ -9243,7 +9243,7 @@ structure .glyphicon-{iconName}-content
   padding: 0;
 }
 .msgapi div#sync-popover.popover h3 {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
 }
 .msgapi div#sync-popover.popover .mapstore-switch-btn {
@@ -9284,29 +9284,29 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-tray {
   color: #4d4d4d;
   background-color: #ffffff;
-  border-color: #3782c3;
+  border-color: #3d6173;
   border-left: none;
   border-top: none;
   border-right: none;
-  border-bottom: 3px solid #3782c3;
+  border-bottom: 3px solid #3d6173;
 }
 .msgapi .btn-tray:focus,
 .msgapi .btn-tray.focus {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #1b4060;
+  border-color: #111b20;
 }
 .msgapi .btn-tray:hover {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #296294;
+  border-color: #273f4b;
 }
 .msgapi .btn-tray:active,
 .msgapi .btn-tray.active,
 .msgapi .open > .dropdown-toggle.btn-tray {
   color: #4d4d4d;
   background-color: #e6e6e6;
-  border-color: #296294;
+  border-color: #273f4b;
 }
 .msgapi .btn-tray:active:hover,
 .msgapi .btn-tray.active:hover,
@@ -9319,7 +9319,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .open > .dropdown-toggle.btn-tray.focus {
   color: #4d4d4d;
   background-color: #d4d4d4;
-  border-color: #1b4060;
+  border-color: #111b20;
 }
 .msgapi .btn-tray:active,
 .msgapi .btn-tray.active,
@@ -9336,7 +9336,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .btn-tray[disabled].focus,
 .msgapi fieldset[disabled] .btn-tray.focus {
   background-color: #ffffff;
-  border-color: #3782c3;
+  border-color: #3d6173;
 }
 .msgapi .btn-tray .badge {
   color: #ffffff;
@@ -9344,14 +9344,14 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .btn-tray:active,
 .msgapi .btn-tray.active {
-  color: #2c689c;
+  color: #2b4552;
   border-bottom: 3px solid #bfbfbf;
 }
 .msgapi .btn-tray:focus,
 .msgapi .btn-tray.focus {
   background-color: #ffffff;
   color: #4d4d4d;
-  border-bottom: 3px solid #3782c3;
+  border-bottom: 3px solid #3d6173;
 }
 .msgapi .error-container {
   height: 100%;
@@ -9382,11 +9382,11 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .error-container .runtime-error-message .refresh-icon:hover {
   cursor: pointer;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .ag-fresh .ag-header,
 .msgapi .ag-fresh .ag-tool-panel-container {
-  background: #2c689c !important;
+  background: #2b4552 !important;
   color: #ffffff;
   font-family: 'Lato', sans-serif;
 }
@@ -9394,12 +9394,12 @@ structure .glyphicon-{iconName}-content
   color: #000000;
 }
 .msgapi .ag-fresh .ag-paging-button {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
-  border: #2c689c 1px solid;
+  border: #2b4552 1px solid;
 }
 .msgapi .ag-fresh .ag-paging-page-summary-panel {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .ag-fresh .ag-paging-panel {
   background-color: #ffffff;
@@ -9415,14 +9415,14 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .autocompleteField .autocomplete-toolbar .chevron-left {
   float: left;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .autocompleteField .autocomplete-toolbar .chevron-right {
   float: right;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .autocompleteField .autocomplete-toolbar .rw-list-option:hover {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .autocompleteField ul li:last-child {
   border: none !important;
@@ -9524,7 +9524,7 @@ structure .glyphicon-{iconName}-content
   margin: 0px 0px 5px;
   padding: 0px;
   font-weight: bold;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .cookie-action,
 .msgapi .cookie-message {
@@ -9539,7 +9539,7 @@ structure .glyphicon-{iconName}-content
   width: 100%;
 }
 .msgapi .cookie-header {
-  color: #2c689c;
+  color: #2b4552;
   height: 44px;
 }
 .msgapi .cookie-header > span {
@@ -9986,7 +9986,7 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi #mapstore-drawermenu .navHeader > .glyphicon:hover {
   background-color: transparent;
-  color: #204d74;
+  color: #192931;
 }
 .msgapi #mapstore-drawermenu .react-resizable-handle {
   position: absolute;
@@ -10008,7 +10008,7 @@ structure .glyphicon-{iconName}-content
 }
 /* dropdown-menu */
 .msgapi .dropdown-menu .dropdown-header {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
   padding: 15px;
   font-weight: bold;
@@ -10030,7 +10030,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .dropdown-menu .glyphicon {
   font-size: 16px;
   margin-right: 15px;
-  color: #2c689c;
+  color: #2b4552;
   vertical-align: middle;
 }
 .msgapi .dropdown-menu .active .glyphicon {
@@ -10039,7 +10039,7 @@ structure .glyphicon-{iconName}-content
 /* dropdown */
 .msgapi .navbar-dx .dropdown-menu .dropdown-header,
 .msgapi .navbar-home .dropdown-menu .dropdown-header {
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .navbar-dx .dropdown-menu,
 .msgapi .navbar-home .dropdown-menu {
@@ -10261,7 +10261,7 @@ structure .glyphicon-{iconName}-content
   opacity: 0.75;
 }
 .msgapi .ms-thumbnail .ms-thumbnail-dropzone-active {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #4e7d95;
 }
 .msgapi .ms-thumbnail .ms-thumbnail-dropzone-active .dropzone-content-image,
 .msgapi .ms-thumbnail .ms-thumbnail-dropzone-active .dropzone-content-image-added {
@@ -10345,7 +10345,7 @@ structure .glyphicon-{iconName}-content
   color: white;
 }
 .msgapi .export-panel .export-panel-formats-container .btn-default.format-selected {
-  border-color: #2c689c;
+  border-color: #2b4552;
 }
 .msgapi .feature-grid-drag-handle-show .drag-handle {
   display: inline;
@@ -10373,7 +10373,7 @@ structure .glyphicon-{iconName}-content
   cursor: pointer;
 }
 .msgapi .featuregrid-geometry-filter.filter-enabled {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .featuregrid-geometry-filter.filter-deactivated {
   opacity: 0.7;
@@ -10818,7 +10818,7 @@ structure .glyphicon-{iconName}-content
   padding: 0;
 }
 .msgapi .ms-geostory-builder .msSideGrid .mapstore-side-card.ms-highlight {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #4e7d95;
 }
 .msgapi .ms-geostory-builder .msSideGrid .mapstore-side-card {
   transition: none;
@@ -10831,11 +10831,11 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .ms-geostory-builder .msSideGrid .ms-over:not(.ms-dragging).ms-above > div {
   padding-bottom: 32px;
-  border-bottom: 2px solid #2c689c;
+  border-bottom: 2px solid #2b4552;
 }
 .msgapi .ms-geostory-builder .msSideGrid .ms-over:not(.ms-dragging).ms-below > div {
   padding-top: 32px;
-  border-top: 2px solid #2c689c;
+  border-top: 2px solid #2b4552;
 }
 .msgapi .ms-geostory-builder .ms-section-preview {
   position: relative;
@@ -11917,7 +11917,7 @@ structure .glyphicon-{iconName}-content
   /* changed border color of color picker tab*/
 }
 .msgapi .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-option-active {
-  outline: 2px solid #5c9bd1;
+  outline: 2px solid #4e7d95;
 }
 .msgapi .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-colorpicker-modal-options {
   overflow-x: auto;
@@ -11929,7 +11929,7 @@ structure .glyphicon-{iconName}-content
   font-size: 12px;
 }
 .msgapi .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-colorpicker-modal-style-label-active {
-  border-bottom-color: #5c9bd1;
+  border-bottom-color: #4e7d95;
 }
 .msgapi .ms-cascade-story .ms-content.ms-content-text .ms-content-body .ms-text-editor-toolbar .rdw-link-modal-label {
   font-size: 12px;
@@ -12401,7 +12401,7 @@ structure .glyphicon-{iconName}-content
   color: inherit;
   background-color: inherit;
   border-color: transparent;
-  outline: 1px auto #2c689c !important;
+  outline: 1px auto #2b4552 !important;
   outline-color: inherit !important;
 }
 .msgapi .ms-geostory-navigation .btn-default:active:hover {
@@ -12413,7 +12413,7 @@ structure .glyphicon-{iconName}-content
   color: inherit;
   background-color: inherit;
   border-color: transparent;
-  outline: 2px auto #2c689c !important;
+  outline: 2px auto #2b4552 !important;
   outline-color: inherit !important;
 }
 .msgapi .ms-geostory-navigation .ms-geostory-navigation-bar {
@@ -12432,7 +12432,7 @@ structure .glyphicon-{iconName}-content
   width: 100%;
 }
 .msgapi .ms-geostory-navigation .ms-geostory-navigation-bar .progress-bar .progress-percent {
-  background-color: #2c689c;
+  background-color: #2b4552;
   height: 4px;
   transition: width 0.3s;
 }
@@ -12500,16 +12500,16 @@ structure .glyphicon-{iconName}-content
   margin: 0 6px;
 }
 .msgapi .ms-geostory-navigation .ms-horizontal-menu .ms-menu-item .active {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
 }
 .msgapi #helpbadge-scaleBox {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi #mapstore-navbar #helpbadge-search-help {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .mapstore-langselector {
   height: 52px;
@@ -12843,10 +12843,10 @@ structure .glyphicon-{iconName}-content
 }
 /* Leaflet minimap style */
 .msgapi .leaflet-control-minimap {
-  border: solid #2c689c 4px !important;
+  border: solid #2b4552 4px !important;
 }
 .msgapi .leaflet-control-minimap a {
-  background-color: #2c689c !important;
+  background-color: #2b4552 !important;
 }
 .msgapi .leaflet-control-minimap-toggle-display {
   background-image: url(/static/mapstore/dist/toggle.svg) !important;
@@ -12880,7 +12880,7 @@ structure .glyphicon-{iconName}-content
   max-height: 2.6em;
 }
 .msgapi .leaflet-control-attribution a {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .leaflet-bottom.leaflet-right {
   margin-bottom: 0 !important;
@@ -12900,7 +12900,7 @@ structure .glyphicon-{iconName}-content
   box-shadow: none !important;
 }
 .msgapi .ms2-loading {
-  background-color: #2c689c !important;
+  background-color: #2b4552 !important;
   border-bottom: 2px solid #1fa0a0 !important;
 }
 .msgapi .ms2-loading .sk-circle-wrapper .sk-circle:before {
@@ -12908,10 +12908,10 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .mapstore-small-size-loader {
   text-indent: -9999em;
-  border-top: 2px solid rgba(44, 104, 156, 0.2);
-  border-right: 2px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 2px solid rgba(44, 104, 156, 0.2);
-  border-left: 2px solid #2c689c;
+  border-top: 2px solid rgba(43, 69, 82, 0.2);
+  border-right: 2px solid rgba(43, 69, 82, 0.2);
+  border-bottom: 2px solid rgba(43, 69, 82, 0.2);
+  border-left: 2px solid #2b4552;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -12928,10 +12928,10 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .mapstore-medium-size-loader {
   text-indent: -9999em;
-  border-top: 6px solid rgba(44, 104, 156, 0.2);
-  border-right: 6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 6px solid rgba(44, 104, 156, 0.2);
-  border-left: 6px solid #2c689c;
+  border-top: 6px solid rgba(43, 69, 82, 0.2);
+  border-right: 6px solid rgba(43, 69, 82, 0.2);
+  border-bottom: 6px solid rgba(43, 69, 82, 0.2);
+  border-left: 6px solid #2b4552;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -12948,10 +12948,10 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .mapstore-full-size-loader {
   text-indent: -9999em;
-  border-top: 12px solid rgba(44, 104, 156, 0.2);
-  border-right: 12px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 12px solid rgba(44, 104, 156, 0.2);
-  border-left: 12px solid #2c689c;
+  border-top: 12px solid rgba(43, 69, 82, 0.2);
+  border-right: 12px solid rgba(43, 69, 82, 0.2);
+  border-bottom: 12px solid rgba(43, 69, 82, 0.2);
+  border-left: 12px solid #2b4552;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -12969,10 +12969,10 @@ structure .glyphicon-{iconName}-content
 .msgapi .mapstore-inline-loader {
   margin: 8px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-right: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-bottom: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-left: 1.6px solid #2b4552;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -13183,8 +13183,8 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary {
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #2b4552;
+  border-color: #223741;
   box-shadow: none;
   border-width: 1px;
   border: transparent;
@@ -13192,20 +13192,20 @@ structure .glyphicon-{iconName}-content
 .msgapi .ms-prj-selector .dropdown-toggle-primary:focus,
 .msgapi .ms-prj-selector .dropdown-toggle-primary.focus {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #0a1824;
+  background-color: #192931;
+  border-color: #000000;
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary:hover {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #192931;
+  border-color: #0d1519;
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary:active,
 .msgapi .ms-prj-selector .dropdown-toggle-primary.active,
 .msgapi .open > .dropdown-toggle.ms-prj-selector .dropdown-toggle-primary {
   color: #ffffff;
-  background-color: #204d74;
-  border-color: #193b58;
+  background-color: #192931;
+  border-color: #0d1519;
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary:active:hover,
 .msgapi .ms-prj-selector .dropdown-toggle-primary.active:hover,
@@ -13217,8 +13217,8 @@ structure .glyphicon-{iconName}-content
 .msgapi .ms-prj-selector .dropdown-toggle-primary.active.focus,
 .msgapi .open > .dropdown-toggle.ms-prj-selector .dropdown-toggle-primary.focus {
   color: #ffffff;
-  background-color: #193b58;
-  border-color: #0a1824;
+  background-color: #0d1519;
+  border-color: #000000;
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary:active,
 .msgapi .ms-prj-selector .dropdown-toggle-primary.active,
@@ -13234,20 +13234,20 @@ structure .glyphicon-{iconName}-content
 .msgapi .ms-prj-selector .dropdown-toggle-primary.disabled.focus,
 .msgapi .ms-prj-selector .dropdown-toggle-primary[disabled].focus,
 .msgapi fieldset[disabled] .ms-prj-selector .dropdown-toggle-primary.focus {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #2b4552;
+  border-color: #223741;
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary .badge {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary:hover {
-  background-color: #204d74;
+  background-color: #192931;
 }
 .msgapi .ms-prj-selector .dropdown-toggle-primary:focus,
 .msgapi .ms-prj-selector .dropdown-toggle-primary.focus {
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #2b4552;
+  border-color: #223741;
 }
 .msgapi .ms-prj-selector.open .dropdown-toggle-primary {
   background-color: #27ca3b;
@@ -13543,7 +13543,7 @@ structure .glyphicon-{iconName}-content
   color: #ffffff;
   text-decoration: none;
   outline: 0;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options [disabled],
 .msgapi .MapSearchBar .input-group .search-toolbar-options .btn-group-menu-options-format [disabled] {
@@ -14053,14 +14053,14 @@ structure .glyphicon-{iconName}-content
 }
 /* OpenLayers minimap style */
 .msgapi .ol-custom-overviewmap button {
-  background-color: #2c689c !important;
+  background-color: #2b4552 !important;
 }
 .msgapi .ol-custom-overviewmap .ol-control button:focus,
 .msgapi .ol-custom-overviewmap button:hover {
-  background-color: #2c689c !important;
+  background-color: #2b4552 !important;
 }
 .msgapi .ol-custom-overviewmap:not(.ol-collapsed) {
-  background: #2c689c !important;
+  background: #2b4552 !important;
   border-radius: 3px !important;
 }
 .msgapi .ol-custom-overviewmap .ol-overviewmap-map {
@@ -14182,15 +14182,15 @@ structure .glyphicon-{iconName}-content
   height: 52px;
   width: 52px;
   color: #ffffff;
-  background-color: #2c689c;
-  border-color: #265a88;
+  background-color: #2b4552;
+  border-color: #223741;
 }
 .msgapi .ol-rotate .ol-rotate-reset .ol-compass {
   font-size: 36px;
 }
 .msgapi .ol-rotate .ol-rotate-reset:hover,
 .msgapi .ol-rotate .ol-rotate-reset:focus {
-  background-color: #265a88;
+  background-color: #223741;
 }
 .msgapi .ol-rotate:hover {
   background: none;
@@ -14221,12 +14221,12 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .Select .paged-select-bar-container .paged-select-bar .prev-page-button.glyphicon,
 .msgapi .Select .paged-select-bar-container .paged-select-bar .next-page-button.glyphicon {
-  color: #2c689c;
+  color: #2b4552;
   cursor: auto;
 }
 .msgapi .Select .paged-select-bar-container .paged-select-bar .prev-page-button.glyphicon:hover,
 .msgapi .Select .paged-select-bar-container .paged-select-bar .next-page-button.glyphicon:hover {
-  color: #2c689c;
+  color: #2b4552;
   cursor: pointer;
 }
 .msgapi .ms-side-panel {
@@ -14329,7 +14329,7 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .ms-side-panel .ms-header.ms-primary .row:first-child {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .ms-side-panel .ms-header.ms-primary .row:first-child .col-xs-8 {
   color: #ffffff;
@@ -14434,7 +14434,7 @@ structure .glyphicon-{iconName}-content
   cursor: pointer;
 }
 .msgapi #mapstore-print-panel .panel-body {
-  border: solid 1px #2c689c;
+  border: solid 1px #2b4552;
 }
 /* query panel */
 .msgapi .shadow-soft-up {
@@ -14484,7 +14484,7 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi .mapstore-string-select .m-options ul li:hover {
   color: #ffffff;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .m-caption {
   font-style: italic;
@@ -14657,7 +14657,7 @@ structure .glyphicon-{iconName}-content
   border: 1px solid #dddddd;
 }
 .msgapi .react-grid-checkbox:checked + .react-grid-checkbox-label:before {
-  background: #2c689c;
+  background: #2b4552;
   box-shadow: inset 0 0 0 4px #ffffff;
 }
 .msgapi .radio-custom + .radio-custom-label:before,
@@ -14683,12 +14683,12 @@ structure .glyphicon-{iconName}-content
   border-bottom: 1px solid #dddddd;
 }
 .msgapi .react-grid-Cell:hover {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #f2f2f2 !important;
   cursor: pointer;
 }
 .msgapi .react-grid-Cell:focus {
-  outline: 2px solid #2c689c;
+  outline: 2px solid #2b4552;
 }
 .msgapi .react-grid-Cell.row-selected.editing input {
   background-color: #ffffff !important;
@@ -14701,13 +14701,13 @@ structure .glyphicon-{iconName}-content
 .msgapi .react-grid-Row.row-selected,
 .msgapi .react-grid-Row .row-selected,
 .msgapi .react-grid-Row .row-selected .react-grid-Cell {
-  color: #2c689c !important;
+  color: #2b4552 !important;
   background-color: #f2f2f2 !important;
   font-weight: bold;
 }
 .msgapi .react-grid-Row .row-context-menu .react-grid-Cell,
 .msgapi .react-grid-Row:hover .react-grid-Cell {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #f2f2f2 !important;
   cursor: pointer;
 }
@@ -14717,7 +14717,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .react-grid-Row:hover .react-grid-Cell.modified {
   background-color: #ffffff !important;
   color: #333333 !important;
-  border-bottom: 2px solid #2c689c;
+  border-bottom: 2px solid #2b4552;
 }
 .msgapi .react-grid-Row .react-grid-Cell.modified.invalid,
 .msgapi .react-grid-Row .react-grid-Cell.invalid,
@@ -14851,8 +14851,8 @@ structure .glyphicon-{iconName}-content
   background: #ffffff;
 }
 .msgapi #container .Select.is-focused:not(.is-open) > .Select-control {
-  border-color: #3782c3;
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(55, 130, 195, 0.1);
+  border-color: #3d6173;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(61, 97, 115, 0.1);
   background: #ffffff;
 }
 .msgapi #container .Select.has-value.is-clearable.Select--single > .Select-control .Select-value {
@@ -14871,7 +14871,7 @@ structure .glyphicon-{iconName}-content
 .msgapi #container .Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:hover,
 .msgapi #container .Select.has-value.Select--single > .Select-control .Select-value a.Select-value-label:focus,
 .msgapi #container .Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:focus {
-  color: #3782c3;
+  color: #3d6173;
   outline: none;
   text-decoration: underline;
 }
@@ -15094,15 +15094,15 @@ structure .glyphicon-{iconName}-content
   border-bottom-left-radius: 0;
 }
 .msgapi #container .Select-option.is-selected {
-  background-color: #f7f9fb;
+  background-color: #f7f8f8;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.04);
+  background-color: rgba(43, 69, 82, 0.04);
   color: #333333;
 }
 .msgapi #container .Select-option.is-focused {
-  background-color: #eef3f7;
+  background-color: #eef0f1;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.08);
+  background-color: rgba(43, 69, 82, 0.08);
   color: #333333;
 }
 .msgapi #container .Select-option.is-disabled {
@@ -15129,13 +15129,13 @@ structure .glyphicon-{iconName}-content
   margin-left: 5px;
 }
 .msgapi #container .Select--multi .Select-value {
-  background-color: #eef3f7;
+  background-color: #eef0f1;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.08);
+  background-color: rgba(43, 69, 82, 0.08);
   border-radius: 0;
-  border: 1px solid #ccdbe7;
+  border: 1px solid #ccd2d5;
   /* Fallback color for IE 8 */
-  border: 1px solid rgba(44, 104, 156, 0.24);
+  border: 1px solid rgba(43, 69, 82, 0.24);
   color: #ffffff;
   display: inline-block;
   font-size: 14px;
@@ -15167,22 +15167,22 @@ structure .glyphicon-{iconName}-content
   cursor: pointer;
   border-bottom-left-radius: 0;
   border-top-left-radius: 0;
-  border-right: 1px solid #ccdbe7;
+  border-right: 1px solid #ccd2d5;
   /* Fallback color for IE 8 */
-  border-right: 1px solid rgba(44, 104, 156, 0.24);
+  border-right: 1px solid rgba(43, 69, 82, 0.24);
   padding: 1px 5px 3px;
 }
 .msgapi #container .Select--multi .Select-value-icon:hover,
 .msgapi #container .Select--multi .Select-value-icon:focus {
-  background-color: #dee7ee;
+  background-color: #dee1e3;
   /* Fallback color for IE 8 */
-  background-color: rgba(38, 90, 136, 0.08);
+  background-color: rgba(34, 55, 65, 0.08);
   color: #f2f2f2;
 }
 .msgapi #container .Select--multi .Select-value-icon:active {
-  background-color: #ccdbe7;
+  background-color: #ccd2d5;
   /* Fallback color for IE 8 */
-  background-color: rgba(44, 104, 156, 0.24);
+  background-color: rgba(43, 69, 82, 0.24);
 }
 .msgapi #container .Select--multi.Select--rtl .Select-value {
   margin-left: 0;
@@ -15190,9 +15190,9 @@ structure .glyphicon-{iconName}-content
 }
 .msgapi #container .Select--multi.Select--rtl .Select-value-icon {
   border-right: none;
-  border-left: 1px solid #ccdbe7;
+  border-left: 1px solid #ccd2d5;
   /* Fallback color for IE 8 */
-  border-left: 1px solid rgba(44, 104, 156, 0.24);
+  border-left: 1px solid rgba(43, 69, 82, 0.24);
 }
 .msgapi #container .Select--multi.is-disabled .Select-value {
   background-color: #fcfcfc;
@@ -15577,7 +15577,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .rules-manager .ms-row-select .react-grid-Cell {
   font-weight: bold;
   background-color: #e6e6e6;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .rules-manager .ms-row-select .react-grid-Cell:focus {
   outline: none;
@@ -15899,25 +15899,25 @@ structure .glyphicon-{iconName}-content
   text-overflow: ellipsis;
 }
 .msgapi .rw-widget {
-  color: #2c689c !important;
+  color: #2b4552 !important;
   background-color: #ffffff !important;
   border: 1px solid #dddddd !important;
 }
 .msgapi .rw-list-option:hover {
   color: #ffffff !important;
-  background-color: #2c689c !important;
+  background-color: #2b4552 !important;
 }
 .msgapi .rw-list-option:focus {
   outline: none;
 }
 .msgapi .rw-state-focus {
-  color: #2c689c !important;
+  color: #2b4552 !important;
   background-color: transparent !important;
-  border: 1px solid #2c689c !important;
+  border: 1px solid #2b4552 !important;
   outline: none;
 }
 .msgapi .rw-i {
-  color: #2c689c !important;
+  color: #2b4552 !important;
 }
 .msgapi .rw-placeholder {
   color: #333333 !important;
@@ -15927,7 +15927,7 @@ structure .glyphicon-{iconName}-content
   color: #333333;
 }
 .msgapi .rw-filter-input {
-  border: 1px solid #2c689c !important;
+  border: 1px solid #2b4552 !important;
 }
 .msgapi .rw-select {
   border-left: 1px solid #dddddd !important;
@@ -15952,12 +15952,12 @@ structure .glyphicon-{iconName}-content
   float: right;
   bottom: 2em;
   right: 2.3em;
-  color: #2c689c !important;
+  color: #2b4552 !important;
   cursor: pointer;
 }
 .msgapi .rw-combo-clearable.disabled .rw-combo-clear {
   cursor: not-allowed;
-  color: rgba(44, 104, 156, 0.7) !important;
+  color: rgba(43, 69, 82, 0.7) !important;
 }
 .msgapi select.form-control {
   border: 1px solid #dddddd;
@@ -16391,7 +16391,7 @@ structure .glyphicon-{iconName}-content
 .msgapi .noUi-target {
   border-color: none;
   cursor: pointer;
-  background-color: #3782c3;
+  background-color: #3d6173;
 }
 .msgapi .noUi-target.noUi-horizontal {
   height: 4px;
@@ -16412,12 +16412,12 @@ structure .glyphicon-{iconName}-content
   -webkit-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
   -moz-box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.24);
-  background-color: #2c689c;
+  background-color: #2b4552;
   cursor: pointer;
   border-radius: 0;
 }
 .msgapi .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:hover {
-  background-color: #204d74;
+  background-color: #192931;
 }
 .msgapi .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:before,
 .msgapi .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle:after {
@@ -16436,7 +16436,7 @@ structure .glyphicon-{iconName}-content
   cursor: pointer;
 }
 .msgapi .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle .noUi-tooltip:hover {
-  background-color: #204d74;
+  background-color: #192931;
 }
 .msgapi .noUi-target.noUi-horizontal .noUi-pips.noUi-pips-horizontal .noUi-value {
   text-align: right;
@@ -16510,7 +16510,7 @@ structure .glyphicon-{iconName}-content
   font-size: 10px;
   border: none;
   border-radius: 0;
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
   height: 15px;
   width: 36px;
@@ -16528,7 +16528,7 @@ structure .glyphicon-{iconName}-content
   margin-top: 8px;
   padding: 4px;
   box-sizing: border-box;
-  border: 1px dashed #2c689c;
+  border: 1px dashed #2b4552;
   background-color: #ffffff;
 }
 .msgapi .msSideGrid .ms-drag-over.ms-sm {
@@ -16653,14 +16653,14 @@ structure .glyphicon-{iconName}-content
   flex-direction: column;
 }
 .msgapi .mapstore-side-card.selected {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
 .msgapi .mapstore-side-card.selected .mapstore-side-glyph {
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
 }
 .msgapi .mapstore-side-card.selected .mapstore-side-card-tool > .glyphicon {
@@ -16756,7 +16756,7 @@ structure .glyphicon-{iconName}-content
   cursor: pointer;
 }
 .msgapi .ms-square-card.ms-selected {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
   -webkit-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   -moz-box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
@@ -16989,7 +16989,7 @@ structure .glyphicon-{iconName}-content
   color: #ffffff;
 }
 .msgapi ul.CodeMirror-hints li.CodeMirror-hint.CodeMirror-hint-active {
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .ms-style-template-title {
   margin: 0 16px;
@@ -17342,7 +17342,7 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 .msgapi .ms-style-rules-editor .ms-style-rule.ms-drop-target {
-  border: 1px dashed #2c689c;
+  border: 1px dashed #2b4552;
   -webkit-box-shadow: none;
   box-shadow: none;
 }
@@ -17538,7 +17538,7 @@ Ported to CodeMirror by Peter Kroon
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #2c689c;
+  background-color: #2b4552;
   opacity: 0.4;
   -webkit-transition: 0.4s;
   transition: 0.4s;
@@ -17558,7 +17558,7 @@ Ported to CodeMirror by Peter Kroon
   display: none;
 }
 .msgapi .mapstore-switch-btn input:checked + .m-slider {
-  background-color: #2c689c;
+  background-color: #2b4552;
   opacity: 1.0;
 }
 .msgapi .mapstore-switch-btn input:checked + .m-slider:before {
@@ -17900,7 +17900,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .mapstore-swipe-slider {
   position: absolute;
   z-index: 100;
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .mapstore-swipe-slider .ms-vertical-swipe-slider-arrows {
   position: absolute;
@@ -17933,9 +17933,9 @@ Ported to CodeMirror by Peter Kroon
   height: 32px;
   width: 32px;
   padding: 0;
-  color: #2c689c;
+  color: #2b4552;
   background-color: #ffffff;
-  border: 1px solid #2c689c;
+  border: 1px solid #2b4552;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -17992,10 +17992,10 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .mapstore-toc-head .toc-inline-loader {
   margin: 8px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-right: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-bottom: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-left: 1.6px solid #2b4552;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -18018,7 +18018,7 @@ Ported to CodeMirror by Peter Kroon
   vertical-align: middle;
   width: 270px;
   height: 52px;
-  color: #2c689c;
+  color: #2b4552;
   font-weight: bold;
 }
 .msgapi .mapstore-toc-head .mapstore-toc-head-title-container .mapstore-toc-head-title .glyphicon {
@@ -18167,10 +18167,10 @@ Ported to CodeMirror by Peter Kroon
   margin: 0 5px;
 }
 .msgapi .toc-default-group .glyphicon {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .toc-default-group .glyphicon:hover {
-  color: #204d74;
+  color: #192931;
 }
 .msgapi .toc-default-group .toc-status-icon,
 .msgapi .toc-default-group .visibility-check,
@@ -18212,7 +18212,7 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .toc-default-group .toc-default-group-head .toc-group-title:hover {
   font-weight: bold;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .toc-default-group .toc-group-children {
   margin-left: 8px;
@@ -18222,7 +18222,7 @@ Ported to CodeMirror by Peter Kroon
   opacity: 0.6;
 }
 .msgapi .toc-default-group.selected .toc-default-group-head {
-  background-color: #49657e;
+  background-color: #3e3f3f;
   color: #ffffff;
 }
 .msgapi .toc-default-group.selected .toc-default-group-head .glyphicon {
@@ -18256,7 +18256,7 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12), 2px -2px 6px rgba(0, 0, 0, 0.06);
 }
 .msgapi .toc-default-group .toc-default-layer .noUi-target {
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .toc-default-group .toc-default-layer .noUi-target.noUi-horizontal {
   margin: 0;
@@ -18279,16 +18279,16 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .toc-default-group .toc-default-layer .toc-default-layer-head .toc-title:hover {
   font-weight: bold;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .toc-default-group .toc-default-layer .toc-default-layer-head .toc-inline-loader {
   float: right;
   margin: 0 10px;
   text-indent: -9999em;
-  border-top: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-right: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1.6px solid rgba(44, 104, 156, 0.2);
-  border-left: 1.6px solid #2c689c;
+  border-top: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-right: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-bottom: 1.6px solid rgba(43, 69, 82, 0.2);
+  border-left: 1.6px solid #2b4552;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -18336,7 +18336,7 @@ Ported to CodeMirror by Peter Kroon
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
 }
 .msgapi .toc-default-group .toc-default-layer.selected .toc-default-layer-head {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
 }
 .msgapi .toc-default-group .toc-default-layer.selected .toc-default-layer-head .glyphicon {
@@ -18389,16 +18389,16 @@ Ported to CodeMirror by Peter Kroon
   color: #af0900;
 }
 .msgapi .toc-default-group .toc-default-layer.layer-error.selected {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .toc-default-group .toc-default-layer.layer-error.selected .glyphicon {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .toc-default-group .toc-default-layer.layer-error.selected .toc-error {
   color: #af0900;
 }
 .msgapi .toc-default-group .toc-default-layer.layer-error.selected .toc-title {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .toc-default-group .toc-default-layer.layer-error.selected .toc-default-layer-head {
   box-sizing: border-box;
@@ -18430,7 +18430,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .is-dragging.toc-default-layer,
 .msgapi .is-dragging.toc-default-layer.selected {
   background-color: #ffffff !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #2b4552 !important;
   height: 52px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -18439,11 +18439,11 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .is-dragging.toc-default-layer .toc-default-layer-head,
 .msgapi .is-dragging.toc-default-layer.selected .toc-default-layer-head {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .is-dragging.toc-default-layer .toc-default-layer-head .glyphicon,
 .msgapi .is-dragging.toc-default-layer.selected .toc-default-layer-head .glyphicon {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .is-dragging.toc-default-layer .toc-default-layer-head .toc-title,
 .msgapi .is-dragging.toc-default-layer.selected .toc-default-layer-head .toc-title {
@@ -18456,7 +18456,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .is-placeholder.toc-default-layer,
 .msgapi .is-placeholder.toc-default-layer.selected {
   background-color: transparent !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #2b4552 !important;
   height: 52px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -18476,7 +18476,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .is-dragging.toc-default-group,
 .msgapi .is-dragging.toc-default-group.selected {
   background-color: #ffffff !important;
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #2b4552 !important;
   height: 52px !important;
   overflow: hidden;
   border-radius: 0 !important;
@@ -18485,12 +18485,12 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .is-dragging.toc-default-group .toc-default-group-head,
 .msgapi .is-dragging.toc-default-group.selected .toc-default-group-head {
   background-color: #ffffff;
-  color: #2c689c;
+  color: #2b4552;
   margin-top: 0;
 }
 .msgapi .is-dragging.toc-default-group .toc-default-group-head .glyphicon,
 .msgapi .is-dragging.toc-default-group.selected .toc-default-group-head .glyphicon {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .is-dragging.toc-default-group .toc-default-group-head .toc-group-title,
 .msgapi .is-dragging.toc-default-group.selected .toc-default-group-head .toc-group-title {
@@ -18504,14 +18504,14 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .is-placeholder.toc-default-group.selected {
   background-color: #ffffff !important;
   border: none !important;
-  border-bottom: 1px solid #2c689c !important;
+  border-bottom: 1px solid #2b4552 !important;
   height: 57px !important;
   overflow: hidden;
   border-radius: 0 !important;
 }
 .msgapi .is-placeholder.toc-default-group .toc-default-group-head,
 .msgapi .is-placeholder.toc-default-group.selected .toc-default-group-head {
-  border: 1px dashed #2c689c !important;
+  border: 1px dashed #2b4552 !important;
   margin: 2px 0;
 }
 .msgapi .is-placeholder.toc-default-group .toc-default-group-head *,
@@ -18569,7 +18569,7 @@ Ported to CodeMirror by Peter Kroon
   font-style: italic;
 }
 .msgapi .compact-legend-grid .noUi-target {
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .compact-legend-grid .noUi-target.noUi-horizontal {
   margin: 0;
@@ -18612,7 +18612,7 @@ Ported to CodeMirror by Peter Kroon
   align-items: center;
 }
 .msgapi .ms-legend-action .panel-heading .panel-title .row .ms-legend-header > .glyphicon {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .ms-legend-action .panel-heading .panel-title .row .ms-legend-header > div {
   flex: 1;
@@ -18679,7 +18679,7 @@ Ported to CodeMirror by Peter Kroon
   font-style: italic;
 }
 .msgapi .ms-legend-action .panel-collapse .panel-body .msSideGrid .noUi-target {
-  background-color: #2c689c;
+  background-color: #2b4552;
 }
 .msgapi .ms-legend-action .panel-collapse .panel-body .msSideGrid .noUi-target.noUi-horizontal {
   margin: 0;
@@ -18862,12 +18862,12 @@ Ported to CodeMirror by Peter Kroon
   z-index: 4000 !important;
 }
 .msgapi .joyride-tooltip__button--primary {
-  background-color: #2c689c !important;
+  background-color: #2b4552 !important;
 }
 .msgapi .joyride-tooltip__button--primary:active,
 .msgapi .joyride-tooltip__button--primary:focus,
 .msgapi .joyride-tooltip__button--primary:hover {
-  background-color: #2c689c !important;
+  background-color: #2b4552 !important;
 }
 .msgapi .draggableHandle {
   cursor: -webkit-grab;
@@ -18933,7 +18933,7 @@ Ported to CodeMirror by Peter Kroon
   font-size: 22px;
   font-weight: bold;
   border-bottom: 1px solid #dddddd;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .widget-container .mapstore-widget-card .mapstore-widget-header .widget-title {
   text-overflow: ellipsis;
@@ -18945,7 +18945,7 @@ Ported to CodeMirror by Peter Kroon
   position: absolute;
   left: 22px;
   font-size: 14px;
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .widget-container .mapstore-widget-card .mapstore-widget-header .widget-icons {
   text-align: left;
@@ -18967,7 +18967,7 @@ Ported to CodeMirror by Peter Kroon
   padding-right: 4px;
 }
 .msgapi .widget-container .mapstore-widget-card .mapstore-widget-header .widget-icons .btn-group button .glyphicon.active::before {
-  color: #2c689c;
+  color: #2b4552;
   transform: rotate(45deg);
   display: inline-block;
 }
@@ -18990,7 +18990,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .widget-container .mapstore-widget-card .mapstore-widget-options {
   position: absolute;
   font-size: 18px;
-  color: #2c689c;
+  color: #2b4552;
   right: 7px;
   top: 10px;
 }
@@ -19513,7 +19513,7 @@ Ported to CodeMirror by Peter Kroon
   z-index: 1;
 }
 .msgapi .mapstore-annotations-info-viewer .mapstore-annotations-info-viewer-items .geometry-card.ms-selected {
-  border: 2px solid #5c9bd1;
+  border: 2px solid #4e7d95;
 }
 .msgapi .mapstore-annotations-info-viewer .mapstore-annotations-info-viewer-items .geometry-card .geometry-card-preview {
   width: 32px;
@@ -19782,7 +19782,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover input,
 .msgapi .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover select,
 .msgapi .mapstore-annotations-info-viewer .container-fluid .container-fluid .row .row:hover .col-xs-5 span {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .ms-dragg.ms-below .coordinateRow,
 .msgapi .ms-dragg.ms-above .coordinateRow {
@@ -19798,7 +19798,7 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .ms-dragg.ms-above .coordinateRow:hover select,
 .msgapi .ms-dragg.ms-below .coordinateRow:hover .col-xs-5 span,
 .msgapi .ms-dragg.ms-above .coordinateRow:hover .col-xs-5 span {
-  color: #2c689c;
+  color: #2b4552;
 }
 .msgapi .mapstore-identify-viewer .mapstore-annotations-info-viewer .mapstore-annotations-info-viewer-buttons {
   -webkit-box-shadow: none;
@@ -19849,7 +19849,7 @@ Ported to CodeMirror by Peter Kroon
   box-sizing: border-box;
 }
 .msgapi .ms-over .coordinateRow {
-  border: 1px dashed #2c689c;
+  border: 1px dashed #2b4552;
 }
 .msgapi .ms-over.ms-above .coordinateRow {
   border-bottom-width: 2px;
@@ -20586,7 +20586,7 @@ Ported to CodeMirror by Peter Kroon
   float: right;
 }
 .msgapi .details-panel .panel-heading {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
 }
 .msgapi .details-panel div div div.ms2-border-layout-body {
@@ -21089,7 +21089,7 @@ Ported to CodeMirror by Peter Kroon
   z-index: 10;
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group.selected {
-  background-color: rgba(44, 104, 156, 0.05);
+  background-color: rgba(43, 69, 82, 0.05);
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group.loading .vis-item.vis-dot {
   animation: timeline-loading 0.3s linear infinite;
@@ -21102,18 +21102,18 @@ Ported to CodeMirror by Peter Kroon
   display: none;
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-dot {
-  border-color: rgba(44, 104, 156, 0.5);
+  border-color: rgba(43, 69, 82, 0.5);
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range {
-  background-color: rgba(44, 104, 156, 0.5);
+  background-color: rgba(43, 69, 82, 0.5);
   background-color: transparent;
   border-color: transparent;
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range .vis-item-content {
   padding: 0 5px;
   margin: 5px 0;
-  background-color: rgba(44, 104, 156, 0.5);
-  border-color: #204d74;
+  background-color: rgba(43, 69, 82, 0.5);
+  border-color: #192931;
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range.histogram-item {
   background: none;
@@ -21136,8 +21136,8 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-center .vis-group .vis-item.vis-range.histogram-item .vis-item-overflow .vis-item-content .histogram-box {
   width: 100%;
   position: absolute;
-  background-color: rgba(44, 104, 156, 0.5);
-  border-color: #204d74;
+  background-color: rgba(43, 69, 82, 0.5);
+  border-color: #192931;
   bottom: 0;
   left: 0;
   right: 0;
@@ -21164,7 +21164,7 @@ Ported to CodeMirror by Peter Kroon
   cursor: pointer;
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label.selected {
-  background-color: #2c689c;
+  background-color: #2b4552;
   color: #ffffff;
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label.selected .vis-inner .timeline-layer-label-container .timeline-layer-icon .timeline-spinner {
@@ -21196,10 +21196,10 @@ Ported to CodeMirror by Peter Kroon
 }
 .msgapi .timeline-plugin .vis-timeline .vis-panel.vis-left .vis-content .vis-label .vis-inner .timeline-layer-label-container .timeline-layer-icon .timeline-spinner {
   text-indent: -9999em;
-  border-top: 1px solid rgba(44, 104, 156, 0.2);
-  border-right: 1px solid rgba(44, 104, 156, 0.2);
-  border-bottom: 1px solid rgba(44, 104, 156, 0.2);
-  border-left: 1px solid #2c689c;
+  border-top: 1px solid rgba(43, 69, 82, 0.2);
+  border-right: 1px solid rgba(43, 69, 82, 0.2);
+  border-bottom: 1px solid rgba(43, 69, 82, 0.2);
+  border-left: 1px solid #2b4552;
   -webkit-transform: translateZ(0);
   -ms-transform: translateZ(0);
   transform: translateZ(0);
@@ -21660,7 +21660,7 @@ Ported to CodeMirror by Peter Kroon
   left: 50%;
   transform: translateX(-50%);
   display: block;
-  color: #2c689c;
+  color: #2b4552;
   content: "\F107";
 }
 .msgapi .ms-map-popup {
