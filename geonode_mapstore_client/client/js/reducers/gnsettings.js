@@ -11,6 +11,7 @@ import {
 } from '@js/actions/gnsettings';
 
 function gnsettings(state = {}, action) {
+    console.log('gnsettings.js');
     switch (action.type) {
     case UPDATE_GEONODE_SETTINGS: {
         return {
