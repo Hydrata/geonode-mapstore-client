@@ -1681,6 +1681,9 @@
         ],
         "map_view": [
             {
+                "name": "ProjectManager"
+            },
+            {
                 "name": "Map",
                 "cfg": {
                     "tools": [
@@ -1700,9 +1703,6 @@
                         }
                     }
                 }
-            },
-            {
-                "name": "BackgroundSelector"
             },
             {
                 "name": "Identify",
@@ -1750,9 +1750,6 @@
                 }
             },
             {
-                "name": "DrawerMenu"
-            },
-            {
                 "name": "Cookie"
             },
             {
@@ -1789,7 +1786,7 @@
                 "name": "ZoomIn",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": false
+                        "alwaysVisible": true
                     }
                 }
             },
@@ -1806,15 +1803,6 @@
             },
             {
                 "name": "Playback"
-            },
-            {
-                "name": "LayerDownload",
-                "cfg": {
-                    "disablePluginIf": "{!state('selectedLayerPermissions').includes('download_resourcebase')}"
-                }
-            },
-            {
-                "name": "AddLayer"
             },
             {
                 "name": "FilterLayer"
@@ -1874,12 +1862,6 @@
                 }
             },
             {
-                "name": "MetadataExplorer",
-                "cfg": {
-                    "wrap": true
-                }
-            },
-            {
                 "name": "MousePosition",
                 "cfg": {
                     "editCRS": true,
@@ -1890,15 +1872,6 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
-                }
-            },
-            {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
                 }
             },
             {
@@ -1973,9 +1946,6 @@
                         }
                     }
                 }
-            },
-            {
-                "name": "BackgroundSelector"
             },
             {
                 "name": "Identify",
@@ -2078,12 +2048,6 @@
                 "name": "Playback"
             },
             {
-                "name": "LayerDownload",
-                "cfg": {
-                    "disablePluginIf": "{!state('selectedLayerPermissions').includes('download_resourcebase')}"
-                }
-            },
-            {
                 "name": "AddLayer"
             },
             {
@@ -2138,12 +2102,6 @@
                 }
             },
             {
-                "name": "MetadataExplorer",
-                "cfg": {
-                    "wrap": true
-                }
-            },
-            {
                 "name": "MousePosition",
                 "cfg": {
                     "editCRS": true,
@@ -2154,15 +2112,6 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
-                }
-            },
-            {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
                 }
             },
             {
