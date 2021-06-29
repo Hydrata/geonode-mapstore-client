@@ -1,0 +1,35 @@
+.project-manager-panel {
+    position: absolute;
+    z-index: 1021;
+    top: 50px;
+    left: 20px;
+    min-width: 400px;
+    background-color: rgba(0, 60, 136, 0.6);
+    border-color: rgba(255, 255, 255, 0.7);
+    border-width: 2px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 4px;
+    color: white;
+    text-align: center
+}
+
+.dataset-transparency {
+    margin-left: 280px;
+    margin-top: 15px;
+}
+
+.mapstore-slider.with-tooltip.dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
+    width: 20px;
+    left: -10px;
+    border: 2px solid #dddddd;
+    border-radius: 10px;
+    cursor: default;
+}
+
+.mapstore-slider.with-tooltip.dataset-transparency .noUi-target {
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    background-color: #335781;
+}
