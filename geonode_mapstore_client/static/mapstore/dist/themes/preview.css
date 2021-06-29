@@ -37808,6 +37808,9 @@ Ported to CodeMirror by Peter Kroon
   max-width: 500px;
 }
 .msgapi #map {
+  top: 0 !important;
+}
+.msgapi #map {
   bottom: 0px !important;
 }
 .msgapi .mapstore-map-footer {

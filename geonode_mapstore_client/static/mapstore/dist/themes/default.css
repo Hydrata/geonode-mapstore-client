@@ -21834,6 +21834,9 @@ Ported to CodeMirror by Peter Kroon
 .msgapi .add-bar-popover {
   max-width: 500px;
 }
+.msgapi #map {
+  top: 0 !important;
+}
 .msgapi .app-router,
 .msgapi #container {
   position: absolute;
