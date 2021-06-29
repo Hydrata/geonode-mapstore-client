@@ -126,8 +126,9 @@ class ProjectManagerContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    console.log('state for mapId:', state);
     return {
-        mapId: 21, // mapIdSelector(state),
+        mapId: state?.map?.present?.info?.id,
         layers: state?.layers?.flat.map(layer => layer.name),
         // eslint-disable-next-line camelcase
         menuGroups: menuGroupsSelector(state),
