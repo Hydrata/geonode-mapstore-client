@@ -75,6 +75,10 @@ function splitLazyAndStaticPlugins(pluginsDefinition) {
 // provides a way to import dynamically plugins similar to extensions
 
 export const plugins = {
+    ProjectManagerPlugin: toLazyPlugin(
+        'ProjectManager',
+        import('@js/plugins/hydrata/ProjectManager/ProjectManager')
+    ),
     LayerDownloadPlugin: toLazyPlugin(
         'LayerDownload',
         import(/* webpackChunkName: 'plugins/layer-download' */ '@mapstore/framework/plugins/LayerDownload')
