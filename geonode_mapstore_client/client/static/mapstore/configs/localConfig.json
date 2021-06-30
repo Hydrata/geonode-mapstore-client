@@ -1722,15 +1722,6 @@
                 }
             },
             {
-                "name": "TOC",
-                "cfg": {
-                    "activateAddLayerButton": true,
-                    "activateMetedataTool": false,
-                    "activateSettingsTool": false,
-                    "activateRemoveLayer": false
-                }
-            },
-            {
                 "name": "Settings",
                 "cfg": {
                     "wrap": true
@@ -1894,23 +1885,10 @@
                 }
             },
             {
-                "name": "TOCItemsSettings",
-                "cfg": {
-                    "hideTitleTranslations": true,
-                    "showFeatureInfoTab": false
-                }
-            },
-            {
                 "name": "Widgets"
             },
             {
                 "name": "WidgetsTray"
-            },
-            {
-                "name": "SaveAs",
-                "cfg": {
-                    "disablePermission": true
-                }
             },
             {
                 "name": "Notifications"
@@ -1931,9 +1909,6 @@
         "map_edit": [
             {
                 "name": "Biocollect"
-            },
-            {
-                "name": "SimpleView"
             },
             {
                 "name": "Map",

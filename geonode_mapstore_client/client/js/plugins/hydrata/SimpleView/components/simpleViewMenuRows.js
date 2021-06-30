@@ -1,17 +1,18 @@
 import React from "react";
-import {setMenuGroup} from "../actionsProjectManager";
 import {connect} from "react-redux";
-import {MenuDatasetRow} from "./projectManagerMenuDatasetRow";
 const PropTypes = require('prop-types');
 
+import {MenuRow} from "./simpleViewMenuRow";
+import '../simpleView.css';
 
-const openMenuGroupSelector = (state) => state?.projectManager?.openMenuGroup;
-
-class MenuDatasetRowsClass extends React.Component {
+class MenuRowsClass extends React.Component {
     static propTypes = {
+        menuGroups: PropTypes.array,
+        flatLayers: PropTypes.array,
+        openLayers: PropTypes.array,
         menuDatasets: PropTypes.array,
-        openMenuGroup: PropTypes.string,
-        baseMaps: PropTypes.array
+        openMenuGroupId: PropTypes.string,
+        baseMapLayers: PropTypes.array
     };
 
     constructor(props) {
@@ -19,26 +20,26 @@ class MenuDatasetRowsClass extends React.Component {
     }
 
     render() {
-        if (this.props.openMenuGroup.id_label === 'basemaps') {
+        if (this.props.openMenuGroupId === 'basemaps') {
             return (
-                <div style={rowsStyle}>
-                    {this.props.baseMaps.map((layer) => (
-                        <MenuDatasetRow layer={layer}/>
+                <div className={'menu-rows-container'}>
+                    {this.props.baseMapLayers.map((layer) => (
+                        <MenuRow layer={layer}/>
                     ))}
                 </div>
             );
         }
-        if (this.props.menuDatasets?.length === 0) {
+        if (this.props.openLayers?.length === 0) {
             return (
-                <div style={rowsStyle}>
-                    <MenuDatasetRow dataset={null}/>
+                <div className={'menu-rows-container'}>
+                    <MenuRow layer={null}/>
                 </div>
             );
         }
         return (
-            <div style={rowsStyle}>
-                {this.props.menuDatasets?.map((dataset) => (
-                    <MenuDatasetRow dataset={dataset}/>
+            <div className={'menu-rows-container'}>
+                {this.props.openLayers?.map((layer) => (
+                    <MenuRow layer={layer}/>
                 ))}
             </div>
         );
@@ -48,25 +49,22 @@ class MenuDatasetRowsClass extends React.Component {
 const mapStateToProps = (state) => {
     // debugger;
     return {
-        openMenuGroup: openMenuGroupSelector(state),
-        menuDatasets: state?.projectManager?.data?.dataset_set.filter((dataset) => {
-            return dataset?.mapstore_menu_group?.id_label === openMenuGroupSelector(state)?.id_label;
-        }),
-        baseMaps: state?.layers?.flat.filter((layer) => {
-            return layer.group === 'background';
-        })
+        openMenuGroupId: state?.simpleView?.openMenuGroupId,
+        menuGroups: state?.layers?.groups,
+        flatLayers: state?.layers?.flat,
+        openLayers: state?.layers?.flat?.filter((layer) => layer?.group === state?.simpleView?.openMenuGroupId),
+        baseMapLayers: state?.layers?.flat.filter((layer) => layer?.group === 'background')
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        setMenuGroup: (menuGroup) => dispatch(setMenuGroup(menuGroup))
     };
 };
 
-const MenuDatasetRows = connect(mapStateToProps, mapDispatchToProps)(MenuDatasetRowsClass);
+const MenuRows = connect(mapStateToProps, mapDispatchToProps)(MenuRowsClass);
 
 
 export {
-    MenuDatasetRows
+    MenuRows
 };

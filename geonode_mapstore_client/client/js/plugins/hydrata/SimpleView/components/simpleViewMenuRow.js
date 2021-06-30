@@ -1,59 +1,56 @@
 import React from "react";
 import {connect} from "react-redux";
-import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
-import "../projectManager.css";
 const PropTypes = require('prop-types');
 const Slider = require('react-nouislider');
 
+import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
+import '../simpleView.css';
 
-class MenuDatasetRowClass extends React.Component {
+
+class MenuRowClass extends React.Component {
     static propTypes = {
-        thisLayer: PropTypes.array,
-        dataset: PropTypes.object,
+        layer: PropTypes.object,
         toggleLayer: PropTypes.func,
         setOpacity: PropTypes.func,
-        layer: PropTypes.object
     };
 
     constructor(props) {
         super(props);
-        this.state = {
-            isVisible: true
-        };
+        this.state = {};
     }
 
     render() {
-        if (!this.props.thisLayer) {
+        if (!this.props.layer) {
             return (
-                <div className={"row"} style={{...rowStyle}}>
-                    <div className={"btn-group inline pull-left"} style={{...btnGroupStyle}}>
-                        <div className="h5" style={textStyle}>No datasets here yet...</div>
+                <div className={"row menu-row"}>
+                    <div className={"btn-group inline pull-left .enu-row-button"}>
+                        <div className="h5 menu-row-text">No datasets here yet...</div>
                     </div>
                 </div>
             );
         }
         return (
-            <div className={"row"} style={{...rowStyle}}>
-                <div className={"btn-group inline pull-left"} style={{...btnGroupStyle}}>
+            <div className={"row menu-row"}>
+                <div className={"btn-group inline pull-left .enu-row-button"}>
                     <div
-                        className={"btn glyphicon " + (this.props.thisLayer?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                        style={{...glyphStyle, "color": this.props.thisLayer?.visibility ? "limegreen" : "red"}}
-                        onClick={() => {this.props.toggleLayer(this.props.thisLayer?.id, this.props.thisLayer?.visibility);}}
+                        className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                        style={{"color": this.props.layer?.visibility ? "limegreen" : "red"}}
+                        onClick={() => {this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);}}
                     />
-                    <div className="h5" style={textStyle}>{this.props.thisLayer.title}</div>
+                    <div className="h5 menu-row-text">{this.props.layer.title}</div>
                 </div>
                 {
-                    (this.props.thisLayer.opacity === 0 || this.props.thisLayer.opacity) ?
+                    (this.props.layer.opacity === 0 || this.props.layer.opacity) ?
                         <div className="mapstore-slider dataset-transparency with-tooltip" onClick={(e) => { e.stopPropagation(); }}>
                             <Slider
                                 step={1}
-                                start={this.props.thisLayer?.opacity * 100}
+                                start={this.props.layer?.opacity * 100}
                                 range={{
                                     min: 0,
                                     max: 100
                                 }}
                                 onChange={(values) => {
-                                    this.props.setOpacity(this.props.thisLayer?.id, values);
+                                    this.props.setOpacity(this.props.layer?.id, values);
                                 }}
                             />
                         </div> :
@@ -64,14 +61,6 @@ class MenuDatasetRowClass extends React.Component {
     }
 }
 
-const mapStateToProps = (state, ownProps) => {
-    return {
-        thisLayer: ownProps.layer ? ownProps.layer : state?.layers?.flat.filter((layer) => {
-            return layer?.id === ownProps.dataset?.layer;
-        })[0]
-    };
-};
-
 const mapDispatchToProps = ( dispatch ) => {
     return {
         toggleLayer: (layer, isVisible) => dispatch(changeLayerProperties(layer, {visibility: !isVisible})),
@@ -79,9 +68,9 @@ const mapDispatchToProps = ( dispatch ) => {
     };
 };
 
-const MenuDatasetRow = connect(mapStateToProps, mapDispatchToProps)(MenuDatasetRowClass);
+const MenuRow = connect(null, mapDispatchToProps)(MenuRowClass);
 
 
 export {
-    MenuDatasetRow
+    MenuRow
 };

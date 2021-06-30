@@ -1,0 +1,113 @@
+.simple-view-menu-button {
+    position: absolute;
+    z-index: 1021;
+    top: 11px;
+    width: 85px;
+    height: 50px;
+    background-color: rgba(0, 60, 136, 0.6);
+    border-color: rgba(255, 255, 255, 0.7);
+    border-width: 2px;
+    padding: 3px 5px;
+    font-size: 12px;
+    line-height: 1.3;
+    border-radius: 4px;
+    color: white;
+    text-align: center
+}
+
+.simple-view-panel {
+    position: absolute;
+    z-index: 1021;
+    top: 65px;
+    left: 20px;
+    min-width: 400px;
+    background-color: rgba(0,60,136,0.6);
+    border-color: rgba(255, 255, 255, 0.7);
+    border-width: 2px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 4px;
+    color: white;
+    text-align: center;
+}
+
+.legend-button {
+    right: 60px;
+}
+
+.legend-panel {
+    top: 10px;
+    right: 60px;
+    left: unset;
+    text-align: right;
+    padding-bottom: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 92%;
+    max-width: 400px;
+}
+
+.legend-row {
+    padding: 10px;
+    margin: -1px 10px -1px 10px;
+    border: 1px solid #ffffffad;
+    border-radius: 3px;
+}
+
+.legend-background {
+    background-color: white;
+    padding: 3px;
+    border-radius: 3px;
+}
+
+.legend-image {                                                
+    display: block;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 80%;
+}
+
+.legend-text-label {
+    text-align: left;
+}
+
+.legend-heading {
+    text-align: center;
+}
+
+.legend-close {
+    position: absolute;
+    right: 0;
+    color: red;
+}
+
+.menu-rows-container {
+    border-top: 1px solid #ffffffad;
+}
+
+.menu-row {
+    border-bottom: 1px solid #ffffffad;
+    padding-left: 5px;
+    margin: 0;
+}
+
+.menu-row-button {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+
+.menu-row-glyph {
+    background: #ffffff;
+    border-radius: 3px;
+    margin: 5px 20px 5px 5px;
+    color: limegreen;
+    font-size: 10px
+}
+
+.menu-row-text {
+    white-space: nowrap;
+    padding-left: 3px;
+}
