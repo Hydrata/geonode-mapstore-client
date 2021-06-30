@@ -1681,7 +1681,10 @@
         ],
         "map_view": [
             {
-                "name": "ProjectManager"
+                "name": "Biocollect"
+            },
+            {
+                "name": "SimpleView"
             },
             {
                 "name": "Map",
@@ -1716,15 +1719,6 @@
                         "position": 11,
                         "alwaysVisible": false
                     }
-                }
-            },
-            {
-                "name": "TOC",
-                "cfg": {
-                    "activateAddLayerButton": true,
-                    "activateMetedataTool": false,
-                    "activateSettingsTool": false,
-                    "activateRemoveLayer": false
                 }
             },
             {
@@ -1891,23 +1885,10 @@
                 }
             },
             {
-                "name": "TOCItemsSettings",
-                "cfg": {
-                    "hideTitleTranslations": true,
-                    "showFeatureInfoTab": false
-                }
-            },
-            {
                 "name": "Widgets"
             },
             {
                 "name": "WidgetsTray"
-            },
-            {
-                "name": "SaveAs",
-                "cfg": {
-                    "disablePermission": true
-                }
             },
             {
                 "name": "Notifications"
@@ -1926,6 +1907,9 @@
             }
         ],
         "map_edit": [
+            {
+                "name": "Biocollect"
+            },
             {
                 "name": "Map",
                 "cfg": {
