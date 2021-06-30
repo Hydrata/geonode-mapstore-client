@@ -79,6 +79,14 @@ export const plugins = {
         'ProjectManager',
         import('@js/plugins/hydrata/ProjectManager/ProjectManager')
     ),
+    SimpleViewPlugin: toLazyPlugin(
+        'SimpleView',
+        import('@js/plugins/hydrata/SimpleView/SimpleView')
+    ),
+    BiocollectPlugin: toLazyPlugin(
+        'Biocollect',
+        import('@js/plugins/hydrata/Biocollect/Biocollect')
+    ),
     LayerDownloadPlugin: toLazyPlugin(
         'LayerDownload',
         import(/* webpackChunkName: 'plugins/layer-download' */ '@mapstore/framework/plugins/LayerDownload')

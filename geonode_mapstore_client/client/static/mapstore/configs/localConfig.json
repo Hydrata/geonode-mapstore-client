@@ -1681,7 +1681,10 @@
         ],
         "map_view": [
             {
-                "name": "ProjectManager"
+                "name": "Biocollect"
+            },
+            {
+                "name": "SimpleView"
             },
             {
                 "name": "Map",
@@ -1926,6 +1929,12 @@
             }
         ],
         "map_edit": [
+            {
+                "name": "Biocollect"
+            },
+            {
+                "name": "SimpleView"
+            },
             {
                 "name": "Map",
                 "cfg": {

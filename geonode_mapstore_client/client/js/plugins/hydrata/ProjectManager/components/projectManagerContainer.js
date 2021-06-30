@@ -1,10 +1,8 @@
 import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
-const { mapIdSelector } = require('../../../../../MapStore2/web/client/selectors/map');
 import {fetchProjectManagerConfig, setMenuGroup} from "../actionsProjectManager";
 import {MenuDatasetRows} from './projectManagerMenuDatasetRows';
-// import NetworksContainer from "../../Networks/components/networksContainer";
 import LegendPanel from "./legendPanel";
 
 // eslint-disable-next-line camelcase
