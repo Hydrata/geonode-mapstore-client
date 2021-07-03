@@ -1722,6 +1722,15 @@
                 }
             },
             {
+                "name": "TOC",
+                "cfg": {
+                    "activateAddLayerButton": true,
+                    "activateMetedataTool": false,
+                    "activateSettingsTool": false,
+                    "activateRemoveLayer": false
+                }
+            },
+            {
                 "name": "Settings",
                 "cfg": {
                     "wrap": true
@@ -1799,6 +1808,12 @@
                 "name": "Playback"
             },
             {
+                "name": "LayerDownload",
+                "cfg": {
+                    "disablePluginIf": "{!state('selectedLayerPermissions').includes('download_resourcebase')}"
+                }
+            },
+            {
                 "name": "FilterLayer"
             },
             {
@@ -1856,10 +1871,16 @@
                 }
             },
             {
+                "name": "MetadataExplorer",
+                "cfg": {
+                    "wrap": true
+                }
+            },
+            {
                 "name": "MousePosition",
                 "cfg": {
                     "editCRS": true,
-                    "showLabels": false,
+                    "showLabels": true,
                     "showToggle": true,
                     "filterAllowedCRS": [
                         "EPSG:4326",
@@ -1882,6 +1903,13 @@
                     "Toolbar": {
                         "alwaysVisible": false
                     }
+                }
+            },
+            {
+                "name": "TOCItemsSettings",
+                "cfg": {
+                    "hideTitleTranslations": true,
+                    "showFeatureInfoTab": false
                 }
             },
             {
@@ -1911,6 +1939,9 @@
                 "name": "Biocollect"
             },
             {
+                "name": "AddLayer"
+            },
+            {
                 "name": "Map",
                 "cfg": {
                     "tools": [
@@ -1930,6 +1961,9 @@
                         }
                     }
                 }
+            },
+            {
+                "name": "BackgroundSelector"
             },
             {
                 "name": "Identify",
@@ -2032,6 +2066,12 @@
                 "name": "Playback"
             },
             {
+                "name": "LayerDownload",
+                "cfg": {
+                    "disablePluginIf": "{!state('selectedLayerPermissions').includes('download_resourcebase')}"
+                }
+            },
+            {
                 "name": "AddLayer"
             },
             {
@@ -2086,6 +2126,12 @@
                 }
             },
             {
+                "name": "MetadataExplorer",
+                "cfg": {
+                    "wrap": true
+                }
+            },
+            {
                 "name": "MousePosition",
                 "cfg": {
                     "editCRS": true,
@@ -2096,6 +2142,15 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
+                }
+            },
+            {
+                "name": "Search",
+                "cfg": {
+                    "withToggle": [
+                        "max-width: 768px",
+                        "min-width: 768px"
+                    ]
                 }
             },
             {
