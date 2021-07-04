@@ -64,6 +64,9 @@ class MapStoreResource(models.Model):
             models.Index(fields=['name', ]),
         ]
 
+    def __str__(self):
+        return f"{self.id} {self.name}"
+
 
 class MapStoreAttribute(models.Model):
     TYPE_STRING = 'string'
@@ -107,6 +110,9 @@ class MapStoreAttribute(models.Model):
     class Meta:
         db_table = 'mapstore2_adapter_mapstoreattribute'
 
+    def __str__(self):
+        return f"{self.label} {self.resource} {self.type}"
+
 
 class MapStoreData(models.Model):
     blob = JSONField(
@@ -120,3 +126,6 @@ class MapStoreData(models.Model):
 
     class Meta:
         db_table = 'mapstore2_adapter_mapstoredata'
+
+    def __str__(self):
+        return f"data - {self.resource}"

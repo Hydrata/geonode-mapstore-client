@@ -1684,6 +1684,9 @@
                 "name": "Biocollect"
             },
             {
+                "name": "Swamm"
+            },
+            {
                 "name": "SimpleView"
             },
             {
@@ -2142,15 +2145,6 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
-                }
-            },
-            {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
                 }
             },
             {
