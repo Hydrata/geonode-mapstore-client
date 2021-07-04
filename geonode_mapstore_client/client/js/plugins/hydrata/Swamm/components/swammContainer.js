@@ -38,67 +38,9 @@ import {
 } from "../../../../../MapStore2/web/client/actions/draw";
 import {query} from "../../../../../MapStore2/web/client/actions/wfsquery";
 
-const buttonStyle = {
-    position: "absolute",
-    zIndex: 1021,
-    top: 11,
-    width: "85px",
-    height: "60px",
-    backgroundColor: "rgba(0,60,136,0.5)",
-    borderColor: "rgb(255 255 255 / 70%)",
-    borderWidth: "2px",
-    padding: "3px 5px",
-    fontSize: "12px",
-    lineHeight: "1.3",
-    borderRadius: "4px",
-    color: "white",
-    textAlign: "center"
-};
+import "../../SimpleView/simpleView.css";
+import "../swamm.css";
 
-const panelStyle = {
-    position: "absolute",
-    zIndex: 1021,
-    top: "85px",
-    left: "20px",
-    minWidth: "400px",
-    maxWidth: "800px",
-    maxHeight: "80vh",
-    backgroundColor: "rgba(0,60,136,0.6)",
-    borderColor: "rgb(255 255 255 / 70%)",
-    borderWidth: "2px",
-    padding: "5px 10px",
-    fontSize: "12px",
-    lineHeight: "1.5",
-    borderRadius: "4px",
-    color: "white",
-    overflowY: "auto",
-    overflowX: "hidden"
-};
-
-const bmpProgressButtonStyle = {
-    top: "50px",
-    left: "20px",
-    minWidth: "135px",
-    position: "absolute",
-    opacity: "0.7",
-    borderRadius: "4px"
-};
-
-const loadingBmpStyle = {
-    position: "absolute",
-    top: "200px",
-    left: "50%",
-    marginTop: "-100px",
-    marginLeft: "-100px",
-    opacity: "0.7",
-    width: "200px",
-    height: "100px",
-    borderRadius: "4px",
-    borderColor: "white",
-    color: "white",
-    background: "rgba(0,60,136,0.6)",
-    textAlign: "center"
-};
 
 class SwammContainer extends React.Component {
     static propTypes = {
@@ -213,7 +155,7 @@ class SwammContainer extends React.Component {
             <div id={"swamm-container"}>
                 {this.props.allBmps?.length >= 0 ?
                     null :
-                    <button style={loadingBmpStyle}>
+                    <button className={'simple-view-menu-button bmp-loading-button'}>
                         <div style={{marginBottom: "10px"}}>Loading BMP data...</div>
                         <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
                     </button>
@@ -221,7 +163,8 @@ class SwammContainer extends React.Component {
                 {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.drawingBmpLayerName && !this.props.editingBmpFeatureId ?
                     <React.Fragment>
                         <Button
-                            style={{...bmpProgressButtonStyle, left: 20, top: 80}}
+                            className={'simple-view-menu-button bmp-progress-button'}
+                            style={{left: 20}}
                             bsStyle={"success"}
                             onClick={() => this.props.showBmpForm()}
                         >
@@ -229,8 +172,8 @@ class SwammContainer extends React.Component {
                         </Button>
                         <button
                             key="swamm-bmp-creator-button"
-                            // style={{...buttonStyle, left: (this.props.numberOfMenus + 5) * 100 + 20}}
-                            style={{...buttonStyle, left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                            className={'simple-view-menu-button'}
+                            style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                             onClick={() => {
                                 this.props.showBmpForm();
                                 this.props.setMenuGroup(null);
@@ -243,7 +186,7 @@ class SwammContainer extends React.Component {
                         <React.Fragment>
                             <Button
                                 bsStyle="success"
-                                style={{...bmpProgressButtonStyle, top: 80}}
+                                className={'simple-view-menu-button bmp-progress-button'}
                                 onClick={() => {
                                     this.props.saveChanges();
                                     this.props.showBmpForm();
@@ -253,7 +196,8 @@ class SwammContainer extends React.Component {
                             </Button>
                             <Button
                                 bsStyle="danger"
-                                style={{...bmpProgressButtonStyle, left: 140 + 20, top: 80}}
+                                className={'simple-view-menu-button bmp-progress-button'}
+                                style={{left: 160}}
                                 onClick={() => {
                                     this.props.showBmpForm();
                                     this.props.setLayer(null);
@@ -267,7 +211,8 @@ class SwammContainer extends React.Component {
                             </Button>
                             <button
                                 key="swamm-bmp-creator-button"
-                                style={{...buttonStyle, left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                className={'simple-view-menu-button'}
+                                style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                 onClick={() => {
                                     this.props.saveChanges();
                                     this.props.showBmpForm();
@@ -279,8 +224,8 @@ class SwammContainer extends React.Component {
                         </React.Fragment>
                         : this.props.visibleBmpForm ?
                             <button
-                                key="swamm-bmp-creator-button"
-                                style={{...buttonStyle, left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                className={'simple-view-menu-button'}
+                                style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                 disabled
                             >
                                 Create BMPs
@@ -288,7 +233,8 @@ class SwammContainer extends React.Component {
                             :
                             <button
                                 key="swamm-bmp-creator-button"
-                                style={{...buttonStyle, left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                className={'simple-view-menu-button'}
+                                style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                 onClick={() => {
                                     this.props.makeBmpForm();
                                     this.props.setMenuGroup(null);
@@ -299,7 +245,8 @@ class SwammContainer extends React.Component {
                 }
                 <button
                     key="swamm-bmp-data-grid-button"
-                    style={{...buttonStyle, left: (this.props.numberOfMenus + 2) * 100 + 20}}
+                    className={'simple-view-menu-button'}
+                    style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
                     onClick={() => {
                         this.props.showSwammFeatureGrid(this.props.bmpOutletLayer);
                         this.props.setMenuGroup(null);
@@ -310,7 +257,8 @@ class SwammContainer extends React.Component {
                 {this.props.targets?.length ?
                     <button
                         key="swamm-bmp-chart-button"
-                        style={{...buttonStyle, left: (this.props.numberOfMenus + 3) * 100 + 20}}
+                        className={'simple-view-menu-button'}
+                        style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
                         onClick={() => {
                             this.props.showSwammBmpChart();
                             this.props.setMenuGroup(null);
@@ -320,14 +268,14 @@ class SwammContainer extends React.Component {
                     </button> :
                     <button
                         key="swamm-bmp-chart-button"
-                        style={{...buttonStyle, left: (this.props.numberOfMenus + 3) * 100 + 20}}
-                        className={'disabled'}
+                        className={'simple-view-menu-button disabled'}
+                        style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
                     >
                         <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
                     </button>
                 }
                 {this.props.visibleBmpManager ?
-                    <div style={{...panelStyle}} id="swamm-bmp-manager">
+                    <div className={'simple-view-panel'} id="swamm-bmp-manager">
                         <table className="table check1" style={{tableLayout: "fixed", marginBottom: "0"}}>
                             <tbody>
                                 <tr key="r1">
@@ -371,7 +319,7 @@ class SwammContainer extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        mapId: mapIdSelector(state),
+        mapId: state?.map?.present?.info?.id,
         organisations: state?.projectManager?.data?.organisations,
         bmpUniqueNames: bmpByUniqueNameSelector(state),
         bmpTypes: state?.swamm?.bmpTypes,
@@ -396,7 +344,7 @@ const mapStateToProps = (state) => {
         visibleSwammBmpChart: state?.swamm?.visibleSwammBmpChart,
         visibleTargetForm: state?.swamm?.visibleTargetForm,
         queryStore: state?.query,
-        numberOfMenus: state?.projectManager?.data?.map_store_menu_groups?.length,
+        numberOfMenus: state?.layers?.groups.length,
         filters: {
             showOutlets: state.swamm?.showOutlets,
             showFootprints: state.swamm?.showFootprints,

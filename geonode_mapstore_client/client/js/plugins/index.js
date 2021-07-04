@@ -75,6 +75,10 @@ function splitLazyAndStaticPlugins(pluginsDefinition) {
 // provides a way to import dynamically plugins similar to extensions
 
 export const plugins = {
+    SwammPlugin: toLazyPlugin(
+        'Swamm',
+        import('@js/plugins/hydrata/Swamm/Swamm')
+    ),
     ProjectManagerPlugin: toLazyPlugin(
         'ProjectManager',
         import('@js/plugins/hydrata/ProjectManager/ProjectManager')
