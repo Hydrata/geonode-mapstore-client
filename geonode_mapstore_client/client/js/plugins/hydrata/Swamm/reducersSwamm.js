@@ -47,7 +47,7 @@ import {
 import {
     SET_MENU_GROUP
 } from "../ProjectManager/actionsProjectManager";
-import { LOAD_FEATURE_INFO } from "../../actions/mapInfo";
+import { LOAD_FEATURE_INFO } from "../../../../MapStore2/web/client/actions/mapInfo";
 
 const initialState = {
     showOutlets: true,

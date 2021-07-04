@@ -1,7 +1,7 @@
 import React from 'react';
 import {connect} from 'react-redux';
 const PropTypes = require('prop-types');
-const {mapIdSelector} = require('../../../selectors/map');
+const {mapIdSelector} = require('../../../../../MapStore2/web/client/selectors/map');
 import {Button, Glyphicon} from "react-bootstrap";
 const Spinner = require('react-spinkit');
 import {
@@ -26,17 +26,17 @@ import {SwammDataGrid} from "./swammDataGrid";
 import {SwammTargetForm} from "./swammTargetForm";
 import {SwammBmpChart} from "./swammBmpChart";
 import {MenuDatasetRow} from "../../ProjectManager/components/projectManagerMenuDatasetRow";
-import {changeLayerProperties} from "../../../actions/layers";
+import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {
     setMenuGroup,
     setOrgVisibility
 } from "../../ProjectManager/actionsProjectManager";
 import {bmpByUniqueNameSelector} from "../selectorsSwamm";
-import {setLayer, saveChanges, toggleViewMode} from "../../../actions/featuregrid";
+import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import {
     drawStopped
-} from "../../../actions/draw";
-import {query} from "../../../actions/wfsquery";
+} from "../../../../../MapStore2/web/client/actions/draw";
+import {query} from "../../../../../MapStore2/web/client/actions/wfsquery";
 
 const buttonStyle = {
     position: "absolute",

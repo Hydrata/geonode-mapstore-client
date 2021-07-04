@@ -1,4 +1,4 @@
-import { createPlugin } from '../../utils/PluginsUtils';
+import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtils';
 import swamm from "./reducersSwamm";
 import SwammContainer from "./components/swammContainer";
 import {

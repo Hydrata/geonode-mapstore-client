@@ -7,7 +7,7 @@ import {
     FEATURE_TYPE_SELECTED,
     resetQuery,
     featureTypeSelected
-} from "../../actions/wfsquery";
+} from "../../../../MapStore2/web/client/actions/wfsquery";
 // import {
 //     isDescribeLoaded
 // } from "../../selectors/query";
@@ -28,14 +28,14 @@ import {
     setLayer,
     openFeatureGrid,
     SAVE_SUCCESS
-} from "../../actions/featuregrid";
+} from "../../../../MapStore2/web/client/actions/featuregrid";
 import {
     drawStopped
-} from "../../actions/draw";
-import { setHighlightFeaturesPath } from "../../actions/highlight";
+} from "../../../../MapStore2/web/client/actions/draw";
+import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 
 import { get } from 'lodash';
-import {reset} from '../../actions/queryform';
+import {reset} from '../../../../MapStore2/web/client/actions/queryform';
 
 
 const createInitialQueryFlow = (action$, store, {url, name, id} = {}) => {

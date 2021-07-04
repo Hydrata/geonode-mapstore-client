@@ -1,4 +1,4 @@
-const axios = require('../../libs/ajax');
+const axios = require('../../../../MapStore2/web/client/libs/ajax');
 
 const FETCH_SWAMM_BMPTYPES = 'FETCH_SWAMM_BMPTYPES';
 const FETCH_SWAMM_BMPTYPES_ERROR = 'FETCH_SWAMM_BMPTYPES_ERROR';
@@ -69,7 +69,7 @@ const DELETE_BMP_ERROR = 'DELETE_BMP_ERROR';
 const SET_BMP_FILTER_MODE = 'SET_BMP_FILTER_MODE';
 
 const uuidv1 = require('uuid/v1');
-const { SHOW_NOTIFICATION } = require('../../actions/notifications');
+const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
 
 const fetchSwammBmpTypesSuccess = (config) => {
     return {

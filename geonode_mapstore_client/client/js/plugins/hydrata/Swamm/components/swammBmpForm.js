@@ -22,13 +22,13 @@ import {
     createNewFeatures,
     startDrawingFeature,
     saveChanges
-} from "../../../actions/featuregrid";
-import { purgeMapInfoResults } from "../../../actions/mapInfo";
-import {featureTypeSelected, createQuery, query} from "../../../actions/wfsquery";
+} from "../../../../../MapStore2/web/client/actions/featuregrid";
+import { purgeMapInfoResults } from "../../../../../MapStore2/web/client/actions/mapInfo";
+import {featureTypeSelected, createQuery, query} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import "../../ProjectManager/projectManager.css";
 import {isInt} from "../../Utils/utils";
 import {bmpByUniqueNameSelector, orgSelector} from "../selectorsSwamm";
-import {changeLayerProperties} from "../../../actions/layers";
+import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 
 class SwammBmpFormClass extends React.Component {
     static propTypes = {
