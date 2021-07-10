@@ -143,6 +143,12 @@ const fetchProjectManagerConfig = (dispatch) => {
 };
 
 const fetchGroupProfilesSuccess = (groupProfiles) => {
+    groupProfiles.map((gp) => {
+        return {
+            ...gp,
+            id: gp.pk
+        };
+    });
     return {
         type: FETCH_GROUP_PROFILES_SUCCESS,
         groupProfiles: groupProfiles

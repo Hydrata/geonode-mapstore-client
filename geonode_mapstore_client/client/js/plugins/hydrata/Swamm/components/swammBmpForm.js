@@ -140,7 +140,7 @@ class SwammBmpFormClass extends React.Component {
                                                 inline="true"
                                                 readOnly="true"
                                                 type={"string"}
-                                                value={this.props.storedBmpForm?.groupProfile?.name}
+                                                value={this.props.storedBmpForm?.group_profile?.title}
                                             />
                                         </Col> :
                                         <Col sm={5}>
@@ -148,12 +148,12 @@ class SwammBmpFormClass extends React.Component {
                                                 inline="true"
                                                 componentClass="select"
                                                 name="groupProfile"
-                                                value={JSON.stringify(this.props.storedBmpForm?.groupProfile)}
+                                                value={JSON.stringify(this.props.storedBmpForm?.group_profile)}
                                                 onChange={this.handlegroupProfileChange}
                                             >
                                                 <option key="1" value="select">Select Organization</option>
                                                 {this.props.groupProfiles.map((groupProfile) => {
-                                                    return <option key={groupProfile.slug} value={JSON.stringify(groupProfile)}>{groupProfile.title}</option>;
+                                                    return <option key={groupProfile.id} value={JSON.stringify(groupProfile)}>{groupProfile.title}</option>;
                                                 })}
                                             </FormControl>
                                             <FormControl.Feedback />
@@ -328,8 +328,8 @@ class SwammBmpFormClass extends React.Component {
                                         </Col> :
                                         <Col sm={5}>
                                             <Button
-                                                disabled={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName)}
-                                                bsStyle={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                                disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
+                                                bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                 style={{opacity: "0.7"}}
                                                 onClick={() => this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null)}>
                                             Locate Outlet
@@ -366,8 +366,8 @@ class SwammBmpFormClass extends React.Component {
                                         <React.Fragment>
                                             <Col sm={5}>
                                                 <Button
-                                                    disabled={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName)}
-                                                    bsStyle={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                                    disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
+                                                    bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                     style={{opacity: "0.7"}}
                                                     onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint')}>
                                                 Draw footprint
@@ -405,8 +405,8 @@ class SwammBmpFormClass extends React.Component {
                                         <React.Fragment>
                                             <Col sm={5}>
                                                 <Button
-                                                    disabled={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName)}
-                                                    bsStyle={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                                    disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
+                                                    bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                     style={{opacity: "0.7"}}
                                                     onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed')} bsSize={"small"}>
                                                 Draw watershed
@@ -618,7 +618,7 @@ class SwammBmpFormClass extends React.Component {
         console.log('drawBmpStep1 featureId', featureId);
         this.props.setDrawingBmpLayerName(layerName);
         featureId ? this.props.setEditingBmpFeatureId(featureId) : this.props.clearEditingBmpFeatureId();
-        const targetLayer = this.props.layers.flat.filter(layer => layer.name === layerName)[0];
+        const targetLayer = this.props.layers.flat.filter(layer => layer?.name.includes(layerName))[0];
         console.log('drawBmpStep1 targetLayer', targetLayer);
         this.props.setLayer(targetLayer?.id);
         this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer?.name);

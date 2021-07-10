@@ -246,7 +246,7 @@ export default ( state = initialState, action) => {
             creatingNewBmp: true,
             visibleBmpForm: true,
             storedBmpForm: {
-                groupProfile: '',
+                // group_profile_id: null,
                 bmpName: ''
             }
         };
@@ -274,6 +274,7 @@ export default ( state = initialState, action) => {
             }
         };
     case MAKE_EXISTING_BMP_FORM:
+        console.log('MAKE_EXISTING_BMP_FORM', action);
         const outletFid = state?.storedBmpForm?.outlet_fid ? state.storedBmpForm?.outlet_fid : action.bmp?.outlet_fid;
         const footprintFid = state?.storedBmpForm?.footprint_fid ? state.storedBmpForm?.footprint_fid : action.bmp?.footprint_fid;
         const watershedFid = state?.storedBmpForm?.watershed_fid ? state.storedBmpForm?.watershed_fid : action.bmp?.watershed_fid;
@@ -284,8 +285,8 @@ export default ( state = initialState, action) => {
             type: action.bmp.type_data.id,
             type_data: action.bmp.type_data,
             project: action.bmp.project,
-            groupProfile: action.bmp.groupProfile,
-            groupProfileSlug: action.bmp.groupProfile.slug,
+            group_profile: action.bmp.group_profile,
+            group_profile_id: action.bmp.group_profile?.id,
             override_n_surface_red_percent: action.bmp.override_n_surface_red_percent,
             override_p_surface_red_percent: action.bmp.override_p_surface_red_percent,
             override_s_surface_red_percent: action.bmp.override_s_surface_red_percent,
@@ -340,19 +341,20 @@ export default ( state = initialState, action) => {
             showSubmitBmpFormError: true
         };
     case UPDATE_BMP_FORM:
+        console.log('heard UPDATE_BMP_FORM', action);
         if (action?.kv?.type_data?.id) {
             return {
                 ...state,
                 BmpFormBmpTypeId: action.kv.type_data.id
             };
         }
-        if (action?.kv?.groupProfile?.slug) {
+        if (action?.kv?.groupProfile) {
             return {
                 ...state,
                 storedBmpForm: {
                     ...state.storedBmpForm,
                     ...action.kv,
-                    groupProfileSlug: action?.kv?.groupProfile?.slug
+                    group_profile_id: action?.kv?.groupProfile?.pk
                 }
             };
         }
