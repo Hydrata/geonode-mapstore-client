@@ -1681,10 +1681,10 @@
         ],
         "map_view": [
             {
-                "name": "Swamm"
+                "name": "Biocollect"
             },
             {
-                "name": "ProjectManager"
+                "name": "Swamm"
             },
             {
                 "name": "SimpleView"
@@ -1939,13 +1939,10 @@
         ],
         "map_edit": [
             {
-                "name": "Swamm"
-            },
-            {
-                "name": "ProjectManager"
-            },
-            {
                 "name": "SimpleView"
+            },
+            {
+                "name": "Swamm"
             },
             {
                 "name": "AddLayer"
@@ -2048,7 +2045,7 @@
                 "name": "ZoomAll",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": false
+                        "alwaysVisible": true
                     }
                 }
             },
@@ -2151,6 +2148,15 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
+                }
+            },
+            {
+                "name": "Search",
+                "cfg": {
+                    "withToggle": [
+                        "max-width: 768px",
+                        "min-width: 768px"
+                    ]
                 }
             },
             {
