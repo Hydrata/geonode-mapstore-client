@@ -4,6 +4,14 @@ const FETCH_SWAMM_BMPTYPES = 'FETCH_SWAMM_BMPTYPES';
 const FETCH_SWAMM_BMPTYPES_ERROR = 'FETCH_SWAMM_BMPTYPES_ERROR';
 const FETCH_SWAMM_BMPTYPES_SUCCESS = 'FETCH_SWAMM_BMPTYPES_SUCCESS';
 
+const FETCH_GROUP_PROFILES = 'FETCH_GROUP_PROFILES';
+const FETCH_GROUP_PROFILES_ERROR = 'FETCH_GROUP_PROFILES_ERROR';
+const FETCH_GROUP_PROFILES_SUCCESS = 'FETCH_GROUP_PROFILES_SUCCESS';
+
+const FETCH_PROJECT_MANAGER_CONFIG = 'FETCH_PROJECT_MANAGER_CONFIG';
+const FETCH_PROJECT_MANAGER_CONFIG_ERROR = 'FETCH_PROJECT_MANAGER_CONFIG_ERROR';
+const FETCH_PROJECT_MANAGER_CONFIG_SUCCESS = 'FETCH_PROJECT_MANAGER_CONFIG_SUCCESS';
+
 const FETCH_SWAMM_ALL_BMPS = 'FETCH_SWAMM_ALL_BMPS';
 const FETCH_SWAMM_ALL_BMPS_ERROR = 'FETCH_SWAMM_ALL_BMPS_ERROR';
 const FETCH_SWAMM_ALL_BMPS_SUCCESS = 'FETCH_SWAMM_ALL_BMPS_SUCCESS';
@@ -39,10 +47,8 @@ const SHOW_BMP_MANAGER = 'SHOW_BMP_MANAGER';
 const HIDE_BMP_MANAGER = 'HIDE_BMP_MANAGER';
 const TOGGLE_BMP_MANAGER = 'TOGGLE_BMP_MANAGER';
 
-// const TOGGLE_OUTLETS = 'TOGGLE_OUTLETS';
-// const TOGGLE_FOOTPRINTS = 'TOGGLE_FOOTPRINTS';
-// const TOGGLE_WATERSHEDS = 'TOGGLE_WATERSHEDS';
 const TOGGLE_BMP_TYPE = 'TOGGLE_BMP_TYPE';
+const SET_MENU_GROUP = 'SET_MENU_GROUP';
 const SET_BMP_TYPE = 'SET_BMP_TYPE';
 
 const SET_STATUS_FILTER = 'SET_STATUS_FILTER';
@@ -101,6 +107,71 @@ const fetchSwammBmpTypes = (mapId) => {
         ).catch(
             e => {
                 dispatch(fetchSwammBmpTypesError(e));
+            }
+        );
+    };
+};
+
+const fetchProjectManagerConfigSuccess = (config) => {
+    return {
+        type: FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
+        payload: config
+    };
+};
+
+function fetchProjectManagerConfigError(e) {
+    console.log('*** error:', e);
+    return {
+        type: FETCH_PROJECT_MANAGER_CONFIG_ERROR,
+        error: e
+    };
+}
+
+const fetchProjectManagerConfig = (dispatch) => {
+    return (mapId) => {
+        return axios.get(`/projects/api/maps/${mapId}/`
+        ).then(
+            response => {
+                dispatch(fetchProjectManagerConfigSuccess(response.data.project));
+            }
+        ).catch(
+            e => {
+                dispatch(fetchProjectManagerConfigError(e));
+            }
+        );
+    };
+};
+
+const fetchGroupProfilesSuccess = (groupProfiles) => {
+    return {
+        type: FETCH_GROUP_PROFILES_SUCCESS,
+        groupProfiles: groupProfiles
+    };
+};
+
+function fetchGroupProfilesError(e) {
+    console.log('fetchGroupProfilesError', e);
+    return {
+        type: SHOW_NOTIFICATION,
+        title: 'Fetch fetchGroupProfiles Error',
+        autoDismiss: 600,
+        position: 'tc',
+        message: `${e?.data}`,
+        uid: uuidv1(),
+        level: 'error'
+    };
+}
+
+const fetchGroupProfiles = () => {
+    return (dispatch) => {
+        return axios.get(`/api/v2/groups?page_size=1000`
+        ).then(
+            response => {
+                dispatch(fetchGroupProfilesSuccess(response.data.group_profiles));
+            }
+        ).catch(
+            e => {
+                dispatch(fetchGroupProfilesError(e));
             }
         );
     };
@@ -703,11 +774,24 @@ const deleteTarget = (mapId, targetId) => {
     };
 };
 
+function setMenuGroup(menuGroup) {
+    return {
+        type: SET_MENU_GROUP,
+        payload: menuGroup
+    };
+}
+
 
 module.exports = {
     FETCH_SWAMM_BMPTYPES, fetchSwammBmpTypes,
     FETCH_SWAMM_BMPTYPES_ERROR, fetchSwammBmpTypesError,
     FETCH_SWAMM_BMPTYPES_SUCCESS, fetchSwammBmpTypesSuccess,
+    FETCH_PROJECT_MANAGER_CONFIG, fetchProjectManagerConfig,
+    FETCH_PROJECT_MANAGER_CONFIG_ERROR, fetchProjectManagerConfigError,
+    FETCH_PROJECT_MANAGER_CONFIG_SUCCESS, fetchProjectManagerConfigSuccess,
+    FETCH_GROUP_PROFILES, fetchGroupProfiles,
+    FETCH_GROUP_PROFILES_ERROR, fetchGroupProfilesError,
+    FETCH_GROUP_PROFILES_SUCCESS, fetchGroupProfilesSuccess,
     FETCH_SWAMM_ALL_BMPS, fetchSwammAllBmps,
     FETCH_SWAMM_ALL_BMPS_ERROR, fetchSwammAllBmpsError,
     FETCH_SWAMM_ALL_BMPS_SUCCESS, fetchSwammAllBmpsSuccess,
@@ -724,6 +808,7 @@ module.exports = {
     TOGGLE_BMP_TYPE, toggleBmpType,
     SET_BMP_TYPE, setBmpType,
     SET_STATUS_FILTER, setStatusFilter,
+    SET_MENU_GROUP, setMenuGroup,
     SHOW_BMP_FORM, showBmpForm,
     HIDE_BMP_FORM, hideBmpForm,
     SHOW_SWAMM_DATA_GRID, showSwammDataGrid,

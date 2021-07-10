@@ -13,9 +13,9 @@ import {
     setDrawingBmpLayerName,
     setEditingBmpFeatureId,
     clearEditingBmpFeatureId,
-    deleteBmp
+    deleteBmp,
+    setMenuGroup
 } from "../actionsSwamm";
-import {setMenuGroup} from "../../ProjectManager/actionsProjectManager";
 import {
     setLayer,
     toggleEditMode,
@@ -27,7 +27,7 @@ import { purgeMapInfoResults } from "../../../../../MapStore2/web/client/actions
 import {featureTypeSelected, createQuery, query} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import "../../ProjectManager/projectManager.css";
 import {isInt} from "../../Utils/utils";
-import {bmpByUniqueNameSelector, orgSelector} from "../selectorsSwamm";
+import {bmpByUniqueNameSelector} from "../selectorsSwamm";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 
 class SwammBmpFormClass extends React.Component {
@@ -48,7 +48,7 @@ class SwammBmpFormClass extends React.Component {
         newBmpForm: PropTypes.object,
         storedBmpForm: PropTypes.object,
         clearBmpForm: PropTypes.func,
-        orgs: PropTypes.array,
+        groupProfiles: PropTypes.array,
         makeDefaultsBmpForm: PropTypes.func,
         makeExistingBmpForm: PropTypes.func,
         updateBmpForm: PropTypes.func,
@@ -84,7 +84,7 @@ class SwammBmpFormClass extends React.Component {
         super(props);
         this.handleChange = this.handleChange.bind(this);
         this.handleBmpChange = this.handleBmpChange.bind(this);
-        this.handleOrgChange = this.handleOrgChange.bind(this);
+        this.handlegroupProfileChange = this.handlegroupProfileChange.bind(this);
         this.state = {};
     }
 
@@ -130,7 +130,7 @@ class SwammBmpFormClass extends React.Component {
                     <Modal.Body style={{padding: 0}}>
                         <Col sm={6} style={{padding: "10px"}}>
                             <Form horizontal>
-                                <FormGroup controlId="formControlsSelectOrg" bsSize={"small"}>
+                                <FormGroup controlId="formControlsSelectgroupProfile" bsSize={"small"}>
                                     <Col componentClass={ControlLabel} sm={6}>
                                       Organization
                                     </Col>
@@ -140,20 +140,20 @@ class SwammBmpFormClass extends React.Component {
                                                 inline="true"
                                                 readOnly="true"
                                                 type={"string"}
-                                                value={this.props.storedBmpForm?.organisation?.name}
+                                                value={this.props.storedBmpForm?.groupProfile?.name}
                                             />
                                         </Col> :
                                         <Col sm={5}>
                                             <FormControl
                                                 inline="true"
                                                 componentClass="select"
-                                                name="organisation"
-                                                value={JSON.stringify(this.props.storedBmpForm?.organisation)}
-                                                onChange={this.handleOrgChange}
+                                                name="groupProfile"
+                                                value={JSON.stringify(this.props.storedBmpForm?.groupProfile)}
+                                                onChange={this.handlegroupProfileChange}
                                             >
                                                 <option key="1" value="select">Select Organization</option>
-                                                {this.props.orgs.map((org) => {
-                                                    return <option key={org.id} value={JSON.stringify(org)}>{org.name}</option>;
+                                                {this.props.groupProfiles.map((groupProfile) => {
+                                                    return <option key={groupProfile.slug} value={JSON.stringify(groupProfile)}>{groupProfile.title}</option>;
                                                 })}
                                             </FormControl>
                                             <FormControl.Feedback />
@@ -210,9 +210,9 @@ class SwammBmpFormClass extends React.Component {
                                         <FormControl.Feedback />
                                     </Col>
                                 </FormGroup>
-                                <FormGroup controlId="n_redratio" validationState={this.validateRatio("n_redratio")} bsSize={"small"}>
+                                <FormGroup controlId="n_surface_red_percent" validationState={this.validateRatio("n_surface_red_percent")} bsSize={"small"}>
                                     <Col componentClass={ControlLabel} sm={6}>
-                                      Nitrogen Reduction Ratio (0 to 1)
+                                      Surface Nitrogen Reduction Percentage
                                     </Col>
                                     <Col sm={5}>
                                         <FormControl
@@ -220,16 +220,16 @@ class SwammBmpFormClass extends React.Component {
                                             type="number"
                                             step={0.01}
                                             precision={2}
-                                            name="override_n_redratio"
-                                            value={this.props.storedBmpForm?.override_n_redratio}
+                                            name="override_n_surface_red_percent"
+                                            value={this.props.storedBmpForm?.override_n_surface_red_percent}
                                             onChange={this.handleChange}
                                         />
                                         <FormControl.Feedback />
                                     </Col>
                                 </FormGroup>
-                                <FormGroup controlId="p_redratio" validationState={this.validateRatio("p_redratio")} bsSize={"small"}>
+                                <FormGroup controlId="p_surface_red_percent" validationState={this.validateRatio("p_surface_red_percent")} bsSize={"small"}>
                                     <Col componentClass={ControlLabel} sm={6}>
-                                      Phosphorus Reduction Ratio (0 to 1)
+                                      Surface Phosphorus Reduction Percentage
                                     </Col>
                                     <Col sm={5}>
                                         <FormControl
@@ -237,16 +237,16 @@ class SwammBmpFormClass extends React.Component {
                                             type="number"
                                             step={0.01}
                                             precision={2}
-                                            name="override_p_redratio"
-                                            value={this.props.storedBmpForm?.override_p_redratio}
+                                            name="override_p_surface_red_percent"
+                                            value={this.props.storedBmpForm?.override_p_surface_red_percent}
                                             onChange={this.handleChange}
                                         />
                                         <FormControl.Feedback />
                                     </Col>
                                 </FormGroup>
-                                <FormGroup controlId="s_redratio" validationState={this.validateRatio("s_redratio")} bsSize={"small"}>
+                                <FormGroup controlId="s_surface_red_percent" validationState={this.validateRatio("s_surface_red_percent")} bsSize={"small"}>
                                     <Col componentClass={ControlLabel} sm={6}>
-                                      Sediment Reduction Ratio (0 to 1)
+                                      Surface Sediment Reduction Percentage
                                     </Col>
                                     <Col sm={5}>
                                         <FormControl
@@ -254,8 +254,8 @@ class SwammBmpFormClass extends React.Component {
                                             type="number"
                                             step={0.01}
                                             precision={2}
-                                            name="override_s_redratio"
-                                            value={this.props.storedBmpForm?.override_s_redratio}
+                                            name="override_s_surface_red_percent"
+                                            value={this.props.storedBmpForm?.override_s_surface_red_percent}
                                             onChange={this.handleChange}
                                         />
                                         <FormControl.Feedback />
@@ -328,8 +328,8 @@ class SwammBmpFormClass extends React.Component {
                                         </Col> :
                                         <Col sm={5}>
                                             <Button
-                                                disabled={(!this.props.storedBmpForm?.organisation || !this.props.storedBmpForm.bmpName)}
-                                                bsStyle={(!this.props.storedBmpForm?.organisation || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                                disabled={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName)}
+                                                bsStyle={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                 style={{opacity: "0.7"}}
                                                 onClick={() => this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null)}>
                                             Locate Outlet
@@ -366,8 +366,8 @@ class SwammBmpFormClass extends React.Component {
                                         <React.Fragment>
                                             <Col sm={5}>
                                                 <Button
-                                                    disabled={(!this.props.storedBmpForm?.organisation || !this.props.storedBmpForm.bmpName)}
-                                                    bsStyle={(!this.props.storedBmpForm?.organisation || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                                    disabled={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName)}
+                                                    bsStyle={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                     style={{opacity: "0.7"}}
                                                     onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint')}>
                                                 Draw footprint
@@ -405,8 +405,8 @@ class SwammBmpFormClass extends React.Component {
                                         <React.Fragment>
                                             <Col sm={5}>
                                                 <Button
-                                                    disabled={(!this.props.storedBmpForm?.organisation || !this.props.storedBmpForm.bmpName)}
-                                                    bsStyle={(!this.props.storedBmpForm?.organisation || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                                    disabled={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName)}
+                                                    bsStyle={(!this.props.storedBmpForm?.groupProfile || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                     style={{opacity: "0.7"}}
                                                     onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed')} bsSize={"small"}>
                                                 Draw watershed
@@ -596,7 +596,7 @@ class SwammBmpFormClass extends React.Component {
         }
         this.props.updateBmpForm(kv);
     }
-    handleOrgChange(event) {
+    handlegroupProfileChange(event) {
         const fieldName = event.target.name;
         let fieldValue = event.target.value;
         let kv = {[fieldName]: JSON.parse(fieldValue)};
@@ -627,19 +627,19 @@ class SwammBmpFormClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        mapId: state?.projectManager?.data?.base_map,
-        projectData: state?.projectManager?.data,
+        mapId: state?.swamm?.data?.base_map,
+        projectData: state?.swamm?.data,
         bmpUniqueNames: bmpByUniqueNameSelector(state).map(bmpType => bmpType.name),
         bmpTypes: state?.swamm?.bmpTypes,
         statuses: state?.swamm?.statuses,
         thisBmpType: state?.swamm?.bmpTypes.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
         storedBmpForm: state?.swamm?.storedBmpForm || {},
-        bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.projectManager?.data?.code + "_bmp_outlet")[0],
-        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.projectManager?.data?.code + "_bmp_footprint")[0],
-        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.projectManager?.data?.code + "_bmp_watershed")[0],
+        bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_outlet")[0],
+        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_footprint")[0],
+        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_watershed")[0],
         creatingNewBmp: state?.swamm?.creatingNewBmp,
         updatingBmp: state?.swamm?.updatingBmp,
-        orgs: orgSelector(state),
+        groupProfiles: state?.swamm?.groupProfiles,
         layers: state?.layers,
         query: state?.query
     };

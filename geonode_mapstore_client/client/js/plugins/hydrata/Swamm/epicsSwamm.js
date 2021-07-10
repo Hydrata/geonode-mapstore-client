@@ -58,10 +58,10 @@ const createInitialQueryFlow = (action$, store, {url, name, id} = {}) => {
 export const setBmpDrawingLayerEpic = (action$, store) =>
     action$.ofType(FEATURE_TYPE_SELECTED)
         .filter((action) => {
-            console.log('setBmpDrawingLayerEpic1a', store.getState()?.projectManager?.data?.code + '_bmp_');
+            console.log('setBmpDrawingLayerEpic1a', store.getState()?.swamm?.data?.code + '_bmp_');
             console.log('setBmpDrawingLayerEpic1b', action?.typeName);
-            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.projectManager?.data?.code + '_bmp_'));
-            return action?.typeName?.includes(store.getState()?.projectManager?.data?.code + '_bmp_');
+            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_'));
+            return action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_');
         })
         .flatMap((action) => Rx.Observable.of(
             query(
@@ -158,7 +158,7 @@ export const saveBmpCreateFeatureEpic = (action$, store) =>
             drawStopped(),
             toggleViewMode(),
             setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.projectManager?.data?.base_map),
+            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map)
         ));
 
 export const saveBmpEditFeatureEpic = (action$, store) =>
@@ -173,13 +173,13 @@ export const saveBmpEditFeatureEpic = (action$, store) =>
             drawStopped(),
             toggleViewMode(),
             setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.projectManager?.data?.base_map),
+            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map)
         ));
 
 export const autoSaveBmpFormEpic = (action$, store) =>
     action$.ofType(UPDATE_BMP_FORM)
         .flatMap(() => {
-            if (store.getState()?.swamm?.storedBmpForm?.organisation && store.getState()?.swamm?.storedBmpForm?.bmpName) {
+            if (store.getState()?.swamm?.storedBmpForm?.groupProfile && store.getState()?.swamm?.storedBmpForm?.bmpName) {
                 return Rx.Observable.of(
                     // submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.projectManager?.data?.base_map)
                 );

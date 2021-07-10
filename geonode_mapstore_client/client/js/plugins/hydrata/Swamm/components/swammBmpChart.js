@@ -137,11 +137,11 @@ class SwammBmpChartClass extends React.Component {
                                         bsSize="xsmall"
                                         block
                                         style={{
-                                            backgroundColor: this.props.bmpFilterMode === 'organisation' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
+                                            backgroundColor: this.props.bmpFilterMode === 'groupProfile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
                                             marginTop: "4px",
                                             fontSize: "x-small"
                                         }}
-                                        onClick={() => this.props.setBmpFilterMode('organisation')}>
+                                        onClick={() => this.props.setBmpFilterMode('groupProfile')}>
                                         Organization
                                     </Button>
                                 </div>
@@ -382,10 +382,10 @@ class CustomTooltipClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const projectCode = state?.projectManager?.data?.code;
+    const projectCode = state?.swamm?.data?.code;
     const legendLayerName = projectCode + '_bmp_footprint';
     return {
-        mapId: state?.projectManager?.data?.base_map,
+        mapId: state?.swamm?.data?.base_map,
         layerForLegend: state?.layers?.flat?.filter((layer) => layer.name === legendLayerName)[0],
         allBmps: state?.swamm?.allBmps,
         statuses: state?.swamm?.statuses || [],

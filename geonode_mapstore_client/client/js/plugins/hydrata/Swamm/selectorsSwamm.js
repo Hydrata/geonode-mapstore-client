@@ -1,5 +1,3 @@
-export const orgSelector =  (state) => state?.projectManager?.data?.organisations;
-
 export const bmpByUniqueNameSelector = (state) => state?.swamm?.bmpTypes ?
     state?.swamm?.bmpTypes.filter(
         (v, i, a)=>a.findIndex(t=>(t.name === v.name)

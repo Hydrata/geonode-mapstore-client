@@ -1,15 +1,17 @@
 import React from 'react';
 import {connect} from 'react-redux';
 const PropTypes = require('prop-types');
-const {mapIdSelector} = require('../../../../../MapStore2/web/client/selectors/map');
 import {Button, Glyphicon} from "react-bootstrap";
 const Spinner = require('react-spinkit');
 import {
     fetchSwammBmpTypes,
+    fetchProjectManagerConfig,
+    fetchGroupProfiles,
     fetchSwammAllBmps,
     fetchSwammBmpStatuses,
     showBmpForm,
     showSwammBmpChart,
+    setMenuGroup,
     toggleBmpManager,
     makeBmpForm,
     setEditingBmpFeatureId,
@@ -27,10 +29,6 @@ import {SwammTargetForm} from "./swammTargetForm";
 import {SwammBmpChart} from "./swammBmpChart";
 import {MenuDatasetRow} from "../../ProjectManager/components/projectManagerMenuDatasetRow";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
-import {
-    setMenuGroup,
-    setOrgVisibility
-} from "../../ProjectManager/actionsProjectManager";
 import {bmpByUniqueNameSelector} from "../selectorsSwamm";
 import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import {
@@ -46,16 +44,20 @@ class SwammContainer extends React.Component {
     static propTypes = {
         fetchSwammBmpTypes: PropTypes.func,
         fetchSwammAllBmps: PropTypes.func,
+        fetchingBmps: PropTypes.bool,
         fetchSwammBmpStatuses: PropTypes.func,
         fetchSwammTargets: PropTypes.func,
+        fetchProjectManagerConfig: PropTypes.func,
+        fetchGroupProfiles: PropTypes.func,
+        fetchingGroupProfiles: PropTypes.bool,
         fetchingTargets: PropTypes.bool,
         statuses: PropTypes.array,
         targets: PropTypes.array,
         swammData: PropTypes.array,
         mapId: PropTypes.number,
-        organisations: PropTypes.array,
         bmpUniqueNames: PropTypes.array,
         bmpTypes: PropTypes.array,
+        groupProfiles: PropTypes.array,
         allBmps: PropTypes.array,
         showOutlets: PropTypes.bool,
         showFootprints: PropTypes.bool,
@@ -79,9 +81,7 @@ class SwammContainer extends React.Component {
         queryStore: PropTypes.func,
         toggleBmpType: PropTypes.func,
         setBmpType: PropTypes.func,
-        setOrgVisibility: PropTypes.func,
         filters: PropTypes.object,
-        fetchingBmps: PropTypes.bool,
         visibleBmpManager: PropTypes.bool,
         visibleSwammDataGrid: PropTypes.bool,
         showSwammFeatureGrid: PropTypes.func,
@@ -98,6 +98,7 @@ class SwammContainer extends React.Component {
         bmpFootrprintLayer: PropTypes.object,
         bmpWatershedLayer: PropTypes.object,
         numberOfMenus: PropTypes.number,
+        hasPmData: PropTypes.object,
         bmpDataLayer: PropTypes.object
     };
 
@@ -108,6 +109,16 @@ class SwammContainer extends React.Component {
     }
 
     componentDidUpdate() {
+        if (!this.props.mapId && !this.fetching) {
+            this.fetching = false;
+        }
+        if (this.props.mapId && !this.props.hasPmData && !this.fetching) {
+            this.props.fetchProjectManagerConfig(this.props.mapId);
+            this.fetching = true;
+        }
+        if (this.props.mapId && this.props.hasPmData) {
+            this.fetching = false;
+        }
         if (!this.props.mapId && !this.fetchingBmpTypes) {
             this.fetchingBmpTypes = false;
         }
@@ -117,6 +128,16 @@ class SwammContainer extends React.Component {
         }
         if (this.props.mapId && (this.props.bmpTypes?.length > 0)) {
             this.fetchingBmpTypes = false;
+        }
+        if (!this.props.mapId && !this.fetchingGroupProfiles) {
+            this.fetchingGroupProfiles = false;
+        }
+        if (this.props.mapId && (this.props.groupProfiles?.length === 0) && !this.fetchingGroupProfiles) {
+            this.fetchingGroupProfiles = true;
+            this.props.fetchGroupProfiles();
+        }
+        if (this.props.mapId && (this.props.groupProfiles?.length > 0)) {
+            this.fetchingGroupProfiles = false;
         }
         if (!this.props.mapId && !this.fetchingBmps) {
             this.fetchingBmps = false;
@@ -320,9 +341,10 @@ class SwammContainer extends React.Component {
 const mapStateToProps = (state) => {
     return {
         mapId: state?.map?.present?.info?.id,
-        organisations: state?.projectManager?.data?.organisations,
+        hasPmData: state?.swamm?.data,
         bmpUniqueNames: bmpByUniqueNameSelector(state),
         bmpTypes: state?.swamm?.bmpTypes,
+        groupProfiles: state?.swamm.groupProfiles,
         allBmps: state?.swamm?.allBmps,
         statuses: state?.swamm?.statuses,
         targets: state?.swamm?.targets,
@@ -330,11 +352,11 @@ const mapStateToProps = (state) => {
         showOutlets: state?.swamm?.showOutlets,
         showFootprints: state?.swamm?.showFootprints,
         showWatersheds: state?.swamm?.showWatersheds,
-        projectCode: state?.projectManager?.data?.code,
+        projectCode: state?.swamm?.data?.code,
         layers: state?.layers,
-        bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.projectManager?.data?.code + "_bmp_outlet")[0],
-        // bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.projectManager?.data?.code + "_bmp_footprint")[0],
-        // bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.projectManager?.data?.code + "_bmp_watershed")[0],
+        bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_outlet")[0],
+        // bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_footprint")[0],
+        // bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_watershed")[0],
         visibleBmpForm: state?.swamm?.visibleBmpForm,
         storedBmpForm: state?.swamm?.storedBmpForm,
         drawingBmpLayerName: state?.swamm?.drawingBmpLayerName,
@@ -356,6 +378,8 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         fetchSwammBmpTypes: (mapId) => dispatch(fetchSwammBmpTypes(mapId)),
+        fetchProjectManagerConfig: fetchProjectManagerConfig(dispatch),
+        fetchGroupProfiles: () => dispatch(fetchGroupProfiles()),
         fetchSwammAllBmps: (mapId) => dispatch(fetchSwammAllBmps(mapId)),
         fetchSwammBmpStatuses: (mapId) => dispatch(fetchSwammBmpStatuses(mapId)),
         fetchSwammTargets: (mapId) => dispatch(fetchSwammTargets(mapId)),
@@ -381,7 +405,6 @@ const mapDispatchToProps = ( dispatch ) => {
         query: (url, filterObj, queryOptions, reason) => dispatch(query(url, filterObj, queryOptions, reason)),
         toggleBmpType: (bmpType) => dispatch(toggleBmpType(bmpType)),
         setBmpType: (bmpType, isVisible) => dispatch(setBmpType(bmpType, isVisible)),
-        setOrgVisibility: (org, isVisible) => dispatch(setOrgVisibility(org, isVisible)),
         toggleViewMode: () => dispatch(toggleViewMode()),
         drawStopped: () => dispatch(drawStopped())
     };

@@ -9,8 +9,7 @@ import {
     submitTargetForm,
     updateTargetForm
 } from "../actionsSwamm";
-import "../../ProjectManager/projectManager.css";
-import { orgSelector} from "../selectorsSwamm";
+import "../../Swamm/swamm.css";
 
 class SwammTargetFormClass extends React.Component {
     static propTypes = {
@@ -21,7 +20,7 @@ class SwammTargetFormClass extends React.Component {
         clearTargetForm: PropTypes.func,
         submitTargetForm: PropTypes.func,
         updateTargetForm: PropTypes.func,
-        orgs: PropTypes.array,
+        groupProfiles: PropTypes.array,
         bmpTypes: PropTypes.array,
         statuses: PropTypes.array
     };
@@ -173,19 +172,19 @@ class SwammTargetFormClass extends React.Component {
                             <Col sm={6}>
                                 <Row className={'well'} style={{paddingTop: "10px", margin: "5px"}}>
                                     <h4 style={{paddingTop: "5px", paddingBottom: "20px", margin: "0", textAlign: "center", fontSize: "14px"}}>Include BMPs from these organizations:</h4>
-                                    <FormGroup controlId="target_organisations" bsSize={"small"}>
+                                    <FormGroup controlId="target_groupProfiles" bsSize={"small"}>
                                         <Row>
                                             <FormControl
                                                 componentClass="select"
                                                 multiple
                                                 inline="true"
-                                                name="organisations"
-                                                value={this.props.targetForm?.organisations}
+                                                name="groupProfiles"
+                                                value={this.props.targetForm?.groupProfiles}
                                                 onChange={this.handleMultiSelection}
                                             >
                                                 {
-                                                    this.props.orgs?.map((org) =>
-                                                        <option value={org.id}>{org.name}</option>
+                                                    this.props.groupProfiles?.map((groupProfile) =>
+                                                        <option value={groupProfile.id}>{groupProfile.name}</option>
                                                     )
                                                 }
                                             </FormControl>
@@ -303,11 +302,11 @@ class SwammTargetFormClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        mapId: state?.projectManager?.data?.base_map,
+        mapId: state?.swamm?.data?.base_map,
         bmpTypes: state?.swamm?.bmpTypes,
         statuses: state?.swamm?.statuses,
         targetForm: state?.swamm?.targetForm || {},
-        orgs: orgSelector(state)
+        groupProfiles: state?.swamm?.groupProfiles
     };
 };
 

@@ -2,15 +2,17 @@ import {
     FETCH_SWAMM_BMPTYPES_SUCCESS,
     FETCH_SWAMM_BMPTYPES,
     FETCH_SWAMM_ALL_BMPS_SUCCESS,
+    FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
+    FETCH_PROJECT_MANAGER_CONFIG,
+    FETCH_GROUP_PROFILES_SUCCESS,
+    FETCH_GROUP_PROFILES,
     FETCH_SWAMM_BMP_STATUSES,
     FETCH_SWAMM_BMP_STATUSES_SUCCESS,
     FETCH_SWAMM_TARGETS_SUCCESS,
     SELECT_SWAMM_TARGET_ID,
-    // TOGGLE_OUTLETS,
-    // TOGGLE_FOOTPRINTS,
-    // TOGGLE_WATERSHEDS,
     TOGGLE_BMP_TYPE,
     SET_BMP_TYPE,
+    SET_MENU_GROUP,
     SHOW_BMP_FORM,
     HIDE_BMP_FORM,
     SHOW_SWAMM_DATA_GRID,
@@ -44,9 +46,7 @@ import {
     DELETE_TARGET_SUCCESS,
     DELETE_TARGET_ERROR
 } from "./actionsSwamm";
-import {
-    SET_MENU_GROUP
-} from "../ProjectManager/actionsProjectManager";
+
 import { LOAD_FEATURE_INFO } from "../../../../MapStore2/web/client/actions/mapInfo";
 
 const initialState = {
@@ -54,6 +54,7 @@ const initialState = {
     showFootprints: true,
     showWatersheds: true,
     bmpTypes: [],
+    groupProfiles: [],
     allBmps: [],
     statuses: [],
     targets: [],
@@ -101,6 +102,28 @@ export default ( state = initialState, action) => {
             };
         }
         return state;
+    case FETCH_GROUP_PROFILES:
+        return {
+            ...state,
+            fetchingGroupProfiles: action.groupProfiles
+        };
+    case FETCH_GROUP_PROFILES_SUCCESS:
+        return {
+            ...state,
+            fetchingGroupProfiles: false,
+            groupProfiles: action.groupProfiles
+        };
+    case FETCH_PROJECT_MANAGER_CONFIG:
+        return {
+            ...state,
+            fetching: action.mapId
+        };
+    case FETCH_PROJECT_MANAGER_CONFIG_SUCCESS:
+        return {
+            ...state,
+            fetching: null,
+            data: action.payload
+        };
     case FETCH_SWAMM_BMPTYPES:
         return {
             ...state,
@@ -223,7 +246,7 @@ export default ( state = initialState, action) => {
             creatingNewBmp: true,
             visibleBmpForm: true,
             storedBmpForm: {
-                organisation: '',
+                groupProfile: '',
                 bmpName: ''
             }
         };
@@ -235,10 +258,9 @@ export default ( state = initialState, action) => {
             type: action.bmpType.id,
             type_data: action.bmpType,
             project: action.bmpType.project.id,
-            // organisation: null,
-            override_n_redratio: action.bmpType.n_redratio,
-            override_p_redratio: action.bmpType.p_redratio,
-            override_s_redratio: action.bmpType.s_redratio,
+            override_n_surface_red_percent: action.bmpType.n_surface_red_percent,
+            override_p_surface_red_percent: action.bmpType.p_surface_red_percent,
+            override_s_surface_red_percent: action.bmpType.s_surface_red_percent,
             override_cost_base: action.bmpType.cost_base,
             override_cost_rate_per_watershed_area: action.bmpType.cost_rate_per_watershed_area,
             override_cost_rate_per_footprint_area: action.bmpType.cost_rate_per_footprint_area,
@@ -262,11 +284,11 @@ export default ( state = initialState, action) => {
             type: action.bmp.type_data.id,
             type_data: action.bmp.type_data,
             project: action.bmp.project,
-            organisation: action.bmp.organisation,
-            organisation_id: action.bmp.organisation.id,
-            override_n_redratio: action.bmp.override_n_redratio,
-            override_p_redratio: action.bmp.override_p_redratio,
-            override_s_redratio: action.bmp.override_s_redratio,
+            groupProfile: action.bmp.groupProfile,
+            groupProfileSlug: action.bmp.groupProfile.slug,
+            override_n_surface_red_percent: action.bmp.override_n_surface_red_percent,
+            override_p_surface_red_percent: action.bmp.override_p_surface_red_percent,
+            override_s_surface_red_percent: action.bmp.override_s_surface_red_percent,
             override_cost_base: action.bmp.override_cost_base,
             override_cost_rate_per_watershed_area: action.bmp.override_cost_rate_per_watershed_area,
             override_cost_rate_per_footprint_area: action.bmp.override_cost_rate_per_footprint_area,
@@ -324,13 +346,13 @@ export default ( state = initialState, action) => {
                 BmpFormBmpTypeId: action.kv.type_data.id
             };
         }
-        if (action?.kv?.organisation?.id) {
+        if (action?.kv?.groupProfile?.slug) {
             return {
                 ...state,
                 storedBmpForm: {
                     ...state.storedBmpForm,
                     ...action.kv,
-                    organisation_id: action?.kv?.organisation?.id
+                    groupProfileSlug: action?.kv?.groupProfile?.slug
                 }
             };
         }
