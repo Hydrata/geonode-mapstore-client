@@ -124,7 +124,7 @@ class ProjectManagerContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('state for mapId:', state);
+    // console.log('state for mapId:', state);
     return {
         mapId: state?.map?.present?.info?.id,
         layers: state?.layers?.flat.map(layer => layer.name),

@@ -1,9 +1,13 @@
 import React from 'react';
-import { connect } from 'react-redux';
+import {connect} from 'react-redux';
+const PropTypes = require('prop-types');
+
+import BiocollectChart from './biocollectChart';
 
 
 class BiocollectContainer extends React.Component {
     static propTypes = {
+        visibleBiocollectChart: PropTypes.bool
     };
 
     static defaultProps = {
@@ -14,10 +18,13 @@ class BiocollectContainer extends React.Component {
     }
 
     render() {
-        console.log('Biocollect');
         return (
             <div id={"biocollect-container"}>
-                HelloWorld
+                {
+                    this.props.visibleBiocollectChart ?
+                        <BiocollectChart/> :
+                        null
+                }
             </div>
         );
     }
@@ -25,7 +32,9 @@ class BiocollectContainer extends React.Component {
 
 const mapStateToProps = (state) => {
     console.log('state for Biocollect:', state);
-    return {};
+    return {
+        visibleBiocollectChart: state?.biocollect?.visibleBiocollectChart
+    };
 };
 
 const mapDispatchToProps = ( dispatch ) => {

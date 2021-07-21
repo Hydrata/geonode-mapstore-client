@@ -4,8 +4,8 @@ const PropTypes = require('prop-types');
 
 import {setOpenMenuGroupId} from "../actionsSimpleView";
 import "../simpleView.css";
-import LegendPanel from "../../SimpleView/components/simpleViewLegend";
-import {MenuRows} from "../../SimpleView/components/simpleViewMenuRows";
+import LegendPanel from "./simpleViewLegend";
+import {MenuRows} from "./simpleViewMenuRows";
 
 class SimpleViewContainer extends React.Component {
     static propTypes = {
@@ -65,7 +65,6 @@ class SimpleViewContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('state for SimpleView:', state);
     return {
         menuGroups: state?.layers?.groups,
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
