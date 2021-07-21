@@ -1681,12 +1681,6 @@
         ],
         "map_view": [
             {
-                "name": "Swamm"
-            },
-            {
-                "name": "ProjectManager"
-            },
-            {
                 "name": "SimpleView"
             },
             {
@@ -1938,12 +1932,6 @@
             }
         ],
         "map_edit": [
-            {
-                "name": "Swamm"
-            },
-            {
-                "name": "ProjectManager"
-            },
             {
                 "name": "SimpleView"
             },

@@ -1684,9 +1684,6 @@
                 "name": "Biocollect"
             },
             {
-                "name": "Swamm"
-            },
-            {
                 "name": "SimpleView"
             },
             {
@@ -1942,7 +1939,7 @@
                 "name": "SimpleView"
             },
             {
-                "name": "Swamm"
+                "name": "Biocollect"
             },
             {
                 "name": "AddLayer"
