@@ -18,7 +18,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
             Rx.Observable.of(setVisibleBiocollectChart(true)),
             Rx.Observable.of(setCurrentBiocollectSurveySiteId(action?.data?.features?.[0]?.properties?.site_id)),
             Rx.Observable.of(closeIdentify()),
-            Rx.Observable.of(setLayer("swamps_surveysite__20")),
+            Rx.Observable.of(setLayer(action?.layer.id)),
             Rx.Observable.of(featureTypeSelected('http://localhost:8080/geoserver/wfs', "geonode:swamps_surveysite"))
         ));
 
@@ -32,11 +32,11 @@ export const queryLayerAttributesToStoreStep2 = (action$, store) =>
             }
             return null;
         })
-        .mergeMap(() => Rx.Observable.of(
+        .mergeMap((action) => Rx.Observable.of(
             query(
                 "http://localhost:8000/gs/ows",
                 {
-                    "featureTypeName": "geonode:swamps_surveysite",
+                    "featureTypeName": action.typeName,
                     "filterType": "OGC",
                     "ogcVersion": "1.1.0",
                     "pagination": {
