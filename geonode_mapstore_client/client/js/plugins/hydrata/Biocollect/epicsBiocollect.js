@@ -10,6 +10,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
             if (action?.layer?.id?.includes('swamps_surveysite')) {
+                console.log('store:', store.getState()?.gnsettings?.geoserverUrl);
                 return action;
             }
             return null;
@@ -19,7 +20,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
             Rx.Observable.of(setCurrentBiocollectSurveySiteId(action?.data?.features?.[0]?.properties?.site_id)),
             Rx.Observable.of(closeIdentify()),
             Rx.Observable.of(setLayer(action?.layer.id)),
-            Rx.Observable.of(featureTypeSelected('http://localhost:8080/geoserver/wfs', "geonode:swamps_surveysite"))
+            Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', "geonode:swamps_surveysite"))
         ));
 
 
@@ -34,7 +35,7 @@ export const queryLayerAttributesToStoreStep2 = (action$, store) =>
         })
         .mergeMap((action) => Rx.Observable.of(
             query(
-                "http://localhost:8000/gs/ows",
+                store.getState()?.gnsettings?.geoserverUrl + '/ows',
                 {
                     "featureTypeName": action.typeName,
                     "filterType": "OGC",

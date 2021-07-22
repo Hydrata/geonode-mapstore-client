@@ -47,7 +47,13 @@ class BiocollectChartClass extends React.Component {
                                                 bsStyle="info"
                                                 bsSize="xsmall"
                                                 block
-                                                style={{width: "200px", marginTop: "4px", fontSize: "x-small"}}>
+                                                style={{
+                                                    width: "150px",
+                                                    marginTop: "4px",
+                                                    fontSize: "x-small",
+                                                    borderRadius: "3px",
+                                                    overflow: "hidden"
+                                                }}>
                                                 {site.properties.name}
                                             </Button>
                                         );
@@ -60,6 +66,7 @@ class BiocollectChartClass extends React.Component {
                                     <Button
                                         bsStyle="success"
                                         bsSize="xsmall"
+                                        style={{marginBottom: "3px"}}
                                         block>
                                         Button 1
                                     </Button>
@@ -68,6 +75,7 @@ class BiocollectChartClass extends React.Component {
                                     <Button
                                         bsStyle="success"
                                         bsSize="xsmall"
+                                        style={{marginBottom: "3px"}}
                                         block>
                                         Button 2
                                     </Button>
@@ -76,6 +84,7 @@ class BiocollectChartClass extends React.Component {
                                     <Button
                                         bsStyle="success"
                                         bsSize="xsmall"
+                                        style={{marginBottom: "3px"}}
                                         block>
                                         Button 3
                                     </Button>
