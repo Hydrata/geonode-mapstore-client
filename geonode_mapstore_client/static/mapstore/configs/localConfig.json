@@ -623,6 +623,7 @@
                     "shouldLoadFont": false,
                     "tools": [],
                     "mapOptions": {
+                    "mapOptions": {
                         "openlayers": {
                             "attribution": {
                                 "container": "#footer-attribution-container"
@@ -1681,9 +1682,6 @@
         ],
         "map_view": [
             {
-                "name": "Biocollect"
-            },
-            {
                 "name": "SimpleView"
             },
             {
@@ -1939,9 +1937,6 @@
                 "name": "SimpleView"
             },
             {
-                "name": "Biocollect"
-            },
-            {
                 "name": "AddLayer"
             },
             {
@@ -2042,7 +2037,7 @@
                 "name": "ZoomAll",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": true
+                        "alwaysVisible": false
                     }
                 }
             },
@@ -2145,15 +2140,6 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
-                }
-            },
-            {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
                 }
             },
             {
