@@ -9,8 +9,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
     action$
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
-            if (action?.layer?.id?.includes('swamps_surveysite')) {
-                console.log('store:', store.getState()?.gnsettings?.geoserverUrl);
+            if (action?.data?.features?.[0]?.id?.includes('swamps_surveysite')) {
                 return action;
             }
             return null;
