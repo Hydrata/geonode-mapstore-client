@@ -165,7 +165,7 @@ class BiocollectChartClass extends React.Component {
                                                 return (
                                                     <React.Fragment>
                                                         <pre>
-                                                            {activity?.outputs?.[0]?.name} {activity?.outputs?.[0]?.activityId}
+                                                            {activity?.outputs?.[0]?.name} -- ActivityId: {activity?.activityId}
                                                             {activity?.outputs?.[0]?.data?.dataList?.map((kv) => {
                                                                 if (kv.key === (this.props.selectedYKey || 'time')) {
                                                                     return (
