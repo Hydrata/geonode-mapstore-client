@@ -32,17 +32,19 @@ class simpleViewLegend extends React.Component {
                         return layer.type === 'wms' ?
                             (
                                 <div key={layer.id} className={"row legend-row"} >
-                                    <div className={"col-sm-6 legend-background"} >
+                                    <div className={"col-sm-7 legend-background"} >
                                         <span className={"legend-image"}>
                                             <Legend
                                                 layer={layer}
                                                 legendHeight={12}
                                                 legendWidth={12}
-                                                legendOptions={"dpi:150"}
+                                                legendOptions={"dpi:150; countMatched:true; hideEmptyRules:true"}
+                                                scales={[100000]}
+                                                scaleDependent
                                             />
                                         </span>
                                     </div>
-                                    <div className={"col-sm-6 legend-text-label"}>
+                                    <div className={"col-sm-5 legend-text-label"}>
                                         <span className={"h5"}>
                                             {layer.title}
                                         </span>
