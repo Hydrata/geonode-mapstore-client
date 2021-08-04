@@ -261,6 +261,91 @@ class SwammBmpFormClass extends React.Component {
                                         <FormControl.Feedback />
                                     </Col>
                                 </FormGroup>
+                                <FormGroup controlId="n_tiled_red_percent" validationState={this.validateRatio("n_tiled_red_percent")} bsSize={"small"}>
+                                    <Col componentClass={ControlLabel} sm={6}>
+                                      Tiled Nitrogen Reduction Percentage
+                                    </Col>
+                                    <Col sm={5}>
+                                        <FormControl
+                                            inline="true"
+                                            type="number"
+                                            step={0.01}
+                                            precision={2}
+                                            name="override_n_tiled_red_percent"
+                                            value={this.props.storedBmpForm?.override_n_tiled_red_percent}
+                                            onChange={this.handleChange}
+                                        />
+                                        <FormControl.Feedback />
+                                    </Col>
+                                </FormGroup>
+                                <FormGroup controlId="p_tiled_red_percent" validationState={this.validateRatio("p_tiled_red_percent")} bsSize={"small"}>
+                                    <Col componentClass={ControlLabel} sm={6}>
+                                      Tiled Phospohorus Reduction Percentage
+                                    </Col>
+                                    <Col sm={5}>
+                                        <FormControl
+                                            inline="true"
+                                            type="number"
+                                            step={0.01}
+                                            precision={2}
+                                            name="override_p_tiled_red_percent"
+                                            value={this.props.storedBmpForm?.override_p_tiled_red_percent}
+                                            onChange={this.handleChange}
+                                        />
+                                        <FormControl.Feedback />
+                                    </Col>
+                                </FormGroup>
+                                <FormGroup controlId="n_erosion_red_percent" validationState={this.validateRatio("n_erosion_red_percent")} bsSize={"small"}>
+                                    <Col componentClass={ControlLabel} sm={6}>
+                                      Erosion Nitrogen Reduction Percentage
+                                    </Col>
+                                    <Col sm={5}>
+                                        <FormControl
+                                            inline="true"
+                                            type="number"
+                                            step={0.01}
+                                            precision={2}
+                                            name="override_n_erosion_red_percent"
+                                            value={this.props.storedBmpForm?.override_n_erosion_red_percent}
+                                            onChange={this.handleChange}
+                                        />
+                                        <FormControl.Feedback />
+                                    </Col>
+                                </FormGroup>
+                                <FormGroup controlId="p_erosion_red_percent" validationState={this.validateRatio("p_erosion_red_percent")} bsSize={"small"}>
+                                    <Col componentClass={ControlLabel} sm={6}>
+                                      Erosion Phospohorus Reduction Percentage
+                                    </Col>
+                                    <Col sm={5}>
+                                        <FormControl
+                                            inline="true"
+                                            type="number"
+                                            step={0.01}
+                                            precision={2}
+                                            name="override_p_erosion_red_percent"
+                                            value={this.props.storedBmpForm?.override_p_erosion_red_percent}
+                                            onChange={this.handleChange}
+                                        />
+                                        <FormControl.Feedback />
+                                    </Col>
+                                </FormGroup>
+                                <FormGroup controlId="s_erosion_red_percent" validationState={this.validateRatio("s_erosion_red_percent")} bsSize={"small"}>
+                                    <Col componentClass={ControlLabel} sm={6}>
+                                      Erosion Sediment Reduction Percentage
+                                    </Col>
+                                    <Col sm={5}>
+                                        <FormControl
+                                            inline="true"
+                                            type="number"
+                                            step={0.01}
+                                            precision={2}
+                                            name="override_s_erosion_red_percent"
+                                            value={this.props.storedBmpForm?.override_s_erosion_red_percent}
+                                            onChange={this.handleChange}
+                                        />
+                                        <FormControl.Feedback />
+                                    </Col>
+                                </FormGroup>
                                 <FormGroup controlId="cost_base" validationState={this.validateCost("cost_base")} bsSize={"small"}>
                                     <Col componentClass={ControlLabel} sm={6}>
                                       Base Cost ($)
@@ -422,54 +507,84 @@ class SwammBmpFormClass extends React.Component {
                                 <thead>
                                     <tr>
                                         <th>Results</th>
-                                        <th/>
+                                        <th style={{"width": "100px"}}>Surface</th>
+                                        <th style={{"width": "100px"}}>Tiled</th>
+                                        <th style={{"width": "100px"}}>Erosion</th>
+                                        <th style={{"width": "100px"}}>Total</th>
                                         <th/>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td>Previous nitrogen load: </td>
-                                        <td>{this.props.storedBmpForm?.previous_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_previous_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_previous_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_previous_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_previous_n_load?.toFixed(0)}</td>
                                         <td className={"text-left"}>lbs/year</td>
                                     </tr>
                                     <tr>
                                         <td>Nitrogen load reduction: </td>
-                                        <td>{this.props.storedBmpForm?.n_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_n_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_n_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_n_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_n_load_reduction?.toFixed(0)}</td>
                                         <td className={"text-left"}>lbs/year</td>
                                     </tr>
                                     <tr>
                                         <td>New nitrogen load: </td>
-                                        <td>{this.props.storedBmpForm?.new_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_new_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_new_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_new_n_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_new_n_load?.toFixed(0)}</td>
                                         <td className={"text-left"}>lbs/year</td>
                                     </tr>
                                     <tr>
                                         <td>Previous phosphorus load: </td>
-                                        <td>{this.props.storedBmpForm?.previous_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_previous_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_previous_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_previous_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_previous_p_load?.toFixed(0)}</td>
                                         <td className={"text-left"}>lbs/year</td>
                                     </tr>
                                     <tr>
                                         <td>Phosphorus load reduction: </td>
-                                        <td>{this.props.storedBmpForm?.p_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_p_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_p_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_p_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_p_load_reduction?.toFixed(0)}</td>
                                         <td className={"text-left"}>lbs/year</td>
                                     </tr>
                                     <tr>
                                         <td>New phosphorus load: </td>
-                                        <td>{this.props.storedBmpForm?.new_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_new_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_new_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_new_p_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_new_p_load?.toFixed(0)}</td>
                                         <td className={"text-left"}>lbs/year</td>
                                     </tr>
                                     <tr>
                                         <td>Previous sediment load: </td>
-                                        <td>{this.props.storedBmpForm?.previous_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_previous_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_previous_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_previous_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_previous_s_load?.toFixed(0)}</td>
                                         <td className={"text-left"}>tons/year</td>
                                     </tr>
                                     <tr>
                                         <td>Sediment load reduction: </td>
-                                        <td>{this.props.storedBmpForm?.s_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_s_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_s_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_s_load_reduction?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_s_load_reduction?.toFixed(0)}</td>
                                         <td className={"text-left"}>tons/year</td>
                                     </tr>
                                     <tr>
                                         <td>New sediment load: </td>
-                                        <td>{this.props.storedBmpForm?.new_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.surface_new_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.tiled_new_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.erosion_new_s_load?.toFixed(0)}</td>
+                                        <td>{this.props.storedBmpForm?.total_new_s_load?.toFixed(0)}</td>
                                         <td className={"text-left"}>tons/year</td>
                                     </tr>
                                     <tr>
@@ -481,22 +596,22 @@ class SwammBmpFormClass extends React.Component {
                                     </tr>
                                     <tr>
                                         <td>Nitrogen reduction cost: </td>
-                                        {this.props.storedBmpForm?.cost_per_lbs_n_reduced ?
-                                            <td>{Number(this.props.storedBmpForm?.cost_per_lbs_n_reduced?.toFixed(0)).toLocaleString()}</td> :
+                                        {this.props.storedBmpForm?.total_cost_per_lbs_n_reduced ?
+                                            <td>{Number(this.props.storedBmpForm?.total_cost_per_lbs_n_reduced?.toFixed(0)).toLocaleString()}</td> :
                                             <td/>}
                                         <td className={"text-left"}>$/lb/year</td>
                                     </tr>
                                     <tr>
                                         <td>Phosphorus reduction cost: </td>
-                                        {this.props.storedBmpForm?.cost_per_lbs_p_reduced ?
-                                            <td>{Number(this.props.storedBmpForm?.cost_per_lbs_p_reduced?.toFixed(0)).toLocaleString()}</td> :
+                                        {this.props.storedBmpForm?.total_cost_per_lbs_p_reduced ?
+                                            <td>{Number(this.props.storedBmpForm?.total_cost_per_lbs_p_reduced?.toFixed(0)).toLocaleString()}</td> :
                                             <td/>}
                                         <td className={"text-left"}>$/lb/year</td>
                                     </tr>
                                     <tr>
                                         <td>Sediment reduction cost: </td>
-                                        {this.props.storedBmpForm?.cost_per_ton_s_reduced ?
-                                            <td>{Number(this.props.storedBmpForm?.cost_per_ton_s_reduced?.toFixed(0)).toLocaleString()}</td> :
+                                        {this.props.storedBmpForm?.total_cost_per_ton_s_reduced ?
+                                            <td>{Number(this.props.storedBmpForm?.total_cost_per_ton_s_reduced?.toFixed(0)).toLocaleString()}</td> :
                                             <td/>}
                                         <td className={"text-left"}>$/ton/year</td>
                                     </tr>
@@ -506,7 +621,7 @@ class SwammBmpFormClass extends React.Component {
                                 <Col componentClass={ControlLabel} sm={3}>
                                   Notes
                                 </Col>
-                                <Col sm={8}>
+                                <Col sm={12}>
                                     <FormControl
                                         inline="true"
                                         type="textarea"
@@ -519,11 +634,11 @@ class SwammBmpFormClass extends React.Component {
                                 </Col>
                             </FormGroup>
                             {this.props.storedBmpForm?.created_by ?
-                                <p>Created by: {this.props.storedBmpForm?.created_by} on {new Date(this.props.storedBmpForm?.created_at).toLocaleString()}</p> :
+                                <Col sm={12}>Created by: {this.props.storedBmpForm?.created_by} on {new Date(this.props.storedBmpForm?.created_at).toLocaleString()}</Col> :
                                 null
                             }
                             {this.props.storedBmpForm?.updated_by ?
-                                <p>Updated by: {this.props.storedBmpForm?.updated_by} on {new Date(this.props.storedBmpForm?.updated_at).toLocaleString()}</p> :
+                                <Col sm={12}>Updated by: {this.props.storedBmpForm?.updated_by} on {new Date(this.props.storedBmpForm?.updated_at).toLocaleString()}</Col> :
                                 null
                             }
                         </Col>

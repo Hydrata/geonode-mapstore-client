@@ -78,7 +78,6 @@ class SwammContainer extends React.Component {
         setEditingBmpFeatureId: PropTypes.func,
         editingBmpFeatureId: PropTypes.string,
         query: PropTypes.func,
-        queryStore: PropTypes.func,
         toggleBmpType: PropTypes.func,
         setBmpType: PropTypes.func,
         filters: PropTypes.object,
@@ -184,7 +183,7 @@ class SwammContainer extends React.Component {
                 {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.drawingBmpLayerName && !this.props.editingBmpFeatureId ?
                     <React.Fragment>
                         <Button
-                            className={'simple-view-menu-button bmp-progress-button'}
+                            className={'simple-view-menu-button bmp-progress-button-success'}
                             style={{left: 20}}
                             bsStyle={"success"}
                             onClick={() => this.props.showBmpForm()}
@@ -208,6 +207,7 @@ class SwammContainer extends React.Component {
                             <Button
                                 bsStyle="success"
                                 className={'simple-view-menu-button bmp-progress-button'}
+                                style={{left: 30, top: 80, width: 120, backgroundColor: "darkgreen"}}
                                 onClick={() => {
                                     this.props.saveChanges();
                                     this.props.showBmpForm();
@@ -218,7 +218,7 @@ class SwammContainer extends React.Component {
                             <Button
                                 bsStyle="danger"
                                 className={'simple-view-menu-button bmp-progress-button'}
-                                style={{left: 160}}
+                                style={{left: 160, top: 80, width: 120, backgroundColor: "darkred"}}
                                 onClick={() => {
                                     this.props.showBmpForm();
                                     this.props.setLayer(null);
@@ -339,6 +339,7 @@ class SwammContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    console.log('state for Swamm:', state);
     return {
         mapId: state?.map?.present?.info?.id,
         hasPmData: state?.swamm?.data,
@@ -365,7 +366,6 @@ const mapStateToProps = (state) => {
         visibleSwammDataGrid: state?.swamm?.visibleSwammDataGrid,
         visibleSwammBmpChart: state?.swamm?.visibleSwammBmpChart,
         visibleTargetForm: state?.swamm?.visibleTargetForm,
-        queryStore: state?.query,
         numberOfMenus: state?.layers?.groups.length,
         filters: {
             showOutlets: state.swamm?.showOutlets,

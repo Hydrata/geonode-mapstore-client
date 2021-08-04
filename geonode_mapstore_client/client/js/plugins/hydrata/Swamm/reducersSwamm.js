@@ -32,6 +32,7 @@ import {
     SET_DRAWING_BMP_LAYER_NAME,
     CLEAR_DRAWING_BMP_LAYER_NAME,
     SET_EDITING_BMP_FEATURE_ID,
+    REGISTER_MISSING_BMP_FEATURE_ID,
     CLEAR_EDITING_BMP_FEATURE_ID,
     DELETE_BMP_SUCCESS,
     SET_BMP_FILTER_MODE,
@@ -66,6 +67,7 @@ const initialState = {
 };
 
 export default ( state = initialState, action) => {
+    console.log(action);
     switch (action.type) {
     case LOAD_FEATURE_INFO:
         const possibleBmpFeatures = action?.data?.features?.map((feature) => {
@@ -261,6 +263,11 @@ export default ( state = initialState, action) => {
             override_n_surface_red_percent: action.bmpType.n_surface_red_percent,
             override_p_surface_red_percent: action.bmpType.p_surface_red_percent,
             override_s_surface_red_percent: action.bmpType.s_surface_red_percent,
+            override_n_tiled_red_percent: action.bmpType.n_tiled_red_percent,
+            override_p_tiled_red_percent: action.bmpType.p_tiled_red_percent,
+            override_n_erosion_red_percent: action.bmpType.n_erosion_red_percent,
+            override_p_erosion_red_percent: action.bmpType.p_erosion_red_percent,
+            override_s_erosion_red_percent: action.bmpType.s_erosion_red_percent,
             override_cost_base: action.bmpType.cost_base,
             override_cost_rate_per_watershed_area: action.bmpType.cost_rate_per_watershed_area,
             override_cost_rate_per_footprint_area: action.bmpType.cost_rate_per_footprint_area,
@@ -290,6 +297,11 @@ export default ( state = initialState, action) => {
             override_n_surface_red_percent: action.bmp.override_n_surface_red_percent,
             override_p_surface_red_percent: action.bmp.override_p_surface_red_percent,
             override_s_surface_red_percent: action.bmp.override_s_surface_red_percent,
+            override_n_tiled_red_percent: action.bmp.override_n_tiled_red_percent,
+            override_p_tiled_red_percent: action.bmp.override_p_tiled_red_percent,
+            override_n_erosion_red_percent: action.bmp.override_n_erosion_red_percent,
+            override_p_erosion_red_percent: action.bmp.override_p_erosion_red_percent,
+            override_s_erosion_red_percent: action.bmp.override_s_erosion_red_percent,
             override_cost_base: action.bmp.override_cost_base,
             override_cost_rate_per_watershed_area: action.bmp.override_cost_rate_per_watershed_area,
             override_cost_rate_per_footprint_area: action.bmp.override_cost_rate_per_footprint_area,
@@ -378,6 +390,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             drawingBmpLayerName: null
+        };
+    case REGISTER_MISSING_BMP_FEATURE_ID:
+        return {
+            ...state,
+            missingBmpFeatureId: action.missingBmpFeatureId
         };
     case SET_EDITING_BMP_FEATURE_ID:
         return {

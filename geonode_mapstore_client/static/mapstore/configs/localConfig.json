@@ -1681,7 +1681,7 @@
         ],
         "map_view": [
             {
-                "name": "Biocollect"
+                "name": "Swamm"
             },
             {
                 "name": "SimpleView"
@@ -1727,7 +1727,8 @@
                     "activateAddLayerButton": true,
                     "activateMetedataTool": false,
                     "activateSettingsTool": false,
-                    "activateRemoveLayer": false
+                    "activateRemoveLayer": false,
+                    "activateFilterLayer": true
                 }
             },
             {
@@ -1936,10 +1937,10 @@
         ],
         "map_edit": [
             {
-                "name": "SimpleView"
+                "name": "Swamm"
             },
             {
-                "name": "Biocollect"
+                "name": "SimpleView"
             },
             {
                 "name": "AddLayer"
@@ -2042,7 +2043,7 @@
                 "name": "ZoomAll",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": true
+                        "alwaysVisible": false
                     }
                 }
             },
@@ -2145,15 +2146,6 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
-                }
-            },
-            {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
                 }
             },
             {

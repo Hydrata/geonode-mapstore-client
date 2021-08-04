@@ -1,10 +1,21 @@
-.bmp-progress-button {
-    top: 50px;
+.bmp-progress-button-danger {
+    top: 80px;
     left: 20px;
     min-width: 135px;
     position: absolute;
     opacity: 0.7;
-    border-radius: 4px
+    border-radius: 4px;
+    background-color: inherit;
+}
+
+.bmp-progress-button-success {
+    top: 80px;
+    left: 20px;
+    min-width: 135px;
+    position: absolute;
+    opacity: 0.7;
+    border-radius: 4px;
+    background-color: inherit;
 }
 
 .bmp-loading-button {

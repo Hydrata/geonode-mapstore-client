@@ -17,7 +17,10 @@ import {
     submitBmpForm,
     UPDATE_BMP_FORM,
     clearEditingBmpFeatureId,
-    createBmpFeatureId, SHOW_SWAMM_FEATURE_GRID
+    createBmpFeatureId,
+    SHOW_SWAMM_FEATURE_GRID,
+    REGISTER_MISSING_BMP_FEATURE_ID,
+    registerMissingBmpFeatureId
 } from "./actionsSwamm";
 import {
     toggleEditMode,
@@ -27,7 +30,8 @@ import {
     selectFeatures,
     setLayer,
     openFeatureGrid,
-    SAVE_SUCCESS
+    SAVE_SUCCESS,
+    GRID_QUERY_RESULT
 } from "../../../../MapStore2/web/client/actions/featuregrid";
 import {
     drawStopped
@@ -56,7 +60,10 @@ const createInitialQueryFlow = (action$, store, {url, name, id} = {}) => {
 };
 
 export const setBmpDrawingLayerEpic = (action$, store) =>
-    action$.ofType(FEATURE_TYPE_SELECTED)
+    action$
+        // .map((action) => {console.log('*** setBmpDrawingLayerEpic', action); return action;})
+        .ofType(FEATURE_TYPE_LOADED)
+        // .map((action) => {console.log('**** setBmpDrawingLayerEpic', action); return action;})
         .filter((action) => {
             console.log('setBmpDrawingLayerEpic1a', store.getState()?.swamm?.data?.code + '_bmp_');
             console.log('setBmpDrawingLayerEpic1b', action?.typeName);
@@ -83,8 +90,8 @@ export const startBmpCreateFeatureEpic = (action$, store) =>
             return !store.getState()?.swamm?.editingBmpFeatureId;
         })
         .filter((action) => {
-            console.log('startBmpCreateFeatureEpic2', action?.filterObj?.featureTypeName === store.getState()?.swamm?.drawingBmpLayerName);
-            return action?.filterObj?.featureTypeName === store.getState()?.swamm?.drawingBmpLayerName;
+            console.log('startBmpCreateFeatureEpic2', action?.filterObj?.featureTypeName.includes(store.getState()?.swamm?.drawingBmpLayerName));
+            return action?.filterObj?.featureTypeName.includes(store.getState()?.swamm?.drawingBmpLayerName);
         })
         .filter(action => {
             console.log('startBmpCreateFeatureEpic3', action?.reason === 'querySetNewBmpLayer');
@@ -97,8 +104,7 @@ export const startBmpCreateFeatureEpic = (action$, store) =>
             createNewFeatures([{}]),
             startDrawingFeature(),
             setHighlightFeaturesPath('draw.tempFeatures'),
-            hideBmpForm(),
-            resetQuery()
+            hideBmpForm()
         ));
 
 export const finishBmpCreateFeatureEpic = (action$, store) =>
@@ -107,12 +113,18 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
             console.log('finishBmpCreateFeatureEpic1', !store.getState()?.swamm?.editingBmpFeatureId);
             return !store.getState()?.swamm?.editingBmpFeatureId;
         })
-        .filter(action => {
-            console.log('finishBmpCreateFeatureEpic2', action?.reason === 'queryGetNewBmpId');
-            return action?.reason === 'queryGetNewBmpId';
+        .filter(() => {
+            console.log('finishBmpCreateFeatureEpic2', store.getState()?.swamm?.missingBmpFeatureId);
+            return store.getState()?.swamm?.missingBmpFeatureId;
         })
         .flatMap((action) => Rx.Observable.of(
             createBmpFeatureId(action),
+            registerMissingBmpFeatureId(false),
+            clearDrawingBmpLayerName(),
+            drawStopped(),
+            toggleViewMode(),
+            setHighlightFeaturesPath('highlight.emptyFeatures'),
+            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map),
             resetQuery()
         ));
 
@@ -144,21 +156,17 @@ export const saveBmpCreateFeatureEpic = (action$, store) =>
             return !store.getState()?.swamm?.editingBmpFeatureId;
         })
         .flatMap(() => Rx.Observable.of(
-            query('http://localhost:8080/geoserver/wfs',
-                {
-                    featureTypeName: store.getState()?.swamm?.drawingBmpLayerName,
-                    filterType: 'OGC',
-                    ogcVersion: '1.1.0',
-                    pagination: {maxFeatures: 2000000}
-                },
-                {},
-                'queryGetNewBmpId'
-            ),
-            clearDrawingBmpLayerName(),
-            drawStopped(),
-            toggleViewMode(),
-            setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map)
+            registerMissingBmpFeatureId(true)
+            // query('http://localhost:8080/geoserver/wfs',
+            //     {
+            //         featureTypeName: store.getState()?.swamm?.drawingBmpLayerName,
+            //         filterType: 'OGC',
+            //         ogcVersion: '1.1.0',
+            //         pagination: {maxFeatures: 2000000}
+            //     },
+            //     {},
+            //     'queryGetNewBmpId'
+            // )
         ));
 
 export const saveBmpEditFeatureEpic = (action$, store) =>

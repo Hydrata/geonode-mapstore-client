@@ -67,6 +67,7 @@ const SET_DRAWING_BMP_LAYER_NAME = 'SET_DRAWING_BMP_LAYER_NAME';
 const START_DRAWING_BMP = 'START_DRAWING_BMP';
 const CLEAR_DRAWING_BMP_LAYER_NAME = 'CLEAR_DRAWING_BMP_LAYER_NAME';
 const CREATE_BMP_FEATURE_ID = 'CREATE_BMP_FEATURE_ID';
+const REGISTER_MISSING_BMP_FEATURE_ID = 'REGISTER_MISSING_BMP_FEATURE_ID';
 const SET_EDITING_BMP_FEATURE_ID = 'SET_EDITING_BMP_FEATURE_ID';
 const CLEAR_EDITING_BMP_FEATURE_ID = 'CLEAR_EDITING_BMP_FEATURE_ID';
 const DELETE_BMP = 'DELETE_BMP';
@@ -401,6 +402,13 @@ const setEditingBmpFeatureId = (featureId) => {
     };
 };
 
+const registerMissingBmpFeatureId = (missingBmpFeatureId) => {
+    return {
+        type: REGISTER_MISSING_BMP_FEATURE_ID,
+        missingBmpFeatureId: missingBmpFeatureId
+    };
+};
+
 const createBmpFeatureId = (action) => {
     console.log('createBmpFeatureId action:', action);
     let newBmpId = null;
@@ -413,7 +421,10 @@ const createBmpFeatureId = (action) => {
     const featureBmpType = action.filterObj.featureTypeName.split("_")[2];
     console.log('createBmpFeatureId newBmpId: ', newBmpId);
     console.log('createBmpFeatureId featureBmpType: ', featureBmpType);
-    const featureId = action.filterObj.featureTypeName + '.' + newBmpId;
+    let featureId = action.filterObj.featureTypeName + '.' + newBmpId;
+    if (featureId.includes('geonode:')) {
+        featureId = featureId.split(':')[1];
+    }
     console.log('createBmpFeatureId assigning: ', featureId);
     switch (featureBmpType) {
     case "outlet":
@@ -834,6 +845,7 @@ module.exports = {
     SET_DRAWING_BMP_LAYER_NAME, setDrawingBmpLayerName,
     CLEAR_DRAWING_BMP_LAYER_NAME, clearDrawingBmpLayerName,
     CREATE_BMP_FEATURE_ID, createBmpFeatureId,
+    REGISTER_MISSING_BMP_FEATURE_ID, registerMissingBmpFeatureId,
     SET_EDITING_BMP_FEATURE_ID, setEditingBmpFeatureId,
     CLEAR_EDITING_BMP_FEATURE_ID, clearEditingBmpFeatureId,
     DELETE_BMP, deleteBmp,
