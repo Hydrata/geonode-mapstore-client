@@ -62,6 +62,8 @@ const MAKE_BMP_FORM = 'MAKE_BMP_FORM';
 const CLEAR_BMP_FORM = 'CLEAR_BMP_FORM';
 const MAKE_DEFAULTS_BMP_FORM = 'MAKE_DEFAULTS_BMP_FORM';
 const MAKE_EXISTING_BMP_FORM = 'MAKE_EXISTING_BMP_FORM';
+const SET_UPDATING_BMP = 'SET_UPDATING_BMP';
+const GET_BMP_FORM_SUCCESS = 'GET_BMP_FORM_SUCCESS';
 const UPDATE_BMP_FORM = 'UPDATE_BMP_FORM';
 const SET_DRAWING_BMP_LAYER_NAME = 'SET_DRAWING_BMP_LAYER_NAME';
 const START_DRAWING_BMP = 'START_DRAWING_BMP';
@@ -354,6 +356,13 @@ const makeDefaultsBmpForm = (bmpType) => {
     };
 };
 
+const setUpdatingBmp = (updatingBmp) => {
+    return {
+        type: SET_UPDATING_BMP,
+        updatingBmp: updatingBmp
+    };
+};
+
 const makeExistingBmpForm = (bmp) => {
     return {
         type: MAKE_EXISTING_BMP_FORM,
@@ -563,6 +572,38 @@ const submitBmpForm = (newBmp, mapId) => {
         );
     };
 };
+
+const getBmpFormSuccess = (bmp) => {
+    console.log('getBmpFormSuccess bmp:', bmp);
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `BMP ID: ${bmp.id} found`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({
+            type: GET_BMP_FORM_SUCCESS,
+            bmp
+        });
+    };
+};
+
+function getBmpFormError(e) {
+    console.log('getBmpFormError', e);
+    return {
+        type: SHOW_NOTIFICATION,
+        title: 'Get Bmp Form Error',
+        autoDismiss: 600,
+        position: 'tc',
+        message: `Error getting BMP: ${e?.data}`,
+        uid: uuidv1(),
+        level: 'error'
+    };
+}
 
 const deleteBmpSuccess = (bmpId) => {
     return (dispatch) => {
@@ -840,6 +881,8 @@ module.exports = {
     MAKE_BMP_FORM, makeBmpForm,
     MAKE_DEFAULTS_BMP_FORM, makeDefaultsBmpForm,
     MAKE_EXISTING_BMP_FORM, makeExistingBmpForm,
+    SET_UPDATING_BMP, setUpdatingBmp,
+    getBmpFormSuccess, getBmpFormError,
     UPDATE_BMP_FORM, updateBmpForm,
     START_DRAWING_BMP, startDrawingBmp,
     SET_DRAWING_BMP_LAYER_NAME, setDrawingBmpLayerName,

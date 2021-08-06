@@ -69,41 +69,6 @@ const initialState = {
 export default ( state = initialState, action) => {
     console.log(action);
     switch (action.type) {
-    case LOAD_FEATURE_INFO:
-        const possibleBmpFeatures = action?.data?.features?.map((feature) => {
-            if (
-                /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
-                /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
-                /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
-            ) { return feature;}
-            return null;
-        });
-        if (!possibleBmpFeatures) {
-            return state;
-        }
-        if (possibleBmpFeatures[0]) {
-            let bmp;
-            if (state.allBmps.filter((bmpToCheck) => bmpToCheck.watershed_fid === possibleBmpFeatures[0].id)[0]) {
-                bmp = state.allBmps.filter((bmpToCheck) => bmpToCheck.watershed_fid === possibleBmpFeatures[0].id)[0];
-            }
-            if (state.allBmps.filter((bmpToCheck) => bmpToCheck.footprint_fid === possibleBmpFeatures[0].id)[0]) {
-                bmp = state.allBmps.filter((bmpToCheck) => bmpToCheck.footprint_fid === possibleBmpFeatures[0].id)[0];
-            }
-            if (state.allBmps.filter((bmpToCheck) => bmpToCheck.outlet_fid === possibleBmpFeatures[0].id)[0]) {
-                bmp = state.allBmps.filter((bmpToCheck) => bmpToCheck.outlet_fid === possibleBmpFeatures[0].id)[0];
-            }
-            console.log('possibleBmpFeatures', possibleBmpFeatures);
-            if (!bmp) {
-                alert(`error: Orphaned geometry ${JSON.stringify(possibleBmpFeatures[0])}`);
-                return state;
-            }
-            return {
-                ...state,
-                visibleBmpForm: true,
-                updatingBmp: bmp
-            };
-        }
-        return state;
     case FETCH_GROUP_PROFILES:
         return {
             ...state,

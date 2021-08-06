@@ -8,18 +8,19 @@ import {
     resetQuery,
     featureTypeSelected
 } from "../../../../MapStore2/web/client/actions/wfsquery";
-// import {
-//     isDescribeLoaded
-// } from "../../selectors/query";
+const axios = require('../../../../MapStore2/web/client/libs/ajax');
 import {
     clearDrawingBmpLayerName,
     hideBmpForm,
     submitBmpForm,
     UPDATE_BMP_FORM,
+    makeExistingBmpForm,
+    getBmpFormSuccess,
     clearEditingBmpFeatureId,
     createBmpFeatureId,
     SHOW_SWAMM_FEATURE_GRID,
-    REGISTER_MISSING_BMP_FEATURE_ID,
+    showBmpForm,
+    setUpdatingBmp,
     registerMissingBmpFeatureId
 } from "./actionsSwamm";
 import {
@@ -40,7 +41,7 @@ import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actio
 
 import { get } from 'lodash';
 import {reset} from '../../../../MapStore2/web/client/actions/queryform';
-
+import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
 
 const createInitialQueryFlow = (action$, store, {url, name, id} = {}) => {
     const filterObj = get(store.getState(), `featuregrid.advancedFilters["${id}"]`);
@@ -59,15 +60,47 @@ const createInitialQueryFlow = (action$, store, {url, name, id} = {}) => {
     );
 };
 
+
+export const catchBmpFeatureClick = (action$, store) =>
+    action$
+        .ofType(LOAD_FEATURE_INFO)
+        .filter((action) => {
+            const possibleBmpFeatures = action?.data?.features?.map((feature) => {
+                if (
+                    /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
+                    /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
+                    /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
+                ) { return feature;}
+                return null;
+            });
+            return !!possibleBmpFeatures[0];
+        })
+        .mergeMap((action) => {
+            const possibleBmpFeature = action?.data?.features?.map((feature) => {
+                if (
+                    /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
+                    /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
+                    /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
+                ) {
+                    return feature;
+                }
+                return null;
+            });
+            const mapId = store.getState()?.swamm?.data?.base_map;
+            return Rx.Observable.from(axios.get(`/swamm/api/${mapId}/bmps/${possibleBmpFeature[0]?.properties?.id}/`));
+        })
+        .mergeMap((response) => Rx.Observable.of(
+            closeIdentify(),
+            getBmpFormSuccess(response.data),
+            makeExistingBmpForm(response.data),
+            setUpdatingBmp(response.data),
+            showBmpForm()
+        ));
+
 export const setBmpDrawingLayerEpic = (action$, store) =>
     action$
-        // .map((action) => {console.log('*** setBmpDrawingLayerEpic', action); return action;})
         .ofType(FEATURE_TYPE_LOADED)
-        // .map((action) => {console.log('**** setBmpDrawingLayerEpic', action); return action;})
         .filter((action) => {
-            console.log('setBmpDrawingLayerEpic1a', store.getState()?.swamm?.data?.code + '_bmp_');
-            console.log('setBmpDrawingLayerEpic1b', action?.typeName);
-            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_'));
             return action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_');
         })
         .flatMap((action) => Rx.Observable.of(
@@ -99,8 +132,6 @@ export const startBmpCreateFeatureEpic = (action$, store) =>
         })
         .flatMap(() => Rx.Observable.of(
             toggleEditMode(),
-            // setDrawingBmpLayerName(action?.filterObj?.featureTypeName),
-            // startDrawingBmp(),
             createNewFeatures([{}]),
             startDrawingFeature(),
             setHighlightFeaturesPath('draw.tempFeatures'),
@@ -198,15 +229,12 @@ export const autoSaveBmpFormEpic = (action$, store) =>
 export const showBmpFeatureGridEpic = (action$, store) =>
     action$.ofType(SHOW_SWAMM_FEATURE_GRID)
         .flatMap( (action) => {
-            console.log('epic heard: SHOW_SWAMM_FEATURE_GRID');
             const currentTypeName = get(store.getState(), "query.typeName");
-            console.log('store.getState(): ', store.getState());
-            console.log('action: ', action);
             return Rx.Observable.of(
                 ...(currentTypeName !== action?.layer.name ? [reset()] : []),
                 // setControlProperty('drawer', 'enabled', false),
                 setLayer(action?.layer.id),
-                openFeatureGrid(),
+                openFeatureGrid()
             ).merge(
                 createInitialQueryFlow(action$, store, action?.layer)
             );

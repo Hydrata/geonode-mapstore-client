@@ -43,8 +43,6 @@ import "../swamm.css";
 class SwammContainer extends React.Component {
     static propTypes = {
         fetchSwammBmpTypes: PropTypes.func,
-        fetchSwammAllBmps: PropTypes.func,
-        fetchingBmps: PropTypes.bool,
         fetchSwammBmpStatuses: PropTypes.func,
         fetchSwammTargets: PropTypes.func,
         fetchProjectManagerConfig: PropTypes.func,
@@ -137,16 +135,6 @@ class SwammContainer extends React.Component {
         }
         if (this.props.mapId && (this.props.groupProfiles?.length > 0)) {
             this.fetchingGroupProfiles = false;
-        }
-        if (!this.props.mapId && !this.fetchingBmps) {
-            this.fetchingBmps = false;
-        }
-        if (this.props.mapId && (this.props.allBmps.length === 0) && !this.fetchingBmps) {
-            this.fetchingBmps = true;
-            this.props.fetchSwammAllBmps(this.props.mapId);
-        }
-        if (this.props.mapId && (this.props.allBmps.length > 0)) {
-            this.fetchingBmps = false;
         }
         if (!this.props.mapId && !this.fetchingStatuses) {
             this.fetchingStatuses = false;
@@ -380,7 +368,6 @@ const mapDispatchToProps = ( dispatch ) => {
         fetchSwammBmpTypes: (mapId) => dispatch(fetchSwammBmpTypes(mapId)),
         fetchProjectManagerConfig: fetchProjectManagerConfig(dispatch),
         fetchGroupProfiles: () => dispatch(fetchGroupProfiles()),
-        fetchSwammAllBmps: (mapId) => dispatch(fetchSwammAllBmps(mapId)),
         fetchSwammBmpStatuses: (mapId) => dispatch(fetchSwammBmpStatuses(mapId)),
         fetchSwammTargets: (mapId) => dispatch(fetchSwammTargets(mapId)),
         toggleLayer: (layer, isVisible) => dispatch(changeLayerProperties(layer, {visibility: isVisible})),
