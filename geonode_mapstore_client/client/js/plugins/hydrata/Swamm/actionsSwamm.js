@@ -418,43 +418,6 @@ const registerMissingBmpFeatureId = (missingBmpFeatureId) => {
     };
 };
 
-const createBmpFeatureId = (action) => {
-    console.log('createBmpFeatureId action:', action);
-    let newBmpId = null;
-    let shapeId = null;
-    const ids = action.result.features.map(feature => feature.id.split('.')[1]);
-    console.log('createBmpFeatureId ids:', ids);
-    // TODO: It would be much better to get this Id from the WFS response XML,
-    //  rather than assume it's the largest one.
-    newBmpId = Math.max(...ids);
-    const featureBmpType = action.filterObj.featureTypeName.split("_")[2];
-    console.log('createBmpFeatureId newBmpId: ', newBmpId);
-    console.log('createBmpFeatureId featureBmpType: ', featureBmpType);
-    let featureId = action.filterObj.featureTypeName + '.' + newBmpId;
-    if (featureId.includes('geonode:')) {
-        featureId = featureId.split(':')[1];
-    }
-    console.log('createBmpFeatureId assigning: ', featureId);
-    switch (featureBmpType) {
-    case "outlet":
-        shapeId = {outlet_fid: featureId};
-        break;
-    case "footprint":
-        shapeId = {footprint_fid: featureId};
-        break;
-    case "watershed":
-        shapeId = {watershed_fid: featureId};
-        break;
-    default:
-        shapeId = {};
-    }
-    console.log('createBmpFeatureId shapeId: ', shapeId);
-    return {
-        type: UPDATE_BMP_FORM,
-        kv: shapeId
-    };
-};
-
 const clearEditingBmpFeatureId = () => {
     console.log('clearEditingBmpFeatureId');
     return {
@@ -887,7 +850,6 @@ module.exports = {
     START_DRAWING_BMP, startDrawingBmp,
     SET_DRAWING_BMP_LAYER_NAME, setDrawingBmpLayerName,
     CLEAR_DRAWING_BMP_LAYER_NAME, clearDrawingBmpLayerName,
-    CREATE_BMP_FEATURE_ID, createBmpFeatureId,
     REGISTER_MISSING_BMP_FEATURE_ID, registerMissingBmpFeatureId,
     SET_EDITING_BMP_FEATURE_ID, setEditingBmpFeatureId,
     CLEAR_EDITING_BMP_FEATURE_ID, clearEditingBmpFeatureId,

@@ -15,9 +15,9 @@ import {
     submitBmpForm,
     UPDATE_BMP_FORM,
     makeExistingBmpForm,
+    updateBmpForm,
     getBmpFormSuccess,
     clearEditingBmpFeatureId,
-    createBmpFeatureId,
     SHOW_SWAMM_FEATURE_GRID,
     showBmpForm,
     setUpdatingBmp,
@@ -148,8 +148,15 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
             console.log('finishBmpCreateFeatureEpic2', store.getState()?.swamm?.missingBmpFeatureId);
             return store.getState()?.swamm?.missingBmpFeatureId;
         })
-        .flatMap((action) => Rx.Observable.of(
-            createBmpFeatureId(action),
+        .mergeMap(() => {
+            const mapId = store.getState()?.swamm?.data?.base_map;
+            const geomType = store.getState()?.swamm?.drawingBmpLayerName?.slice(8);
+            return Rx.Observable.from(
+                axios.get(`/swamm/api/${mapId}/bmps/get-latest-feature-id/${geomType}/`)
+            );
+        })
+        .mergeMap((response) => Rx.Observable.of(
+            updateBmpForm(response.data),
             registerMissingBmpFeatureId(false),
             clearDrawingBmpLayerName(),
             drawStopped(),
@@ -187,17 +194,7 @@ export const saveBmpCreateFeatureEpic = (action$, store) =>
             return !store.getState()?.swamm?.editingBmpFeatureId;
         })
         .flatMap(() => Rx.Observable.of(
-            registerMissingBmpFeatureId(true)
-            // query('http://localhost:8080/geoserver/wfs',
-            //     {
-            //         featureTypeName: store.getState()?.swamm?.drawingBmpLayerName,
-            //         filterType: 'OGC',
-            //         ogcVersion: '1.1.0',
-            //         pagination: {maxFeatures: 2000000}
-            //     },
-            //     {},
-            //     'queryGetNewBmpId'
-            // )
+            registerMissingBmpFeatureId(store.getState()?.swamm?.drawingBmpLayerName)
         ));
 
 export const saveBmpEditFeatureEpic = (action$, store) =>
