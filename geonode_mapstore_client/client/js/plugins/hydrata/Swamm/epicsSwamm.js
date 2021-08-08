@@ -81,7 +81,7 @@ export const setBmpDrawingLayerEpic = (action$, store) =>
             query(
                 'http://localhost:8080/geoserver/wfs',
                 {
-                    featureTypeName: action?.typeName.split(':').pop(),
+                    featureTypeName: action?.typeName,
                     filterType: 'OGC',
                     ogcVersion: '1.1.0'
                 },
