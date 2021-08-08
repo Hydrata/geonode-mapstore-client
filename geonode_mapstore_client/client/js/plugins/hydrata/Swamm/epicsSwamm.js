@@ -31,6 +31,7 @@ import {
 import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
 import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
+import MapUtils from "../../../../MapStore2/web/client/utils/MapUtils";
 
 
 export const catchBmpFeatureClick = (action$, store) =>

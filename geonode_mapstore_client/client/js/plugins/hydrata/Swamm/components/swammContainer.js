@@ -161,13 +161,6 @@ class SwammContainer extends React.Component {
     render() {
         return (
             <div id={"swamm-container"}>
-                {this.props.allBmps?.length >= 0 ?
-                    null :
-                    <button className={'simple-view-menu-button bmp-loading-button'}>
-                        <div style={{marginBottom: "10px"}}>Loading BMP data...</div>
-                        <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
-                    </button>
-                }
                 {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.drawingBmpLayerName && !this.props.editingBmpFeatureId ?
                     <React.Fragment>
                         <Button
@@ -252,22 +245,11 @@ class SwammContainer extends React.Component {
                                 Create BMPs
                             </button>
                 }
-                <button
-                    key="swamm-bmp-data-grid-button"
-                    className={'simple-view-menu-button'}
-                    style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
-                    onClick={() => {
-                        this.props.showSwammFeatureGrid(this.props.bmpOutletLayer);
-                        this.props.setMenuGroup(null);
-                    }}
-                >
-                    Summary Table
-                </button>
                 {this.props.targets?.length ?
                     <button
                         key="swamm-bmp-chart-button"
                         className={'simple-view-menu-button'}
-                        style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
+                        style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
                         onClick={() => {
                             this.props.showSwammBmpChart();
                             this.props.setMenuGroup(null);
@@ -278,7 +260,7 @@ class SwammContainer extends React.Component {
                     <button
                         key="swamm-bmp-chart-button"
                         className={'simple-view-menu-button disabled'}
-                        style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
+                        style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
                     >
                         <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
                     </button>
