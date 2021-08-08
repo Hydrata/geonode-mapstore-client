@@ -137,11 +137,11 @@ class SwammBmpChartClass extends React.Component {
                                         bsSize="xsmall"
                                         block
                                         style={{
-                                            backgroundColor: this.props.bmpFilterMode === 'groupProfile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
+                                            backgroundColor: this.props.bmpFilterMode === 'group_profile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
                                             marginTop: "4px",
                                             fontSize: "x-small"
                                         }}
-                                        onClick={() => this.props.setBmpFilterMode('groupProfile')}>
+                                        onClick={() => this.props.setBmpFilterMode('group_profile')}>
                                         Organization
                                     </Button>
                                 </div>
@@ -323,19 +323,19 @@ class SwammBmpChartClass extends React.Component {
     pollutants = [
         {
             name: 'Phosphorus',
-            load_red_total_key: 'p_load_reduction',
+            load_red_total_key: 'total_p_load_reduction',
             units: 'lbs/year',
             initial: 'p'
         },
         {
             name: 'Nitrogen',
-            load_red_total_key: 'n_load_reduction',
+            load_red_total_key: 'total_n_load_reduction',
             units: 'lbs/year',
             initial: 'n'
         },
         {
             name: 'Sediment',
-            load_red_total_key: 's_load_reduction',
+            load_red_total_key: 'total_s_load_reduction',
             units: 'tons/year',
             initial: 's'
         }
