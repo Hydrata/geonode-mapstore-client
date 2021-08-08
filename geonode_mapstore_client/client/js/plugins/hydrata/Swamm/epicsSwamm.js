@@ -1,14 +1,12 @@
 import Rx from "rxjs";
+const axios = require('../../../../MapStore2/web/client/libs/ajax');
 import {
     QUERY_RESULT,
     query,
-    createQuery,
     FEATURE_TYPE_LOADED,
     FEATURE_TYPE_SELECTED,
-    resetQuery,
-    featureTypeSelected
+    resetQuery
 } from "../../../../MapStore2/web/client/actions/wfsquery";
-const axios = require('../../../../MapStore2/web/client/libs/ajax');
 import {
     clearDrawingBmpLayerName,
     hideBmpForm,
@@ -18,7 +16,6 @@ import {
     updateBmpForm,
     getBmpFormSuccess,
     clearEditingBmpFeatureId,
-    SHOW_SWAMM_FEATURE_GRID,
     showBmpForm,
     setUpdatingBmp,
     registerMissingBmpFeatureId
@@ -29,36 +26,11 @@ import {
     createNewFeatures,
     startDrawingFeature,
     selectFeatures,
-    setLayer,
-    openFeatureGrid,
-    SAVE_SUCCESS,
-    GRID_QUERY_RESULT
+    SAVE_SUCCESS
 } from "../../../../MapStore2/web/client/actions/featuregrid";
-import {
-    drawStopped
-} from "../../../../MapStore2/web/client/actions/draw";
+import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
 import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
-
-import { get } from 'lodash';
-import {reset} from '../../../../MapStore2/web/client/actions/queryform';
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
-
-const createInitialQueryFlow = (action$, store, {url, name, id} = {}) => {
-    const filterObj = get(store.getState(), `featuregrid.advancedFilters["${id}"]`);
-    const createInitialQuery = () => createQuery(url, filterObj || {
-        featureTypeName: name,
-        filterType: 'OGC',
-        ogcVersion: '1.1.0'
-    });
-
-    // if (isDescribeLoaded(store.getState(), name)) {
-    //     return Rx.Observable.of(createInitialQuery(), featureTypeSelected(url, name));
-    // }
-    return Rx.Observable.of(featureTypeSelected(url, name)).merge(
-        action$.ofType(FEATURE_TYPE_LOADED).filter(({typeName} = {}) => typeName === name)
-            .map(createInitialQuery)
-    );
-};
 
 
 export const catchBmpFeatureClick = (action$, store) =>
@@ -101,13 +73,14 @@ export const setBmpDrawingLayerEpic = (action$, store) =>
     action$
         .ofType(FEATURE_TYPE_LOADED)
         .filter((action) => {
+            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_'));
             return action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_');
         })
         .flatMap((action) => Rx.Observable.of(
             query(
                 'http://localhost:8080/geoserver/wfs',
                 {
-                    featureTypeName: action?.typeName,
+                    featureTypeName: action?.typeName.split(':').pop(),
                     filterType: 'OGC',
                     ogcVersion: '1.1.0'
                 },
@@ -212,27 +185,27 @@ export const saveBmpEditFeatureEpic = (action$, store) =>
             submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map)
         ));
 
-export const autoSaveBmpFormEpic = (action$, store) =>
-    action$.ofType(UPDATE_BMP_FORM)
-        .flatMap(() => {
-            if (store.getState()?.swamm?.storedBmpForm?.groupProfile && store.getState()?.swamm?.storedBmpForm?.bmpName) {
-                return Rx.Observable.of(
-                    // submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.projectManager?.data?.base_map)
-                );
-            }
-            return null;
-        });
+// export const autoSaveBmpFormEpic = (action$, store) =>
+//     action$.ofType(UPDATE_BMP_FORM)
+//         .flatMap(() => {
+//             if (store.getState()?.swamm?.storedBmpForm?.groupProfile && store.getState()?.swamm?.storedBmpForm?.bmpName) {
+//                 return Rx.Observable.of(
+//                     // submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.projectManager?.data?.base_map)
+//                 );
+//             }
+//             return null;
+//         });
 
-export const showBmpFeatureGridEpic = (action$, store) =>
-    action$.ofType(SHOW_SWAMM_FEATURE_GRID)
-        .flatMap( (action) => {
-            const currentTypeName = get(store.getState(), "query.typeName");
-            return Rx.Observable.of(
-                ...(currentTypeName !== action?.layer.name ? [reset()] : []),
-                // setControlProperty('drawer', 'enabled', false),
-                setLayer(action?.layer.id),
-                openFeatureGrid()
-            ).merge(
-                createInitialQueryFlow(action$, store, action?.layer)
-            );
-        });
+// export const showBmpFeatureGridEpic = (action$, store) =>
+//     action$.ofType(SHOW_SWAMM_FEATURE_GRID)
+//         .flatMap( (action) => {
+//             const currentTypeName = get(store.getState(), "query.typeName");
+//             return Rx.Observable.of(
+//                 ...(currentTypeName !== action?.layer.name ? [reset()] : []),
+//                 // setControlProperty('drawer', 'enabled', false),
+//                 setLayer(action?.layer.id),
+//                 openFeatureGrid()
+//             ).merge(
+//                 createInitialQueryFlow(action$, store, action?.layer)
+//             );
+//         });

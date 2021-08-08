@@ -737,6 +737,7 @@ class SwammBmpFormClass extends React.Component {
         console.log('drawBmpStep1 targetLayer', targetLayer);
         this.props.setLayer(targetLayer?.id);
         this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer?.name);
+        console.log('drawBmpStep1 finished');
     }
 }
 

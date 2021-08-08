@@ -8,8 +8,8 @@ import {
     startBmpEditFeatureEpic,
     saveBmpEditFeatureEpic,
     finishBmpCreateFeatureEpic,
-    autoSaveBmpFormEpic,
-    showBmpFeatureGridEpic,
+    // autoSaveBmpFormEpic,
+    // showBmpFeatureGridEpic,
     catchBmpFeatureClick
 } from "./epicsSwamm";
 
@@ -23,8 +23,8 @@ export default createPlugin('Swamm', {
         startBmpEditFeatureEpic,
         saveBmpEditFeatureEpic,
         finishBmpCreateFeatureEpic,
-        autoSaveBmpFormEpic,
-        showBmpFeatureGridEpic,
+        // autoSaveBmpFormEpic,
+        // showBmpFeatureGridEpic,
         catchBmpFeatureClick
     }
 });

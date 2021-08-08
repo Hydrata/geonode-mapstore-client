@@ -224,11 +224,6 @@ class SwammBmpChartClass extends React.Component {
                                                             >
                                                                 {this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
                                                                     const key = `barOne.${index}.${pollutant.load_red_total_key}`;
-                                                                    console.log('data', [{'barOne': this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]}]);
-                                                                    console.log('key:', key);
-                                                                    console.log('bar:', bar);
-                                                                    console.log('`${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`', `${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`);
-                                                                    console.log('this.colours[index]', this.colours[index]);
                                                                     return (
                                                                         <Bar
                                                                             key={`${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`}
