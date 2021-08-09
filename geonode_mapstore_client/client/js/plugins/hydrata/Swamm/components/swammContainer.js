@@ -1,13 +1,12 @@
 import React from 'react';
 import {connect} from 'react-redux';
 const PropTypes = require('prop-types');
-import {Button, Glyphicon} from "react-bootstrap";
+import {Button} from "react-bootstrap";
 const Spinner = require('react-spinkit');
 import {
     fetchSwammBmpTypes,
     fetchProjectManagerConfig,
     fetchGroupProfiles,
-    fetchSwammAllBmps,
     fetchSwammBmpStatuses,
     showBmpForm,
     showSwammBmpChart,
@@ -31,9 +30,7 @@ import {MenuDatasetRow} from "../../ProjectManager/components/projectManagerMenu
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {bmpByUniqueNameSelector} from "../selectorsSwamm";
 import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/web/client/actions/featuregrid";
-import {
-    drawStopped
-} from "../../../../../MapStore2/web/client/actions/draw";
+import {drawStopped} from "../../../../../MapStore2/web/client/actions/draw";
 import {query} from "../../../../../MapStore2/web/client/actions/wfsquery";
 
 import "../../SimpleView/simpleView.css";
@@ -116,191 +113,197 @@ class SwammContainer extends React.Component {
         if (this.props.mapId && this.props.hasPmData) {
             this.fetching = false;
         }
-        if (!this.props.mapId && !this.fetchingBmpTypes) {
-            this.fetchingBmpTypes = false;
-        }
-        if (this.props.mapId && (this.props.bmpTypes?.length === 0) && !this.fetchingBmpTypes) {
-            this.fetchingBmpTypes = true;
-            this.props.fetchSwammBmpTypes(this.props.mapId);
-        }
-        if (this.props.mapId && (this.props.bmpTypes?.length > 0)) {
-            this.fetchingBmpTypes = false;
-        }
-        if (!this.props.mapId && !this.fetchingGroupProfiles) {
-            this.fetchingGroupProfiles = false;
-        }
-        if (this.props.mapId && (this.props.groupProfiles?.length === 0) && !this.fetchingGroupProfiles) {
-            this.fetchingGroupProfiles = true;
-            this.props.fetchGroupProfiles();
-        }
-        if (this.props.mapId && (this.props.groupProfiles?.length > 0)) {
-            this.fetchingGroupProfiles = false;
-        }
-        if (!this.props.mapId && !this.fetchingStatuses) {
-            this.fetchingStatuses = false;
-        }
-        if (this.props.mapId && (this.props.statuses.length === 0) && !this.fetchingStatuses) {
-            this.fetchingStatuses = true;
-            this.props.fetchSwammBmpStatuses(this.props.mapId);
-        }
-        if (this.props.mapId && (this.props.statuses.length > 0)) {
-            this.fetchingStatuses = false;
-        }
-        if (!this.props.mapId && !this.fetchingTargets) {
-            this.fetchingTargets = false;
-        }
-        if (this.props.mapId && (this.props.targets.length === 0) && !this.fetchingTargets) {
-            this.fetchingTargets = true;
-            this.props.fetchSwammTargets(this.props.mapId);
-        }
-        if (this.props.mapId && (this.props.targets.length > 0)) {
-            this.fetchingTargets = false;
+        if (this.props.hasPmData) {
+            if (!this.props.mapId && !this.fetchingBmpTypes) {
+                this.fetchingBmpTypes = false;
+            }
+            if (this.props.mapId && (this.props.bmpTypes?.length === 0) && !this.fetchingBmpTypes) {
+                this.fetchingBmpTypes = true;
+                this.props.fetchSwammBmpTypes(this.props.mapId);
+            }
+            if (this.props.mapId && (this.props.bmpTypes?.length > 0)) {
+                this.fetchingBmpTypes = false;
+            }
+            if (!this.props.mapId && !this.fetchingGroupProfiles) {
+                this.fetchingGroupProfiles = false;
+            }
+            if (this.props.mapId && (this.props.groupProfiles?.length === 0) && !this.fetchingGroupProfiles) {
+                this.fetchingGroupProfiles = true;
+                this.props.fetchGroupProfiles();
+            }
+            if (this.props.mapId && (this.props.groupProfiles?.length > 0)) {
+                this.fetchingGroupProfiles = false;
+            }
+            if (!this.props.mapId && !this.fetchingStatuses) {
+                this.fetchingStatuses = false;
+            }
+            if (this.props.mapId && (this.props.statuses.length === 0) && !this.fetchingStatuses) {
+                this.fetchingStatuses = true;
+                this.props.fetchSwammBmpStatuses(this.props.mapId);
+            }
+            if (this.props.mapId && (this.props.statuses.length > 0)) {
+                this.fetchingStatuses = false;
+            }
+            if (!this.props.mapId && !this.fetchingTargets) {
+                this.fetchingTargets = false;
+            }
+            if (this.props.mapId && (this.props.targets.length === 0) && !this.fetchingTargets) {
+                this.fetchingTargets = true;
+                this.props.fetchSwammTargets(this.props.mapId);
+            }
+            if (this.props.mapId && (this.props.targets.length > 0)) {
+                this.fetchingTargets = false;
+            }
         }
     }
 
     render() {
         return (
             <div id={"swamm-container"}>
-                {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.drawingBmpLayerName && !this.props.editingBmpFeatureId ?
+                {this.props.hasPmData ?
                     <React.Fragment>
-                        <Button
-                            className={'simple-view-menu-button bmp-progress-button-success'}
-                            style={{left: 20}}
-                            bsStyle={"success"}
-                            onClick={() => this.props.showBmpForm()}
-                        >
-                            BMP in progress
-                        </Button>
-                        <button
-                            key="swamm-bmp-creator-button"
-                            className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                            onClick={() => {
-                                this.props.showBmpForm();
-                                this.props.setMenuGroup(null);
-                            }}
-                        >
-                            Create BMPs
-                        </button>
+                        {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.drawingBmpLayerName && !this.props.editingBmpFeatureId ?
+                            <React.Fragment>
+                                <Button
+                                    className={'simple-view-menu-button bmp-progress-button-success'}
+                                    style={{left: 20}}
+                                    bsStyle={"success"}
+                                    onClick={() => this.props.showBmpForm()}
+                                >
+                                    BMP in progress
+                                </Button>
+                                <button
+                                    key="swamm-bmp-creator-button"
+                                    className={'simple-view-menu-button'}
+                                    style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                    onClick={() => {
+                                        this.props.showBmpForm();
+                                        this.props.setMenuGroup(null);
+                                    }}
+                                >
+                                    Create BMPs
+                                </button>
+                            </React.Fragment>
+                            : this.props.drawingBmpLayerName || this.props.editingBmpFeatureId ?
+                                <React.Fragment>
+                                    <Button
+                                        bsStyle="success"
+                                        className={'simple-view-menu-button bmp-progress-button'}
+                                        style={{left: 30, top: 80, width: 120, backgroundColor: "darkgreen"}}
+                                        onClick={() => {
+                                            this.props.saveChanges();
+                                            this.props.showBmpForm();
+                                        }}
+                                    >
+                                        Save Feature
+                                    </Button>
+                                    <Button
+                                        bsStyle="danger"
+                                        className={'simple-view-menu-button bmp-progress-button'}
+                                        style={{left: 160, top: 80, width: 120, backgroundColor: "darkred"}}
+                                        onClick={() => {
+                                            this.props.showBmpForm();
+                                            this.props.setLayer(null);
+                                            this.props.toggleViewMode();
+                                            this.props.drawStopped();
+                                            this.props.clearDrawingBmpLayerName();
+                                            this.props.clearEditingBmpFeatureId();
+                                        }}
+                                    >
+                                        Cancel Feature
+                                    </Button>
+                                    <button
+                                        key="swamm-bmp-creator-button"
+                                        className={'simple-view-menu-button'}
+                                        style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                        onClick={() => {
+                                            this.props.saveChanges();
+                                            this.props.showBmpForm();
+                                            this.props.setMenuGroup(null);
+                                        }}
+                                    >
+                                        Create BMPs
+                                    </button>
+                                </React.Fragment>
+                                : this.props.visibleBmpForm ?
+                                    <button
+                                        className={'simple-view-menu-button'}
+                                        style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                        disabled
+                                    >
+                                        Create BMPs
+                                    </button>
+                                    :
+                                    <button
+                                        key="swamm-bmp-creator-button"
+                                        className={'simple-view-menu-button'}
+                                        style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                        onClick={() => {
+                                            this.props.makeBmpForm();
+                                            this.props.setMenuGroup(null);
+                                        }}
+                                    >
+                                        Create BMPs
+                                    </button>
+                        }
+                        {this.props.targets?.length ?
+                            <button
+                                key="swamm-bmp-chart-button"
+                                className={'simple-view-menu-button'}
+                                style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
+                                onClick={() => {
+                                    this.props.showSwammBmpChart();
+                                    this.props.setMenuGroup(null);
+                                }}
+                            >
+                                Dashboard
+                            </button> :
+                            <button
+                                key="swamm-bmp-chart-button"
+                                className={'simple-view-menu-button disabled'}
+                                style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
+                            >
+                                <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
+                            </button>
+                        }
+                        {this.props.visibleBmpManager ?
+                            <div className={'simple-view-panel'} id="swamm-bmp-manager">
+                                <table className="table check1" style={{tableLayout: "fixed", marginBottom: "0"}}>
+                                    <tbody>
+                                        <tr key="r1">
+                                            <td key="d2">
+                                                <MenuDatasetRow layer={this.props.bmpDataLayer}/>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            : null
+                        }
+                        {this.props.visibleTargetForm ?
+                            <SwammTargetForm/>
+                            : null
+                        }
+                        {this.props.visibleBmpForm ?
+                            <SwammBmpForm setBmpTypesVisibility={this.setBmpTypesVisibility}/>
+                            : null
+                        }
+                        {this.props.visibleSwammDataGrid ?
+                            <div>
+                                <SwammDataGrid/>
+                                SwammDataGrid
+                            </div>
+                            : null
+                        }
+                        {this.props.visibleSwammBmpChart ?
+                            <div>
+                                <SwammBmpChart/>
+                                SwammBmpChart
+                            </div>
+                            : null
+                        }
                     </React.Fragment>
-                    : this.props.drawingBmpLayerName || this.props.editingBmpFeatureId ?
-                        <React.Fragment>
-                            <Button
-                                bsStyle="success"
-                                className={'simple-view-menu-button bmp-progress-button'}
-                                style={{left: 30, top: 80, width: 120, backgroundColor: "darkgreen"}}
-                                onClick={() => {
-                                    this.props.saveChanges();
-                                    this.props.showBmpForm();
-                                }}
-                            >
-                                Save Feature
-                            </Button>
-                            <Button
-                                bsStyle="danger"
-                                className={'simple-view-menu-button bmp-progress-button'}
-                                style={{left: 160, top: 80, width: 120, backgroundColor: "darkred"}}
-                                onClick={() => {
-                                    this.props.showBmpForm();
-                                    this.props.setLayer(null);
-                                    this.props.toggleViewMode();
-                                    this.props.drawStopped();
-                                    this.props.clearDrawingBmpLayerName();
-                                    this.props.clearEditingBmpFeatureId();
-                                }}
-                            >
-                                Cancel Feature
-                            </Button>
-                            <button
-                                key="swamm-bmp-creator-button"
-                                className={'simple-view-menu-button'}
-                                style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                onClick={() => {
-                                    this.props.saveChanges();
-                                    this.props.showBmpForm();
-                                    this.props.setMenuGroup(null);
-                                }}
-                            >
-                                Create BMPs
-                            </button>
-                        </React.Fragment>
-                        : this.props.visibleBmpForm ?
-                            <button
-                                className={'simple-view-menu-button'}
-                                style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                disabled
-                            >
-                                Create BMPs
-                            </button>
-                            :
-                            <button
-                                key="swamm-bmp-creator-button"
-                                className={'simple-view-menu-button'}
-                                style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                onClick={() => {
-                                    this.props.makeBmpForm();
-                                    this.props.setMenuGroup(null);
-                                }}
-                            >
-                                Create BMPs
-                            </button>
-                }
-                {this.props.targets?.length ?
-                    <button
-                        key="swamm-bmp-chart-button"
-                        className={'simple-view-menu-button'}
-                        style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
-                        onClick={() => {
-                            this.props.showSwammBmpChart();
-                            this.props.setMenuGroup(null);
-                        }}
-                    >
-                        Dashboard
-                    </button> :
-                    <button
-                        key="swamm-bmp-chart-button"
-                        className={'simple-view-menu-button disabled'}
-                        style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
-                    >
-                        <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
-                    </button>
-                }
-                {this.props.visibleBmpManager ?
-                    <div className={'simple-view-panel'} id="swamm-bmp-manager">
-                        <table className="table check1" style={{tableLayout: "fixed", marginBottom: "0"}}>
-                            <tbody>
-                                <tr key="r1">
-                                    <td key="d2">
-                                        <MenuDatasetRow layer={this.props.bmpDataLayer}/>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    : null
-                }
-                {this.props.visibleTargetForm ?
-                    <SwammTargetForm/>
-                    : null
-                }
-                {this.props.visibleBmpForm ?
-                    <SwammBmpForm setBmpTypesVisibility={this.setBmpTypesVisibility}/>
-                    : null
-                }
-                {this.props.visibleSwammDataGrid ?
-                    <div>
-                        <SwammDataGrid/>
-                        SwammDataGrid
-                    </div>
-                    : null
-                }
-                {this.props.visibleSwammBmpChart ?
-                    <div>
-                        <SwammBmpChart/>
-                        SwammBmpChart
-                    </div>
-                    : null
-                }
+                    : null}
             </div>
         );
     }
