@@ -10,7 +10,8 @@ import {
     saveBmpEditFeatureEpic,
     finishBmpCreateFeatureEpic,
     autoSaveBmpFormEpic,
-    catchBmpFeatureClick
+    catchBmpFeatureClick,
+    getBmpTypeGroups
 } from "./epicsSwamm";
 
 export default createPlugin('Swamm', {
@@ -25,6 +26,7 @@ export default createPlugin('Swamm', {
         saveBmpEditFeatureEpic,
         finishBmpCreateFeatureEpic,
         autoSaveBmpFormEpic,
-        catchBmpFeatureClick
+        catchBmpFeatureClick,
+        getBmpTypeGroups
     }
 });

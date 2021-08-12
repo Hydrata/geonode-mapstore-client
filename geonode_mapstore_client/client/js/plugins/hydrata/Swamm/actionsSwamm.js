@@ -72,6 +72,7 @@ const CREATE_BMP_FEATURE_ID = 'CREATE_BMP_FEATURE_ID';
 const REGISTER_MISSING_BMP_FEATURE_ID = 'REGISTER_MISSING_BMP_FEATURE_ID';
 const SET_EDITING_BMP_FEATURE_ID = 'SET_EDITING_BMP_FEATURE_ID';
 const CLEAR_EDITING_BMP_FEATURE_ID = 'CLEAR_EDITING_BMP_FEATURE_ID';
+const UPDATE_BMP_TYPE_GROUPS = 'UPDATE_BMP_TYPE_GROUPS';
 const DELETE_BMP = 'DELETE_BMP';
 const DELETE_BMP_SUCCESS = 'DELETE_BMP_SUCCESS';
 const DELETE_BMP_ERROR = 'DELETE_BMP_ERROR';
@@ -803,7 +804,15 @@ function setMenuGroup(menuGroup) {
 }
 
 
+function updateBmpTypeGroups(bmpTypeGroups) {
+    return {
+        type: UPDATE_BMP_TYPE_GROUPS,
+        bmpTypeGroups
+    };
+}
+
 module.exports = {
+    UPDATE_BMP_TYPE_GROUPS, updateBmpTypeGroups,
     FETCH_SWAMM_BMPTYPES, fetchSwammBmpTypes,
     FETCH_SWAMM_BMPTYPES_ERROR, fetchSwammBmpTypesError,
     FETCH_SWAMM_BMPTYPES_SUCCESS, fetchSwammBmpTypesSuccess,

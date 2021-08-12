@@ -8,6 +8,7 @@ import {
     resetQuery
 } from "../../../../MapStore2/web/client/actions/wfsquery";
 import {
+    FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
     clearDrawingBmpLayerName,
     hideBmpForm,
     submitBmpForm,
@@ -216,3 +217,16 @@ export const autoSaveBmpFormEpic = (action$, store) =>
                 submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map)
             );
         });
+
+
+export const getBmpTypeGroups = (action$, store) =>
+    action$.ofType(FETCH_PROJECT_MANAGER_CONFIG_SUCCESS)
+        .mergeMap(() => {
+            const mapId = store.getState()?.swamm?.data?.base_map;
+            return Rx.Observable.from(
+                axios.get(`/swamm/api/${mapId}/bmp-type/bmp_type_group_list/`)
+            );
+        })
+        .mergeMap((response) => Rx.Observable.of(
+            updateBmpTypeGroups(response.data)
+        ));

@@ -34,6 +34,7 @@ import {
     SET_EDITING_BMP_FEATURE_ID,
     REGISTER_MISSING_BMP_FEATURE_ID,
     CLEAR_EDITING_BMP_FEATURE_ID,
+    UPDATE_BMP_TYPE_GROUPS,
     DELETE_BMP_SUCCESS,
     SET_BMP_FILTER_MODE,
     SHOW_TARGET_FORM,
@@ -417,6 +418,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             visibleTargetForm: action.visibleTargetForm
+        };
+    case UPDATE_BMP_TYPE_GROUPS:
+        return {
+            ...state,
+            bmpTypeGroups: action.bmpTypeGroups
         };
     default:
         return state;
