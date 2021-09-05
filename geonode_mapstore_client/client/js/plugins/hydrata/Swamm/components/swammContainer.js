@@ -93,7 +93,8 @@ class SwammContainer extends React.Component {
         bmpWatershedLayer: PropTypes.object,
         numberOfMenus: PropTypes.number,
         hasPmData: PropTypes.object,
-        bmpDataLayer: PropTypes.object
+        bmpDataLayer: PropTypes.object,
+        defaultGroupProfile: PropTypes.object
     };
 
     static defaultProps = {};
@@ -239,7 +240,7 @@ class SwammContainer extends React.Component {
                                         className={'simple-view-menu-button'}
                                         style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                         onClick={() => {
-                                            this.props.makeBmpForm();
+                                            this.props.makeBmpForm(this.props.defaultGroupProfile);
                                             this.props.setMenuGroup(null);
                                         }}
                                     >
@@ -313,9 +314,12 @@ class SwammContainer extends React.Component {
 
 const mapStateToProps = (state) => {
     console.log('state for Swamm:', state);
+    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin"].includes(item));
+    const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
         mapId: state?.map?.present?.info?.id,
         hasPmData: state?.swamm?.data,
+        defaultGroupProfile: allowedGroupProfiles[0],
         bmpUniqueNames: bmpByUniqueNameSelector(state),
         bmpTypes: state?.swamm?.bmpTypes,
         groupProfiles: state?.swamm.groupProfiles,

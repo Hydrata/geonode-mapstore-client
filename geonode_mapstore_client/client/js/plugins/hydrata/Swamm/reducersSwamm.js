@@ -12,6 +12,8 @@ import {
     SELECT_SWAMM_TARGET_ID,
     TOGGLE_BMP_TYPE,
     SET_BMP_TYPE,
+    SET_CHANGING_BMP_TYPE,
+    SET_COMPLEX_BMP_FORM,
     SET_MENU_GROUP,
     SHOW_BMP_FORM,
     HIDE_BMP_FORM,
@@ -214,14 +216,13 @@ export default ( state = initialState, action) => {
             creatingNewBmp: true,
             visibleBmpForm: true,
             storedBmpForm: {
-                // group_profile_id: null,
+                group_profile_id: action.groupProfile.pk,
+                group_profile: action.groupProfile,
                 bmpName: ''
             }
         };
     case MAKE_DEFAULTS_BMP_FORM:
         const defaultsForm = {
-            // ...action.bmpType,
-            id: null,
             bmpName: action.bmpType.name,
             type: action.bmpType.id,
             type_data: action.bmpType,
@@ -361,6 +362,16 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             missingBmpFeatureId: action.missingBmpFeatureId
+        };
+    case SET_COMPLEX_BMP_FORM:
+        return {
+            ...state,
+            complexBmpForm: action.complexBmpForm
+        };
+    case SET_CHANGING_BMP_TYPE:
+        return {
+            ...state,
+            changingBmpType: action.changingBmpType
         };
     case SET_EDITING_BMP_FEATURE_ID:
         return {

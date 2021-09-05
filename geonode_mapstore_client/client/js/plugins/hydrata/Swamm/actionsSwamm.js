@@ -50,6 +50,8 @@ const TOGGLE_BMP_MANAGER = 'TOGGLE_BMP_MANAGER';
 const TOGGLE_BMP_TYPE = 'TOGGLE_BMP_TYPE';
 const SET_MENU_GROUP = 'SET_MENU_GROUP';
 const SET_BMP_TYPE = 'SET_BMP_TYPE';
+const SET_CHANGING_BMP_TYPE = 'SET_CHANGING_BMP_TYPE';
+const SET_COMPLEX_BMP_FORM = 'SET_COMPLEX_BMP_FORM';
 
 const SET_STATUS_FILTER = 'SET_STATUS_FILTER';
 
@@ -283,9 +285,10 @@ const setBmpType = (bmpType, isVisible) => {
     };
 };
 
-const makeBmpForm = () => {
+const makeBmpForm = (groupProfile) => {
     return {
-        type: MAKE_BMP_FORM
+        type: MAKE_BMP_FORM,
+        groupProfile: groupProfile
     };
 };
 
@@ -354,6 +357,20 @@ const makeDefaultsBmpForm = (bmpType) => {
     return {
         type: MAKE_DEFAULTS_BMP_FORM,
         bmpType: bmpType
+    };
+};
+
+const setComplexBmpForm = (complexBmpForm) => {
+    return {
+        type: SET_COMPLEX_BMP_FORM,
+        complexBmpForm: complexBmpForm
+    };
+};
+
+const setChangingBmpType = (changingBmpType) => {
+    return {
+        type: SET_CHANGING_BMP_TYPE,
+        changingBmpType: changingBmpType
     };
 };
 
@@ -508,7 +525,7 @@ const submitBmpForm = (newBmp, mapId) => {
             ).then(
                 response => {
                     dispatch(submitBmpFormSuccess(response.data));
-                    // dispatch(fetchSwammAllBmps(mapId));
+                    dispatch(setChangingBmpType(false));
                     dispatch(makeExistingBmpForm(response.data));
                     dispatch(fetchSwammTargets(mapId));
                 }
@@ -525,7 +542,7 @@ const submitBmpForm = (newBmp, mapId) => {
         ).then(
             response => {
                 dispatch(submitBmpFormSuccess(response.data));
-                // dispatch(fetchSwammAllBmps(mapId));
+                dispatch(setChangingBmpType(false));
                 dispatch(makeExistingBmpForm(response.data));
                 dispatch(fetchSwammTargets(mapId));
             }
@@ -854,6 +871,8 @@ module.exports = {
     MAKE_DEFAULTS_BMP_FORM, makeDefaultsBmpForm,
     MAKE_EXISTING_BMP_FORM, makeExistingBmpForm,
     SET_UPDATING_BMP, setUpdatingBmp,
+    SET_CHANGING_BMP_TYPE, setChangingBmpType,
+    SET_COMPLEX_BMP_FORM, setComplexBmpForm,
     getBmpFormSuccess, getBmpFormError,
     UPDATE_BMP_FORM, updateBmpForm,
     START_DRAWING_BMP, startDrawingBmp,
