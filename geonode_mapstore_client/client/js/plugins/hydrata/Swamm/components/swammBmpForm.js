@@ -826,7 +826,7 @@ class SwammBmpFormClass extends React.Component {
                             }
                         </Col>
                     </Modal.Body>
-                    <Modal.Footer style={{marginTop: "70vh", borderTop: "none"}}>
+                    <Modal.Footer style={{marginTop: "78vh", borderTop: "none"}}>
                         {this.props.storedBmpForm?.id ?
                             <React.Fragment>
                                 <Button
