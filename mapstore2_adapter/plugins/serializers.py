@@ -31,7 +31,7 @@ from geonode.base.bbox_utils import BBOXHelper
 is_analytics_enabled = False
 try:
     from geonode.monitoring.models import EventType
-    from geonode.monitoring import register_event
+    from geonode.base import register_event
     is_analytics_enabled = True
 except ImportError:
     pass

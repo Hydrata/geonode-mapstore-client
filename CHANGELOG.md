@@ -1,5 +1,27 @@
 # Change Log
 
+## 3.2.1 [2021-07-08]
+
+<li> Wed Jul 7 13:55:24 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/efebcfc93916def407bcefd7ebe1a43ad63c65da target=blank>#274: Switching to visual editor for raster layer style throws an error (#296)</a></li>
+<li> Mon Jun 7 17:24:16 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/d0242ffc2477f097818340e4c620c80dec520bc6 target=blank>Update mapstore submodule to include bug fixes related to text symbolizer (#227)</a></li>
+<li> Thu Jun 3 17:38:25 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/6bef37f1ed099e66685e3116c329ac8a7c1f2cb6 target=blank>[Backport 2.1.x] #218: Add toolbar icons are not visible when a GeoStory is empty  (#222)</a></li>
+<li> Thu Jun 3 15:44:44 2021 +0200: Giovanni Allegri <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/5b3af2abaea14b7332304ee0dad1b23601ce0d7f target=blank>set default tile size for WMS layers in map configurations (#220) (#221)</a></li>
+<li> Wed May 26 11:52:30 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/3300caaa897be77d8a62a914efd6b5571f5c1400 target=blank>[Client Bundle] #203: SaveAs is not working anymore after returning an error in the response (#210)</a></li>
+<li> Wed May 26 05:10:02 2021 -0400: NAGGINDA MARTHA <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/6752c372fb22450610e91a01a8eccef64b23e5b8 target=blank>- [Fixes #204]: Ceating a New GeoStory Displays a Network Error (#208)</a></li>
+<li> Wed May 26 10:51:44 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/0918ab71489890a6153f3760f38dec8143db5b8a target=blank>#203: SaveAs is not working anymore after returning an error in the response (#207)</a></li>
+<li> Wed May 26 04:23:59 2021 -0400: NAGGINDA MARTHA <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/15ff456d3df31bd1a6e92f70936f4928a4dd1d3e target=blank>add link to resources response (#202)</a></li>
+<li> Tue May 25 18:42:35 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/32d467b90c81b0121cafb46132f45554bf443491 target=blank>#199: Upgrade MapStore submodule to include latest fixes  (#200)</a></li>
+<li> Tue May 25 09:13:20 2021 -0400: NAGGINDA MARTHA <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/38a00c3989f8f7d25b2262fe832ea0f6893404a6 target=blank>- Add client_version (#196)</a></li>
+<li> Mon May 24 15:14:59 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/98383f4e4eb03aeb6177fd7ff8aa9f3753063102 target=blank>#191: /style_edit#/ subpath doesn't trigger the opening of the style editor  (#194)</a></li>
+<li> Tue May 18 18:30:19 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/d44c7a60dc1039fcbbedc818754e59256f37f8c2 target=blank>#103: GeoNode CSW catalog requires the dc:type=dataset filtert (#184)</a></li>
+<li> Tue May 18 17:45:23 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/0cd92ba08cfd7264e05bd82740bee8a12301d9f0 target=blank>Update mapstore to support unique interval classification in visual style editor (#183)</a></li>
+<li> Tue May 18 17:22:22 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/e28c2e71c2c711fc077b18a88ace61f0afb06a3a target=blank>[Backport 2.1.x] 157: Read layers permissions from API v2 instead of using style-check and edit-check requests (#182)</a></li>
+<li> Tue May 18 10:33:08 2021 -0400: NAGGINDA MARTHA <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/9603b35cb4b15ad572435d1c5c70e12ce91eff38 target=blank>- Change permissions name to perms (#153)</a></li>
+<li> Tue May 18 10:36:31 2021 +0200: stefano bovio <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/a9fe410552f890df11c17160bef4c182b246c048 target=blank>update client bundle (#181)</a></li>
+<li> Tue May 11 17:40:00 2021 +0300: Muhwezi Deo <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/205ffd0f21c0112e4ec0890072cb69bc01dc0c63 target=blank>#145: Add check for resource permission (#155)</a></li>
+<li> Tue May 11 14:08:01 2021 +0300: Muhwezi Deo <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/2b6ec75e8cd4c781db3febf3407f7827c1650544 target=blank>Only show a notification on map and geostory Save action #134 (#140)</a></li>
+<li> Mon May 3 05:27:35 2021 -0400: NAGGINDA MARTHA <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/6601ec8521ad16e63b9313c6eab4f4764f42e4d0 target=blank>- Hide create apps for anonymous users (#142)</a></li>
+
 ## 2.1.4 [2020-04-14]
 
 <li> Wed Apr 14 13:11:43 2021 +0200: afabiani <a href=https://github.com/GeoNode/geonode-mapstore-client/commit/895e60af6903fc4e6dfd3a4d8a87f4e255569efc target=blank>[Fixes #130] REST API v2 endpoint for GeoStories throws an exception</a></li>
