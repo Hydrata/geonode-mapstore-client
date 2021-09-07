@@ -81,6 +81,7 @@ class SwammBmpFormClass extends React.Component {
         bmpOutletLayer: PropTypes.object,
         bmpFootprintLayer: PropTypes.object,
         bmpWatershedLayer: PropTypes.object,
+        hasGeometry: PropTypes.bool,
         requiresOutlet: PropTypes.bool,
         requiresFootprint: PropTypes.bool,
         requiresWatershed: PropTypes.bool,
@@ -233,7 +234,7 @@ class SwammBmpFormClass extends React.Component {
                                         : null
                                 }
                                 {
-                                    this.props.requiresWatershed || this.props.complexBmpForm ?
+                                    (this.props.requiresWatershed || this.props.complexBmpForm) && !this.props.watershedIsFootprint ?
                                         <FormGroup controlId="watershed_fid" validationState={this.validateFid("watershed_fid")} bsSize={"small"}>
                                             <Col componentClass={ControlLabel} sm={3} style={{textAlign: "left"}}>
                                                 Watershed:
@@ -525,8 +526,8 @@ class SwammBmpFormClass extends React.Component {
                                     </Col>
                                 </FormGroup>
                             </Form>
-                            {this.props.complexBmpForm ?
-                                <Row style={{marginTop: "50px", padding: "20px", textAlign: "left"}}>
+                            {this.props.complexBmpForm || !this.props.storedBmpForm?.id || this.props.changingBmpType ?
+                                <Row style={{paddingLeft: "20px", textAlign: "left"}}>
                                     <h5>More Information from NRCS documents:</h5>
                                     <Row>
                                         <a
@@ -535,6 +536,8 @@ class SwammBmpFormClass extends React.Component {
                                             style={{
                                                 position: "absolute",
                                                 left: "20px",
+                                                bottom: "-30px",
+                                                paddingTop: "10px",
                                                 width: "80px",
                                                 whiteSpace: "normal",
                                                 fontSize: "14px"
@@ -550,6 +553,8 @@ class SwammBmpFormClass extends React.Component {
                                             style={{
                                                 position: "absolute",
                                                 left: "120px",
+                                                bottom: "-30px",
+                                                paddingTop: "10px",
                                                 width: "80px",
                                                 whiteSpace: "normal",
                                                 fontSize: "14px"
@@ -565,6 +570,8 @@ class SwammBmpFormClass extends React.Component {
                                             style={{
                                                 position: "absolute",
                                                 left: "220px",
+                                                bottom: "-30px",
+                                                paddingTop: "10px",
                                                 width: "80px",
                                                 whiteSpace: "normal",
                                                 fontSize: "14px"
@@ -580,6 +587,8 @@ class SwammBmpFormClass extends React.Component {
                                             style={{
                                                 position: "absolute",
                                                 left: "320px",
+                                                bottom: "-30px",
+                                                paddingTop: "10px",
                                                 width: "80px",
                                                 whiteSpace: "normal",
                                                 fontSize: "14px"
@@ -817,7 +826,7 @@ class SwammBmpFormClass extends React.Component {
                             }
                         </Col>
                     </Modal.Body>
-                    <Modal.Footer style={{marginTop: "80%"}}>
+                    <Modal.Footer style={{marginTop: "70vh", borderTop: "none"}}>
                         {this.props.storedBmpForm?.id ?
                             <React.Fragment>
                                 <Button
@@ -872,7 +881,8 @@ class SwammBmpFormClass extends React.Component {
                         <Button
                             bsStyle="success"
                             bsSize="small"
-                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "20px", minWidth: "80px"}}
+                            className={this.props.hasGeometry ? '' : 'disabled'}
+                            style={{position: "absolute", bottom: "20px", right: "20px", minWidth: "80px"}}
                             onClick={() => {
                                 this.props.submitBmpForm(this.props.storedBmpForm, this.props.mapId);
                             }}>
@@ -959,6 +969,7 @@ const mapStateToProps = (state) => {
         bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_outlet")[0],
         bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_footprint")[0],
         bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_watershed")[0],
+        hasGeometry: state?.swamm?.storedBmpForm?.outlet_fid || state?.swamm?.storedBmpForm?.footprint_fid || state?.swamm?.storedBmpForm?.watershed_fid,
         requiresOutlet: state?.swamm?.storedBmpForm?.type_data?.requires_outlet,
         requiresFootprint: state?.swamm?.storedBmpForm?.type_data?.requires_footprint,
         requiresWatershed: state?.swamm?.storedBmpForm?.type_data?.requires_watershed,

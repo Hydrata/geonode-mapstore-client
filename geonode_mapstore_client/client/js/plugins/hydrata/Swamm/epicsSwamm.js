@@ -19,7 +19,8 @@ import {
     clearEditingBmpFeatureId,
     showBmpForm,
     setUpdatingBmp,
-    registerMissingBmpFeatureId
+    registerMissingBmpFeatureId,
+    updateBmpTypeGroups
 } from "./actionsSwamm";
 import {
     toggleEditMode,
