@@ -4,12 +4,13 @@ const PropTypes = require('prop-types');
 import {Modal, Button, Table, ControlLabel, FormControl, FormGroup, Form, Col, Row, Radio} from "react-bootstrap";
 import {
     hideBmpForm,
-    showBmpForm,
     clearBmpForm,
     submitBmpForm,
     makeDefaultsBmpForm,
     makeExistingBmpForm,
     updateBmpForm,
+    hideLoadingBmp,
+    showLoadingBmp,
     setDrawingBmpLayerName,
     setChangingBmpType,
     setComplexBmpForm,
@@ -41,8 +42,9 @@ class SwammBmpFormClass extends React.Component {
         setMenuGroup: PropTypes.func,
         creatingNewBmp: PropTypes.bool,
         updatingBmp: PropTypes.object,
+        hideLoadingBmp: PropTypes.func,
+        showLoadingBmp: PropTypes.func,
         hideBmpForm: PropTypes.func,
-        showBmpForm: PropTypes.func,
         submitBmpForm: PropTypes.func,
         showSubmitBmpFormSuccess: PropTypes.bool,
         showSubmitBmpFormError: PropTypes.bool,
@@ -291,8 +293,16 @@ class SwammBmpFormClass extends React.Component {
                                                         value={JSON.stringify(this.props.storedBmpForm?.group_profile)}
                                                         onChange={this.handleGroupProfileChange}
                                                     >
+                                                        <option key="1000" value="select">Select Organization</option>
                                                         {this.props.allowedGroupProfiles.map((groupProfile) => {
-                                                            return <option key={groupProfile.id} value={JSON.stringify(groupProfile)}>{groupProfile.title}</option>;
+                                                            return (
+                                                                <option
+                                                                    key={groupProfile.id}
+                                                                    value={JSON.stringify(groupProfile)}
+                                                                    selected={groupProfile.id === this.props.storedBmpForm?.group_profile.id}
+                                                                >
+                                                                    {groupProfile.title}
+                                                                </option>);
                                                         })}
                                                     </FormControl>
                                                     <FormControl.Feedback />
@@ -939,6 +949,8 @@ class SwammBmpFormClass extends React.Component {
         // this.props.setBmpTypesVisibility(fieldValue, true);
     }
     drawBmpStep1(layerName, featureId) {
+        this.props.showLoadingBmp();
+        this.props.hideBmpForm();
         console.log('drawBmpStep1 layerName', layerName);
         console.log('drawBmpStep1 featureId', featureId);
         this.props.setDrawingBmpLayerName(layerName);
@@ -952,7 +964,7 @@ class SwammBmpFormClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin"].includes(item));
+    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
         mapId: state?.swamm?.data?.base_map,
@@ -991,7 +1003,8 @@ const mapDispatchToProps = ( dispatch ) => {
     return {
         setMenuGroup: (menuGroup) => dispatch(setMenuGroup(menuGroup)),
         hideBmpForm: () => dispatch(hideBmpForm()),
-        showBmpForm: () => dispatch(showBmpForm()),
+        hideLoadingBmp: () => dispatch(hideLoadingBmp()),
+        showLoadingBmp: () => dispatch(showLoadingBmp()),
         submitBmpForm: (newBmp, mapId) => dispatch(submitBmpForm(newBmp, mapId)),
         updateBmpForm: (kv) => dispatch(updateBmpForm(kv)),
         clearBmpForm: () => dispatch(clearBmpForm()),

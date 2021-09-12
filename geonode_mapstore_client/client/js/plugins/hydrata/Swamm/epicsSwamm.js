@@ -10,7 +10,7 @@ import {
 import {
     FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
     clearDrawingBmpLayerName,
-    hideBmpForm,
+    hideLoadingBmp,
     submitBmpForm,
     MAKE_EXISTING_BMP_FORM,
     makeExistingBmpForm,
@@ -130,7 +130,7 @@ export const startBmpCreateFeatureEpic = (action$, store) =>
             createNewFeatures([{}]),
             startDrawingFeature(),
             setHighlightFeaturesPath('draw.tempFeatures'),
-            hideBmpForm()
+            hideLoadingBmp()
         ));
 
 export const finishBmpCreateFeatureEpic = (action$, store) =>
@@ -174,7 +174,7 @@ export const startBmpEditFeatureEpic = (action$, store) =>
         .flatMap(() => Rx.Observable.of(
             selectFeatures(store.getState()?.query?.result?.features.filter((feature) => feature?.id === store.getState()?.swamm?.editingBmpFeatureId)),
             toggleEditMode(),
-            hideBmpForm(),
+            hideLoadingBmp(),
             resetQuery()
         ));
 

@@ -10,7 +10,6 @@ import {
     fetchSwammBmpStatuses,
     showBmpForm,
     showSwammBmpChart,
-    setMenuGroup,
     toggleBmpManager,
     makeBmpForm,
     setEditingBmpFeatureId,
@@ -26,7 +25,8 @@ import {SwammBmpForm} from "./swammBmpForm";
 import {SwammDataGrid} from "./swammDataGrid";
 import {SwammTargetForm} from "./swammTargetForm";
 import {SwammBmpChart} from "./swammBmpChart";
-import {MenuDatasetRow} from "../../ProjectManager/components/projectManagerMenuDatasetRow";
+import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
+import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {bmpByUniqueNameSelector} from "../selectorsSwamm";
 import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/web/client/actions/featuregrid";
@@ -65,7 +65,8 @@ class SwammContainer extends React.Component {
         makeBmpForm: PropTypes.func,
         storedBmpForm: PropTypes.object,
         showMenuGroup: PropTypes.bool,
-        setMenuGroup: PropTypes.func,
+        setOpenMenuGroupId: PropTypes.func,
+        loadingBmp: PropTypes.bool,
         saveChanges: PropTypes.func,
         clearDrawingBmpLayerName: PropTypes.func,
         clearEditingBmpFeatureId: PropTypes.func,
@@ -179,7 +180,7 @@ class SwammContainer extends React.Component {
                                     style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                     onClick={() => {
                                         this.props.showBmpForm();
-                                        this.props.setMenuGroup(null);
+                                        this.props.setOpenMenuGroupId(null);
                                     }}
                                 >
                                     Create BMPs
@@ -220,7 +221,7 @@ class SwammContainer extends React.Component {
                                         onClick={() => {
                                             this.props.saveChanges();
                                             this.props.showBmpForm();
-                                            this.props.setMenuGroup(null);
+                                            this.props.setOpenMenuGroupId(null);
                                         }}
                                     >
                                         Create BMPs
@@ -241,7 +242,7 @@ class SwammContainer extends React.Component {
                                         style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                         onClick={() => {
                                             this.props.makeBmpForm(this.props.defaultGroupProfile);
-                                            this.props.setMenuGroup(null);
+                                            this.props.setOpenMenuGroupId(null);
                                         }}
                                     >
                                         Create BMPs
@@ -254,7 +255,7 @@ class SwammContainer extends React.Component {
                                 style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
                                 onClick={() => {
                                     this.props.showSwammBmpChart();
-                                    this.props.setMenuGroup(null);
+                                    this.props.setOpenMenuGroupId(null);
                                 }}
                             >
                                 Dashboard
@@ -273,7 +274,7 @@ class SwammContainer extends React.Component {
                                     <tbody>
                                         <tr key="r1">
                                             <td key="d2">
-                                                <MenuDatasetRow layer={this.props.bmpDataLayer}/>
+                                                <MenuRow layer={this.props.bmpDataLayer}/>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -286,7 +287,7 @@ class SwammContainer extends React.Component {
                             : null
                         }
                         {this.props.visibleBmpForm ?
-                            <SwammBmpForm setBmpTypesVisibility={this.setBmpTypesVisibility}/>
+                            <SwammBmpForm/>
                             : null
                         }
                         {this.props.visibleSwammDataGrid ?
@@ -301,6 +302,13 @@ class SwammContainer extends React.Component {
                                 <SwammBmpChart/>
                                 SwammBmpChart
                             </div>
+                            : null
+                        }
+                        {this.props.loadingBmp ?
+                            <button className={'simple-view-menu-button bmp-loading-button'}>
+                                <div style={{marginBottom: "10px"}}>Loading BMP data...</div>
+                                <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
+                            </button>
                             : null
                         }
                     </React.Fragment>
@@ -343,6 +351,7 @@ const mapStateToProps = (state) => {
         visibleSwammDataGrid: state?.swamm?.visibleSwammDataGrid,
         visibleSwammBmpChart: state?.swamm?.visibleSwammBmpChart,
         visibleTargetForm: state?.swamm?.visibleTargetForm,
+        loadingBmp: state?.swamm?.loadingBmp,
         numberOfMenus: state?.layers?.groups.length,
         filters: {
             showOutlets: state.swamm?.showOutlets,
@@ -371,9 +380,9 @@ const mapDispatchToProps = ( dispatch ) => {
         showSwammBmpChart: () => dispatch(showSwammBmpChart()),
         clickBmpManager: () => {
             dispatch(toggleBmpManager());
-            dispatch(setMenuGroup(null));
+            dispatch(setOpenMenuGroupId(null));
         },
-        setMenuGroup: (menuGroup) => dispatch(setMenuGroup(menuGroup)),
+        setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         makeBmpForm: (bmpTypeId) => dispatch(makeBmpForm(bmpTypeId)),
         saveChanges: () => dispatch(saveChanges()),
         clearDrawingBmpLayerName: () => dispatch(clearDrawingBmpLayerName()),

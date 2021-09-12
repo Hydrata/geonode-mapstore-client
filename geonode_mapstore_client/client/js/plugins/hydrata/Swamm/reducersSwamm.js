@@ -17,6 +17,8 @@ import {
     SET_MENU_GROUP,
     SHOW_BMP_FORM,
     HIDE_BMP_FORM,
+    SHOW_LOADING_BMP,
+    HIDE_LOADING_BMP,
     SHOW_SWAMM_DATA_GRID,
     HIDE_SWAMM_DATA_GRID,
     SHOW_SWAMM_BMP_CHART,
@@ -210,6 +212,16 @@ export default ( state = initialState, action) => {
             ...state,
             visibleBmpForm: true
         };
+    case SHOW_LOADING_BMP:
+        return {
+            ...state,
+            loadingBmp: true
+        };
+    case HIDE_LOADING_BMP:
+        return {
+            ...state,
+            loadingBmp: false
+        };
     case MAKE_BMP_FORM:
         return {
             ...state,
@@ -327,13 +339,14 @@ export default ( state = initialState, action) => {
                 BmpFormBmpTypeId: action.kv.type_data.id
             };
         }
-        if (action?.kv?.groupProfile) {
+        if (action?.kv?.group_profile) {
             return {
                 ...state,
                 storedBmpForm: {
                     ...state.storedBmpForm,
                     ...action.kv,
-                    group_profile_id: action?.kv?.groupProfile?.pk
+                    group_profile: action?.kv?.group_profile,
+                    group_profile_id: action?.kv?.group_profile?.pk
                 }
             };
         }

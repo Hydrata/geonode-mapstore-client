@@ -57,6 +57,8 @@ const SET_STATUS_FILTER = 'SET_STATUS_FILTER';
 
 const SHOW_BMP_FORM = 'SHOW_BMP_FORM';
 const HIDE_BMP_FORM = 'HIDE_BMP_FORM';
+const SHOW_LOADING_BMP = 'SHOW_LOADING_BMP';
+const HIDE_LOADING_BMP = 'HIDE_LOADING_BMP';
 const SUBMIT_BMP_FORM = 'SUBMIT_BMP_FORM';
 const SUBMIT_BMP_FORM_SUCCESS = 'SUBMIT_BMP_FORM_SUCCESS';
 const SUBMIT_BMP_FORM_ERROR = 'SUBMIT_BMP_FORM_ERROR';
@@ -301,6 +303,18 @@ const showBmpForm = () => {
 const hideBmpForm = () => {
     return {
         type: HIDE_BMP_FORM
+    };
+};
+
+const showLoadingBmp = () => {
+    return {
+        type: SHOW_LOADING_BMP
+    };
+};
+
+const hideLoadingBmp = () => {
+    return {
+        type: HIDE_LOADING_BMP
     };
 };
 
@@ -858,6 +872,8 @@ module.exports = {
     SET_MENU_GROUP, setMenuGroup,
     SHOW_BMP_FORM, showBmpForm,
     HIDE_BMP_FORM, hideBmpForm,
+    SHOW_LOADING_BMP, showLoadingBmp,
+    HIDE_LOADING_BMP, hideLoadingBmp,
     SHOW_SWAMM_DATA_GRID, showSwammDataGrid,
     HIDE_SWAMM_DATA_GRID, hideSwammDataGrid,
     SHOW_SWAMM_FEATURE_GRID, showSwammFeatureGrid,
