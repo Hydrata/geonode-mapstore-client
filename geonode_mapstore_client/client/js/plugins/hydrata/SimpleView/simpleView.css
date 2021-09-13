@@ -20,7 +20,7 @@
     z-index: 1021;
     top: 65px;
     left: 20px;
-    min-width: 400px;
+    min-width: 500px;
     background-color: rgba(0, 60, 136, 0.6);
     border-color: rgba(255, 255, 255, 0.7);
     border-width: 2px;
@@ -110,4 +110,9 @@
 .menu-row-text {
     white-space: nowrap;
     padding-left: 3px;
+}
+
+.dataset-transparency {
+    margin-left: 330px;
+    margin-top: 15px;
 }
