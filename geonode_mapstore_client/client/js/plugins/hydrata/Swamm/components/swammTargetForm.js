@@ -178,13 +178,13 @@ class SwammTargetFormClass extends React.Component {
                                                 componentClass="select"
                                                 multiple
                                                 inline="true"
-                                                name="groupProfiles"
-                                                value={this.props.targetForm?.groupProfiles}
+                                                name="group_profiles"
+                                                value={this.props.targetForm?.group_profiles}
                                                 onChange={this.handleMultiSelection}
                                             >
                                                 {
                                                     this.props.groupProfiles?.map((groupProfile) =>
-                                                        <option value={groupProfile.id}>{groupProfile.name}</option>
+                                                        <option value={groupProfile.pk}>{groupProfile.title}</option>
                                                     )
                                                 }
                                             </FormControl>

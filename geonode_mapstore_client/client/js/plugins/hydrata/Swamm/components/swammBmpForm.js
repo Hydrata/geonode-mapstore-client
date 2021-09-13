@@ -290,19 +290,18 @@ class SwammBmpFormClass extends React.Component {
                                                         inline="true"
                                                         componentClass="select"
                                                         name="group_profile"
-                                                        value={JSON.stringify(this.props.storedBmpForm?.group_profile)}
+                                                        value={this.props.storedBmpForm?.group_profile?.pk}
                                                         onChange={this.handleGroupProfileChange}
                                                     >
-                                                        <option key="1000" value="select">Select Organization</option>
                                                         {this.props.allowedGroupProfiles.map((groupProfile) => {
                                                             return (
                                                                 <option
-                                                                    key={groupProfile.id}
-                                                                    value={JSON.stringify(groupProfile)}
-                                                                    selected={groupProfile.id === this.props.storedBmpForm?.group_profile.id}
+                                                                    key={groupProfile.pk}
+                                                                    value={groupProfile?.pk}
                                                                 >
                                                                     {groupProfile.title}
-                                                                </option>);
+                                                                </option>
+                                                            );
                                                         })}
                                                     </FormControl>
                                                     <FormControl.Feedback />
@@ -933,8 +932,9 @@ class SwammBmpFormClass extends React.Component {
     }
     handleGroupProfileChange(event) {
         const fieldName = event.target.name;
-        let fieldValue = event.target.value;
-        let kv = {[fieldName]: JSON.parse(fieldValue)};
+        let fieldValue = JSON.parse(event.target.value);
+        const selectedProfile = this.props.groupProfiles.filter(groupProfile => groupProfile?.pk === fieldValue)[0];
+        let kv = {[fieldName]: selectedProfile};
         this.props.updateBmpForm(kv);
     }
     handleBmpChange(event) {
