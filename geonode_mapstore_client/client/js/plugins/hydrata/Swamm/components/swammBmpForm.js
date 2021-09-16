@@ -17,7 +17,8 @@ import {
     setEditingBmpFeatureId,
     clearEditingBmpFeatureId,
     deleteBmp,
-    setMenuGroup
+    setMenuGroup,
+    downloadBmpReport
 } from "../actionsSwamm";
 import {
     setLayer,
@@ -94,7 +95,8 @@ class SwammBmpFormClass extends React.Component {
         cppe_url: PropTypes.string,
         standard_url: PropTypes.string,
         ned_url: PropTypes.string,
-        infosheet_url: PropTypes.string
+        infosheet_url: PropTypes.string,
+        downloadBmpReport: PropTypes.func
     };
 
     static defaultProps = {
@@ -841,7 +843,7 @@ class SwammBmpFormClass extends React.Component {
                                 <Button
                                     bsStyle="warning"
                                     bsSize="small"
-                                    style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "420px", minWidth: "80px"}}
+                                    style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "520px", minWidth: "80px"}}
                                     onClick={() => {
                                         if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
                                             this.props.setChangingBmpType(true);
@@ -852,7 +854,7 @@ class SwammBmpFormClass extends React.Component {
                                 <Button
                                     bsStyle="danger"
                                     bsSize="small"
-                                    style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
+                                    style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "420px", minWidth: "80px"}}
                                     onClick={() => {
                                         if (window.confirm('This action can not be undone. Are you sure?')) {
                                             this.props.deleteBmp(this.props.mapId, this.props.storedBmpForm?.id);
@@ -865,7 +867,7 @@ class SwammBmpFormClass extends React.Component {
                                         <Button
                                             bsStyle="info"
                                             bsSize="small"
-                                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
+                                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
                                             onClick={() => this.props.setComplexBmpForm(false)}>
                                             Simple
                                         </Button>
@@ -873,7 +875,7 @@ class SwammBmpFormClass extends React.Component {
                                         <Button
                                             bsStyle="info"
                                             bsSize="small"
-                                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
+                                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
                                             onClick={() => this.props.setComplexBmpForm(true)}>
                                             Advanced
                                         </Button>
@@ -883,9 +885,23 @@ class SwammBmpFormClass extends React.Component {
                         <Button
                             bsStyle="info"
                             bsSize="small"
-                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "120px", minWidth: "80px"}}
+                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
                             onClick={() => this.props.hideBmpForm()}>
                             View Map
+                        </Button>
+                        <Button
+                            bsStyle="success"
+                            bsSize="small"
+                            style={{position: "absolute", bottom: "20px", right: "120px", minWidth: "80px"}}
+                            onClick={() => {
+                                if (window.confirm(
+                                    'This feature is experimental only - the report is not valid for use yet.' +
+                                    'Try the feature out and provide feedback.'
+                                )) {
+                                    this.props.downloadBmpReport(this.props.storedBmpForm?.id);
+                                }
+                            }}>
+                            Make PDF
                         </Button>
                         <Button
                             bsStyle="success"
@@ -1026,7 +1042,8 @@ const mapDispatchToProps = ( dispatch ) => {
         startDrawingFeature: () => dispatch(startDrawingFeature()),
         saveChanges: () => dispatch(saveChanges()),
         purgeMapInfoResults: () => dispatch(purgeMapInfoResults()),
-        makeExistingBmpForm: (bmp) => dispatch(makeExistingBmpForm(bmp))
+        makeExistingBmpForm: (bmp) => dispatch(makeExistingBmpForm(bmp)),
+        downloadBmpReport: (bmpId) => dispatch(downloadBmpReport(bmpId))
     };
 };
 

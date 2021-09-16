@@ -9,6 +9,7 @@ import {
 } from "../../../../MapStore2/web/client/actions/wfsquery";
 import {
     FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
+    DOWNLOAD_BMP_REPORT,
     clearDrawingBmpLayerName,
     hideLoadingBmp,
     submitBmpForm,
@@ -231,3 +232,17 @@ export const getBmpTypeGroups = (action$, store) =>
         .mergeMap((response) => Rx.Observable.of(
             updateBmpTypeGroups(response.data)
         ));
+
+
+export const downloadBmpReportEpic = (action$) =>
+    action$.ofType(DOWNLOAD_BMP_REPORT)
+        .mergeMap((action) => {
+            return Rx.Observable.from(
+                // axios.get(`/swamm/print/${action.bmpId}/download/`)
+                window.open(`/swamm/print/${action.bmpId}/download/`, "_blank")
+            );
+        });
+        // .mergeMap((response) => Rx.Observable.of(
+        //     updateBmpTypeGroups(response.data)
+        // ));
+

@@ -81,6 +81,7 @@ const DELETE_BMP = 'DELETE_BMP';
 const DELETE_BMP_SUCCESS = 'DELETE_BMP_SUCCESS';
 const DELETE_BMP_ERROR = 'DELETE_BMP_ERROR';
 const SET_BMP_FILTER_MODE = 'SET_BMP_FILTER_MODE';
+const DOWNLOAD_BMP_REPORT = 'DOWNLOAD_BMP_REPORT';
 
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
@@ -842,6 +843,13 @@ function updateBmpTypeGroups(bmpTypeGroups) {
     };
 }
 
+function downloadBmpReport(bmpId) {
+    return {
+        type: DOWNLOAD_BMP_REPORT,
+        bmpId
+    }
+}
+
 module.exports = {
     UPDATE_BMP_TYPE_GROUPS, updateBmpTypeGroups,
     FETCH_SWAMM_BMPTYPES, fetchSwammBmpTypes,
@@ -910,5 +918,6 @@ module.exports = {
     SUBMIT_TARGET_FORM_ERROR, submitTargetFormError,
     DELETE_TARGET, deleteTarget,
     DELETE_TARGET_SUCCESS, deleteTargetSuccess,
-    DELETE_TARGET_ERROR, deleteTargetError
+    DELETE_TARGET_ERROR, deleteTargetError,
+    DOWNLOAD_BMP_REPORT, downloadBmpReport
 };
