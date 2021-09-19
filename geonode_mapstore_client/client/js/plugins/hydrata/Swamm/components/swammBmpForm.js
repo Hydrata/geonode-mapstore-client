@@ -537,81 +537,6 @@ class SwammBmpFormClass extends React.Component {
                                     </Col>
                                 </FormGroup>
                             </Form>
-                            {this.props.complexBmpForm || !this.props.storedBmpForm?.id || this.props.changingBmpType ?
-                                <Row style={{paddingLeft: "20px", textAlign: "left"}}>
-                                    <h5>More Information from NRCS documents:</h5>
-                                    <Row>
-                                        <a
-                                            href={this.props.infosheet_url}
-                                            className={`btn btn-info btn-small ${this.props.infosheet_url ? "" : "disabled"}`}
-                                            style={{
-                                                position: "absolute",
-                                                left: "20px",
-                                                bottom: "-30px",
-                                                paddingTop: "10px",
-                                                width: "80px",
-                                                whiteSpace: "normal",
-                                                fontSize: "14px"
-                                            }}
-                                            target="_blank"
-                                            download
-                                        >
-                                            Stardards Overview
-                                        </a>
-                                        <a
-                                            href={this.props.standard_url}
-                                            className={`btn btn-info btn-small ${this.props.standard_url ? "" : "disabled"}`}
-                                            style={{
-                                                position: "absolute",
-                                                left: "120px",
-                                                bottom: "-30px",
-                                                paddingTop: "10px",
-                                                width: "80px",
-                                                whiteSpace: "normal",
-                                                fontSize: "14px"
-                                            }}
-                                            target="_blank"
-                                            download
-                                        >
-                                            Detailed Standard
-                                        </a>
-                                        <a
-                                            href={this.props.ned_url}
-                                            className={`btn btn-info btn-small ${this.props.ned_url ? "" : "disabled"}`}
-                                            style={{
-                                                position: "absolute",
-                                                left: "220px",
-                                                bottom: "-30px",
-                                                paddingTop: "10px",
-                                                width: "80px",
-                                                whiteSpace: "normal",
-                                                fontSize: "14px"
-                                            }}
-                                            target="_blank"
-                                            download
-                                        >
-                                            Effects Network
-                                        </a>
-                                        <a
-                                            href={this.props.cppe_url}
-                                            className={`btn btn-info btn-small ${this.props.cppe_url ? "" : "disabled"}`}
-                                            style={{
-                                                position: "absolute",
-                                                left: "320px",
-                                                bottom: "-30px",
-                                                paddingTop: "10px",
-                                                width: "80px",
-                                                whiteSpace: "normal",
-                                                fontSize: "14px"
-                                            }}
-                                            target="_blank"
-                                            download
-                                        >
-                                            Effects Data
-                                        </a>
-                                    </Row>
-                                </Row>
-                                : null}
                         </Col>
                         <Col sm={6} style={{padding: "10px"}}>
                             {
@@ -666,20 +591,20 @@ class SwammBmpFormClass extends React.Component {
                                         </Form>
                                     </React.Fragment> :
                                     this.props.complexBmpForm ?
-                                        <Table bordered condensed hover className={"text-right"}>
+                                        <Table bordered condensed hover className={"text-right"} style={{tableLayout: "fixed"}}>
                                             <thead>
                                                 <tr>
-                                                    <th>Results</th>
-                                                    <th style={{"width": "100px"}}>Surface</th>
-                                                    <th style={{"width": "100px"}}>Tiled</th>
-                                                    <th style={{"width": "100px"}}>Erosion</th>
-                                                    <th style={{"width": "100px"}}>Total</th>
-                                                    <th/>
+                                                    <th style={{"width": "30%"}}>Results</th>
+                                                    <th style={{"width": "10%"}}>Surface</th>
+                                                    <th style={{"width": "10%"}}>Tiled</th>
+                                                    <th style={{"width": "10%"}}>Erosion</th>
+                                                    <th style={{"width": "10%"}}>Total</th>
+                                                    <th style={{"width": "30%"}}/>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr>
-                                                    <td>Previous nitrogen load: </td>
+                                                <tr style={{borderTop: "4px solid lightgrey"}}>
+                                                    <td>Nitrogen load previous: </td>
                                                     <td>{this.props.storedBmpForm?.surface_previous_n_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.tiled_previous_n_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.erosion_previous_n_load?.toFixed(0)}</td>
@@ -695,15 +620,15 @@ class SwammBmpFormClass extends React.Component {
                                                     <td className={"text-left"}>lbs/year</td>
                                                 </tr>
                                                 <tr>
-                                                    <td>New nitrogen load: </td>
+                                                    <td>Nitrogen load new: </td>
                                                     <td>{this.props.storedBmpForm?.surface_new_n_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.tiled_new_n_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.erosion_new_n_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.total_new_n_load?.toFixed(0)}</td>
                                                     <td className={"text-left"}>lbs/year</td>
                                                 </tr>
-                                                <tr>
-                                                    <td>Previous phosphorus load: </td>
+                                                <tr style={{borderTop: "4px solid lightgrey"}}>
+                                                    <td>Phosphorus load previous: </td>
                                                     <td>{this.props.storedBmpForm?.surface_previous_p_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.tiled_previous_p_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.erosion_previous_p_load?.toFixed(0)}</td>
@@ -719,15 +644,15 @@ class SwammBmpFormClass extends React.Component {
                                                     <td className={"text-left"}>lbs/year</td>
                                                 </tr>
                                                 <tr>
-                                                    <td>New phosphorus load: </td>
+                                                    <td>Phosphorus load new: </td>
                                                     <td>{this.props.storedBmpForm?.surface_new_p_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.tiled_new_p_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.erosion_new_p_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.total_new_p_load?.toFixed(0)}</td>
                                                     <td className={"text-left"}>lbs/year</td>
                                                 </tr>
-                                                <tr>
-                                                    <td>Previous sediment load: </td>
+                                                <tr style={{borderTop: "4px solid lightgrey"}}>
+                                                    <td>Sediment load previous: </td>
                                                     <td>{this.props.storedBmpForm?.surface_previous_s_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.tiled_previous_s_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.erosion_previous_s_load?.toFixed(0)}</td>
@@ -742,8 +667,8 @@ class SwammBmpFormClass extends React.Component {
                                                     <td>{this.props.storedBmpForm?.total_s_load_reduction?.toFixed(0)}</td>
                                                     <td className={"text-left"}>tons/year</td>
                                                 </tr>
-                                                <tr>
-                                                    <td>New sediment load: </td>
+                                                <tr style={{borderBottom: "4px solid lightgrey"}}>
+                                                    <td>Sediment load new: </td>
                                                     <td>{this.props.storedBmpForm?.surface_new_s_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.tiled_new_s_load?.toFixed(0)}</td>
                                                     <td>{this.props.storedBmpForm?.erosion_new_s_load?.toFixed(0)}</td>
@@ -838,6 +763,81 @@ class SwammBmpFormClass extends React.Component {
                         </Col>
                     </Modal.Body>
                     <Modal.Footer style={{marginTop: "78vh", borderTop: "none"}}>
+                        {this.props.complexBmpForm || !this.props.storedBmpForm?.id || this.props.changingBmpType ?
+                            <Row style={{paddingLeft: "20px", textAlign: "left"}}>
+                                <h5 style={{position: "absolute", bottom: "70px"}}>More Information from NRCS documents:</h5>
+                                <Row>
+                                    <a
+                                        href={this.props.infosheet_url}
+                                        className={`btn btn-info btn-small ${this.props.infosheet_url ? "" : "disabled"}`}
+                                        style={{
+                                            position: "absolute",
+                                            left: "20px",
+                                            bottom: "20px",
+                                            paddingTop: "10px",
+                                            width: "80px",
+                                            whiteSpace: "normal",
+                                            fontSize: "14px"
+                                        }}
+                                        target="_blank"
+                                        download
+                                    >
+                                        Stardards Overview
+                                    </a>
+                                    <a
+                                        href={this.props.standard_url}
+                                        className={`btn btn-info btn-small ${this.props.standard_url ? "" : "disabled"}`}
+                                        style={{
+                                            position: "absolute",
+                                            left: "120px",
+                                            bottom: "20px",
+                                            paddingTop: "10px",
+                                            width: "80px",
+                                            whiteSpace: "normal",
+                                            fontSize: "14px"
+                                        }}
+                                        target="_blank"
+                                        download
+                                    >
+                                        Detailed Standard
+                                    </a>
+                                    <a
+                                        href={this.props.ned_url}
+                                        className={`btn btn-info btn-small ${this.props.ned_url ? "" : "disabled"}`}
+                                        style={{
+                                            position: "absolute",
+                                            left: "220px",
+                                            bottom: "20px",
+                                            paddingTop: "10px",
+                                            width: "80px",
+                                            whiteSpace: "normal",
+                                            fontSize: "14px"
+                                        }}
+                                        target="_blank"
+                                        download
+                                    >
+                                        Effects Network
+                                    </a>
+                                    <a
+                                        href={this.props.cppe_url}
+                                        className={`btn btn-info btn-small ${this.props.cppe_url ? "" : "disabled"}`}
+                                        style={{
+                                            position: "absolute",
+                                            left: "320px",
+                                            bottom: "20px",
+                                            paddingTop: "10px",
+                                            width: "80px",
+                                            whiteSpace: "normal",
+                                            fontSize: "14px"
+                                        }}
+                                        target="_blank"
+                                        download
+                                    >
+                                        Effects Data
+                                    </a>
+                                </Row>
+                            </Row>
+                            : null}
                         {this.props.storedBmpForm?.id ?
                             <React.Fragment>
                                 <Button
@@ -895,8 +895,8 @@ class SwammBmpFormClass extends React.Component {
                             style={{position: "absolute", bottom: "20px", right: "120px", minWidth: "80px"}}
                             onClick={() => {
                                 if (window.confirm(
-                                    'This feature is experimental only - the report is not valid for use yet.' +
-                                    'Try the feature out and provide feedback.'
+                                    'Welcome - this feature is under development.  \n' +
+                                    'Please test it out and provide feedback.'
                                 )) {
                                     this.props.downloadBmpReport(this.props.storedBmpForm?.id);
                                 }

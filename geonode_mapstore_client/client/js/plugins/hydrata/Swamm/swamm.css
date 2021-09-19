@@ -31,5 +31,6 @@
     border-color: white;
     color: white;
     background: rgba(0, 60, 136, 0.6);
-    text-align: center
+    text-align: center;
+    z-index: 10000;
 }
