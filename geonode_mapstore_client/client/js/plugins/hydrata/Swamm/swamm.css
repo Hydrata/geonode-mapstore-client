@@ -24,13 +24,12 @@
     left: 50%;
     margin-top: -100px;
     margin-left: -100px;
-    opacity: 0.7;
     width: 200px;
     height: 100px;
     border-radius: 4px;
     border-color: white;
     color: white;
-    background: rgba(0, 60, 136, 0.6);
+    background: rgb(0, 86, 187);
     text-align: center;
     z-index: 10000;
 }

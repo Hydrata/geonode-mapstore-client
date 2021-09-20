@@ -32,7 +32,7 @@ import {featureTypeSelected, createQuery, query} from "../../../../../MapStore2/
 import "../../ProjectManager/projectManager.css";
 import {isInt} from "../../Utils/utils";
 import {bmpByUniqueNameSelector} from "../selectorsSwamm";
-import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
+import {changeLayerProperties, refreshLayerVersion} from "../../../../../MapStore2/web/client/actions/layers";
 
 class SwammBmpFormClass extends React.Component {
     static propTypes = {
@@ -96,7 +96,8 @@ class SwammBmpFormClass extends React.Component {
         standard_url: PropTypes.string,
         ned_url: PropTypes.string,
         infosheet_url: PropTypes.string,
-        downloadBmpReport: PropTypes.func
+        downloadBmpReport: PropTypes.func,
+        refreshLayerVersion: PropTypes.func
     };
 
     static defaultProps = {
@@ -153,6 +154,7 @@ class SwammBmpFormClass extends React.Component {
                                 onClick={() => {
                                     this.props.clearBmpForm();
                                     this.props.setComplexBmpForm(false);
+                                    this.refreshBmpLayers();
                                 }}
                             />
                         </Modal.Title>
@@ -177,7 +179,10 @@ class SwammBmpFormClass extends React.Component {
                                                         className={"pull-right"}
                                                         bsStyle={"info"}
                                                         style={{opacity: "0.7"}}
-                                                        onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_outlet', this.props.storedBmpForm?.outlet_fid)}>
+                                                        onClick={() => {
+                                                            this.props.showLoadingBmp(true);
+                                                            this.drawBmpStep1(this.props?.projectData?.code + '_bmp_outlet', this.props.storedBmpForm?.outlet_fid);
+                                                        }}>
                                                     Edit
                                                     </Button>
                                                 </Col> :
@@ -186,7 +191,10 @@ class SwammBmpFormClass extends React.Component {
                                                         disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
                                                         bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                         style={{opacity: "0.7"}}
-                                                        onClick={() => this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null)}>
+                                                        onClick={() => {
+                                                            this.props.showLoadingBmp(true);
+                                                            this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null);
+                                                        }}>
                                                     Locate Outlet
                                                     </Button>
                                                 </Col>
@@ -217,7 +225,10 @@ class SwammBmpFormClass extends React.Component {
                                                             className={"pull-right"}
                                                             bsStyle={"info"}
                                                             style={{opacity: "0.7"}}
-                                                            onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint', this.props.storedBmpForm?.footprint_fid)}>
+                                                            onClick={() => {
+                                                                this.props.showLoadingBmp(true);
+                                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint', this.props.storedBmpForm?.footprint_fid);
+                                                            }}>
                                                         Edit
                                                         </Button>
                                                     </Col>
@@ -228,7 +239,10 @@ class SwammBmpFormClass extends React.Component {
                                                             disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
                                                             bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                             style={{opacity: "0.7"}}
-                                                            onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint')}>
+                                                            onClick={() => {
+                                                                this.props.showLoadingBmp(true);
+                                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint');
+                                                            }}>
                                                         Draw footprint
                                                         </Button>
                                                     </Col>
@@ -260,7 +274,10 @@ class SwammBmpFormClass extends React.Component {
                                                             className={"pull-right"}
                                                             bsStyle={"info"}
                                                             style={{opacity: "0.7"}}
-                                                            onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed', this.props.storedBmpForm?.watershed_fid)}>
+                                                            onClick={() => {
+                                                                this.props.showLoadingBmp(true);
+                                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed', this.props.storedBmpForm?.watershed_fid);
+                                                            }}>
                                                         Edit
                                                         </Button>
                                                     </Col>
@@ -271,7 +288,10 @@ class SwammBmpFormClass extends React.Component {
                                                             disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
                                                             bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
                                                             style={{opacity: "0.7"}}
-                                                            onClick={() => this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed')} bsSize={"small"}>
+                                                            onClick={() => {
+                                                                this.props.showLoadingBmp(true);
+                                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed');
+                                                            }}>
                                                         Draw watershed
                                                         </Button>
                                                     </Col>
@@ -886,7 +906,10 @@ class SwammBmpFormClass extends React.Component {
                             bsStyle="info"
                             bsSize="small"
                             style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
-                            onClick={() => this.props.hideBmpForm()}>
+                            onClick={() => {
+                                this.props.hideBmpForm();
+                                this.refreshBmpLayers();
+                            }}>
                             View Map
                         </Button>
                         <Button
@@ -954,29 +977,30 @@ class SwammBmpFormClass extends React.Component {
         this.props.updateBmpForm(kv);
     }
     handleBmpChange(event) {
-        // const fieldName = event.target.name;
         let fieldValue = event.target.value;
-        // let kv = {[fieldName]: fieldValue};
-        // this.props.updateBmpForm(kv);
         const selectedBmpType = this.props.bmpTypes.filter(
             bmpType => bmpType.name === fieldValue
         )[0];
         this.props.makeDefaultsBmpForm(selectedBmpType);
-        // this.props.setBmpTypesVisibility(fieldValue, true);
     }
     drawBmpStep1(layerName, featureId) {
-        this.props.showLoadingBmp();
+        this.refreshBmpLayers();
         this.props.hideBmpForm();
+        const targetLayer = this.props.layers.flat.filter(layer => layer?.name.includes(layerName))[0];
+        console.log('drawBmpStep1 targetLayer', targetLayer);
         console.log('drawBmpStep1 layerName', layerName);
         console.log('drawBmpStep1 featureId', featureId);
         this.props.setDrawingBmpLayerName(layerName);
         featureId ? this.props.setEditingBmpFeatureId(featureId) : this.props.clearEditingBmpFeatureId();
-        const targetLayer = this.props.layers.flat.filter(layer => layer?.name.includes(layerName))[0];
         this.props.toggleLayer(targetLayer.id, true);
-        console.log('drawBmpStep1 targetLayer', targetLayer);
         this.props.setLayer(targetLayer?.id);
         this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer?.name);
         console.log('drawBmpStep1 finished');
+    }
+    refreshBmpLayers() {
+        this.props.refreshLayerVersion(this.props.bmpOutletLayer.id);
+        this.props.refreshLayerVersion(this.props.bmpFootprintLayer.id);
+        this.props.refreshLayerVersion(this.props.bmpWatershedLayer.id);
     }
 }
 
@@ -995,9 +1019,9 @@ const mapStateToProps = (state) => {
         thisBmpType: state?.swamm?.bmpTypes.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
         storedBmpForm: state?.swamm?.storedBmpForm || {},
         complexBmpForm: state?.swamm?.complexBmpForm || false,
-        bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_outlet")[0],
-        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_footprint")[0],
-        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_watershed")[0],
+        bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.data?.code + "_bmp_outlet"))[0],
+        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.data?.code + "_bmp_footprint"))[0],
+        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.data?.code + "_bmp_watershed"))[0],
         hasGeometry: state?.swamm?.storedBmpForm?.outlet_fid || state?.swamm?.storedBmpForm?.footprint_fid || state?.swamm?.storedBmpForm?.watershed_fid,
         requiresOutlet: state?.swamm?.storedBmpForm?.type_data?.requires_outlet,
         requiresFootprint: state?.swamm?.storedBmpForm?.type_data?.requires_footprint,
@@ -1043,7 +1067,8 @@ const mapDispatchToProps = ( dispatch ) => {
         saveChanges: () => dispatch(saveChanges()),
         purgeMapInfoResults: () => dispatch(purgeMapInfoResults()),
         makeExistingBmpForm: (bmp) => dispatch(makeExistingBmpForm(bmp)),
-        downloadBmpReport: (bmpId) => dispatch(downloadBmpReport(bmpId))
+        downloadBmpReport: (bmpId) => dispatch(downloadBmpReport(bmpId)),
+        refreshLayerVersion: (layer, version) => dispatch(refreshLayerVersion(layer, version))
     };
 };
 

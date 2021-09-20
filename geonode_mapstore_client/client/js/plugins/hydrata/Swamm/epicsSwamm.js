@@ -8,6 +8,10 @@ import {
     resetQuery
 } from "../../../../MapStore2/web/client/actions/wfsquery";
 import {
+    refreshLayerVersion,
+    layerLoading
+} from "../../../../MapStore2/web/client/actions/layers";
+import {
     FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
     DOWNLOAD_BMP_REPORT,
     clearDrawingBmpLayerName,
@@ -134,34 +138,6 @@ export const startBmpCreateFeatureEpic = (action$, store) =>
             hideLoadingBmp()
         ));
 
-export const finishBmpCreateFeatureEpic = (action$, store) =>
-    action$.ofType(QUERY_RESULT)
-        .filter(() => {
-            console.log('finishBmpCreateFeatureEpic1', !store.getState()?.swamm?.editingBmpFeatureId);
-            return !store.getState()?.swamm?.editingBmpFeatureId;
-        })
-        .filter(() => {
-            console.log('finishBmpCreateFeatureEpic2', store.getState()?.swamm?.missingBmpFeatureId);
-            return store.getState()?.swamm?.missingBmpFeatureId;
-        })
-        .mergeMap(() => {
-            const mapId = store.getState()?.swamm?.data?.base_map;
-            const geomType = store.getState()?.swamm?.drawingBmpLayerName?.slice(8);
-            return Rx.Observable.from(
-                axios.get(`/swamm/api/${mapId}/bmps/get-latest-feature-id/${geomType}/`)
-            );
-        })
-        .mergeMap((response) => Rx.Observable.of(
-            updateBmpForm(response.data),
-            registerMissingBmpFeatureId(false),
-            clearDrawingBmpLayerName(),
-            drawStopped(),
-            toggleViewMode(),
-            setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map),
-            resetQuery()
-        ));
-
 export const startBmpEditFeatureEpic = (action$, store) =>
     action$.ofType(QUERY_RESULT)
         .filter(() => {
@@ -193,6 +169,35 @@ export const saveBmpCreateFeatureEpic = (action$, store) =>
             registerMissingBmpFeatureId(store.getState()?.swamm?.drawingBmpLayerName)
         ));
 
+export const finishBmpCreateFeatureEpic = (action$, store) =>
+    action$.ofType(QUERY_RESULT)
+        .filter(() => {
+            console.log('finishBmpCreateFeatureEpic1', !store.getState()?.swamm?.editingBmpFeatureId);
+            return !store.getState()?.swamm?.editingBmpFeatureId;
+        })
+        .filter(() => {
+            console.log('finishBmpCreateFeatureEpic2', store.getState()?.swamm?.missingBmpFeatureId);
+            return store.getState()?.swamm?.missingBmpFeatureId;
+        })
+        .mergeMap(() => {
+            const mapId = store.getState()?.swamm?.data?.base_map;
+            const geomType = store.getState()?.swamm?.drawingBmpLayerName?.slice(8);
+            return Rx.Observable.from(
+                axios.get(`/swamm/api/${mapId}/bmps/get-latest-feature-id/${geomType}/`)
+            );
+        })
+        .mergeMap((response) => Rx.Observable.of(
+            updateBmpForm(response.data),
+            registerMissingBmpFeatureId(false),
+            drawStopped(),
+            toggleViewMode(),
+            setHighlightFeaturesPath('highlight.emptyFeatures'),
+            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map),
+            resetQuery(),
+            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.drawingBmpLayerName))[0].id),
+            clearDrawingBmpLayerName()
+        ));
+
 export const saveBmpEditFeatureEpic = (action$, store) =>
     action$.ofType(SAVE_SUCCESS)
         .filter(() => {
@@ -201,11 +206,13 @@ export const saveBmpEditFeatureEpic = (action$, store) =>
         })
         .flatMap(() => Rx.Observable.of(
             clearEditingBmpFeatureId(),
-            clearDrawingBmpLayerName(),
             drawStopped(),
             toggleViewMode(),
             setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map)
+            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map),
+            resetQuery(),
+            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.drawingBmpLayerName))[0].id),
+            clearDrawingBmpLayerName()
         ));
 
 export const autoSaveBmpFormEpic = (action$, store) =>

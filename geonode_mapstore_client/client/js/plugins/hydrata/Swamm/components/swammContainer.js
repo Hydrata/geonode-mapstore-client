@@ -10,22 +10,17 @@ import {
     fetchSwammBmpStatuses,
     showBmpForm,
     showSwammBmpChart,
-    toggleBmpManager,
     makeBmpForm,
     setEditingBmpFeatureId,
     clearDrawingBmpLayerName,
     clearEditingBmpFeatureId,
     toggleBmpType,
     setBmpType,
-    showSwammDataGrid,
-    showSwammFeatureGrid,
     fetchSwammTargets
 } from "../actionsSwamm";
 import {SwammBmpForm} from "./swammBmpForm";
-import {SwammDataGrid} from "./swammDataGrid";
 import {SwammTargetForm} from "./swammTargetForm";
 import {SwammBmpChart} from "./swammBmpChart";
-import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {bmpByUniqueNameSelector} from "../selectorsSwamm";
@@ -53,10 +48,6 @@ class SwammContainer extends React.Component {
         bmpUniqueNames: PropTypes.array,
         bmpTypes: PropTypes.array,
         groupProfiles: PropTypes.array,
-        allBmps: PropTypes.array,
-        showOutlets: PropTypes.bool,
-        showFootprints: PropTypes.bool,
-        showWatersheds: PropTypes.bool,
         projectCode: PropTypes.string,
         layers: PropTypes.object,
         toggleLayer: PropTypes.func,
@@ -76,15 +67,9 @@ class SwammContainer extends React.Component {
         query: PropTypes.func,
         toggleBmpType: PropTypes.func,
         setBmpType: PropTypes.func,
-        filters: PropTypes.object,
-        visibleBmpManager: PropTypes.bool,
-        visibleSwammDataGrid: PropTypes.bool,
-        showSwammFeatureGrid: PropTypes.func,
-        showSwammDataGrid: PropTypes.func,
         visibleSwammBmpChart: PropTypes.bool,
         visibleTargetForm: PropTypes.bool,
         showSwammBmpChart: PropTypes.func,
-        clickBmpManager: PropTypes.func,
         bmpByUniqueNameSelector: PropTypes.func,
         setLayer: PropTypes.func,
         toggleViewMode: PropTypes.func,
@@ -268,33 +253,12 @@ class SwammContainer extends React.Component {
                                 <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
                             </button>
                         }
-                        {this.props.visibleBmpManager ?
-                            <div className={'simple-view-panel'} id="swamm-bmp-manager">
-                                <table className="table check1" style={{tableLayout: "fixed", marginBottom: "0"}}>
-                                    <tbody>
-                                        <tr key="r1">
-                                            <td key="d2">
-                                                <MenuRow layer={this.props.bmpDataLayer}/>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            : null
-                        }
                         {this.props.visibleTargetForm ?
                             <SwammTargetForm/>
                             : null
                         }
                         {this.props.visibleBmpForm ?
                             <SwammBmpForm/>
-                            : null
-                        }
-                        {this.props.visibleSwammDataGrid ?
-                            <div>
-                                <SwammDataGrid/>
-                                SwammDataGrid
-                            </div>
                             : null
                         }
                         {this.props.visibleSwammBmpChart ?
@@ -316,8 +280,6 @@ class SwammContainer extends React.Component {
             </div>
         );
     }
-
-    setBmpTypesVisibility = (bmpTypeName, visible) => {};
 }
 
 const mapStateToProps = (state) => {
@@ -331,33 +293,22 @@ const mapStateToProps = (state) => {
         bmpUniqueNames: bmpByUniqueNameSelector(state),
         bmpTypes: state?.swamm?.bmpTypes,
         groupProfiles: state?.swamm.groupProfiles,
-        allBmps: state?.swamm?.allBmps,
         statuses: state?.swamm?.statuses,
         targets: state?.swamm?.targets,
         fetchingTargets: state?.swamm?.fetchingTargets,
-        showOutlets: state?.swamm?.showOutlets,
-        showFootprints: state?.swamm?.showFootprints,
-        showWatersheds: state?.swamm?.showWatersheds,
         projectCode: state?.swamm?.data?.code,
         layers: state?.layers,
         bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_outlet")[0],
-        // bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_footprint")[0],
-        // bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_watershed")[0],
+        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_footprint")[0],
+        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name === state?.swamm?.data?.code + "_bmp_watershed")[0],
         visibleBmpForm: state?.swamm?.visibleBmpForm,
         storedBmpForm: state?.swamm?.storedBmpForm,
         drawingBmpLayerName: state?.swamm?.drawingBmpLayerName,
         editingBmpFeatureId: state?.swamm?.editingBmpFeatureId,
-        visibleBmpManager: state?.swamm?.visibleBmpManager,
-        visibleSwammDataGrid: state?.swamm?.visibleSwammDataGrid,
         visibleSwammBmpChart: state?.swamm?.visibleSwammBmpChart,
         visibleTargetForm: state?.swamm?.visibleTargetForm,
         loadingBmp: state?.swamm?.loadingBmp,
-        numberOfMenus: state?.layers?.groups.length,
-        filters: {
-            showOutlets: state.swamm?.showOutlets,
-            showFootprints: state.swamm?.showFootprints,
-            showWatersheds: state.swamm?.showWatersheds
-        }
+        numberOfMenus: state?.layers?.groups.length
     };
 };
 
@@ -369,19 +320,10 @@ const mapDispatchToProps = ( dispatch ) => {
         fetchSwammBmpStatuses: (mapId) => dispatch(fetchSwammBmpStatuses(mapId)),
         fetchSwammTargets: (mapId) => dispatch(fetchSwammTargets(mapId)),
         toggleLayer: (layer, isVisible) => dispatch(changeLayerProperties(layer, {visibility: isVisible})),
-        // toggleOutlets: () => dispatch(toggleOutlets()),
-        // toggleFootprints: () => dispatch(toggleFootprints()),
-        // toggleWatersheds: () => dispatch(toggleWatersheds()),
         showBmpForm: () => dispatch(showBmpForm()),
         setLayer: (layerName) => dispatch(setLayer(layerName)),
         setEditingBmpFeatureId: (featureId) => dispatch(setEditingBmpFeatureId(featureId)),
-        showSwammDataGrid: () => dispatch(showSwammDataGrid()),
-        showSwammFeatureGrid: (layer) => dispatch(showSwammFeatureGrid(layer)),
         showSwammBmpChart: () => dispatch(showSwammBmpChart()),
-        clickBmpManager: () => {
-            dispatch(toggleBmpManager());
-            dispatch(setOpenMenuGroupId(null));
-        },
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         makeBmpForm: (bmpTypeId) => dispatch(makeBmpForm(bmpTypeId)),
         saveChanges: () => dispatch(saveChanges()),
