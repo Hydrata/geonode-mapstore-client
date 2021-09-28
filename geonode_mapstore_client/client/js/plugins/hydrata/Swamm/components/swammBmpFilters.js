@@ -6,7 +6,8 @@ import {
     setExpandedFilter,
     setMenuGroup,
     toggleBmpTypeVisibility,
-    setAllBmpTypesVisibility
+    setAllBmpTypesVisibility,
+    toggleBmpPriorityVisibility
 } from "../actionsSwamm";
 import "../../ProjectManager/projectManager.css";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
@@ -20,9 +21,11 @@ class SwammBmpFiltersClass extends React.Component {
         changeLayerProperties: PropTypes.func,
         toggleBmpTypeVisibility: PropTypes.func,
         setAllBmpTypesVisibility: PropTypes.func,
+        toggleBmpPriorityVisibility: PropTypes.func,
         bmpWatershedLayer: PropTypes.object,
         bmpFootprintLayer: PropTypes.object,
-        bmpOutletLayer: PropTypes.object
+        bmpOutletLayer: PropTypes.object,
+        priorities: PropTypes.object
     };
 
     static defaultProps = {}
@@ -47,9 +50,7 @@ class SwammBmpFiltersClass extends React.Component {
                             <span
                                 className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 style={{color: "white", background: "none"}}
-                                onClick={() => {
-                                    this.props.setExpandedFilter('bmpType');
-                                }}
+                                onClick={() => {this.props.setExpandedFilter('bmpType');}}
                             />
                             <span className="inline h5 menu-row-text"><strong>Filter by BMP type</strong></span>
                             {
@@ -90,6 +91,35 @@ class SwammBmpFiltersClass extends React.Component {
                                     : null
                             }
                         </div>
+                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
+                            <span
+                                className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "priority" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
+                                style={{color: "white", background: "none"}}
+                                onClick={() => {this.props.setExpandedFilter('priority');}}
+                            />
+                            <span className="inline h5 menu-row-text"><strong>Filter by BMP priority</strong></span>
+                            {
+                                this.props.expandedFilter === "priority" ?
+                                    <React.Fragment>
+                                        <hr style={{margin: "0"}}/>
+                                        <Row>
+                                            {
+                                                this.props.priorities.map((priority, index) => (
+                                                    <Col sm={6} className={"row menu-row filter-row " + (index % 2 ? "filter-row-odd" : '')}>
+                                                        <span
+                                                            className={"btn glyphicon menu-row-glyph " + (priority?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                            style={{"color": priority?.visibility ? "limegreen" : "red"}}
+                                                            onClick={() => this.props.toggleBmpPriorityVisibility(priority)}
+                                                        />
+                                                        <span className="menu-row-text">{priority.label}</span>
+                                                    </Col>
+                                                ))
+                                            }
+                                        </Row>
+                                    </React.Fragment>
+                                    : null
+                            }
+                        </div>
                     </div>
                 </div>
             </React.Fragment>
@@ -112,7 +142,8 @@ const mapStateToProps = (state) => {
         bmpFilter: state?.swamm?.bmpFilter,
         bmpOutletLayer: state?.swamm?.bmpOutletLayer,
         bmpFootprintLayer: state?.swamm?.bmpFootprintLayer,
-        bmpWatershedLayer: state?.swamm?.bmpWatershedLayer
+        bmpWatershedLayer: state?.swamm?.bmpWatershedLayer,
+        priorities: state?.swamm?.priorities
     };
 };
 
@@ -122,7 +153,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setExpandedFilter: (filterName) => dispatch(setExpandedFilter(filterName)),
         changeLayerProperties: (layerId, filterObj) => dispatch(changeLayerProperties(layerId, filterObj)),
         toggleBmpTypeVisibility: (bmpType) => dispatch(toggleBmpTypeVisibility(bmpType)),
-        setAllBmpTypesVisibility: (boolValue) => dispatch(setAllBmpTypesVisibility(boolValue))
+        setAllBmpTypesVisibility: (boolValue) => dispatch(setAllBmpTypesVisibility(boolValue)),
+        toggleBmpPriorityVisibility: (priority) => dispatch(toggleBmpPriorityVisibility(priority))
     };
 };
 

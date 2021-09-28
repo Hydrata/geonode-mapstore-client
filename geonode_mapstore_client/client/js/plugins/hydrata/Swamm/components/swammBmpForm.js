@@ -40,6 +40,7 @@ class SwammBmpFormClass extends React.Component {
         bmpTypes: PropTypes.array,
         bmpTypeGroups: PropTypes.array,
         statuses: PropTypes.array,
+        priorities: PropTypes.array,
         setMenuGroup: PropTypes.func,
         creatingNewBmp: PropTypes.bool,
         updatingBmp: PropTypes.object,
@@ -115,9 +116,6 @@ class SwammBmpFormClass extends React.Component {
             this.props.purgeMapInfoResults();
             this.props.setMenuGroup(null);
         }
-        this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
-        this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
-        this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
     }
 
     componentDidUpdate() {
@@ -180,6 +178,7 @@ class SwammBmpFormClass extends React.Component {
                                                         style={{opacity: "0.7"}}
                                                         onClick={() => {
                                                             this.props.showLoadingBmp(true);
+                                                            this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
                                                             this.drawBmpStep1(this.props?.projectData?.code + '_bmp_outlet', this.props.storedBmpForm?.outlet_fid);
                                                         }}>
                                                     Edit
@@ -192,6 +191,7 @@ class SwammBmpFormClass extends React.Component {
                                                         style={{opacity: "0.7"}}
                                                         onClick={() => {
                                                             this.props.showLoadingBmp(true);
+                                                            this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
                                                             this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null);
                                                         }}>
                                                     Locate Outlet
@@ -226,6 +226,7 @@ class SwammBmpFormClass extends React.Component {
                                                             style={{opacity: "0.7"}}
                                                             onClick={() => {
                                                                 this.props.showLoadingBmp(true);
+                                                                this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
                                                                 this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint', this.props.storedBmpForm?.footprint_fid);
                                                             }}>
                                                         Edit
@@ -240,6 +241,7 @@ class SwammBmpFormClass extends React.Component {
                                                             style={{opacity: "0.7"}}
                                                             onClick={() => {
                                                                 this.props.showLoadingBmp(true);
+                                                                this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
                                                                 this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint');
                                                             }}>
                                                         Draw footprint
@@ -275,6 +277,7 @@ class SwammBmpFormClass extends React.Component {
                                                             style={{opacity: "0.7"}}
                                                             onClick={() => {
                                                                 this.props.showLoadingBmp(true);
+                                                                this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
                                                                 this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed', this.props.storedBmpForm?.watershed_fid);
                                                             }}>
                                                         Edit
@@ -289,6 +292,7 @@ class SwammBmpFormClass extends React.Component {
                                                             style={{opacity: "0.7"}}
                                                             onClick={() => {
                                                                 this.props.showLoadingBmp(true);
+                                                                this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
                                                                 this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed');
                                                             }}>
                                                         Draw watershed
@@ -345,6 +349,32 @@ class SwammBmpFormClass extends React.Component {
                                                             .filter(status => status !== 'Unknown')
                                                             .map(status => <option key={status} value={status}>{status}</option>)
                                                         }
+                                                    </FormControl>
+                                                    <FormControl.Feedback />
+                                                </Col>
+                                            </FormGroup>
+                                            <FormGroup controlId="formControlsSelectPriority" bsSize={"small"}>
+                                                <Col componentClass={ControlLabel} sm={3} style={{textAlign: "left"}}>
+                                                  BMP Priority
+                                                </Col>
+                                                <Col sm={8}>
+                                                    <FormControl
+                                                        inline="true"
+                                                        componentClass="select"
+                                                        name="priority"
+                                                        value={this.props.storedBmpForm?.priority?.id}
+                                                        onChange={this.handleChange}
+                                                    >
+                                                        {this.props.priorities.map((priority) => {
+                                                            return (
+                                                                <option
+                                                                    key={priority.id}
+                                                                    value={priority?.value}
+                                                                >
+                                                                    {priority.label}
+                                                                </option>
+                                                            );
+                                                        })}
                                                     </FormControl>
                                                     <FormControl.Feedback />
                                                 </Col>
@@ -1015,6 +1045,7 @@ const mapStateToProps = (state) => {
         allowedGroupProfiles: allowedGroupProfiles,
         defaultGroupProfile: allowedGroupProfileNames[0],
         statuses: state?.swamm?.statuses,
+        priorities: state?.swamm?.priorities,
         thisBmpType: state?.swamm?.bmpTypes.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
         storedBmpForm: state?.swamm?.storedBmpForm || {},
         complexBmpForm: state?.swamm?.complexBmpForm || false,

@@ -13,7 +13,8 @@ import {
     catchBmpFeatureClick,
     getBmpTypeGroups,
     downloadBmpReportEpic,
-    updateBmpFilterEpic
+    filterBmpTypeEpic,
+    filterBmpPriorityEpic
 } from "./epicsSwamm";
 
 export default createPlugin('Swamm', {
@@ -31,6 +32,7 @@ export default createPlugin('Swamm', {
         catchBmpFeatureClick,
         getBmpTypeGroups,
         downloadBmpReportEpic,
-        updateBmpFilterEpic
+        filterBmpTypeEpic,
+        filterBmpPriorityEpic
     }
 });

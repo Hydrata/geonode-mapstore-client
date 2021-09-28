@@ -49,6 +49,7 @@ const TOGGLE_BMP_MANAGER = 'TOGGLE_BMP_MANAGER';
 
 const TOGGLE_BMP_TYPE = 'TOGGLE_BMP_TYPE';
 const TOGGLE_BMP_TYPE_VISIBILITY = 'TOGGLE_BMP_TYPE_VISIBILITY';
+const TOGGLE_BMP_PRIORITY_VISIBILITY = 'TOGGLE_BMP_PRIORITY_VISIBILITY';
 const SET_ALL_BMP_TYPES_VISIBILITY = 'SET_ALL_BMP_TYPES_VISIBILITY';
 const SET_MENU_GROUP = 'SET_MENU_GROUP';
 const SET_CHANGING_BMP_TYPE = 'SET_CHANGING_BMP_TYPE';
@@ -870,6 +871,13 @@ function toggleBmpTypeVisibility(bmpType) {
     };
 }
 
+function toggleBmpPriorityVisibility(priority) {
+    return {
+        type: TOGGLE_BMP_PRIORITY_VISIBILITY,
+        priority
+    };
+}
+
 function setAllBmpTypesVisibility(boolValue) {
     return {
         type: SET_ALL_BMP_TYPES_VISIBILITY,
@@ -903,6 +911,7 @@ module.exports = {
     SUBMIT_BMP_FORM_SUCCESS, submitBmpFormSuccess,
     TOGGLE_BMP_TYPE, toggleBmpType,
     TOGGLE_BMP_TYPE_VISIBILITY, toggleBmpTypeVisibility,
+    TOGGLE_BMP_PRIORITY_VISIBILITY, toggleBmpPriorityVisibility,
     SET_ALL_BMP_TYPES_VISIBILITY, setAllBmpTypesVisibility,
     SET_STATUS_FILTER, setStatusFilter,
     SET_MENU_GROUP, setMenuGroup,

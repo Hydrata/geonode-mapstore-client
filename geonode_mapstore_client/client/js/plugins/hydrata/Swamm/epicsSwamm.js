@@ -28,7 +28,7 @@ import {
     updateBmpTypeGroups,
     TOGGLE_BMP_TYPE_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
-    setBmpLayers
+    setBmpLayers, TOGGLE_BMP_PRIORITY_VISIBILITY
 } from "./actionsSwamm";
 import {
     toggleEditMode,
@@ -271,7 +271,7 @@ const createFilterField = (attribute, value) => ({
 
 const wmsFilterTemplate = {
     "filterObj": {
-        "featureTypeName": "geonode:tst_bmp_watershed",
+        "featureTypeName": null,
         "filterType": "OGC",
         "ogcVersion": "1.1.0",
         "groupFields": [
@@ -293,7 +293,7 @@ const wmsFilterTemplate = {
     }
 };
 
-export const updateBmpFilterEpic = (action$, store) =>
+export const filterBmpTypeEpic = (action$, store) =>
     action$.ofType(TOGGLE_BMP_TYPE_VISIBILITY, SET_ALL_BMP_TYPES_VISIBILITY)
         .mergeMap(() => {
             const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
@@ -317,6 +317,37 @@ export const updateBmpFilterEpic = (action$, store) =>
             footprintFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpFootprintLayer?.name;
             watershedFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpWatershedLayer?.name;
             console.log('watershed filter: ', watershedFilter);
+            return Rx.Observable.of(
+                changeLayerProperties(store.getState()?.swamm?.bmpOutletLayer?.id, outletFilter),
+                changeLayerProperties(store.getState()?.swamm?.bmpFootprintLayer?.id, footprintFilter),
+                changeLayerProperties(store.getState()?.swamm?.bmpWatershedLayer?.id, watershedFilter)
+            );
+        });
+
+
+export const filterBmpPriorityEpic = (action$, store) =>
+    action$.ofType(TOGGLE_BMP_PRIORITY_VISIBILITY)
+        .mergeMap(() => {
+            const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
+            let atLeastOneBmpPriorityVisible = false;
+            store.getState()?.swamm?.priorities.map((priority) => {
+                if (priority.visibility) {
+                    const filterField = createFilterField('priority', priority.id);
+                    newFilter.filterObj.filterFields.push(filterField);
+                    atLeastOneBmpPriorityVisible = true;
+                }
+            });
+            if (!atLeastOneBmpPriorityVisible) {
+                const filterField = createFilterField('priority', -1);
+                newFilter.filterObj.filterFields.push(filterField);
+            }
+            const outletFilter = JSON.parse(JSON.stringify(newFilter));
+            const footprintFilter = JSON.parse(JSON.stringify(newFilter));
+            const watershedFilter = JSON.parse(JSON.stringify(newFilter));
+            outletFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpOutletLayer?.name;
+            footprintFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpFootprintLayer?.name;
+            watershedFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpWatershedLayer?.name;
+            console.log('priority filter: ', watershedFilter);
             return Rx.Observable.of(
                 changeLayerProperties(store.getState()?.swamm?.bmpOutletLayer?.id, outletFilter),
                 changeLayerProperties(store.getState()?.swamm?.bmpFootprintLayer?.id, footprintFilter),

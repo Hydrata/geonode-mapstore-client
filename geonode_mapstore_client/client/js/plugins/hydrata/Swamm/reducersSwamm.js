@@ -11,6 +11,7 @@ import {
     FETCH_SWAMM_TARGETS_SUCCESS,
     SELECT_SWAMM_TARGET_ID,
     TOGGLE_BMP_TYPE_VISIBILITY,
+    TOGGLE_BMP_PRIORITY_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
     SET_CHANGING_BMP_TYPE,
     SET_COMPLEX_BMP_FORM,
@@ -62,7 +63,13 @@ const initialState = {
     creatingNewBmp: false,
     drawingBmpLayerName: false,
     bmpFilterMode: 'type',
-    expandedFilter: null
+    expandedFilter: null,
+    priorities: [
+        {id: 0, label: 'Not Assigned', value: 0, visibility: true},
+        {id: 1, label: 'Critical', value: 1, visibility: true},
+        {id: 2, label: 'Normal', value: 2, visibility: true},
+        {id: 3, label: 'Low', value: 3, visibility: true}
+    ]
 };
 
 export default ( state = initialState, action) => {
@@ -128,6 +135,19 @@ export default ( state = initialState, action) => {
                     };
                 }
                 return bmpType;
+            })
+        };
+    case TOGGLE_BMP_PRIORITY_VISIBILITY:
+        return {
+            ...state,
+            priorities: state.priorities.map(priority => {
+                if (priority.id === action.priority.id) {
+                    return {
+                        ...priority,
+                        visibility: !action.priority.visibility
+                    };
+                }
+                return priority;
             })
         };
     case SET_ALL_BMP_TYPES_VISIBILITY:
