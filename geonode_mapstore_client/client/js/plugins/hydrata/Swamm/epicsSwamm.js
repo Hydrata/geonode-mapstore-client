@@ -297,16 +297,15 @@ export const filterBmpTypeEpic = (action$, store) =>
     action$.ofType(TOGGLE_BMP_TYPE_VISIBILITY, SET_ALL_BMP_TYPES_VISIBILITY)
         .mergeMap(() => {
             const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
-            console.log('bmpTypes: ', store.getState()?.swamm?.bmpTypes);
-            let atLeastOneBmpVisible = false;
+            let atLeastOneBmpTypeVisible = false;
             store.getState()?.swamm?.bmpTypes.map((bmpType) => {
                 if (bmpType.visibility) {
                     const filterField = createFilterField('type', bmpType.id);
                     newFilter.filterObj.filterFields.push(filterField);
-                    atLeastOneBmpVisible = true;
+                    atLeastOneBmpTypeVisible = true;
                 }
             });
-            if (!atLeastOneBmpVisible) {
+            if (!atLeastOneBmpTypeVisible) {
                 const filterField = createFilterField('type', -1);
                 newFilter.filterObj.filterFields.push(filterField);
             }

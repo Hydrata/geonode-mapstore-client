@@ -4,7 +4,6 @@ const PropTypes = require('prop-types');
 import {Col, Row} from "react-bootstrap";
 import {
     setExpandedFilter,
-    setMenuGroup,
     toggleBmpTypeVisibility,
     setAllBmpTypesVisibility,
     toggleBmpPriorityVisibility
@@ -149,7 +148,6 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        setMenuGroup: (menuGroup) => dispatch(setMenuGroup(menuGroup)),
         setExpandedFilter: (filterName) => dispatch(setExpandedFilter(filterName)),
         changeLayerProperties: (layerId, filterObj) => dispatch(changeLayerProperties(layerId, filterObj)),
         toggleBmpTypeVisibility: (bmpType) => dispatch(toggleBmpTypeVisibility(bmpType)),

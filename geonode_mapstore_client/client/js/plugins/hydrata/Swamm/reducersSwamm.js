@@ -15,7 +15,6 @@ import {
     SET_ALL_BMP_TYPES_VISIBILITY,
     SET_CHANGING_BMP_TYPE,
     SET_COMPLEX_BMP_FORM,
-    SET_MENU_GROUP,
     SET_EXPANDED_FILTER,
     SET_BMP_LAYERS,
     SHOW_BMP_FORM,
@@ -158,14 +157,6 @@ export default ( state = initialState, action) => {
                 return bmpType;
             })
         };
-    case SET_MENU_GROUP:
-        if (action.payload) {
-            return {
-                ...state,
-                visibleBmpManager: false
-            };
-        }
-        return state;
     case SHOW_BMP_MANAGER:
         return {
             ...state,
