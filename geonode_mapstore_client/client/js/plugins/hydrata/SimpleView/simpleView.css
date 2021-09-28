@@ -21,7 +21,7 @@
     top: 65px;
     left: 20px;
     min-width: 500px;
-    background-color: rgba(0, 60, 136, 0.6);
+    background-color: rgba(0, 60, 136, 0.8);
     border-color: rgba(255, 255, 255, 0.7);
     border-width: 2px;
     padding: 5px 10px;
@@ -102,14 +102,19 @@
 .menu-row-glyph {
     background: #ffffff;
     border-radius: 3px;
-    margin: 5px 20px 5px 5px;
+    margin: 2px 20px 2px 5px;
     color: limegreen;
-    font-size: 10px
+    font-size: 14px;
+    padding: 0px 5px;
 }
 
 .menu-row-text {
+    font-size: 14px;
     white-space: nowrap;
     padding-left: 3px;
+    vertical-align: middle;
+    text-overflow: ellipsis ellipsis;
+    overflow: hidden;
 }
 
 .dataset-transparency {

@@ -23,7 +23,7 @@ class MenuRowClass extends React.Component {
         if (!this.props.layer) {
             return (
                 <div className={"row menu-row"}>
-                    <div className={"btn-group inline pull-left .enu-row-button"}>
+                    <div className={"inline pull-left .menu-row-button"}>
                         <div className="h5 menu-row-text">No datasets here yet...</div>
                     </div>
                 </div>
@@ -31,14 +31,14 @@ class MenuRowClass extends React.Component {
         }
         return (
             <div className={"row menu-row"}>
-                <div className={"btn-group inline pull-left .enu-row-button"}>
-                    <div
+                <span className={"pull-left .menu-row-button"}>
+                    <span
                         className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                         style={{"color": this.props.layer?.visibility ? "limegreen" : "red"}}
                         onClick={() => {this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);}}
                     />
-                    <div className="h5 menu-row-text">{this.props.layer.title}</div>
-                </div>
+                    <span className="menu-row-text">{this.props.layer.title}</span>
+                </span>
                 {
                     (this.props.layer.opacity === 0 || this.props.layer.opacity) ?
                         <div className="mapstore-slider dataset-transparency with-tooltip" onClick={(e) => { e.stopPropagation(); }}>

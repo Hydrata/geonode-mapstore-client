@@ -48,10 +48,14 @@ const HIDE_BMP_MANAGER = 'HIDE_BMP_MANAGER';
 const TOGGLE_BMP_MANAGER = 'TOGGLE_BMP_MANAGER';
 
 const TOGGLE_BMP_TYPE = 'TOGGLE_BMP_TYPE';
+const TOGGLE_BMP_TYPE_VISIBILITY = 'TOGGLE_BMP_TYPE_VISIBILITY';
+const SET_ALL_BMP_TYPES_VISIBILITY = 'SET_ALL_BMP_TYPES_VISIBILITY';
 const SET_MENU_GROUP = 'SET_MENU_GROUP';
-const SET_BMP_TYPE = 'SET_BMP_TYPE';
 const SET_CHANGING_BMP_TYPE = 'SET_CHANGING_BMP_TYPE';
 const SET_COMPLEX_BMP_FORM = 'SET_COMPLEX_BMP_FORM';
+const SET_EXPANDED_FILTER = 'SET_EXPANDED_FILTER';
+const UPDATE_BMP_FILTER = 'UPDATE_BMP_FILTER';
+const SET_BMP_LAYERS = 'SET_BMP_LAYERS';
 
 const SET_STATUS_FILTER = 'SET_STATUS_FILTER';
 
@@ -86,10 +90,14 @@ const DOWNLOAD_BMP_REPORT = 'DOWNLOAD_BMP_REPORT';
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
 
-const fetchSwammBmpTypesSuccess = (config) => {
+const fetchSwammBmpTypesSuccess = (bmpTypes) => {
+    bmpTypes.map(type => {
+        type.visibility = true;
+        return type;
+    });
     return {
         type: FETCH_SWAMM_BMPTYPES_SUCCESS,
-        bmpTypes: config
+        bmpTypes
     };
 };
 
@@ -278,16 +286,6 @@ const toggleBmpType = (bmpType) => {
     };
 };
 
-const setBmpType = (bmpType, isVisible) => {
-    return (dispatch) => {
-        dispatch({
-            type: 'SET_BMP_TYPE',
-            bmpType: bmpType,
-            isVisible: isVisible
-        });
-    };
-};
-
 const makeBmpForm = (groupProfile) => {
     return {
         type: MAKE_BMP_FORM,
@@ -379,6 +377,30 @@ const setComplexBmpForm = (complexBmpForm) => {
     return {
         type: SET_COMPLEX_BMP_FORM,
         complexBmpForm: complexBmpForm
+    };
+};
+
+const setExpandedFilter = (expandedFilter) => {
+    return {
+        type: SET_EXPANDED_FILTER,
+        expandedFilter
+    };
+};
+
+const updateBmpFilter = (key, value) => {
+    return {
+        type: UPDATE_BMP_FILTER,
+        key,
+        value
+    };
+};
+
+const setBmpLayers = (bmpOutletLayer, bmpFootprintLayer, bmpWatershedLayer) => {
+    return {
+        type: SET_BMP_LAYERS,
+        bmpOutletLayer,
+        bmpFootprintLayer,
+        bmpWatershedLayer
     };
 };
 
@@ -847,7 +869,21 @@ function downloadBmpReport(bmpId) {
     return {
         type: DOWNLOAD_BMP_REPORT,
         bmpId
-    }
+    };
+}
+
+function toggleBmpTypeVisibility(bmpType) {
+    return {
+        type: TOGGLE_BMP_TYPE_VISIBILITY,
+        bmpType
+    };
+}
+
+function setAllBmpTypesVisibility(boolValue) {
+    return {
+        type: SET_ALL_BMP_TYPES_VISIBILITY,
+        boolValue
+    };
 }
 
 module.exports = {
@@ -875,7 +911,8 @@ module.exports = {
     SUBMIT_BMP_FORM_ERROR, submitBmpFormError,
     SUBMIT_BMP_FORM_SUCCESS, submitBmpFormSuccess,
     TOGGLE_BMP_TYPE, toggleBmpType,
-    SET_BMP_TYPE, setBmpType,
+    TOGGLE_BMP_TYPE_VISIBILITY, toggleBmpTypeVisibility,
+    SET_ALL_BMP_TYPES_VISIBILITY, setAllBmpTypesVisibility,
     SET_STATUS_FILTER, setStatusFilter,
     SET_MENU_GROUP, setMenuGroup,
     SHOW_BMP_FORM, showBmpForm,
@@ -897,6 +934,9 @@ module.exports = {
     SET_UPDATING_BMP, setUpdatingBmp,
     SET_CHANGING_BMP_TYPE, setChangingBmpType,
     SET_COMPLEX_BMP_FORM, setComplexBmpForm,
+    SET_EXPANDED_FILTER, setExpandedFilter,
+    UPDATE_BMP_FILTER, updateBmpFilter,
+    SET_BMP_LAYERS, setBmpLayers,
     getBmpFormSuccess, getBmpFormError,
     UPDATE_BMP_FORM, updateBmpForm,
     START_DRAWING_BMP, startDrawingBmp,

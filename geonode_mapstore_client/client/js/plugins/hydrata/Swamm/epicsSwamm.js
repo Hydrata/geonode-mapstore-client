@@ -8,8 +8,8 @@ import {
     resetQuery
 } from "../../../../MapStore2/web/client/actions/wfsquery";
 import {
-    refreshLayerVersion,
-    layerLoading
+    changeLayerProperties,
+    refreshLayerVersion
 } from "../../../../MapStore2/web/client/actions/layers";
 import {
     FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
@@ -25,7 +25,9 @@ import {
     showBmpForm,
     setUpdatingBmp,
     registerMissingBmpFeatureId,
-    updateBmpTypeGroups
+    updateBmpTypeGroups,
+    UPDATE_BMP_FILTER,
+    setBmpLayers
 } from "./actionsSwamm";
 import {
     toggleEditMode,
@@ -39,6 +41,39 @@ import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
 import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
 
+
+const wmsFilterTemplate = {
+    "filterObj": {
+        "featureTypeName": "geonode:tst_bmp_watershed",
+        "filterType": "OGC",
+        "ogcVersion": "1.1.0",
+        "groupFields": [
+            {
+                "id": 1632235819540,
+                "index": 0,
+                "logic": "AND"
+            },
+            {
+                "groupId": 1632235819540,
+                "logic": "AND",
+                "id": "1_1",
+                "index": 1
+            }
+        ],
+        "filterFields": [
+            {
+                "attribute": "type",
+                "rowId": 1632235819540,
+                "type": "number",
+                "groupId": "1_1",
+                "operator": "=",
+                "value": 90
+            }
+        ],
+        "spatialField": [],
+        "spatialFieldOperator": "AND"
+    }
+};
 
 export const catchBmpFeatureClick = (action$, store) =>
     action$
@@ -238,18 +273,40 @@ export const getBmpTypeGroups = (action$, store) =>
         })
         .mergeMap((response) => Rx.Observable.of(
             updateBmpTypeGroups(response.data)
-        ));
+        ))
+        .mergeMap(() => {
+            const bmpOutletLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_outlet"))[0];
+            const bmpFootprintLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_footprint"))[0];
+            const bmpWatershedLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_watershed"))[0];
+            return Rx.Observable.of(
+                setBmpLayers(bmpOutletLayer, bmpFootprintLayer, bmpWatershedLayer)
+            );
+        });
 
 
 export const downloadBmpReportEpic = (action$) =>
     action$.ofType(DOWNLOAD_BMP_REPORT)
         .mergeMap((action) => {
             return Rx.Observable.from(
-                // axios.get(`/swamm/print/${action.bmpId}/download/`)
                 window.open(`/swamm/print/${action.bmpId}/download/`, "_blank")
             );
         });
-        // .mergeMap((response) => Rx.Observable.of(
-        //     updateBmpTypeGroups(response.data)
-        // ));
 
+export const updateBmpFilterEpic = (action$, store) =>
+    action$.ofType(UPDATE_BMP_FILTER)
+        .mergeMap((action) => {
+            const newFilter = wmsFilterTemplate;
+            newFilter.filterObj.filterFields[0].attribute = action.key;
+            newFilter.filterObj.filterFields[0].value = action.value;
+            const outletFilter = JSON.parse(JSON.stringify(newFilter));
+            const footprintFilter = JSON.parse(JSON.stringify(newFilter));
+            const watershedFilter = JSON.parse(JSON.stringify(newFilter));
+            outletFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpOutletLayer?.name;
+            footprintFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpFootprintLayer?.name;
+            watershedFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpWatershedLayer?.name;
+            return Rx.Observable.of(
+                changeLayerProperties(store.getState()?.swamm?.bmpOutletLayer?.id, outletFilter),
+                changeLayerProperties(store.getState()?.swamm?.bmpFootprintLayer?.id, footprintFilter),
+                changeLayerProperties(store.getState()?.swamm?.bmpWatershedLayer?.id, watershedFilter)
+            );
+        });

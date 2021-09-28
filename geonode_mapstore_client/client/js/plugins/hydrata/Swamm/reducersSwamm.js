@@ -10,11 +10,14 @@ import {
     FETCH_SWAMM_BMP_STATUSES_SUCCESS,
     FETCH_SWAMM_TARGETS_SUCCESS,
     SELECT_SWAMM_TARGET_ID,
-    TOGGLE_BMP_TYPE,
-    SET_BMP_TYPE,
+    TOGGLE_BMP_TYPE_VISIBILITY,
+    SET_ALL_BMP_TYPES_VISIBILITY,
     SET_CHANGING_BMP_TYPE,
     SET_COMPLEX_BMP_FORM,
     SET_MENU_GROUP,
+    SET_EXPANDED_FILTER,
+    UPDATE_BMP_FILTER,
+    SET_BMP_LAYERS,
     SHOW_BMP_FORM,
     HIDE_BMP_FORM,
     SHOW_LOADING_BMP,
@@ -43,17 +46,8 @@ import {
     SET_BMP_FILTER_MODE,
     SHOW_TARGET_FORM,
     HIDE_TARGET_FORM,
-    UPDATE_TARGET_FORM,
-    CLEAR_TARGET_FORM,
-    SUBMIT_TARGET_FORM,
-    SUBMIT_TARGET_FORM_SUCCESS,
-    SUBMIT_TARGET_FORM_ERROR,
-    DELETE_TARGET,
-    DELETE_TARGET_SUCCESS,
-    DELETE_TARGET_ERROR
+    UPDATE_TARGET_FORM
 } from "./actionsSwamm";
-
-import { LOAD_FEATURE_INFO } from "../../../../MapStore2/web/client/actions/mapInfo";
 
 const initialState = {
     showOutlets: true,
@@ -68,7 +62,8 @@ const initialState = {
     visibleTargetForm: false,
     creatingNewBmp: false,
     drawingBmpLayerName: false,
-    bmpFilterMode: 'type'
+    bmpFilterMode: 'type',
+    expandedFilter: null
 };
 
 export default ( state = initialState, action) => {
@@ -123,7 +118,7 @@ export default ( state = initialState, action) => {
             ...state,
             statuses: action.statuses
         };
-    case TOGGLE_BMP_TYPE:
+    case TOGGLE_BMP_TYPE_VISIBILITY:
         return {
             ...state,
             bmpTypes: state.bmpTypes.map(bmpType => {
@@ -136,34 +131,14 @@ export default ( state = initialState, action) => {
                 return bmpType;
             })
         };
-    case SET_BMP_TYPE:
+    case SET_ALL_BMP_TYPES_VISIBILITY:
         return {
             ...state,
             bmpTypes: state.bmpTypes.map(bmpType => {
-                if (bmpType.id === action.bmpType.id) {
-                    return {
-                        ...bmpType,
-                        visibility: action.isVisible
-                    };
-                }
+                bmpType.visibility = action.boolValue;
                 return bmpType;
             })
         };
-    // case TOGGLE_OUTLETS:
-    //     return {
-    //         ...state,
-    //         showOutlets: !state.showOutlets
-    //     };
-    // case TOGGLE_FOOTPRINTS:
-    //     return {
-    //         ...state,
-    //         showFootprints: !state.showFootprints
-    //     };
-    // case TOGGLE_WATERSHEDS:
-    //     return {
-    //         ...state,
-    //         showWatersheds: !state.showWatersheds
-    //     };
     case SET_MENU_GROUP:
         if (action.payload) {
             return {
@@ -381,6 +356,29 @@ export default ( state = initialState, action) => {
             ...state,
             complexBmpForm: action.complexBmpForm
         };
+    case SET_EXPANDED_FILTER:
+        if (state.expandedFilter === action.expandedFilter) {
+            return {
+                ...state,
+                expandedFilter: null
+            };
+        }
+        return {
+            ...state,
+            expandedFilter: action.expandedFilter
+        };
+    case UPDATE_BMP_FILTER:
+        return {
+            ...state,
+            bmpFilter: action.bmpFilter
+        };
+    case SET_BMP_LAYERS:
+        return {
+            ...state,
+            bmpOutletLayer: action.bmpOutletLayer,
+            bmpFootprintLayer: action.bmpFootprintLayer,
+            bmpWatershedLayer: action.bmpWatershedLayer
+        };
     case SET_CHANGING_BMP_TYPE:
         return {
             ...state,
@@ -397,7 +395,6 @@ export default ( state = initialState, action) => {
             editingBmpFeatureId: null
         };
     case DELETE_BMP_SUCCESS:
-        console.log('deleted', action);
         return {
             ...state,
             allBmps: state.allBmps.filter((bmp) => bmp.id !== action.bmpId)

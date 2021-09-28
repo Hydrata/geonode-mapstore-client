@@ -77,7 +77,6 @@ class SwammBmpFormClass extends React.Component {
         mapId: PropTypes.number,
         purgeMapInfoResults: PropTypes.func,
         bmpUniqueNames: PropTypes.array,
-        setBmpTypesVisibility: PropTypes.func,
         setHighlightFeaturesPath: PropTypes.func,
         projectData: PropTypes.object,
         toggleLayer: PropTypes.func,
