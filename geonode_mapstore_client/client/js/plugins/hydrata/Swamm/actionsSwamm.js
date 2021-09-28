@@ -54,7 +54,6 @@ const SET_MENU_GROUP = 'SET_MENU_GROUP';
 const SET_CHANGING_BMP_TYPE = 'SET_CHANGING_BMP_TYPE';
 const SET_COMPLEX_BMP_FORM = 'SET_COMPLEX_BMP_FORM';
 const SET_EXPANDED_FILTER = 'SET_EXPANDED_FILTER';
-const UPDATE_BMP_FILTER = 'UPDATE_BMP_FILTER';
 const SET_BMP_LAYERS = 'SET_BMP_LAYERS';
 
 const SET_STATUS_FILTER = 'SET_STATUS_FILTER';
@@ -384,14 +383,6 @@ const setExpandedFilter = (expandedFilter) => {
     return {
         type: SET_EXPANDED_FILTER,
         expandedFilter
-    };
-};
-
-const updateBmpFilter = (key, value) => {
-    return {
-        type: UPDATE_BMP_FILTER,
-        key,
-        value
     };
 };
 
@@ -935,7 +926,6 @@ module.exports = {
     SET_CHANGING_BMP_TYPE, setChangingBmpType,
     SET_COMPLEX_BMP_FORM, setComplexBmpForm,
     SET_EXPANDED_FILTER, setExpandedFilter,
-    UPDATE_BMP_FILTER, updateBmpFilter,
     SET_BMP_LAYERS, setBmpLayers,
     getBmpFormSuccess, getBmpFormError,
     UPDATE_BMP_FORM, updateBmpForm,

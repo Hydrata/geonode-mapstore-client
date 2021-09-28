@@ -16,7 +16,6 @@ import {
     SET_COMPLEX_BMP_FORM,
     SET_MENU_GROUP,
     SET_EXPANDED_FILTER,
-    UPDATE_BMP_FILTER,
     SET_BMP_LAYERS,
     SHOW_BMP_FORM,
     HIDE_BMP_FORM,
@@ -366,11 +365,6 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             expandedFilter: action.expandedFilter
-        };
-    case UPDATE_BMP_FILTER:
-        return {
-            ...state,
-            bmpFilter: action.bmpFilter
         };
     case SET_BMP_LAYERS:
         return {

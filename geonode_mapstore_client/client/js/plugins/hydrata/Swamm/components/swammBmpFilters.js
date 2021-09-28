@@ -4,7 +4,6 @@ const PropTypes = require('prop-types');
 import {Col, Row} from "react-bootstrap";
 import {
     setExpandedFilter,
-    updateBmpFilter,
     setMenuGroup,
     toggleBmpTypeVisibility,
     setAllBmpTypesVisibility
@@ -18,7 +17,6 @@ class SwammBmpFiltersClass extends React.Component {
         expandedFilter: PropTypes.string,
         setExpandedFilter: PropTypes.func,
         bmpFilter: PropTypes.object,
-        updateBmpFilter: PropTypes.func,
         changeLayerProperties: PropTypes.func,
         toggleBmpTypeVisibility: PropTypes.func,
         setAllBmpTypesVisibility: PropTypes.func,
@@ -45,7 +43,7 @@ class SwammBmpFiltersClass extends React.Component {
             <React.Fragment>
                 <div id={'swamm-bmp-filters'} className={'simple-view-panel'} style={{top: "175px", width: "480px"}}>
                     <div className={'menu-rows-container'}>
-                        <div className={"row menu-row pull-left"} style={{borderBottom: "1px solid #ffffffad", width: "480px", textAlign: "left"}}>
+                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
                             <span
                                 className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 style={{color: "white", background: "none"}}
@@ -73,6 +71,7 @@ class SwammBmpFiltersClass extends React.Component {
                                             }}
                                         />
                                         <span className="inline h5 menu-row-text">Select None</span>
+                                        <hr style={{margin: "0"}}/>
                                         <Row>
                                             {
                                                 this.props.bmpTypes.map((bmpType, index) => (
@@ -121,7 +120,6 @@ const mapDispatchToProps = ( dispatch ) => {
     return {
         setMenuGroup: (menuGroup) => dispatch(setMenuGroup(menuGroup)),
         setExpandedFilter: (filterName) => dispatch(setExpandedFilter(filterName)),
-        updateBmpFilter: (key, value) => dispatch(updateBmpFilter(key, value)),
         changeLayerProperties: (layerId, filterObj) => dispatch(changeLayerProperties(layerId, filterObj)),
         toggleBmpTypeVisibility: (bmpType) => dispatch(toggleBmpTypeVisibility(bmpType)),
         setAllBmpTypesVisibility: (boolValue) => dispatch(setAllBmpTypesVisibility(boolValue))
