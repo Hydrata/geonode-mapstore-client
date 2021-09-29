@@ -51,6 +51,7 @@ const TOGGLE_BMP_TYPE = 'TOGGLE_BMP_TYPE';
 const TOGGLE_BMP_TYPE_VISIBILITY = 'TOGGLE_BMP_TYPE_VISIBILITY';
 const TOGGLE_BMP_PRIORITY_VISIBILITY = 'TOGGLE_BMP_PRIORITY_VISIBILITY';
 const SET_ALL_BMP_TYPES_VISIBILITY = 'SET_ALL_BMP_TYPES_VISIBILITY';
+const SET_BMP_TYPE = 'SET_BMP_TYPE';
 const SET_CHANGING_BMP_TYPE = 'SET_CHANGING_BMP_TYPE';
 const SET_COMPLEX_BMP_FORM = 'SET_COMPLEX_BMP_FORM';
 const SET_EXPANDED_FILTER = 'SET_EXPANDED_FILTER';
@@ -281,6 +282,16 @@ const toggleBmpType = (bmpType) => {
         dispatch({
             type: 'TOGGLE_BMP_TYPE',
             bmpType: bmpType
+        });
+    };
+};
+
+const setBmpType = (bmpType, isVisible) => {
+    return (dispatch) => {
+        dispatch({
+            type: 'SET_BMP_TYPE',
+            bmpType: bmpType,
+            isVisible: isVisible
         });
     };
 };
@@ -905,6 +916,7 @@ module.exports = {
     TOGGLE_BMP_TYPE_VISIBILITY, toggleBmpTypeVisibility,
     TOGGLE_BMP_PRIORITY_VISIBILITY, toggleBmpPriorityVisibility,
     SET_ALL_BMP_TYPES_VISIBILITY, setAllBmpTypesVisibility,
+    SET_BMP_TYPE, setBmpType,
     SET_STATUS_FILTER, setStatusFilter,
     SHOW_BMP_FORM, showBmpForm,
     HIDE_BMP_FORM, hideBmpForm,

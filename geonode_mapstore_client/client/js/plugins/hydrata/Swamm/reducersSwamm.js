@@ -13,6 +13,7 @@ import {
     TOGGLE_BMP_TYPE_VISIBILITY,
     TOGGLE_BMP_PRIORITY_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
+    SET_BMP_TYPE,
     SET_CHANGING_BMP_TYPE,
     SET_COMPLEX_BMP_FORM,
     SET_EXPANDED_FILTER,
@@ -131,6 +132,19 @@ export default ( state = initialState, action) => {
                     return {
                         ...bmpType,
                         visibility: !action.bmpType.visibility
+                    };
+                }
+                return bmpType;
+            })
+        };
+    case SET_BMP_TYPE:
+        return {
+            ...state,
+            bmpTypes: state.bmpTypes.map(bmpType => {
+                if (bmpType.id === action.bmpType.id) {
+                    return {
+                        ...bmpType,
+                        visibility: action.isVisible
                     };
                 }
                 return bmpType;
