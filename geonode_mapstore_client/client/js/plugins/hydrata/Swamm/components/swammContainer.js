@@ -315,7 +315,7 @@ const mapStateToProps = (state) => {
         visibleTargetForm: state?.swamm?.visibleTargetForm,
         loadingBmp: state?.swamm?.loadingBmp,
         numberOfMenus: state?.layers?.groups.length,
-        viewBmpGroupId: state?.mapConfigRawData?.map?.groups.filter((group) => group.title === "View BMPs")[0].id,
+        viewBmpGroupId: state?.mapConfigRawData?.map?.groups.filter((group) => group.title === "View BMPs")[0]?.id,
         openMenuGroupId: state?.simpleView?.openMenuGroupId
     };
 };
