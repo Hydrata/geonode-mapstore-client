@@ -1,0 +1,17 @@
+#swamps-container {
+    width:100%;
+    height:100%;
+    display: flex;
+    justify-content: center;
+}
+
+#swamps-chart {
+    z-index: 3000;
+    width: 98%;
+    height: 94%;
+    margin: 20px;
+    background-color: #ffffff;
+    font-size: 12px;
+    border-radius: 4px;
+    text-align: center;
+}

@@ -91,6 +91,10 @@ export const plugins = {
         'Biocollect',
         import('@js/plugins/hydrata/Biocollect/Biocollect')
     ),
+    SwampsPlugin: toLazyPlugin(
+        'Swamps',
+        import('@js/plugins/hydrata/Swamps/Swamps')
+    ),
     LayerDownloadPlugin: toLazyPlugin(
         'LayerDownload',
         import(/* webpackChunkName: 'plugins/layer-download' */ '@mapstore/framework/plugins/LayerDownload')

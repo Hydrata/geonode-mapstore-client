@@ -1687,6 +1687,9 @@
                 "name": "SimpleView"
             },
             {
+                "name": "Swamps"
+            },
+            {
                 "name": "Map",
                 "cfg": {
                     "tools": [
