@@ -609,7 +609,7 @@ class SwammBmpFormClass extends React.Component {
                                                         name="bmpName"
                                                         onChange={this.handleBmpChange}
                                                     >
-                                                        {this.props.bmpTypeGroups.map((group) => {
+                                                        {this.props.bmpTypeGroups?.map((group) => {
                                                             return (
                                                                 <Row className={'well'} style={{textAlign: "left", marginLeft: 0}}>
                                                                     <div>{group[1]}</div>
@@ -1041,7 +1041,7 @@ const mapStateToProps = (state) => {
         projectData: state?.swamm?.data,
         bmpUniqueNames: bmpByUniqueNameSelector(state).map(bmpType => bmpType.name),
         bmpTypes: state?.swamm?.bmpTypes,
-        bmpTypeGroups: state?.swamm?.bmpTypeGroups,
+        bmpTypeGroups: state?.swamm?.bmpTypeGroups || [],
         allowedGroupProfiles: allowedGroupProfiles,
         defaultGroupProfile: allowedGroupProfileNames[0],
         statuses: state?.swamm?.statuses,
