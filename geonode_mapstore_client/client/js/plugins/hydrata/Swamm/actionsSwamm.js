@@ -48,6 +48,7 @@ const HIDE_BMP_MANAGER = 'HIDE_BMP_MANAGER';
 const TOGGLE_BMP_MANAGER = 'TOGGLE_BMP_MANAGER';
 
 const TOGGLE_BMP_TYPE = 'TOGGLE_BMP_TYPE';
+const SET_MENU_GROUP = 'SET_MENU_GROUP';
 const TOGGLE_BMP_TYPE_VISIBILITY = 'TOGGLE_BMP_TYPE_VISIBILITY';
 const TOGGLE_BMP_PRIORITY_VISIBILITY = 'TOGGLE_BMP_PRIORITY_VISIBILITY';
 const SET_ALL_BMP_TYPES_VISIBILITY = 'SET_ALL_BMP_TYPES_VISIBILITY';
@@ -852,6 +853,13 @@ const deleteTarget = (mapId, targetId) => {
     };
 };
 
+function setMenuGroup(menuGroup) {
+    return {
+        type: SET_MENU_GROUP,
+        payload: menuGroup
+    };
+}
+
 
 function updateBmpTypeGroups(bmpTypeGroups) {
     return {
@@ -918,6 +926,7 @@ module.exports = {
     SET_ALL_BMP_TYPES_VISIBILITY, setAllBmpTypesVisibility,
     SET_BMP_TYPE, setBmpType,
     SET_STATUS_FILTER, setStatusFilter,
+    SET_MENU_GROUP, setMenuGroup,
     SHOW_BMP_FORM, showBmpForm,
     HIDE_BMP_FORM, hideBmpForm,
     SHOW_LOADING_BMP, showLoadingBmp,

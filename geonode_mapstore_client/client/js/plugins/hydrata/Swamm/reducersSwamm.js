@@ -16,6 +16,7 @@ import {
     SET_BMP_TYPE,
     SET_CHANGING_BMP_TYPE,
     SET_COMPLEX_BMP_FORM,
+    SET_MENU_GROUP,
     SET_EXPANDED_FILTER,
     SET_BMP_LAYERS,
     SHOW_BMP_FORM,
@@ -171,6 +172,14 @@ export default ( state = initialState, action) => {
                 return bmpType;
             })
         };
+    case SET_MENU_GROUP:
+        if (action.payload) {
+            return {
+                ...state,
+                visibleBmpManager: false
+            };
+        }
+        return state;
     case SHOW_BMP_MANAGER:
         return {
             ...state,
@@ -259,7 +268,6 @@ export default ( state = initialState, action) => {
             }
         };
     case MAKE_EXISTING_BMP_FORM:
-        console.log('MAKE_EXISTING_BMP_FORM', action);
         const outletFid = state?.storedBmpForm?.outlet_fid ? state.storedBmpForm?.outlet_fid : action.bmp?.outlet_fid;
         const footprintFid = state?.storedBmpForm?.footprint_fid ? state.storedBmpForm?.footprint_fid : action.bmp?.footprint_fid;
         const watershedFid = state?.storedBmpForm?.watershed_fid ? state.storedBmpForm?.watershed_fid : action.bmp?.watershed_fid;

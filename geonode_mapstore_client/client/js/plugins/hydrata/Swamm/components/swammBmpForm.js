@@ -17,6 +17,7 @@ import {
     setEditingBmpFeatureId,
     clearEditingBmpFeatureId,
     deleteBmp,
+    setMenuGroup,
     downloadBmpReport
 } from "../actionsSwamm";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
@@ -40,6 +41,7 @@ class SwammBmpFormClass extends React.Component {
         bmpTypes: PropTypes.array,
         bmpTypeGroups: PropTypes.array,
         statuses: PropTypes.array,
+        setMenuGroup: PropTypes.func,
         priorities: PropTypes.array,
         setOpenMenuGroupId: PropTypes.func,
         creatingNewBmp: PropTypes.bool,
@@ -115,6 +117,7 @@ class SwammBmpFormClass extends React.Component {
         this.props.setOpenMenuGroupId(null);
         if (Object.keys(this.props.storedBmpForm).length === 0 && !this.props.creatingNewBmp) {
             this.props.purgeMapInfoResults();
+            this.props.setMenuGroup(null);
         }
     }
 
@@ -1072,6 +1075,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
+        setMenuGroup: (menuGroup) => dispatch(setMenuGroup(menuGroup)),
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         hideBmpForm: () => dispatch(hideBmpForm()),
         hideLoadingBmp: () => dispatch(hideLoadingBmp()),
