@@ -239,14 +239,12 @@ export const getBmpTypeGroups = (action$, store) =>
                 axios.get(`/swamm/api/${mapId}/bmp-type/bmp_type_group_list/`)
             );
         })
-        .mergeMap((response) => Rx.Observable.of(
-            updateBmpTypeGroups(response.data)
-        ))
-        .mergeMap(() => {
+        .exhaustMap((response) => {
             const bmpOutletLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_outlet"))[0];
             const bmpFootprintLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_footprint"))[0];
             const bmpWatershedLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_watershed"))[0];
             return Rx.Observable.of(
+                updateBmpTypeGroups(response.data),
                 setBmpLayers(bmpOutletLayer, bmpFootprintLayer, bmpWatershedLayer)
             );
         });

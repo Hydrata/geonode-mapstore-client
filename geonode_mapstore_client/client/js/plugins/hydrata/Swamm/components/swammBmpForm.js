@@ -30,7 +30,6 @@ import {
 } from "../../../../../MapStore2/web/client/actions/featuregrid";
 import { purgeMapInfoResults } from "../../../../../MapStore2/web/client/actions/mapInfo";
 import {featureTypeSelected, createQuery, query} from "../../../../../MapStore2/web/client/actions/wfsquery";
-import "../../ProjectManager/projectManager.css";
 import {isInt} from "../../Utils/utils";
 import {bmpByUniqueNameSelector} from "../selectorsSwamm";
 import {changeLayerProperties, refreshLayerVersion} from "../../../../../MapStore2/web/client/actions/layers";

@@ -79,10 +79,10 @@ export const plugins = {
         'Swamm',
         import('@js/plugins/hydrata/Swamm/Swamm')
     ),
-    ProjectManagerPlugin: toLazyPlugin(
-        'ProjectManager',
-        import('@js/plugins/hydrata/ProjectManager/ProjectManager')
-    ),
+    // ProjectManagerPlugin: toLazyPlugin(
+    //     'ProjectManager',
+    //     import('@js/plugins/hydrata/ProjectManager/ProjectManager')
+    // ),
     SimpleViewPlugin: toLazyPlugin(
         'SimpleView',
         import('@js/plugins/hydrata/SimpleView/SimpleView')

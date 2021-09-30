@@ -862,6 +862,7 @@ function setMenuGroup(menuGroup) {
 
 
 function updateBmpTypeGroups(bmpTypeGroups) {
+    console.log('****');
     return {
         type: UPDATE_BMP_TYPE_GROUPS,
         bmpTypeGroups

@@ -468,6 +468,8 @@ export default ( state = initialState, action) => {
             visibleTargetForm: action.visibleTargetForm
         };
     case UPDATE_BMP_TYPE_GROUPS:
+        console.log('*** reducer', action);
+        console.log('*** reducer .bmpTypeGroups', action.bmpTypeGroups);
         return {
             ...state,
             bmpTypeGroups: action.bmpTypeGroups

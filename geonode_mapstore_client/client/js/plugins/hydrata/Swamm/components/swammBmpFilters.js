@@ -8,7 +8,6 @@ import {
     setAllBmpTypesVisibility,
     toggleBmpPriorityVisibility
 } from "../actionsSwamm";
-import "../../ProjectManager/projectManager.css";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 
 class SwammBmpFiltersClass extends React.Component {
