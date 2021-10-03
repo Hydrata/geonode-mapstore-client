@@ -40,7 +40,11 @@ class SwampsChartClass extends React.Component {
     render() {
         return (
             <div id={'swamps-chart'}>
-                <h1>Swamps</h1>
+                <div className="chart-header">Header</div>
+                <div className="chart-mainbody">
+                    <p>Body</p>
+                </div>
+                <div className="chart-footer">Footer</div>
             </div>
         );
     }

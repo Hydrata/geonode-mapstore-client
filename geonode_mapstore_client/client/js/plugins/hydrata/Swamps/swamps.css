@@ -3,15 +3,42 @@
     height:100%;
     display: flex;
     justify-content: center;
+    margin: 10px;
+    border: 1px solid #fff;
+    background-color: #ffffff;
 }
 
 #swamps-chart {
     z-index: 3000;
     width: 98%;
-    height: 94%;
-    margin: 20px;
+    height: 90%;
+    margin: 70px 20px 20px 0;
     background-color: #ffffff;
     font-size: 12px;
     border-radius: 4px;
     text-align: center;
+}
+
+.chart-mainbody {
+    margin-top: 0;
+    height: 85%;
+    overflow: auto;
+}
+
+.chart-header {
+    height: 80px;
+    top: 80px;
+    border-bottom: 1px solid #DDD;
+    background-color: #ffffff;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+}
+
+.chart-footer {
+    bottom: 0;
+    height: 80px;
+    background-color: #ffffff;
+    border-top: 1px solid #DDD;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
 }

@@ -121,3 +121,17 @@
     margin-left: 330px;
     margin-top: 15px;
 }
+
+.mapstore-slider.with-tooltip.dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
+    width: 20px;
+    left: -10px;
+    border: 2px solid #dddddd;
+    border-radius: 10px;
+    cursor: default;
+}
+
+.mapstore-slider.with-tooltip.dataset-transparency .noUi-target {
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    background-color: #335781;
+}

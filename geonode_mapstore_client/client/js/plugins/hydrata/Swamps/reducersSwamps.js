@@ -3,7 +3,8 @@ import {
     SET_CURRENT_SWAMPS_SURVEY_SITE_ID,
     SAVE_SWAMPS_SURVEY_QUERY_TO_STORE,
     SET_SELECTED_X_KEY,
-    SET_SELECTED_Y_KEY
+    SET_SELECTED_Y_KEY,
+    REFRESH_PAGE
 } from "./actionsSwamps";
 
 const formatSwampData = (rawData) => {
@@ -53,7 +54,7 @@ const formatSwampData = (rawData) => {
 };
 
 export default ( state = {}, action) => {
-    console.log(action);
+    // console.log(action);
     switch (action.type) {
     case SET_CURRENT_SWAMPS_SURVEY_SITE_ID:
         return {
@@ -81,6 +82,8 @@ export default ( state = {}, action) => {
             ...state,
             selectedYKey: action.selectedYKey
         };
+    case REFRESH_PAGE:
+        window.location.reload(false);
     default:
         return state;
     }

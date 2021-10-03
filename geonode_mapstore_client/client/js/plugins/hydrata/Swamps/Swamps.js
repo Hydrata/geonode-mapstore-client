@@ -2,6 +2,7 @@ import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtil
 import swamps from "./reducersSwamps";
 import swampsContainer from "./components/swampsContainer";
 import {
+    initSwampsEpic,
     queryLayerAttributesToStoreStep1,
     queryLayerAttributesToStoreStep2,
     queryLayerAttributesToStoreStep3
@@ -13,6 +14,7 @@ export default createPlugin('Swamps', {
         swamps
     },
     epics: {
+        initSwampsEpic,
         queryLayerAttributesToStoreStep1,
         queryLayerAttributesToStoreStep2,
         queryLayerAttributesToStoreStep3

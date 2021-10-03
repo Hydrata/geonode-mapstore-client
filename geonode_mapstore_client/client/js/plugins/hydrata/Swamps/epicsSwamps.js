@@ -1,9 +1,34 @@
 import Rx from "rxjs";
-import {saveSwampsQueryToStore, setVisibleSwampsChart, setCurrentSwampsSurveySiteId} from "./actionsSwamps";
+
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
 import {setLayer} from "../../../../MapStore2/web/client/actions/featuregrid";
 import {featureTypeSelected, query, FEATURE_TYPE_LOADED, QUERY_RESULT} from "../../../../MapStore2/web/client/actions/wfsquery";
+import {
+    INIT_SWAMPS,
+    saveSwampsQueryToStore,
+    setVisibleSwampsChart,
+    setCurrentSwampsSurveySiteId,
+    refreshPage
+} from "./actionsSwamps";
+import axios from "../../../../MapStore2/web/client/libs/ajax";
 
+
+export const initSwampsEpic = (action$) =>
+    action$.ofType(INIT_SWAMPS)
+        .mergeMap(() => {
+            return Rx.Observable.from(
+                axios.get(`/swamps/api/update-from-airtables`)
+            );
+        })
+        .mergeMap((response) => {
+            console.log('initSwmap Exhaust', response);
+            if (response) {
+                return Rx.Observable.of(
+                    refreshPage()
+                );
+            }
+            return null;
+        });
 
 export const queryLayerAttributesToStoreStep1 = (action$, store) =>
     action$
