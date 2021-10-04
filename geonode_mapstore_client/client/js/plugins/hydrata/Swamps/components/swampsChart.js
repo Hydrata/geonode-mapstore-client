@@ -1,25 +1,22 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Modal, Button, Col, Grid, Row, ButtonGroup} from "react-bootstrap";
-import moment from 'moment';
-import {formatMoney} from "../../Utils/utils";
 import {setVisibleSwampsChart,
-    setCurrentSwampsSurveySiteId,
+    setCurrentSwampId,
+    clearCurrentSwamp,
     setSelectedXKey,
     setSelectedYKey
 } from "../actionsSwamps";
-const {ScatterChart, Scatter, LineChart, Line, CartesianGrid, Label, Pie, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip} = require('recharts');
 import '../swamps.css';
 
 class SwampsChartClass extends React.Component {
     static propTypes = {
         setVisibleSwampsChart: PropTypes.func,
-        setCurrentSwampsSurveySiteId: PropTypes.func,
+        setCurrentSwampId: PropTypes.func,
+        clearCurrentSwamp: PropTypes.func,
         visibleSwampsChart: PropTypes.bool,
-        currentSwampsSurveySiteId: PropTypes.string,
-        currentSwampsSurveySite: PropTypes.object,
-        swampsSurveyData: PropTypes.array,
+        currentSwampId: PropTypes.string,
+        currentSwampData: PropTypes.object,
         lineChartData: PropTypes.array,
         setSelectedXKey: PropTypes.func,
         setSelectedYKey: PropTypes.func,
@@ -40,11 +37,35 @@ class SwampsChartClass extends React.Component {
     render() {
         return (
             <div id={'swamps-chart'}>
-                <div className="chart-header">Header</div>
-                <div className="chart-mainbody">
-                    <p>Body</p>
+                <div className="chart-header">
+                    <h2 style={{display: "inline"}}>
+                        id: {this.props.currentSwampId?.split('.')[1]}
+                    </h2>
+                    <span
+                        className={"pull-right btn glyphicon glyphicon-remove"}
+                        style={{color: "red", right: "-10px", top: "-10px"}}
+                        onClick={() => {
+                            this.props.clearCurrentSwamp();
+                            this.props.setVisibleSwampsChart(false);
+                        }}
+                    />
                 </div>
-                <div className="chart-footer">Footer</div>
+                <div className="chart-mainbody">
+                    {
+                        this.props.currentSwampData?.properties ?
+                            (Object.entries(this.props.currentSwampData?.properties).map(([key, value]) => {
+                                return (
+                                    <div style={{textAlign: "left"}}>
+                                        {key}: {value}
+                                    </div>
+                                );
+                            })) :
+                            null
+                    }
+                </div>
+                <div className="chart-footer">
+                    Footer
+                </div>
             </div>
         );
     }
@@ -52,10 +73,9 @@ class SwampsChartClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        currentSwampsSurveySiteId: state?.swamps?.currentSwampsSurveySiteId,
-        currentSwampsSurveySite: state?.swamps?.swampsSurveyData?.filter((site) => site.properties.site_id === state?.swamps?.currentSwampsSurveySiteId)[0],
+        currentSwampId: state?.swamps?.currentSwampId,
+        currentSwampData: state?.swamps?.currentSwampData,
         visibleSwampsChart: state?.swamps?.visibleSwampsChart,
-        swampsSurveyData: state?.swamps?.swampsSurveyData,
         selectedXKey: state?.swamps?.selectedXKey || 'time',
         selectedYKey: state?.swamps?.selectedYKey || '',
         availableXKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableXKeys || ['time'],
@@ -67,7 +87,8 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setVisibleSwampsChart: (visible) => dispatch(setVisibleSwampsChart(visible)),
-        setCurrentSwampsSurveySiteId: (siteId) => dispatch(setCurrentSwampsSurveySiteId(siteId)),
+        setCurrentSwampId: (siteId) => dispatch(setCurrentSwampId(siteId)),
+        clearCurrentSwamp: () => dispatch(clearCurrentSwamp()),
         setSelectedXKey: (xKey) => dispatch(setSelectedXKey(xKey)),
         setSelectedYKey: (yKey) => dispatch(setSelectedYKey(yKey))
     };

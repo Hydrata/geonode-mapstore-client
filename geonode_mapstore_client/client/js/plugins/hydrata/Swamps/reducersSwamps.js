@@ -1,71 +1,36 @@
 import {
     SET_VISIBLE_SWAMPS_CHART,
-    SET_CURRENT_SWAMPS_SURVEY_SITE_ID,
-    SAVE_SWAMPS_SURVEY_QUERY_TO_STORE,
+    SET_CURRENT_SWAMP_ID,
+    CLEAR_CURRENT_SWAMP,
+    SAVE_SWAMP_QUERY_TO_STORE,
     SET_SELECTED_X_KEY,
     SET_SELECTED_Y_KEY,
     REFRESH_PAGE
 } from "./actionsSwamps";
 
-const formatSwampData = (rawData) => {
-    // console.log('rawData: ', rawData);
-    const outputData = {};
-    rawData.map((site) => {
-        const siteId = site?.properties?.site_id;
-        outputData[siteId] = {data: []};
-        // let siteKeys = [];
-        let availableYKeys = [];
-        JSON.parse(site?.properties?.activities)?.map((activity) => {
-            const dataList = activity?.outputs?.[0]?.data?.dataList;
-            let keys = dataList.map(kv => kv.key);
-            let timeKey;
-            if (keys.indexOf('eventDate') > -1) {
-                timeKey = 'eventDate';
-            } else if (keys.indexOf('surveyDate') > -1) {
-                timeKey = 'surveyDate';
-            } else if (keys.indexOf('observationDate') > -1) {
-                timeKey = 'observationDate';
-            }
-            const datestring = dataList.filter(kv => kv.key === timeKey)[0].value;
-            const timestamp = Date.parse(datestring);
-            // console.log('test:', outputData[siteId].data.filter((d) => d.time === timestamp));
-            let dataPoint = outputData[siteId].data.filter((d) => d.time === timestamp)[0] || {};
-            // if (outputData[siteId].data.filter((d) => d.time === timestamp)) {
-            //     dataPoint = outputData[siteId].data.filter((d) => d.time === timestamp)[0];
-            // }
-            // console.log('dataPoint:', dataPoint);
-            dataPoint.time = timestamp;
-            keys.map((key) => {
-                const dataValue = dataList.filter(kv => kv.key === key)[0].value;
-                if (parseFloat(dataValue)) {
-                    dataPoint[key] = parseFloat(dataValue);
-                    if (availableYKeys.indexOf(key) === -1) {
-                        availableYKeys.push(key);
-                    }
-                }
-            });
-            outputData[siteId].data.push(dataPoint);
-        });
-        outputData[siteId].availableXKeys = ['time'];
-        outputData[siteId].availableYKeys = availableYKeys;
-    });
-    // console.log('outputData Final:', outputData);
-    return outputData;
+const initialState = {
+    currentSwampId: null,
+    currentSwampData: null
 };
 
-export default ( state = {}, action) => {
+export default ( state = initialState, action) => {
     // console.log(action);
     switch (action.type) {
-    case SET_CURRENT_SWAMPS_SURVEY_SITE_ID:
+    case SET_CURRENT_SWAMP_ID:
         return {
             ...state,
-            currentSwampsSurveySiteId: action.currentSwampsSurveySiteId
+            currentSwampId: action.currentSwampId
         };
-    case SAVE_SWAMPS_SURVEY_QUERY_TO_STORE:
+    case CLEAR_CURRENT_SWAMP:
         return {
             ...state,
-            swampsSurveyData: action.swampsSurveyData,
-            processedSwampsSurveyData: formatSwampData(action.swampsSurveyData)
+            currentSwampId: null,
+            currentSwampData: null
+        };
+    case SAVE_SWAMP_QUERY_TO_STORE:
+        return {
+            ...state,
+            currentSwampData: action.swampData
         };
     case SET_VISIBLE_SWAMPS_CHART:
         return {
@@ -84,6 +49,7 @@ export default ( state = {}, action) => {
         };
     case REFRESH_PAGE:
         window.location.reload(false);
+        return state;
     default:
         return state;
     }

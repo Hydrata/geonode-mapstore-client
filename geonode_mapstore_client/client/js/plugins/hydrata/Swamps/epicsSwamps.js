@@ -5,9 +5,9 @@ import {setLayer} from "../../../../MapStore2/web/client/actions/featuregrid";
 import {featureTypeSelected, query, FEATURE_TYPE_LOADED, QUERY_RESULT} from "../../../../MapStore2/web/client/actions/wfsquery";
 import {
     INIT_SWAMPS,
-    saveSwampsQueryToStore,
+    saveSwampQueryToStore,
     setVisibleSwampsChart,
-    setCurrentSwampsSurveySiteId,
+    setCurrentSwampId,
     refreshPage
 } from "./actionsSwamps";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
@@ -41,10 +41,10 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         })
         .mergeMap((action) => Rx.Observable.merge(
             Rx.Observable.of(setVisibleSwampsChart(true)),
-            Rx.Observable.of(setCurrentSwampsSurveySiteId(action?.data?.features?.[0]?.properties?.site_id)),
+            Rx.Observable.of(setCurrentSwampId(action?.data?.features?.[0]?.id)),
             Rx.Observable.of(closeIdentify()),
             Rx.Observable.of(setLayer(action?.layer.id)),
-            Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', "geonode:swamps_surveysite"))
+            Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', "geonode:" + action?.data?.features?.[0]?.id.split('.')[0]))
         ));
 
 
@@ -70,7 +70,7 @@ export const queryLayerAttributesToStoreStep2 = (action$, store) =>
                     }
                 },
                 {},
-                'swamps: get swamps_surveysite data'
+                'swamps: get bluemountains_thpss data'
             )
         ));
 
@@ -79,6 +79,10 @@ export const queryLayerAttributesToStoreStep3 = (action$, store) =>
     action$
         .ofType(QUERY_RESULT)
         .filter((action) => action?.reason === 'swamps: get bluemountains_thpss data')
-        .mergeMap((action) => Rx.Observable.of(
-            saveSwampsQueryToStore(action.result.features)
-        ));
+        .mergeMap((action) => {
+            const currentSwampId = store.getState().swamps?.currentSwampId;
+            return Rx.Observable.of(
+                saveSwampQueryToStore(action.result.features.filter((feature) => feature.id === currentSwampId)[0])
+            );
+        }
+        );
