@@ -3,6 +3,7 @@ import swamps from "./reducersSwamps";
 import swampsContainer from "./components/swampsContainer";
 import {
     initSwampsEpic,
+    refreshSwampsEpic,
     queryLayerAttributesToStoreStep1,
     queryLayerAttributesToStoreStep2,
     queryLayerAttributesToStoreStep3
@@ -15,6 +16,7 @@ export default createPlugin('Swamps', {
     },
     epics: {
         initSwampsEpic,
+        refreshSwampsEpic,
         queryLayerAttributesToStoreStep1,
         queryLayerAttributesToStoreStep2,
         queryLayerAttributesToStoreStep3

@@ -23,6 +23,7 @@ class SwampsContainer extends React.Component {
     }
 
     componentDidMount() {
+        this.props.initSwamps();
     }
 
     render() {
@@ -30,14 +31,15 @@ class SwampsContainer extends React.Component {
             <div id={"swamps-container"}>
                 {
                     this.props.visibleSwampsChart ?
-                        <SwampsChart/> :
-                        null
+                        <SwampsChart/>
+                        : null
                 }
-                {this.props.viewSwampsGroupId === this.props.openMenuGroupId ?
-                    <div>
-                        <SwampsControls/>
-                    </div>
-                    : null
+                {
+                    this.props.viewSwampsGroupId === this.props.openMenuGroupId ?
+                        <div>
+                            <SwampsControls/>
+                        </div>
+                        : null
                 }
             </div>
         );

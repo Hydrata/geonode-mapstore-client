@@ -1,6 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
+import {Grid, Col, Row, Button} from "react-bootstrap";
 import {setVisibleSwampsChart,
     setCurrentSwampId,
     clearCurrentSwamp,
@@ -51,17 +52,35 @@ class SwampsChartClass extends React.Component {
                     />
                 </div>
                 <div className="chart-mainbody">
-                    {
-                        this.props.currentSwampData?.properties ?
-                            (Object.entries(this.props.currentSwampData?.properties).map(([key, value]) => {
-                                return (
-                                    <div style={{textAlign: "left"}}>
-                                        {key}: {value}
-                                    </div>
-                                );
-                            })) :
-                            null
-                    }
+                    <Grid>
+                        <Col sm={2}>
+                            {
+                                this.props.currentSwampData?.properties ?
+                                    (Object.entries(this.props.currentSwampData?.properties).map(([key, value]) => {
+                                        return (
+                                            <div style={{textAlign: "left"}}>
+                                                {key}: {value}
+                                            </div>
+                                        );
+                                    })) :
+                                    null
+                            }
+                            {
+                                this.props.currentSwampData?.sites ?
+                                    (Object.entries(this.props.currentSwampData?.sites).map(([key, value]) => {
+                                        return (
+                                            <div style={{textAlign: "left"}}>
+                                                {key}: <pre>{JSON.stringify(value)}</pre>
+                                            </div>
+                                        );
+                                    })) :
+                                    null
+                            }
+                        </Col>
+                        <Col sm={10}>
+                            data
+                        </Col>
+                    </Grid>
                 </div>
                 <div className="chart-footer">
                     Footer

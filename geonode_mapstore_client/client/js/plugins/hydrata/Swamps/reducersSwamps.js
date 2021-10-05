@@ -1,11 +1,12 @@
 import {
     SET_VISIBLE_SWAMPS_CHART,
     SET_CURRENT_SWAMP_ID,
+    PROCESS_SURVEY_SITES,
     CLEAR_CURRENT_SWAMP,
     SAVE_SWAMP_QUERY_TO_STORE,
     SET_SELECTED_X_KEY,
     SET_SELECTED_Y_KEY,
-    REFRESH_PAGE
+    REFRESH_SWAMPS
 } from "./actionsSwamps";
 
 const initialState = {
@@ -30,12 +31,17 @@ export default ( state = initialState, action) => {
     case SAVE_SWAMP_QUERY_TO_STORE:
         return {
             ...state,
-            currentSwampData: action.swampData
+            currentSwampData: action.currentSwampData
         };
     case SET_VISIBLE_SWAMPS_CHART:
         return {
             ...state,
             visibleSwampsChart: action.visible
+        };
+    case PROCESS_SURVEY_SITES:
+        return {
+            ...state,
+            surveySites: action.surveySites
         };
     case SET_SELECTED_X_KEY:
         return {
@@ -47,8 +53,7 @@ export default ( state = initialState, action) => {
             ...state,
             selectedYKey: action.selectedYKey
         };
-    case REFRESH_PAGE:
-        window.location.reload(false);
+    case REFRESH_SWAMPS:
         return state;
     default:
         return state;

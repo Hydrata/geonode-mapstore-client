@@ -2,12 +2,12 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
-import {initSwamps} from "../actionsSwamps";
+import {refreshSwamps} from "../actionsSwamps";
 import '../swamps.css';
 
 class SwampsControlsClass extends React.Component {
     static propTypes = {
-        initSwamps: PropTypes.func,
+        refreshSwamps: PropTypes.func,
         swampGroupLength: PropTypes.number
     };
 
@@ -29,7 +29,7 @@ class SwampsControlsClass extends React.Component {
                                 bsStyle={'success'}
                                 bsSize={'xsmall'}
                                 style={{margin: "2px", borderRadius: "2px"}}
-                                onClick={() => {this.props.initSwamps();}}
+                                onClick={() => {this.props.refreshSwamps();}}
                             >
                                 Refresh Monitoring Data
                             </Button>
@@ -49,7 +49,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        initSwamps: () => dispatch(initSwamps())
+        refreshSwamps: () => dispatch(refreshSwamps())
     };
 };
 
