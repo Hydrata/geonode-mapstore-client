@@ -2,9 +2,13 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {Grid, Col, Row, Button} from "react-bootstrap";
+import moment from 'moment';
+const {ScatterChart, LineChart, Line, Scatter, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip, Brush} = require('recharts');
 import {setVisibleSwampsChart,
-    setCurrentSwampId,
-    clearCurrentSwamp,
+    setSelectedSwampId,
+    clearSelectedSwamp,
+    toggleSelectionOfSiteId,
+    toggleSelectionOfSurveyKey,
     setSelectedXKey,
     setSelectedYKey
 } from "../actionsSwamps";
@@ -13,18 +17,27 @@ import '../swamps.css';
 class SwampsChartClass extends React.Component {
     static propTypes = {
         setVisibleSwampsChart: PropTypes.func,
-        setCurrentSwampId: PropTypes.func,
-        clearCurrentSwamp: PropTypes.func,
         visibleSwampsChart: PropTypes.bool,
-        currentSwampId: PropTypes.string,
-        currentSwampData: PropTypes.object,
-        lineChartData: PropTypes.array,
+        setSelectedSwampId: PropTypes.func,
+        clearSelectedSwamp: PropTypes.func,
+        selectedSwampId: PropTypes.string,
+        selectedSwampData: PropTypes.object,
+        toggleSelectionOfSiteId: PropTypes.func,
+        toggleSelectionOfSurveyKey: PropTypes.func,
+        availableSites: PropTypes.array,
+        availableSurveys: PropTypes.array,
+        selectedSiteIds: PropTypes.array,
+        selectedActivities: PropTypes.object,
+        lineChartsData: PropTypes.array,
         setSelectedXKey: PropTypes.func,
         setSelectedYKey: PropTypes.func,
         availableXKeys: PropTypes.array,
         availableYKeys: PropTypes.array,
         selectedXKey: PropTypes.string,
-        selectedYKey: PropTypes.string
+        selectedYKey: PropTypes.string,
+        data1: PropTypes.array,
+        data2: PropTypes.array,
+        data3: PropTypes.array
     };
 
     static defaultProps = {}
@@ -34,51 +47,114 @@ class SwampsChartClass extends React.Component {
         this.state = {};
     }
 
-
     render() {
         return (
             <div id={'swamps-chart'}>
                 <div className="chart-header">
                     <h2 style={{display: "inline"}}>
-                        id: {this.props.currentSwampId?.split('.')[1]}
+                        Swamp ID: {this.props.selectedSwampId?.split('.')[1]} {this.props.selectedSwampData?.name}
                     </h2>
                     <span
                         className={"pull-right btn glyphicon glyphicon-remove"}
                         style={{color: "red", right: "-10px", top: "-10px"}}
                         onClick={() => {
-                            this.props.clearCurrentSwamp();
+                            this.props.clearSelectedSwamp();
                             this.props.setVisibleSwampsChart(false);
                         }}
                     />
                 </div>
                 <div className="chart-mainbody">
-                    <Grid>
-                        <Col sm={2}>
-                            {
-                                this.props.currentSwampData?.properties ?
-                                    (Object.entries(this.props.currentSwampData?.properties).map(([key, value]) => {
+                    <Grid style={{width: "100%"}}>
+                        <Col sm={2} className={'chart-sidebar'} style={{maxWidth: "250px"}}>
+                            <Row>
+                                <h4 style={{marginTop: '20px'}}>Select Survey Sites:</h4>
+                                {
+                                    this.props.availableSites.map((site) => {
                                         return (
-                                            <div style={{textAlign: "left"}}>
-                                                {key}: {value}
-                                            </div>
+                                            <Button
+                                                bsStyle="success"
+                                                bsSize="xsmall"
+                                                block
+                                                style={{
+                                                    backgroundColor: this.props.selectedSiteIds?.includes(site.site_id) ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
+                                                    marginTop: "4px",
+                                                    fontSize: "x-small",
+                                                    borderRadius: "3px"
+                                                }}
+                                                onClick={() => this.props.toggleSelectionOfSiteId(site?.site_id)}>
+                                                {site?.name}
+                                            </Button>
                                         );
-                                    })) :
-                                    null
-                            }
-                            {
-                                this.props.currentSwampData?.sites ?
-                                    (Object.entries(this.props.currentSwampData?.sites).map(([key, value]) => {
+                                    })
+                                }
+                                <h4 style={{marginTop: '20px'}}>Select Survey Types:</h4>
+                                {
+                                    Object.entries(this.props.selectedActivities).map(([key, value]) => {
                                         return (
-                                            <div style={{textAlign: "left"}}>
-                                                {key}: <pre>{JSON.stringify(value)}</pre>
-                                            </div>
+                                            <Button
+                                                bsStyle="success"
+                                                bsSize="xsmall"
+                                                block
+                                                style={{
+                                                    backgroundColor: this.props.availableSurveys?.includes(key) ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
+                                                    marginTop: "4px",
+                                                    fontSize: "x-small",
+                                                    borderRadius: "3px"
+                                                }}
+                                                onClick={() => this.props.toggleSelectionOfSurveyKey(key)}>
+                                                {key}
+                                            </Button>
                                         );
-                                    })) :
-                                    null
-                            }
+                                    })
+                                }
+                            </Row>
                         </Col>
                         <Col sm={10}>
-                            data
+                            {
+                                this.props.lineChartsData?.map((dataset) => {
+                                    return (
+                                        <ResponsiveContainer width="95%" height={400} >
+                                            <LineChart
+                                                width={500}
+                                                height={400}
+                                                syncId="swampCharts"
+                                                data={dataset}
+                                            >
+                                                <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                                                <XAxis
+                                                    dataKey={this.props.selectedXKey}
+                                                    domain={['auto', 'auto']}
+                                                    name={this.props.selectedXKey}
+                                                    tickFormatter={(unixTime) => moment(unixTime).format('Do MMM YYYY')}
+                                                    type="number"
+                                                    unit="time"
+                                                    label="XAxisLabel"
+                                                />
+                                                <YAxis
+                                                    yAxisId={'left'}
+                                                    type="number"
+                                                    dataKey={'value1'}
+                                                    name={'value1'}
+                                                    orientation="left"
+                                                    stroke="#175582"
+                                                    label="YAxisLabel"
+                                                />
+                                                <Line
+                                                    yAxisId={'left'}
+                                                    dataKey={'value1'}
+                                                    line={{ stroke: '#82ca9d' }}
+                                                    shape="circle"
+                                                    fill="#82ca9d"
+                                                    lineType="joint"
+                                                    name={'value1'}
+                                                />
+                                                <Tooltip />
+                                                <Brush/>
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    );
+                                })
+                            }
                         </Col>
                     </Grid>
                 </div>
@@ -90,26 +166,45 @@ class SwampsChartClass extends React.Component {
     }
 }
 
+const data1 = [
+    { date: new Date(2019, 4, 30).getTime(), value1: 5000, value2: 6000 },
+    { date: new Date(2019, 5, 30).getTime(), value1: 4000, value2: 3000 },
+    { date: new Date(2019, 6, 21).getTime(), value1: 6000, value2: 8000 },
+    { date: new Date(2019, 6, 28).getTime(), value1: 2000, value2: 3000 }
+];
+const data2 = [
+    { date: new Date(2019, 4, 30).getTime(), value1: 6000 },
+    { date: new Date(2019, 5, 15).getTime(), value1: 5000 },
+    { date: new Date(2019, 6, 21).getTime(), value1: 7000 },
+    { date: new Date(2019, 6, 28).getTime(), value1: 3000 }
+];
+
 const mapStateToProps = (state) => {
     return {
-        currentSwampId: state?.swamps?.currentSwampId,
-        currentSwampData: state?.swamps?.currentSwampData,
+        selectedSwampId: state?.swamps?.selectedSwampId,
+        selectedSwampData: state?.swamps?.selectedSwampData,
         visibleSwampsChart: state?.swamps?.visibleSwampsChart,
-        selectedXKey: state?.swamps?.selectedXKey || 'time',
-        selectedYKey: state?.swamps?.selectedYKey || '',
+        selectedXKey: state?.swamps?.selectedXKey || 'date',
+        selectedYKey: state?.swamps?.selectedYKey || 'value1',
         availableXKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableXKeys || ['time'],
         availableYKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableYKeys || [],
-        lineChartData: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.data || []
+        lineChartsData: [data1],
+        availableSites: state?.swamps?.selectedSwampData?.sites || [],
+        selectedSiteIds: state?.swamps?.selectedSiteIds || [],
+        availableSurveys: state?.swamps?.availableSurveys || [],
+        selectedActivities: state?.swamps?.selectedActivities || {}
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setVisibleSwampsChart: (visible) => dispatch(setVisibleSwampsChart(visible)),
-        setCurrentSwampId: (siteId) => dispatch(setCurrentSwampId(siteId)),
-        clearCurrentSwamp: () => dispatch(clearCurrentSwamp()),
+        setSelectedSwampId: (siteId) => dispatch(setSelectedSwampId(siteId)),
+        clearSelectedSwamp: () => dispatch(clearSelectedSwamp()),
         setSelectedXKey: (xKey) => dispatch(setSelectedXKey(xKey)),
-        setSelectedYKey: (yKey) => dispatch(setSelectedYKey(yKey))
+        setSelectedYKey: (yKey) => dispatch(setSelectedYKey(yKey)),
+        toggleSelectionOfSiteId: (siteId) => dispatch(toggleSelectionOfSiteId(siteId)),
+        toggleSelectionOfSurveyKey: (surveyKey) => dispatch(toggleSelectionOfSurveyKey(surveyKey))
     };
 };
 

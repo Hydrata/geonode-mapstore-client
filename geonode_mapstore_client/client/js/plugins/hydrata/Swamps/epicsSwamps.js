@@ -14,7 +14,7 @@ import {
     REFRESH_SWAMPS,
     saveSwampQueryToStore,
     setVisibleSwampsChart,
-    setCurrentSwampId,
+    setSelectedSwampId,
     processSurveySites
 } from "./actionsSwamps";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
@@ -66,7 +66,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         })
         .mergeMap((action) => Rx.Observable.merge(
             Rx.Observable.of(setVisibleSwampsChart(true)),
-            Rx.Observable.of(setCurrentSwampId(action?.data?.features?.[0]?.id)),
+            Rx.Observable.of(setSelectedSwampId(action?.data?.features?.[0]?.id)),
             Rx.Observable.of(closeIdentify()),
             Rx.Observable.of(setLayer(action?.layer.id)),
             Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', "geonode:" + action?.data?.features?.[0]?.id.split('.')[0]))
@@ -107,12 +107,12 @@ export const queryLayerAttributesToStoreStep3 = (action$, store) =>
         .filter((action) => action?.reason === 'swamps: get bluemountains_thpss data')
         .mergeMap((action) => {
             console.log('queryLayerAttributesToStoreStep3', action);
-            const currentSwampId = store.getState().swamps?.currentSwampId;
-            const currentSwampIdInt = parseInt(currentSwampId.split('.')[1], 10);
-            const currentSwampData = action.result.features.filter((feature) => feature.id === currentSwampId)[0];
-            currentSwampData.sites = store.getState().swamps?.surveySites?.filter((site) => site?.swamp === currentSwampIdInt);
+            const selectedSwampId = store.getState().swamps?.selectedSwampId;
+            const selectedSwampIdInt = parseInt(selectedSwampId.split('.')[1], 10);
+            const selectedSwampData = action.result.features.filter((feature) => feature.id === selectedSwampId)[0];
+            selectedSwampData.sites = store.getState().swamps?.surveySites?.filter((site) => site?.swamp === selectedSwampIdInt);
             return Rx.Observable.of(
-                saveSwampQueryToStore(currentSwampData)
+                saveSwampQueryToStore(selectedSwampData)
             );
         }
         );
