@@ -72,8 +72,6 @@ export default ( state = initialState, action) => {
             newSelectedSurveyTypeKeys = [...state.selectedSurveyTypeKeys, action.selectedSurveyTypeKey];
         }
         let flattenedSelectedActivites = {};
-        // console.log('*', filteredSurveySites);
-        // console.log('**', selectedActivities);
         // now get the actual activities data for graphing:
         let selectedSurveyTypes = {};
         newSelectedSurveyTypeKeys.map((surveyTypeKey) => {
@@ -84,30 +82,28 @@ export default ( state = initialState, action) => {
             flattenedSelectedActivites[key] = [...new Set([].concat.apply([], cleanValue))];
         });
         let availableActivityFields = [];
-        console.log('***', flattenedSelectedActivites);
-        let excludedFields = ['status', 'location'];
+        let excludedFields = ['status', 'location', 'entry_date'];
         let formattedSelectedActivites = [];
         for (let surveyType in flattenedSelectedActivites) {
             if (flattenedSelectedActivites.hasOwnProperty(surveyType)) {
-                console.log(surveyType);
-                console.log(flattenedSelectedActivites[surveyType]);
                 formattedSelectedActivites = flattenedSelectedActivites[surveyType].map((activity) => {
                     for (let field in activity.fields) {
                         if (activity.fields.hasOwnProperty(field) && !excludedFields.includes(field)) {
-                            // console.log('field:', field);
                             activity[field] = activity.fields[field];
                             if (!availableActivityFields.includes(field)) {
                                 availableActivityFields.push(field);
                             }
-                            // activity[Object.keys(field)] = Object.valueOf(field);
                         }
                     }
-                    console.log('activity', activity);
+                    console.log('*activity', activity);
+                    const activitySurveyDateTime = activity.survey_date_time;
+                    console.log('*activitySurveyDateTime', activitySurveyDateTime);
                     const unixSurveyDateTime = moment.utc(activity.survey_date_time.slice(0, -1)).unix();
-                    console.log('unixSurveyDateTime', unixSurveyDateTime);
+                    console.log('*unixSurveyDateTime', unixSurveyDateTime);
                     activity.unix_survey_date_time = unixSurveyDateTime;
-                    // delete activity.fields;
-                    // delete activity.survey_date_time;
+                    const jsSurveyDateTime = new Date(activitySurveyDateTime).getTime();
+                    console.log('*jsSurveyDateTime', jsSurveyDateTime);
+                    activity.js_survey_date_time = jsSurveyDateTime;
                     return activity;
                 });
             }

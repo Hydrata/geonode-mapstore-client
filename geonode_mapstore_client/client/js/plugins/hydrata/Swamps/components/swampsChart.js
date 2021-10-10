@@ -136,7 +136,7 @@ class SwampsChartClass extends React.Component {
                             </Row>
                         </Col>
                         <Col sm={10}>
-                            <ResponsiveContainer width="95%" height={400} >
+                            <ResponsiveContainer width="95%" height={600} >
                                 <LineChart
                                     width={500}
                                     height={400}
@@ -148,10 +148,10 @@ class SwampsChartClass extends React.Component {
                                         dataKey={this.props.selectedXKey}
                                         domain={['auto', 'auto']}
                                         name={this.props.selectedXKey}
-                                        tickFormatter={(unixTime) => moment(unixTime).format('Do MMM YYYY')}
+                                        tickFormatter = {(unixTime) => moment(unixTime).format('DD MMM YYYY')}
+                                        tickCount={10}
                                         type="number"
                                         unit="time"
-                                        label="XAxisLabel"
                                     />
                                     <YAxis
                                         yAxisId={'left'}
@@ -164,15 +164,17 @@ class SwampsChartClass extends React.Component {
                                     />
                                     <Line
                                         yAxisId={'left'}
+                                        isAnimationActive={false}
                                         dataKey={this.props.selectedYKey}
-                                        line={{ stroke: '#175582' }}
+                                        strokeWidth={0}
                                         shape="circle"
                                         fill="#175582"
                                         lineType="joint"
                                         name={this.props.selectedYKey}
                                     />
-                                    <Tooltip />
-                                    <Brush/>
+                                    <Tooltip
+                                        labelFormatter={(unixTime) => moment(unixTime).format('DD MMM YYYY HH:MM:SS')}
+                                    />
                                 </LineChart>
                             </ResponsiveContainer>
                         </Col>
@@ -186,25 +188,12 @@ class SwampsChartClass extends React.Component {
     }
 }
 
-const data1 = [
-    { date: new Date(2019, 4, 30).getTime(), value1: 5000, value2: 6000 },
-    { date: new Date(2019, 5, 30).getTime(), value1: 4000, value2: 3000 },
-    { date: new Date(2019, 6, 21).getTime(), value1: 6000, value2: 8000 },
-    { date: new Date(2019, 6, 28).getTime(), value1: 2000, value2: 3000 }
-];
-const data2 = [
-    { date: new Date(2019, 4, 30).getTime(), value1: 6000 },
-    { date: new Date(2019, 5, 15).getTime(), value1: 5000 },
-    { date: new Date(2019, 6, 21).getTime(), value1: 7000 },
-    { date: new Date(2019, 6, 28).getTime(), value1: 3000 }
-];
-
 const mapStateToProps = (state) => {
     return {
         selectedSwampId: state?.swamps?.selectedSwampId,
         selectedSwampData: state?.swamps?.selectedSwampData,
         visibleSwampsChart: state?.swamps?.visibleSwampsChart,
-        selectedXKey: state?.swamps?.selectedXKey || 'unix_survey_date_time',
+        selectedXKey: state?.swamps?.selectedXKey || 'js_survey_date_time',
         selectedYKey: state?.swamps?.selectedYKey || 'value1',
         availableXKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableXKeys || ['time'],
         availableYKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableYKeys || [],
@@ -235,3 +224,17 @@ const SwampsChart = connect(mapStateToProps, mapDispatchToProps)(SwampsChartClas
 
 
 export default SwampsChart;
+
+
+class CustomizedAxisTick extends React.PureComponent {
+    render() {
+        const { x, y, stroke, payload } = this.props;
+        return (
+            <g transform={`translate(${x},${y})`}>
+                <text x={100} y={10} dy={0} textAnchor="end" fill="#666" transform="rotate(-90)">
+                    {payload.value}
+                </text>
+            </g>
+        );
+    }
+}
