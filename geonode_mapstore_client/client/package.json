@@ -35,7 +35,8 @@
     "dompurify": "2.2.6",
     "js-cookie": "2.2.1",
     "mapstore": "file:MapStore2",
-    "react-bootstrap-v1": "npm:react-bootstrap@1.3.0"
+    "react-bootstrap-v1": "npm:react-bootstrap@1.3.0",
+    "recharts": "2.1.4"
   },
   "geonode": {
     "devServer": {

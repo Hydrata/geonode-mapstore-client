@@ -1,3 +1,4 @@
+import moment from 'moment';
 import {
     SET_VISIBLE_SWAMPS_CHART,
     SET_SELECTED_SWAMP_ID,
@@ -5,7 +6,7 @@ import {
     CLEAR_SELECTED_SWAMP,
     SAVE_SWAMP_QUERY_TO_STORE,
     TOGGLE_SELECTION_OF_SITE_ID,
-    TOGGLE_SELECTION_OF_SURVEY_KEY,
+    TOGGLE_SELECTION_OF_SURVEY_TYPE_KEY,
     SET_SELECTED_X_KEY,
     SET_SELECTED_Y_KEY,
     REFRESH_SWAMPS
@@ -16,7 +17,11 @@ const initialState = {
     selectedSwampData: null,
     availableSites: [],
     selectedSiteIds: [],
-    selectedSurveyIds: []
+    selectedSurveyIds: [],
+    availableSurveyTypeKeys: [],
+    selectedSurveyTypeKeys: [],
+    availableActivityFields: [],
+    selectedActivityField: null
 };
 
 export default ( state = initialState, action) => {
@@ -47,30 +52,77 @@ export default ( state = initialState, action) => {
             newSelectedSiteIds = [...state.selectedSiteIds, action.selectedSiteId];
         }
         // now find the activities available on these sites so the user can select them:
-        const filteredSurveySites = state.surveySites
+        const availableSurveySites = state.surveySites
             .filter(site => newSelectedSiteIds.includes(site.site_id));
-        const _newAvailableSurveyKeys = filteredSurveySites
+        const _newAvailableSurveyTypeKeys = availableSurveySites
             .map((site) => Object.keys(site.activities));
-        let newAvailableSurveyKeys = [...new Set([].concat.apply([], _newAvailableSurveyKeys))];
-        // now get the actual activities data for graphing:
-        let selectedActivities = {};
-        newAvailableSurveyKeys.map((surveyKey) => {
-            selectedActivities[surveyKey] = filteredSurveySites.map((site) => site.activities[surveyKey]);
-        });
-        let flattenedSelectedActivites = {};
-        Object.entries(selectedActivities).forEach(([key, value]) => {
-            const cleanValue = value.filter((obj) => obj !== undefined);
-            flattenedSelectedActivites[key] = [...new Set([].concat.apply([], cleanValue))];
-        });
+        let newAvailableSurveyTypeKeys = [...new Set([].concat.apply([], _newAvailableSurveyTypeKeys))];
         return {
             ...state,
             selectedSiteIds: newSelectedSiteIds,
-            availableSurveyKeys: newAvailableSurveyKeys,
-            selectedActivities: flattenedSelectedActivites
+            availableSurveyTypeKeys: newAvailableSurveyTypeKeys,
+            availableSurveySites: availableSurveySites
         };
-    case TOGGLE_SELECTION_OF_SURVEY_KEY:
+    case TOGGLE_SELECTION_OF_SURVEY_TYPE_KEY:
+        // add or remove the surveyTypeKey:
+        let newSelectedSurveyTypeKeys;
+        if (state.selectedSurveyTypeKeys.includes(action.selectedSurveyTypeKey)) {
+            newSelectedSurveyTypeKeys = state.selectedSurveyTypeKeys.filter(item => item !== action.selectedSurveyTypeKey);
+        } else {
+            newSelectedSurveyTypeKeys = [...state.selectedSurveyTypeKeys, action.selectedSurveyTypeKey];
+        }
+        let flattenedSelectedActivites = {};
+        // console.log('*', filteredSurveySites);
+        // console.log('**', selectedActivities);
+        // now get the actual activities data for graphing:
+        let selectedSurveyTypes = {};
+        newSelectedSurveyTypeKeys.map((surveyTypeKey) => {
+            selectedSurveyTypes[surveyTypeKey] = state.availableSurveySites.map((site) => site.activities[surveyTypeKey]);
+        });
+        Object.entries(selectedSurveyTypes).forEach(([key, value]) => {
+            const cleanValue = value.filter((obj) => obj !== undefined);
+            flattenedSelectedActivites[key] = [...new Set([].concat.apply([], cleanValue))];
+        });
+        let availableActivityFields = [];
+        console.log('***', flattenedSelectedActivites);
+        let excludedFields = ['status', 'location'];
+        let formattedSelectedActivites = [];
+        for (let surveyType in flattenedSelectedActivites) {
+            if (flattenedSelectedActivites.hasOwnProperty(surveyType)) {
+                console.log(surveyType);
+                console.log(flattenedSelectedActivites[surveyType]);
+                formattedSelectedActivites = flattenedSelectedActivites[surveyType].map((activity) => {
+                    for (let field in activity.fields) {
+                        if (activity.fields.hasOwnProperty(field) && !excludedFields.includes(field)) {
+                            // console.log('field:', field);
+                            activity[field] = activity.fields[field];
+                            if (!availableActivityFields.includes(field)) {
+                                availableActivityFields.push(field);
+                            }
+                            // activity[Object.keys(field)] = Object.valueOf(field);
+                        }
+                    }
+                    console.log('activity', activity);
+                    const unixSurveyDateTime = moment.utc(activity.survey_date_time.slice(0, -1)).unix();
+                    console.log('unixSurveyDateTime', unixSurveyDateTime);
+                    activity.unix_survey_date_time = unixSurveyDateTime;
+                    // delete activity.fields;
+                    // delete activity.survey_date_time;
+                    return activity;
+                });
+            }
+        }
+        const cleanedSelectedActivites = formattedSelectedActivites
+            .map((activity) => {
+                delete activity.fields;
+                delete activity.survey_date_time;
+                return activity;
+            });
         return {
-            ...state
+            ...state,
+            selectedSurveyTypeKeys: newSelectedSurveyTypeKeys,
+            selectedActivities: cleanedSelectedActivites,
+            availableActivityFields: availableActivityFields
         };
     case SET_VISIBLE_SWAMPS_CHART:
         return {

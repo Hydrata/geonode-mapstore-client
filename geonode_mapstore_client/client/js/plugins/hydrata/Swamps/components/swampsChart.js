@@ -8,7 +8,7 @@ import {setVisibleSwampsChart,
     setSelectedSwampId,
     clearSelectedSwamp,
     toggleSelectionOfSiteId,
-    toggleSelectionOfSurveyKey,
+    toggleSelectionOfSurveyTypeKey,
     setSelectedXKey,
     setSelectedYKey
 } from "../actionsSwamps";
@@ -23,12 +23,15 @@ class SwampsChartClass extends React.Component {
         selectedSwampId: PropTypes.string,
         selectedSwampData: PropTypes.object,
         toggleSelectionOfSiteId: PropTypes.func,
-        toggleSelectionOfSurveyKey: PropTypes.func,
+        toggleSelectionOfSurveyTypeKey: PropTypes.func,
         availableSites: PropTypes.array,
-        availableSurveys: PropTypes.array,
+        availableSurveyTypeKeys: PropTypes.array,
+        selectedSurveyTypeKeys: PropTypes.array,
         selectedSiteIds: PropTypes.array,
         selectedActivities: PropTypes.object,
-        lineChartsData: PropTypes.array,
+        availableActivityFields: PropTypes.array,
+        selectedActivityFields: PropTypes.array,
+        selectedActivites: PropTypes.array,
         setSelectedXKey: PropTypes.func,
         setSelectedYKey: PropTypes.func,
         availableXKeys: PropTypes.array,
@@ -76,7 +79,8 @@ class SwampsChartClass extends React.Component {
                                                 bsSize="xsmall"
                                                 block
                                                 style={{
-                                                    backgroundColor: this.props.selectedSiteIds?.includes(site.site_id) ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
+                                                    backgroundColor: this.props.selectedSiteIds?.includes(site.site_id) ? "#175582ff" : "#175582aa",
+                                                    borderColor: "#175582ff",
                                                     marginTop: "4px",
                                                     fontSize: "x-small",
                                                     borderRadius: "3px"
@@ -89,20 +93,42 @@ class SwampsChartClass extends React.Component {
                                 }
                                 <h4 style={{marginTop: '20px'}}>Select Survey Types:</h4>
                                 {
-                                    Object.entries(this.props.selectedActivities).map(([key, value]) => {
+                                    this.props.availableSurveyTypeKeys.map((surveyTypeKey) => {
                                         return (
                                             <Button
                                                 bsStyle="success"
                                                 bsSize="xsmall"
                                                 block
                                                 style={{
-                                                    backgroundColor: this.props.availableSurveys?.includes(key) ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
+                                                    backgroundColor: this.props.selectedSurveyTypeKeys?.includes(surveyTypeKey) ? "#175582ff" : "#175582aa",
+                                                    borderColor: "#175582ff",
                                                     marginTop: "4px",
                                                     fontSize: "x-small",
                                                     borderRadius: "3px"
                                                 }}
-                                                onClick={() => this.props.toggleSelectionOfSurveyKey(key)}>
-                                                {key}
+                                                onClick={() => this.props.toggleSelectionOfSurveyTypeKey(surveyTypeKey)}>
+                                                {surveyTypeKey}
+                                            </Button>
+                                        );
+                                    })
+                                }
+                                <h4 style={{marginTop: '20px'}}>Select Survey Attribute:</h4>
+                                {
+                                    this.props.availableActivityFields.map((field) => {
+                                        return (
+                                            <Button
+                                                bsStyle="success"
+                                                bsSize="xsmall"
+                                                block
+                                                style={{
+                                                    backgroundColor: this.props.selectedYKey === field ? "#175582ff" : "#175582aa",
+                                                    borderColor: "#175582ff",
+                                                    marginTop: "4px",
+                                                    fontSize: "x-small",
+                                                    borderRadius: "3px"
+                                                }}
+                                                onClick={() => this.props.setSelectedYKey(field)}>
+                                                {field}
                                             </Button>
                                         );
                                     })
@@ -110,51 +136,45 @@ class SwampsChartClass extends React.Component {
                             </Row>
                         </Col>
                         <Col sm={10}>
-                            {
-                                this.props.lineChartsData?.map((dataset) => {
-                                    return (
-                                        <ResponsiveContainer width="95%" height={400} >
-                                            <LineChart
-                                                width={500}
-                                                height={400}
-                                                syncId="swampCharts"
-                                                data={dataset}
-                                            >
-                                                <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-                                                <XAxis
-                                                    dataKey={this.props.selectedXKey}
-                                                    domain={['auto', 'auto']}
-                                                    name={this.props.selectedXKey}
-                                                    tickFormatter={(unixTime) => moment(unixTime).format('Do MMM YYYY')}
-                                                    type="number"
-                                                    unit="time"
-                                                    label="XAxisLabel"
-                                                />
-                                                <YAxis
-                                                    yAxisId={'left'}
-                                                    type="number"
-                                                    dataKey={'value1'}
-                                                    name={'value1'}
-                                                    orientation="left"
-                                                    stroke="#175582"
-                                                    label="YAxisLabel"
-                                                />
-                                                <Line
-                                                    yAxisId={'left'}
-                                                    dataKey={'value1'}
-                                                    line={{ stroke: '#82ca9d' }}
-                                                    shape="circle"
-                                                    fill="#82ca9d"
-                                                    lineType="joint"
-                                                    name={'value1'}
-                                                />
-                                                <Tooltip />
-                                                <Brush/>
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    );
-                                })
-                            }
+                            <ResponsiveContainer width="95%" height={400} >
+                                <LineChart
+                                    width={500}
+                                    height={400}
+                                    syncId="swampCharts"
+                                    data={this.props.selectedActivities}
+                                >
+                                    <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                                    <XAxis
+                                        dataKey={this.props.selectedXKey}
+                                        domain={['auto', 'auto']}
+                                        name={this.props.selectedXKey}
+                                        tickFormatter={(unixTime) => moment(unixTime).format('Do MMM YYYY')}
+                                        type="number"
+                                        unit="time"
+                                        label="XAxisLabel"
+                                    />
+                                    <YAxis
+                                        yAxisId={'left'}
+                                        type="number"
+                                        dataKey={this.props.selectedYKey}
+                                        name={this.props.selectedYKey}
+                                        orientation="left"
+                                        stroke="#175582"
+                                        label="YAxisLabel"
+                                    />
+                                    <Line
+                                        yAxisId={'left'}
+                                        dataKey={this.props.selectedYKey}
+                                        line={{ stroke: '#175582' }}
+                                        shape="circle"
+                                        fill="#175582"
+                                        lineType="joint"
+                                        name={this.props.selectedYKey}
+                                    />
+                                    <Tooltip />
+                                    <Brush/>
+                                </LineChart>
+                            </ResponsiveContainer>
                         </Col>
                     </Grid>
                 </div>
@@ -184,15 +204,18 @@ const mapStateToProps = (state) => {
         selectedSwampId: state?.swamps?.selectedSwampId,
         selectedSwampData: state?.swamps?.selectedSwampData,
         visibleSwampsChart: state?.swamps?.visibleSwampsChart,
-        selectedXKey: state?.swamps?.selectedXKey || 'date',
+        selectedXKey: state?.swamps?.selectedXKey || 'unix_survey_date_time',
         selectedYKey: state?.swamps?.selectedYKey || 'value1',
         availableXKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableXKeys || ['time'],
         availableYKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableYKeys || [],
-        lineChartsData: [data1],
         availableSites: state?.swamps?.selectedSwampData?.sites || [],
         selectedSiteIds: state?.swamps?.selectedSiteIds || [],
-        availableSurveys: state?.swamps?.availableSurveys || [],
-        selectedActivities: state?.swamps?.selectedActivities || {}
+        availableSurveyTypeKeys: state?.swamps?.availableSurveyTypeKeys || [],
+        selectedSurveyTypeKeys: state?.swamps?.selectedSurveyTypeKeys || [],
+        selectedActivities: state?.swamps?.selectedActivities || {},
+        availableActivityFields: state?.swamps?.availableActivityFields || [],
+        selectedActivityFields: state?.swamps?.selectedActivityFields || [],
+        selectedActivites: state?.swamps?.selectedActivites || []
     };
 };
 
@@ -204,7 +227,7 @@ const mapDispatchToProps = ( dispatch ) => {
         setSelectedXKey: (xKey) => dispatch(setSelectedXKey(xKey)),
         setSelectedYKey: (yKey) => dispatch(setSelectedYKey(yKey)),
         toggleSelectionOfSiteId: (siteId) => dispatch(toggleSelectionOfSiteId(siteId)),
-        toggleSelectionOfSurveyKey: (surveyKey) => dispatch(toggleSelectionOfSurveyKey(surveyKey))
+        toggleSelectionOfSurveyTypeKey: (surveyKey) => dispatch(toggleSelectionOfSurveyTypeKey(surveyKey))
     };
 };
 

@@ -8,7 +8,7 @@ const SET_SELECTED_X_KEY = 'SET_SELECTED_X_KEY';
 const SET_SELECTED_Y_KEY = 'SET_SELECTED_Y_KEY';
 const REFRESH_SWAMPS = 'REFRESH_SWAMPS';
 const TOGGLE_SELECTION_OF_SITE_ID = 'TOGGLE_SELECTION_OF_SITE_ID';
-const TOGGLE_SELECTION_OF_SURVEY_KEY = 'TOGGLE_SELECTION_OF_SURVEY_KEY';
+const TOGGLE_SELECTION_OF_SURVEY_TYPE_KEY = 'TOGGLE_SELECTION_OF_SURVEY_TYPE_KEY';
 
 function initSwamps() {
     return {
@@ -64,10 +64,10 @@ function toggleSelectionOfSiteId(siteId) {
     };
 }
 
-function toggleSelectionOfSurveyKey(surveyKey) {
+function toggleSelectionOfSurveyTypeKey(surveyTypeKey) {
     return {
-        type: TOGGLE_SELECTION_OF_SURVEY_KEY,
-        selectedSurveyKey: surveyKey
+        type: TOGGLE_SELECTION_OF_SURVEY_TYPE_KEY,
+        selectedSurveyTypeKey: surveyTypeKey
     };
 }
 
@@ -92,7 +92,7 @@ module.exports = {
     SET_SELECTED_SWAMP_ID, setSelectedSwampId,
     CLEAR_SELECTED_SWAMP, clearSelectedSwamp,
     TOGGLE_SELECTION_OF_SITE_ID, toggleSelectionOfSiteId,
-    TOGGLE_SELECTION_OF_SURVEY_KEY, toggleSelectionOfSurveyKey,
+    TOGGLE_SELECTION_OF_SURVEY_TYPE_KEY, toggleSelectionOfSurveyTypeKey,
     SAVE_SWAMP_QUERY_TO_STORE, saveSwampQueryToStore,
     SET_SELECTED_X_KEY, setSelectedXKey,
     SET_SELECTED_Y_KEY, setSelectedYKey
