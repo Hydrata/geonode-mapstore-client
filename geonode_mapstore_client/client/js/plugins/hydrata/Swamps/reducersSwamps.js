@@ -61,7 +61,10 @@ export default ( state = initialState, action) => {
             ...state,
             selectedSiteIds: newSelectedSiteIds,
             availableSurveyTypeKeys: newAvailableSurveyTypeKeys,
-            availableSurveySites: availableSurveySites
+            availableSurveySites: availableSurveySites,
+            selectedSurveyTypeKeys: [],
+            selectedActivities: [],
+            availableActivityFields: []
         };
     case TOGGLE_SELECTION_OF_SURVEY_TYPE_KEY:
         // add or remove the surveyTypeKey:
@@ -82,42 +85,27 @@ export default ( state = initialState, action) => {
             flattenedSelectedActivites[key] = [...new Set([].concat.apply([], cleanValue))];
         });
         let availableActivityFields = [];
-        let excludedFields = ['status', 'location', 'entry_date'];
         let formattedSelectedActivites = [];
         for (let surveyType in flattenedSelectedActivites) {
             if (flattenedSelectedActivites.hasOwnProperty(surveyType)) {
                 formattedSelectedActivites = flattenedSelectedActivites[surveyType].map((activity) => {
                     for (let field in activity.fields) {
-                        if (activity.fields.hasOwnProperty(field) && !excludedFields.includes(field)) {
+                        if (activity.fields.hasOwnProperty(field)) {
                             activity[field] = activity.fields[field];
                             if (!availableActivityFields.includes(field)) {
                                 availableActivityFields.push(field);
                             }
                         }
                     }
-                    console.log('*activity', activity);
-                    const activitySurveyDateTime = activity.survey_date_time;
-                    console.log('*activitySurveyDateTime', activitySurveyDateTime);
-                    const unixSurveyDateTime = moment.utc(activity.survey_date_time.slice(0, -1)).unix();
-                    console.log('*unixSurveyDateTime', unixSurveyDateTime);
-                    activity.unix_survey_date_time = unixSurveyDateTime;
-                    const jsSurveyDateTime = new Date(activitySurveyDateTime).getTime();
-                    console.log('*jsSurveyDateTime', jsSurveyDateTime);
-                    activity.js_survey_date_time = jsSurveyDateTime;
+                    activity.js_survey_date_time = new Date(activity.survey_date_time).getTime();
                     return activity;
                 });
             }
         }
-        const cleanedSelectedActivites = formattedSelectedActivites
-            .map((activity) => {
-                delete activity.fields;
-                delete activity.survey_date_time;
-                return activity;
-            });
         return {
             ...state,
             selectedSurveyTypeKeys: newSelectedSurveyTypeKeys,
-            selectedActivities: cleanedSelectedActivites,
+            selectedActivities: formattedSelectedActivites,
             availableActivityFields: availableActivityFields
         };
     case SET_VISIBLE_SWAMPS_CHART:

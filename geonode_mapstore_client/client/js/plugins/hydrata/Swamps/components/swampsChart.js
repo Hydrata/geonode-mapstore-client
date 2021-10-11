@@ -32,6 +32,7 @@ class SwampsChartClass extends React.Component {
         availableActivityFields: PropTypes.array,
         selectedActivityFields: PropTypes.array,
         selectedActivites: PropTypes.array,
+        selectedPhotos: PropTypes.array,
         setSelectedXKey: PropTypes.func,
         setSelectedYKey: PropTypes.func,
         availableXKeys: PropTypes.array,
@@ -136,47 +137,69 @@ class SwampsChartClass extends React.Component {
                             </Row>
                         </Col>
                         <Col sm={10}>
-                            <ResponsiveContainer width="95%" height={600} >
-                                <LineChart
-                                    width={500}
-                                    height={400}
-                                    syncId="swampCharts"
-                                    data={this.props.selectedActivities}
-                                >
-                                    <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-                                    <XAxis
-                                        dataKey={this.props.selectedXKey}
-                                        domain={['auto', 'auto']}
-                                        name={this.props.selectedXKey}
-                                        tickFormatter = {(unixTime) => moment(unixTime).format('DD MMM YYYY')}
-                                        tickCount={10}
-                                        type="number"
-                                        unit="time"
-                                    />
-                                    <YAxis
-                                        yAxisId={'left'}
-                                        type="number"
-                                        dataKey={this.props.selectedYKey}
-                                        name={this.props.selectedYKey}
-                                        orientation="left"
-                                        stroke="#175582"
-                                        label="YAxisLabel"
-                                    />
-                                    <Line
-                                        yAxisId={'left'}
-                                        isAnimationActive={false}
-                                        dataKey={this.props.selectedYKey}
-                                        strokeWidth={0}
-                                        shape="circle"
-                                        fill="#175582"
-                                        lineType="joint"
-                                        name={this.props.selectedYKey}
-                                    />
-                                    <Tooltip
-                                        labelFormatter={(unixTime) => moment(unixTime).format('DD MMM YYYY HH:MM:SS')}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            {
+                                this.props.selectedYKey === 'photos' ?
+                                    <div>
+                                        {
+                                            this.props.selectedPhotos.map((photo) => (
+                                                <div>
+                                                    <img
+                                                        src={photo.url}
+                                                        style={{
+                                                            position: "absolute",
+                                                            maxWidth: "60%",
+                                                            maxHeight: "400px",
+                                                            width: "auto",
+                                                            height: "auto",
+                                                            left: "20px"
+                                                        }}/>
+                                                </div>
+                                            ))
+                                        }
+                                    </div> :
+                                    <ResponsiveContainer width="95%" height={600} >
+                                        <LineChart
+                                            width={500}
+                                            height={400}
+                                            syncId="swampCharts"
+                                            data={this.props.selectedActivities}
+                                        >
+                                            <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                                            <XAxis
+                                                dataKey={this.props.selectedXKey}
+                                                domain={['auto', 'auto']}
+                                                name={this.props.selectedXKey}
+                                                tickFormatter = {(unixTime) => moment(unixTime).format('DD MMM YYYY')}
+                                                tickCount={10}
+                                                type="number"
+                                                unit="time"
+                                            />
+                                            <YAxis
+                                                yAxisId={'left'}
+                                                type="number"
+                                                dataKey={this.props.selectedYKey}
+                                                name={this.props.selectedYKey}
+                                                orientation="left"
+                                                stroke="#175582"
+                                                label="YAxisLabel"
+                                            />
+                                            <Line
+                                                yAxisId={'left'}
+                                                isAnimationActive={false}
+                                                dataKey={this.props.selectedYKey}
+                                                strokeWidth={0}
+                                                shape="circle"
+                                                fill="#175582"
+                                                lineType="joint"
+                                                name={this.props.selectedYKey}
+                                            />
+                                            <Tooltip
+                                                labelFormatter={(unixTime) => moment(unixTime).format('DD MMM YYYY HH:MM:SS')}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                            }
+
                         </Col>
                     </Grid>
                 </div>
@@ -189,6 +212,7 @@ class SwampsChartClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    let excludedFields = ['status', 'location', 'entry_date', 'survey_date_time', 'fields'];
     return {
         selectedSwampId: state?.swamps?.selectedSwampId,
         selectedSwampData: state?.swamps?.selectedSwampData,
@@ -201,10 +225,16 @@ const mapStateToProps = (state) => {
         selectedSiteIds: state?.swamps?.selectedSiteIds || [],
         availableSurveyTypeKeys: state?.swamps?.availableSurveyTypeKeys || [],
         selectedSurveyTypeKeys: state?.swamps?.selectedSurveyTypeKeys || [],
-        selectedActivities: state?.swamps?.selectedActivities || {},
-        availableActivityFields: state?.swamps?.availableActivityFields || [],
+        selectedActivities: state?.swamps?.selectedActivities || [],
+        availableActivityFields: state?.swamps?.availableActivityFields.filter(field => !excludedFields.includes(field)) || [],
         selectedActivityFields: state?.swamps?.selectedActivityFields || [],
-        selectedActivites: state?.swamps?.selectedActivites || []
+        selectedPhotos: state?.swamps?.selectedActivities?.reduce((previousValue, currentValue) => {
+            console.log('currentValue:', currentValue);
+            if (currentValue.photos) {
+                return previousValue.concat(currentValue.photos);
+            }
+            return previousValue;
+        }, [])
     };
 };
 
