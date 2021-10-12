@@ -96,7 +96,11 @@ class SwampsChartClass extends React.Component {
                                                     );
                                                 })
                                             }
-                                            <h4 style={{marginTop: '20px'}}>Select Survey Types:</h4>
+                                            {
+                                                this.props.availableSurveyTypeKeys?.length > 0 ?
+                                                    <h4 style={{marginTop: '20px'}}>Select Survey Types:</h4>
+                                                    : null
+                                            }
                                             {
                                                 this.props.availableSurveyTypeKeys.map((surveyTypeKey) => {
                                                     return (
@@ -117,7 +121,11 @@ class SwampsChartClass extends React.Component {
                                                     );
                                                 })
                                             }
-                                            <h4 style={{marginTop: '20px'}}>Select Survey Attribute:</h4>
+                                            {
+                                                this.props.availableActivityFields?.length > 0 ?
+                                                    <h4 style={{marginTop: '20px'}}>Select Survey Attribute:</h4>
+                                                    : null
+                                            }
                                             {
                                                 this.props.availableActivityFields.map((field) => {
                                                     return (
@@ -208,7 +216,8 @@ class SwampsChartClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    let excludedFields = ['status', 'location', 'entry_date', 'survey_date_time', 'fields'];
+    let excludedFields = ['status', 'location', 'entry_date', 'survey_date_time', 'fields', 'id'];
+    let excludedSurveyTypes = ['template']
     return {
         selectedSwampId: state?.swamps?.selectedSwampId,
         selectedSwampData: state?.swamps?.selectedSwampData,
@@ -219,13 +228,12 @@ const mapStateToProps = (state) => {
         availableYKeys: state?.swamps?.processedSwampsSurveyData?.[state?.swamps?.currentSwampsSurveySiteId]?.availableYKeys || [],
         availableSites: state?.swamps?.selectedSwampData?.sites || [],
         selectedSiteIds: state?.swamps?.selectedSiteIds || [],
-        availableSurveyTypeKeys: state?.swamps?.availableSurveyTypeKeys || [],
+        availableSurveyTypeKeys: state?.swamps?.availableSurveyTypeKeys.filter(field => !excludedSurveyTypes.includes(field)) || [],
         selectedSurveyTypeKeys: state?.swamps?.selectedSurveyTypeKeys || [],
         selectedActivities: state?.swamps?.selectedActivities || [],
         availableActivityFields: state?.swamps?.availableActivityFields.filter(field => !excludedFields.includes(field)) || [],
         selectedActivityFields: state?.swamps?.selectedActivityFields || [],
         selectedPhotos: state?.swamps?.selectedActivities?.reduce((previousValue, currentValue) => {
-            console.log('currentValue:', currentValue);
             if (currentValue.photos) {
                 return previousValue.concat(currentValue.photos);
             }
