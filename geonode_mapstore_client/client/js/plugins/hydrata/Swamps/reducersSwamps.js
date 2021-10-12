@@ -36,7 +36,13 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             selectedSwampId: null,
-            selectedSwampData: null
+            selectedSwampData: null,
+            selectedSiteIds: [],
+            availableSurveyTypeKeys: [],
+            availableSurveySites: [],
+            selectedSurveyTypeKeys: [],
+            selectedActivities: [],
+            availableActivityFields: []
         };
     case SAVE_SWAMP_QUERY_TO_STORE:
         return {
@@ -46,14 +52,14 @@ export default ( state = initialState, action) => {
     case TOGGLE_SELECTION_OF_SITE_ID:
         // add or remove the site_id:
         let newSelectedSiteIds;
-        if (state.selectedSiteIds.includes(action.selectedSiteId)) {
+        if (state.selectedSiteIds?.includes(action.selectedSiteId)) {
             newSelectedSiteIds = state.selectedSiteIds.filter(item => item !== action.selectedSiteId);
         } else {
             newSelectedSiteIds = [...state.selectedSiteIds, action.selectedSiteId];
         }
         // now find the activities available on these sites so the user can select them:
         const availableSurveySites = state.surveySites
-            .filter(site => newSelectedSiteIds.includes(site.site_id));
+            .filter(site => newSelectedSiteIds?.includes(site.site_id));
         const _newAvailableSurveyTypeKeys = availableSurveySites
             .map((site) => Object.keys(site.activities));
         let newAvailableSurveyTypeKeys = [...new Set([].concat.apply([], _newAvailableSurveyTypeKeys))];

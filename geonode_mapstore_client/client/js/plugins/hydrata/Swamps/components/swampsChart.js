@@ -1,9 +1,9 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Grid, Col, Row, Button} from "react-bootstrap";
+import {Grid, Col, Row, Button, Carousel, CarouselItem} from "react-bootstrap";
 import moment from 'moment';
-const {ScatterChart, LineChart, Line, Scatter, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip, Brush} = require('recharts');
+const {LineChart, Line, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip} = require('recharts');
 import {setVisibleSwampsChart,
     setSelectedSwampId,
     clearSelectedSwamp,
@@ -68,143 +68,139 @@ class SwampsChartClass extends React.Component {
                     />
                 </div>
                 <div className="chart-mainbody">
-                    <Grid style={{width: "100%"}}>
-                        <Col sm={2} className={'chart-sidebar'} style={{maxWidth: "250px"}}>
-                            <Row>
-                                <h4 style={{marginTop: '20px'}}>Select Survey Sites:</h4>
-                                {
-                                    this.props.availableSites.map((site) => {
-                                        return (
-                                            <Button
-                                                bsStyle="success"
-                                                bsSize="xsmall"
-                                                block
-                                                style={{
-                                                    backgroundColor: this.props.selectedSiteIds?.includes(site.site_id) ? "#175582ff" : "#175582aa",
-                                                    borderColor: "#175582ff",
-                                                    marginTop: "4px",
-                                                    fontSize: "x-small",
-                                                    borderRadius: "3px"
-                                                }}
-                                                onClick={() => this.props.toggleSelectionOfSiteId(site?.site_id)}>
-                                                {site?.name}
-                                            </Button>
-                                        );
-                                    })
-                                }
-                                <h4 style={{marginTop: '20px'}}>Select Survey Types:</h4>
-                                {
-                                    this.props.availableSurveyTypeKeys.map((surveyTypeKey) => {
-                                        return (
-                                            <Button
-                                                bsStyle="success"
-                                                bsSize="xsmall"
-                                                block
-                                                style={{
-                                                    backgroundColor: this.props.selectedSurveyTypeKeys?.includes(surveyTypeKey) ? "#175582ff" : "#175582aa",
-                                                    borderColor: "#175582ff",
-                                                    marginTop: "4px",
-                                                    fontSize: "x-small",
-                                                    borderRadius: "3px"
-                                                }}
-                                                onClick={() => this.props.toggleSelectionOfSurveyTypeKey(surveyTypeKey)}>
-                                                {surveyTypeKey}
-                                            </Button>
-                                        );
-                                    })
-                                }
-                                <h4 style={{marginTop: '20px'}}>Select Survey Attribute:</h4>
-                                {
-                                    this.props.availableActivityFields.map((field) => {
-                                        return (
-                                            <Button
-                                                bsStyle="success"
-                                                bsSize="xsmall"
-                                                block
-                                                style={{
-                                                    backgroundColor: this.props.selectedYKey === field ? "#175582ff" : "#175582aa",
-                                                    borderColor: "#175582ff",
-                                                    marginTop: "4px",
-                                                    fontSize: "x-small",
-                                                    borderRadius: "3px"
-                                                }}
-                                                onClick={() => this.props.setSelectedYKey(field)}>
-                                                {field}
-                                            </Button>
-                                        );
-                                    })
-                                }
-                            </Row>
-                        </Col>
-                        <Col sm={10}>
-                            {
-                                this.props.selectedYKey === 'photos' ?
-                                    <div>
+                    {
+                        this.props.selectedSwampData ?
+                            this.props.selectedSwampData?.sites?.length === 0 ?
+                                <div>No Data</div> :
+                                <Grid style={{width: "100%"}}>
+                                    <Col sm={2} className={'chart-sidebar'} style={{maxWidth: "250px"}}>
+                                        <Row>
+                                            <h4 style={{marginTop: '20px'}}>Select Survey Sites:</h4>
+                                            {
+                                                this.props.availableSites.map((site) => {
+                                                    return (
+                                                        <Button
+                                                            bsStyle="success"
+                                                            bsSize="xsmall"
+                                                            block
+                                                            style={{
+                                                                backgroundColor: this.props.selectedSiteIds?.includes(site.site_id) ? "#175582ff" : "#175582aa",
+                                                                borderColor: "#175582ff",
+                                                                marginTop: "4px",
+                                                                fontSize: "x-small",
+                                                                borderRadius: "3px"
+                                                            }}
+                                                            onClick={() => this.props.toggleSelectionOfSiteId(site?.site_id)}>
+                                                            {site?.name}
+                                                        </Button>
+                                                    );
+                                                })
+                                            }
+                                            <h4 style={{marginTop: '20px'}}>Select Survey Types:</h4>
+                                            {
+                                                this.props.availableSurveyTypeKeys.map((surveyTypeKey) => {
+                                                    return (
+                                                        <Button
+                                                            bsStyle="success"
+                                                            bsSize="xsmall"
+                                                            block
+                                                            style={{
+                                                                backgroundColor: this.props.selectedSurveyTypeKeys?.includes(surveyTypeKey) ? "#175582ff" : "#175582aa",
+                                                                borderColor: "#175582ff",
+                                                                marginTop: "4px",
+                                                                fontSize: "x-small",
+                                                                borderRadius: "3px"
+                                                            }}
+                                                            onClick={() => this.props.toggleSelectionOfSurveyTypeKey(surveyTypeKey)}>
+                                                            {surveyTypeKey}
+                                                        </Button>
+                                                    );
+                                                })
+                                            }
+                                            <h4 style={{marginTop: '20px'}}>Select Survey Attribute:</h4>
+                                            {
+                                                this.props.availableActivityFields.map((field) => {
+                                                    return (
+                                                        <Button
+                                                            bsStyle="success"
+                                                            bsSize="xsmall"
+                                                            block
+                                                            style={{
+                                                                backgroundColor: this.props.selectedYKey === field ? "#175582ff" : "#175582aa",
+                                                                borderColor: "#175582ff",
+                                                                marginTop: "4px",
+                                                                fontSize: "x-small",
+                                                                borderRadius: "3px"
+                                                            }}
+                                                            onClick={() => this.props.setSelectedYKey(field)}>
+                                                            {field}
+                                                        </Button>
+                                                    );
+                                                })
+                                            }
+                                        </Row>
+                                    </Col>
+                                    <Col sm={10}>
                                         {
-                                            this.props.selectedPhotos.map((photo) => (
-                                                <div>
-                                                    <img
-                                                        src={photo.url}
-                                                        style={{
-                                                            position: "absolute",
-                                                            maxWidth: "60%",
-                                                            maxHeight: "400px",
-                                                            width: "auto",
-                                                            height: "auto",
-                                                            left: "20px"
-                                                        }}/>
-                                                </div>
-                                            ))
+                                            this.props.selectedYKey === 'photos' ?
+                                                <Carousel>
+                                                    {
+                                                        this.props.selectedPhotos.map((photo) => (
+                                                            <CarouselItem>
+                                                                <img width={"80%"} alt="900x500" src={photo.url}/>
+                                                            </CarouselItem>
+                                                        ))
+                                                    }
+                                                </Carousel> :
+                                                <ResponsiveContainer width="95%" height={600} >
+                                                    <LineChart
+                                                        width={500}
+                                                        height={400}
+                                                        syncId="swampCharts"
+                                                        data={this.props.selectedActivities}
+                                                    >
+                                                        <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                                                        <XAxis
+                                                            dataKey={this.props.selectedXKey}
+                                                            domain={['auto', 'auto']}
+                                                            name={this.props.selectedXKey}
+                                                            tickFormatter = {(unixTime) => moment(unixTime).format('DD MMM YYYY')}
+                                                            tickCount={10}
+                                                            type="number"
+                                                            unit="time"
+                                                        />
+                                                        <YAxis
+                                                            yAxisId={'left'}
+                                                            type="number"
+                                                            dataKey={this.props.selectedYKey}
+                                                            name={this.props.selectedYKey}
+                                                            orientation="left"
+                                                            stroke="#175582"
+                                                            label="YAxisLabel"
+                                                        />
+                                                        <Line
+                                                            yAxisId={'left'}
+                                                            isAnimationActive={false}
+                                                            dataKey={this.props.selectedYKey}
+                                                            strokeWidth={0}
+                                                            shape="circle"
+                                                            fill="#175582"
+                                                            lineType="joint"
+                                                            name={this.props.selectedYKey}
+                                                        />
+                                                        <Tooltip
+                                                            labelFormatter={(unixTime) => moment(unixTime).format('DD MMM YYYY HH:MM:SS')}
+                                                        />
+                                                    </LineChart>
+                                                </ResponsiveContainer>
                                         }
-                                    </div> :
-                                    <ResponsiveContainer width="95%" height={600} >
-                                        <LineChart
-                                            width={500}
-                                            height={400}
-                                            syncId="swampCharts"
-                                            data={this.props.selectedActivities}
-                                        >
-                                            <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-                                            <XAxis
-                                                dataKey={this.props.selectedXKey}
-                                                domain={['auto', 'auto']}
-                                                name={this.props.selectedXKey}
-                                                tickFormatter = {(unixTime) => moment(unixTime).format('DD MMM YYYY')}
-                                                tickCount={10}
-                                                type="number"
-                                                unit="time"
-                                            />
-                                            <YAxis
-                                                yAxisId={'left'}
-                                                type="number"
-                                                dataKey={this.props.selectedYKey}
-                                                name={this.props.selectedYKey}
-                                                orientation="left"
-                                                stroke="#175582"
-                                                label="YAxisLabel"
-                                            />
-                                            <Line
-                                                yAxisId={'left'}
-                                                isAnimationActive={false}
-                                                dataKey={this.props.selectedYKey}
-                                                strokeWidth={0}
-                                                shape="circle"
-                                                fill="#175582"
-                                                lineType="joint"
-                                                name={this.props.selectedYKey}
-                                            />
-                                            <Tooltip
-                                                labelFormatter={(unixTime) => moment(unixTime).format('DD MMM YYYY HH:MM:SS')}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                            }
-
-                        </Col>
-                    </Grid>
+                                    </Col>
+                                </Grid> :
+                            <div>loading...</div>
+                    }
                 </div>
                 <div className="chart-footer">
-                    Footer
+                    Footer goes here
                 </div>
             </div>
         );
