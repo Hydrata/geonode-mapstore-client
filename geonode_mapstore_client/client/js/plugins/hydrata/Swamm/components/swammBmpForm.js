@@ -305,6 +305,38 @@ class SwammBmpFormClass extends React.Component {
                                         </FormGroup>
                                         : null
                                 }
+                                <FormGroup controlId="field_identifier" bsSize={"small"}>
+                                    <Col componentClass={ControlLabel} sm={3} style={{textAlign: "left", marginTop: "3px"}}>
+                                      Field Identifier:
+                                    </Col>
+                                    <Col sm={5}>
+                                        <FormControl
+                                            inline="true"
+                                            type={"text"}
+                                            name="field_identifier"
+                                            value={this.props.storedBmpForm?.field_identifier}
+                                            onChange={this.handleChange}
+                                            placeholder="optional"
+                                        />
+                                        <FormControl.Feedback />
+                                    </Col>
+                                </FormGroup>
+                                <FormGroup controlId="owner_identifier" bsSize={"small"}>
+                                    <Col componentClass={ControlLabel} sm={3} style={{textAlign: "left"}}>
+                                      Owner details:
+                                    </Col>
+                                    <Col sm={5}>
+                                        <FormControl
+                                            inline="true"
+                                            type={"text"}
+                                            name="owner_identifier"
+                                            value={this.props.storedBmpForm?.owner_identifier}
+                                            onChange={this.handleChange}
+                                            placeholder="optional"
+                                        />
+                                        <FormControl.Feedback />
+                                    </Col>
+                                </FormGroup>
                                 {
                                     this.props.complexBmpForm ?
                                         <React.Fragment>
@@ -892,9 +924,20 @@ class SwammBmpFormClass extends React.Component {
                         {this.props.storedBmpForm?.id ?
                             <React.Fragment>
                                 <Button
+                                    bsStyle="danger"
+                                    bsSize="small"
+                                    style={{position: "absolute", bottom: "20px", right: "520px", minWidth: "80px"}}
+                                    onClick={() => {
+                                        if (window.confirm('This action can not be undone. Are you sure?')) {
+                                            this.props.deleteBmp(this.props.mapId, this.props.storedBmpForm?.id);
+                                        }
+                                    }}>
+                                    Delete
+                                </Button>
+                                <Button
                                     bsStyle="warning"
                                     bsSize="small"
-                                    style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "520px", minWidth: "80px"}}
+                                    style={{position: "absolute", bottom: "20px", right: "420px", minWidth: "80px"}}
                                     onClick={() => {
                                         if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
                                             this.props.setChangingBmpType(true);
@@ -903,22 +946,18 @@ class SwammBmpFormClass extends React.Component {
                                     Edit Type
                                 </Button>
                                 <Button
-                                    bsStyle="danger"
+                                    bsStyle="info"
                                     bsSize="small"
-                                    style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "420px", minWidth: "80px"}}
-                                    onClick={() => {
-                                        if (window.confirm('This action can not be undone. Are you sure?')) {
-                                            this.props.deleteBmp(this.props.mapId, this.props.storedBmpForm?.id);
-                                        }
-                                    }}>
-                                    Delete
+                                    style={{position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
+                                    onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
+                                    Make PDF
                                 </Button>
                                 {
                                     this.props.complexBmpForm ?
                                         <Button
                                             bsStyle="info"
                                             bsSize="small"
-                                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
+                                            style={{position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
                                             onClick={() => this.props.setComplexBmpForm(false)}>
                                             Simple
                                         </Button>
@@ -926,7 +965,7 @@ class SwammBmpFormClass extends React.Component {
                                         <Button
                                             bsStyle="info"
                                             bsSize="small"
-                                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
+                                            style={{position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
                                             onClick={() => this.props.setComplexBmpForm(true)}>
                                             Advanced
                                         </Button>
@@ -936,26 +975,12 @@ class SwammBmpFormClass extends React.Component {
                         <Button
                             bsStyle="info"
                             bsSize="small"
-                            style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
+                            style={{position: "absolute", bottom: "20px", right: "120px", minWidth: "80px"}}
                             onClick={() => {
                                 this.props.hideBmpForm();
                                 this.refreshBmpLayers();
                             }}>
                             View Map
-                        </Button>
-                        <Button
-                            bsStyle="success"
-                            bsSize="small"
-                            style={{position: "absolute", bottom: "20px", right: "120px", minWidth: "80px"}}
-                            onClick={() => {
-                                if (window.confirm(
-                                    'Welcome - this feature is under development.  \n' +
-                                    'Please test it out and provide feedback.'
-                                )) {
-                                    this.props.downloadBmpReport(this.props.storedBmpForm?.id);
-                                }
-                            }}>
-                            Make PDF
                         </Button>
                         <Button
                             bsStyle="success"
