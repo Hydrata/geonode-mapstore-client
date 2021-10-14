@@ -856,87 +856,12 @@ class SwammBmpFormClass extends React.Component {
                         </Col>
                     </Modal.Body>
                     <Modal.Footer style={{marginTop: "78vh", borderTop: "none"}}>
-                        {this.props.complexBmpForm || !this.props.storedBmpForm?.id || this.props.changingBmpType ?
-                            <Row style={{paddingLeft: "20px", textAlign: "left"}}>
-                                <h5 style={{position: "absolute", bottom: "70px"}}>More Information from NRCS documents:</h5>
-                                <Row>
-                                    <a
-                                        href={this.props.infosheet_url}
-                                        className={`btn btn-info btn-small ${this.props.infosheet_url ? "" : "disabled"}`}
-                                        style={{
-                                            position: "absolute",
-                                            left: "20px",
-                                            bottom: "20px",
-                                            paddingTop: "10px",
-                                            width: "80px",
-                                            whiteSpace: "normal",
-                                            fontSize: "14px"
-                                        }}
-                                        target="_blank"
-                                        download
-                                    >
-                                        Stardards Overview
-                                    </a>
-                                    <a
-                                        href={this.props.standard_url}
-                                        className={`btn btn-info btn-small ${this.props.standard_url ? "" : "disabled"}`}
-                                        style={{
-                                            position: "absolute",
-                                            left: "120px",
-                                            bottom: "20px",
-                                            paddingTop: "10px",
-                                            width: "80px",
-                                            whiteSpace: "normal",
-                                            fontSize: "14px"
-                                        }}
-                                        target="_blank"
-                                        download
-                                    >
-                                        Detailed Standard
-                                    </a>
-                                    <a
-                                        href={this.props.ned_url}
-                                        className={`btn btn-info btn-small ${this.props.ned_url ? "" : "disabled"}`}
-                                        style={{
-                                            position: "absolute",
-                                            left: "220px",
-                                            bottom: "20px",
-                                            paddingTop: "10px",
-                                            width: "80px",
-                                            whiteSpace: "normal",
-                                            fontSize: "14px"
-                                        }}
-                                        target="_blank"
-                                        download
-                                    >
-                                        Effects Network
-                                    </a>
-                                    <a
-                                        href={this.props.cppe_url}
-                                        className={`btn btn-info btn-small ${this.props.cppe_url ? "" : "disabled"}`}
-                                        style={{
-                                            position: "absolute",
-                                            left: "320px",
-                                            bottom: "20px",
-                                            paddingTop: "10px",
-                                            width: "80px",
-                                            whiteSpace: "normal",
-                                            fontSize: "14px"
-                                        }}
-                                        target="_blank"
-                                        download
-                                    >
-                                        Effects Data
-                                    </a>
-                                </Row>
-                            </Row>
-                            : null}
                         {this.props.storedBmpForm?.id ?
                             <React.Fragment>
                                 <Button
                                     bsStyle="danger"
                                     bsSize="small"
-                                    style={{position: "absolute", bottom: "20px", right: "520px", minWidth: "80px"}}
+                                    style={{position: "absolute", bottom: "20px", right: "620px", minWidth: "80px"}}
                                     onClick={() => {
                                         if (window.confirm('This action can not be undone. Are you sure?')) {
                                             this.props.deleteBmp(this.props.mapId, this.props.storedBmpForm?.id);
@@ -947,7 +872,7 @@ class SwammBmpFormClass extends React.Component {
                                 <Button
                                     bsStyle="warning"
                                     bsSize="small"
-                                    style={{position: "absolute", bottom: "20px", right: "420px", minWidth: "80px"}}
+                                    style={{position: "absolute", bottom: "20px", right: "520px", minWidth: "80px"}}
                                     onClick={() => {
                                         if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
                                             this.props.setChangingBmpType(true);
@@ -958,7 +883,7 @@ class SwammBmpFormClass extends React.Component {
                                 <Button
                                     bsStyle="info"
                                     bsSize="small"
-                                    style={{position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
+                                    style={{position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
                                     onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
                                     Make PDF
                                 </Button>
@@ -967,7 +892,7 @@ class SwammBmpFormClass extends React.Component {
                                         <Button
                                             bsStyle="info"
                                             bsSize="small"
-                                            style={{position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
+                                            style={{position: "absolute", bottom: "20px", right: "420px", minWidth: "80px"}}
                                             onClick={() => this.props.setComplexBmpForm(false)}>
                                             Simple
                                         </Button>
@@ -975,13 +900,21 @@ class SwammBmpFormClass extends React.Component {
                                         <Button
                                             bsStyle="info"
                                             bsSize="small"
-                                            style={{position: "absolute", bottom: "20px", right: "320px", minWidth: "80px"}}
+                                            style={{position: "absolute", bottom: "20px", right: "420px", minWidth: "80px"}}
                                             onClick={() => this.props.setComplexBmpForm(true)}>
                                             Advanced
                                         </Button>
                                 }
                             </React.Fragment>
                             : null}
+                        <Button
+                            bsStyle="info"
+                            bsSize="small"
+                            className={`${this.props.standard_url ? "" : "disabled"}`}
+                            style={{position: "absolute", bottom: "20px", right: "220px", width: "80px", height: "30px", fontSize: "x-small"}}
+                            onClick={() => window.open(this.props.standard_url, "_blank")}>
+                            View Standard
+                        </Button>
                         <Button
                             bsStyle="info"
                             bsSize="small"
