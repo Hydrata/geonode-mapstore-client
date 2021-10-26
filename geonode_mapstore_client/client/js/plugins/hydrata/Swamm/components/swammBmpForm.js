@@ -645,8 +645,8 @@ class SwammBmpFormClass extends React.Component {
                                                     >
                                                         {this.props.bmpTypeGroups?.map((group) => {
                                                             return (
-                                                                <Row className={'well'} style={{textAlign: "left", marginLeft: 0, padding: "3px"}}>
-                                                                    <div>{group[1]}</div>
+                                                                <Row className={'well'} style={{textAlign: "left", marginLeft: 0, marginBottom: "3px", padding: "3px"}}>
+                                                                    <div style={{marginLeft: "15px"}}>{group[1]}</div>
                                                                     {
                                                                         this.props.bmpTypes
                                                                             .filter(bmpType => bmpType.group_name === group[0])
