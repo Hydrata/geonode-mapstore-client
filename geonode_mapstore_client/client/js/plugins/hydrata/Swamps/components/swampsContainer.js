@@ -35,7 +35,7 @@ class SwampsContainer extends React.Component {
                         : null
                 }
                 {
-                    this.props.viewSwampsGroupId === this.props.openMenuGroupId ?
+                    (this.props.openMenuGroupId && this.props.viewSwampsGroupId === this.props.openMenuGroupId) ?
                         <div>
                             <SwampsControls/>
                         </div>

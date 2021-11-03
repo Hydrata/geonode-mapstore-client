@@ -83,9 +83,9 @@ export const plugins = {
         'SimpleView',
         import('@js/plugins/hydrata/SimpleView/SimpleView')
     ),
-    BiocollectPlugin: toLazyPlugin(
-        'Biocollect',
-        import('@js/plugins/hydrata/Biocollect/Biocollect')
+    AnugaPlugin: toLazyPlugin(
+        'Anuga',
+        import('@js/plugins/hydrata/Anuga/Anuga')
     ),
     SwampsPlugin: toLazyPlugin(
         'Swamps',
