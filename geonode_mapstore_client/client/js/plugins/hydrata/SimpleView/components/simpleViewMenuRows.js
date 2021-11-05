@@ -47,7 +47,7 @@ class MenuRowsClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('state simpleView:', state);
+    // console.log('state simpleView:', state);
     // debugger;
     return {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,

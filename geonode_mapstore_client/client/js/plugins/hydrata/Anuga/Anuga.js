@@ -3,7 +3,7 @@ import anuga from "./reducersAnuga";
 import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
-    refreshAnugaEpic
+    initAnugaScenarios
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -13,6 +13,6 @@ export default createPlugin('Anuga', {
     },
     epics: {
         initAnugaEpic,
-        refreshAnugaEpic
+        initAnugaScenarios
     }
 });

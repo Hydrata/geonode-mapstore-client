@@ -4,7 +4,7 @@ const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
 import '../anuga.css';
 
-class AnugaControlsClass extends React.Component {
+class AnugaScenarioMenuClass extends React.Component {
     static propTypes = {
         anugaGroupLength: PropTypes.number
     };
@@ -20,17 +20,10 @@ class AnugaControlsClass extends React.Component {
     render() {
         return (
             <React.Fragment>
-                <div id={'anuga-controls'} className={'simple-view-panel'} style={{top: this.props.anugaGroupLength * 70, width: "480px"}}>
+                <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px", width: "480px"}}>
                     <div className={'menu-rows-container'}>
                         <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
-                            <Button
-                                bsStyle={'success'}
-                                bsSize={'xsmall'}
-                                style={{margin: "2px", borderRadius: "2px"}}
-                                onClick={() => {console.log('test12343');}}
-                            >
-                                Refresh Monitoring Data
-                            </Button>
+                            Example Text Scenario
                         </div>
                     </div>
                 </div>
@@ -41,7 +34,6 @@ class AnugaControlsClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        anugaGroupLength: state?.layers?.groups?.filter((group) => group.title === "Anuga")[0]?.nodes?.length
     };
 };
 
@@ -50,7 +42,7 @@ const mapDispatchToProps = ( dispatch ) => {
     };
 };
 
-const AnugaControls = connect(mapStateToProps, mapDispatchToProps)(AnugaControlsClass);
+const AnugaScenarioMenu = connect(mapStateToProps, mapDispatchToProps)(AnugaScenarioMenuClass);
 
 
-export default AnugaControls;
+export default AnugaScenarioMenu;

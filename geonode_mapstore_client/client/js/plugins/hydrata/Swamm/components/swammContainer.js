@@ -292,7 +292,7 @@ class SwammContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('state for Swamm:', state);
+    // console.log('state for Swamm:', state);
     const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
