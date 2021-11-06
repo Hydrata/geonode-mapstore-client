@@ -3,7 +3,12 @@ import anuga from "./reducersAnuga";
 import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
-    initAnugaScenarios
+    initAnugaScenarios,
+    initAnugaInflows,
+    initAnugaFrictions,
+    initAnugaStages,
+    initAnugaBoundaries,
+    initAnugaElevations
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -13,6 +18,11 @@ export default createPlugin('Anuga', {
     },
     epics: {
         initAnugaEpic,
-        initAnugaScenarios
+        initAnugaScenarios,
+        initAnugaInflows,
+        initAnugaFrictions,
+        initAnugaStages,
+        initAnugaBoundaries,
+        initAnugaElevations
     }
 });

@@ -41,70 +41,73 @@ class AnugaContainer extends React.Component {
     }
 
     render() {
-        return (
-            <div id={"anuga-container"}>
-                <div id={"anuga-inputs"}>
-                    <button
-                        key="anuga-input-button"
-                        className={'simple-view-menu-button'}
-                        style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                        onClick={() => {
-                            this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
-                            this.props.setOpenMenuGroupId(null);
-                        }}
-                    >
-                        Inputs
-                    </button>
-                    {
-                        this.props.showAnugaInputMenu ?
-                            <AnugaInputMenu/>
-                            : null
-                    }
+        return this.props.isAnugaProject ?
+            (
+                <div id={"anuga-container"}>
+                    <div id={"anuga-inputs"}>
+                        <button
+                            key="anuga-input-button"
+                            className={'simple-view-menu-button'}
+                            style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                            onClick={() => {
+                                this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
+                                this.props.setOpenMenuGroupId(null);
+                            }}
+                        >
+                            Inputs
+                        </button>
+                        {
+                            this.props.showAnugaInputMenu ?
+                                <AnugaInputMenu/>
+                                : null
+                        }
+                    </div>
+                    <div id={"anuga-scenario"}>
+                        <button
+                            key="anuga-scenario-button"
+                            className={'simple-view-menu-button'}
+                            style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
+                            onClick={() => {
+                                this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
+                                this.props.setOpenMenuGroupId(null);
+                            }}
+                        >
+                            Scenarios
+                        </button>
+                        {
+                            this.props.showAnugaScenarioMenu ?
+                                <AnugaScenarioMenu/>
+                                : null
+                        }
+                    </div>
+                    <div id={"anuga-results"}>
+                        <button
+                            key="anuga-result-button"
+                            className={'simple-view-menu-button'}
+                            style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
+                            onClick={() => {
+                                this.props.setAnugaResultMenu(!this.props.showAnugaResultMenu);
+                                this.props.setOpenMenuGroupId(null);
+                            }}
+                        >
+                            Results
+                        </button>
+                        {
+                            this.props.showAnugaResultMenu ?
+                                <AnugaResultMenu/>
+                                : null
+                        }
+                    </div>
                 </div>
-                <div id={"anuga-scenario"}>
-                    <button
-                        key="anuga-scenario-button"
-                        className={'simple-view-menu-button'}
-                        style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
-                        onClick={() => {
-                            this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
-                            this.props.setOpenMenuGroupId(null);
-                        }}
-                    >
-                        Scenarios
-                    </button>
-                    {
-                        this.props.showAnugaScenarioMenu ?
-                            <AnugaScenarioMenu/>
-                            : null
-                    }
-                </div>
-                <div id={"anuga-results"}>
-                    <button
-                        key="anuga-result-button"
-                        className={'simple-view-menu-button'}
-                        style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
-                        onClick={() => {
-                            this.props.setAnugaResultMenu(!this.props.showAnugaResultMenu);
-                            this.props.setOpenMenuGroupId(null);
-                        }}
-                    >
-                        Results
-                    </button>
-                    {
-                        this.props.showAnugaResultMenu ?
-                            <AnugaResultMenu/>
-                            : null
-                    }
-                </div>
-            </div>
-        );
+            ) :
+            null;
     }
 }
 
 const mapStateToProps = (state) => {
     console.log('state for Anuga:', state);
     return {
+        isAnugaProject: state?.anuga?.project?.id,
         anugaInputMenuGroupId: state?.mapConfigRawData?.map?.groups?.filter((group) => group.title === "Inputs")[0]?.id,
         showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,
