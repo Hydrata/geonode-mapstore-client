@@ -11,6 +11,7 @@ import {
 import AnugaInputMenu from './AnugaInputMenu';
 import AnugaScenarioMenu from './AnugaScenarioMenu';
 import AnugaResultMenu from './AnugaResultMenu';
+import AnugaAddElevationData from "./anugaAddElevationData";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -18,15 +19,17 @@ import '../../SimpleView/simpleView.css';
 class AnugaContainer extends React.Component {
     static propTypes = {
         initAnuga: PropTypes.func,
-        showAnugaInputMenu: PropTypes.string,
+        showAnugaInputMenu: PropTypes.bool,
         setAnugaInputMenu: PropTypes.func,
-        showAnugaScenarioMenu: PropTypes.string,
+        showAnugaScenarioMenu: PropTypes.bool,
         setAnugaScenarioMenu: PropTypes.func,
-        showAnugaResultMenu: PropTypes.string,
+        showAnugaResultMenu: PropTypes.bool,
         setAnugaResultMenu: PropTypes.func,
+        isAnugaMenuOpen: PropTypes.bool,
         openMenuGroupId: PropTypes.string,
         numberOfMenus: PropTypes.number,
-        setOpenMenuGroupId: PropTypes.func
+        setOpenMenuGroupId: PropTypes.func,
+        showAddAnugaElevationData: PropTypes.bool
     };
 
     static defaultProps = {
@@ -98,6 +101,11 @@ class AnugaContainer extends React.Component {
                                 : null
                         }
                     </div>
+                    {
+                        (this.props.showAddAnugaElevationData && !this.props.isAnugaMenuOpen) ?
+                            <AnugaAddElevationData/>
+                            : null
+                    }
                 </div>
             ) :
             null;
@@ -112,8 +120,10 @@ const mapStateToProps = (state) => {
         showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,
         showAnugaResultMenu: state?.anuga?.showAnugaResultMenu,
+        isAnugaMenuOpen: state?.anuga?.showAnugaInputMenu || state?.anuga?.showAnugaScenarioMenu || state?.anuga?.showAnugaResultMenu,
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
-        numberOfMenus: state?.layers?.groups.length
+        numberOfMenus: state?.layers?.groups.length,
+        showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData
     };
 };
 

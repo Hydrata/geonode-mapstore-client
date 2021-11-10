@@ -3,12 +3,14 @@ import anuga from "./reducersAnuga";
 import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
-    initAnugaScenarios,
-    initAnugaInflows,
-    initAnugaFrictions,
-    initAnugaStages,
-    initAnugaBoundaries,
-    initAnugaElevations
+    initAnugaScenariosEpic,
+    initAnugaInflowsEpic,
+    initAnugaFrictionsEpic,
+    initAnugaStructuresEpic,
+    initAnugaBoundariesEpic,
+    initAnugaElevationsEpic,
+    getAnugaAvailElevationsEpic,
+    createAnugaElevationEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -18,11 +20,13 @@ export default createPlugin('Anuga', {
     },
     epics: {
         initAnugaEpic,
-        initAnugaScenarios,
-        initAnugaInflows,
-        initAnugaFrictions,
-        initAnugaStages,
-        initAnugaBoundaries,
-        initAnugaElevations
+        initAnugaScenariosEpic,
+        initAnugaInflowsEpic,
+        initAnugaFrictionsEpic,
+        initAnugaStructuresEpic,
+        initAnugaBoundariesEpic,
+        initAnugaElevationsEpic,
+        getAnugaAvailElevationsEpic,
+        createAnugaElevationEpic
     }
 });

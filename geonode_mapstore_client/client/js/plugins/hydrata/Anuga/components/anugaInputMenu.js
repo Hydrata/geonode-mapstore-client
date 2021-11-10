@@ -4,26 +4,27 @@ const PropTypes = require('prop-types');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
-    addAnugaElevation,
+    setAddAnugaElevation,
     addAnugaBoundary,
     addAnugaFriction,
     addAnugaInflow,
-    addAnugaStage
+    addAnugaStructure
 } from "../actionsAnuga";
 
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
         anugaGroupLength: PropTypes.number,
         elevations: PropTypes.array,
-        addAnugaElevation: PropTypes.func,
+        setAddAnugaElevation: PropTypes.func,
+        showAddAnugaElevationData: PropTypes.bool,
         boundaries: PropTypes.array,
         addAnugaBoundary: PropTypes.func,
         frictions: PropTypes.array,
         addAnugaFriction: PropTypes.func,
         inflows: PropTypes.array,
         addAnugaInflow: PropTypes.func,
-        stages: PropTypes.array,
-        addAnugaStage: PropTypes.func
+        structures: PropTypes.array,
+        addAnugaStructure: PropTypes.func
     };
 
     static defaultProps = {}
@@ -44,7 +45,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <span
                                     className={"btn glyphicon menu-row-glyph glyphicon-plus"}
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
-                                    onClick={() => {this.props.addAnugaElevation();}}
+                                    onClick={() => {this.props.setAddAnugaElevation(!this.props.showAddAnugaElevationData);}}
                                 />
                                 <span className="menu-row-text">Elevations</span>
                             </span>
@@ -83,7 +84,7 @@ class AnugaInputMenuClass extends React.Component {
                             ))
                         }
                         {
-                            this.props.elevations?.length === 0 ?
+                            this.props.boundaries?.length === 0 ?
                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left"}}>
                                     No Boundaries available
                                 </div>
@@ -98,7 +99,7 @@ class AnugaInputMenuClass extends React.Component {
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
                                     onClick={() => {this.props.addAnugaFriction();}}
                                 />
-                                <span className="menu-row-text">Frictions</span>
+                                <span className="menu-row-text">Friction Maps</span>
                             </span>
                         </div>
                         {
@@ -109,9 +110,9 @@ class AnugaInputMenuClass extends React.Component {
                             ))
                         }
                         {
-                            this.props.elevations?.length === 0 ?
+                            this.props.frictions?.length === 0 ?
                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left"}}>
-                                    No Frictions available
+                                    No Friction Maps available
                                 </div>
                                 : null
                         }
@@ -135,7 +136,7 @@ class AnugaInputMenuClass extends React.Component {
                             ))
                         }
                         {
-                            this.props.elevations?.length === 0 ?
+                            this.props.inflows?.length === 0 ?
                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left"}}>
                                     No Inflows available
                                 </div>
@@ -148,22 +149,22 @@ class AnugaInputMenuClass extends React.Component {
                                 <span
                                     className={"btn glyphicon menu-row-glyph glyphicon-plus"}
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
-                                    onClick={() => {this.props.addAnugaStage();}}
+                                    onClick={() => {this.props.addAnugaStructure();}}
                                 />
-                                <span className="menu-row-text">Stages</span>
+                                <span className="menu-row-text">Structures</span>
                             </span>
                         </div>
                         {
-                            this.props.elevations?.map(stage => (
+                            this.props.structures?.map(structure => (
                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left"}}>
-                                    {stage.name}
+                                    {structure.name}
                                 </div>
                             ))
                         }
                         {
-                            this.props.elevations?.length === 0 ?
+                            this.props.structures?.length === 0 ?
                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left"}}>
-                                    No Stages available
+                                    No Structures available
                                 </div>
                                 : null
                         }
@@ -176,21 +177,22 @@ class AnugaInputMenuClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
+        showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
         boundaries: state?.anuga?.boundaries,
         elevations: state?.anuga?.elevations,
         frictions: state?.anuga?.frictions,
         inflows: state?.anuga?.inflows,
-        stages: state?.anuga?.stages
+        structures: state?.anuga?.structures
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        addAnugaElevation: () => dispatch(addAnugaElevation()),
+        setAddAnugaElevation: (visible) => dispatch(setAddAnugaElevation(visible)),
         addAnugaBoundary: () => dispatch(addAnugaBoundary()),
         addAnugaFriction: () => dispatch(addAnugaFriction()),
         addAnugaInflow: () => dispatch(addAnugaInflow()),
-        addAnugaStage: () => dispatch(addAnugaStage())
+        addAnugaStructure: () => dispatch(addAnugaStructure())
     };
 };
 

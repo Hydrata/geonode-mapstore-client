@@ -5,13 +5,20 @@ import {
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
     SET_ANUGA_INFLOW_DATA,
+    ADD_ANUGA_INFLOW,
     SET_ANUGA_FRICTION_DATA,
-    SET_ANUGA_STAGE_DATA,
+    ADD_ANUGA_FRICTION,
+    SET_ANUGA_STRUCTURE_DATA,
+    ADD_ANUGA_STRUCTURE,
     SET_ANUGA_BOUNDARY_DATA,
-    SET_ANUGA_ELEVATION_DATA
+    ADD_ANUGA_BOUNDARY,
+    SET_ANUGA_ELEVATION_DATA,
+    SET_ADD_ANUGA_ELEVATION_DATA,
+    SET_ANUGA_AVAILABLE_ELEVATION_DATA
 } from "./actionsAnuga";
 
 const initialState = {
+    showAddAnugaElevationData: false
 };
 
 export default ( state = initialState, action) => {
@@ -32,25 +39,66 @@ export default ( state = initialState, action) => {
             ...state,
             inflows: action.data
         };
+    case ADD_ANUGA_INFLOW:
+        return {
+            ...state,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false
+        };
     case SET_ANUGA_FRICTION_DATA:
         return {
             ...state,
             frictions: action.data
         };
-    case SET_ANUGA_STAGE_DATA:
+    case ADD_ANUGA_FRICTION:
         return {
             ...state,
-            stages: action.data
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false
+        };
+    case SET_ANUGA_STRUCTURE_DATA:
+        return {
+            ...state,
+            structures: action.data
+        };
+    case ADD_ANUGA_STRUCTURE:
+        return {
+            ...state,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false
         };
     case SET_ANUGA_BOUNDARY_DATA:
         return {
             ...state,
             boundaries: action.data
         };
+    case ADD_ANUGA_BOUNDARY:
+        return {
+            ...state,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false
+        };
     case SET_ANUGA_ELEVATION_DATA:
         return {
             ...state,
             elevations: action.data
+        };
+    case SET_ADD_ANUGA_ELEVATION_DATA:
+        return {
+            ...state,
+            showAddAnugaElevationData: action.visible,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false
+        };
+    case SET_ANUGA_AVAILABLE_ELEVATION_DATA:
+        return {
+            ...state,
+            availableElevations: action.data
         };
     case SET_ANUGA_INPUT_MENU:
         return {
