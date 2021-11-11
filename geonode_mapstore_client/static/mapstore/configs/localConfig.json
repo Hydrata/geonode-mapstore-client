@@ -1952,6 +1952,9 @@
                 "name": "SimpleView"
             },
             {
+                "name": "Anuga"
+            },
+            {
                 "name": "AddLayer"
             },
             {
