@@ -10,7 +10,8 @@ import {
     initAnugaBoundariesEpic,
     initAnugaElevationsEpic,
     getAnugaAvailElevationsEpic,
-    createAnugaElevationEpic
+    createAnugaElevationEpic1,
+    createAnugaElevationEpic2
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -27,6 +28,7 @@ export default createPlugin('Anuga', {
         initAnugaBoundariesEpic,
         initAnugaElevationsEpic,
         getAnugaAvailElevationsEpic,
-        createAnugaElevationEpic
+        createAnugaElevationEpic1,
+        createAnugaElevationEpic2
     }
 });

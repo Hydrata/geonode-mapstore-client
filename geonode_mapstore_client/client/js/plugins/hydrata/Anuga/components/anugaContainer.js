@@ -6,7 +6,8 @@ import {
     initAnuga,
     setAnugaInputMenu,
     setAnugaScenarioMenu,
-    setAnugaResultMenu
+    setAnugaResultMenu,
+    setAddAnugaElevation
 } from '../actionsAnuga';
 import AnugaInputMenu from './AnugaInputMenu';
 import AnugaScenarioMenu from './AnugaScenarioMenu';
@@ -29,7 +30,8 @@ class AnugaContainer extends React.Component {
         openMenuGroupId: PropTypes.string,
         numberOfMenus: PropTypes.number,
         setOpenMenuGroupId: PropTypes.func,
-        showAddAnugaElevationData: PropTypes.bool
+        showAddAnugaElevationData: PropTypes.bool,
+        setAddAnugaElevation: PropTypes.func
     };
 
     static defaultProps = {
@@ -53,11 +55,12 @@ class AnugaContainer extends React.Component {
                             className={'simple-view-menu-button'}
                             style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                             onClick={() => {
-                                this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
+                                // this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
+                                this.props.setAddAnugaElevation(true);
                                 this.props.setOpenMenuGroupId(null);
                             }}
                         >
-                            Inputs
+                            Add Input Data
                         </button>
                         {
                             this.props.showAnugaInputMenu ?
@@ -130,6 +133,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         initAnuga: () => dispatch(initAnuga()),
+        setAddAnugaElevation: (visible) => dispatch(setAddAnugaElevation(visible)),
         setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         setAnugaResultMenu: (visible) => dispatch(setAnugaResultMenu(visible)),

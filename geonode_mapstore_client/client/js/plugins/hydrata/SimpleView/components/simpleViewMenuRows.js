@@ -9,7 +9,8 @@ class MenuRowsClass extends React.Component {
     static propTypes = {
         menuGroups: PropTypes.array,
         flatLayers: PropTypes.array,
-        openLayers: PropTypes.array,
+        layerList: PropTypes.array,
+        layerSubheadings: PropTypes.array,
         menuDatasets: PropTypes.array,
         openMenuGroupId: PropTypes.string,
         baseMapLayers: PropTypes.array
@@ -29,7 +30,7 @@ class MenuRowsClass extends React.Component {
                 </div>
             );
         }
-        if (this.props.openLayers?.length === 0) {
+        if (this.props.layerList?.length === 0) {
             return (
                 <div className={'menu-rows-container'}>
                     <MenuRow layer={null}/>
@@ -38,8 +39,13 @@ class MenuRowsClass extends React.Component {
         }
         return (
             <div className={'menu-rows-container'}>
-                {this.props.openLayers?.map((layer) => (
-                    <MenuRow layer={layer}/>
+                {this.props.layerSubheadings.map(subHeading => (
+                    <React.Fragment>
+                        <div>{subHeading}</div>
+                        {this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading).map(layer => (
+                            <MenuRow layer={layer}/>
+                        ))}
+                    </React.Fragment>
                 ))}
             </div>
         );
@@ -53,7 +59,8 @@ const mapStateToProps = (state) => {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         menuGroups: state?.layers?.groups,
         flatLayers: state?.layers?.flat,
-        openLayers: state?.layers?.flat?.filter((layer) => layer?.group === state?.simpleView?.openMenuGroupId),
+        layerList: state?.layers?.flat?.filter((layer) => layer?.group?.split('.')[0] === state?.simpleView?.openMenuGroupId),
+        layerSubheadings: [...new Set(state?.layers?.flat?.filter((layer) => layer?.group?.split('.')[0] === state?.simpleView?.openMenuGroupId).map(layer => layer.group.split('.')[1]))],
         baseMapLayers: state?.layers?.flat.filter((layer) => layer?.group === 'background')
     };
 };
