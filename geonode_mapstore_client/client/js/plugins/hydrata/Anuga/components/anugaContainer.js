@@ -1,6 +1,7 @@
 import React from 'react';
 import {connect} from 'react-redux';
 const PropTypes = require('prop-types');
+import {Button} from "react-bootstrap";
 
 import {
     initAnuga,
@@ -50,21 +51,34 @@ class AnugaContainer extends React.Component {
             (
                 <div id={"anuga-container"}>
                     <div id={"anuga-inputs"}>
-                        <button
-                            key="anuga-input-button"
-                            className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                            onClick={() => {
-                                // this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
-                                this.props.setAddAnugaElevation(true);
-                                this.props.setOpenMenuGroupId(null);
-                            }}
-                        >
-                            Add Input Data
-                        </button>
                         {
                             this.props.showAnugaInputMenu ?
-                                <AnugaInputMenu/>
+                                <button
+                                    key="anuga-input-button"
+                                    className={'simple-view-menu-button'}
+                                    style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                    onClick={() => {
+                                        this.props.setAddAnugaElevation(true);
+                                        this.props.setOpenMenuGroupId(null);
+                                    }}
+                                >
+                                    Add Input Data
+                                </button> :
+                                null
+                        }
+                        {
+                            (this.props.openMenuGroupId && this.props.anugaInputMenuGroupId === this.props.openMenuGroupId) ?
+                                <Button
+                                    bsStyle={'success'}
+                                    bsSize={'xsmall'}
+                                    style={{margin: "2px", borderRadius: "2px", top: "75px", left: "37px", position: "absolute", zIndex: 2000}}
+                                    onClick={() => {
+                                        this.props.setAddAnugaElevation(true);
+                                        this.props.setOpenMenuGroupId(null);
+                                    }}
+                                >
+                                    Add Input Data
+                                </Button>
                                 : null
                         }
                     </div>
@@ -72,7 +86,7 @@ class AnugaContainer extends React.Component {
                         <button
                             key="anuga-scenario-button"
                             className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
+                            style={{left: (this.props.numberOfMenus + (this.props.showAnugaInputMenu ? 2 : 1)) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
                                 this.props.setOpenMenuGroupId(null);
@@ -90,7 +104,7 @@ class AnugaContainer extends React.Component {
                         <button
                             key="anuga-result-button"
                             className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
+                            style={{left: (this.props.numberOfMenus + (this.props.showAnugaInputMenu ? 3 : 2)) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaResultMenu(!this.props.showAnugaResultMenu);
                                 this.props.setOpenMenuGroupId(null);
@@ -119,8 +133,8 @@ const mapStateToProps = (state) => {
     console.log('state for Anuga:', state);
     return {
         isAnugaProject: state?.anuga?.project?.id,
-        anugaInputMenuGroupId: state?.mapConfigRawData?.map?.groups?.filter((group) => group.title === "Inputs")[0]?.id,
-        showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
+        anugaInputMenuGroupId: state?.layers?.groups?.filter((group) => group.title === "Input Data")[0]?.id,
+        showAnugaInputMenu: !state?.layers?.groups?.filter((group) => group.title === "Input Data").length,
         showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,
         showAnugaResultMenu: state?.anuga?.showAnugaResultMenu,
         isAnugaMenuOpen: state?.anuga?.showAnugaInputMenu || state?.anuga?.showAnugaScenarioMenu || state?.anuga?.showAnugaResultMenu,
