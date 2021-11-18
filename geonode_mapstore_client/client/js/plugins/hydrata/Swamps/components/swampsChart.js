@@ -150,7 +150,7 @@ class SwampsChartClass extends React.Component {
                                     </Col>
                                     <Col sm={10}>
                                         {
-                                            this.props.selectedYKey === 'photos' ?
+                                            this.props.selectedYKey === 'Photo' ?
                                                 <Carousel>
                                                     {
                                                         this.props.selectedPhotos.map((photo) => (
@@ -208,7 +208,7 @@ class SwampsChartClass extends React.Component {
                     }
                 </div>
                 <div className="chart-footer">
-                    Footer goes here
+
                 </div>
             </div>
         );
@@ -217,7 +217,14 @@ class SwampsChartClass extends React.Component {
 
 const mapStateToProps = (state) => {
     let excludedFields = ['status', 'location', 'entry_date', 'survey_date_time', 'fields', 'id'];
-    let excludedSurveyTypes = ['template']
+    let excludedSurveyTypes = ['template'];
+    let selectedPhotosCheck = state?.swamps?.selectedActivities?.reduce((previousValue, currentValue) => {
+        console.log('currentValue', currentValue);
+        if (currentValue.Photo) {
+            return previousValue.concat(currentValue.Photo);
+        }
+        return previousValue;
+    }, []);
     return {
         selectedSwampId: state?.swamps?.selectedSwampId,
         selectedSwampData: state?.swamps?.selectedSwampData,
@@ -233,12 +240,7 @@ const mapStateToProps = (state) => {
         selectedActivities: state?.swamps?.selectedActivities || [],
         availableActivityFields: state?.swamps?.availableActivityFields.filter(field => !excludedFields.includes(field)) || [],
         selectedActivityFields: state?.swamps?.selectedActivityFields || [],
-        selectedPhotos: state?.swamps?.selectedActivities?.reduce((previousValue, currentValue) => {
-            if (currentValue.photos) {
-                return previousValue.concat(currentValue.photos);
-            }
-            return previousValue;
-        }, [])
+        selectedPhotos: selectedPhotosCheck
     };
 };
 
