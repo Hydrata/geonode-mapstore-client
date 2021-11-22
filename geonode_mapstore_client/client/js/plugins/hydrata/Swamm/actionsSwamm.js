@@ -51,6 +51,8 @@ const TOGGLE_BMP_TYPE = 'TOGGLE_BMP_TYPE';
 const SET_MENU_GROUP = 'SET_MENU_GROUP';
 const TOGGLE_BMP_TYPE_VISIBILITY = 'TOGGLE_BMP_TYPE_VISIBILITY';
 const TOGGLE_BMP_PRIORITY_VISIBILITY = 'TOGGLE_BMP_PRIORITY_VISIBILITY';
+const TOGGLE_BMP_GROUP_PROFILE_VISIBILITY = 'TOGGLE_BMP_GROUP_PROFILE_VISIBILITY';
+const TOGGLE_BMP_STATUS_VISIBILITY = 'TOGGLE_BMP_STATUS_VISIBILITY';
 const SET_ALL_BMP_TYPES_VISIBILITY = 'SET_ALL_BMP_TYPES_VISIBILITY';
 const SET_BMP_TYPE = 'SET_BMP_TYPE';
 const SET_CHANGING_BMP_TYPE = 'SET_CHANGING_BMP_TYPE';
@@ -161,15 +163,16 @@ const fetchProjectManagerConfig = (dispatch) => {
 };
 
 const fetchGroupProfilesSuccess = (groupProfiles) => {
-    groupProfiles.map((gp) => {
+    const cleanedGroupProfiles = groupProfiles.map((gp) => {
         return {
             ...gp,
-            id: gp.pk
+            id: gp.pk,
+            visibility: true
         };
     });
     return {
         type: FETCH_GROUP_PROFILES_SUCCESS,
-        groupProfiles: groupProfiles
+        groupProfiles: cleanedGroupProfiles
     };
 };
 
@@ -890,6 +893,20 @@ function toggleBmpPriorityVisibility(priority) {
     };
 }
 
+function toggleBmpGroupProfileVisibility(groupProfile) {
+    return {
+        type: TOGGLE_BMP_GROUP_PROFILE_VISIBILITY,
+        groupProfile
+    };
+}
+
+function toggleBmpStatusVisibility(status) {
+    return {
+        type: TOGGLE_BMP_STATUS_VISIBILITY,
+        status
+    };
+}
+
 function setAllBmpTypesVisibility(boolValue) {
     return {
         type: SET_ALL_BMP_TYPES_VISIBILITY,
@@ -924,6 +941,8 @@ module.exports = {
     TOGGLE_BMP_TYPE, toggleBmpType,
     TOGGLE_BMP_TYPE_VISIBILITY, toggleBmpTypeVisibility,
     TOGGLE_BMP_PRIORITY_VISIBILITY, toggleBmpPriorityVisibility,
+    TOGGLE_BMP_GROUP_PROFILE_VISIBILITY, toggleBmpGroupProfileVisibility,
+    TOGGLE_BMP_STATUS_VISIBILITY, toggleBmpStatusVisibility,
     SET_ALL_BMP_TYPES_VISIBILITY, setAllBmpTypesVisibility,
     SET_BMP_TYPE, setBmpType,
     SET_STATUS_FILTER, setStatusFilter,

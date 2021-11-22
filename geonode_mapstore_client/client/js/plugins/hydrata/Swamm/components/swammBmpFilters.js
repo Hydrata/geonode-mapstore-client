@@ -5,6 +5,8 @@ import {Col, Row} from "react-bootstrap";
 import {
     setExpandedFilter,
     toggleBmpTypeVisibility,
+    toggleBmpGroupProfileVisibility,
+    toggleBmpStatusVisibility,
     setAllBmpTypesVisibility,
     toggleBmpPriorityVisibility
 } from "../actionsSwamm";
@@ -18,12 +20,16 @@ class SwammBmpFiltersClass extends React.Component {
         bmpFilter: PropTypes.object,
         changeLayerProperties: PropTypes.func,
         toggleBmpTypeVisibility: PropTypes.func,
+        toggleBmpGroupProfileVisibility: PropTypes.func,
+        toggleBmpStatusVisibility: PropTypes.func,
         setAllBmpTypesVisibility: PropTypes.func,
         toggleBmpPriorityVisibility: PropTypes.func,
         bmpWatershedLayer: PropTypes.object,
         bmpFootprintLayer: PropTypes.object,
         bmpOutletLayer: PropTypes.object,
-        priorities: PropTypes.object
+        priorities: PropTypes.object,
+        groupProfiles: PropTypes.object,
+        statuses: PropTypes.object
     };
 
     static defaultProps = {}
@@ -118,6 +124,63 @@ class SwammBmpFiltersClass extends React.Component {
                                     : null
                             }
                         </div>
+                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
+                            <span
+                                className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "status" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
+                                style={{color: "white", background: "none"}}
+                                onClick={() => {this.props.setExpandedFilter('status');}}
+                            />
+                            <span className="inline h5 menu-row-text"><strong>Filter by BMP status</strong></span>
+                            {
+                                this.props.expandedFilter === "status" ?
+                                    <React.Fragment>
+                                        <hr style={{margin: "0"}}/>
+                                        <Row>
+                                            {
+                                                this.props.statuses.map((status, index) => (
+                                                    <Col sm={6} className={"row menu-row filter-row " + (index % 2 ? "filter-row-odd" : '')}>
+                                                        <span
+                                                            className={"btn glyphicon menu-row-glyph " + (status?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                            style={{"color": status?.visibility ? "limegreen" : "red"}}
+                                                            onClick={() => this.props.toggleBmpStatusVisibility(status)}
+                                                        />
+                                                        <span className="menu-row-text">{status.name}</span>
+                                                    </Col>
+                                                ))
+                                            }
+                                        </Row>
+                                    </React.Fragment>
+                                    : null
+                            }
+                        </div>
+                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
+                            <span
+                                className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "groupProfile" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
+                                style={{color: "white", background: "none"}}
+                                onClick={() => {this.props.setExpandedFilter('groupProfile');}}
+                            />
+                            <span className="inline h5 menu-row-text"><strong>Filter by Organization</strong></span>
+                            {
+                                this.props.expandedFilter === "groupProfile" ?
+                                    <React.Fragment>
+                                        <Row>
+                                            {
+                                                this.props.groupProfiles.map((groupProfile, index) => (
+                                                    <Col sm={6} className={"row menu-row filter-row " + (index % 2 ? "filter-row-odd" : '')}>
+                                                        <span
+                                                            className={"btn glyphicon menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                            style={{"color": groupProfile?.visibility ? "limegreen" : "red"}}
+                                                            onClick={() => this.props.toggleBmpGroupProfileVisibility(groupProfile)}
+                                                        />
+                                                        <span className="menu-row-text">{groupProfile.title}</span>
+                                                    </Col>
+                                                ))
+                                            }
+                                        </Row>
+                                    </React.Fragment>
+                                    : null
+                            }
+                        </div>
                     </div>
                 </div>
             </React.Fragment>
@@ -130,10 +193,14 @@ class SwammBmpFiltersClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users"].includes(item));
+    const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
         mapId: state?.swamm?.data?.base_map,
         projectData: state?.swamm?.data,
         bmpTypes: state?.swamm?.bmpTypes,
+        statuses: state?.swamm?.statuses,
+        groupProfiles: allowedGroupProfiles,
         layers: state?.layers,
         query: state?.query,
         expandedFilter: state?.swamm?.expandedFilter,
@@ -150,6 +217,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setExpandedFilter: (filterName) => dispatch(setExpandedFilter(filterName)),
         changeLayerProperties: (layerId, filterObj) => dispatch(changeLayerProperties(layerId, filterObj)),
         toggleBmpTypeVisibility: (bmpType) => dispatch(toggleBmpTypeVisibility(bmpType)),
+        toggleBmpGroupProfileVisibility: (groupProfile) => dispatch(toggleBmpGroupProfileVisibility(groupProfile)),
+        toggleBmpStatusVisibility: (status) => dispatch(toggleBmpStatusVisibility(status)),
         setAllBmpTypesVisibility: (boolValue) => dispatch(setAllBmpTypesVisibility(boolValue)),
         toggleBmpPriorityVisibility: (priority) => dispatch(toggleBmpPriorityVisibility(priority))
     };

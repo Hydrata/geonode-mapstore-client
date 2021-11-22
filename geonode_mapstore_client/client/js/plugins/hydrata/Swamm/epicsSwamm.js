@@ -27,6 +27,8 @@ import {
     registerMissingBmpFeatureId,
     updateBmpTypeGroups,
     TOGGLE_BMP_TYPE_VISIBILITY,
+    TOGGLE_BMP_STATUS_VISIBILITY,
+    TOGGLE_BMP_GROUP_PROFILE_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
     setBmpLayers, TOGGLE_BMP_PRIORITY_VISIBILITY
 } from "./actionsSwamm";
@@ -289,6 +291,18 @@ const wmsFilterTemplate = {
                 "groupId": 123456,
                 "logic": "OR",
                 "index": 1
+            },
+            {
+                "id": "group_profile_1",
+                "groupId": 123456,
+                "logic": "OR",
+                "index": 1
+            },
+            {
+                "id": "status_1",
+                "groupId": 123456,
+                "logic": "OR",
+                "index": 1
             }
         ],
         "filterFields": [],
@@ -301,7 +315,9 @@ export const filterBmpEpic = (action$, store) =>
     action$.ofType(
         TOGGLE_BMP_TYPE_VISIBILITY,
         SET_ALL_BMP_TYPES_VISIBILITY,
-        TOGGLE_BMP_PRIORITY_VISIBILITY
+        TOGGLE_BMP_PRIORITY_VISIBILITY,
+        TOGGLE_BMP_STATUS_VISIBILITY,
+        TOGGLE_BMP_GROUP_PROFILE_VISIBILITY
     )
         .mergeMap(() => {
             const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
@@ -329,6 +345,20 @@ export const filterBmpEpic = (action$, store) =>
                 const filterField = createFilterField('priority', -1);
                 newFilter.filterObj.filterFields.push(filterField);
             }
+            store.getState()?.swamm?.groupProfiles.map((groupProfile) => {
+                if (groupProfile.visibility) {
+                    const filterField = createFilterField('group_profile', groupProfile.id);
+                    newFilter.filterObj.filterFields.push(filterField);
+                    // atLeastOnegroupProfileVisible = true;
+                }
+            });
+            store.getState()?.swamm?.statuses.map((status) => {
+                if (status.visibility) {
+                    const filterField = createFilterField('status', status.name);
+                    newFilter.filterObj.filterFields.push(filterField);
+                    // atLeastOnegroupProfileVisible = true;
+                }
+            });
             const outletFilter = JSON.parse(JSON.stringify(newFilter));
             const footprintFilter = JSON.parse(JSON.stringify(newFilter));
             const watershedFilter = JSON.parse(JSON.stringify(newFilter));

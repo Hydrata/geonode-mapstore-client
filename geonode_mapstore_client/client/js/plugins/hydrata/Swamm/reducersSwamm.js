@@ -12,6 +12,8 @@ import {
     SELECT_SWAMM_TARGET_ID,
     TOGGLE_BMP_TYPE_VISIBILITY,
     TOGGLE_BMP_PRIORITY_VISIBILITY,
+    TOGGLE_BMP_GROUP_PROFILE_VISIBILITY,
+    TOGGLE_BMP_STATUS_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
     SET_BMP_TYPE,
     SET_CHANGING_BMP_TYPE,
@@ -162,6 +164,32 @@ export default ( state = initialState, action) => {
                     };
                 }
                 return priority;
+            })
+        };
+    case TOGGLE_BMP_GROUP_PROFILE_VISIBILITY:
+        return {
+            ...state,
+            groupProfiles: state.groupProfiles.map(groupProfile => {
+                if (groupProfile.id === action.groupProfile.id) {
+                    return {
+                        ...groupProfile,
+                        visibility: !action.groupProfile.visibility
+                    };
+                }
+                return groupProfile;
+            })
+        };
+    case TOGGLE_BMP_STATUS_VISIBILITY:
+        return {
+            ...state,
+            statuses: state.statuses.map(status => {
+                if (status.id === action.status.id) {
+                    return {
+                        ...status,
+                        visibility: !action.status.visibility
+                    };
+                }
+                return status;
             })
         };
     case SET_ALL_BMP_TYPES_VISIBILITY:
