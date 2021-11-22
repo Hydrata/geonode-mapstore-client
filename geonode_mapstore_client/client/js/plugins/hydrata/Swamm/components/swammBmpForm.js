@@ -380,8 +380,8 @@ class SwammBmpFormClass extends React.Component {
                                                     >
                                                         <option key={'Unknown'} value={'Unknown'}>{'Unknown'}</option>
                                                         {this.props.statuses
-                                                            .filter(status => status !== 'Unknown')
-                                                            .map(status => <option key={status} value={status}>{status}</option>)
+                                                            .filter(status => status.name !== 'Unknown')
+                                                            .map(status => <option key={status.name} value={status.name}>{status.name}</option>)
                                                         }
                                                     </FormControl>
                                                     <FormControl.Feedback />

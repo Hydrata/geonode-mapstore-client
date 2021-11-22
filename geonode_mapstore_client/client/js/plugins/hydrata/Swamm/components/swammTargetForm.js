@@ -228,7 +228,7 @@ class SwammTargetFormClass extends React.Component {
                                             >
                                                 {
                                                     this.props.statuses?.map((status) =>
-                                                        <option value={status}>{status}</option>
+                                                        <option value={status.name}>{status.name}</option>
                                                     )
                                                 }
                                             </FormControl>
