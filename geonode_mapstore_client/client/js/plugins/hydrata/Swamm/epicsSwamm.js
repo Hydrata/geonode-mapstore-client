@@ -260,9 +260,9 @@ export const downloadBmpReportEpic = (action$) =>
 
 const createFilterField = (attribute, value) => ({
     "attribute": attribute,
-    "rowId": 1632827356481,
+    "rowId": 123456,
     "type": "number",
-    "groupId": "type_1",
+    "groupId": `${attribute}_1`,
     "operator": "=",
     "value": value
 });
@@ -274,14 +274,20 @@ const wmsFilterTemplate = {
         "ogcVersion": "1.1.0",
         "groupFields": [
             {
-                "id": 1632827356481,
+                "id": 123456,
                 "index": 0,
                 "logic": "AND"
             },
             {
-                "groupId": 1632827356481,
-                "logic": "OR",
                 "id": "type_1",
+                "groupId": 123456,
+                "logic": "OR",
+                "index": 1
+            },
+            {
+                "id": "priority_1",
+                "groupId": 123456,
+                "logic": "OR",
                 "index": 1
             }
         ],
@@ -291,11 +297,16 @@ const wmsFilterTemplate = {
     }
 };
 
-export const filterBmpTypeEpic = (action$, store) =>
-    action$.ofType(TOGGLE_BMP_TYPE_VISIBILITY, SET_ALL_BMP_TYPES_VISIBILITY)
+export const filterBmpEpic = (action$, store) =>
+    action$.ofType(
+        TOGGLE_BMP_TYPE_VISIBILITY,
+        SET_ALL_BMP_TYPES_VISIBILITY,
+        TOGGLE_BMP_PRIORITY_VISIBILITY
+    )
         .mergeMap(() => {
             const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
             let atLeastOneBmpTypeVisible = false;
+            let atLeastOneBmpPriorityVisible = false;
             store.getState()?.swamm?.bmpTypes.map((bmpType) => {
                 if (bmpType.visibility) {
                     const filterField = createFilterField('type', bmpType.id);
@@ -307,26 +318,6 @@ export const filterBmpTypeEpic = (action$, store) =>
                 const filterField = createFilterField('type', -1);
                 newFilter.filterObj.filterFields.push(filterField);
             }
-            const outletFilter = JSON.parse(JSON.stringify(newFilter));
-            const footprintFilter = JSON.parse(JSON.stringify(newFilter));
-            const watershedFilter = JSON.parse(JSON.stringify(newFilter));
-            outletFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpOutletLayer?.name;
-            footprintFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpFootprintLayer?.name;
-            watershedFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpWatershedLayer?.name;
-            console.log('watershed filter: ', watershedFilter);
-            return Rx.Observable.of(
-                changeLayerProperties(store.getState()?.swamm?.bmpOutletLayer?.id, outletFilter),
-                changeLayerProperties(store.getState()?.swamm?.bmpFootprintLayer?.id, footprintFilter),
-                changeLayerProperties(store.getState()?.swamm?.bmpWatershedLayer?.id, watershedFilter)
-            );
-        });
-
-
-export const filterBmpPriorityEpic = (action$, store) =>
-    action$.ofType(TOGGLE_BMP_PRIORITY_VISIBILITY)
-        .mergeMap(() => {
-            const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
-            let atLeastOneBmpPriorityVisible = false;
             store.getState()?.swamm?.priorities.map((priority) => {
                 if (priority.visibility) {
                     const filterField = createFilterField('priority', priority.id);
@@ -344,7 +335,7 @@ export const filterBmpPriorityEpic = (action$, store) =>
             outletFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpOutletLayer?.name;
             footprintFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpFootprintLayer?.name;
             watershedFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpWatershedLayer?.name;
-            console.log('priority filter: ', watershedFilter);
+            console.log('watershed filter: ', watershedFilter);
             return Rx.Observable.of(
                 changeLayerProperties(store.getState()?.swamm?.bmpOutletLayer?.id, outletFilter),
                 changeLayerProperties(store.getState()?.swamm?.bmpFootprintLayer?.id, footprintFilter),
