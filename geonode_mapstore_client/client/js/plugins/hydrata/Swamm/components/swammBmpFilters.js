@@ -193,7 +193,7 @@ class SwammBmpFiltersClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users"].includes(item));
+    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
         mapId: state?.swamm?.data?.base_map,
