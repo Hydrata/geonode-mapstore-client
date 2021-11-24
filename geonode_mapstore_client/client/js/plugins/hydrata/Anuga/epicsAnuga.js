@@ -142,7 +142,7 @@ export const createAnugaElevationEpic1 = (action$, store) =>
             return Rx.Observable.of(
                 textSearch({
                     format: 'csw',
-                    url: '/catalogue/csw',
+                    url: 'https://hydrata.com/catalogue/csw',
                     startPosition: 1,
                     maxRecords: 4,
                     text: response?.data?.name,
