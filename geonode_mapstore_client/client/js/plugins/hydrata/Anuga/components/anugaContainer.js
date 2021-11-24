@@ -62,7 +62,7 @@ class AnugaContainer extends React.Component {
                                         this.props.setOpenMenuGroupId(null);
                                     }}
                                 >
-                                    Add Input Data
+                                    Add Data
                                 </button> :
                                 null
                         }
@@ -71,13 +71,13 @@ class AnugaContainer extends React.Component {
                                 <Button
                                     bsStyle={'success'}
                                     bsSize={'xsmall'}
-                                    style={{margin: "2px", borderRadius: "2px", top: "75px", left: "37px", position: "absolute", zIndex: 2000}}
+                                    style={{margin: "2px", borderRadius: "2px", top: "75px", left: "446px", position: "absolute", zIndex: 2000}}
                                     onClick={() => {
                                         this.props.setAddAnugaElevation(true);
                                         this.props.setOpenMenuGroupId(null);
                                     }}
                                 >
-                                    Add Input Data
+                                    Add Data
                                 </Button>
                                 : null
                         }

@@ -5,6 +5,7 @@ import {
     SET_ANUGA_PROJECT_DATA,
     SET_ADD_ANUGA_ELEVATION_DATA,
     CREATE_ANUGA_ELEVATION_FROM_LAYER,
+    CREATE_NEW_BOUNDARY,
     setAnugaScenarioData,
     setAnugaProjectData,
     setAnugaElevationData,
@@ -18,9 +19,10 @@ import {
     textSearch,
     RECORD_LIST_LOADED
 } from '../../../../MapStore2/web/client/actions/catalog';
-import { addLayer } from '../../../../MapStore2/web/client/actions/layers';
+import { ADD_LAYER, addLayer } from '../../../../MapStore2/web/client/actions/layers';
 import axios from "../../../../MapStore2/web/client/libs/ajax";
 import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
+import {saveDirectContent} from "../../../actions/gnsave";
 
 const makeBboxFromCSW = (bbox) => {
     return {
@@ -34,8 +36,16 @@ const makeBboxFromCSW = (bbox) => {
     };
 };
 
+const menuNames = {
+    "ele": "Elevations",
+    "bdy": "Boundaries",
+    "str": "Structures",
+    "inf": "Inflows",
+    "fri": "Friction Maps"
+};
+
 const makeLayerFromTemplate = (id, name, title, bbox) => {
-    console.log('bbox:', bbox);
+    const menu = menuNames[name.split("geonode:")[1].substring(0, 3)];
     const layer = {
         "type": "wms",
         "format": "image/png",
@@ -45,7 +55,7 @@ const makeLayerFromTemplate = (id, name, title, bbox) => {
         "dimensions": [],
         "name": name,
         "title": title,
-        "group": 'Input Data.Elevations',
+        "group": `Input Data.${menu}`,
         "description": "No abstract provided",
         "bbox": makeBboxFromCSW(bbox),
         "links": [],
@@ -140,7 +150,7 @@ export const createAnugaElevationEpic1 = (action$, store) =>
             );
         });
 
-export const createAnugaElevationEpic2 = (action$) =>
+export const createAnugaLayerFromCatSearch = (action$) =>
     action$
         .ofType(RECORD_LIST_LOADED)
         .concatMap((action) => Rx.Observable.of(
@@ -150,15 +160,29 @@ export const createAnugaElevationEpic2 = (action$) =>
                 action.result.records[0].dc.title,
                 action.result.records[0].boundingBox
             )),
-            zoomToExtent(
-                makeBboxFromCSW(action.result.records[0].boundingBox).bounds,
-                makeBboxFromCSW(action.result.records[0].boundingBox).crs,
-                20
-            )
+            () => {
+                if (!menuNames[name.split("geonode:")[1].substring(0, 3)]) {
+                    return zoomToExtent(
+                        makeBboxFromCSW(action.result.records[0].boundingBox).bounds,
+                        makeBboxFromCSW(action.result.records[0].boundingBox).crs,
+                        20
+                    );
+                }
+                return null;
+            }
         ))
         .mergeMap((layer) => {
             console.log('point 6', layer);
             return Rx.Observable.of(layer);
+        });
+
+export const autoSaveOnAnugaAddLayer = (action$) =>
+    action$
+        .ofType(ADD_LAYER)
+        .filter((action) => action?.layer?.group.substring(0, 10) === "Input Data")
+        .mergeMap((layer) => {
+            console.log('autoSaveOnAnugaAddLayer', layer);
+            return Rx.Observable.of(saveDirectContent());
         });
 
 export const initAnugaBoundariesEpic = (action$, store) =>
@@ -166,6 +190,27 @@ export const initAnugaBoundariesEpic = (action$, store) =>
         .ofType(SET_ANUGA_PROJECT_DATA)
         .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/`)))
         .concatMap((response) => Rx.Observable.of(setAnugaBoundaryData(response.data)));
+
+
+export const createAnugaBoundary1 = (action$, store) =>
+    action$
+        .ofType(CREATE_NEW_BOUNDARY)
+        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/`, {
+            "project": store.getState()?.anuga?.project?.id,
+            "title": action.boundaryTitle
+        })))
+        .concatMap((response) => {
+            return Rx.Observable.of(
+                textSearch({
+                    format: 'csw',
+                    url: 'http://localhost:8000/catalogue/csw',
+                    startPosition: 1,
+                    maxRecords: 4,
+                    text: response?.data?.name,
+                    options: {}
+                })
+            );
+        });
 
 
 export const initAnugaInflowsEpic = (action$, store) =>

@@ -11,6 +11,7 @@ const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
 const SET_ANUGA_AVAILABLE_ELEVATION_DATA = 'SET_ANUGA_AVAILABLE_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
+const CREATE_NEW_BOUNDARY = 'CREATE_NEW_BOUNDARY';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
@@ -116,6 +117,13 @@ function createAnugaElevationFromLayer(pk, name) {
     };
 }
 
+function createNewBoundary(boundaryTitle) {
+    return {
+        type: CREATE_NEW_BOUNDARY,
+        boundaryTitle
+    };
+}
+
 function addAnugaBoundary() {
     return {
         type: ADD_ANUGA_BOUNDARY
@@ -155,6 +163,7 @@ module.exports = {
     SET_ANUGA_AVAILABLE_ELEVATION_DATA, setAnugaAvailableElevationData,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
+    CREATE_NEW_BOUNDARY, createNewBoundary,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,

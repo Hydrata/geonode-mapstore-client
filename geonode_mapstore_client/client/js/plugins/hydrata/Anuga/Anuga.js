@@ -11,7 +11,9 @@ import {
     initAnugaElevationsEpic,
     getAnugaAvailElevationsEpic,
     createAnugaElevationEpic1,
-    createAnugaElevationEpic2
+    createAnugaLayerFromCatSearch,
+    createAnugaBoundary1,
+    autoSaveOnAnugaAddLayer
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -29,6 +31,8 @@ export default createPlugin('Anuga', {
         initAnugaElevationsEpic,
         getAnugaAvailElevationsEpic,
         createAnugaElevationEpic1,
-        createAnugaElevationEpic2
+        createAnugaLayerFromCatSearch,
+        createAnugaBoundary1,
+        autoSaveOnAnugaAddLayer
     }
 });
