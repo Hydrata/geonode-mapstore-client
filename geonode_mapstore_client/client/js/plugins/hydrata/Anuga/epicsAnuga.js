@@ -46,6 +46,7 @@ const menuNames = {
 
 const makeLayerFromTemplate = (id, name, title, bbox) => {
     const menu = menuNames[name.split("geonode:")[1].substring(0, 3)];
+    // TODO: remove hydrata.com and replace with geonode settings, if the external url works
     const layer = {
         "type": "wms",
         "format": "image/png",
@@ -61,7 +62,7 @@ const makeLayerFromTemplate = (id, name, title, bbox) => {
         "links": [],
         "params": {},
         "allowedSRS": {},
-        "catalogURL": `http://localhost:8000/catalogue/csw?request=GetRecordById&service=CSW&version=2.0.2&elementSetName=full&id=${id}`,
+        "catalogURL": `https://hydrata.com/catalogue/csw?request=GetRecordById&service=CSW&version=2.0.2&elementSetName=full&id=${id}`,
         "tileSize": 512,
         "imageFormats": [
             {
