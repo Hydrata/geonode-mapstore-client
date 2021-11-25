@@ -22,7 +22,7 @@ const initialState = {
 };
 
 export default ( state = initialState, action) => {
-    // console.log(action);
+    console.log('anuga:', action);
     switch (action.type) {
     case SET_ANUGA_PROJECT_DATA:
         return {

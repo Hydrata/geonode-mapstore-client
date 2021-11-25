@@ -143,7 +143,7 @@ export const createAnugaElevationEpic1 = (action$, store) =>
                     format: 'csw',
                     url: 'http://localhost:8000/catalogue/csw',
                     startPosition: 1,
-                    maxRecords: 4,
+                    maxRecords: 1000,
                     text: response?.data?.name,
                     options: {}
                 })
@@ -153,39 +153,26 @@ export const createAnugaElevationEpic1 = (action$, store) =>
 export const createAnugaLayerFromCatSearch = (action$) =>
     action$
         .ofType(RECORD_LIST_LOADED)
-        .take(1)
-        .concatMap((action) => Rx.Observable.of(
+        .map(action => action.result.records.filter((record) => record.dc.alternative === 'geonode:' + action.searchOptions.text)[0])
+        .concatMap((record) => Rx.Observable.of(
             addLayer(makeLayerFromTemplate(
-                action.result.records[0].dc.identifier,
-                action.result.records[0].dc.alternative,
-                action.result.records[0].dc.title,
-                action.result.records[0].boundingBox
+                record.dc.identifier,
+                record.dc.alternative,
+                record.dc.title,
+                record.boundingBox
             )),
-            () => {
-                if (!menuNames[name.split("geonode:")[1].substring(0, 3)]) {
-                    return zoomToExtent(
-                        makeBboxFromCSW(action.result.records[0].boundingBox).bounds,
-                        makeBboxFromCSW(action.result.records[0].boundingBox).crs,
-                        20
-                    );
-                }
-                return null;
-            }
-        ))
-        .mergeMap((layer) => {
-            console.log('point 6', layer);
-            return Rx.Observable.of(layer);
-        });
+            zoomToExtent(
+                makeBboxFromCSW(record.boundingBox).bounds,
+                makeBboxFromCSW(record.boundingBox).crs,
+                20
+            )
+        ));
 
 export const autoSaveOnAnugaAddLayer = (action$) =>
     action$
         .ofType(ADD_LAYER)
-        .take(1)
         .filter((action) => action?.layer?.group.substring(0, 10) === "Input Data")
-        .mergeMap((action) => {
-            console.log('autoSaveOnAnugaAddLayer', action?.layer?.group.substring(0, 10));
-            return Rx.Observable.of();
-        });
+        .mergeMap(() => Rx.Observable.of(saveDirectContent()));
 
 export const initAnugaBoundariesEpic = (action$, store) =>
     action$
