@@ -49,7 +49,7 @@ const makeLayerFromTemplate = (id, name, title, bbox) => {
     const layer = {
         "type": "wms",
         "format": "image/png",
-        "url": "/geoserver/ows",
+        "url": "http://localhost:8080/geoserver/ows",
         "visibility": true,
         "opacity": 1,
         "dimensions": [],
@@ -61,7 +61,7 @@ const makeLayerFromTemplate = (id, name, title, bbox) => {
         "links": [],
         "params": {},
         "allowedSRS": {},
-        "catalogURL": `/catalogue/csw?request=GetRecordById&service=CSW&version=2.0.2&elementSetName=full&id=${id}`,
+        "catalogURL": `http://localhost:8000/catalogue/csw?request=GetRecordById&service=CSW&version=2.0.2&elementSetName=full&id=${id}`,
         "tileSize": 512,
         "imageFormats": [
             {
