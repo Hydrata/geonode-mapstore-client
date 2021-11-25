@@ -70,3 +70,7 @@
   color: white;
   opacity: 1; /* Firefox */
 }
+
+#mapstore-drawermenu {
+    display: none;
+}
