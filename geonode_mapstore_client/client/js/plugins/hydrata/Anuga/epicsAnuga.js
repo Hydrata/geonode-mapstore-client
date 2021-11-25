@@ -46,7 +46,6 @@ const menuNames = {
 
 const makeLayerFromTemplate = (id, name, title, bbox) => {
     const menu = menuNames[name.split("geonode:")[1].substring(0, 3)];
-    // TODO: remove hydrata.com and replace with geonode settings, if the external url works
     const layer = {
         "type": "wms",
         "format": "image/png",
@@ -142,7 +141,7 @@ export const createAnugaElevationEpic1 = (action$, store) =>
             return Rx.Observable.of(
                 textSearch({
                     format: 'csw',
-                    url: 'https://hydrata.com/catalogue/csw',
+                    url: 'http://localhost:8000/catalogue/csw',
                     startPosition: 1,
                     maxRecords: 4,
                     text: response?.data?.name,
@@ -154,6 +153,7 @@ export const createAnugaElevationEpic1 = (action$, store) =>
 export const createAnugaLayerFromCatSearch = (action$) =>
     action$
         .ofType(RECORD_LIST_LOADED)
+        .take(1)
         .concatMap((action) => Rx.Observable.of(
             addLayer(makeLayerFromTemplate(
                 action.result.records[0].dc.identifier,
@@ -180,10 +180,11 @@ export const createAnugaLayerFromCatSearch = (action$) =>
 export const autoSaveOnAnugaAddLayer = (action$) =>
     action$
         .ofType(ADD_LAYER)
+        .take(1)
         .filter((action) => action?.layer?.group.substring(0, 10) === "Input Data")
-        .mergeMap((layer) => {
-            console.log('autoSaveOnAnugaAddLayer', layer);
-            return Rx.Observable.of(saveDirectContent());
+        .mergeMap((action) => {
+            console.log('autoSaveOnAnugaAddLayer', action?.layer?.group.substring(0, 10));
+            return Rx.Observable.of();
         });
 
 export const initAnugaBoundariesEpic = (action$, store) =>
