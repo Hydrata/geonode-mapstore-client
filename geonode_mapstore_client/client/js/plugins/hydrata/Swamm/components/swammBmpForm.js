@@ -804,7 +804,7 @@ class SwammBmpFormClass extends React.Component {
                                                         <td className={"text-left"}>tons/year</td>
                                                     </tr>
                                                     <tr>
-                                                        <td>Potential Payment Value: </td>
+                                                        <td>Potential Incentive Payment:</td>
                                                         {this.props.storedBmpForm?.calculated_total_cost ?
                                                             <td>${Number(this.props.storedBmpForm?.calculated_total_cost?.toFixed(0)).toLocaleString()}</td> :
                                                             <td/>}
