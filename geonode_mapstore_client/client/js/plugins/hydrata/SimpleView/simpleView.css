@@ -22,12 +22,11 @@
     left: 20px;
     min-width: 500px;
     background-color: rgba(0, 60, 136, 0.8);
-    border-color: rgba(255, 255, 255, 0.7);
-    border-width: 2px;
+    border: #ffffff99 solid 1px;
+    border-radius: 4px;
     padding: 5px 10px;
     font-size: 12px;
     line-height: 1.5;
-    border-radius: 4px;
     color: white;
     text-align: center;
 }
@@ -109,10 +108,10 @@
 .menu-row-glyph {
     background: #ffffff;
     border-radius: 3px;
-    margin: 2px 10px 4px 5px;
+    margin: 2px 5px 4px 0;
     color: limegreen;
     font-size: 14px;
-    padding: 0 5px;
+    padding: 0 4px;
 }
 
 .menu-row-text {

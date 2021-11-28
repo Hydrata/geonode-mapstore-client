@@ -47,7 +47,7 @@ class AnugaInputMenuClass extends React.Component {
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
                                     onClick={() => {this.props.setAddAnugaElevation(!this.props.showAddAnugaElevationData);}}
                                 />
-                                <span className="menu-row-text">Elevations</span>
+                                <span className="pull-left menu-row-text">Elevations</span>
                             </span>
                         </div>
                         {
@@ -73,7 +73,7 @@ class AnugaInputMenuClass extends React.Component {
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
                                     onClick={() => {this.props.addAnugaBoundary();}}
                                 />
-                                <span className="menu-row-text">Boundaries</span>
+                                <span className="pull-left menu-row-text">Boundaries</span>
                             </span>
                         </div>
                         {
@@ -99,7 +99,7 @@ class AnugaInputMenuClass extends React.Component {
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
                                     onClick={() => {this.props.addAnugaFriction();}}
                                 />
-                                <span className="menu-row-text">Friction Maps</span>
+                                <span className="pull-left menu-row-text">Friction Maps</span>
                             </span>
                         </div>
                         {
@@ -125,7 +125,7 @@ class AnugaInputMenuClass extends React.Component {
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
                                     onClick={() => {this.props.addAnugaInflow();}}
                                 />
-                                <span className="menu-row-text">Inflows</span>
+                                <span className="pull-left menu-row-text">Inflows</span>
                             </span>
                         </div>
                         {
@@ -151,7 +151,7 @@ class AnugaInputMenuClass extends React.Component {
                                     style={{"color": "limegreen", "fontSize": "smaller"}}
                                     onClick={() => {this.props.addAnugaStructure();}}
                                 />
-                                <span className="menu-row-text">Structures</span>
+                                <span className="pull-left menu-row-text">Structures</span>
                             </span>
                         </div>
                         {

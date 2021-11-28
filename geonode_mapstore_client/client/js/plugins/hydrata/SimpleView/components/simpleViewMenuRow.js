@@ -3,15 +3,25 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 const Slider = require('react-nouislider');
 
-import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
+import {changeLayerProperties, browseData} from "../../../../../MapStore2/web/client/actions/layers";
 import '../simpleView.css';
+import {svSelectLayer, setOpenMenuGroupId} from '../actionsSimpleView';
+import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
+import {setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
 
 
 class MenuRowClass extends React.Component {
     static propTypes = {
         layer: PropTypes.object,
+        svSelectLayer: PropTypes.func,
         toggleLayer: PropTypes.func,
         setOpacity: PropTypes.func,
+        setOpenMenuGroupId: PropTypes.func,
+        canEdit: PropTypes.bool,
+        editLayer: PropTypes.func,
+        featureTypeSelected: PropTypes.func,
+        browseData: PropTypes.func,
+        setPermission: PropTypes.func
     };
 
     constructor(props) {
@@ -37,6 +47,20 @@ class MenuRowClass extends React.Component {
                         style={{"color": this.props.layer?.visibility ? "limegreen" : "red"}}
                         onClick={() => {this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);}}
                     />
+                    {
+                        this.props.canEdit ?
+                            <span
+                                className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
+                                style={{"color": "grey"}}
+                                onClick={() => {
+                                    this.props.setOpenMenuGroupId(null);
+                                    this.props.setPermission({canEdit: true});
+                                    this.props.svSelectLayer(this.props.layer);
+                                    this.props.browseData(this.props.layer);
+                                }}
+                            />
+                            : null
+                    }
                     <span className="menu-row-text">{this.props.layer.title}</span>
                 </span>
                 {
@@ -61,14 +85,25 @@ class MenuRowClass extends React.Component {
     }
 }
 
-const mapDispatchToProps = ( dispatch ) => {
+const mapStateToProps = (state) => {
     return {
-        toggleLayer: (layer, isVisible) => dispatch(changeLayerProperties(layer, {visibility: !isVisible})),
-        setOpacity: (layer, value) => dispatch(changeLayerProperties(layer, {opacity: parseFloat(value) * 0.01}))
+        canEdit: state?.gnresource?.permissions?.canEdit
     };
 };
 
-const MenuRow = connect(null, mapDispatchToProps)(MenuRowClass);
+const mapDispatchToProps = ( dispatch ) => {
+    return {
+        toggleLayer: (layer, isVisible) => dispatch(changeLayerProperties(layer, {visibility: !isVisible})),
+        svSelectLayer: (layer) => dispatch(svSelectLayer(layer)),
+        setOpacity: (layer, value) => dispatch(changeLayerProperties(layer, {opacity: parseFloat(value) * 0.01})),
+        setOpenMenuGroupId: (openMenuGroupId) => dispatch(setOpenMenuGroupId(openMenuGroupId)),
+        featureTypeSelected: (url, typeName) => dispatch(featureTypeSelected(url, typeName)),
+        browseData: (layer) => dispatch(browseData(layer)),
+        setPermission: (permission) => dispatch(setPermission(permission))
+    };
+};
+
+const MenuRow = connect(mapStateToProps, mapDispatchToProps)(MenuRowClass);
 
 
 export {
