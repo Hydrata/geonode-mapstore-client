@@ -1979,11 +1979,9 @@
                 }
             },
             {
-                "name": "BackgroundSelector"
-            },
-            {
                 "name": "Identify",
                 "cfg": {
+                    "disableCenterToMarker": true,
                     "viewerOptions": {
                         "container": "{context.ReactSwipe}"
                     }
