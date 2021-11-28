@@ -683,7 +683,15 @@ class SwammBmpFormClass extends React.Component {
                                                         <th style={{"width": "10%"}}>Tiled</th>
                                                         <th style={{"width": "10%"}}>Erosion</th>
                                                         <th style={{"width": "10%"}}>Total</th>
-                                                        <th style={{"width": "30%"}}/>
+                                                        {
+                                                            this.props.watershedIsFootprint ?
+                                                                <React.Fragment>
+                                                                    <th style={{"width": "10%"}}>Per Acre</th>
+                                                                    <th style={{"width": "20%"}}/>
+                                                                </React.Fragment>
+                                                                :
+                                                                <th style={{"width": "20%"}}/>
+                                                        }
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -693,6 +701,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_previous_n_load?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_n_load?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_previous_n_load?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_previous_n_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>lbs/year</td>
                                                     </tr>
                                                     <tr>
@@ -701,6 +713,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_n_load_reduction?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_n_load_reduction?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_n_load_reduction?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_n_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>lbs/year</td>
                                                     </tr>
                                                     <tr>
@@ -709,6 +725,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_new_n_load?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_new_n_load?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_new_n_load?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_new_n_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>lbs/year</td>
                                                     </tr>
                                                     <tr style={{borderTop: "4px solid lightgrey"}}>
@@ -717,6 +737,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_previous_p_load?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_p_load?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_previous_p_load?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_previous_p_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>lbs/year</td>
                                                     </tr>
                                                     <tr>
@@ -725,6 +749,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_p_load_reduction?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_p_load_reduction?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_p_load_reduction?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_p_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>lbs/year</td>
                                                     </tr>
                                                     <tr>
@@ -733,6 +761,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_new_p_load?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_new_p_load?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_new_p_load?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_new_p_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>lbs/year</td>
                                                     </tr>
                                                     <tr style={{borderTop: "4px solid lightgrey"}}>
@@ -741,6 +773,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_previous_s_load?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_s_load?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_previous_s_load?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_previous_s_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>tons/year</td>
                                                     </tr>
                                                     <tr>
@@ -749,6 +785,10 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_s_load_reduction?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_s_load_reduction?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_s_load_reduction?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_s_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>tons/year</td>
                                                     </tr>
                                                     <tr style={{borderBottom: "4px solid lightgrey"}}>
@@ -757,31 +797,35 @@ class SwammBmpFormClass extends React.Component {
                                                         <td>{this.props.storedBmpForm?.tiled_new_s_load?.toFixed(0)}</td>
                                                         <td>{parseFloat(this.props.storedBmpForm?.erosion_new_s_load?.toPrecision(3))}</td>
                                                         <td>{this.props.storedBmpForm?.total_new_s_load?.toFixed(0)}</td>
+                                                        {this.props.watershedIsFootprint ?
+                                                            <td>{(this.props.storedBmpForm?.total_new_s_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                            : null
+                                                        }
                                                         <td className={"text-left"}>tons/year</td>
                                                     </tr>
                                                     <tr>
-                                                        <td>Calculated total cost: </td>
+                                                        <td>Potential Payment Value: </td>
                                                         {this.props.storedBmpForm?.calculated_total_cost ?
                                                             <td>${Number(this.props.storedBmpForm?.calculated_total_cost?.toFixed(0)).toLocaleString()}</td> :
                                                             <td/>}
                                                         <td/>
                                                     </tr>
                                                     <tr>
-                                                        <td>Nitrogen reduction cost: </td>
+                                                        <td>Nitrogen reduction value: </td>
                                                         {this.props.storedBmpForm?.total_cost_per_lbs_n_reduced ?
                                                             <td>{Number(this.props.storedBmpForm?.total_cost_per_lbs_n_reduced?.toFixed(0)).toLocaleString()}</td> :
                                                             <td/>}
                                                         <td className={"text-left"}>$/lb/year</td>
                                                     </tr>
                                                     <tr>
-                                                        <td>Phosphorus reduction cost: </td>
+                                                        <td>Phosphorus reduction value: </td>
                                                         {this.props.storedBmpForm?.total_cost_per_lbs_p_reduced ?
                                                             <td>{Number(this.props.storedBmpForm?.total_cost_per_lbs_p_reduced?.toFixed(0)).toLocaleString()}</td> :
                                                             <td/>}
                                                         <td className={"text-left"}>$/lb/year</td>
                                                     </tr>
                                                     <tr>
-                                                        <td>Sediment reduction cost: </td>
+                                                        <td>Sediment reduction value: </td>
                                                         {this.props.storedBmpForm?.total_cost_per_ton_s_reduced ?
                                                             <td>{Number(this.props.storedBmpForm?.total_cost_per_ton_s_reduced?.toFixed(0)).toLocaleString()}</td> :
                                                             <td/>}
