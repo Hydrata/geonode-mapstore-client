@@ -86,8 +86,12 @@ class MenuRowClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    // TODO: move this check to within localConfig.json
+    const excludedSites = ["theswamm.com"];
+    const isExcludedSite = excludedSites.map(site => !state?.gnsettings?.geonodeUrl.includes(site)).includes(false);
+    const canEdit = !isExcludedSite && state?.gnresource?.permissions?.canEdit;
     return {
-        canEdit: state?.gnresource?.permissions?.canEdit
+        canEdit: canEdit
     };
 };
 
