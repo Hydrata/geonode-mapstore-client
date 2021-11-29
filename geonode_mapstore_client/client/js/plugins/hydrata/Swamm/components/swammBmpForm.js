@@ -351,6 +351,7 @@ class SwammBmpFormClass extends React.Component {
                                                         name="group_profile"
                                                         value={this.props.storedBmpForm?.group_profile?.pk}
                                                         onChange={this.handleGroupProfileChange}
+                                                        placeholder={this.props.storedBmpForm?.group_profile?.title}
                                                     >
                                                         {this.props.allowedGroupProfiles.map((groupProfile) => {
                                                             return (
@@ -1020,7 +1021,7 @@ class SwammBmpFormClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users"].includes(item));
+    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
         mapId: state?.swamm?.data?.base_map,
