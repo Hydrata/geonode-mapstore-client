@@ -2,14 +2,24 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {svSelectLayer} from '../actionsSimpleView';
-
+import {Button} from "react-bootstrap";
 import '../simpleView.css';
+import {
+    createNewFeatures,
+    saveChanges,
+    clearChanges,
+    startDrawingFeature
+} from "../../../../../MapStore2/web/client/actions/featuregrid";
 
 class SimpleViewEditorClass extends React.Component {
     static propTypes = {
         selectedLayer: PropTypes.object,
-        selectedFeature: PropTypes.object,
-        svSelectLayer: PropTypes.func
+        selectedFeatures: PropTypes.array,
+        svSelectLayer: PropTypes.func,
+        createNewFeatures: PropTypes.func,
+        saveChanges: PropTypes.func,
+        clearChanges: PropTypes.func,
+        startDrawingFeature: PropTypes.func
     };
 
     constructor(props) {
@@ -18,7 +28,7 @@ class SimpleViewEditorClass extends React.Component {
 
     render() {
         return (
-            <div className={'simple-view-panel'}>
+            <div className={'simple-view-panel'} id={'simple-view-editor'}>
                 <div className={'row menu-row-header'}>
                     {this.props.selectedLayer?.title}
                     <span
@@ -27,14 +37,52 @@ class SimpleViewEditorClass extends React.Component {
                     />
                 </div>
                 {
-                    this.props.selectedFeature ?
-                        <div className={'row menu-row-header'}>
-                            {this.props.selectedFeature?.id}
+                    this.props.selectedFeatures?.length > 0 ?
+                        <div className={'row menu-row'}>
+                            Selected: {this.props.selectedFeatures?.[0]?.id}
                         </div> :
-                        <div className={'row menu-row pull-left'}>
-                            Select a feature...
+                        <div className={'row menu-row'}>
+                            Select a feature from the map...
                         </div>
                 }
+                <div className={'row menu-row'}>
+                    {
+                        this.props.selectedFeatures?.length > 0 ?
+                            <React.Fragment>
+                                <Button
+                                    bsStyle={'info'}
+                                    bsSize={'xsmall'}
+                                    style={{margin: "2px", borderRadius: "2px"}}
+                                    onClick={() => {
+                                        this.props.saveChanges();
+                                    }}
+                                >
+                                    Save Feature
+                                </Button>
+                                <Button
+                                    bsStyle={'danger'}
+                                    bsSize={'xsmall'}
+                                    style={{margin: "2px", borderRadius: "2px"}}
+                                    onClick={() => {
+                                        this.props.clearChanges();
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            </React.Fragment> :
+                            <Button
+                                bsStyle={'success'}
+                                bsSize={'xsmall'}
+                                style={{margin: "2px", borderRadius: "2px"}}
+                                onClick={() => {
+                                    this.props.createNewFeatures([{}]);
+                                    this.props.startDrawingFeature();
+                                }}
+                            >
+                                Create Feature
+                            </Button>
+                    }
+                </div>
             </div>
         );
     }
@@ -43,13 +91,17 @@ class SimpleViewEditorClass extends React.Component {
 const mapStateToProps = (state) => {
     return {
         selectedLayer: state?.simpleView?.selectedLayer,
-        selectedFeature: state?.simpleView?.selectedFeature
+        selectedFeatures: state?.featuregrid?.select
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        svSelectLayer: (layer) => dispatch(svSelectLayer(layer))
+        svSelectLayer: (layer) => dispatch(svSelectLayer(layer)),
+        createNewFeatures: (features) => dispatch(createNewFeatures(features)),
+        saveChanges: () => dispatch(saveChanges()),
+        clearChanges: () => dispatch(clearChanges()),
+        startDrawingFeature: () => dispatch(startDrawingFeature())
     };
 };
 

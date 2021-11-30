@@ -31,6 +31,10 @@
     text-align: center;
 }
 
+#simple-view-editor > * {
+    text-align: left;
+}
+
 .legend-button {
     right: 60px;
 }
