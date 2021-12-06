@@ -10,10 +10,9 @@ import {
     setAnugaResultMenu,
     setAddAnugaElevation
 } from '../actionsAnuga';
-import AnugaInputMenu from './AnugaInputMenu';
-import AnugaScenarioMenu from './AnugaScenarioMenu';
-import AnugaResultMenu from './AnugaResultMenu';
-import AnugaAddElevationData from "./anugaAddElevationData";
+import {AnugaScenarioMenu} from './AnugaScenarioMenu';
+import {AnugaResultMenu} from './AnugaResultMenu';
+import {AnugaAddElevationData} from "./anugaAddElevationData";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';

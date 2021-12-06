@@ -2,7 +2,6 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
-import '../anuga.css';
 
 class AnugaResultMenuClass extends React.Component {
     static propTypes = {
@@ -45,4 +44,4 @@ const mapDispatchToProps = ( dispatch ) => {
 const AnugaResultMenu = connect(mapStateToProps, mapDispatchToProps)(AnugaResultMenuClass);
 
 
-export default AnugaResultMenu;
+export {AnugaResultMenu};

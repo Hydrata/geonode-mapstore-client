@@ -1,3 +1,5 @@
+const {SHOW_NOTIFICATION} = require("../../../../MapStore2/web/client/actions/notifications");
+const uuidv1 = require('uuid/v1');
 const INIT_ANUGA = 'INIT_ANUGA';
 const SET_ANUGA_INPUT_MENU = 'SET_ANUGA_INPUT_MENU';
 const SET_ANUGA_SCENARIO_MENU = 'SET_ANUGA_SCENARIO_MENU';
@@ -13,6 +15,12 @@ const SET_ANUGA_AVAILABLE_ELEVATION_DATA = 'SET_ANUGA_AVAILABLE_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const CREATE_NEW_BOUNDARY = 'CREATE_NEW_BOUNDARY';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
+const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
+const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
+const SAVE_ANUGA_SCENARIO = 'SAVE_ANUGA_SCENARIO';
+const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
+const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
+const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
@@ -124,6 +132,66 @@ function createNewBoundary(boundaryTitle) {
     };
 }
 
+function saveAnugaScenario(scenario) {
+    return {
+        type: SAVE_ANUGA_SCENARIO,
+        scenario
+    };
+}
+
+function runAnugaScenario(scenario) {
+    return {
+        type: RUN_ANUGA_SCENARIO,
+        scenario
+    };
+}
+
+function runAnugaScenarioSuccess(scenario) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario ID: ${scenario.id} running`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({
+            type: RUN_ANUGA_SCENARIO_SUCCESS,
+            scenario
+        });
+    };
+}
+
+function saveAnugaScenarioSuccess(scenario) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario ID: ${scenario.id} saved`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({
+            type: SAVE_ANUGA_SCENARIO_SUCCESS,
+            scenario
+        });
+    };
+}
+
+function updateAnugaScenario(scenario, kv) {
+    return {
+        type: UPDATE_ANUGA_SCENARIO,
+        scenario: {
+            ...scenario,
+            ...kv
+        }
+    };
+}
+
 function addAnugaBoundary() {
     return {
         type: ADD_ANUGA_BOUNDARY
@@ -148,6 +216,13 @@ function addAnugaStructure() {
     };
 }
 
+const selectAnugaScenario = (scenario) => {
+    return {
+        type: SELECT_ANUGA_SCENARIO,
+        scenario
+    };
+};
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -164,6 +239,12 @@ module.exports = {
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     CREATE_NEW_BOUNDARY, createNewBoundary,
+    SAVE_ANUGA_SCENARIO, saveAnugaScenario,
+    SAVE_ANUGA_SCENARIO_SUCCESS, saveAnugaScenarioSuccess,
+    RUN_ANUGA_SCENARIO, runAnugaScenario,
+    RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,
+    UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
+    SELECT_ANUGA_SCENARIO, selectAnugaScenario,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,

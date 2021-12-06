@@ -6,6 +6,8 @@ import {
     SET_ADD_ANUGA_ELEVATION_DATA,
     CREATE_ANUGA_ELEVATION_FROM_LAYER,
     CREATE_NEW_BOUNDARY,
+    RUN_ANUGA_SCENARIO,
+    SAVE_ANUGA_SCENARIO,
     setAnugaScenarioData,
     setAnugaProjectData,
     setAnugaElevationData,
@@ -13,7 +15,9 @@ import {
     setAnugaBoundaryData,
     setAnugaInflowData,
     setAnugaStructureData,
-    setAnugaFrictionData
+    setAnugaFrictionData,
+    runAnugaScenarioSuccess,
+    saveAnugaScenarioSuccess
 } from "./actionsAnuga";
 import {
     textSearch,
@@ -173,6 +177,20 @@ export const autoSaveOnAnugaAddLayer = (action$) =>
         .ofType(ADD_LAYER)
         .filter((action) => action?.layer?.group.substring(0, 10) === "Input Data")
         .mergeMap(() => Rx.Observable.of(saveDirectContent()));
+
+
+export const runAnugaScenarioEpic = (action$, store) =>
+    action$
+        .ofType(RUN_ANUGA_SCENARIO)
+        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/run/`, action.scenario)))
+        .concatMap((response) => Rx.Observable.of(runAnugaScenarioSuccess(response.data)));
+
+
+export const saveAnugaScenarioEpic = (action$, store) =>
+    action$
+        .ofType(SAVE_ANUGA_SCENARIO)
+        .concatMap((action) => Rx.Observable.from(axios.put(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`, action.scenario)))
+        .concatMap((response) => Rx.Observable.of(saveAnugaScenarioSuccess(response.data)));
 
 export const initAnugaBoundariesEpic = (action$, store) =>
     action$

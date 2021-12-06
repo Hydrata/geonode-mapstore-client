@@ -1,8 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import '../anuga.css';
-import '../../SimpleView/simpleView.css';
 import {
     createAnugaElevationFromLayer,
     setAddAnugaElevation,
@@ -109,4 +107,4 @@ const mapDispatchToProps = ( dispatch ) => {
 const AnugaAddElevationData = connect(mapStateToProps, mapDispatchToProps)(AnugaAddElevationDataClass);
 
 
-export default AnugaAddElevationData;
+export {AnugaAddElevationData};

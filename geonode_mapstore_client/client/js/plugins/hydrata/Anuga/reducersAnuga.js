@@ -4,6 +4,9 @@ import {
     SET_ANUGA_RESULT_MENU,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
+    UPDATE_ANUGA_SCENARIO,
+    SELECT_ANUGA_SCENARIO,
+    SAVE_ANUGA_SCENARIO_SUCCESS,
     SET_ANUGA_INFLOW_DATA,
     ADD_ANUGA_INFLOW,
     SET_ANUGA_FRICTION_DATA,
@@ -24,6 +27,33 @@ const initialState = {
 export default ( state = initialState, action) => {
     console.log('anuga:', action);
     switch (action.type) {
+    case UPDATE_ANUGA_SCENARIO:
+        return {
+            ...state,
+            scenarios: state.scenarios.map((scenario) => {
+                if (scenario.id === action.scenario.id) {
+                    action.scenario.unsaved = true;
+                    return action.scenario;
+                }
+                return scenario;
+            })
+        };
+    case SAVE_ANUGA_SCENARIO_SUCCESS:
+        return {
+            ...state,
+            scenarios: state.scenarios.map((scenario) => {
+                if (scenario.id === action.scenario.id) {
+                    action.scenario.unsaved = false;
+                    return action.scenario;
+                }
+                return scenario;
+            })
+        };
+    case SELECT_ANUGA_SCENARIO:
+        return {
+            ...state,
+            selectedScenario: action.scenario
+        };
     case SET_ANUGA_PROJECT_DATA:
         return {
             ...state,
@@ -32,7 +62,10 @@ export default ( state = initialState, action) => {
     case SET_ANUGA_SCENARIO_DATA:
         return {
             ...state,
-            scenarios: action.data
+            scenarios: action.data.map(scenario => {
+                scenario.unsaved = false;
+                return scenario;
+            })
         };
     case SET_ANUGA_INFLOW_DATA:
         return {
