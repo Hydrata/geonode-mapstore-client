@@ -18,6 +18,7 @@ import {
     setAnugaInflowData,
     setAnugaStructureData,
     setAnugaFrictionData,
+    setAnugaScenarioMenu,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess
 } from "./actionsAnuga";
@@ -197,14 +198,25 @@ export const runAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
         .concatMap((action) => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/run/`)))
-        .concatMap((response) => Rx.Observable.of(runAnugaScenarioSuccess(response.data)));
+        .concatMap((response) => Rx.Observable.of(
+            runAnugaScenarioSuccess(response.data),
+            setAnugaScenarioMenu(true)
+        ));
 
 
 export const saveAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(SAVE_ANUGA_SCENARIO)
-        .concatMap((action) => Rx.Observable.from(axios.put(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`, action.scenario)))
-        .concatMap((response) => Rx.Observable.of(saveAnugaScenarioSuccess(response.data)));
+        .concatMap((action) => {
+            if (action.scenario.id) {
+                return Rx.Observable.from(axios.put(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`, action.scenario));
+            }
+            return Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`, action.scenario));
+        })
+        .concatMap((response) => Rx.Observable.of(
+            saveAnugaScenarioSuccess(response.data),
+            setAnugaScenarioMenu(true)
+        ));
 
 export const initAnugaBoundariesEpic = (action$, store) =>
     action$

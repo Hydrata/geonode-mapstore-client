@@ -15,6 +15,7 @@ const SET_ANUGA_AVAILABLE_ELEVATION_DATA = 'SET_ANUGA_AVAILABLE_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const CREATE_NEW_BOUNDARY = 'CREATE_NEW_BOUNDARY';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
+const ADD_ANUGA_SCENARIO = 'ADD_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
 const SAVE_ANUGA_SCENARIO = 'SAVE_ANUGA_SCENARIO';
@@ -231,6 +232,12 @@ function addAnugaStructure() {
     };
 }
 
+function addAnugaScenario() {
+    return {
+        type: ADD_ANUGA_SCENARIO
+    };
+}
+
 const selectAnugaScenario = (scenario) => {
     return {
         type: SELECT_ANUGA_SCENARIO,
@@ -255,6 +262,7 @@ module.exports = {
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     CREATE_NEW_BOUNDARY, createNewBoundary,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,
+    ADD_ANUGA_SCENARIO, addAnugaScenario,
     SAVE_ANUGA_SCENARIO_SUCCESS, saveAnugaScenarioSuccess,
     RUN_ANUGA_SCENARIO, runAnugaScenario,
     RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,

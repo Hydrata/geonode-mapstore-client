@@ -12,6 +12,7 @@ import {
     selectAnugaScenario,
     showAnugaScenarioLog,
     setAnugaScenarioMenu,
+    addAnugaScenario,
     stopAnugaScenarioPolling
 } from "../actionsAnuga";
 
@@ -27,7 +28,8 @@ class AnugaScenarioMenuClass extends React.Component {
         selectAnugaScenario: PropTypes.func,
         showAnugaScenarioLog: PropTypes.func,
         setAnugaScenarioMenu: PropTypes.func,
-        stopAnugaScenarioPolling: PropTypes.func
+        stopAnugaScenarioPolling: PropTypes.func,
+        addAnugaScenario: PropTypes.func
     };
 
     static defaultProps = {}
@@ -46,6 +48,18 @@ class AnugaScenarioMenuClass extends React.Component {
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{width: "678px", textAlign: "left"}}>
                         Scenarios
+                        <span id={"new-scenario-button"}>
+                            <Button
+                                bsStyle={'success'}
+                                bsSize={'xsmall'}
+                                style={{margin: "2px", borderRadius: "2px"}}
+                                onClick={() => {
+                                    this.props.addAnugaScenario();
+                                }}
+                            >
+                                New Scenario
+                            </Button>
+                        </span>
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={
@@ -202,7 +216,8 @@ const mapDispatchToProps = ( dispatch ) => {
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
         showAnugaScenarioLog: (scenario) => dispatch(showAnugaScenarioLog(scenario)),
-        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling())
+        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
+        addAnugaScenario: () => dispatch(addAnugaScenario())
     };
 };
 

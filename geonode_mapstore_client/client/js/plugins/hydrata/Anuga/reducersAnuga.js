@@ -6,6 +6,7 @@ import {
     SET_ANUGA_SCENARIO_DATA,
     UPDATE_ANUGA_SCENARIO,
     SELECT_ANUGA_SCENARIO,
+    ADD_ANUGA_SCENARIO,
     SHOW_ANUGA_SCENARIO_LOG,
     SAVE_ANUGA_SCENARIO_SUCCESS,
     SET_ANUGA_INFLOW_DATA,
@@ -39,6 +40,23 @@ export default ( state = initialState, action) => {
                 }
                 return scenario;
             })
+        };
+    case ADD_ANUGA_SCENARIO:
+        return {
+            ...state,
+            scenarios: [
+                ...state.scenarios,
+                {
+                    "name": "Enter Name",
+                    "code": null,
+                    "description": "",
+                    "maximum_triangle_area": 10,
+                    "status": "new",
+                    "project": state?.project?.id,
+                    "boundary": null,
+                    "elevation": null,
+                    "unsaved": false
+                }]
         };
     case SHOW_ANUGA_SCENARIO_LOG:
         return {
