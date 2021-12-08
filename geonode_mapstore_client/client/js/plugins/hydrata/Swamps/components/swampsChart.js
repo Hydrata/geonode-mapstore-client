@@ -149,6 +149,7 @@ class SwampsChartClass extends React.Component {
                                         </Row>
                                     </Col>
                                     <Col sm={10}>
+                                        <h4>{this.props.selectedYKey}</h4>
                                         {
                                             this.props.selectedYKey === 'Photo' ?
                                                 <Carousel>
