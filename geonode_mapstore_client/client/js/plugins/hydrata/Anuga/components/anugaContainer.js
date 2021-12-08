@@ -13,6 +13,7 @@ import {
 import {AnugaScenarioMenu} from './AnugaScenarioMenu';
 import {AnugaResultMenu} from './AnugaResultMenu';
 import {AnugaAddElevationData} from "./anugaAddElevationData";
+import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -31,7 +32,8 @@ class AnugaContainer extends React.Component {
         numberOfMenus: PropTypes.number,
         setOpenMenuGroupId: PropTypes.func,
         showAddAnugaElevationData: PropTypes.bool,
-        setAddAnugaElevation: PropTypes.func
+        setAddAnugaElevation: PropTypes.func,
+        visibleAnugaScenarioLog: PropTypes.object
     };
 
     static defaultProps = {
@@ -122,6 +124,11 @@ class AnugaContainer extends React.Component {
                             <AnugaAddElevationData/>
                             : null
                     }
+                    {
+                        this.props.visibleAnugaScenarioLog ?
+                            <AnugaScenarioLogViewer/>
+                            : null
+                    }
                 </div>
             ) :
             null;
@@ -139,7 +146,8 @@ const mapStateToProps = (state) => {
         isAnugaMenuOpen: state?.anuga?.showAnugaInputMenu || state?.anuga?.showAnugaScenarioMenu || state?.anuga?.showAnugaResultMenu,
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups.length,
-        showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData
+        showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
+        visibleAnugaScenarioLog: state?.anuga?.visibleAnugaScenarioLog
     };
 };
 

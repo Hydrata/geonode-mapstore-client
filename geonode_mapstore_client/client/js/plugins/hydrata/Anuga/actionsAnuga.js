@@ -19,6 +19,8 @@ const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
 const SAVE_ANUGA_SCENARIO = 'SAVE_ANUGA_SCENARIO';
 const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
+const SHOW_ANUGA_SCENARIO_LOG = 'SHOW_ANUGA_SCENARIO_LOG';
+const STOP_ANUGA_SCENARIO_POLLING = 'STOP_ANUGA_SCENARIO_POLLING';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
@@ -44,6 +46,12 @@ function setAnugaScenarioMenu(visible) {
     return {
         type: SET_ANUGA_SCENARIO_MENU,
         visible
+    };
+}
+
+function stopAnugaScenarioPolling() {
+    return {
+        type: STOP_ANUGA_SCENARIO_POLLING
     };
 }
 
@@ -192,6 +200,13 @@ function updateAnugaScenario(scenario, kv) {
     };
 }
 
+function showAnugaScenarioLog(scenario) {
+    return {
+        type: SHOW_ANUGA_SCENARIO_LOG,
+        scenario
+    };
+}
+
 function addAnugaBoundary() {
     return {
         type: ADD_ANUGA_BOUNDARY
@@ -245,6 +260,8 @@ module.exports = {
     RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario,
+    SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,
+    STOP_ANUGA_SCENARIO_POLLING, stopAnugaScenarioPolling,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,

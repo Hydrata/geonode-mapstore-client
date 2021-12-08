@@ -3,11 +3,16 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {Table, Button} from "react-bootstrap";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
+import '../anuga.css';
+import '../../SimpleView/simpleView.css';
 import {
     runAnugaScenario,
     saveAnugaScenario,
     updateAnugaScenario,
-    selectAnugaScenario
+    selectAnugaScenario,
+    showAnugaScenarioLog,
+    setAnugaScenarioMenu,
+    stopAnugaScenarioPolling
 } from "../actionsAnuga";
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -19,7 +24,10 @@ class AnugaScenarioMenuClass extends React.Component {
         saveAnugaScenario: PropTypes.func,
         runAnugaScenario: PropTypes.func,
         updateAnugaScenario: PropTypes.func,
-        selectAnugaScenario: PropTypes.func
+        selectAnugaScenario: PropTypes.func,
+        showAnugaScenarioLog: PropTypes.func,
+        setAnugaScenarioMenu: PropTypes.func,
+        stopAnugaScenarioPolling: PropTypes.func
     };
 
     static defaultProps = {}
@@ -38,6 +46,15 @@ class AnugaScenarioMenuClass extends React.Component {
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{width: "678px", textAlign: "left"}}>
                         Scenarios
+                        <span
+                            className={"btn glyphicon glyphicon-remove legend-close"}
+                            onClick={
+                                () => {
+                                    this.props.setAnugaScenarioMenu(false);
+                                    this.props.stopAnugaScenarioPolling();
+                                }
+                            }
+                        />
                     </div>
                     <Table className={"scenario-table"}>
                         <thead>
@@ -46,6 +63,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Id</th>
                                 <th>Name</th>
                                 <th>Boundary</th>
+                                <th>Status</th>
                                 <th/>
                                 <th/>
                             </tr>
@@ -93,6 +111,9 @@ class AnugaScenarioMenuClass extends React.Component {
                                                 </select>
                                             </td>
                                             <td>
+                                                {scenario.status}
+                                            </td>
+                                            <td>
                                                 <Button
                                                     bsStyle={'success'}
                                                     bsSize={'xsmall'}
@@ -118,6 +139,19 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     }}
                                                 >
                                                     Run
+                                                </Button>
+                                            </td>
+                                            <td>
+                                                <Button
+                                                    bsStyle={'info'}
+                                                    bsSize={'xsmall'}
+                                                    style={{margin: "2px", borderRadius: "2px"}}
+                                                    onClick={() => {
+                                                        this.props.showAnugaScenarioLog(scenario);
+                                                        this.props.setOpenMenuGroupId(null);
+                                                    }}
+                                                >
+                                                    Log
                                                 </Button>
                                             </td>
                                         </tr>
@@ -162,10 +196,13 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
+        setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario)),
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
-        selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario))
+        selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
+        showAnugaScenarioLog: (scenario) => dispatch(showAnugaScenarioLog(scenario)),
+        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling())
     };
 };
 

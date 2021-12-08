@@ -6,6 +6,7 @@ import {
     SET_ANUGA_SCENARIO_DATA,
     UPDATE_ANUGA_SCENARIO,
     SELECT_ANUGA_SCENARIO,
+    SHOW_ANUGA_SCENARIO_LOG,
     SAVE_ANUGA_SCENARIO_SUCCESS,
     SET_ANUGA_INFLOW_DATA,
     ADD_ANUGA_INFLOW,
@@ -21,7 +22,8 @@ import {
 } from "./actionsAnuga";
 
 const initialState = {
-    showAddAnugaElevationData: false
+    showAddAnugaElevationData: false,
+    visibleAnugaScenarioLog: false
 };
 
 export default ( state = initialState, action) => {
@@ -37,6 +39,11 @@ export default ( state = initialState, action) => {
                 }
                 return scenario;
             })
+        };
+    case SHOW_ANUGA_SCENARIO_LOG:
+        return {
+            ...state,
+            visibleAnugaScenarioLog: action.scenario
         };
     case SAVE_ANUGA_SCENARIO_SUCCESS:
         return {

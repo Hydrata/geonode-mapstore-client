@@ -66,8 +66,8 @@
     color: #f4f4f4;
 }
 
-.scenario-table-header {
-
+.scenario-table {
+    margin-bottom: 0;
 }
 
 .scenario-table-row {
@@ -75,6 +75,8 @@
 }
 
 .scenario-select {
+    border-radius: 3px;
+    height: 22px;
     font-size: 14px;
     white-space: nowrap;
     padding-left: 3px;
@@ -98,6 +100,30 @@
     text-align: center;
     background: rgba(255, 255, 255, 0.22);
     color: #f4f4f4;
+}
+
+#anuga-scenario-log-viewer-container {
+    position: absolute;
+    z-index: 2000;
+    top: 5%;
+    min-width: 800px;
+    min-height: 600px;
+    color: #333333;
+    background-color: #f2f2f2;
+    border: 2px solid #dddddd;
+    border-radius: 5px;
+}
+
+#anuga-scenario-log-viewer {
+    overflow-y: scroll;
+    height: 70vh;
+    padding: 10px;
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.42857143;
+    white-space: pre-line;
+    word-break: break-all;
+    word-wrap: break-word;
 }
 
 ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
