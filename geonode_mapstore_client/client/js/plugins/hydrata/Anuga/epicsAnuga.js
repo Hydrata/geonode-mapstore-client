@@ -8,9 +8,11 @@ import {
     CREATE_NEW_BOUNDARY,
     RUN_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO,
-    SET_ANUGA_SCENARIO_MENU,
+    START_ANUGA_SCENARIO_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
+    DELETE_ANUGA_SCENARIO,
     setAnugaScenarioData,
+    setAnugaPollingData,
     setAnugaProjectData,
     setAnugaElevationData,
     setAnugaAvailableElevationData,
@@ -20,7 +22,8 @@ import {
     setAnugaFrictionData,
     setAnugaScenarioMenu,
     runAnugaScenarioSuccess,
-    saveAnugaScenarioSuccess
+    saveAnugaScenarioSuccess,
+    deleteAnugaScenarioSuccess
 } from "./actionsAnuga";
 import {
     textSearch,
@@ -183,16 +186,22 @@ export const autoSaveOnAnugaAddLayer = (action$) =>
 
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
-        .ofType(SET_ANUGA_SCENARIO_MENU)
+        .ofType(START_ANUGA_SCENARIO_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 2000)
+            Rx.Observable.timer(0, 4000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .exhaustMap(() =>
                     Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`))
-                        .map(res => setAnugaScenarioData(res.data))
+                        .map(res => setAnugaPollingData(res.data))
                         .catch(error => Rx.Observable.of(() => console.log(error)))
                 )
         );
+
+export const deleteAnugaScenarioEpic = (action$, store) =>
+    action$
+        .ofType(DELETE_ANUGA_SCENARIO)
+        .concatMap((action) => Rx.Observable.from(axios.delete(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`)))
+        .concatMap((response) => Rx.Observable.of(deleteAnugaScenarioSuccess(response.data)));
 
 export const runAnugaScenarioEpic = (action$, store) =>
     action$

@@ -20,8 +20,12 @@ const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
 const SAVE_ANUGA_SCENARIO = 'SAVE_ANUGA_SCENARIO';
 const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
+const DELETE_ANUGA_SCENARIO = 'DELETE_ANUGA_SCENARIO';
+const DELETE_ANUGA_SCENARIO_SUCCESS = 'DELETE_ANUGA_SCENARIO_SUCCESS';
 const SHOW_ANUGA_SCENARIO_LOG = 'SHOW_ANUGA_SCENARIO_LOG';
+const START_ANUGA_SCENARIO_POLLING = 'START_ANUGA_SCENARIO_POLLING';
 const STOP_ANUGA_SCENARIO_POLLING = 'STOP_ANUGA_SCENARIO_POLLING';
+const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
@@ -50,9 +54,29 @@ function setAnugaScenarioMenu(visible) {
     };
 }
 
+function startAnugaScenarioPolling() {
+    return {
+        type: START_ANUGA_SCENARIO_POLLING
+    };
+}
+
 function stopAnugaScenarioPolling() {
     return {
         type: STOP_ANUGA_SCENARIO_POLLING
+    };
+}
+
+function setAnugaPollingData(scenarios) {
+    return {
+        type: SET_ANUGA_POLLING_DATA,
+        scenarios
+    };
+}
+
+function deleteAnugaScenario(scenario) {
+    return {
+        type: DELETE_ANUGA_SCENARIO,
+        scenario
     };
 }
 
@@ -191,6 +215,23 @@ function saveAnugaScenarioSuccess(scenario) {
     };
 }
 
+function deleteAnugaScenarioSuccess(scenario) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario ID: ${scenario.id} deleted`,
+            uid: uuidv1(),
+            level: 'info'
+        });
+        dispatch({
+            type: INIT_ANUGA
+        });
+    };
+}
+
 function updateAnugaScenario(scenario, kv) {
     return {
         type: UPDATE_ANUGA_SCENARIO,
@@ -264,12 +305,16 @@ module.exports = {
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,
     ADD_ANUGA_SCENARIO, addAnugaScenario,
     SAVE_ANUGA_SCENARIO_SUCCESS, saveAnugaScenarioSuccess,
+    DELETE_ANUGA_SCENARIO, deleteAnugaScenario,
+    DELETE_ANUGA_SCENARIO_SUCCESS, deleteAnugaScenarioSuccess,
     RUN_ANUGA_SCENARIO, runAnugaScenario,
     RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario,
     SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,
+    START_ANUGA_SCENARIO_POLLING, startAnugaScenarioPolling,
     STOP_ANUGA_SCENARIO_POLLING, stopAnugaScenarioPolling,
+    SET_ANUGA_POLLING_DATA, setAnugaPollingData,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,

@@ -13,7 +13,8 @@ import {
     showAnugaScenarioLog,
     setAnugaScenarioMenu,
     addAnugaScenario,
-    stopAnugaScenarioPolling
+    stopAnugaScenarioPolling,
+    deleteAnugaScenario
 } from "../actionsAnuga";
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -29,7 +30,8 @@ class AnugaScenarioMenuClass extends React.Component {
         showAnugaScenarioLog: PropTypes.func,
         setAnugaScenarioMenu: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func,
-        addAnugaScenario: PropTypes.func
+        addAnugaScenario: PropTypes.func,
+        deleteAnugaScenario: PropTypes.func
     };
 
     static defaultProps = {}
@@ -46,7 +48,7 @@ class AnugaScenarioMenuClass extends React.Component {
         return (
             <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px", width: "700px"}}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header"} style={{width: "678px", textAlign: "left"}}>
+                    <div className={"row menu-row-header h4"} style={{width: "678px", textAlign: "left"}}>
                         Scenarios
                         <span id={"new-scenario-button"}>
                             <Button
@@ -149,7 +151,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     className={scenario.unsaved ? 'disabled' : null }
                                                     onClick={() => {
                                                         this.props.runAnugaScenario(scenario);
-                                                        this.props.setOpenMenuGroupId(null);
                                                     }}
                                                 >
                                                     Run
@@ -162,10 +163,21 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     style={{margin: "2px", borderRadius: "2px"}}
                                                     onClick={() => {
                                                         this.props.showAnugaScenarioLog(scenario);
-                                                        this.props.setOpenMenuGroupId(null);
                                                     }}
                                                 >
                                                     Log
+                                                </Button>
+                                            </td>
+                                            <td>
+                                                <Button
+                                                    bsStyle={'danger'}
+                                                    bsSize={'xsmall'}
+                                                    style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
+                                                    onClick={() => {
+                                                        this.props.deleteAnugaScenario(scenario);
+                                                    }}
+                                                >
+                                                    <span className="glyphicon glyphicon-trash" aria-hidden="true" />
                                                 </Button>
                                             </td>
                                         </tr>
@@ -217,7 +229,8 @@ const mapDispatchToProps = ( dispatch ) => {
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
         showAnugaScenarioLog: (scenario) => dispatch(showAnugaScenarioLog(scenario)),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
-        addAnugaScenario: () => dispatch(addAnugaScenario())
+        addAnugaScenario: () => dispatch(addAnugaScenario()),
+        deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario))
     };
 };
 

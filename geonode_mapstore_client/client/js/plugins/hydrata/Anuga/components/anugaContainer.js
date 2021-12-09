@@ -8,7 +8,9 @@ import {
     setAnugaInputMenu,
     setAnugaScenarioMenu,
     setAnugaResultMenu,
-    setAddAnugaElevation
+    setAddAnugaElevation,
+    startAnugaScenarioPolling,
+    stopAnugaScenarioPolling
 } from '../actionsAnuga';
 import {AnugaScenarioMenu} from './AnugaScenarioMenu';
 import {AnugaResultMenu} from './AnugaResultMenu';
@@ -33,7 +35,9 @@ class AnugaContainer extends React.Component {
         setOpenMenuGroupId: PropTypes.func,
         showAddAnugaElevationData: PropTypes.bool,
         setAddAnugaElevation: PropTypes.func,
-        visibleAnugaScenarioLog: PropTypes.object
+        visibleAnugaScenarioLog: PropTypes.object,
+        startAnugaScenarioPolling: PropTypes.func,
+        stopAnugaScenarioPolling: PropTypes.func
     };
 
     static defaultProps = {
@@ -90,6 +94,7 @@ class AnugaContainer extends React.Component {
                             style={{left: (this.props.numberOfMenus + (this.props.showAnugaInputMenu ? 2 : 1)) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
+                                this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
                                 this.props.setOpenMenuGroupId(null);
                             }}
                         >
@@ -158,7 +163,9 @@ const mapDispatchToProps = ( dispatch ) => {
         setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         setAnugaResultMenu: (visible) => dispatch(setAnugaResultMenu(visible)),
-        setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup))
+        setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
+        startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
+        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling())
     };
 };
 

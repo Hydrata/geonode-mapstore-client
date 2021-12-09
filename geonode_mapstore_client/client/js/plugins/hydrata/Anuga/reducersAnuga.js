@@ -9,6 +9,7 @@ import {
     ADD_ANUGA_SCENARIO,
     SHOW_ANUGA_SCENARIO_LOG,
     SAVE_ANUGA_SCENARIO_SUCCESS,
+    SET_ANUGA_POLLING_DATA,
     SET_ANUGA_INFLOW_DATA,
     ADD_ANUGA_INFLOW,
     SET_ANUGA_FRICTION_DATA,
@@ -38,6 +39,16 @@ export default ( state = initialState, action) => {
                     action.scenario.unsaved = true;
                     return action.scenario;
                 }
+                return scenario;
+            })
+        };
+    case SET_ANUGA_POLLING_DATA:
+        return {
+            ...state,
+            scenarios: state.scenarios.map(scenario => {
+                const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
+                scenario.latest_output.log = newScenario.latest_output.log;
+                scenario.status = newScenario.status;
                 return scenario;
             })
         };
