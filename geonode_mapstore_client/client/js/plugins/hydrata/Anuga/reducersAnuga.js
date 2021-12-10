@@ -25,7 +25,7 @@ import {
 
 const initialState = {
     showAddAnugaElevationData: false,
-    visibleAnugaScenarioLog: false
+    visibleAnugaScenarioLogId: false
 };
 
 export default ( state = initialState, action) => {
@@ -72,7 +72,7 @@ export default ( state = initialState, action) => {
     case SHOW_ANUGA_SCENARIO_LOG:
         return {
             ...state,
-            visibleAnugaScenarioLog: action.scenario
+            visibleAnugaScenarioLogId: action.scenarioId
         };
     case SAVE_ANUGA_SCENARIO_SUCCESS:
         return {

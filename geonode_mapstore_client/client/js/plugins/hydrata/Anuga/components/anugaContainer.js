@@ -35,7 +35,7 @@ class AnugaContainer extends React.Component {
         setOpenMenuGroupId: PropTypes.func,
         showAddAnugaElevationData: PropTypes.bool,
         setAddAnugaElevation: PropTypes.func,
-        visibleAnugaScenarioLog: PropTypes.object,
+        visibleAnugaScenarioLogId: PropTypes.number,
         startAnugaScenarioPolling: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func
     };
@@ -130,7 +130,7 @@ class AnugaContainer extends React.Component {
                             : null
                     }
                     {
-                        this.props.visibleAnugaScenarioLog ?
+                        this.props.visibleAnugaScenarioLogId ?
                             <AnugaScenarioLogViewer/>
                             : null
                     }
@@ -152,7 +152,7 @@ const mapStateToProps = (state) => {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups.length,
         showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
-        visibleAnugaScenarioLog: state?.anuga?.visibleAnugaScenarioLog
+        visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId
     };
 };
 

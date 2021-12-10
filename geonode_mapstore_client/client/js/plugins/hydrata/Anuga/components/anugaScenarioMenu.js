@@ -162,7 +162,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
                                                     onClick={() => {
-                                                        this.props.showAnugaScenarioLog(scenario);
+                                                        this.props.showAnugaScenarioLog(scenario.id);
                                                     }}
                                                 >
                                                     Log
@@ -227,7 +227,7 @@ const mapDispatchToProps = ( dispatch ) => {
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
-        showAnugaScenarioLog: (scenario) => dispatch(showAnugaScenarioLog(scenario)),
+        showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario))

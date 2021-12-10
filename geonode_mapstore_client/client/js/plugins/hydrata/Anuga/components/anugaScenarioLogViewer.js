@@ -9,7 +9,7 @@ import {
 
 class AnugaScenarioLogViewerClass extends React.Component {
     static propTypes = {
-        visibleAnugaScenarioLog: PropTypes.object,
+        visibleAnugaLogScenario: PropTypes.object,
         showAnugaScenarioLog: PropTypes.func
     };
 
@@ -25,14 +25,14 @@ class AnugaScenarioLogViewerClass extends React.Component {
         return (
             <div id={'anuga-scenario-log-viewer-container'}>
                 <h5>
-                    {this.props.visibleAnugaScenarioLog?.name}
+                    {this.props.visibleAnugaLogScenario?.name}
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => this.props.showAnugaScenarioLog(false)}
                     />
                 </h5>
                 <div id={'anuga-scenario-log-viewer'}>
-                    {this.props.visibleAnugaScenarioLog?.latest_output?.log}
+                    {this.props.visibleAnugaLogScenario?.latest_output?.log}
                 </div>
             </div>
         );
@@ -40,14 +40,15 @@ class AnugaScenarioLogViewerClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    console.log('a', state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]);
     return {
-        visibleAnugaScenarioLog: state?.anuga?.visibleAnugaScenarioLog
+        visibleAnugaLogScenario: state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        showAnugaScenarioLog: (scenario) => dispatch(showAnugaScenarioLog(scenario))
+        showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId))
     };
 };
 

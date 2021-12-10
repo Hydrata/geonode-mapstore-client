@@ -242,10 +242,10 @@ function updateAnugaScenario(scenario, kv) {
     };
 }
 
-function showAnugaScenarioLog(scenario) {
+function showAnugaScenarioLog(scenarioId) {
     return {
         type: SHOW_ANUGA_SCENARIO_LOG,
-        scenario
+        scenarioId
     };
 }
 
