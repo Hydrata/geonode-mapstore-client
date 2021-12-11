@@ -48,7 +48,7 @@ class AnugaScenarioMenuClass extends React.Component {
         return (
             <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px", width: "700px"}}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header h4"} style={{width: "678px", textAlign: "left"}}>
+                    <div className={"row menu-row-header"} style={{height: "40px", width: "678px", textAlign: "left", fontSize: "large"}}>
                         Scenarios
                         <span id={"new-scenario-button"}>
                             <Button
