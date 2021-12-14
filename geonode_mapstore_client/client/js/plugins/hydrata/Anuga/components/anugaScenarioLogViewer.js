@@ -32,7 +32,7 @@ class AnugaScenarioLogViewerClass extends React.Component {
                     />
                 </h5>
                 <div id={'anuga-scenario-log-viewer'}>
-                    {this.props.visibleAnugaLogScenario?.latest_output?.log}
+                    {this.props.visibleAnugaLogScenario?.latest_run?.log}
                 </div>
             </div>
         );

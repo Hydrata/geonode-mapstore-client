@@ -47,7 +47,7 @@ export default ( state = initialState, action) => {
             ...state,
             scenarios: state.scenarios.map(scenario => {
                 const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
-                scenario.latest_output = newScenario?.latest_output || {};
+                scenario.latest_run = newScenario?.latest_run || {};
                 scenario.status = newScenario?.status || '-';
                 return scenario;
             })

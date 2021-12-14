@@ -22,6 +22,7 @@ class AnugaScenarioMenuClass extends React.Component {
         anugaGroupLength: PropTypes.number,
         scenarios: PropTypes.array,
         boundaries: PropTypes.array,
+        elevations: PropTypes.array,
         setOpenMenuGroupId: PropTypes.func,
         saveAnugaScenario: PropTypes.func,
         runAnugaScenario: PropTypes.func,
@@ -46,9 +47,9 @@ class AnugaScenarioMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px", width: "700px"}}>
+            <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header"} style={{height: "40px", width: "678px", textAlign: "left", fontSize: "large"}}>
+                    <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                         Scenarios
                         <span id={"new-scenario-button"}>
                             <Button
@@ -78,8 +79,11 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Select</th>
                                 <th>Id</th>
                                 <th>Name</th>
+                                <th>Elevation</th>
                                 <th>Boundary</th>
                                 <th>Status</th>
+                                <th/>
+                                <th/>
                                 <th/>
                                 <th/>
                             </tr>
@@ -108,6 +112,23 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     value={scenario.name}
                                                     onChange={(e) => this.handleTextChange(e, scenario)}
                                                 />
+                                            </td>
+                                            <td>
+                                                <select
+                                                    id={'elevation'}
+                                                    key={`elevation-${scenario.id}`}
+                                                    value={scenario?.elevation}
+                                                    className={'scenario-select'}
+                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                >
+                                                    {
+                                                        this.props.elevations?.map((elevation) => {
+                                                            return (
+                                                                <option value={elevation?.id}>{elevation?.name}</option>
+                                                            );
+                                                        })
+                                                    }
+                                                </select>
                                             </td>
                                             <td>
                                                 <select
@@ -215,7 +236,8 @@ class AnugaScenarioMenuClass extends React.Component {
 const mapStateToProps = (state) => {
     return {
         scenarios: state?.anuga?.scenarios,
-        boundaries: state?.anuga?.boundaries
+        boundaries: state?.anuga?.boundaries,
+        elevations: state?.anuga?.elevations
     };
 };
 
