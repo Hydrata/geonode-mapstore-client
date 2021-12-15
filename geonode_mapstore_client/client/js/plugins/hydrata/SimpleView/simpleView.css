@@ -51,6 +51,23 @@
     max-width: 400px;
 }
 
+.legend-button-with-seach {
+    top: 65px;
+    right: 15px;
+}
+
+.legend-panel-with-seach {
+    top: 65px;
+    right: 15px;
+    left: unset;
+    text-align: right;
+    padding-bottom: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 92%;
+    max-width: 400px;
+}
+
 .legend-row {
     padding: 10px;
     margin: -1px 10px -1px 10px;

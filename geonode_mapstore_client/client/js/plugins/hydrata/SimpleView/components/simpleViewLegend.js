@@ -9,7 +9,8 @@ class simpleViewLegend extends React.Component {
     static propTypes = {
         setVisibleLegendPanel: PropTypes.func,
         visibleLegendPanel: PropTypes.bool,
-        visibleLayers: PropTypes.array
+        visibleLayers: PropTypes.array,
+        searchBarVisible: PropTypes.bool
     };
 
     constructor(props) {
@@ -20,7 +21,7 @@ class simpleViewLegend extends React.Component {
     render() {
         if (this.props.visibleLegendPanel) {
             return (
-                <div className={'simple-view-panel legend-panel'}>
+                <div className={'simple-view-panel ' + (this.props.searchBarVisible ? "legend-panel-with-search" : "legend-panel")}>
                     <div className={"row h4 legend-heading"}>
                         Legend
                         <span
@@ -58,7 +59,7 @@ class simpleViewLegend extends React.Component {
         return (
             <div>
                 <button
-                    className={'simple-view-menu-button legend-button'}
+                    className={'simple-view-menu-button ' + (this.props.searchBarVisible ? "legend-button-with-search" : "legend-button")}
                     onClick={() => this.props.setVisibleLegendPanel(true)}
                 >
                     Show Legend
@@ -71,7 +72,8 @@ class simpleViewLegend extends React.Component {
 const mapStateToProps = (state) => {
     return {
         visibleLayers: state?.layers?.flat.filter(layer => (layer.visibility === true && layer?.group !== 'background')),
-        visibleLegendPanel: state?.simpleView?.visibleLegendPanel
+        visibleLegendPanel: state?.simpleView?.visibleLegendPanel,
+        searchBarVisible: !!state?.localConfig?.plugins?.map_view?.find(x => x.name === "Search")
     };
 };
 
