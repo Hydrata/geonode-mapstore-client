@@ -1681,6 +1681,16 @@
         ],
         "map_view": [
             {
+                "name": "Search",
+                "cfg": {
+                    "activeSearchTool": "coordinatesSearch",
+                    "showCoordinatesSearchOption": true,
+                    "showAddressSearchOption": false,
+                    "showBookMarkSearchOption": false,
+                    "withToggle": false
+                }
+            },
+            {
                 "name": "Swamm"
             },
             {
