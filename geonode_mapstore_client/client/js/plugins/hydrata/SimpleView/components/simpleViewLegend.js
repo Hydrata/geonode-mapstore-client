@@ -2,6 +2,8 @@ import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 
+import {changeActiveSearchTool} from "../../../../../MapStore2/web/client/actions/search";
+
 import Legend from "../../../../../MapStore2/web/client/components/TOC/fragments/legend/Legend";
 import {setVisibleLegendPanel} from "../actionsSimpleView";
 
@@ -10,12 +12,17 @@ class simpleViewLegend extends React.Component {
         setVisibleLegendPanel: PropTypes.func,
         visibleLegendPanel: PropTypes.bool,
         visibleLayers: PropTypes.array,
-        searchBarVisible: PropTypes.bool
+        searchBarVisible: PropTypes.bool,
+        changeActiveSearchTool: PropTypes.func
     };
 
     constructor(props) {
         super(props);
         this.state = {};
+    }
+
+    componentDidMount() {
+        this.props.searchBarVisible ? this.props.changeActiveSearchTool("coordinatesSearch") : null;
     }
 
     render() {
@@ -79,7 +86,8 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        setVisibleLegendPanel: (visible) => dispatch(setVisibleLegendPanel(visible))
+        setVisibleLegendPanel: (visible) => dispatch(setVisibleLegendPanel(visible)),
+        changeActiveSearchTool: (activeSearchTool) => dispatch(changeActiveSearchTool(activeSearchTool))
     };
 };
 
