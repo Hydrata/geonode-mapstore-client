@@ -63,7 +63,7 @@ class AnugaContainer extends React.Component {
                                     className={'simple-view-menu-button'}
                                     style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                     onClick={() => {
-                                        this.props.setAddAnugaElevation(true);
+                                        this.props.setAddAnugaElevation(!this.props.showAddAnugaElevationData);
                                         this.props.setOpenMenuGroupId(null);
                                     }}
                                 >

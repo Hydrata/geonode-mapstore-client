@@ -91,10 +91,13 @@ export default ( state = initialState, action) => {
             selectedScenario: action.scenario
         };
     case SET_ANUGA_PROJECT_DATA:
-        return {
-            ...state,
-            project: action.data
-        };
+        if (action.data) {
+            return {
+                ...state,
+                project: action.data
+            };
+        }
+        return state;
     case SET_ANUGA_SCENARIO_DATA:
         return {
             ...state,

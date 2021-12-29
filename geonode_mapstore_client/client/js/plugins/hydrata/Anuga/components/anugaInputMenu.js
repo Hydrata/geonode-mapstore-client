@@ -53,7 +53,7 @@ class AnugaInputMenuClass extends React.Component {
                         {
                             this.props.elevations?.map(elevation => (
                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left"}}>
-                                    {elevation.name}
+                                    {elevation.title}
                                 </div>
                             ))
                         }
