@@ -31,6 +31,9 @@ import {
     textSearch,
     RECORD_LIST_LOADED
 } from '../../../../MapStore2/web/client/actions/catalog';
+import {
+    show
+} from '../../../../MapStore2/web/client/actions/notifications';
 import { ADD_LAYER, addLayer } from '../../../../MapStore2/web/client/actions/layers';
 import axios from "../../../../MapStore2/web/client/libs/ajax";
 import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
@@ -172,7 +175,7 @@ export const createAnugaElevationEpic2 = (action$, store) =>
                             setAnugaProjectData()
                         );
                     }
-                    return action;
+                    return Rx.Observable.empty();
                 })
         );
 
@@ -184,12 +187,17 @@ export const createAnugaElevationEpic1 = (action$, store) =>
             "gn_layer": action.pk,
             "project": store.getState()?.anuga?.project?.id,
             "title": action.title
-        })));
+        }))
+            .map(() => show({"title": "Success", "message": "Elevation layer submitted for processing"}, "success"))
+            .map(() => setAnugaProjectData())
+            .catch(error => show({"title": "Error", "message": error}, "error"))
+        );
 
 export const createAnugaLayerFromCatSearch = (action$) =>
     action$
         .ofType(RECORD_LIST_LOADED)
         .map(action => action.result.records.filter((record) => record.dc.alternative.includes('geonode:' + action.searchOptions.text))[0])
+        .filter(record => record)
         .concatMap((record) => Rx.Observable.of(
             addLayer(makeLayerFromTemplate(
                 record.dc.identifier,
