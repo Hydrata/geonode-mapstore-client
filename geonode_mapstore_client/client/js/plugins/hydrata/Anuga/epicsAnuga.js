@@ -215,7 +215,7 @@ export const createAnugaLayerFromCatSearch = (action$) =>
 export const autoSaveOnAnugaAddLayer = (action$) =>
     action$
         .ofType(ADD_LAYER)
-        .filter((action) => action?.layer?.group.substring(0, 10) === "Input Data")
+        .filter((action) => action?.layer?.group?.substring(0, 10) === "Input Data")
         .mergeMap(() => Rx.Observable.of(saveDirectContent()));
 
 export const pollAnugaScenarioEpic = (action$, store) =>
