@@ -31,16 +31,17 @@ import {
     textSearch,
     RECORD_LIST_LOADED
 } from '../../../../MapStore2/web/client/actions/catalog';
-import {
-    show
-} from '../../../../MapStore2/web/client/actions/notifications';
+// import {
+//     show
+// } from '../../../../MapStore2/web/client/actions/notifications';
 import { ADD_LAYER, addLayer } from '../../../../MapStore2/web/client/actions/layers';
 import axios from "../../../../MapStore2/web/client/libs/ajax";
 import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
 import {saveDirectContent} from "../../../actions/gnsave";
 
 const makeBboxFromCSW = (bbox) => {
-    return {
+    console.log('makeBboxFromCSW bbox: ', bbox);
+    const response = {
         "crs": bbox.crs,
         "bounds": {
             "minx": bbox.extent[0],
@@ -49,6 +50,8 @@ const makeBboxFromCSW = (bbox) => {
             "maxy": bbox.extent[3]
         }
     };
+    console.log('makeBboxFromCSW response: ', response);
+    return response;
 };
 
 const menuNames = {
@@ -60,7 +63,9 @@ const menuNames = {
 };
 
 const makeLayerFromTemplate = (id, name, title, bbox) => {
+    console.log('makeLayerFromTemplate: id, name, title, bbox', id, name, title, bbox);
     const menu = menuNames[name.split("geonode:")[1].substring(0, 3)];
+    console.log('makeLayerFromTemplate: menu', menu);
     const layer = {
         "type": "wms",
         "format": "image/png",
@@ -110,7 +115,7 @@ const makeLayerFromTemplate = (id, name, title, bbox) => {
             "application/json"
         ]
     };
-    console.log('layer:', layer);
+    console.log('makeLayerFromTemplate layer:', layer);
     return layer;
 };
 
@@ -147,7 +152,7 @@ export const createAnugaElevationEpic2 = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
         .switchMap((action) =>
-            Rx.Observable.timer(0, 4000)
+            Rx.Observable.timer(0, 15000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .concatMap(() => {
                     console.log('***', action);
@@ -188,9 +193,9 @@ export const createAnugaElevationEpic1 = (action$, store) =>
             "project": store.getState()?.anuga?.project?.id,
             "title": action.title
         }))
-            .map(() => show({"title": "Success", "message": "Elevation layer submitted for processing"}, "success"))
-            .map(() => setAnugaProjectData())
-            .catch(error => show({"title": "Error", "message": error}, "error"))
+            // .map(() => show({"title": "Success", "message": "Elevation layer submitted for processing"}, "success"))
+            // .map(() => setAnugaProjectData())
+            // .catch(error => show({"title": "Error", "message": error}, "error"))
         );
 
 export const createAnugaLayerFromCatSearch = (action$) =>
