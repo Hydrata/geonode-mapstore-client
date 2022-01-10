@@ -196,8 +196,8 @@ export const createAnugaElevationEpic1 = (action$, store) =>
 export const createAnugaLayerFromCatSearch = (action$) =>
     action$
         .ofType(RECORD_LIST_LOADED)
+        .filter(action => action.result.searchOptions.text !== '')
         .map(action => action.result.records.filter((record) => record.dc.alternative.includes('geonode:' + action.searchOptions.text))[0])
-        .filter(record => record)
         .concatMap((record) => Rx.Observable.of(
             addLayer(makeLayerFromTemplate(
                 record.dc.identifier,
