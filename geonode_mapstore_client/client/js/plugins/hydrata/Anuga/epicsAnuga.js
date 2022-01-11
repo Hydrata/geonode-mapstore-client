@@ -205,9 +205,13 @@ export const createAnugaLayerFromCatSearch = (action$) =>
         .map(action => action.result.records
             .filter((record) => {
                 console.log('filter this: ', record.dc.alternative);
-                const filtered = record.dc.alternative.includes('geonode:ele_' + action.searchOptions?.text?.substring(4));
-                console.log('filtered:', filtered);
-                return filtered;
+                const recordToCheck = record.dc.alternative;
+                if (recordToCheck.includes('geonode:ele_' + action.searchOptions?.text?.substring(4))) {
+                    console.log('passing through filter:', recordToCheck);
+                    return recordToCheck;
+                }
+                console.log('blocked by filter:', recordToCheck);
+                return null;
             })[0])
         .concatMap((record) => Rx.Observable.of(
             addLayer(makeLayerFromTemplate(
