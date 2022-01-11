@@ -62,14 +62,14 @@ const menuNames = {
     "fri": "Friction Maps"
 };
 
-const makeLayerFromTemplate = (id, name, title, bbox) => {
-    console.log('makeLayerFromTemplate: id, name, title, bbox', id, name, title, bbox);
+const makeLayerFromTemplate = (id, name, title, bbox, url) => {
+    console.log('makeLayerFromTemplate: id, name, title, bbox, url', id, name, title, bbox, url);
     const menu = menuNames[name.split("geonode:")[1].substring(0, 3)];
     console.log('makeLayerFromTemplate: menu', menu);
     const layer = {
         "type": "wms",
         "format": "image/png",
-        "url": "http://localhost:8080/geoserver/ows",
+        "url": `${url}geoserver/ows`,
         "visibility": true,
         "opacity": 1,
         "dimensions": [],
@@ -81,7 +81,7 @@ const makeLayerFromTemplate = (id, name, title, bbox) => {
         "links": [],
         "params": {},
         "allowedSRS": {},
-        "catalogURL": `http://localhost:8000/catalogue/csw?request=GetRecordById&service=CSW&version=2.0.2&elementSetName=full&id=${id}`,
+        "catalogURL": `${url}catalogue/csw?request=GetRecordById&service=CSW&version=2.0.2&elementSetName=full&id=${id}`,
         "tileSize": 512,
         "imageFormats": [
             {
@@ -192,13 +192,9 @@ export const createAnugaElevationEpic1 = (action$, store) =>
             "gn_layer": action.pk,
             "project": store.getState()?.anuga?.project?.id,
             "title": action.title
-        }))
-            // .map(() => show({"title": "Success", "message": "Elevation layer submitted for processing"}, "success"))
-            // .map(() => setAnugaProjectData())
-            // .catch(error => show({"title": "Error", "message": error}, "error"))
-        );
+        })));
 
-export const createAnugaLayerFromCatSearch = (action$) =>
+export const createAnugaLayerFromCatSearch = (action$, store) =>
     action$
         .ofType(RECORD_LIST_LOADED)
         .filter(action => action?.searchOptions?.text !== '')
@@ -218,7 +214,8 @@ export const createAnugaLayerFromCatSearch = (action$) =>
                 record.dc.identifier,
                 record.dc.alternative,
                 record.dc.title,
-                record.boundingBox
+                record.boundingBox,
+                store.getState()?.gnsettings?.geonodeUrl
             )),
             zoomToExtent(
                 makeBboxFromCSW(record.boundingBox).bounds,
