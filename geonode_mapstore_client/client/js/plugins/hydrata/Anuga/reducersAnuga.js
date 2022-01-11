@@ -82,6 +82,9 @@ export default ( state = initialState, action) => {
                     action.scenario.unsaved = false;
                     return action.scenario;
                 }
+                if (!scenario.id) {
+                    return action.scenario;
+                }
                 return scenario;
             })
         };
