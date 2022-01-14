@@ -210,7 +210,6 @@ export const createAnugaLayerFromCatSearch = (action$, store) =>
                         result = recordToCheck;
                     } else {
                         console.log('blocked by filter:', recordToCheck);
-                        result = null;
                     }
                 });
                 if (result) {
