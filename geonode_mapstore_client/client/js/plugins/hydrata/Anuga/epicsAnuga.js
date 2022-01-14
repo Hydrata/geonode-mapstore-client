@@ -213,7 +213,10 @@ export const createAnugaLayerFromCatSearch = (action$, store) =>
                         result = null;
                     }
                 });
-                return result;
+                if (result) {
+                    return record;
+                }
+                return false;
             })[0])
         .concatMap((record) => Rx.Observable.of(
             addLayer(makeLayerFromTemplate(
