@@ -208,9 +208,10 @@ export const createAnugaLayerFromCatSearch = (action$, store) =>
                     if (recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text?.substring(4))) {
                         console.log('passing through filter:', recordToCheck);
                         result = recordToCheck;
+                    } else {
+                        console.log('blocked by filter:', recordToCheck);
+                        result = null;
                     }
-                    console.log('blocked by filter:', recordToCheck);
-                    result = null;
                 });
                 return result;
             })[0])
