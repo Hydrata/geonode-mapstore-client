@@ -205,7 +205,10 @@ export const createAnugaLayerFromCatSearch = (action$, store) =>
                 const recordToCheck = record.dc.alternative;
                 let result;
                 ['ele', 'bdy'].map(anugaType => {
-                    if (recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text?.substring(4))) {
+                    if (
+                        recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text?.substring(4)) ||
+                        recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text)
+                    ) {
                         console.log('passing through filter:', recordToCheck);
                         result = recordToCheck;
                     } else {
