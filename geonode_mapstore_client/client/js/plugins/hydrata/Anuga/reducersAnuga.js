@@ -25,7 +25,8 @@ import {
 
 const initialState = {
     showAddAnugaElevationData: false,
-    visibleAnugaScenarioLogId: false
+    visibleAnugaScenarioLogId: false,
+    scenarios: []
 };
 
 export default ( state = initialState, action) => {
@@ -58,6 +59,7 @@ export default ( state = initialState, action) => {
             scenarios: [
                 ...state.scenarios,
                 {
+                    "id": null,
                     "name": "Enter Name",
                     "code": null,
                     "description": "",
@@ -102,10 +104,22 @@ export default ( state = initialState, action) => {
         }
         return state;
     case SET_ANUGA_SCENARIO_DATA:
+        if (state.scenarios.length === 0) {
+            return {
+                ...state,
+                scenarios: action.scenarios
+            };
+        }
         return {
             ...state,
-            scenarios: action.data.map(scenario => {
-                scenario.unsaved = false;
+            scenarios: state.scenarios?.map((scenario) => {
+                if (!scenario.id) {
+                    return action.scenario;
+                }
+                if (scenario.id === action.scenario.id) {
+                    action.scenario.unsaved = false;
+                    return action.scenario;
+                }
                 return scenario;
             })
         };

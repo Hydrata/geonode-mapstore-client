@@ -108,10 +108,10 @@ function setAnugaProjectData(data) {
     };
 }
 
-function setAnugaScenarioData(data) {
+function setAnugaScenarioData(scenarios) {
     return {
         type: SET_ANUGA_SCENARIO_DATA,
-        data
+        scenarios
     };
 }
 
