@@ -60,14 +60,14 @@ export default ( state = initialState, action) => {
                 ...state.scenarios,
                 {
                     "id": null,
-                    "name": "Enter Name",
+                    "name": "",
                     "code": null,
                     "description": "",
                     "maximum_triangle_area": 10,
                     "status": "new",
                     "project": state?.project?.id,
-                    "boundary": null,
-                    "elevation": null,
+                    "boundary": "",
+                    "elevation": "",
                     "unsaved": false
                 }]
         };
@@ -113,8 +113,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             scenarios: state.scenarios?.map((scenario) => {
-                if (!scenario.id) {
-                    return action.scenario;
+                if (scenario.unsaved) {
+                    return {
+                        ...action.scenario,
+                        unsaved: true
+                    };
                 }
                 if (scenario.id === action.scenario.id) {
                     action.scenario.unsaved = false;
