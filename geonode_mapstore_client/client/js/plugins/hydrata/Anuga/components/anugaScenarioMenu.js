@@ -121,6 +121,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     className={'scenario-select'}
                                                     onChange={(e) => this.handleIntChange(e, scenario)}
                                                 >
+                                                    <option value={""}>-</option>
                                                     {
                                                         this.props.elevations?.map((elevation) => {
                                                             return (
@@ -138,6 +139,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     className={'scenario-select'}
                                                     onChange={(e) => this.handleIntChange(e, scenario)}
                                                 >
+                                                    <option value={""}>-</option>
                                                     {
                                                         this.props.boundaries?.map((boundary) => {
                                                             return (
