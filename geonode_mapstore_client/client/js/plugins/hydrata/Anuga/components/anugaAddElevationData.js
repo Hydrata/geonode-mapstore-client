@@ -53,7 +53,7 @@ class AnugaAddElevationDataClass extends React.Component {
                             />
                             <span className="menu-row-text">Upload a new layer</span>
                         </div>
-                        {this.props.availableElevations?.length > 0 ?
+                        {(this.props.availableElevations?.length > 0) || (this.props.elevations?.length > 0) ?
                             <React.Fragment>
                                 <div className={"row menu-row"} style={{width: "480px", textAlign: "left"}}>
                                     <span
