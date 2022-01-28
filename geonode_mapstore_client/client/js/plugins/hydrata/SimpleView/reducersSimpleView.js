@@ -1,4 +1,9 @@
-import {SET_VISIBLE_LEGEND_PANEL, SET_OPEN_MENU_GROUP_ID, SV_SELECT_LAYER} from "./actionsSimpleView";
+import {
+    SET_VISIBLE_LEGEND_PANEL,
+    SET_OPEN_MENU_GROUP_ID,
+    SV_SELECT_LAYER,
+    SET_VISIBLE_UPLOADER_PANEL
+} from "./actionsSimpleView";
 
 export default ( state = {}, action) => {
     switch (action.type) {
@@ -17,6 +22,11 @@ export default ( state = {}, action) => {
         return {
             ...state,
             visibleLegendPanel: action.visible
+        };
+    case SET_VISIBLE_UPLOADER_PANEL:
+        return {
+            ...state,
+            visibleUploaderPanel: action.visible
         };
     case SV_SELECT_LAYER:
         return {

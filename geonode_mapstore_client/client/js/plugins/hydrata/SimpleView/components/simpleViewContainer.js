@@ -5,6 +5,7 @@ const PropTypes = require('prop-types');
 import {setOpenMenuGroupId} from "../actionsSimpleView";
 import "../simpleView.css";
 import LegendPanel from "./simpleViewLegend";
+import {UploaderPanel} from "./simpleViewUploader";
 import {MenuRows} from "./simpleViewMenuRows";
 import {SimpleViewEditor} from "./simpleViewEditor";
 
@@ -61,6 +62,7 @@ class SimpleViewContainer extends React.Component {
                     }
                 })()}
                 <LegendPanel/>
+                <UploaderPanel/>
                 {
                     this.props.selectedLayer ?
                         <SimpleViewEditor/>
