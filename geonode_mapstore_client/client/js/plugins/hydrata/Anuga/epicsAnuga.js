@@ -5,7 +5,7 @@ import {
     SET_ANUGA_PROJECT_DATA,
     SET_ADD_ANUGA_ELEVATION_DATA,
     CREATE_ANUGA_ELEVATION_FROM_LAYER,
-    CREATE_NEW_BOUNDARY,
+    CREATE_ANUGA_BOUNDARY,
     RUN_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO,
     START_ANUGA_SCENARIO_POLLING,
@@ -298,7 +298,7 @@ export const initAnugaBoundariesEpic = (action$, store) =>
 
 export const createAnugaBoundary1 = (action$, store) =>
     action$
-        .ofType(CREATE_NEW_BOUNDARY)
+        .ofType(CREATE_ANUGA_BOUNDARY)
         .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/`, {
             "project": store.getState()?.anuga?.project?.id,
             "title": action.boundaryTitle

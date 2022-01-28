@@ -6,14 +6,17 @@ const SET_ANUGA_SCENARIO_MENU = 'SET_ANUGA_SCENARIO_MENU';
 const SET_ANUGA_RESULT_MENU = 'SET_ANUGA_RESULT_MENU';
 const SET_ANUGA_PROJECT_DATA = 'SET_ANUGA_PROJECT_DATA';
 const SET_ANUGA_SCENARIO_DATA = 'SET_ANUGA_SCENARIO_DATA';
-const SET_ANUGA_INFLOW_DATA = 'SET_ANUGA_INFLOW_DATA';
-const SET_ANUGA_FRICTION_DATA = 'SET_ANUGA_FRICTION_DATA';
-const SET_ANUGA_STRUCTURE_DATA = 'SET_ANUGA_STRUCTURE_DATA';
 const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
+const SET_ANUGA_FRICTION_DATA = 'SET_ANUGA_FRICTION_DATA';
+const SET_ANUGA_INFLOW_DATA = 'SET_ANUGA_INFLOW_DATA';
+const SET_ANUGA_STRUCTURE_DATA = 'SET_ANUGA_STRUCTURE_DATA';
+const CREATE_ANUGA_BOUNDARY = 'CREATE_ANUGA_BOUNDARY';
+const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
+const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
+const CREATE_ANUGA_STRUCTURE = 'CREATE_ANUGA_STRUCTURE';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
 const SET_ANUGA_AVAILABLE_ELEVATION_DATA = 'SET_ANUGA_AVAILABLE_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
-const CREATE_NEW_BOUNDARY = 'CREATE_NEW_BOUNDARY';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
 const ADD_ANUGA_SCENARIO = 'ADD_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
@@ -30,10 +33,10 @@ const STOP_ANUGA_ELEVATION_POLLING = 'STOP_ANUGA_ELEVATION_POLLING';
 const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
-const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
-const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
-const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
-const ADD_ANUGA_STRUCTURE = 'ADD_ANUGA_STRUCTURE';
+// const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
+// const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
+// const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
+// const ADD_ANUGA_STRUCTURE = 'ADD_ANUGA_STRUCTURE';
 
 
 function initAnuga() {
@@ -143,6 +146,41 @@ function setAnugaBoundaryData(data) {
     };
 }
 
+function createAnugaBoundary(boundaryTitle) {
+    return {
+        type: CREATE_ANUGA_BOUNDARY,
+        boundaryTitle
+    };
+}
+
+function createAnugaFriction(frictionTitle) {
+    return {
+        type: CREATE_ANUGA_FRICTION,
+        frictionTitle
+    };
+}
+
+function createAnugaInflow(inflowTitle) {
+    return {
+        type: CREATE_ANUGA_INFLOW,
+        inflowTitle
+    };
+}
+
+function createAnugaStructure(structureTitle) {
+    return {
+        type: CREATE_ANUGA_STRUCTURE,
+        structureTitle
+    };
+}
+//
+// function setAnugaBoundaryData(data) {
+//     return {
+//         type: SET_ANUGA_BOUNDARY_DATA,
+//         data
+//     };
+// }
+
 function setAnugaElevationData(data) {
     return {
         type: SET_ANUGA_ELEVATION_DATA,
@@ -169,13 +207,6 @@ function createAnugaElevationFromLayer(pk, title) {
         type: CREATE_ANUGA_ELEVATION_FROM_LAYER,
         pk,
         title
-    };
-}
-
-function createNewBoundary(boundaryTitle) {
-    return {
-        type: CREATE_NEW_BOUNDARY,
-        boundaryTitle
     };
 }
 
@@ -262,30 +293,30 @@ function showAnugaScenarioLog(scenarioId) {
         scenarioId
     };
 }
-
-function addAnugaBoundary() {
-    return {
-        type: ADD_ANUGA_BOUNDARY
-    };
-}
-
-function addAnugaFriction() {
-    return {
-        type: ADD_ANUGA_FRICTION
-    };
-}
-
-function addAnugaInflow() {
-    return {
-        type: ADD_ANUGA_INFLOW
-    };
-}
-
-function addAnugaStructure() {
-    return {
-        type: ADD_ANUGA_STRUCTURE
-    };
-}
+//
+// function addAnugaBoundary() {
+//     return {
+//         type: ADD_ANUGA_BOUNDARY
+//     };
+// }
+//
+// function addAnugaFriction() {
+//     return {
+//         type: ADD_ANUGA_FRICTION
+//     };
+// }
+//
+// function addAnugaInflow() {
+//     return {
+//         type: ADD_ANUGA_INFLOW
+//     };
+// }
+//
+// function addAnugaStructure() {
+//     return {
+//         type: ADD_ANUGA_STRUCTURE
+//     };
+// }
 
 function addAnugaScenario() {
     return {
@@ -307,15 +338,18 @@ module.exports = {
     SET_ANUGA_RESULT_MENU, setAnugaResultMenu,
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
-    SET_ANUGA_INFLOW_DATA, setAnugaInflowData,
-    SET_ANUGA_FRICTION_DATA, setAnugaFrictionData,
-    SET_ANUGA_STRUCTURE_DATA, setAnugaStructureData,
-    SET_ANUGA_BOUNDARY_DATA, setAnugaBoundaryData,
     SET_ANUGA_ELEVATION_DATA, setAnugaElevationData,
+    SET_ANUGA_BOUNDARY_DATA, setAnugaBoundaryData,
+    SET_ANUGA_FRICTION_DATA, setAnugaFrictionData,
+    SET_ANUGA_INFLOW_DATA, setAnugaInflowData,
+    SET_ANUGA_STRUCTURE_DATA, setAnugaStructureData,
+    CREATE_ANUGA_BOUNDARY, createAnugaBoundary,
+    CREATE_ANUGA_FRICTION, createAnugaFriction,
+    CREATE_ANUGA_INFLOW, createAnugaInflow,
+    CREATE_ANUGA_STRUCTURE, createAnugaStructure,
     SET_ANUGA_AVAILABLE_ELEVATION_DATA, setAnugaAvailableElevationData,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
-    CREATE_NEW_BOUNDARY, createNewBoundary,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,
     ADD_ANUGA_SCENARIO, addAnugaScenario,
     SAVE_ANUGA_SCENARIO_SUCCESS, saveAnugaScenarioSuccess,
@@ -330,9 +364,5 @@ module.exports = {
     STOP_ANUGA_SCENARIO_POLLING, stopAnugaScenarioPolling,
     START_ANUGA_ELEVATION_POLLING, startAnugaElevationPolling,
     STOP_ANUGA_ELEVATION_POLLING, stopAnugaElevationPolling,
-    SET_ANUGA_POLLING_DATA, setAnugaPollingData,
-    ADD_ANUGA_BOUNDARY, addAnugaBoundary,
-    ADD_ANUGA_FRICTION, addAnugaFriction,
-    ADD_ANUGA_INFLOW, addAnugaInflow,
-    ADD_ANUGA_STRUCTURE, addAnugaStructure
+    SET_ANUGA_POLLING_DATA, setAnugaPollingData
 };
