@@ -14,7 +14,6 @@ import {
     saveAnugaScenarioEpic,
     pollAnugaElevationEpic,
     createAnugaBoundary1,
-    autoSaveOnAnugaAddLayer,
     pollAnugaScenarioEpic,
     deleteAnugaScenarioEpic
 } from "./epicsAnuga";
@@ -37,7 +36,6 @@ export default createPlugin('Anuga', {
         saveAnugaScenarioEpic,
         pollAnugaElevationEpic,
         createAnugaBoundary1,
-        autoSaveOnAnugaAddLayer,
         pollAnugaScenarioEpic,
         deleteAnugaScenarioEpic
     }

@@ -8,14 +8,13 @@ import {
     setAnugaInputMenu,
     setAnugaScenarioMenu,
     setAnugaResultMenu,
-    setAddAnugaElevation,
+    startAnugaElevationPolling,
     startAnugaScenarioPolling,
     stopAnugaScenarioPolling
 } from '../actionsAnuga';
 import {AnugaInputMenu} from './AnugaInputMenu';
 import {AnugaScenarioMenu} from './AnugaScenarioMenu';
 import {AnugaResultMenu} from './AnugaResultMenu';
-import {AnugaAddElevationData} from "./anugaAddElevationData";
 import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
@@ -37,6 +36,7 @@ class AnugaContainer extends React.Component {
         showAddAnugaElevationData: PropTypes.bool,
         setAddAnugaElevation: PropTypes.func,
         visibleAnugaScenarioLogId: PropTypes.number,
+        startAnugaElevationPolling: PropTypes.func,
         startAnugaScenarioPolling: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func
     };
@@ -63,7 +63,7 @@ class AnugaContainer extends React.Component {
                             style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
-                                this.props.startAnugaScenarioPolling();
+                                this.props.startAnugaElevationPolling();
                                 this.props.setOpenMenuGroupId(null);
                             }}
                         >
@@ -112,11 +112,6 @@ class AnugaContainer extends React.Component {
                                 : null
                         }
                     </div>
-                    {/*{*/}
-                    {/*    (this.props.showAddAnugaElevationData && !this.props.isAnugaMenuOpen) ?*/}
-                    {/*        <AnugaAddElevationData/>*/}
-                    {/*        : null*/}
-                    {/*}*/}
                     {
                         this.props.visibleAnugaScenarioLogId ?
                             <AnugaScenarioLogViewer/>
@@ -147,7 +142,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         initAnuga: () => dispatch(initAnuga()),
-        setAddAnugaElevation: (visible) => dispatch(setAddAnugaElevation(visible)),
+        startAnugaElevationPolling: (visible) => dispatch(startAnugaElevationPolling(visible)),
         setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         setAnugaResultMenu: (visible) => dispatch(setAnugaResultMenu(visible)),

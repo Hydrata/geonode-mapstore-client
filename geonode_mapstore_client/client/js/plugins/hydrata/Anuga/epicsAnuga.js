@@ -36,7 +36,7 @@ import {
 } from '../../../../MapStore2/web/client/actions/notifications';
 import { ADD_LAYER, addLayer } from '../../../../MapStore2/web/client/actions/layers';
 import axios from "../../../../MapStore2/web/client/libs/ajax";
-import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
+import { ZOOM_TO_EXTENT, zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
 import {saveDirectContent} from "../../../actions/gnsave";
 
 const makeBboxFromCSW = (bbox) => {
@@ -154,17 +154,28 @@ export const pollAnugaElevationEpic = (action$, store) =>
         .switchMap(() =>
             Rx.Observable.timer(0, 4000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
-                .concatMap(() =>
-                    Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`))
-                        .concatMap(res => Rx.Observable.of(
-                            addLayer(res.data[0]),
-                            zoomToExtent(
-                                res.data[0]?.bbox?.bounds,
-                                res.data[0]?.bbox?.crs,
-                                20
-                            ))
-                        )
-                ));
+                .switchMap(() =>
+                    Rx.Observable
+                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`))
+                        .map(response => setAnugaAvailableElevationData(response.data))
+                        .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
+                )
+                .switchMap(action => Rx.Observable.of(
+                    addLayer(action.data[0]),
+                    zoomToExtent(
+                        action.data[0]?.bbox?.bounds,
+                        action.data[0]?.bbox?.crs,
+                        20
+                    ))
+                )
+                .filter(action => action.type === ZOOM_TO_EXTENT)
+                .take(1)
+                .map(action => {
+                    window.alert('New Input Data added. Saving project now.' + JSON.stringify(action));
+                    return action;
+                })
+                .mergeMap(() => Rx.Observable.of(saveDirectContent()))
+        );
 
 // export const createAnugaElevationEpic2 = (action$, store) =>
 //     action$
@@ -253,22 +264,22 @@ export const pollAnugaElevationEpic = (action$, store) =>
 //                 20
 //             )
 //         ));
-
-export const autoSaveOnAnugaAddLayer = (action$) =>
-    action$
-        .ofType(ADD_LAYER)
-        .filter((action) => action?.layer?.group?.substring(0, 10) === "Input Data")
-        .map(action => {
-            window.alert('New Input Data added. Saving project now.');
-            return action;
-        })
-        .mergeMap(() => Rx.Observable.of(saveDirectContent()));
+//
+// export const autoSaveOnAnugaAddLayer = (action$) =>
+//     action$
+//         .ofType(ADD_LAYER)
+//         .filter((action) => action?.layer?.group?.substring(0, 10) === "Input Data")
+//         .map(action => {
+//             window.alert('New Input Data added. Saving project now.');
+//             return action;
+//         })
+//         .mergeMap(() => Rx.Observable.of(saveDirectContent()));
 
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_SCENARIO_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 4000)
+            Rx.Observable.timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .exhaustMap(() =>
                     Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`))
