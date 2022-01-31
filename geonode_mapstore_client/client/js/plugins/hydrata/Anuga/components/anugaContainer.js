@@ -111,11 +111,11 @@ class AnugaContainer extends React.Component {
                                 : null
                         }
                     </div>
-                    {
-                        (this.props.showAddAnugaElevationData && !this.props.isAnugaMenuOpen) ?
-                            <AnugaAddElevationData/>
-                            : null
-                    }
+                    {/*{*/}
+                    {/*    (this.props.showAddAnugaElevationData && !this.props.isAnugaMenuOpen) ?*/}
+                    {/*        <AnugaAddElevationData/>*/}
+                    {/*        : null*/}
+                    {/*}*/}
                     {
                         this.props.visibleAnugaScenarioLogId ?
                             <AnugaScenarioLogViewer/>

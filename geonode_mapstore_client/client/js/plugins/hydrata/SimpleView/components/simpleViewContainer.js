@@ -62,7 +62,6 @@ class SimpleViewContainer extends React.Component {
                     }
                 })()}
                 <LegendPanel/>
-                <UploaderPanel/>
                 {
                     this.props.selectedLayer ?
                         <SimpleViewEditor/>

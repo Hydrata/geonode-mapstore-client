@@ -13,6 +13,7 @@ import {
     createAnugaStructure
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
+import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
@@ -32,7 +33,7 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaInflow: PropTypes.func,
         structures: PropTypes.array,
         addAnugaStructure: PropTypes.func,
-        prjoect: PropTypes.object
+        project: PropTypes.object
     };
 
     static defaultProps = {}
@@ -300,6 +301,7 @@ class AnugaInputMenuClass extends React.Component {
                             </div>
                         </React.Fragment> : null
                 }
+                <UploaderPanel fileType={'elevation'}/>
             </div>
         );
     }

@@ -7,6 +7,7 @@ import Dropzone from 'react-dropzone';
 import {
     setVisibleUploaderPanel
 } from "../actionsSimpleView";
+import '../simpleView.css';
 import {DateFormat, Message} from "../../../../../MapStore2/web/client/components/I18N/I18N";
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
 // import FileUploader from "mapstore/web/client/components/file/FileUploader";
@@ -19,13 +20,16 @@ class simpleViewUploaderPanel extends React.Component {
         uploaderFiles: PropTypes.object,
         visibleUploaderPanel: PropTypes.bool,
         serverUrl: PropTypes.string,
-        projectId: PropTypes.number
+        projectId: PropTypes.number,
+        newTitle: PropTypes.string,
+        fileType: PropTypes.string
     };
 
     constructor(props) {
         super(props);
         this.state = {
-            uploaderFiles: []
+            uploaderFiles: [],
+            newTitle: ''
         };
     }
 
@@ -46,6 +50,7 @@ class simpleViewUploaderPanel extends React.Component {
                     <Table bordered condensed hover>
                         <thead>
                             <tr>
+                                <th key="hname">Title</th>
                                 <th key="hname">Filename</th>
                                 <th key="hsize">Filesize</th>
                                 <th key="htype">Filetype</th>
@@ -56,6 +61,16 @@ class simpleViewUploaderPanel extends React.Component {
                         <tbody>
                             {this.state.uploaderFiles && this.state.uploaderFiles.map((file, index) =>
                                 (<tr key={"row_" + index}>
+                                    <td key="title">
+                                        <input
+                                            id={'newTitle'}
+                                            key={'newTitle'}
+                                            className={'data-title-input'}
+                                            type={'text'}
+                                            value={this.state.newTitle}
+                                            onChange={(e) => this.setState({newTitle: e.target.value})}
+                                        />
+                                    </td>
                                     <td key="name">{file.name}</td>
                                     <td key="size">{this.humanFileSize(file.size)}</td>
                                     <td key="type">{file.type}</td>
@@ -64,7 +79,7 @@ class simpleViewUploaderPanel extends React.Component {
                                         {
                                             file.status === "begin" ?
                                                 <Button
-                                                    onClick={() => this.uploadFile(file)}
+                                                    onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
                                                     bsSize={'small'}
                                                     bsStyle={'success'}
                                                 >
@@ -118,7 +133,7 @@ class simpleViewUploaderPanel extends React.Component {
         const i = Math.floor( Math.log(size) / Math.log(1024) );
         return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
     };
-    uploadFile = (file) => {
+    uploadFile = (file, fileType) => {
         console.log('uploadFile started', file);
         this.setState(prevState => ({
             itemList: prevState.uploaderFiles.map(
@@ -126,7 +141,8 @@ class simpleViewUploaderPanel extends React.Component {
             )
         }));
         const data = new FormData();
-        data.append('elevation', file);
+        data.append(fileType, file);
+        data.append('title', this.state.newTitle);
         let url;
         if (this.props.serverUrl.includes('localhost')) {
             url = 'http://localhost:8081/';
