@@ -127,11 +127,16 @@ class simpleViewUploaderPanel extends React.Component {
         }));
         const data = new FormData();
         data.append('elevation', file);
+        let url;
+        if (this.props.serverUrl.includes('localhost')) {
+            url = 'http://localhost:8081/';
+        } else {
+            url = this.props.serverUrl;
+        }
         axios
-            .put(`${this.props.serverUrl}anuga/api/${this.props.projectId}/elevation/upload/`, data, this.uploadConfig)
+            .put(`${url}anuga/api/${this.props.projectId}/elevation/upload/`, data, this.uploadConfig)
             .then(response => {
-                console.log('res.statusText', response);
-                console.log('res.data', response);
+                console.log('upload response', response);
                 this.setState(prevState => ({
                     itemList: prevState.uploaderFiles.map(
                         fileToCheck => (fileToCheck.preview === file.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
