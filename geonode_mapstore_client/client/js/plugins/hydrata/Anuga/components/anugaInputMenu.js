@@ -10,7 +10,8 @@ import {
     createAnugaBoundary,
     createAnugaFriction,
     createAnugaInflow,
-    createAnugaStructure
+    createAnugaStructure,
+    startAnugaElevationPolling
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
@@ -33,6 +34,7 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaInflow: PropTypes.func,
         structures: PropTypes.array,
         addAnugaStructure: PropTypes.func,
+        startAnugaElevationPolling: PropTypes.func,
         project: PropTypes.object
     };
 
@@ -72,7 +74,10 @@ class AnugaInputMenuClass extends React.Component {
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                             style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
-                            onClick={() => {this.props.setVisibleUploaderPanel(true);}}
+                            onClick={() => {
+                                this.props.setVisibleUploaderPanel(true);
+                                this.props.startAnugaElevationPolling();
+                            }}
                         />
                     </div>
                     {
@@ -326,6 +331,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
+        startAnugaElevationPolling: () => dispatch(startAnugaElevationPolling()),
         setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),

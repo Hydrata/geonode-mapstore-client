@@ -148,93 +148,111 @@ export const getAnugaAvailElevationsEpic = (action$, store) =>
         .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`)))
         .concatMap((response) => Rx.Observable.of(setAnugaAvailableElevationData(response.data)));
 
-export const createAnugaElevationEpic2 = (action$, store) =>
+export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
-        .switchMap((action) =>
-            Rx.Observable.timer(0, 15000)
+        .switchMap(() =>
+            Rx.Observable.timer(0, 4000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
-                .concatMap(() => {
-                    console.log('***', action);
-                    // const d = store.getState()?.anuga?.elevations?.filter(elevation => elevation.gn_layer === 367)[0].id;
-                    // const a = store.getState()?.layers?.flat?.filter(layer => store.getState()?.anuga?.elevations?.filter(elevation => elevation.gn_layer === layer.id)[0].id === layer.id);
-                    const loadedElevationLayers = store.getState()?.layers?.flat?.filter(layer => layer.group === 'Input Data.Elevations').map(layer => parseInt(layer.name.split('_')?.[1], 10));
-                    console.log('*** loadedElevationLayers', loadedElevationLayers);
-                    const loadedElevationDatasets = store.getState()?.anuga?.elevations;
-                    console.log('*** loadedElevationDatasets', loadedElevationDatasets);
-                    const missingElevations = loadedElevationDatasets?.filter(elevation => !loadedElevationLayers.includes(elevation.id));
-                    console.log('***layers.flat', store.getState()?.layers?.flat);
-                    console.log('*** missingElevations', missingElevations);
-                    // console.log('***d', d);
-                    if (missingElevations.length > 0) {
-                        console.log('*** textSearch', `ele_${missingElevations[0]?.id}_`);
-                        return Rx.Observable.of(
-                            textSearch({
-                                format: 'csw',
-                                url: '/catalogue/csw',
-                                startPosition: 1,
-                                maxRecords: 1000,
-                                text: `ele_${missingElevations[0]?.id}_`,
-                                options: {}
-                            }),
-                            setAnugaProjectData()
-                        );
-                    }
-                    return Rx.Observable.of(setAnugaProjectData());
-                })
-        );
+                .exhaustMap(() =>
+                    Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`))
+                        .concatMap(res => Rx.Observable.of(
+                            addLayer(res.data[0]),
+                            zoomToExtent(
+                                res.data[0]?.bbox?.bounds,
+                                res.data[0]?.bbox?.crs,
+                                20
+                            ))
+                        )
+                ));
 
-
-export const createAnugaElevationEpic1 = (action$, store) =>
-    action$
-        .ofType(CREATE_ANUGA_ELEVATION_FROM_LAYER)
-        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/`, {
-            "gn_layer": action.pk,
-            "project": store.getState()?.anuga?.project?.id,
-            "title": action.title
-        })))
-        .concatMap(() => Rx.Observable.of(show({"title": "Success", "message": "Elevation layer submitted for processing"}, "success")));
-
-export const createAnugaLayerFromCatSearch = (action$, store) =>
-    action$
-        .ofType(RECORD_LIST_LOADED)
-        .filter(action => action?.searchOptions?.text !== '')
-        .map(action => action.result.records
-            .filter((record) => {
-                console.log('filter this: ', record.dc.alternative);
-                const recordToCheck = record.dc.alternative;
-                let result;
-                ['ele', 'bdy'].map(anugaType => {
-                    if (
-                        recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text?.substring(4)) ||
-                        recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text)
-                    ) {
-                        console.log('passing through filter:', recordToCheck);
-                        result = recordToCheck;
-                    } else {
-                        console.log('blocked by filter:', recordToCheck);
-                    }
-                });
-                if (result) {
-                    return record;
-                }
-                return false;
-            })[0])
-        .concatMap((record) => Rx.Observable.of(
-            addLayer(makeLayerFromTemplate(
-                record.dc.identifier,
-                record.dc.alternative,
-                record.dc.title,
-                record.boundingBox,
-                store.getState()?.gnsettings?.geonodeUrl,
-                store.getState()?.gnsettings?.geoserverUrl
-            )),
-            zoomToExtent(
-                makeBboxFromCSW(record.boundingBox).bounds,
-                makeBboxFromCSW(record.boundingBox).crs,
-                20
-            )
-        ));
+// export const createAnugaElevationEpic2 = (action$, store) =>
+//     action$
+//         .ofType(START_ANUGA_ELEVATION_POLLING)
+//         .switchMap((action) =>
+//             Rx.Observable.timer(0, 15000)
+//                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
+//                 .concatMap(() => {
+//                     console.log('***', action);
+//                     // const d = store.getState()?.anuga?.elevations?.filter(elevation => elevation.gn_layer === 367)[0].id;
+//                     // const a = store.getState()?.layers?.flat?.filter(layer => store.getState()?.anuga?.elevations?.filter(elevation => elevation.gn_layer === layer.id)[0].id === layer.id);
+//                     const loadedElevationLayers = store.getState()?.layers?.flat?.filter(layer => layer.group === 'Input Data.Elevations').map(layer => parseInt(layer.name.split('_')?.[1], 10));
+//                     console.log('*** loadedElevationLayers', loadedElevationLayers);
+//                     const loadedElevationDatasets = store.getState()?.anuga?.elevations;
+//                     console.log('*** loadedElevationDatasets', loadedElevationDatasets);
+//                     const missingElevations = loadedElevationDatasets?.filter(elevation => !loadedElevationLayers.includes(elevation.id));
+//                     console.log('***layers.flat', store.getState()?.layers?.flat);
+//                     console.log('*** missingElevations', missingElevations);
+//                     // console.log('***d', d);
+//                     if (missingElevations.length > 0) {
+//                         console.log('*** textSearch', `ele_${missingElevations[0]?.id}_`);
+//                         return Rx.Observable.of(
+//                             textSearch({
+//                                 format: 'csw',
+//                                 url: '/catalogue/csw',
+//                                 startPosition: 1,
+//                                 maxRecords: 1000,
+//                                 text: `ele_${missingElevations[0]?.id}_`,
+//                                 options: {}
+//                             }),
+//                             setAnugaProjectData()
+//                         );
+//                     }
+//                     return Rx.Observable.of(setAnugaProjectData());
+//                 })
+//         );
+//
+//
+// export const createAnugaElevationEpic1 = (action$, store) =>
+//     action$
+//         .ofType(CREATE_ANUGA_ELEVATION_FROM_LAYER)
+//         .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/`, {
+//             "gn_layer": action.pk,
+//             "project": store.getState()?.anuga?.project?.id,
+//             "title": action.title
+//         })))
+//         .concatMap(() => Rx.Observable.of(show({"title": "Success", "message": "Elevation layer submitted for processing"}, "success")));
+//
+// export const createAnugaLayerFromCatSearch = (action$, store) =>
+//     action$
+//         .ofType(RECORD_LIST_LOADED)
+//         .filter(action => action?.searchOptions?.text !== '')
+//         .map(action => action.result.records
+//             .filter((record) => {
+//                 console.log('filter this: ', record.dc.alternative);
+//                 const recordToCheck = record.dc.alternative;
+//                 let result;
+//                 ['ele', 'bdy'].map(anugaType => {
+//                     if (
+//                         recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text?.substring(4)) ||
+//                         recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text)
+//                     ) {
+//                         console.log('passing through filter:', recordToCheck);
+//                         result = recordToCheck;
+//                     } else {
+//                         console.log('blocked by filter:', recordToCheck);
+//                     }
+//                 });
+//                 if (result) {
+//                     return record;
+//                 }
+//                 return false;
+//             })[0])
+//         .concatMap((record) => Rx.Observable.of(
+//             addLayer(makeLayerFromTemplate(
+//                 record.dc.identifier,
+//                 record.dc.alternative,
+//                 record.dc.title,
+//                 record.boundingBox,
+//                 store.getState()?.gnsettings?.geonodeUrl,
+//                 store.getState()?.gnsettings?.geoserverUrl
+//             )),
+//             zoomToExtent(
+//                 makeBboxFromCSW(record.boundingBox).bounds,
+//                 makeBboxFromCSW(record.boundingBox).crs,
+//                 20
+//             )
+//         ));
 
 export const autoSaveOnAnugaAddLayer = (action$) =>
     action$
