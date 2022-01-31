@@ -152,7 +152,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 4000)
+            Rx.Observable.timer(0, 10000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
@@ -168,13 +168,10 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         20
                     ))
                 )
-                .filter(action => action.type === ZOOM_TO_EXTENT)
-                .take(1)
                 .map(action => {
-                    window.alert('New Input Data added. Saving project now.' + JSON.stringify(action));
+                    window.alert('New Input Data added. Save your project now.' + JSON.stringify(action));
                     return action;
                 })
-                .mergeMap(() => Rx.Observable.of(saveDirectContent()))
         );
 
 // export const createAnugaElevationEpic2 = (action$, store) =>
