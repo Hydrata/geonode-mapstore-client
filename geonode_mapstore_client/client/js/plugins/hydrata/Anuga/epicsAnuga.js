@@ -154,7 +154,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
         .switchMap(() =>
             Rx.Observable.timer(0, 4000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
-                .exhaustMap(() =>
+                .concatMap(() =>
                     Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`))
                         .concatMap(res => Rx.Observable.of(
                             addLayer(res.data[0]),

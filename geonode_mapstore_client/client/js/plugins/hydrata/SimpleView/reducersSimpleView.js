@@ -2,7 +2,8 @@ import {
     SET_VISIBLE_LEGEND_PANEL,
     SET_OPEN_MENU_GROUP_ID,
     SV_SELECT_LAYER,
-    SET_VISIBLE_UPLOADER_PANEL
+    SET_VISIBLE_UPLOADER_PANEL,
+    UPDATE_UPLOAD_STATUS
 } from "./actionsSimpleView";
 
 export default ( state = {}, action) => {
@@ -27,6 +28,11 @@ export default ( state = {}, action) => {
         return {
             ...state,
             visibleUploaderPanel: action.visible
+        };
+    case UPDATE_UPLOAD_STATUS:
+        return {
+            ...state,
+            uploadStatus: action.status
         };
     case SV_SELECT_LAYER:
         return {

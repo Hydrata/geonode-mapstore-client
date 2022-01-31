@@ -5,7 +5,8 @@ import Spinner from 'react-spinkit';
 import { Glyphicon, ProgressBar, Table, Alert, Button } from 'react-bootstrap';
 import Dropzone from 'react-dropzone';
 import {
-    setVisibleUploaderPanel
+    setVisibleUploaderPanel,
+    updateUploadStatus
 } from "../actionsSimpleView";
 import '../simpleView.css';
 import {DateFormat, Message} from "../../../../../MapStore2/web/client/components/I18N/I18N";
@@ -18,6 +19,8 @@ class simpleViewUploaderPanel extends React.Component {
         updateUploaderFile: PropTypes.func,
         setUploaderFiles: PropTypes.func,
         uploaderFiles: PropTypes.object,
+        updateUploadStatus: PropTypes.func,
+        uploadStatus: PropTypes.string,
         visibleUploaderPanel: PropTypes.bool,
         serverUrl: PropTypes.string,
         projectId: PropTypes.number,
@@ -80,12 +83,13 @@ class simpleViewUploaderPanel extends React.Component {
                                             file.status === "begin" ?
                                                 <Button
                                                     onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
+                                                    className={this.state.newTitle ? '' : 'disabled'}
                                                     bsSize={'small'}
                                                     bsStyle={'success'}
                                                 >
                                                     Begin
                                                 </Button> :
-                                                <span>Complete</span>
+                                                <span>{this.props.uploadStatus}</span>
                                         }
                                     </td>
                                 </tr>) )
@@ -163,6 +167,7 @@ class simpleViewUploaderPanel extends React.Component {
     uploadConfig = {
         onUploadProgress: (progressEvent) => {
             console.log('progressEvent: ', progressEvent);
+            this.props.updateUploadStatus(Math.round( (progressEvent.loaded * 100) / progressEvent.total ) + '%');
             return Math.round( (progressEvent.loaded * 100) / progressEvent.total );
         }
     };
@@ -173,13 +178,15 @@ const mapStateToProps = (state) => {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
         serverUrl: state?.gnsettings?.geonodeUrl,
         // serverUrl: 'http://localhost:8081/',
-        projectId: state?.anuga?.project?.id
+        projectId: state?.anuga?.project?.id,
+        uploadStatus: state?.simpleView?.uploadStatus
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible))
+        setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible)),
+        updateUploadStatus: (status) => dispatch(updateUploadStatus(status))
     };
 };
 

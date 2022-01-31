@@ -63,6 +63,7 @@ class AnugaContainer extends React.Component {
                             style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
+                                this.props.startAnugaScenarioPolling();
                                 this.props.setOpenMenuGroupId(null);
                             }}
                         >
