@@ -124,9 +124,16 @@ const makeLayerFromTemplate = (id, name, title, bbox, geonodeUrl, geoserverUrl) 
 export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA)
-        .concatMap(() => Rx.Observable.from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.map?.present?.info?.id})))
-        .concatMap((response) => Rx.Observable.from(axios.get(`/anuga/api/project/${response.data.projectId}/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaProjectData(response.data)));
+        .switchMap(() => Rx.Observable
+            .from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.map?.present?.info?.id}))
+            .switchMap(response1 => Rx.Observable
+                .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
+                .switchMap(response2 => Rx.Observable
+                    .of(setAnugaProjectData(response2.data))
+                )
+                .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
+            )
+        );
 
 
 export const initAnugaScenariosEpic = (action$, store) =>
@@ -173,6 +180,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                             20
                         )),
                         Rx.Observable.of(saveDirectContent()),
+                        Rx.Observable.of(stopAnugaElevationPolling()),
+                        Rx.Observable.of(setAnugaProjectData()),
                         Rx.Observable.of(stopAnugaElevationPolling())
                     );
                 })
