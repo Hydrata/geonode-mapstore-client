@@ -130,24 +130,44 @@ export const initAnugaEpic = (action$, store) =>
                 .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
                 .switchMap(response2 => Rx.Observable
                     .of(setAnugaProjectData(response2.data))
+                    .concat(
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/scenario/`))
+                            .switchMap((response3) => Rx.Observable.of(setAnugaScenarioData(response3.data))),
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/boundary/`))
+                            .switchMap((response4) => Rx.Observable.of(setAnugaBoundaryData(response4.data))),
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/elevation/`))
+                            .switchMap((response5) => Rx.Observable.of(setAnugaElevationData(response5.data))),
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/inflow/`))
+                            .switchMap((response6) => Rx.Observable.of(setAnugaInflowData(response6.data))),
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/structure/`))
+                            .switchMap((response7) => Rx.Observable.of(setAnugaStructureData(response7.data))),
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/friction/`))
+                            .switchMap((response8) => Rx.Observable.of(setAnugaFrictionData(response8.data)))
+                    )
                 )
                 .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
             )
         );
 
 
-export const initAnugaScenariosEpic = (action$, store) =>
-    action$
-        .ofType(SET_ANUGA_PROJECT_DATA)
-        .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaScenarioData(response.data)));
-
-
-export const initAnugaElevationsEpic = (action$, store) =>
-    action$
-        .ofType(SET_ANUGA_PROJECT_DATA)
-        .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaElevationData(response.data)));
+// export const initAnugaScenariosEpic = (action$, store) =>
+//     action$
+//         .ofType(SET_ANUGA_PROJECT_DATA)
+//         .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`)))
+//         .concatMap((response) => Rx.Observable.of(setAnugaScenarioData(response.data)));
+//
+//
+// export const initAnugaElevationsEpic = (action$, store) =>
+//     action$
+//         .ofType(SET_ANUGA_PROJECT_DATA)
+//         .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/`)))
+//         .concatMap((response) => Rx.Observable.of(setAnugaElevationData(response.data)));
 
 
 export const getAnugaAvailElevationsEpic = (action$, store) =>
@@ -328,12 +348,6 @@ export const saveAnugaScenarioEpic = (action$, store) =>
             setAnugaScenarioMenu(true)
         ));
 
-export const initAnugaBoundariesEpic = (action$, store) =>
-    action$
-        .ofType(SET_ANUGA_PROJECT_DATA)
-        .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaBoundaryData(response.data)));
-
 
 export const createAnugaBoundary1 = (action$, store) =>
     action$
@@ -354,24 +368,3 @@ export const createAnugaBoundary1 = (action$, store) =>
                 })
             );
         });
-
-
-export const initAnugaInflowsEpic = (action$, store) =>
-    action$
-        .ofType(SET_ANUGA_PROJECT_DATA)
-        .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/inflow/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaInflowData(response.data)));
-
-
-export const initAnugaStructuresEpic = (action$, store) =>
-    action$
-        .ofType(SET_ANUGA_PROJECT_DATA)
-        .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/structure/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaStructureData(response.data)));
-
-
-export const initAnugaFrictionsEpic = (action$, store) =>
-    action$
-        .ofType(SET_ANUGA_PROJECT_DATA)
-        .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/friction/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaFrictionData(response.data)));
