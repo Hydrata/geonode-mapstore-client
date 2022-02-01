@@ -162,36 +162,19 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
                 )
                 .switchMap(action => {
-                    console.log('action:', action);
-                    console.log('action$:', action$);
-                    console.log('action.data.length:', action.data.length);
                     if (action.data.length === 0) {
                         return Rx.Observable.empty();
                     }
-                    return Rx.Observable.of(
-                        addLayer(action.data[0]),
-                        zoomToExtent(
+                    return Rx.Observable.concat(
+                        Rx.Observable.of(addLayer(action.data[0])),
+                        Rx.Observable.of(zoomToExtent(
                             action.data[0]?.bbox?.bounds,
                             action.data[0]?.bbox?.crs,
                             20
-                        ));
-                })
-                .map(action => {
-                    console.log('New Input Data added. Saving project now.', action);
-                    return action;
-                })
-                .mergeMap((action) => {
-                    if (action.type === ZOOM_TO_EXTENT) {
-                        return Rx.Observable.of(
-                            saveDirectContent(),
-                            stopAnugaElevationPolling()
-                        );
-                    }
-                    return Rx.Observable.empty();
-                })
-                .map(action => {
-                    console.log('End of Epic pipe: ', action);
-                    return action;
+                        )),
+                        Rx.Observable.of(saveDirectContent()),
+                        Rx.Observable.of(stopAnugaElevationPolling())
+                    );
                 })
         );
 
