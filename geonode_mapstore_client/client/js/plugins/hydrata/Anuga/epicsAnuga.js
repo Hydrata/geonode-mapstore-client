@@ -166,18 +166,16 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     console.log('action$:', action$);
                     console.log('action.data.length:', action.data.length);
                     if (action.data.length === 0) {
-                        return Rx.Observable.never();
+                        return Rx.Observable.empty();
                     }
-                    return action$;
+                    return Rx.Observable.of(
+                        addLayer(action.data[0]),
+                        zoomToExtent(
+                            action.data[0]?.bbox?.bounds,
+                            action.data[0]?.bbox?.crs,
+                            20
+                        ));
                 })
-                .switchMap(action => Rx.Observable.of(
-                    addLayer(action.data[0]),
-                    zoomToExtent(
-                        action.data[0]?.bbox?.bounds,
-                        action.data[0]?.bbox?.crs,
-                        20
-                    ))
-                )
                 .map(action => {
                     console.log('New Input Data added. Saving project now.', action);
                     return action;
