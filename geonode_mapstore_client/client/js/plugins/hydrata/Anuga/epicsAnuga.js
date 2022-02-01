@@ -23,6 +23,7 @@ import {
     setAnugaStructureData,
     setAnugaFrictionData,
     setAnugaScenarioMenu,
+    stopAnugaElevationPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
     deleteAnugaScenarioSuccess
@@ -152,7 +153,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 10000)
+            Rx.Observable.timer(0, 15000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
@@ -160,6 +161,12 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         .map(response => setAnugaAvailableElevationData(response.data))
                         .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
                 )
+                .switchMap(action => {
+                    if (action.data.length === 0) {
+                        return Rx.Observable.never();
+                    }
+                    return action$;
+                })
                 .switchMap(action => Rx.Observable.of(
                     addLayer(action.data[0]),
                     zoomToExtent(
@@ -169,7 +176,20 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     ))
                 )
                 .map(action => {
-                    window.alert('New Input Data added. Save your project now.' + JSON.stringify(action));
+                    console.log('New Input Data added. Saving project now.', action);
+                    return action;
+                })
+                .mergeMap((action) => {
+                    if (action.type === ZOOM_TO_EXTENT) {
+                        return Rx.Observable.of(
+                            saveDirectContent(),
+                            stopAnugaElevationPolling()
+                        );
+                    }
+                    return Rx.Observable.empty();
+                })
+                .map(action => {
+                    console.log('End of Epic pipe: ', action);
                     return action;
                 })
         );
