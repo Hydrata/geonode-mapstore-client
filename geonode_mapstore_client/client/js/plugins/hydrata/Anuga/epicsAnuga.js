@@ -162,6 +162,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
                 )
                 .switchMap(action => {
+                    console.log('action:', action);
+                    console.log('action.data.length:', action.data.length);
                     if (action.data.length === 0) {
                         return Rx.Observable.never();
                     }
