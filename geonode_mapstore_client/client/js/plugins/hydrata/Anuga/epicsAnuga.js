@@ -163,6 +163,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                 )
                 .switchMap(action => {
                     console.log('action:', action);
+                    console.log('action$:', action$);
                     console.log('action.data.length:', action.data.length);
                     if (action.data.length === 0) {
                         return Rx.Observable.never();
