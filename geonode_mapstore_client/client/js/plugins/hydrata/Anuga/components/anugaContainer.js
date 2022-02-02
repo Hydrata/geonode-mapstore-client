@@ -60,7 +60,7 @@ class AnugaContainer extends React.Component {
                         <button
                             key="anuga-input-button"
                             className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                            style={{left: (this.props.numberOfMenus + 0) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
                                 this.props.startAnugaElevationPolling();
@@ -79,7 +79,7 @@ class AnugaContainer extends React.Component {
                         <button
                             key="anuga-scenario-button"
                             className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
+                            style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
                                 this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
@@ -98,7 +98,7 @@ class AnugaContainer extends React.Component {
                         <button
                             key="anuga-result-button"
                             className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus + 3) * 100 + 20}}
+                            style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
                             onClick={() => {
                                 this.props.setAnugaResultMenu(!this.props.showAnugaResultMenu);
                                 this.props.setOpenMenuGroupId(null);

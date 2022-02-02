@@ -4,10 +4,10 @@ import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
     getAnugaAvailElevationsEpic,
+    pollAnugaElevationEpic,
+    createAnugaBoundaryEpic,
     runAnugaScenarioEpic,
     saveAnugaScenarioEpic,
-    pollAnugaElevationEpic,
-    createAnugaBoundary1,
     pollAnugaScenarioEpic,
     deleteAnugaScenarioEpic
 } from "./epicsAnuga";
@@ -20,10 +20,10 @@ export default createPlugin('Anuga', {
     epics: {
         initAnugaEpic,
         getAnugaAvailElevationsEpic,
+        pollAnugaElevationEpic,
+        createAnugaBoundaryEpic,
         runAnugaScenarioEpic,
         saveAnugaScenarioEpic,
-        pollAnugaElevationEpic,
-        createAnugaBoundary1,
         pollAnugaScenarioEpic,
         deleteAnugaScenarioEpic
     }

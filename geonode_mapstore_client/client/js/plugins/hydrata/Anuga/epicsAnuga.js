@@ -185,8 +185,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                 .switchMap(() =>
                     Rx.Observable
                         .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`))
-                        .map(response => setAnugaAvailableElevationData(response.data))
-                        .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
+                        // .map(response => setAnugaAvailableElevationData(response.data))
+                        // .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
                 )
                 .switchMap(action => {
                     if (action.data.length === 0) {
@@ -201,10 +201,35 @@ export const pollAnugaElevationEpic = (action$, store) =>
                             20
                         )),
                         Rx.Observable.of(saveDirectContent()),
-                        Rx.Observable.of(stopAnugaElevationPolling()),
-                        Rx.Observable.of(setAnugaProjectData())
+                        Rx.Observable.of(setAnugaProjectData()),
+                        Rx.Observable.of(stopAnugaElevationPolling())
                     );
                 })
+        );
+
+export const createAnugaBoundaryEpic = (action$, store) =>
+    action$
+        .ofType(CREATE_ANUGA_BOUNDARY)
+        .switchMap((action) =>
+            Rx.Observable
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/`, {
+                    "project": store.getState()?.anuga?.project?.id,
+                    "title": action.boundaryTitle
+                }))
+                .switchMap(() =>
+                    Rx.Observable
+                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/available/`))
+                        .switchMap((response) => {
+                            if (response.data.length === 0) {
+                                return Rx.Observable.empty();
+                            }
+                            return Rx.Observable.concat(
+                                Rx.Observable.of(addLayer(response.data[0])),
+                                Rx.Observable.of(saveDirectContent()),
+                                Rx.Observable.of(setAnugaProjectData())
+                            );
+                        })
+                )
         );
 
 // export const createAnugaElevationEpic2 = (action$, store) =>
@@ -349,22 +374,3 @@ export const saveAnugaScenarioEpic = (action$, store) =>
         ));
 
 
-export const createAnugaBoundary1 = (action$, store) =>
-    action$
-        .ofType(CREATE_ANUGA_BOUNDARY)
-        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/`, {
-            "project": store.getState()?.anuga?.project?.id,
-            "title": action.boundaryTitle
-        })))
-        .concatMap((response) => {
-            return Rx.Observable.of(
-                textSearch({
-                    format: 'csw',
-                    url: '/catalogue/csw',
-                    startPosition: 1,
-                    maxRecords: 4,
-                    text: response?.data?.name,
-                    options: {}
-                })
-            );
-        });
