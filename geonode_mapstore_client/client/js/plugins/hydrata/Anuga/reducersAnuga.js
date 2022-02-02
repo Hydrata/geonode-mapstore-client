@@ -15,9 +15,12 @@ import {
     SET_ANUGA_STRUCTURE_DATA,
     SET_ANUGA_BOUNDARY_DATA,
     SET_ANUGA_ELEVATION_DATA
-    // SET_ADD_ANUGA_ELEVATION_DATA,
-    // SET_ANUGA_AVAILABLE_ELEVATION_DATA
 } from "./actionsAnuga";
+
+import {
+    SET_OPEN_MENU_GROUP_ID,
+    SV_SELECT_LAYER
+} from "../SimpleView/actionsSimpleView";
 
 const initialState = {
     showAddAnugaElevationData: false,
@@ -127,67 +130,46 @@ export default ( state = initialState, action) => {
             ...state,
             inflows: action.data
         };
-    // case ADD_ANUGA_INFLOW:
-    //     return {
-    //         ...state,
-    //         showAnugaInputMenu: false,
-    //         showAnugaScenarioMenu: false,
-    //         showAnugaResultMenu: false
-    //     };
     case SET_ANUGA_FRICTION_DATA:
         return {
             ...state,
             frictions: action.data
         };
-    // case ADD_ANUGA_FRICTION:
-    //     return {
-    //         ...state,
-    //         showAnugaInputMenu: false,
-    //         showAnugaScenarioMenu: false,
-    //         showAnugaResultMenu: false
-    //     };
     case SET_ANUGA_STRUCTURE_DATA:
         return {
             ...state,
             structures: action.data
         };
-    // case ADD_ANUGA_STRUCTURE:
-    //     return {
-    //         ...state,
-    //         showAnugaInputMenu: false,
-    //         showAnugaScenarioMenu: false,
-    //         showAnugaResultMenu: false
-    //     };
     case SET_ANUGA_BOUNDARY_DATA:
         return {
             ...state,
             boundaries: action.data
         };
-    // case ADD_ANUGA_BOUNDARY:
-    //     return {
-    //         ...state,
-    //         showAnugaInputMenu: false,
-    //         showAnugaScenarioMenu: false,
-    //         showAnugaResultMenu: false
-    //     };
     case SET_ANUGA_ELEVATION_DATA:
         return {
             ...state,
             elevations: action.data
         };
-    // case SET_ADD_ANUGA_ELEVATION_DATA:
-    //     return {
-    //         ...state,
-    //         showAddAnugaElevationData: action.visible,
-    //         showAnugaInputMenu: false,
-    //         showAnugaScenarioMenu: false,
-    //         showAnugaResultMenu: false
-    //     };
-    // case SET_ANUGA_AVAILABLE_ELEVATION_DATA:
-    //     return {
-    //         ...state,
-    //         availableElevations: action.data
-    //     };
+    case SV_SELECT_LAYER:
+        if (action.layer) {
+            return {
+                ...state,
+                showAnugaInputMenu: false,
+                showAnugaScenarioMenu: false,
+                showAnugaResultMenu: false
+            };
+        }
+        return state;
+    case SET_OPEN_MENU_GROUP_ID:
+        if (action.openMenuGroupId) {
+            return {
+                ...state,
+                showAnugaInputMenu: false,
+                showAnugaScenarioMenu: false,
+                showAnugaResultMenu: false
+            };
+        }
+        return state;
     case SET_ANUGA_INPUT_MENU:
         return {
             ...state,

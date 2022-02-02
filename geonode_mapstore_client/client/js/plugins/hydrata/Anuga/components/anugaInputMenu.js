@@ -87,7 +87,7 @@ class AnugaInputMenuClass extends React.Component {
                     {
                         this.props.elevations?.length === 0 ?
                             <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                No Elevations available
+                                No elevations available
                             </div>
                             : null
                     }
@@ -121,7 +121,10 @@ class AnugaInputMenuClass extends React.Component {
                                             "marginRight": "8px",
                                             "float": "right"
                                         }}
-                                        onClick={() => this.props.createAnugaBoundary(this.state.boundaryTitle)}
+                                        onClick={() => {
+                                            this.props.createAnugaBoundary(this.state.boundaryTitle);
+                                            this.setState({boundaryTitle: ''});
+                                        }}
                                     />
                                     <input
                                         id={'boundary-input'}
@@ -134,15 +137,13 @@ class AnugaInputMenuClass extends React.Component {
                                 </div>
                                 {
                                     this.props.boundaries?.map(boundary => (
-                                        <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            {boundary.name}
-                                        </div>
+                                        <MenuRow layer={boundary}/>
                                     ))
                                 }
                                 {
                                     this.props.boundaries?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No Boundaries available
+                                            No boundaries available
                                         </div>
                                         : null
                                 }
@@ -173,7 +174,10 @@ class AnugaInputMenuClass extends React.Component {
                                             "marginRight": "8px",
                                             "float": "right"
                                         }}
-                                        onClick={() => this.props.createAnugaFriction(this.state.frictionTitle)}
+                                        onClick={() => {
+                                            this.props.createAnugaFriction(this.state.frictionTitle);
+                                            this.setState({frictionTitle: ''});
+                                        }}
                                     />
                                     <input
                                         id={'friction-input'}
@@ -186,15 +190,13 @@ class AnugaInputMenuClass extends React.Component {
                                 </div>
                                 {
                                     this.props.frictions?.map(friction => (
-                                        <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            {friction.name}
-                                        </div>
+                                        <MenuRow layer={friction}/>
                                     ))
                                 }
                                 {
                                     this.props.frictions?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No Friction Maps available
+                                            No friction maps available
                                         </div>
                                         : null
                                 }
@@ -225,7 +227,10 @@ class AnugaInputMenuClass extends React.Component {
                                             "marginRight": "8px",
                                             "float": "right"
                                         }}
-                                        onClick={() => this.props.createAnugaInflow(this.state.inflowTitle)}
+                                        onClick={() => {
+                                            this.props.createAnugaInflow(this.state.inflowTitle);
+                                            this.setState({inflowTitle: ''});
+                                        }}
                                     />
                                     <input
                                         id={'inflow-input'}
@@ -238,15 +243,13 @@ class AnugaInputMenuClass extends React.Component {
                                 </div>
                                 {
                                     this.props.inflows?.map(inflow => (
-                                        <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            {inflow.name}
-                                        </div>
+                                        <MenuRow layer={inflow}/>
                                     ))
                                 }
                                 {
                                     this.props.inflows?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No Inflows available
+                                            No inflows available
                                         </div>
                                         : null
                                 }
@@ -277,7 +280,10 @@ class AnugaInputMenuClass extends React.Component {
                                             "marginRight": "8px",
                                             "float": "right"
                                         }}
-                                        onClick={() => this.props.createAnugaStructure(this.state.structureTitle)}
+                                        onClick={() => {
+                                            this.props.createAnugaStructure(this.state.structureTitle);
+                                            this.setState({structureTitle: ''});
+                                        }}
                                     />
                                     <input
                                         id={'structure-input'}
@@ -290,15 +296,13 @@ class AnugaInputMenuClass extends React.Component {
                                 </div>
                                 {
                                     this.props.structures?.map(structure => (
-                                        <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            {structure.name}
-                                        </div>
+                                        <MenuRow layer={structure}/>
                                     ))
                                 }
                                 {
                                     this.props.structures?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No Structures available
+                                            No structures available
                                         </div>
                                         : null
                                 }
@@ -312,17 +316,13 @@ class AnugaInputMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const elevations = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations');
-    console.log('elevations:', elevations);
-    console.log('state?.layers?.flat:', state?.layers?.flat);
     return {
-        // showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
         project: state?.anuga?.project,
-        boundaries: state?.anuga?.boundaries,
-        elevations: elevations,
-        frictions: state?.anuga?.frictions,
-        inflows: state?.anuga?.inflows,
-        structures: state?.anuga?.structures
+        elevations: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations'),
+        boundaries: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
+        frictions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Frictions'),
+        inflows: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
+        structures: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures')
     };
 };
 
