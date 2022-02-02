@@ -5,7 +5,6 @@ const PropTypes = require('prop-types');
 import {setOpenMenuGroupId} from "../actionsSimpleView";
 import "../simpleView.css";
 import LegendPanel from "./simpleViewLegend";
-import {UploaderPanel} from "./simpleViewUploader";
 import {MenuRows} from "./simpleViewMenuRows";
 import {SimpleViewEditor} from "./simpleViewEditor";
 
@@ -73,8 +72,9 @@ class SimpleViewContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    const groupBlacklist = ['Input Data'];  // TODO: move these to config
     return {
-        menuGroups: state?.layers?.groups,
+        menuGroups: state?.layers?.groups.filter(group => !groupBlacklist.includes(group.name)),
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         selectedLayer: state?.simpleView?.selectedLayer

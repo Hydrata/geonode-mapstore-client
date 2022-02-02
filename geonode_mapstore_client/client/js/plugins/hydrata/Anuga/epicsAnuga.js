@@ -180,7 +180,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 15000)
+            Rx.Observable.timer(0, 5000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
@@ -194,6 +194,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     }
                     return Rx.Observable.concat(
                         Rx.Observable.of(addLayer(action.data[0])),
+                        Rx.Observable.of(addLayer(action.data?.[1])),
                         Rx.Observable.of(zoomToExtent(
                             action.data[0]?.bbox?.bounds,
                             action.data[0]?.bbox?.crs,
@@ -201,8 +202,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         )),
                         Rx.Observable.of(saveDirectContent()),
                         Rx.Observable.of(stopAnugaElevationPolling()),
-                        Rx.Observable.of(setAnugaProjectData()),
-                        Rx.Observable.of(stopAnugaElevationPolling())
+                        Rx.Observable.of(setAnugaProjectData())
                     );
                 })
         );

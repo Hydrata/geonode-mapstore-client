@@ -312,9 +312,7 @@ class AnugaInputMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const elevations = state?.anuga?.elevations?.map(elevation => {
-        return state?.layers?.flat?.filter(layer => layer?.id.includes(elevation?.name))[0] || {title: '...preparing'};
-    });
+    const elevations = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations');
     console.log('elevations:', elevations);
     console.log('state?.layers?.flat:', state?.layers?.flat);
     return {

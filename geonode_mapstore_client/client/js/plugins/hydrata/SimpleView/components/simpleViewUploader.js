@@ -1,17 +1,15 @@
 import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
-import Spinner from 'react-spinkit';
-import { Glyphicon, ProgressBar, Table, Alert, Button } from 'react-bootstrap';
+import { Glyphicon, Table, Button } from 'react-bootstrap';
 import Dropzone from 'react-dropzone';
 import {
     setVisibleUploaderPanel,
     updateUploadStatus
 } from "../actionsSimpleView";
 import '../simpleView.css';
-import {DateFormat, Message} from "../../../../../MapStore2/web/client/components/I18N/I18N";
+import {DateFormat} from "../../../../../MapStore2/web/client/components/I18N/I18N";
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
-// import FileUploader from "mapstore/web/client/components/file/FileUploader";
 
 class simpleViewUploaderPanel extends React.Component {
     static propTypes = {
@@ -34,9 +32,6 @@ class simpleViewUploaderPanel extends React.Component {
             uploaderFiles: [],
             newTitle: ''
         };
-    }
-
-    componentDidMount() {
     }
 
     render() {
@@ -166,9 +161,9 @@ class simpleViewUploaderPanel extends React.Component {
     };
     uploadConfig = {
         onUploadProgress: (progressEvent) => {
-            console.log('progressEvent: ', progressEvent);
-            this.props.updateUploadStatus(Math.round( (progressEvent.loaded * 100) / progressEvent.total ) + '%');
-            return Math.round( (progressEvent.loaded * 100) / progressEvent.total );
+            let status = Math.round( (progressEvent.loaded * 100) / progressEvent.total ) + '%';
+            if (status === '100%') {status = 'importing...';}
+            this.props.updateUploadStatus(status);
         }
     };
 }
@@ -177,7 +172,6 @@ const mapStateToProps = (state) => {
     return {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
         serverUrl: state?.gnsettings?.geonodeUrl,
-        // serverUrl: 'http://localhost:8081/',
         projectId: state?.anuga?.project?.id,
         uploadStatus: state?.simpleView?.uploadStatus
     };
