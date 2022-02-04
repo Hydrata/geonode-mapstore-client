@@ -175,5 +175,3 @@ export const saveAnugaScenarioEpic = (action$, store) =>
             saveAnugaScenarioSuccess(response.data),
             setAnugaScenarioMenu(true)
         ));
-
-
