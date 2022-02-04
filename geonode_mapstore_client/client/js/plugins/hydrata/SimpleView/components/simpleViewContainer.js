@@ -72,7 +72,10 @@ class SimpleViewContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const groupBlacklist = ['Input Data'];  // TODO: move these to config
+    let groupBlacklist = [];
+    if ('edit' in window.location.pathname) {
+        groupBlacklist = ['Input Data'];  // TODO: move these to config
+    }
     return {
         menuGroups: state?.layers?.groups.filter(group => !groupBlacklist.includes(group.name)),
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},

@@ -127,7 +127,7 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                             return Rx.Observable.concat(
                                 Rx.Observable.of(addLayer(response.data[0])),
                                 Rx.Observable.of(saveDirectContent()),
-                                Rx.Observable.of(setAnugaProjectData())
+                                Rx.Observable.of(initAnuga())
                             );
                         })
                 )

@@ -50,7 +50,7 @@ class SimpleViewEditorClass extends React.Component {
                         this.props.selectedFeatures?.length > 0 ?
                             <React.Fragment>
                                 <Button
-                                    bsStyle={'info'}
+                                    bsStyle={'success'}
                                     bsSize={'xsmall'}
                                     style={{margin: "2px", borderRadius: "2px"}}
                                     onClick={() => {
