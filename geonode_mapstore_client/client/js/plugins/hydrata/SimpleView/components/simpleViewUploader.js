@@ -1,7 +1,7 @@
 import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
-import { Glyphicon, Table, Button } from 'react-bootstrap';
+import { Glyphicon, Table, Button, ProgressBar, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import Dropzone from 'react-dropzone';
 import {
     setVisibleUploaderPanel,
@@ -32,6 +32,7 @@ class simpleViewUploaderPanel extends React.Component {
             uploaderFiles: [],
             newTitle: ''
         };
+        this.beginTooltip = React.createRef();
     }
 
     render() {
@@ -45,15 +46,15 @@ class simpleViewUploaderPanel extends React.Component {
                     />
                 </div>
                 {this.state.uploaderFiles.length > 0 ?
-                    <Table bordered condensed hover>
+                    <Table bordered condensed hover ref={this.beginTooltip} style={{'tableLayout': 'fixed'}}>
                         <thead>
                             <tr>
-                                <th key="hname">Title</th>
-                                <th key="hname">Filename</th>
-                                <th key="hsize">Filesize</th>
-                                <th key="htype">Filetype</th>
-                                <th key="hlast">Last Modified</th>
-                                <th key="hstatus">Status</th>
+                                <th width="155px" key="hname">Title</th>
+                                <th width="80px" key="hname">Filename</th>
+                                <th width="80px" key="hsize">Filesize</th>
+                                <th width="80px" key="htype">Filetype</th>
+                                <th width="80px" key="hlast">Modified</th>
+                                <th width="80px" key="hstatus">Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -76,15 +77,20 @@ class simpleViewUploaderPanel extends React.Component {
                                     <td key="status">
                                         {
                                             file.status === "begin" ?
-                                                <Button
-                                                    onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
-                                                    className={this.state.newTitle ? '' : 'disabled'}
-                                                    bsSize={'small'}
-                                                    bsStyle={'success'}
-                                                >
-                                                    Begin
-                                                </Button> :
-                                                <span>{this.props.uploadStatus}</span>
+                                                <OverlayTrigger positionLeft overlay={<Tooltip>Enter a title</Tooltip>}>
+                                                    <Button
+                                                        onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
+                                                        className={this.state.newTitle ? '' : 'disabled'}
+                                                        style={{'borderRadius': '3px'}}
+                                                        bsSize={'small'}
+                                                        bsStyle={'success'}
+                                                    >
+                                                        Begin
+                                                    </Button>
+                                                </OverlayTrigger> :
+                                                <ProgressBar active bsStyle={"info"} now={this.props.uploadStatus}>
+                                                    {this.props.uploadStatus === 100 ? 'importing...' : this.props.uploadStatus + '%'}
+                                                </ProgressBar>
                                         }
                                     </td>
                                 </tr>) )
@@ -161,8 +167,7 @@ class simpleViewUploaderPanel extends React.Component {
     };
     uploadConfig = {
         onUploadProgress: (progressEvent) => {
-            let status = Math.round( (progressEvent.loaded * 100) / progressEvent.total ) + '%';
-            if (status === '100%') {status = 'importing...';}
+            let status = Math.round( (progressEvent.loaded * 100) / progressEvent.total);
             this.props.updateUploadStatus(status);
         }
     };

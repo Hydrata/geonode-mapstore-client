@@ -82,6 +82,10 @@
     color: #f4f4f4;
 }
 
+.table-hover > tbody > tr:hover {
+    background-color: #ffffff45;
+}
+
 .scenario-table {
     margin-bottom: 0;
 }

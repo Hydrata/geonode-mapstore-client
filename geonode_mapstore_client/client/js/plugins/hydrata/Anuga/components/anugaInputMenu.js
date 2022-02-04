@@ -1,5 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 const PropTypes = require('prop-types');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -71,13 +72,15 @@ class AnugaInputMenuClass extends React.Component {
                         }}
                     >
                         <span className="menu-row-text">Elevations</span>
-                        <span
-                            className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
-                            style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
-                            onClick={() => {
-                                this.props.setVisibleUploaderPanel(true);
-                            }}
-                        />
+                        <OverlayTrigger placement="right" overlay={<Tooltip>Upload a new *.tiff elevation</Tooltip>}>
+                            <span
+                                className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
+                                style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
+                                onClick={() => {
+                                    this.props.setVisibleUploaderPanel(true);
+                                }}
+                            />
+                        </OverlayTrigger>
                     </div>
                     {
                         this.props.elevations?.map(elevation => (
