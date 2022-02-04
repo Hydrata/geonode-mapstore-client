@@ -1,10 +1,12 @@
 import Rx from "rxjs";
+import axios from "../../../../MapStore2/web/client/libs/ajax";
+import { addLayer } from '../../../../MapStore2/web/client/actions/layers';
+import { zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
+import {saveDirectContent} from "../../../actions/gnsave";
 
 import {
     INIT_ANUGA,
-    SET_ANUGA_PROJECT_DATA,
     SET_ADD_ANUGA_ELEVATION_DATA,
-    CREATE_ANUGA_ELEVATION_FROM_LAYER,
     CREATE_ANUGA_BOUNDARY,
     RUN_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO,
@@ -26,99 +28,11 @@ import {
     stopAnugaElevationPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
-    deleteAnugaScenarioSuccess
+    deleteAnugaScenarioSuccess, initAnuga
 } from "./actionsAnuga";
 import {
-    textSearch,
-    RECORD_LIST_LOADED
-} from '../../../../MapStore2/web/client/actions/catalog';
-import {
-    show
-} from '../../../../MapStore2/web/client/actions/notifications';
-import { ADD_LAYER, addLayer } from '../../../../MapStore2/web/client/actions/layers';
-import axios from "../../../../MapStore2/web/client/libs/ajax";
-import { ZOOM_TO_EXTENT, zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
-import {saveDirectContent} from "../../../actions/gnsave";
-
-const makeBboxFromCSW = (bbox) => {
-    console.log('makeBboxFromCSW bbox: ', bbox);
-    const response = {
-        "crs": bbox.crs,
-        "bounds": {
-            "minx": bbox.extent[0],
-            "miny": bbox.extent[1],
-            "maxx": bbox.extent[2],
-            "maxy": bbox.extent[3]
-        }
-    };
-    console.log('makeBboxFromCSW response: ', response);
-    return response;
-};
-
-const menuNames = {
-    "ele": "Elevations",
-    "bdy": "Boundaries",
-    "str": "Structures",
-    "inf": "Inflows",
-    "fri": "Friction Maps"
-};
-
-const makeLayerFromTemplate = (id, name, title, bbox, geonodeUrl, geoserverUrl) => {
-    console.log('makeLayerFromTemplate: id, name, title, bbox, url', id, name, title, bbox, geonodeUrl, geoserverUrl);
-    const menu = menuNames[name.split("geonode:")[1].substring(0, 3)];
-    console.log('makeLayerFromTemplate: menu', menu);
-    const layer = {
-        "type": "wms",
-        "format": "image/png",
-        "url": `${geoserverUrl}ows`,
-        "visibility": true,
-        "opacity": 1,
-        "dimensions": [],
-        "name": name,
-        "title": title,
-        "group": `Input Data.${menu}`,
-        "description": "No abstract provided",
-        "bbox": makeBboxFromCSW(bbox),
-        "links": [],
-        "params": {},
-        "allowedSRS": {},
-        "catalogURL": `${geonodeUrl}catalogue/csw?request=GetRecordById&service=CSW&version=2.0.2&elementSetName=full&id=${id}`,
-        "tileSize": 512,
-        "imageFormats": [
-            {
-                "label": "image/png",
-                "value": "image/png"
-            },
-            {
-                "label": "image/png8",
-                "value": "image/png8"
-            },
-            {
-                "label": "image/jpeg",
-                "value": "image/jpeg"
-            },
-            {
-                "label": "image/vnd.jpeg-png",
-                "value": "image/vnd.jpeg-png"
-            },
-            {
-                "label": "image/vnd.jpeg-png8",
-                "value": "image/vnd.jpeg-png8"
-            },
-            {
-                "label": "image/gif",
-                "value": "image/gif"
-            }
-        ],
-        "infoFormats": [
-            "text/plain",
-            "text/html",
-            "application/json"
-        ]
-    };
-    console.log('makeLayerFromTemplate layer:', layer);
-    return layer;
-};
+    updateUploadStatus
+} from "../SimpleView/actionsSimpleView";
 
 
 export const initAnugaEpic = (action$, store) =>
@@ -156,20 +70,6 @@ export const initAnugaEpic = (action$, store) =>
         );
 
 
-// export const initAnugaScenariosEpic = (action$, store) =>
-//     action$
-//         .ofType(SET_ANUGA_PROJECT_DATA)
-//         .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`)))
-//         .concatMap((response) => Rx.Observable.of(setAnugaScenarioData(response.data)));
-//
-//
-// export const initAnugaElevationsEpic = (action$, store) =>
-//     action$
-//         .ofType(SET_ANUGA_PROJECT_DATA)
-//         .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/`)))
-//         .concatMap((response) => Rx.Observable.of(setAnugaElevationData(response.data)));
-
-
 export const getAnugaAvailElevationsEpic = (action$, store) =>
     action$
         .ofType(SET_ADD_ANUGA_ELEVATION_DATA)
@@ -200,8 +100,9 @@ export const pollAnugaElevationEpic = (action$, store) =>
                             action.data[0]?.bbox?.crs,
                             20
                         )),
+                        Rx.Observable.of(updateUploadStatus('Complete')),
                         Rx.Observable.of(saveDirectContent()),
-                        Rx.Observable.of(setAnugaProjectData()),
+                        Rx.Observable.of(initAnuga()),
                         Rx.Observable.of(stopAnugaElevationPolling())
                     );
                 })
@@ -231,104 +132,6 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                         })
                 )
         );
-
-// export const createAnugaElevationEpic2 = (action$, store) =>
-//     action$
-//         .ofType(START_ANUGA_ELEVATION_POLLING)
-//         .switchMap((action) =>
-//             Rx.Observable.timer(0, 15000)
-//                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
-//                 .concatMap(() => {
-//                     console.log('***', action);
-//                     // const d = store.getState()?.anuga?.elevations?.filter(elevation => elevation.gn_layer === 367)[0].id;
-//                     // const a = store.getState()?.layers?.flat?.filter(layer => store.getState()?.anuga?.elevations?.filter(elevation => elevation.gn_layer === layer.id)[0].id === layer.id);
-//                     const loadedElevationLayers = store.getState()?.layers?.flat?.filter(layer => layer.group === 'Input Data.Elevations').map(layer => parseInt(layer.name.split('_')?.[1], 10));
-//                     console.log('*** loadedElevationLayers', loadedElevationLayers);
-//                     const loadedElevationDatasets = store.getState()?.anuga?.elevations;
-//                     console.log('*** loadedElevationDatasets', loadedElevationDatasets);
-//                     const missingElevations = loadedElevationDatasets?.filter(elevation => !loadedElevationLayers.includes(elevation.id));
-//                     console.log('***layers.flat', store.getState()?.layers?.flat);
-//                     console.log('*** missingElevations', missingElevations);
-//                     // console.log('***d', d);
-//                     if (missingElevations.length > 0) {
-//                         console.log('*** textSearch', `ele_${missingElevations[0]?.id}_`);
-//                         return Rx.Observable.of(
-//                             textSearch({
-//                                 format: 'csw',
-//                                 url: '/catalogue/csw',
-//                                 startPosition: 1,
-//                                 maxRecords: 1000,
-//                                 text: `ele_${missingElevations[0]?.id}_`,
-//                                 options: {}
-//                             }),
-//                             setAnugaProjectData()
-//                         );
-//                     }
-//                     return Rx.Observable.of(setAnugaProjectData());
-//                 })
-//         );
-//
-//
-// export const createAnugaElevationEpic1 = (action$, store) =>
-//     action$
-//         .ofType(CREATE_ANUGA_ELEVATION_FROM_LAYER)
-//         .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/`, {
-//             "gn_layer": action.pk,
-//             "project": store.getState()?.anuga?.project?.id,
-//             "title": action.title
-//         })))
-//         .concatMap(() => Rx.Observable.of(show({"title": "Success", "message": "Elevation layer submitted for processing"}, "success")));
-//
-// export const createAnugaLayerFromCatSearch = (action$, store) =>
-//     action$
-//         .ofType(RECORD_LIST_LOADED)
-//         .filter(action => action?.searchOptions?.text !== '')
-//         .map(action => action.result.records
-//             .filter((record) => {
-//                 console.log('filter this: ', record.dc.alternative);
-//                 const recordToCheck = record.dc.alternative;
-//                 let result;
-//                 ['ele', 'bdy'].map(anugaType => {
-//                     if (
-//                         recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text?.substring(4)) ||
-//                         recordToCheck.includes(`geonode:${anugaType}_` + action.searchOptions?.text)
-//                     ) {
-//                         console.log('passing through filter:', recordToCheck);
-//                         result = recordToCheck;
-//                     } else {
-//                         console.log('blocked by filter:', recordToCheck);
-//                     }
-//                 });
-//                 if (result) {
-//                     return record;
-//                 }
-//                 return false;
-//             })[0])
-//         .concatMap((record) => Rx.Observable.of(
-//             addLayer(makeLayerFromTemplate(
-//                 record.dc.identifier,
-//                 record.dc.alternative,
-//                 record.dc.title,
-//                 record.boundingBox,
-//                 store.getState()?.gnsettings?.geonodeUrl,
-//                 store.getState()?.gnsettings?.geoserverUrl
-//             )),
-//             zoomToExtent(
-//                 makeBboxFromCSW(record.boundingBox).bounds,
-//                 makeBboxFromCSW(record.boundingBox).crs,
-//                 20
-//             )
-//         ));
-//
-// export const autoSaveOnAnugaAddLayer = (action$) =>
-//     action$
-//         .ofType(ADD_LAYER)
-//         .filter((action) => action?.layer?.group?.substring(0, 10) === "Input Data")
-//         .map(action => {
-//             window.alert('New Input Data added. Saving project now.');
-//             return action;
-//         })
-//         .mergeMap(() => Rx.Observable.of(saveDirectContent()));
 
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
