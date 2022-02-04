@@ -88,9 +88,10 @@ class simpleViewUploaderPanel extends React.Component {
                                                         Begin
                                                     </Button>
                                                 </OverlayTrigger> :
-                                                <ProgressBar active bsStyle={"info"} now={this.props.uploadStatus}>
-                                                    {this.props.uploadStatus === 100 ? 'importing...' : this.props.uploadStatus + '%'}
-                                                </ProgressBar>
+                                                <span>
+                                                    <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
+                                                    {parseInt(this.props.uploadStatus, 10) === 100 ? 'importing...' : this.props.uploadStatus + '%'}
+                                                </span>
                                         }
                                     </td>
                                 </tr>) )
@@ -178,7 +179,7 @@ const mapStateToProps = (state) => {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
         serverUrl: state?.gnsettings?.geonodeUrl,
         projectId: state?.anuga?.project?.id,
-        uploadStatus: state?.simpleView?.uploadStatus
+        uploadStatus: state?.simpleView?.uploadStatus || 0
     };
 };
 
