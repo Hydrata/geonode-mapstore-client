@@ -73,7 +73,7 @@ class SimpleViewContainer extends React.Component {
 
 const mapStateToProps = (state) => {
     let groupBlacklist = [];
-    if ('edit' in window.location.pathname) {
+    if (window.location.pathname.includes('edit')) {
         groupBlacklist = ['Input Data'];  // TODO: move these to config
     }
     return {
