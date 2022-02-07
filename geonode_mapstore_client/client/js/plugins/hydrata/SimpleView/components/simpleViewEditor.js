@@ -50,11 +50,11 @@ class SimpleViewEditorClass extends React.Component {
                             </tr>
                         </thead>
                         <tbody>
-                            {this.props.availableFeatures.map((feature) =>
+                            {this.props.availableFeatures?.map((feature) =>
                                 <tr>
                                     <td>*</td>
                                     <td>{feature.label}</td>
-                                    {this.props.availableAttributes.map((attribute) =>
+                                    {this.props.availableAttributes?.map((attribute) =>
                                         <th>{feature?.properties[attribute.label]}</th>
                                     )}
                                 </tr>
@@ -116,8 +116,8 @@ const mapStateToProps = (state) => {
     return {
         selectedLayer: state?.simpleView?.selectedLayer,
         selectedFeatures: state?.featuregrid?.select,
-        availableFeatures: state?.featuregrid?.features,
-        availableAttributes: state?.query?.featureTypes?.[state?.featuregrid?.selectedLayer.split('__')[0]]?.attributes
+        availableFeatures: state?.featuregrid?.features || [],
+        availableAttributes: state?.query?.featureTypes?.[state?.featuregrid?.selectedLayer.split('__')[0]]?.attributes || []
     };
 };
 
