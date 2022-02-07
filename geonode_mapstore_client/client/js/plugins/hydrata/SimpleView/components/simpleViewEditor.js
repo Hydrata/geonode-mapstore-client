@@ -19,7 +19,9 @@ class SimpleViewEditorClass extends React.Component {
         createNewFeatures: PropTypes.func,
         saveChanges: PropTypes.func,
         clearChanges: PropTypes.func,
-        startDrawingFeature: PropTypes.func
+        startDrawingFeature: PropTypes.func,
+        availableFeatures: PropTypes.array,
+        availableAttributes: PropTypes.array
     };
 
     constructor(props) {
@@ -36,13 +38,35 @@ class SimpleViewEditorClass extends React.Component {
                         onClick={() => this.props.svSelectLayer(null)}
                     />
                 </div>
-                {
+                {this.props.availableFeatures ?
+                    <React.Fragment>
+                        <thead>
+                            <tr>
+                                <th>Select</th>
+                                <th>id</th>
+                                {this.props.availableAttributes.map((attribute) =>
+                                    <th>{attribute.label}</th>
+                                )}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {this.props.availableFeatures.map((feature) =>
+                                <tr>
+                                    <td>*</td>
+                                    <td>{feature.label}</td>
+                                    {this.props.availableAttributes.map((attribute) =>
+                                        <th>{feature?.properties[attribute.label]}</th>
+                                    )}
+                                </tr>
+                            )}
+                        </tbody>
+                    </React.Fragment> :
                     this.props.selectedFeatures?.length > 0 ?
                         <div className={'row menu-row'}>
                             Selected: {this.props.selectedFeatures?.[0]?.id}
                         </div> :
                         <div className={'row menu-row'}>
-                            Select a feature from the map...
+                            Select a feature...
                         </div>
                 }
                 <div className={'row menu-row'}>
@@ -91,7 +115,9 @@ class SimpleViewEditorClass extends React.Component {
 const mapStateToProps = (state) => {
     return {
         selectedLayer: state?.simpleView?.selectedLayer,
-        selectedFeatures: state?.featuregrid?.select
+        selectedFeatures: state?.featuregrid?.select,
+        availableFeatures: state?.featuregrid?.features,
+        availableAttributes: state?.query?.featureTypes?.[state?.featuregrid?.selectedLayer.split('__')[0]]?.attributes
     };
 };
 
