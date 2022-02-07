@@ -1,7 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Table, Button} from "react-bootstrap";
+import {Table, Button, OverlayTrigger, Tooltip} from "react-bootstrap";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -14,7 +14,8 @@ import {
     setAnugaScenarioMenu,
     addAnugaScenario,
     stopAnugaScenarioPolling,
-    deleteAnugaScenario
+    deleteAnugaScenario,
+    buildAnugaScenario
 } from "../actionsAnuga";
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -32,7 +33,8 @@ class AnugaScenarioMenuClass extends React.Component {
         setAnugaScenarioMenu: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func,
         addAnugaScenario: PropTypes.func,
-        deleteAnugaScenario: PropTypes.func
+        deleteAnugaScenario: PropTypes.func,
+        buildAnugaScenario: PropTypes.func
     };
 
     static defaultProps = {}
@@ -81,7 +83,17 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Name</th>
                                 <th>Elevation</th>
                                 <th>Boundary</th>
+                                <OverlayTrigger placement="top" overlay={<Tooltip>Constant mm/hr</Tooltip>}>
+                                    <th>Rainfall</th>
+                                </OverlayTrigger>
+                                <OverlayTrigger placement="top" overlay={<Tooltip>seconds</Tooltip>}>
+                                    <th>Duration</th>
+                                </OverlayTrigger>
+                                <OverlayTrigger placement="top" overlay={<Tooltip>Maximum Area per triangle (m2)</Tooltip>}>
+                                    <th>Mesh Size</th>
+                                </OverlayTrigger>
                                 <th>Status</th>
+                                <th/>
                                 <th/>
                                 <th/>
                                 <th/>
@@ -125,7 +137,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     {
                                                         this.props.elevations?.map((elevation) => {
                                                             return (
-                                                                <option value={elevation?.id}>{elevation?.name}</option>
+                                                                <option value={elevation?.id}>{elevation?.title}</option>
                                                             );
                                                         })
                                                     }
@@ -148,6 +160,39 @@ class AnugaScenarioMenuClass extends React.Component {
                                                         })
                                                     }
                                                 </select>
+                                            </td>
+                                            <td>
+                                                <input
+                                                    id={'constant_rainfall'}
+                                                    key={`constantRainfall-${scenario.id}`}
+                                                    type={"number"}
+                                                    className={'scenario-input'}
+                                                    style={{'width': '50px'}}
+                                                    value={scenario.constant_rainfall}
+                                                    onChange={(e) => this.handleNumberChange(e, scenario)}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input
+                                                    id={'maximum_triangle_area'}
+                                                    key={`maximumTriangleArea-${scenario.id}`}
+                                                    type={"number"}
+                                                    className={'scenario-input'}
+                                                    style={{'width': '50px'}}
+                                                    value={scenario.maximum_triangle_area}
+                                                    onChange={(e) => this.handleNumberChange(e, scenario)}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input
+                                                    id={'duration'}
+                                                    key={`duration-${scenario.id}`}
+                                                    type={"number"}
+                                                    className={'scenario-input'}
+                                                    style={{'width': '50px'}}
+                                                    value={scenario.duration}
+                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                />
                                             </td>
                                             <td>
                                                 {scenario.status}
@@ -177,6 +222,19 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     }}
                                                 >
                                                     Run
+                                                </Button>
+                                            </td>
+                                            <td>
+                                                <Button
+                                                    bsStyle={'success'}
+                                                    bsSize={'xsmall'}
+                                                    style={{margin: "2px", borderRadius: "2px"}}
+                                                    className={scenario.unsaved ? 'disabled' : null }
+                                                    onClick={() => {
+                                                        this.props.buildAnugaScenario(scenario);
+                                                    }}
+                                                >
+                                                    <span className="glyphicon glyphicon-wrench" aria-hidden="true" />
                                                 </Button>
                                             </td>
                                             <td>
@@ -233,6 +291,16 @@ class AnugaScenarioMenuClass extends React.Component {
         kv[e.target.id] = parseInt(e.target.value, 10);
         this.props.updateAnugaScenario(scenario, kv);
     }
+
+    handleNumberChange = (e, scenario) => {
+        console.log('handleNumberChange', e, scenario);
+        console.log('e.target', e.target);
+        console.log('e.target.value', e.target.value);
+        console.log('e.target.id', e.target.id);
+        const kv = {};
+        kv[e.target.id] = parseFloat(e.target.value);
+        this.props.updateAnugaScenario(scenario, kv);
+    }
 }
 
 const mapStateToProps = (state) => {
@@ -249,6 +317,7 @@ const mapDispatchToProps = ( dispatch ) => {
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario)),
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
+        buildAnugaScenario: (scenario) => dispatch(buildAnugaScenario(scenario)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
         showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),

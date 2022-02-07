@@ -69,6 +69,8 @@ export default ( state = initialState, action) => {
                     "code": null,
                     "description": "",
                     "maximum_triangle_area": 10,
+                    "constant_rainfall": null,
+                    "duration": null,
                     "status": "new",
                     "project": state?.project?.id,
                     "boundary": "",
