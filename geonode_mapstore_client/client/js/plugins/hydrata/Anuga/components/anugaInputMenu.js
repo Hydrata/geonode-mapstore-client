@@ -2,6 +2,7 @@ import React from "react";
 import {connect} from "react-redux";
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 const PropTypes = require('prop-types');
+const Spinner = require('react-spinkit');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -12,6 +13,7 @@ import {
     createAnugaFriction,
     createAnugaInflow,
     createAnugaStructure,
+    setCreatingAnugaLayer,
     startAnugaElevationPolling
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
@@ -36,7 +38,9 @@ class AnugaInputMenuClass extends React.Component {
         structures: PropTypes.array,
         addAnugaStructure: PropTypes.func,
         startAnugaElevationPolling: PropTypes.func,
-        project: PropTypes.object
+        project: PropTypes.object,
+        isCreatingAnugaLayer: PropTypes.bool,
+        setCreatingAnugaLayer: PropTypes.func
     };
 
     static defaultProps = {}
@@ -125,18 +129,25 @@ class AnugaInputMenuClass extends React.Component {
                                             "float": "right"
                                         }}
                                         onClick={() => {
+                                            this.props.setCreatingAnugaLayer(true);
                                             this.props.createAnugaBoundary(this.state.boundaryTitle);
                                             this.setState({boundaryTitle: ''});
                                         }}
                                     />
-                                    <input
-                                        id={'boundary-input'}
-                                        key={'boundary-input'}
-                                        className={'data-title-input'}
-                                        type={'text'}
-                                        value={this.state.boundaryTitle}
-                                        onChange={(e) => this.setState({boundaryTitle: e.target.value})}
-                                    />
+                                    {
+                                        this.props.isCreatingAnugaLayer ?
+                                            <span>
+                                                <Spinner color="white" style={{display: "inline-block", position: "absolute", right: "45px"}} spinnerName="circle" noFadeIn/>
+                                            </span> :
+                                            <input
+                                                id={'boundary-input'}
+                                                key={'boundary-input'}
+                                                className={'data-title-input'}
+                                                type={'text'}
+                                                value={this.state.boundaryTitle}
+                                                onChange={(e) => this.setState({boundaryTitle: e.target.value})}
+                                            />
+                                    }
                                 </div>
                                 {
                                     this.props.boundaries?.map(boundary => (
@@ -182,14 +193,24 @@ class AnugaInputMenuClass extends React.Component {
                                             this.setState({frictionTitle: ''});
                                         }}
                                     />
-                                    <input
-                                        id={'friction-input'}
-                                        key={'friction-input'}
-                                        className={'data-title-input'}
-                                        type={'text'}
-                                        value={this.state.frictionTitle}
-                                        onChange={(e) => this.setState({frictionTitle: e.target.value})}
-                                    />
+                                    {
+                                        this.props.isCreatingAnugaLayer ?
+                                            <span>
+                                                <Spinner color="white" style={{
+                                                    display: "inline-block",
+                                                    position: "absolute",
+                                                    right: "45px"
+                                                }} spinnerName="circle" noFadeIn/>
+                                            </span> :
+                                            <input
+                                                id={'friction-input'}
+                                                key={'friction-input'}
+                                                className={'data-title-input'}
+                                                type={'text'}
+                                                value={this.state.frictionTitle}
+                                                onChange={(e) => this.setState({frictionTitle: e.target.value})}
+                                            />
+                                    }
                                 </div>
                                 {
                                     this.props.frictions?.map(friction => (
@@ -235,14 +256,24 @@ class AnugaInputMenuClass extends React.Component {
                                             this.setState({inflowTitle: ''});
                                         }}
                                     />
-                                    <input
-                                        id={'inflow-input'}
-                                        key={'inflow-input'}
-                                        className={'data-title-input'}
-                                        type={'text'}
-                                        value={this.state.inflowTitle}
-                                        onChange={(e) => this.setState({inflowTitle: e.target.value})}
-                                    />
+                                    {
+                                        this.props.isCreatingAnugaLayer ?
+                                            <span>
+                                                <Spinner color="white" style={{
+                                                    display: "inline-block",
+                                                    position: "absolute",
+                                                    right: "45px"
+                                                }} spinnerName="circle" noFadeIn/>
+                                            </span> :
+                                            <input
+                                                id={'inflow-input'}
+                                                key={'inflow-input'}
+                                                className={'data-title-input'}
+                                                type={'text'}
+                                                value={this.state.inflowTitle}
+                                                onChange={(e) => this.setState({inflowTitle: e.target.value})}
+                                            />
+                                    }
                                 </div>
                                 {
                                     this.props.inflows?.map(inflow => (
@@ -288,14 +319,24 @@ class AnugaInputMenuClass extends React.Component {
                                             this.setState({structureTitle: ''});
                                         }}
                                     />
-                                    <input
-                                        id={'structure-input'}
-                                        key={'structure-input'}
-                                        className={'data-title-input'}
-                                        type={'text'}
-                                        value={this.state.structureTitle}
-                                        onChange={(e) => this.setState({structureTitle: e.target.value})}
-                                    />
+                                    {
+                                        this.props.isCreatingAnugaLayer ?
+                                            <span>
+                                                <Spinner color="white" style={{
+                                                    display: "inline-block",
+                                                    position: "absolute",
+                                                    right: "45px"
+                                                }} spinnerName="circle" noFadeIn/>
+                                            </span> :
+                                            <input
+                                                id={'structure-input'}
+                                                key={'structure-input'}
+                                                className={'data-title-input'}
+                                                type={'text'}
+                                                value={this.state.structureTitle}
+                                                onChange={(e) => this.setState({structureTitle: e.target.value})}
+                                            />
+                                    }
                                 </div>
                                 {
                                     this.props.structures?.map(structure => (
@@ -325,7 +366,8 @@ const mapStateToProps = (state) => {
         boundaries: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
         frictions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Frictions'),
         inflows: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
-        structures: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures')
+        structures: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
+        isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer
     };
 };
 
@@ -336,7 +378,8 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaInflow: (inflowTitle) => dispatch(createAnugaInflow(inflowTitle)),
-        createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle))
+        createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
+        setCreatingAnugaLayer: (isCreatingAnugaLayer) => dispatch(setCreatingAnugaLayer(isCreatingAnugaLayer))
     };
 };
 

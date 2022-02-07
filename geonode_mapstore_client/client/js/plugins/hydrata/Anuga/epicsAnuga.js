@@ -28,7 +28,9 @@ import {
     stopAnugaElevationPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
-    deleteAnugaScenarioSuccess, initAnuga
+    deleteAnugaScenarioSuccess,
+    initAnuga,
+    setCreatingAnugaLayer
 } from "./actionsAnuga";
 import {
     updateUploadStatus
@@ -127,7 +129,8 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                             return Rx.Observable.concat(
                                 Rx.Observable.of(addLayer(response.data[0])),
                                 Rx.Observable.of(saveDirectContent()),
-                                Rx.Observable.of(initAnuga())
+                                Rx.Observable.of(initAnuga()),
+                                Rx.Observable.of(setCreatingAnugaLayer(false))
                             );
                         })
                 )

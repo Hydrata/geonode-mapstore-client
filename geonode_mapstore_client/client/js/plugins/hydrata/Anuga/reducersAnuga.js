@@ -14,7 +14,8 @@ import {
     SET_ANUGA_FRICTION_DATA,
     SET_ANUGA_STRUCTURE_DATA,
     SET_ANUGA_BOUNDARY_DATA,
-    SET_ANUGA_ELEVATION_DATA
+    SET_ANUGA_ELEVATION_DATA,
+    SET_CREATING_ANUGA_LAYER
 } from "./actionsAnuga";
 
 import {
@@ -31,6 +32,11 @@ const initialState = {
 export default ( state = initialState, action) => {
     console.log('anuga:', action);
     switch (action.type) {
+    case SET_CREATING_ANUGA_LAYER:
+        return {
+            ...state,
+            isCreatingAnugaLayer: action.isCreatingAnugaLayer
+        };
     case UPDATE_ANUGA_SCENARIO:
         return {
             ...state,

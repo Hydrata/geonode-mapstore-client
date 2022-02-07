@@ -33,6 +33,7 @@ const STOP_ANUGA_ELEVATION_POLLING = 'STOP_ANUGA_ELEVATION_POLLING';
 const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
+const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 // const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 // const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 // const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
@@ -42,6 +43,13 @@ const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 function initAnuga() {
     return {
         type: INIT_ANUGA
+    };
+}
+
+function setCreatingAnugaLayer(isCreatingAnugaLayer) {
+    return {
+        type: SET_CREATING_ANUGA_LAYER,
+        isCreatingAnugaLayer
     };
 }
 
@@ -364,5 +372,6 @@ module.exports = {
     STOP_ANUGA_SCENARIO_POLLING, stopAnugaScenarioPolling,
     START_ANUGA_ELEVATION_POLLING, startAnugaElevationPolling,
     STOP_ANUGA_ELEVATION_POLLING, stopAnugaElevationPolling,
-    SET_ANUGA_POLLING_DATA, setAnugaPollingData
+    SET_ANUGA_POLLING_DATA, setAnugaPollingData,
+    SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer
 };

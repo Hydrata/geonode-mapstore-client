@@ -178,3 +178,7 @@
     border: 1px solid rgba(255, 255, 255, 0.68);
     background-color: #335781;
 }
+
+.sk-circle:before {
+    background-color: white !important;
+}
