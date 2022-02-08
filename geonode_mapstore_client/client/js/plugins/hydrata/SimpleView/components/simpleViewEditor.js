@@ -6,6 +6,7 @@ import {Button, Table} from "react-bootstrap";
 import '../simpleView.css';
 import {
     createNewFeatures,
+    selectFeatures,
     saveChanges,
     clearChanges,
     startDrawingFeature
@@ -21,7 +22,8 @@ class SimpleViewEditorClass extends React.Component {
         clearChanges: PropTypes.func,
         startDrawingFeature: PropTypes.func,
         availableFeatures: PropTypes.array,
-        availableAttributes: PropTypes.array
+        availableAttributes: PropTypes.array,
+        selectFeatures: PropTypes.func
     };
 
     constructor(props) {
@@ -43,7 +45,6 @@ class SimpleViewEditorClass extends React.Component {
                         <thead>
                             <tr>
                                 <th>Select</th>
-                                <th>id</th>
                                 {this.props.availableAttributes.map((attribute) =>
                                     <th>{attribute.label}</th>
                                 )}
@@ -52,10 +53,19 @@ class SimpleViewEditorClass extends React.Component {
                         <tbody>
                             {this.props.availableFeatures?.map((feature) =>
                                 <tr>
-                                    <td>*</td>
-                                    <td>{feature.label}</td>
+                                    <td>
+                                        <input
+                                            id={'feature-selector-box'}
+                                            type={'radio'}
+                                            name={'feature-selector'}
+                                            value={false}
+                                            onChange={() => this.props.selectFeatures(feature, false)}
+                                        />
+                                    </td>
                                     {this.props.availableAttributes?.map((attribute) =>
-                                        <th>{feature?.properties[attribute.label]}</th>
+                                        <td>
+                                            {feature?.properties[attribute.label]}
+                                        </td>
                                     )}
                                 </tr>
                             )}
@@ -127,7 +137,8 @@ const mapDispatchToProps = ( dispatch ) => {
         createNewFeatures: (features) => dispatch(createNewFeatures(features)),
         saveChanges: () => dispatch(saveChanges()),
         clearChanges: () => dispatch(clearChanges()),
-        startDrawingFeature: () => dispatch(startDrawingFeature())
+        startDrawingFeature: () => dispatch(startDrawingFeature()),
+        selectFeatures: (features, append) => dispatch(selectFeatures(features, append))
     };
 };
 
