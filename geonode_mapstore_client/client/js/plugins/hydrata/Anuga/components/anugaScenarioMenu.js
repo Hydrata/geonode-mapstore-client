@@ -98,6 +98,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th/>
                                 <th/>
                                 <th/>
+                                <th/>
+                                <th/>
                             </tr>
                         </thead>
                         <tbody>
@@ -218,10 +220,23 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     style={{margin: "2px", borderRadius: "2px"}}
                                                     className={scenario.unsaved ? 'disabled' : null }
                                                     onClick={() => {
-                                                        this.props.runAnugaScenario(scenario);
+                                                        this.props.buildAnugaScenario(scenario);
                                                     }}
                                                 >
-                                                    Run
+                                                    Build
+                                                </Button>
+                                            </td>
+                                            <td>
+                                                <Button
+                                                    download
+                                                    href={scenario?.latest_run?.s3_package_url}
+                                                    bsStyle={'success'}
+                                                    bsSize={'xsmall'}
+                                                    style={{margin: "2px", borderRadius: "2px"}}
+                                                    className={scenario.status !== 'built' ? 'disabled' : null }
+                                                    onClick={() => console.log('downloading: ', scenario)}
+                                                >
+                                                    Download
                                                 </Button>
                                             </td>
                                             <td>
@@ -229,12 +244,12 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsStyle={'success'}
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={scenario.unsaved ? 'disabled' : null }
+                                                    className={scenario.status !== 'built' ? 'disabled' : null }
                                                     onClick={() => {
-                                                        this.props.buildAnugaScenario(scenario);
+                                                        this.props.runAnugaScenario(scenario);
                                                     }}
                                                 >
-                                                    <span className="glyphicon glyphicon-wrench" aria-hidden="true" />
+                                                    Run
                                                 </Button>
                                             </td>
                                             <td>
