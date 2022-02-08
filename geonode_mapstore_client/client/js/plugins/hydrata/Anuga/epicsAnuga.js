@@ -169,7 +169,7 @@ export const buildAnugaScenarioEpic = (action$, store) =>
 export const runAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
-        .concatMap((action) => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/run/`)))
+        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/run/`, action.scenario)))
         .concatMap((response) => Rx.Observable.of(
             runAnugaScenarioSuccess(response.data),
             setAnugaScenarioMenu(true)

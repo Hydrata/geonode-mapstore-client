@@ -91,7 +91,7 @@ class simpleViewUploaderPanel extends React.Component {
                                                 <span>
                                                     <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
                                                     {parseInt(this.props.uploadStatus, 10) === 100 ? 'importing...' : this.props.uploadStatus}
-                                                    {isNaN(parseInt(this.props.uploadStatus, 10)) ? '%' : ''}
+                                                    {isNaN(parseInt(this.props.uploadStatus, 10)) ? '' : '%'}
                                                 </span>
                                         }
                                     </td>

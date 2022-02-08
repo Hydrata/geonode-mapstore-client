@@ -2,7 +2,7 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {svSelectLayer} from '../actionsSimpleView';
-import {Button} from "react-bootstrap";
+import {Button, Table} from "react-bootstrap";
 import '../simpleView.css';
 import {
     createNewFeatures,
@@ -39,7 +39,7 @@ class SimpleViewEditorClass extends React.Component {
                     />
                 </div>
                 {this.props.availableFeatures ?
-                    <React.Fragment>
+                    <Table className={"editor-table"}>
                         <thead>
                             <tr>
                                 <th>Select</th>
@@ -60,7 +60,7 @@ class SimpleViewEditorClass extends React.Component {
                                 </tr>
                             )}
                         </tbody>
-                    </React.Fragment> :
+                    </Table> :
                     this.props.selectedFeatures?.length > 0 ?
                         <div className={'row menu-row'}>
                             Selected: {this.props.selectedFeatures?.[0]?.id}
