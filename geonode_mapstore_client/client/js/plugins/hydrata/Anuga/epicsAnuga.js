@@ -68,7 +68,7 @@ export const initAnugaEpic = (action$, store) =>
                             .switchMap((response8) => Rx.Observable.of(setAnugaFrictionData(response8.data)))
                     )
                 )
-                .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
+                .catch(error => Rx.Observable.of(() => console.log('Error getting available elevations: ', error)))
             )
         );
 

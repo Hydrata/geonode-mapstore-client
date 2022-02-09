@@ -176,6 +176,17 @@ class AnugaScenarioMenuClass extends React.Component {
                                             </td>
                                             <td>
                                                 <input
+                                                    id={'duration'}
+                                                    key={`duration-${scenario.id}`}
+                                                    type={"number"}
+                                                    className={'scenario-input'}
+                                                    style={{'width': '80px'}}
+                                                    value={scenario.duration}
+                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input
                                                     id={'maximum_triangle_area'}
                                                     key={`maximumTriangleArea-${scenario.id}`}
                                                     type={"number"}
@@ -183,17 +194,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     style={{'width': '50px'}}
                                                     value={scenario.maximum_triangle_area}
                                                     onChange={(e) => this.handleNumberChange(e, scenario)}
-                                                />
-                                            </td>
-                                            <td>
-                                                <input
-                                                    id={'duration'}
-                                                    key={`duration-${scenario.id}`}
-                                                    type={"number"}
-                                                    className={'scenario-input'}
-                                                    style={{'width': '50px'}}
-                                                    value={scenario.duration}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
                                                 />
                                             </td>
                                             <td>
