@@ -197,7 +197,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                 />
                                             </td>
                                             <td>
-                                                {scenario.status}
+                                                {this.findScenarioStatus(scenario)}
                                             </td>
                                             <td>
                                                 <Button
@@ -285,6 +285,13 @@ class AnugaScenarioMenuClass extends React.Component {
                 </div>
             </div>
         );
+    }
+
+    findScenarioStatus = (scenario) => {
+        if (scenario?.latest_run?.status) {
+            return scenario.latest_run.status;
+        }
+        return scenario.status;
     }
 
     handleTextChange = (e, scenario) => {

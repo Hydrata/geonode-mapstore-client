@@ -15,7 +15,8 @@ import {
     SET_ANUGA_STRUCTURE_DATA,
     SET_ANUGA_BOUNDARY_DATA,
     SET_ANUGA_ELEVATION_DATA,
-    SET_CREATING_ANUGA_LAYER
+    SET_CREATING_ANUGA_LAYER,
+    BUILD_ANUGA_SCENARIO
 } from "./actionsAnuga";
 
 import {
@@ -53,8 +54,8 @@ export default ( state = initialState, action) => {
             ...state,
             scenarios: state.scenarios.map(scenario => {
                 const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
-                scenario.latest_run = newScenario?.latest_run || {};
-                scenario.status = newScenario?.status || '-';
+                scenario.latest_run = newScenario?.latest_run || {status: 'unsaved'};
+                scenario.status = newScenario?.status || 'unsaved';
                 return scenario;
             })
         };
@@ -77,6 +78,18 @@ export default ( state = initialState, action) => {
                     "elevation": "",
                     "unsaved": false
                 }]
+        };
+    case BUILD_ANUGA_SCENARIO:
+        return {
+            ...state,
+            scenarios: state.scenarios.map(scenario => {
+                const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
+                scenario.latest_run = {
+                    ...newScenario?.latest_run,
+                    status: 'building'
+                };
+                return scenario;
+            })
         };
     case SHOW_ANUGA_SCENARIO_LOG:
         return {
