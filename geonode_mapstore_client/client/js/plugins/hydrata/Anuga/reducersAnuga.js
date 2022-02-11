@@ -82,8 +82,8 @@ export default ( state = initialState, action) => {
     case BUILD_ANUGA_SCENARIO:
         return {
             ...state,
-            scenarios: state.scenarios.map(scenario => {
-                const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
+            scenarios: state.scenarios?.map(scenario => {
+                const newScenario = action.scenarios?.filter(actionScenario => scenario.id === actionScenario.id)[0];
                 scenario.latest_run = {
                     ...newScenario?.latest_run,
                     status: 'building'
