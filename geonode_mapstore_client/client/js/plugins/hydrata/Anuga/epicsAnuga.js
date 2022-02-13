@@ -148,21 +148,22 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                     Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`))
                         .map(res => setAnugaPollingData(res.data))
                         .catch(error => Rx.Observable.of(() => console.log(error)))
+                        .switchMap((action) => {
+                            console.log('filter this:', action.scenarios);
+                            let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.latest_run?.status === 'complete' && !scenario.isLoaded);
+                            console.log('here scenariosToLoadResults', scenariosToLoadResults);
+                            if (scenariosToLoadResults.length > 0) {
+                                console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
+                                return Rx.Observable.concat(
+                                    Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
+                                    Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
+                                    Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
+                                    Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0].id, true))
+                                );
+                            }
+                            return Rx.Observable.empty();
+                        })
                 )
-                .switchMap((action) => {
-                    let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.status === 'complete' && !scenario.isLoaded);
-                    console.log('here scenariosToLoadResults', scenariosToLoadResults);
-                    if (scenariosToLoadResults.length > 0) {
-                        console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
-                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
-                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
-                            Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0].id, true))
-                        );
-                    }
-                    return Rx.Observable.empty();
-                })
         );
 
 export const deleteAnugaScenarioEpic = (action$, store) =>
