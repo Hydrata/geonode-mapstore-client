@@ -93,7 +93,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         // .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
                 )
                 .switchMap(action => {
-                    if (action.data.length === 0) {
+                    if (action.data?.length === 0) {
                         return Rx.Observable.empty();
                     }
                     return Rx.Observable.concat(
@@ -125,7 +125,7 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                     Rx.Observable
                         .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/available/`))
                         .switchMap((response) => {
-                            if (response.data.length === 0) {
+                            if (response.data?.length === 0) {
                                 return Rx.Observable.empty();
                             }
                             return Rx.Observable.concat(
@@ -150,9 +150,9 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                         .catch(error => Rx.Observable.of(() => console.log(error)))
                         .switchMap((action) => {
                             console.log('filter this:', action.scenarios);
-                            let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.latest_run?.status === 'complete' && scenario.isLoaded);
+                            let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.latest_run?.status === 'complete' && !scenario.isLoaded);
                             console.log('here scenariosToLoadResults', scenariosToLoadResults);
-                            if (scenariosToLoadResults.length > 0) {
+                            if (scenariosToLoadResults?.length > 0) {
                                 console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
                                 return Rx.Observable.concat(
                                     Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
