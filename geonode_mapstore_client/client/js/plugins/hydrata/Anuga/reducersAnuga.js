@@ -16,7 +16,8 @@ import {
     SET_ANUGA_BOUNDARY_DATA,
     SET_ANUGA_ELEVATION_DATA,
     SET_CREATING_ANUGA_LAYER,
-    BUILD_ANUGA_SCENARIO
+    BUILD_ANUGA_SCENARIO,
+    SET_ANUGA_SCENARIO_IS_LOADED
 } from "./actionsAnuga";
 
 import {
@@ -88,6 +89,17 @@ export default ( state = initialState, action) => {
                     ...newScenario?.latest_run,
                     status: 'building'
                 };
+                return scenario;
+            })
+        };
+    case SET_ANUGA_SCENARIO_IS_LOADED:
+        return {
+            ...state,
+            scenarios: state.scenarios.map((scenario) => {
+                if (scenario.id === action.scenarioId) {
+                    scenario.isLoaded = action.isLoaded;
+                    return scenario;
+                }
                 return scenario;
             })
         };

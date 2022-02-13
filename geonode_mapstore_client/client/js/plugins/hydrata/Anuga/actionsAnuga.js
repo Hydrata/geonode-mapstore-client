@@ -35,6 +35,7 @@ const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 const BUILD_ANUGA_SCENARIO = 'BUILD_ANUGA_SCENARIO';
+const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
 
 
 function initAnuga() {
@@ -120,6 +121,14 @@ function setAnugaScenarioData(scenarios) {
     return {
         type: SET_ANUGA_SCENARIO_DATA,
         scenarios
+    };
+}
+
+function setAnugaScenarioResultsLoaded(scenarioId, isLoaded) {
+    return {
+        type: SET_ANUGA_SCENARIO_IS_LOADED,
+        scenarioId,
+        isLoaded
     };
 }
 
@@ -354,5 +363,6 @@ module.exports = {
     STOP_ANUGA_ELEVATION_POLLING, stopAnugaElevationPolling,
     SET_ANUGA_POLLING_DATA, setAnugaPollingData,
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
-    BUILD_ANUGA_SCENARIO, buildAnugaScenario
+    BUILD_ANUGA_SCENARIO, buildAnugaScenario,
+    SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded
 };

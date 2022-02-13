@@ -17,6 +17,7 @@ import {
     STOP_ANUGA_ELEVATION_POLLING,
     DELETE_ANUGA_SCENARIO,
     setAnugaScenarioData,
+    setAnugaScenarioResultsLoaded,
     setAnugaPollingData,
     setAnugaProjectData,
     setAnugaElevationData,
@@ -154,7 +155,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                         return Rx.Observable.empty();
                     }
                     console.log('here action2', action);
-                    return Rx.Observable.forkJoin(
+                    return Rx.Observable.switchMap(
                         action.scenarios.map(scenario => {
                             console.log('here scenario1', scenario);
                             if (scenario.latest_run.status === 'complete' && !scenario.resultsLoaded) {
@@ -162,7 +163,8 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 return Rx.Observable.concat(
                                     Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_depth_integrated_velocity_max)),
                                     Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_depth_max)),
-                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_velocity_max))
+                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_velocity_max)),
+                                    Rx.Observable.of(setAnugaScenarioResultsLoaded(scenario.id, true))
                                 );
                             }
                             return Rx.Observable.empty();
