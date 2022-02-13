@@ -143,11 +143,31 @@ export const pollAnugaScenarioEpic = (action$, store) =>
         .switchMap(() =>
             Rx.Observable.timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
-                .exhaustMap(() =>
+                .switchMap(() =>
                     Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`))
                         .map(res => setAnugaPollingData(res.data))
                         .catch(error => Rx.Observable.of(() => console.log(error)))
                 )
+                .switchMap((action) => {
+                    if (action?.scenarios?.length === 0) {
+                        console.log('here action1', action);
+                        return Rx.Observable.empty();
+                    }
+                    console.log('here action2', action);
+                    return Rx.Observable.forkJoin(
+                        action.scenarios.map(scenario => {
+                            console.log('here scenario1', scenario);
+                            if (scenario.latest_run.status === 'complete' && !scenario.resultsLoaded) {
+                                console.log('here scenario2', scenario);
+                                return Rx.Observable.concat(
+                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_depth_integrated_velocity_max)),
+                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_depth_max)),
+                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_velocity_max))
+                                );
+                            }
+                            return Rx.Observable.empty();
+                        }));
+                })
         );
 
 export const deleteAnugaScenarioEpic = (action$, store) =>
