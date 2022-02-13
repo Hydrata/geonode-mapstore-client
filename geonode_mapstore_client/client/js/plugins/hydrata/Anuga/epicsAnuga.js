@@ -150,25 +150,18 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                         .catch(error => Rx.Observable.of(() => console.log(error)))
                 )
                 .switchMap((action) => {
-                    if (action?.scenarios?.length === 0) {
-                        console.log('here action1', action);
-                        return Rx.Observable.empty();
+                    let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.status === 'complete' && !scenario.isLoaded);
+                    console.log('here scenariosToLoadResults', scenariosToLoadResults);
+                    if (scenariosToLoadResults.length > 0) {
+                        console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
+                        return Rx.Observable.concat(
+                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
+                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
+                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
+                            Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0].id, true))
+                        );
                     }
-                    console.log('here action2', action);
-                    return Rx.Observable.switchMap(
-                        action.scenarios.map(scenario => {
-                            console.log('here scenario1', scenario);
-                            if (scenario.latest_run.status === 'complete' && !scenario.resultsLoaded) {
-                                console.log('here scenario2', scenario);
-                                return Rx.Observable.concat(
-                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_depth_integrated_velocity_max)),
-                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_depth_max)),
-                                    Rx.Observable.of(addLayer(scenario.latest_run.gn_layer_velocity_max)),
-                                    Rx.Observable.of(setAnugaScenarioResultsLoaded(scenario.id, true))
-                                );
-                            }
-                            return Rx.Observable.empty();
-                        }));
+                    return Rx.Observable.empty();
                 })
         );
 
