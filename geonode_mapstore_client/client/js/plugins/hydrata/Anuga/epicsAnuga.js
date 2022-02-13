@@ -150,9 +150,9 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                         .catch(error => Rx.Observable.of(() => console.log(error)))
                         .switchMap((action) => {
                             console.log('filter this:', action.scenarios);
-                            let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.latest_run?.status === 'complete' && !scenario.isLoaded);
+                            let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.latest_run?.status === 'complete');
                             console.log('here scenariosToLoadResults', scenariosToLoadResults);
-                            if (scenariosToLoadResults?.length > 0) {
+                            if (scenariosToLoadResults?.length > 0 && !scenariosToLoadResults[0].isLoaded) {
                                 console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
                                 return Rx.Observable.concat(
                                     Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
