@@ -84,11 +84,12 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             scenarios: state.scenarios?.map(scenario => {
-                const newScenario = action.scenarios?.filter(actionScenario => scenario.id === actionScenario.id)[0];
-                scenario.latest_run = {
-                    ...newScenario?.latest_run,
-                    status: 'building'
-                };
+                if (scenario.id === action.scenario.id) {
+                    scenario.latest_run = {
+                        ...scenario.latest_run,
+                        status: 'building'
+                    };
+                }
                 return scenario;
             })
         };
