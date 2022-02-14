@@ -133,7 +133,7 @@ const mapStateToProps = (state) => {
         showAnugaResultMenu: state?.anuga?.showAnugaResultMenu,
         isAnugaMenuOpen: state?.anuga?.showAnugaInputMenu || state?.anuga?.showAnugaScenarioMenu || state?.anuga?.showAnugaResultMenu,
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
-        numberOfMenus: state?.layers?.groups.length,
+        numberOfMenus: state?.layers?.groups.length || 1,
         showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
         visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId
     };

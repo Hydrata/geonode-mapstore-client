@@ -169,7 +169,8 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                         Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
                                         Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
                                         Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
-                                        Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0]?.id, true))
+                                        Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0]?.id, true)),
+                                        Rx.Observable.of(saveDirectContent())
                                     );
                                 }
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
