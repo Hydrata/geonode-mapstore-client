@@ -48,7 +48,7 @@ class MenuRowClass extends React.Component {
                         onClick={() => {this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);}}
                     />
                     {
-                        this.props.canEdit ?
+                        this.props.canEdit && this.props.layer?.search ?
                             <span
                                 className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
                                 style={{"color": "grey"}}
