@@ -60,7 +60,7 @@ class AnugaContainer extends React.Component {
                         <button
                             key="anuga-input-button"
                             className={'simple-view-menu-button'}
-                            style={{left: 120}}
+                            style={{left: (this.props.numberOfMenus * 100) + 20}}
                             onClick={() => {
                                 this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
                                 this.props.startAnugaElevationPolling();
@@ -79,7 +79,7 @@ class AnugaContainer extends React.Component {
                         <button
                             key="anuga-scenario-button"
                             className={'simple-view-menu-button'}
-                            style={{left: 220}}
+                            style={{left: (this.props.numberOfMenus * 100) + 120}}
                             onClick={() => {
                                 this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
                                 this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
@@ -94,24 +94,24 @@ class AnugaContainer extends React.Component {
                                 : null
                         }
                     </div>
-                    <div id={"anuga-results"}>
-                        <button
-                            key="anuga-result-button"
-                            className={'simple-view-menu-button'}
-                            style={{left: 320}}
-                            onClick={() => {
-                                this.props.setAnugaResultMenu(!this.props.showAnugaResultMenu);
-                                this.props.setOpenMenuGroupId(null);
-                            }}
-                        >
-                            Results
-                        </button>
-                        {
-                            this.props.showAnugaResultMenu ?
-                                <AnugaResultMenu/>
-                                : null
-                        }
-                    </div>
+                    {/*<div id={"anuga-results"}>*/}
+                    {/*    <button*/}
+                    {/*        key="anuga-result-button"*/}
+                    {/*        className={'simple-view-menu-button'}*/}
+                    {/*        style={{left: (this.props.numberOfMenus * 100) + 220}}*/}
+                    {/*        onClick={() => {*/}
+                    {/*            this.props.setAnugaResultMenu(!this.props.showAnugaResultMenu);*/}
+                    {/*            this.props.setOpenMenuGroupId(null);*/}
+                    {/*        }}*/}
+                    {/*    >*/}
+                    {/*        Results*/}
+                    {/*    </button>*/}
+                    {/*    {*/}
+                    {/*        this.props.showAnugaResultMenu ?*/}
+                    {/*            <AnugaResultMenu/>*/}
+                    {/*            : null*/}
+                    {/*    }*/}
+                    {/*</div>*/}
                     {
                         this.props.visibleAnugaScenarioLogId ?
                             <AnugaScenarioLogViewer/>
