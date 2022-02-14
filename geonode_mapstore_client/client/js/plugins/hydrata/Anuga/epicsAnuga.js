@@ -154,7 +154,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                             let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.latest_run?.status === 'complete');
                             console.log('backend scenariosToLoadResults', scenariosToLoadResults);
                             // now swap to frontend
-                            scenariosToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario => scenario?.id === scenariosToLoadResults?.[0].id);
+                            scenariosToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario => scenario?.id === scenariosToLoadResults?.[0]?.id);
                             console.log('frontend scenariosToLoadResults', scenariosToLoadResults);
                             // and check frontend
                             if (scenariosToLoadResults?.length > 0 && !scenariosToLoadResults?.[0].isLoaded) {
@@ -163,7 +163,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
                                     Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
                                     Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
-                                    Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0].id, true))
+                                    Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0]?.id, true))
                                 );
                             }
                             return Rx.Observable.empty();
