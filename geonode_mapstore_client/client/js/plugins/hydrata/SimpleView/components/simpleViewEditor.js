@@ -23,7 +23,8 @@ class SimpleViewEditorClass extends React.Component {
         startDrawingFeature: PropTypes.func,
         availableFeatures: PropTypes.array,
         availableAttributes: PropTypes.array,
-        selectFeatures: PropTypes.func
+        selectFeatures: PropTypes.func,
+        drawOwner: PropTypes.string
     };
 
     constructor(props) {
@@ -81,7 +82,7 @@ class SimpleViewEditorClass extends React.Component {
                 }
                 <div className={'row menu-row'}>
                     {
-                        this.props.selectedFeatures?.length > 0 ?
+                        (this.props.selectedFeatures?.length > 0 && this.props.drawOwner === "featureGrid") ?
                             <React.Fragment>
                                 <Button
                                     bsStyle={'success'}
@@ -127,6 +128,7 @@ const mapStateToProps = (state) => {
         selectedLayer: state?.simpleView?.selectedLayer,
         selectedFeatures: state?.featuregrid?.select,
         availableFeatures: state?.featuregrid?.features || [],
+        drawOwner: state?.draw?.drawOwner,
         availableAttributes: state?.query?.featureTypes?.[state?.featuregrid?.selectedLayer.split('__')[0]]?.attributes || []
     };
 };
