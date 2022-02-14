@@ -218,7 +218,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsStyle={'success'}
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={(scenario.status !== 'built' && !scenario.unsaved) ? null : 'disabled'}
+                                                    className={(this.findScenarioStatus(scenario) !== 'built' && !scenario.unsaved) ? null : 'disabled'}
                                                     onClick={() => {
                                                         this.props.buildAnugaScenario(scenario);
                                                     }}
@@ -233,7 +233,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsStyle={'success'}
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={scenario.status !== 'built' ? 'disabled' : null }
+                                                    className={this.findScenarioStatus(scenario) !== 'built' ? 'disabled' : null }
                                                     onClick={() => console.log('downloading: ', scenario)}
                                                 >
                                                     Download
@@ -244,7 +244,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsStyle={'success'}
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={scenario.status !== 'built' ? 'disabled' : null }
+                                                    className={this.findScenarioStatus(scenario) !== 'built' ? 'disabled' : null }
                                                     onClick={() => {
                                                         this.props.runAnugaScenario(scenario);
                                                     }}
