@@ -157,7 +157,12 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 scenariosToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario => scenario?.id === scenariosToLoadResults?.[0]?.id);
                                 console.log('frontend scenariosToLoadResults', scenariosToLoadResults);
                                 // and check frontend
-                                if (scenariosToLoadResults?.length > 0 && !scenariosToLoadResults?.[0].isLoaded) {
+                                if (scenariosToLoadResults?.length > 0 &&
+                                    !scenariosToLoadResults?.[0].isLoaded &&
+                                    scenariosToLoadResults?.[0]?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
+                                    scenariosToLoadResults?.[0]?.latest_run?.gn_layer_depth_max?.catalogURL &&
+                                    scenariosToLoadResults?.[0]?.latest_run?.gn_layer_velocity_max?.catalogURL
+                                ) {
                                     console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
                                     return Rx.Observable.concat(
                                         Rx.Observable.of(setAnugaPollingData(action.scenarios)),
