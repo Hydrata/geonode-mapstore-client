@@ -160,7 +160,8 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
                                 // now swap to frontend
                                 let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
-                                    store.getState()?.anuga?.scenarios?.map(scenarioFrontEnd => {
+                                    console.log('** testing scenarioBackend:', scenarioBackend);
+                                    const scenarioBackendTestResult = store.getState()?.anuga?.scenarios?.filter(scenarioFrontEnd => {
                                         console.log('scenarioFrontEnd:', scenarioFrontEnd);
                                         if (scenarioFrontEnd?.id === scenarioBackend.id && !scenarioFrontEnd.isLoaded) {
                                             console.log('using scenarioBackend:', scenarioBackend);
@@ -168,7 +169,9 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                         }
                                         console.log('rejecting scenarioBackend:', scenarioBackend);
                                         return null;
-                                    });
+                                    })[0];
+                                    console.log('scenarioBackendTestResult:', scenarioBackendTestResult);
+                                    return scenarioBackendTestResult;
                                 })[0];
                                 console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
                                 // and check frontend
