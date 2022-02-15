@@ -159,25 +159,25 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 );
                                 console.log('backend scenariosToLoadResults', scenariosToLoadResults);
                                 // now swap to frontend
-                                scenariosToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario =>
+                                let scenarioToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario =>
                                     (scenario?.id === scenariosToLoadResults?.[0]?.id &&
-                                    !scenariosToLoadResults?.[0].isLoaded)
-                                );
-                                console.log('frontend scenariosToLoadResults', scenariosToLoadResults);
+                                    !scenario.isLoaded)
+                                )?.[0];
+                                console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
                                 // and check frontend
-                                if (scenariosToLoadResults?.length > 0 &&
-                                    scenariosToLoadResults?.[0]?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
-                                    scenariosToLoadResults?.[0]?.latest_run?.gn_layer_depth_max?.catalogURL &&
-                                    scenariosToLoadResults?.[0]?.latest_run?.gn_layer_velocity_max?.catalogURL
+                                if (scenarioToLoadResults &&
+                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
+                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
+                                    scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.catalogURL
                                 ) {
-                                    console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
+                                    console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
                                     return Rx.Observable
                                         .concat(
                                             Rx.Observable.of(setAnugaPollingData(action.scenarios)),
-                                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
-                                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
-                                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
-                                            Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0]?.id, true))
+                                            Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max)),
+                                            Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_max)),
+                                            Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_velocity_max)),
+                                            Rx.Observable.of(setAnugaScenarioResultsLoaded(scenarioToLoadResults?.id, true))
                                         );
                                 }
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
