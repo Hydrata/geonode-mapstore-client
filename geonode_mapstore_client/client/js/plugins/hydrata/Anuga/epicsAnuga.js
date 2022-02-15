@@ -151,14 +151,18 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                             .switchMap((action) => {
                                 console.log('filter this:', action.scenarios);
                                 // check backend
-                                let scenariosToLoadResults = action.scenarios?.filter(scenario => scenario.latest_run?.status === 'complete');
+                                let scenariosToLoadResults = action.scenarios?.filter(scenario =>
+                                    scenario.latest_run?.status === 'complete'
+                                );
                                 console.log('backend scenariosToLoadResults', scenariosToLoadResults);
                                 // now swap to frontend
-                                scenariosToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario => scenario?.id === scenariosToLoadResults?.[0]?.id);
+                                scenariosToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario =>
+                                    (scenario?.id === scenariosToLoadResults?.[0]?.id &&
+                                    !scenariosToLoadResults?.[0].isLoaded)
+                                );
                                 console.log('frontend scenariosToLoadResults', scenariosToLoadResults);
                                 // and check frontend
                                 if (scenariosToLoadResults?.length > 0 &&
-                                    !scenariosToLoadResults?.[0].isLoaded &&
                                     scenariosToLoadResults?.[0]?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenariosToLoadResults?.[0]?.latest_run?.gn_layer_depth_max?.catalogURL &&
                                     scenariosToLoadResults?.[0]?.latest_run?.gn_layer_velocity_max?.catalogURL
