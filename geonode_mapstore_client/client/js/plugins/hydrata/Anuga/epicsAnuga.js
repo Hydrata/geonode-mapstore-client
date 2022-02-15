@@ -170,16 +170,16 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     scenariosToLoadResults?.[0]?.latest_run?.gn_layer_velocity_max?.catalogURL
                                 ) {
                                     console.log('turning on: scenariosToLoadResults[0]', scenariosToLoadResults[0]);
-                                    return Rx.Observable.concat(
-                                        Rx.Observable.of(stopAnugaScenarioPolling()),
-                                        Rx.Observable.of(setAnugaPollingData(action.scenarios)),
-                                        Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
-                                        Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
-                                        Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
-                                        Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0]?.id, true)),
-                                        Rx.Observable.of(saveDirectContent()),
-                                        Rx.Observable.of(startAnugaScenarioPolling())
-                                    );
+                                    return Rx.Observable
+                                        .take(1)
+                                        .concat(
+                                            Rx.Observable.of(setAnugaPollingData(action.scenarios)),
+                                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_integrated_velocity_max)),
+                                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_depth_max)),
+                                            Rx.Observable.of(addLayer(scenariosToLoadResults[0].latest_run.gn_layer_velocity_max)),
+                                            Rx.Observable.of(setAnugaScenarioResultsLoaded(scenariosToLoadResults[0]?.id, true)),
+                                            Rx.Observable.of(saveDirectContent())
+                                        );
                                 }
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
                             })
