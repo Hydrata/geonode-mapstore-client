@@ -154,15 +154,22 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                             .switchMap((action) => {
                                 console.log('filter this:', action.scenarios);
                                 // check backend
-                                let scenariosToLoadResults = action.scenarios?.filter(scenario =>
+                                let backendScenariosToLoadResults = action.scenarios?.filter(scenario =>
                                     scenario.latest_run?.status === 'complete'
                                 );
-                                console.log('backend scenariosToLoadResults', scenariosToLoadResults);
+                                console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
                                 // now swap to frontend
-                                let scenarioToLoadResults = store.getState()?.anuga?.scenarios?.filter(scenario =>
-                                    (scenario?.id === scenariosToLoadResults?.[0]?.id &&
-                                    !scenario.isLoaded)
-                                )?.[0];
+                                let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
+                                    store.getState()?.anuga?.scenarios?.map(scenarioFrontEnd => {
+                                        console.log('scenarioFrontEnd:', scenarioFrontEnd);
+                                        if (scenarioFrontEnd?.id === scenarioBackend.id && !scenarioFrontEnd.isLoaded) {
+                                            console.log('using scenarioBackend:', scenarioBackend);
+                                            return scenarioBackend;
+                                        }
+                                        console.log('rejecting scenarioBackend:', scenarioBackend);
+                                        return null;
+                                    });
+                                })[0];
                                 console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
                                 // and check frontend
                                 if (scenarioToLoadResults &&
