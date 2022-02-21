@@ -193,8 +193,15 @@ class SwammBmpFiltersClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
-    const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
+    const allowedGroupProfileSlugs = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
+    allowedGroupProfileSlugs.push('nwr', 'hyd') // always allow northwater & hydrata stuff to be visible
+    const allowedGroupProfiles = state?.swamm?.groupProfiles
+        .filter(item=> allowedGroupProfileSlugs.includes(item.slug));
+        // .map(item => {
+        //     let temp = Object.assign({}, item);
+        //     temp.visibility = false;
+        //     return temp;
+        // });
     console.log('allowedGroupProfiles', allowedGroupProfiles);
     allowedGroupProfiles.sort((a, b) => a.title.localeCompare(b.title));
     console.log('allowedGroupProfiles', allowedGroupProfiles);
