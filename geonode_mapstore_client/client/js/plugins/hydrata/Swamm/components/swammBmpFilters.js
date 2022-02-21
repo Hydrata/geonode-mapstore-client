@@ -166,7 +166,7 @@ class SwammBmpFiltersClass extends React.Component {
                                         <Row>
                                             {
                                                 this.props.groupProfiles.map((groupProfile, index) => (
-                                                    <Col sm={6} className={"row menu-row filter-row " + (index % 2 ? "filter-row-odd" : '')}>
+                                                    <Col sm={6} className={"row menu-row filter-row " + (index < ((this.props.groupProfiles?.length / 2) + 1) ? "filter-row-odd" : '')}>
                                                         <span
                                                             className={"btn glyphicon menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                             style={{"color": groupProfile?.visibility ? "limegreen" : "red"}}
@@ -195,6 +195,9 @@ class SwammBmpFiltersClass extends React.Component {
 const mapStateToProps = (state) => {
     const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
+    console.log('allowedGroupProfiles', allowedGroupProfiles);
+    allowedGroupProfiles.sort((a, b) => a.title.localeCompare(b.title));
+    console.log('allowedGroupProfiles', allowedGroupProfiles);
     return {
         mapId: state?.swamm?.data?.base_map,
         projectData: state?.swamm?.data,
