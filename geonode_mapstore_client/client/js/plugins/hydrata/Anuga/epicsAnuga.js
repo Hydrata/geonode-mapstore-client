@@ -77,11 +77,11 @@ export const initAnugaEpic = (action$, store) =>
         );
 
 
-export const getAnugaAvailElevationsEpic = (action$, store) =>
-    action$
-        .ofType(SET_ADD_ANUGA_ELEVATION_DATA)
-        .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`)))
-        .concatMap((response) => Rx.Observable.of(setAnugaAvailableElevationData(response.data)));
+// export const getAnugaAvailElevationsEpic = (action$, store) =>
+//     action$
+//         .ofType(SET_ADD_ANUGA_ELEVATION_DATA)
+//         .concatMap(() => Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`)))
+//         .concatMap((response) => Rx.Observable.of(setAnugaAvailableElevationData(response.data)));
 
 export const pollAnugaElevationEpic = (action$, store) =>
     action$
@@ -100,8 +100,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         return Rx.Observable.empty();
                     }
                     return Rx.Observable.concat(
-                        Rx.Observable.of(addLayer(action.data[0])),
-                        Rx.Observable.of(addLayer(action.data?.[1])),
+                        Rx.Observable.of(addLayer(action.data[0])),  // The elevation
+                        Rx.Observable.of(addLayer(action.data?.[1])),  // The hillshade
                         Rx.Observable.of(zoomToExtent(
                             action.data[0]?.bbox?.bounds,
                             action.data[0]?.bbox?.crs,
@@ -133,7 +133,7 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                             }
                             return Rx.Observable.concat(
                                 Rx.Observable.of(addLayer(response.data[0])),
-                                Rx.Observable.of(saveDirectContent()),
+                                // Rx.Observable.of(saveDirectContent()),
                                 Rx.Observable.of(initAnuga()),
                                 Rx.Observable.of(setCreatingAnugaLayer(false))
                             );
@@ -141,11 +141,42 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                 )
         );
 
+const checkResultsToBeLoaded = (action, store) => {
+    console.log('filter this:', action.scenarios);
+    // check backend
+    let backendScenariosToLoadResults = action.scenarios?.filter(scenario =>
+        scenario.latest_run?.status === 'complete'
+    );
+    console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
+    // now swap to frontend
+    let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
+        console.log('** testing scenarioBackend:', scenarioBackend);
+        const scenarioBackendTestResult = store.getState()?.anuga?.scenarios?.filter(scenarioFrontEnd => {
+            console.log('scenarioFrontEnd:', scenarioFrontEnd);
+            if (scenarioFrontEnd?.id === scenarioBackend.id && !scenarioFrontEnd.isLoaded) {
+                console.log('using scenarioBackend:', scenarioBackend);
+                return scenarioBackend;
+            }
+            console.log('rejecting scenarioBackend:', scenarioBackend);
+            return null;
+        })[0];
+        console.log('scenarioBackendTestResult:', scenarioBackendTestResult);
+        return scenarioBackendTestResult;
+    })[0];
+    console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
+    // and check frontend
+    return !!(scenarioToLoadResults &&
+        scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
+        scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
+        scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.catalogURL);
+};
+
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_SCENARIO_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 6000)
+            Rx.Observable
+                .timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
                     Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`))
@@ -178,7 +209,12 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 if (scenarioToLoadResults &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
-                                    scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.catalogURL
+                                    scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.catalogURL &&
+                                    store.getState()?.layers?.flat?.filter(layer => ![
+                                        scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.name,
+                                        scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.name,
+                                        scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name
+                                    ].includes(layer.name))
                                 ) {
                                     console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
                                     return Rx.Observable
@@ -190,6 +226,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                             Rx.Observable.of(setAnugaScenarioResultsLoaded(scenarioToLoadResults?.id, true))
                                         );
                                 }
+                                console.log('not turning on anything');
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
                             })
                         )
