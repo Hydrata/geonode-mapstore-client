@@ -206,15 +206,14 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 })[0];
                                 console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
                                 // and check frontend
+                                const currentLayerNames = store.getState()?.layers?.flat.map(layer => layer.name);
                                 if (scenarioToLoadResults &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.catalogURL &&
-                                    store.getState()?.layers?.flat?.filter(layer => ![
-                                        scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.name,
-                                        scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.name,
-                                        scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name
-                                    ].includes(layer.name))
+                                    currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.name) ||
+                                    currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.name) ||
+                                    currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name)
                                 ) {
                                     console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
                                     return Rx.Observable
