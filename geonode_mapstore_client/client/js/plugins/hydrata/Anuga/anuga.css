@@ -157,17 +157,17 @@
   opacity: 1; /* Firefox */
 }
 
-/*#mapstore-drawermenu {*/
-/*    display: none;*/
-/*}*/
+#mapstore-drawermenu {
+    display: none;
+}
 
 /*#identify-container {*/
 /*    display:none;*/
 /*}*/
 
-/*#navigationBar {*/
-/*    display:none;*/
-/*}*/
+#navigationBar {
+    display:none;
+}
 
 /* this is really terrible and can lead to random stuff not showing, but it is the only way I can see to select the
 div that holds the feature-grid */

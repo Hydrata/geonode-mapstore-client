@@ -15,7 +15,6 @@ const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
 const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
 const CREATE_ANUGA_STRUCTURE = 'CREATE_ANUGA_STRUCTURE';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
-const SET_ANUGA_AVAILABLE_ELEVATION_DATA = 'SET_ANUGA_AVAILABLE_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
 const ADD_ANUGA_SCENARIO = 'ADD_ANUGA_SCENARIO';
@@ -202,13 +201,6 @@ function setAnugaElevationData(data) {
     };
 }
 
-function setAnugaAvailableElevationData(data) {
-    return {
-        type: SET_ANUGA_AVAILABLE_ELEVATION_DATA,
-        data
-    };
-}
-
 function setAddAnugaElevation(visible) {
     return {
         type: SET_ADD_ANUGA_ELEVATION_DATA,
@@ -344,7 +336,6 @@ module.exports = {
     CREATE_ANUGA_FRICTION, createAnugaFriction,
     CREATE_ANUGA_INFLOW, createAnugaInflow,
     CREATE_ANUGA_STRUCTURE, createAnugaStructure,
-    SET_ANUGA_AVAILABLE_ELEVATION_DATA, setAnugaAvailableElevationData,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,

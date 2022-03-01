@@ -21,7 +21,6 @@ import {
     setAnugaPollingData,
     setAnugaProjectData,
     setAnugaElevationData,
-    setAnugaAvailableElevationData,
     setAnugaBoundaryData,
     setAnugaInflowData,
     setAnugaStructureData,
@@ -133,43 +132,13 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                             }
                             return Rx.Observable.concat(
                                 Rx.Observable.of(addLayer(response.data[0])),
-                                // Rx.Observable.of(saveDirectContent()),
+                                Rx.Observable.of(saveDirectContent()),
                                 Rx.Observable.of(initAnuga()),
                                 Rx.Observable.of(setCreatingAnugaLayer(false))
                             );
                         })
                 )
         );
-
-const checkResultsToBeLoaded = (action, store) => {
-    console.log('filter this:', action.scenarios);
-    // check backend
-    let backendScenariosToLoadResults = action.scenarios?.filter(scenario =>
-        scenario.latest_run?.status === 'complete'
-    );
-    console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
-    // now swap to frontend
-    let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
-        console.log('** testing scenarioBackend:', scenarioBackend);
-        const scenarioBackendTestResult = store.getState()?.anuga?.scenarios?.filter(scenarioFrontEnd => {
-            console.log('scenarioFrontEnd:', scenarioFrontEnd);
-            if (scenarioFrontEnd?.id === scenarioBackend.id && !scenarioFrontEnd.isLoaded) {
-                console.log('using scenarioBackend:', scenarioBackend);
-                return scenarioBackend;
-            }
-            console.log('rejecting scenarioBackend:', scenarioBackend);
-            return null;
-        })[0];
-        console.log('scenarioBackendTestResult:', scenarioBackendTestResult);
-        return scenarioBackendTestResult;
-    })[0];
-    console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
-    // and check frontend
-    return !!(scenarioToLoadResults &&
-        scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
-        scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
-        scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.catalogURL);
-};
 
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
