@@ -21,8 +21,7 @@ import {
 } from "./actionsAnuga";
 
 import {
-    SET_OPEN_MENU_GROUP_ID,
-    SV_SELECT_LAYER
+    SET_OPEN_MENU_GROUP_ID
 } from "../SimpleView/actionsSimpleView";
 
 const initialState = {
@@ -184,16 +183,6 @@ export default ( state = initialState, action) => {
             ...state,
             elevations: action.data
         };
-    case SV_SELECT_LAYER:
-        if (action.layer) {
-            return {
-                ...state,
-                showAnugaInputMenu: false,
-                showAnugaScenarioMenu: false,
-                showAnugaResultMenu: false
-            };
-        }
-        return state;
     case SET_OPEN_MENU_GROUP_ID:
         if (action.openMenuGroupId) {
             return {

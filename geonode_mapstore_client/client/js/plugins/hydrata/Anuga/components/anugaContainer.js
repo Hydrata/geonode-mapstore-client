@@ -14,7 +14,6 @@ import {
 } from '../actionsAnuga';
 import {AnugaInputMenu} from './AnugaInputMenu';
 import {AnugaScenarioMenu} from './AnugaScenarioMenu';
-import {AnugaResultMenu} from './AnugaResultMenu';
 import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
@@ -94,24 +93,6 @@ class AnugaContainer extends React.Component {
                                 : null
                         }
                     </div>
-                    {/*<div id={"anuga-results"}>*/}
-                    {/*    <button*/}
-                    {/*        key="anuga-result-button"*/}
-                    {/*        className={'simple-view-menu-button'}*/}
-                    {/*        style={{left: (this.props.numberOfMenus * 100) + 220}}*/}
-                    {/*        onClick={() => {*/}
-                    {/*            this.props.setAnugaResultMenu(!this.props.showAnugaResultMenu);*/}
-                    {/*            this.props.setOpenMenuGroupId(null);*/}
-                    {/*        }}*/}
-                    {/*    >*/}
-                    {/*        Results*/}
-                    {/*    </button>*/}
-                    {/*    {*/}
-                    {/*        this.props.showAnugaResultMenu ?*/}
-                    {/*            <AnugaResultMenu/>*/}
-                    {/*            : null*/}
-                    {/*    }*/}
-                    {/*</div>*/}
                     {
                         this.props.visibleAnugaScenarioLogId ?
                             <AnugaScenarioLogViewer/>

@@ -6,15 +6,13 @@ import {setOpenMenuGroupId} from "../actionsSimpleView";
 import "../simpleView.css";
 import LegendPanel from "./simpleViewLegend";
 import {MenuRows} from "./simpleViewMenuRows";
-import {SimpleViewEditor} from "./simpleViewEditor";
 
 class SimpleViewContainer extends React.Component {
     static propTypes = {
         setOpenMenuGroupId: PropTypes.func,
         menuGroups: PropTypes.array,
         baseMapMenuGroup: PropTypes.object,
-        openMenuGroupId: PropTypes.string,
-        selectedLayer: PropTypes.object
+        openMenuGroupId: PropTypes.string
     };
 
     static defaultProps = {
@@ -61,11 +59,6 @@ class SimpleViewContainer extends React.Component {
                     }
                 })()}
                 <LegendPanel/>
-                {
-                    this.props.selectedLayer ?
-                        <SimpleViewEditor/>
-                        : null
-                }
             </div>
         );
     }
@@ -79,8 +72,7 @@ const mapStateToProps = (state) => {
     return {
         menuGroups: state?.layers?.groups.filter(group => !groupBlacklist.includes(group.name)),
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
-        openMenuGroupId: state?.simpleView?.openMenuGroupId,
-        selectedLayer: state?.simpleView?.selectedLayer
+        openMenuGroupId: state?.simpleView?.openMenuGroupId
     };
 };
 

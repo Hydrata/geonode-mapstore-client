@@ -1943,9 +1943,6 @@
         ],
         "map_edit": [
             {
-                "name": "Swamm"
-            },
-            {
                 "name": "Swamps"
             },
             {
@@ -2061,7 +2058,7 @@
                 "name": "ZoomIn",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": true
+                        "alwaysVisible": false
                     }
                 }
             },
@@ -2069,7 +2066,7 @@
                 "name": "ZoomOut",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": true
+                        "alwaysVisible": false
                     }
                 }
             },
@@ -2095,7 +2092,26 @@
                 "name": "ScaleBox"
             },
             {
-                "name": "FeatureEditor"
+                "name": "FeatureEditor",
+                "cfg": {
+                    "customEditorsOptions": {
+                        "rules": [
+                            {
+                                "regex": {
+                                    "attribute": "bdy_type",
+                                    "typeName": "^geonode:bdy_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Dirichlet", "Transmissive", "Reflective"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Dirichlet",
+                                    "allowEmpty": false
+                                }
+                            }
+                        ]
+                    }
+                }
             },
             {
                 "name": "QueryPanel",
