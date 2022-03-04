@@ -13,6 +13,7 @@ import {
     createAnugaFriction,
     createAnugaInflow,
     createAnugaStructure,
+    createAnugaMeshRegion,
     setCreatingAnugaLayer,
     startAnugaElevationPolling
 } from "../actionsAnuga";
@@ -21,24 +22,21 @@ import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
+        project: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
         anugaGroupLength: PropTypes.number,
         elevations: PropTypes.array,
-        setAddAnugaElevation: PropTypes.func,
-        showAddAnugaElevationData: PropTypes.bool,
         boundaries: PropTypes.array,
         createAnugaBoundary: PropTypes.func,
         createAnugaFriction: PropTypes.func,
         createAnugaInflow: PropTypes.func,
         createAnugaStructure: PropTypes.func,
+        createAnugaMeshRegion: PropTypes.func,
         frictions: PropTypes.array,
-        addAnugaFriction: PropTypes.func,
         inflows: PropTypes.array,
-        addAnugaInflow: PropTypes.func,
         structures: PropTypes.array,
-        addAnugaStructure: PropTypes.func,
+        meshRegions: PropTypes.array,
         startAnugaElevationPolling: PropTypes.func,
-        project: PropTypes.object,
         isCreatingAnugaLayer: PropTypes.bool,
         setCreatingAnugaLayer: PropTypes.func
     };
@@ -51,7 +49,8 @@ class AnugaInputMenuClass extends React.Component {
             boundaryTitle: '',
             frictionTitle: '',
             inflowTitle: '',
-            structureTitle: ''
+            structureTitle: '',
+            meshRegionTitle: ''
         };
     }
 
@@ -351,6 +350,69 @@ class AnugaInputMenuClass extends React.Component {
                                         : null
                                 }
                             </div>
+                            <div
+                                className={'menu-rows-container'}
+                                style={{
+                                    "border": "1px solid rgba(255, 255, 255, 1)",
+                                    "borderRadius": "3px",
+                                    "margin": "3px 0"
+                                }}
+                            >
+                                <div
+                                    className={"row menu-row menu-row-header"}
+                                    style={{
+                                        width: "480px",
+                                        textAlign: "left",
+                                        border: "none"
+                                    }}
+                                >
+                                    <span className="pull-left menu-row-text">Mesh Regions</span>
+                                    <span
+                                        className={`btn glyphicon menu-row-glyph glyphicon-edit${this.state.meshRegionTitle ? "" : " disabled"}`}
+                                        style={{
+                                            "color": "limegreen",
+                                            "fontSize": "smaller",
+                                            "textAlign": "right",
+                                            "marginRight": "8px",
+                                            "float": "right"
+                                        }}
+                                        onClick={() => {
+                                            this.props.createAnugaMeshRegion(this.state.meshRegionTitle);
+                                            this.setState({meshRegionTitle: ''});
+                                        }}
+                                    />
+                                    {
+                                        this.props.isCreatingAnugaLayer ?
+                                            <span>
+                                                <Spinner color="white" style={{
+                                                    display: "inline-block",
+                                                    position: "absolute",
+                                                    right: "45px"
+                                                }} spinnerName="circle" noFadeIn/>
+                                            </span> :
+                                            <input
+                                                id={'mesh-region-input'}
+                                                key={'mesh-region-input'}
+                                                className={'data-title-input'}
+                                                type={'text'}
+                                                value={this.state.meshRegionTitle}
+                                                onChange={(e) => this.setState({meshRegionTitle: e.target.value})}
+                                            />
+                                    }
+                                </div>
+                                {
+                                    this.props.meshRegions?.map(meshRegion => (
+                                        <MenuRow layer={meshRegion}/>
+                                    ))
+                                }
+                                {
+                                    this.props.meshRegions?.length === 0 ?
+                                        <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                            No Mesh Regions available
+                                        </div>
+                                        : null
+                                }
+                            </div>
                         </React.Fragment> : null
                 }
                 <UploaderPanel fileType={'elevation'}/>
@@ -367,6 +429,7 @@ const mapStateToProps = (state) => {
         frictions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Frictions'),
         inflows: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
         structures: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
+        meshRegions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
         isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer
     };
 };
@@ -379,6 +442,7 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaInflow: (inflowTitle) => dispatch(createAnugaInflow(inflowTitle)),
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
+        createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
         setCreatingAnugaLayer: (isCreatingAnugaLayer) => dispatch(setCreatingAnugaLayer(isCreatingAnugaLayer))
     };
 };

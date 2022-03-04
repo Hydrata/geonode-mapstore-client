@@ -5,12 +5,16 @@ import {
     initAnugaEpic,
     // getAnugaAvailElevationsEpic,
     pollAnugaElevationEpic,
-    createAnugaBoundaryEpic,
     buildAnugaScenarioEpic,
     runAnugaScenarioEpic,
     saveAnugaScenarioEpic,
     pollAnugaScenarioEpic,
-    deleteAnugaScenarioEpic
+    deleteAnugaScenarioEpic,
+    createAnugaBoundaryEpic,
+    createAnugaFrictionEpic,
+    createAnugaInflowEpic,
+    createAnugaStructureEpic,
+    createAnugaMeshRegionEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -22,11 +26,15 @@ export default createPlugin('Anuga', {
         initAnugaEpic,
         // getAnugaAvailElevationsEpic,
         pollAnugaElevationEpic,
-        createAnugaBoundaryEpic,
         buildAnugaScenarioEpic,
         runAnugaScenarioEpic,
         saveAnugaScenarioEpic,
         pollAnugaScenarioEpic,
-        deleteAnugaScenarioEpic
+        deleteAnugaScenarioEpic,
+        createAnugaFrictionEpic,
+        createAnugaInflowEpic,
+        createAnugaStructureEpic,
+        createAnugaMeshRegionEpic,
+        createAnugaBoundaryEpic
     }
 });

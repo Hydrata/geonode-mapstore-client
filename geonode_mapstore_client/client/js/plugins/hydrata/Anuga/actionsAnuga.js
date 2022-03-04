@@ -10,10 +10,12 @@ const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
 const SET_ANUGA_FRICTION_DATA = 'SET_ANUGA_FRICTION_DATA';
 const SET_ANUGA_INFLOW_DATA = 'SET_ANUGA_INFLOW_DATA';
 const SET_ANUGA_STRUCTURE_DATA = 'SET_ANUGA_STRUCTURE_DATA';
+const SET_ANUGA_MESH_REGION_DATA = 'SET_ANUGA_MESH_REGION_DATA';
 const CREATE_ANUGA_BOUNDARY = 'CREATE_ANUGA_BOUNDARY';
 const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
 const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
 const CREATE_ANUGA_STRUCTURE = 'CREATE_ANUGA_STRUCTURE';
+const CREATE_ANUGA_MESH_REGION = 'CREATE_ANUGA_MESH_REGION';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
@@ -138,6 +140,13 @@ function setAnugaInflowData(data) {
     };
 }
 
+function setAnugaMeshRegionData(data) {
+    return {
+        type: SET_ANUGA_MESH_REGION_DATA,
+        data
+    };
+}
+
 function setAnugaFrictionData(data) {
     return {
         type: SET_ANUGA_FRICTION_DATA,
@@ -186,13 +195,13 @@ function createAnugaStructure(structureTitle) {
         structureTitle
     };
 }
-//
-// function setAnugaBoundaryData(data) {
-//     return {
-//         type: SET_ANUGA_BOUNDARY_DATA,
-//         data
-//     };
-// }
+
+function createAnugaMeshRegion(meshRegionTitle) {
+    return {
+        type: CREATE_ANUGA_MESH_REGION,
+        meshRegionTitle
+    };
+}
 
 function setAnugaElevationData(data) {
     return {
@@ -332,10 +341,12 @@ module.exports = {
     SET_ANUGA_FRICTION_DATA, setAnugaFrictionData,
     SET_ANUGA_INFLOW_DATA, setAnugaInflowData,
     SET_ANUGA_STRUCTURE_DATA, setAnugaStructureData,
+    SET_ANUGA_MESH_REGION_DATA, setAnugaMeshRegionData,
     CREATE_ANUGA_BOUNDARY, createAnugaBoundary,
     CREATE_ANUGA_FRICTION, createAnugaFriction,
     CREATE_ANUGA_INFLOW, createAnugaInflow,
     CREATE_ANUGA_STRUCTURE, createAnugaStructure,
+    CREATE_ANUGA_MESH_REGION, createAnugaMeshRegion,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,

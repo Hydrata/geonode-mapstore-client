@@ -14,6 +14,7 @@ import {
     SET_ANUGA_FRICTION_DATA,
     SET_ANUGA_STRUCTURE_DATA,
     SET_ANUGA_BOUNDARY_DATA,
+    SET_ANUGA_MESH_REGION_DATA,
     SET_ANUGA_ELEVATION_DATA,
     SET_CREATING_ANUGA_LAYER,
     BUILD_ANUGA_SCENARIO,
@@ -182,6 +183,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             elevations: action.data
+        };
+    case SET_ANUGA_MESH_REGION_DATA:
+        return {
+            ...state,
+            meshRegions: action.data
         };
     case SET_OPEN_MENU_GROUP_ID:
         if (action.openMenuGroupId) {
