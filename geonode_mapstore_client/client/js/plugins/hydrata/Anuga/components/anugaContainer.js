@@ -18,6 +18,7 @@ import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
+import {updateCustomEditorsOptions} from "../../../../../MapStore2/web/client/actions/featuregrid";
 
 class AnugaContainer extends React.Component {
     static propTypes = {
@@ -37,11 +38,43 @@ class AnugaContainer extends React.Component {
         visibleAnugaScenarioLogId: PropTypes.number,
         startAnugaElevationPolling: PropTypes.func,
         startAnugaScenarioPolling: PropTypes.func,
-        stopAnugaScenarioPolling: PropTypes.func
+        stopAnugaScenarioPolling: PropTypes.func,
+        updateCustomEditorsOptions: PropTypes.func
     };
 
     static defaultProps = {
     };
+
+    editorOptions = {
+        "rules": [
+            {
+                "regex": {
+                    "attribute": "bdy_type",
+                    "typeName": "^geonode:bdy_"
+                },
+                "editor": "BoundaryEditor",
+                "editorProps": {
+                    "values": ["", "Dirichlet", "Transmissive", "Reflective"],
+                    "forceSelection": true,
+                    "defaultOption": "Dirichlet",
+                    "allowEmpty": false
+                }
+            },
+            {
+                "regex": {
+                    "attribute": "ONEWAY",
+                    "typeName": "san_andres_y_providencia_highway"
+                },
+                "editor": "BoundaryEditor",
+                "editorProps": {
+                    "values": ["Dirichlet", "Transmissive", "Reflective"],
+                    "forceSelection": true,
+                    "defaultOption": "Dirichlet",
+                    "allowEmpty": false
+                }
+            }
+        ]
+    }
 
     constructor(props) {
         super(props);
@@ -49,6 +82,7 @@ class AnugaContainer extends React.Component {
 
     componentDidMount() {
         this.props.initAnuga();
+        this.props.updateCustomEditorsOptions(this.editorOptions);
     }
 
     render() {
@@ -129,7 +163,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setAnugaResultMenu: (visible) => dispatch(setAnugaResultMenu(visible)),
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
-        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling())
+        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
+        updateCustomEditorsOptions: (payload) => dispatch(updateCustomEditorsOptions(payload))
     };
 };
 
