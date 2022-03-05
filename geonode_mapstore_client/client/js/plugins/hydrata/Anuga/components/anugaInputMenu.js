@@ -251,6 +251,7 @@ class AnugaInputMenuClass extends React.Component {
                                             "float": "right"
                                         }}
                                         onClick={() => {
+                                            this.props.setCreatingAnugaLayer(true);
                                             this.props.createAnugaInflow(this.state.inflowTitle);
                                             this.setState({inflowTitle: ''});
                                         }}
@@ -314,6 +315,7 @@ class AnugaInputMenuClass extends React.Component {
                                             "float": "right"
                                         }}
                                         onClick={() => {
+                                            this.props.setCreatingAnugaLayer(true);
                                             this.props.createAnugaStructure(this.state.structureTitle);
                                             this.setState({structureTitle: ''});
                                         }}
@@ -377,6 +379,7 @@ class AnugaInputMenuClass extends React.Component {
                                             "float": "right"
                                         }}
                                         onClick={() => {
+                                            this.props.setCreatingAnugaLayer(true);
                                             this.props.createAnugaMeshRegion(this.state.meshRegionTitle);
                                             this.setState({meshRegionTitle: ''});
                                         }}
@@ -426,7 +429,7 @@ const mapStateToProps = (state) => {
         project: state?.anuga?.project,
         elevations: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations'),
         boundaries: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
-        frictions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Frictions'),
+        frictions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Maps'),
         inflows: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
         structures: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         meshRegions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
