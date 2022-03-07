@@ -85,10 +85,7 @@ export default ( state = initialState, action) => {
             ...state,
             scenarios: state.scenarios?.map(scenario => {
                 if (scenario.id === action.scenario.id) {
-                    scenario.latest_run = {
-                        ...scenario.latest_run,
-                        status: 'building'
-                    };
+                    scenario.status = 'building';
                 }
                 return scenario;
             })

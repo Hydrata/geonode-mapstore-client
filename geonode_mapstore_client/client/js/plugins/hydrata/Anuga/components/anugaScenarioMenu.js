@@ -361,7 +361,7 @@ class AnugaScenarioMenuClass extends React.Component {
     }
 
     findScenarioStatus = (scenario) => {
-        if (scenario?.latest_run?.status) {
+        if (scenario?.latest_run_is_valid) {
             return scenario.latest_run.status;
         }
         return scenario.status;
