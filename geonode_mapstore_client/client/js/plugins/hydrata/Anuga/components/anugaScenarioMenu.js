@@ -24,6 +24,10 @@ class AnugaScenarioMenuClass extends React.Component {
         scenarios: PropTypes.array,
         boundaries: PropTypes.array,
         elevations: PropTypes.array,
+        frictions: PropTypes.array,
+        inflows: PropTypes.array,
+        structures: PropTypes.array,
+        meshRegions: PropTypes.array,
         setOpenMenuGroupId: PropTypes.func,
         saveAnugaScenario: PropTypes.func,
         runAnugaScenario: PropTypes.func,
@@ -83,17 +87,14 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Name</th>
                                 <th>Elevation</th>
                                 <th>Boundary</th>
-                                <OverlayTrigger placement="top" overlay={<Tooltip>Constant mm/hr</Tooltip>}>
-                                    <th>Rainfall</th>
-                                </OverlayTrigger>
+                                <th>Friction Map</th>
+                                <th>Inflow</th>
+                                <th>Structures</th>
+                                <th>Mesh Regions</th>
                                 <OverlayTrigger placement="top" overlay={<Tooltip>seconds</Tooltip>}>
                                     <th>Duration</th>
                                 </OverlayTrigger>
-                                <OverlayTrigger placement="top" overlay={<Tooltip>Maximum Area per triangle (m2)</Tooltip>}>
-                                    <th>Mesh Size</th>
-                                </OverlayTrigger>
                                 <th>Status</th>
-                                <th/>
                                 <th/>
                                 <th/>
                                 <th/>
@@ -164,16 +165,88 @@ class AnugaScenarioMenuClass extends React.Component {
                                                 </select>
                                             </td>
                                             <td>
-                                                <input
-                                                    id={'constant_rainfall'}
-                                                    key={`constantRainfall-${scenario.id}`}
-                                                    type={"number"}
-                                                    className={'scenario-input'}
-                                                    style={{'width': '50px'}}
-                                                    value={scenario.constant_rainfall}
-                                                    onChange={(e) => this.handleNumberChange(e, scenario)}
-                                                />
+                                                <select
+                                                    id={'friction'}
+                                                    key={`friction-${scenario.id}`}
+                                                    value={scenario?.friction}
+                                                    className={'scenario-select'}
+                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                >
+                                                    <option value={""}>-</option>
+                                                    {
+                                                        this.props.frictions?.map((friction) => {
+                                                            return (
+                                                                <option value={friction?.id}>{friction?.title}</option>
+                                                            );
+                                                        })
+                                                    }
+                                                </select>
                                             </td>
+                                            <td>
+                                                <select
+                                                    id={'inflow'}
+                                                    key={`inflow-${scenario.id}`}
+                                                    value={scenario?.inflow}
+                                                    className={'scenario-select'}
+                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                >
+                                                    <option value={""}>-</option>
+                                                    {
+                                                        this.props.inflows?.map((inflow) => {
+                                                            return (
+                                                                <option value={inflow?.id}>{inflow?.title}</option>
+                                                            );
+                                                        })
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select
+                                                    id={'structure'}
+                                                    key={`structure-${scenario.id}`}
+                                                    value={scenario?.structure}
+                                                    className={'scenario-select'}
+                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                >
+                                                    <option value={""}>-</option>
+                                                    {
+                                                        this.props.structures?.map((structure) => {
+                                                            return (
+                                                                <option value={structure?.id}>{structure?.title}</option>
+                                                            );
+                                                        })
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select
+                                                    id={'mesh_region'}
+                                                    key={`meshRegion-${scenario.id}`}
+                                                    value={scenario?.mesh_region}
+                                                    className={'scenario-select'}
+                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                >
+                                                    <option value={""}>-</option>
+                                                    {
+                                                        this.props.meshRegions?.map((meshRegion) => {
+                                                            return (
+                                                                <option value={meshRegion?.id}>{meshRegion?.title}</option>
+                                                            );
+                                                        })
+                                                    }
+                                                </select>
+                                            </td>
+                                            {/*<td>*/}
+                                            {/*    <input*/}
+                                            {/*        id={'constant_rainfall'}*/}
+                                            {/*        key={`constantRainfall-${scenario.id}`}*/}
+                                            {/*        type={"number"}*/}
+                                            {/*        className={'scenario-input'}*/}
+                                            {/*        style={{'width': '50px'}}*/}
+                                            {/*        value={scenario.constant_rainfall}*/}
+                                            {/*        onChange={(e) => this.handleNumberChange(e, scenario)}*/}
+                                            {/*    />*/}
+                                            {/*</td>*/}
                                             <td>
                                                 <input
                                                     id={'duration'}
@@ -185,17 +258,17 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     onChange={(e) => this.handleIntChange(e, scenario)}
                                                 />
                                             </td>
-                                            <td>
-                                                <input
-                                                    id={'maximum_triangle_area'}
-                                                    key={`maximumTriangleArea-${scenario.id}`}
-                                                    type={"number"}
-                                                    className={'scenario-input'}
-                                                    style={{'width': '50px'}}
-                                                    value={scenario.maximum_triangle_area}
-                                                    onChange={(e) => this.handleNumberChange(e, scenario)}
-                                                />
-                                            </td>
+                                            {/*<td>*/}
+                                            {/*    <input*/}
+                                            {/*        id={'maximum_triangle_area'}*/}
+                                            {/*        key={`maximumTriangleArea-${scenario.id}`}*/}
+                                            {/*        type={"number"}*/}
+                                            {/*        className={'scenario-input'}*/}
+                                            {/*        style={{'width': '50px'}}*/}
+                                            {/*        value={scenario.maximum_triangle_area}*/}
+                                            {/*        onChange={(e) => this.handleNumberChange(e, scenario)}*/}
+                                            {/*    />*/}
+                                            {/*</td>*/}
                                             <td>
                                                 {this.findScenarioStatus(scenario)}
                                             </td>
@@ -252,18 +325,18 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     Run
                                                 </Button>
                                             </td>
-                                            <td>
-                                                <Button
-                                                    bsStyle={'info'}
-                                                    bsSize={'xsmall'}
-                                                    style={{margin: "2px", borderRadius: "2px"}}
-                                                    onClick={() => {
-                                                        this.props.showAnugaScenarioLog(scenario.id);
-                                                    }}
-                                                >
-                                                    Log
-                                                </Button>
-                                            </td>
+                                            {/*<td>*/}
+                                            {/*    <Button*/}
+                                            {/*        bsStyle={'info'}*/}
+                                            {/*        bsSize={'xsmall'}*/}
+                                            {/*        style={{margin: "2px", borderRadius: "2px"}}*/}
+                                            {/*        onClick={() => {*/}
+                                            {/*            this.props.showAnugaScenarioLog(scenario.id);*/}
+                                            {/*        }}*/}
+                                            {/*    >*/}
+                                            {/*        Log*/}
+                                            {/*    </Button>*/}
+                                            {/*</td>*/}
                                             <td>
                                                 <Button
                                                     bsStyle={'danger'}
@@ -329,7 +402,11 @@ const mapStateToProps = (state) => {
     return {
         scenarios: state?.anuga?.scenarios,
         boundaries: state?.anuga?.boundaries,
-        elevations: state?.anuga?.elevations
+        elevations: state?.anuga?.elevations,
+        frictions: state?.anuga?.frictions,
+        inflows: state?.anuga?.inflows,
+        structures: state?.anuga?.structures,
+        meshRegions: state?.anuga?.meshRegions
     };
 };
 
