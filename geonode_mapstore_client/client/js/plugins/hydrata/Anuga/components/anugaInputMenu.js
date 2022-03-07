@@ -188,6 +188,7 @@ class AnugaInputMenuClass extends React.Component {
                                             "float": "right"
                                         }}
                                         onClick={() => {
+                                            this.props.setCreatingAnugaLayer(true);
                                             this.props.createAnugaFriction(this.state.frictionTitle);
                                             this.setState({frictionTitle: ''});
                                         }}

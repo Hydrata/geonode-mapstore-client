@@ -49,21 +49,8 @@ class AnugaContainer extends React.Component {
         "rules": [
             {
                 "regex": {
-                    "attribute": "bdy_type",
+                    "attribute": "boundary",
                     "typeName": "^geonode:bdy_"
-                },
-                "editor": "BoundaryEditor",
-                "editorProps": {
-                    "values": ["", "Dirichlet", "Transmissive", "Reflective"],
-                    "forceSelection": true,
-                    "defaultOption": "Dirichlet",
-                    "allowEmpty": false
-                }
-            },
-            {
-                "regex": {
-                    "attribute": "ONEWAY",
-                    "typeName": "san_andres_y_providencia_highway"
                 },
                 "editor": "BoundaryEditor",
                 "editorProps": {
@@ -72,7 +59,33 @@ class AnugaContainer extends React.Component {
                     "defaultOption": "Dirichlet",
                     "allowEmpty": false
                 }
-            }
+            },
+            {
+                "regex": {
+                    "attribute": "type",
+                    "typeName": "^geonode:inf_"
+                },
+                "editor": "InflowEditor",
+                "editorProps": {
+                    "values": ["Rainfall", "Surface"],
+                    "forceSelection": true,
+                    "defaultOption": "Rainfall",
+                    "allowEmpty": false
+                }
+            },
+            {
+                "regex": {
+                    "attribute": "method",
+                    "typeName": "^geonode:str_"
+                },
+                "editor": "StructureEditor",
+                "editorProps": {
+                    "values": ["Holes", "Reflective", "Mannings"],
+                    "forceSelection": true,
+                    "defaultOption": "Holes",
+                    "allowEmpty": false
+                }
+            },
         ]
     }
 
