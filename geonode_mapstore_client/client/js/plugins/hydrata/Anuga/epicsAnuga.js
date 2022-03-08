@@ -31,7 +31,7 @@ import {
     setAnugaScenarioMenu,
     setAnugaMeshRegionData,
     stopAnugaElevationPolling,
-    stopAnugaScenarioPolling,
+    buildAnugaScenarioSuccess,
     startAnugaScenarioPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
@@ -187,7 +187,7 @@ export const buildAnugaScenarioEpic = (action$, store) =>
         .concatMap((action) =>
             Rx.Observable
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/build/`, action.scenario))
-                .map(response => saveAnugaScenarioSuccess(response.data))
+                .map(response => buildAnugaScenarioSuccess(response.data))
                 .catch(error => Rx.Observable.of(() => console.log(error)))
         );
 
