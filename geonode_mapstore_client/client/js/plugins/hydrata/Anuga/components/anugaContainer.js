@@ -52,11 +52,24 @@ class AnugaContainer extends React.Component {
                     "attribute": "boundary",
                     "typeName": "^geonode:bdy_"
                 },
-                "editor": "BoundaryEditor",
+                "editor": "BoundaryTypeEditor",
                 "editorProps": {
                     "values": ["Dirichlet", "Transmissive", "Reflective"],
                     "forceSelection": true,
                     "defaultOption": "Dirichlet",
+                    "allowEmpty": false
+                }
+            },
+            {
+                "regex": {
+                    "attribute": "location",
+                    "typeName": "^geonode:bdy_"
+                },
+                "editor": "BoundaryLocationEditor",
+                "editorProps": {
+                    "values": ["External", "Internal"],
+                    "forceSelection": true,
+                    "defaultOption": "External",
                     "allowEmpty": false
                 }
             },
