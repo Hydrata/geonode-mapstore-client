@@ -74,7 +74,7 @@ export const initAnugaEpic = (action$, store) =>
                             .switchMap((response8) => Rx.Observable.of(setAnugaFrictionData(response8.data))),
                         Rx.Observable
                             .from(axios.get(`/anuga/api/${response1.data.projectId}/mesh-region/`))
-                            .switchMap((response8) => Rx.Observable.of(setAnugaMeshRegionData(response8.data))),
+                            .switchMap((response9) => Rx.Observable.of(setAnugaMeshRegionData(response9.data))),
                         Rx.Observable.of(startAnugaScenarioPolling())
                     )
                 )

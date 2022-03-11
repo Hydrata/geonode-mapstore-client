@@ -149,7 +149,7 @@ export default ( state = initialState, action) => {
                         unsaved: true
                     };
                 }
-                if (scenario.id === action.scenario?.id) {
+                if (scenario?.id === action.scenario.id) {
                     action.scenario.unsaved = false;
                     return action.scenario;
                 }
