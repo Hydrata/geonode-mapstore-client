@@ -11,7 +11,7 @@ import {
     CREATE_ANUGA_INFLOW,
     CREATE_ANUGA_STRUCTURE,
     CREATE_ANUGA_MESH_REGION,
-    BUILD_ANUGA_SCENARIO,
+    // BUILD_ANUGA_SCENARIO,
     RUN_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO,
     START_ANUGA_SCENARIO_POLLING,
@@ -31,7 +31,7 @@ import {
     setAnugaScenarioMenu,
     setAnugaMeshRegionData,
     stopAnugaElevationPolling,
-    buildAnugaScenarioSuccess,
+    // buildAnugaScenarioSuccess,
     startAnugaScenarioPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
@@ -181,15 +181,15 @@ export const deleteAnugaScenarioEpic = (action$, store) =>
         .concatMap((action) => Rx.Observable.from(axios.delete(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`)))
         .concatMap((response) => Rx.Observable.of(deleteAnugaScenarioSuccess(response.data)));
 
-export const buildAnugaScenarioEpic = (action$, store) =>
-    action$
-        .ofType(BUILD_ANUGA_SCENARIO)
-        .concatMap((action) =>
-            Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/build/`, action.scenario))
-                .map(response => buildAnugaScenarioSuccess(response.data))
-                .catch(error => Rx.Observable.of(() => console.log(error)))
-        );
+// export const buildAnugaScenarioEpic = (action$, store) =>
+//     action$
+//         .ofType(BUILD_ANUGA_SCENARIO)
+//         .concatMap((action) =>
+//             Rx.Observable
+//                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/build/`, action.scenario))
+//                 .map(response => buildAnugaScenarioSuccess(response.data))
+//                 .catch(error => Rx.Observable.of(() => console.log(error)))
+//         );
 
 export const runAnugaScenarioEpic = (action$, store) =>
     action$

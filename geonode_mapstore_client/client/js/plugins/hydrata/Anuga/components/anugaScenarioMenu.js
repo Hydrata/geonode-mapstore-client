@@ -38,7 +38,7 @@ class AnugaScenarioMenuClass extends React.Component {
         stopAnugaScenarioPolling: PropTypes.func,
         addAnugaScenario: PropTypes.func,
         deleteAnugaScenario: PropTypes.func,
-        buildAnugaScenario: PropTypes.func
+        // buildAnugaScenario: PropTypes.func
     };
 
     static defaultProps = {}
@@ -95,7 +95,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                     <th>Duration</th>
                                 </OverlayTrigger>
                                 <th>Status</th>
-                                <th/>
                                 <th/>
                                 <th/>
                                 <th/>
@@ -288,19 +287,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                             </td>
                                             <td>
                                                 <Button
-                                                    bsStyle={'success'}
-                                                    bsSize={'xsmall'}
-                                                    style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={(this.findScenarioStatus(scenario) !== 'built' && !scenario.unsaved) ? null : 'disabled'}
-                                                    onClick={() => {
-                                                        this.props.buildAnugaScenario(scenario);
-                                                    }}
-                                                >
-                                                    Build
-                                                </Button>
-                                            </td>
-                                            <td>
-                                                <Button
                                                     download
                                                     href={scenario?.latest_run?.s3_package_url}
                                                     bsStyle={'success'}
@@ -416,7 +402,7 @@ const mapDispatchToProps = ( dispatch ) => {
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario)),
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
-        buildAnugaScenario: (scenario) => dispatch(buildAnugaScenario(scenario)),
+        // buildAnugaScenario: (scenario) => dispatch(buildAnugaScenario(scenario)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
         showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),
