@@ -3,9 +3,8 @@ import anuga from "./reducersAnuga";
 import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
-    // getAnugaAvailElevationsEpic,
+    cancelAnugaRunEpic,
     pollAnugaElevationEpic,
-    // buildAnugaScenarioEpic,
     runAnugaScenarioEpic,
     saveAnugaScenarioEpic,
     pollAnugaScenarioEpic,
@@ -24,9 +23,8 @@ export default createPlugin('Anuga', {
     },
     epics: {
         initAnugaEpic,
-        // getAnugaAvailElevationsEpic,
+        cancelAnugaRunEpic,
         pollAnugaElevationEpic,
-        // buildAnugaScenarioEpic,
         runAnugaScenarioEpic,
         saveAnugaScenarioEpic,
         pollAnugaScenarioEpic,

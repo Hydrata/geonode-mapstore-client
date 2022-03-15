@@ -38,6 +38,7 @@ const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 // const BUILD_ANUGA_SCENARIO = 'BUILD_ANUGA_SCENARIO';
 // const BUILD_ANUGA_SCENARIO_SUCCESS = 'BUILD_ANUGA_SCENARIO_SUCCESS';
 const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
+const CANCEL_ANUGA_RUN = 'CANCEL_ANUGA_RUN';
 
 
 function initAnuga() {
@@ -240,6 +241,14 @@ function runAnugaScenario(scenario) {
     };
 }
 
+
+function cancelAnugaRun(runId) {
+    return {
+        type: CANCEL_ANUGA_RUN,
+        runId
+    };
+}
+
 function runAnugaScenarioSuccess(scenario) {
     return (dispatch) => {
         dispatch({
@@ -386,5 +395,6 @@ module.exports = {
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
     // BUILD_ANUGA_SCENARIO, buildAnugaScenario,
     // BUILD_ANUGA_SCENARIO_SUCCESS, buildAnugaScenarioSuccess,
-    SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded
+    SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded,
+    CANCEL_ANUGA_RUN, cancelAnugaRun
 };

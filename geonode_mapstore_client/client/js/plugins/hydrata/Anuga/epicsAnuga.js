@@ -11,7 +11,7 @@ import {
     CREATE_ANUGA_INFLOW,
     CREATE_ANUGA_STRUCTURE,
     CREATE_ANUGA_MESH_REGION,
-    // BUILD_ANUGA_SCENARIO,
+    CANCEL_ANUGA_RUN,
     RUN_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO,
     START_ANUGA_SCENARIO_POLLING,
@@ -42,6 +42,8 @@ import {
 import {
     updateUploadStatus
 } from "../SimpleView/actionsSimpleView";
+
+import {show} from '../../../../MapStore2/web/client/actions/notifications';
 
 
 export const initAnugaEpic = (action$, store) =>
@@ -181,15 +183,6 @@ export const deleteAnugaScenarioEpic = (action$, store) =>
         .concatMap((action) => Rx.Observable.from(axios.delete(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`)))
         .concatMap((response) => Rx.Observable.of(deleteAnugaScenarioSuccess(response.data)));
 
-// export const buildAnugaScenarioEpic = (action$, store) =>
-//     action$
-//         .ofType(BUILD_ANUGA_SCENARIO)
-//         .concatMap((action) =>
-//             Rx.Observable
-//                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/build/`, action.scenario))
-//                 .map(response => buildAnugaScenarioSuccess(response.data))
-//                 .catch(error => Rx.Observable.of(() => console.log(error)))
-//         );
 
 export const runAnugaScenarioEpic = (action$, store) =>
     action$
@@ -199,6 +192,12 @@ export const runAnugaScenarioEpic = (action$, store) =>
             runAnugaScenarioSuccess(response.data),
             setAnugaScenarioMenu(true)
         ));
+
+export const cancelAnugaRunEpic = (action$, store) =>
+    action$
+        .ofType(CANCEL_ANUGA_RUN)
+        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`, {"runId": action.runId})))
+        .concatMap((response) => Rx.Observable.of(show({"message": "cancelling..."}, "warning")));
 
 
 export const saveAnugaScenarioEpic = (action$, store) =>

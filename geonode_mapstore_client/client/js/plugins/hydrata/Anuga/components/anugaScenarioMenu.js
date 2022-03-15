@@ -7,6 +7,7 @@ import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
     runAnugaScenario,
+    cancelAnugaRun,
     saveAnugaScenario,
     updateAnugaScenario,
     selectAnugaScenario,
@@ -14,8 +15,7 @@ import {
     setAnugaScenarioMenu,
     addAnugaScenario,
     stopAnugaScenarioPolling,
-    deleteAnugaScenario,
-    buildAnugaScenario
+    deleteAnugaScenario
 } from "../actionsAnuga";
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -38,7 +38,7 @@ class AnugaScenarioMenuClass extends React.Component {
         stopAnugaScenarioPolling: PropTypes.func,
         addAnugaScenario: PropTypes.func,
         deleteAnugaScenario: PropTypes.func,
-        // buildAnugaScenario: PropTypes.func
+        cancelAnugaRun: PropTypes.func
     };
 
     static defaultProps = {}
@@ -329,7 +329,14 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
                                                     onClick={() => {
-                                                        this.props.deleteAnugaScenario(scenario);
+                                                        if (this.findScenarioStatus === 'running') {
+                                                            if (confirm('Cancel Run?')) {
+                                                                this.props.cancelAnugaRun(scenario.latest_run.id);
+                                                            }
+                                                        }
+                                                        if (confirm('Delete Scenario?')) {
+                                                            this.props.deleteAnugaScenario(scenario);
+                                                        }
                                                     }}
                                                 >
                                                     <span className="glyphicon glyphicon-trash" aria-hidden="true" />
@@ -408,7 +415,8 @@ const mapDispatchToProps = ( dispatch ) => {
         showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),
-        deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario))
+        deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
+        cancelAnugaRun: (runId) => dispatch(cancelAnugaRun(runId))
     };
 };
 
