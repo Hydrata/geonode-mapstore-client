@@ -242,10 +242,10 @@ function runAnugaScenario(scenario) {
 }
 
 
-function cancelAnugaRun(runId) {
+function cancelAnugaRun(scenario) {
     return {
         type: CANCEL_ANUGA_RUN,
-        runId
+        scenario
     };
 }
 

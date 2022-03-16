@@ -331,7 +331,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     onClick={() => {
                                                         if (this.findScenarioStatus(scenario).includes('%')) {
                                                             if (confirm('Cancel Run?')) {
-                                                                this.props.cancelAnugaRun(scenario.latest_run.id);
+                                                                this.props.cancelAnugaRun(scenario);
                                                             }
                                                         } else {
                                                             if (confirm('Delete Scenario?')) {
@@ -417,7 +417,7 @@ const mapDispatchToProps = ( dispatch ) => {
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
-        cancelAnugaRun: (runId) => dispatch(cancelAnugaRun(runId))
+        cancelAnugaRun: (scenario) => dispatch(cancelAnugaRun(scenario))
     };
 };
 
