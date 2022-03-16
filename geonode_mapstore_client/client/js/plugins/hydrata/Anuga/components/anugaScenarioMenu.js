@@ -329,7 +329,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
                                                     onClick={() => {
-                                                        if (this.findScenarioStatus === 'running') {
+                                                        if (this.findScenarioStatus(scenario).includes('%')) {
                                                             if (confirm('Cancel Run?')) {
                                                                 this.props.cancelAnugaRun(scenario.latest_run.id);
                                                             }
