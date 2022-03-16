@@ -328,17 +328,18 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsStyle={'danger'}
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
-                                                    onClick={() => {
-                                                        if (this.findScenarioStatus(scenario).includes('%')) {
+                                                    onClick={ this.findScenarioStatus(scenario).includes('%') ?
+                                                        () => {
                                                             if (confirm('Cancel Run?')) {
                                                                 this.props.cancelAnugaRun(scenario);
                                                             }
-                                                        } else {
+                                                        } :
+                                                        () => {
                                                             if (confirm('Delete Scenario?')) {
                                                                 this.props.deleteAnugaScenario(scenario);
                                                             }
                                                         }
-                                                    }}
+                                                    }
                                                 >
                                                     <span className="glyphicon glyphicon-trash" aria-hidden="true" />
                                                 </Button>
