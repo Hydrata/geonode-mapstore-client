@@ -333,9 +333,10 @@ class AnugaScenarioMenuClass extends React.Component {
                                                             if (confirm('Cancel Run?')) {
                                                                 this.props.cancelAnugaRun(scenario.latest_run.id);
                                                             }
-                                                        }
-                                                        if (confirm('Delete Scenario?')) {
-                                                            this.props.deleteAnugaScenario(scenario);
+                                                        } else {
+                                                            if (confirm('Delete Scenario?')) {
+                                                                this.props.deleteAnugaScenario(scenario);
+                                                            }
                                                         }
                                                     }}
                                                 >
