@@ -181,6 +181,7 @@ class SwammTargetFormClass extends React.Component {
                                                 name="group_profiles"
                                                 value={this.props.targetForm?.group_profiles}
                                                 onChange={this.handleMultiSelection}
+                                                style={{height: "200px"}}
                                             >
                                                 {
                                                     this.props.groupProfiles?.map((groupProfile) =>
@@ -203,6 +204,7 @@ class SwammTargetFormClass extends React.Component {
                                                 name="bmp_types"
                                                 value={this.props.targetForm?.bmp_types}
                                                 onChange={this.handleMultiSelection}
+                                                style={{height: "200px"}}
                                             >
                                                 {
                                                     this.props.bmpTypes?.map((bmpType) =>
@@ -225,6 +227,7 @@ class SwammTargetFormClass extends React.Component {
                                                 name="statuses"
                                                 value={this.props.targetForm?.statuses}
                                                 onChange={this.handleMultiSelection}
+                                                style={{height: "200px"}}
                                             >
                                                 {
                                                     this.props.statuses?.map((status) =>

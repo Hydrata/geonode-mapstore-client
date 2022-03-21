@@ -680,18 +680,18 @@ class SwammBmpFormClass extends React.Component {
                                                 <thead>
                                                     <tr>
                                                         <th style={{"width": "30%"}}>Results</th>
-                                                        <th style={{"width": "10%"}}>Surface</th>
-                                                        <th style={{"width": "10%"}}>Tiled</th>
-                                                        <th style={{"width": "10%"}}>Erosion</th>
+                                                        <th style={{"width": "13%"}}>Surface</th>
+                                                        <th style={{"width": "13%"}}>Tiled</th>
+                                                        <th style={{"width": "13%", "word-break": "break-word"}}>Gully Lake Streambank</th>
                                                         <th style={{"width": "10%"}}>Total</th>
                                                         {
                                                             this.props.watershedIsFootprint ?
                                                                 <React.Fragment>
                                                                     <th style={{"width": "10%"}}>Per Acre</th>
-                                                                    <th style={{"width": "20%"}}/>
+                                                                    <th style={{"width": "11%"}}/>
                                                                 </React.Fragment>
                                                                 :
-                                                                <th style={{"width": "20%"}}/>
+                                                                <th style={{"width": "11%"}}/>
                                                         }
                                                     </tr>
                                                 </thead>
