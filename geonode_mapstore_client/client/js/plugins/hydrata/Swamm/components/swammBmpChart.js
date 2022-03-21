@@ -185,7 +185,7 @@ class SwammBmpChartClass extends React.Component {
                                                                     endAngle={0}
                                                                     isAnimationActive={false}
                                                                 >
-                                                                    <Cell fill={"#27ca3b"} cornerRadius={5}/>
+                                                                    <Cell fill={"#27ca3b"} cornerRadius={1}/>
                                                                     <Cell fill={"#97b3c3"} cornerRadius={1}/>
                                                                 </Pie>
                                                                 <text
