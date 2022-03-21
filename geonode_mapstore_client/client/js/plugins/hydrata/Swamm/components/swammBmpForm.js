@@ -682,7 +682,7 @@ class SwammBmpFormClass extends React.Component {
                                                         <th style={{"width": "30%"}}>Results</th>
                                                         <th style={{"width": "13%"}}>Surface</th>
                                                         <th style={{"width": "13%"}}>Tiled</th>
-                                                        <th style={{"width": "13%", "word-break": "break-word"}}>Gully Lake Streambank</th>
+                                                        <th style={{"width": "13%", "word-break": "break-word"}}>Gully/Lake/ Streambank</th>
                                                         <th style={{"width": "10%"}}>Total</th>
                                                         {
                                                             this.props.watershedIsFootprint ?

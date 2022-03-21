@@ -86,7 +86,7 @@ class SwammBmpChartClass extends React.Component {
                                         bsSize="xsmall"
                                         block
                                         style={{marginTop: "4px", fontSize: "x-small"}}
-                                        onClick={() => this.props.showTargetForm()}>
+                                        onClick={() => this.props.showTargetForm(null)}>
                                         New Target
                                     </Button>
                                 </div>

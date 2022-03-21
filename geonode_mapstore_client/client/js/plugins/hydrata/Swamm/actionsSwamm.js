@@ -708,7 +708,7 @@ const hideTargetForm = () => {
 };
 
 
-const showTargetForm = (target = null) => {
+const showTargetForm = (target) => {
     return {
         type: SHOW_TARGET_FORM,
         visibleTargetForm: true,
