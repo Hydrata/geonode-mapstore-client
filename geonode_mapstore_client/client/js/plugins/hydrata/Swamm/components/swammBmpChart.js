@@ -155,53 +155,61 @@ class SwammBmpChartClass extends React.Component {
                                             <Row
                                                 className={"well"}
                                             >
-                                                <Col sm={3} style={{padding: 0}}>
-                                                    <h4 style={{
-                                                        textAlign: "center",
-                                                        fontSize: "14px",
-                                                        paddingLeft: "5px",
-                                                        paddingTop: "5px",
-                                                        paddingBottom: "10px",
-                                                        margin: 0
-                                                    }}>
-                                                        {pollutant.name}
-                                                    </h4>
-                                                    <div style={{width: circleSize * 1.5, height: circleSize / 1.2}}>
-                                                        <ResponsiveContainer>
-                                                            <PieChart
-                                                                width={circleSize * 1.5}
-                                                                height={circleSize * 1.5}
-                                                                style={{paddingTop: "10px"}}
-                                                            >
-                                                                <Pie
-                                                                    data={this.props.selectedTarget?.speedDialData?.[`percent${pollutant.name}Target`]}
-                                                                    dataKey="value"
-                                                                    cx={circleSize / 1.3 - 10}
-                                                                    cy={circleSize / 2}
-                                                                    innerRadius={circleSize / 3}
-                                                                    outerRadius={circleSize / 2}
-                                                                    fill="#82ca9d"
-                                                                    startAngle={180}
-                                                                    endAngle={0}
-                                                                    isAnimationActive={false}
-                                                                >
-                                                                    <Cell fill={"#27ca3b"} cornerRadius={1}/>
-                                                                    <Cell fill={"#97b3c3"} cornerRadius={1}/>
-                                                                </Pie>
-                                                                <text
-                                                                    x={circleSize / 1.3 - 10}
-                                                                    y={circleSize / 2 - 5}
-                                                                    textAnchor="middle"
-                                                                    fontSize={circleSize / 5}
-                                                                    dominantBaseline="middle"
-                                                                    className="progress-label"
-                                                                >
-                                                                    {this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1)}%
-                                                                </text>
-                                                            </PieChart>
-                                                        </ResponsiveContainer>
-                                                    </div>
-                                                </Col>
+                                                {
+                                                    pollutant.name !== 'area' ?
+                                                        <Col sm={3} style={{padding: 0}}>
+                                                            <h4 style={{
+                                                                textAlign: "center",
+                                                                fontSize: "14px",
+                                                                padding: "5px 50px 10px 5px",
+                                                                margin: 0
+                                                            }}>
+                                                                {pollutant.name}
+                                                            </h4>
+                                                            <div style={{width: circleSize * 1.5, height: circleSize / 1.2}}>
+                                                                <ResponsiveContainer>
+                                                                    <PieChart
+                                                                        width={circleSize * 1.5}
+                                                                        height={circleSize * 1.5}
+                                                                        style={{paddingTop: "10px"}}
+                                                                    >
+                                                                        <Pie
+                                                                            data={this.props.selectedTarget?.speedDialData?.[`percent${pollutant.name}Target`]}
+                                                                            dataKey="value"
+                                                                            cx={circleSize / 1.3 - 10}
+                                                                            cy={circleSize / 2}
+                                                                            innerRadius={circleSize / 3}
+                                                                            outerRadius={circleSize / 2}
+                                                                            fill="#82ca9d"
+                                                                            startAngle={180}
+                                                                            endAngle={0}
+                                                                            isAnimationActive={false}
+                                                                        >
+                                                                            <Cell fill={"#27ca3b"} cornerRadius={1}/>
+                                                                            <Cell fill={"#97b3c3"} cornerRadius={1}/>
+                                                                        </Pie>
+                                                                        <text
+                                                                            x={circleSize / 1.3 - 10}
+                                                                            y={circleSize / 2 - 5}
+                                                                            textAnchor="middle"
+                                                                            fontSize={circleSize / 5}
+                                                                            dominantBaseline="middle"
+                                                                            className="progress-label"
+                                                                        >
+                                                                            {
+                                                                                (
+                                                                                    pollutant.initial !== 'a' ?
+                                                                                        this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1) + '%' :
+                                                                                        this.props.selectedTarget?.barChartData?.total_bmp_count
+                                                                                )
+                                                                            }
+                                                                        </text>
+                                                                    </PieChart>
+                                                                </ResponsiveContainer>
+                                                            </div>
+                                                        </Col> :
+                                                        null
+                                                }
                                                 <Col sm={8}>
                                                     <h4 style={{
                                                         textAlign: "center",
@@ -210,7 +218,7 @@ class SwammBmpChartClass extends React.Component {
                                                         paddingBottom: "10px",
                                                         margin: 0
                                                     }}>
-                                                        Load reductions ({pollutant.units}):
+                                                        {pollutant.title}
                                                     </h4>
                                                     <div style={{width: '100%', height: 100}}>
                                                         <ResponsiveContainer>
@@ -324,20 +332,26 @@ class SwammBmpChartClass extends React.Component {
         {
             name: 'Phosphorus',
             load_red_total_key: 'total_p_load_reduction',
-            units: 'lbs/year',
+            title: 'Load reductions (lbs/year)',
             initial: 'p'
         },
         {
             name: 'Nitrogen',
             load_red_total_key: 'total_n_load_reduction',
-            units: 'lbs/year',
+            title: 'Load reductions (lbs/year)',
             initial: 'n'
         },
         {
             name: 'Sediment',
             load_red_total_key: 'total_s_load_reduction',
-            units: 'tons/year',
+            title: 'Load reductions (tons/year)',
             initial: 's'
+        },
+        {
+            name: 'Total BMP Count',
+            load_red_total_key: 'calculated_footprint_area',
+            title: 'Treated Area (acres)',
+            initial: 'a'
         }
     ]
     colours = [

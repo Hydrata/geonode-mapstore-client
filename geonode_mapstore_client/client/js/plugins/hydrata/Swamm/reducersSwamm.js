@@ -481,16 +481,10 @@ export default ( state = initialState, action) => {
             }
         };
     case SHOW_TARGET_FORM:
-        if (action.target) {
-            return {
-                ...state,
-                visibleTargetForm: action.visibleTargetForm,
-                targetForm: action.target
-            };
-        }
         return {
             ...state,
-            visibleTargetForm: action.visibleTargetForm
+            visibleTargetForm: action.visibleTargetForm,
+            targetForm: action.target
         };
     case HIDE_TARGET_FORM:
         return {
