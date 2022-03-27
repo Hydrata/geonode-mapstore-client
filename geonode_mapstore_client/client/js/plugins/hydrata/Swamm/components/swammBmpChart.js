@@ -242,10 +242,7 @@ class SwammBmpChartClass extends React.Component {
                                                                         />
                                                                     );
                                                                 })}
-                                                                {pollutant.initial !== 'a' ?
-                                                                    <Tooltip content={<CustomTooltipTwo tooltipKey={this.state.tooltipKey}/>} /> :
-                                                                    null
-                                                                }
+                                                                <Tooltip content={<CustomTooltipTwo tooltipKey={this.state.tooltipKey}/>} />
                                                                 <XAxis type="number"/>
                                                                 <YAxis type="category" hide/>
                                                                 {(pollutant.initial === 'p') ?
@@ -353,7 +350,7 @@ class SwammBmpChartClass extends React.Component {
         },
         {
             name: 'Total BMP Count',
-            load_red_total_key: 'calculated_footprint_area',
+            load_red_total_key: 'calculated_watershed_area',
             title: 'Treated Area (acres)',
             initial: 'a'
         }
