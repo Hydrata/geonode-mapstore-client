@@ -13,10 +13,6 @@ class SwammBmpChartClass extends React.Component {
     static propTypes = {
         hideSwammBmpChart: PropTypes.func,
         allBmps: PropTypes.array,
-        // bmpDashboardDataSelector: PropTypes.func,
-        // bmpSpeedDialSelector: PropTypes.func,
-        // dashboardData: PropTypes.array,
-        // speedDialData: PropTypes.object,
         data: PropTypes.array,
         layerForLegend: PropTypes.object,
         targets: PropTypes.array,
@@ -33,7 +29,9 @@ class SwammBmpChartClass extends React.Component {
 
     constructor(props) {
         super(props);
-        this.state = {};
+        this.state = {
+            tooltipKey: null
+        };
     }
 
     componentDidMount() {
@@ -239,9 +237,15 @@ class SwammBmpChartClass extends React.Component {
                                                                             dataKey={key}
                                                                             fill={this.colours[index]}
                                                                             name={bar?.label}
+                                                                            onMouseOver={ () => this.setState({ tooltipKey: key }) }
+                                                                            isAnimationActive={false}
                                                                         />
                                                                     );
                                                                 })}
+                                                                {pollutant.initial !== 'a' ?
+                                                                    <Tooltip content={<CustomTooltipTwo tooltipKey={this.state.tooltipKey}/>} /> :
+                                                                    null
+                                                                }
                                                                 <XAxis type="number"/>
                                                                 <YAxis type="category" hide/>
                                                                 {(pollutant.initial === 'p') ?
@@ -363,37 +367,24 @@ class SwammBmpChartClass extends React.Component {
     ];
 }
 
-class CustomTooltipClass extends React.Component {
-    static propTypes = {
-        type: PropTypes.string,
-        payload: PropTypes.array,
-        active: PropTypes.bool,
-        tooltipBarId: PropTypes.number,
-        tooltipPollutantKey: PropTypes.string,
-        barChartData: PropTypes.array,
-        selectedTarget: PropTypes.object
+const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
+    if (active && payload && payload.length && tooltipKey) {
+        return payload.map(bar => {
+            if (bar.dataKey === tooltipKey) {
+                const tooltipKeys = tooltipKey.split('.');
+                const barValue = bar.payload[tooltipKeys[0]][Number(tooltipKeys[1])][tooltipKeys[2]];
+                return (
+                    <div className="custom-tooltip" style={{background: "black", borderRadius: "3px"}}>
+                        <div className="label">{bar.name} - {formatMoney(barValue, 0)}</div>
+                        <br/>
+                    </div >
+                );
+            }
+            return null;
+        });
     }
-
-    render() {
-        // if (this.props.active) {
-        //     let bmp = null;
-        //     Object.keys(this.props.selectedTarget?.barChartData[0]).map(key => {
-        //         const obj = this.props.selectedTarget?.barChartData[0][key];
-        //         if (obj.id === this.props.tooltipBarId) {
-        //             bmp = obj;
-        //         }
-        //     });
-        //     return (
-        //         <div className="custom-tooltip" style={{background: "black", borderRadius: "3px"}}>
-        //             <div className="label">{`${bmp?.type_data.name} - ID:${bmp?.id}`}</div>
-        //             <br/>
-        //             <div className="label">{formatMoney(bmp?.[this.props.tooltipPollutantKey], 0)}</div>
-        //         </div >
-        //     );
-        // }
-        return null;
-    }
-}
+    return null;
+};
 
 const mapStateToProps = (state) => {
     const projectCode = state?.swamm?.data?.code;
@@ -422,7 +413,6 @@ const mapDispatchToProps = ( dispatch ) => {
 };
 
 const SwammBmpChart = connect(mapStateToProps, mapDispatchToProps)(SwammBmpChartClass);
-const CustomTooltip = connect(mapStateToProps, mapDispatchToProps)(CustomTooltipClass);
 
 
 export {
