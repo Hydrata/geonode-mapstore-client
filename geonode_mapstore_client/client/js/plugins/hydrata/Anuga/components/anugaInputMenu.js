@@ -81,6 +81,7 @@ class AnugaInputMenuClass extends React.Component {
                                 style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
                                 onClick={() => {
                                     this.props.setVisibleUploaderPanel(true);
+                                    this.props.startAnugaElevationPolling();
                                 }}
                             />
                         </OverlayTrigger>

@@ -8,7 +8,6 @@ import {
     setAnugaInputMenu,
     setAnugaScenarioMenu,
     setAnugaResultMenu,
-    startAnugaElevationPolling,
     startAnugaScenarioPolling,
     stopAnugaScenarioPolling
 } from '../actionsAnuga';
@@ -36,7 +35,6 @@ class AnugaContainer extends React.Component {
         showAddAnugaElevationData: PropTypes.bool,
         setAddAnugaElevation: PropTypes.func,
         visibleAnugaScenarioLogId: PropTypes.number,
-        startAnugaElevationPolling: PropTypes.func,
         startAnugaScenarioPolling: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func,
         updateCustomEditorsOptions: PropTypes.func
@@ -122,7 +120,6 @@ class AnugaContainer extends React.Component {
                             style={{left: (this.props.numberOfMenus * 100) + 20}}
                             onClick={() => {
                                 this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
-                                this.props.startAnugaElevationPolling();
                                 this.props.setOpenMenuGroupId(null);
                             }}
                         >
@@ -183,7 +180,6 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         initAnuga: () => dispatch(initAnuga()),
-        startAnugaElevationPolling: (visible) => dispatch(startAnugaElevationPolling(visible)),
         setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         setAnugaResultMenu: (visible) => dispatch(setAnugaResultMenu(visible)),
