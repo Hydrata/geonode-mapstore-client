@@ -2,17 +2,20 @@ import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 
-import {setOpenMenuGroupId} from "../actionsSimpleView";
+import {setOpenMenuGroupId, setVisibleIntroduction} from "../actionsSimpleView";
 import "../simpleView.css";
 import LegendPanel from "./simpleViewLegend";
 import {MenuRows} from "./simpleViewMenuRows";
+import Introduction from "../components/simpleViewIntroduction";
 
 class SimpleViewContainer extends React.Component {
     static propTypes = {
         setOpenMenuGroupId: PropTypes.func,
         menuGroups: PropTypes.array,
         baseMapMenuGroup: PropTypes.object,
-        openMenuGroupId: PropTypes.string
+        openMenuGroupId: PropTypes.string,
+        visibleIntroduction: PropTypes.bool,
+        setVisibleIntroduction: PropTypes.func
     };
 
     static defaultProps = {
@@ -20,6 +23,10 @@ class SimpleViewContainer extends React.Component {
 
     constructor(props) {
         super(props);
+    }
+
+    componentDidMount() {
+        this.props.setVisibleIntroduction(true);
     }
 
     render() {
@@ -59,6 +66,10 @@ class SimpleViewContainer extends React.Component {
                     }
                 })()}
                 <LegendPanel/>
+                {this.props.visibleIntroduction ?
+                    <Introduction/>
+                    : null
+                }
             </div>
         );
     }
@@ -72,13 +83,15 @@ const mapStateToProps = (state) => {
     return {
         menuGroups: state?.layers?.groups.filter(group => !groupBlacklist.includes(group.name)),
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
-        openMenuGroupId: state?.simpleView?.openMenuGroupId
+        openMenuGroupId: state?.simpleView?.openMenuGroupId,
+        visibleIntroduction: state?.simpleView?.visibleIntroduction && state?.anuga?.project
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        setOpenMenuGroupId: (menuGroupId) => dispatch(setOpenMenuGroupId(menuGroupId))
+        setOpenMenuGroupId: (menuGroupId) => dispatch(setOpenMenuGroupId(menuGroupId)),
+        setVisibleIntroduction: (visible) => dispatch(setVisibleIntroduction(visible))
     };
 };
 

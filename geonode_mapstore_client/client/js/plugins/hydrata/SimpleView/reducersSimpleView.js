@@ -1,5 +1,6 @@
 import {
     SET_VISIBLE_LEGEND_PANEL,
+    SET_VISIBLE_INTRODUCTION,
     SET_OPEN_MENU_GROUP_ID,
     SV_SELECT_LAYER,
     SET_VISIBLE_UPLOADER_PANEL,
@@ -23,6 +24,11 @@ export default ( state = {}, action) => {
         return {
             ...state,
             visibleLegendPanel: action.visible
+        };
+    case SET_VISIBLE_INTRODUCTION:
+        return {
+            ...state,
+            visibleIntroduction: action.visible
         };
     case SET_VISIBLE_UPLOADER_PANEL:
         return {

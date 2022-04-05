@@ -182,3 +182,9 @@
 .sk-circle:before {
     background-color: white !important;
 }
+
+.introduction-modal {
+    background-color: #335781;
+    color: white;
+    opacity: 0.95;
+}
