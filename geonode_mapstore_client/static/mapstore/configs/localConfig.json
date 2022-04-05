@@ -835,6 +835,13 @@
                 "name": "MapFooter"
             },
             {
+                "name": "Print",
+                "cfg": {
+                    "useFixedScales": true,
+                    "mapWidth": 256
+                }
+            },
+            {
                 "name": "BurgerMenu"
             },
             {
@@ -963,6 +970,13 @@
             },
             {
                 "name": "Measure"
+            },
+            {
+                "name": "Print",
+                "cfg": {
+                    "useFixedScales": true,
+                    "mapWidth": 256
+                }
             },
             {
                 "name": "ZoomAll",
@@ -1233,6 +1247,13 @@
                 "name": "Measure"
             },
             {
+                "name": "Print",
+                "cfg": {
+                    "useFixedScales": true,
+                    "mapWidth": 256
+                }
+            },
+            {
                 "name": "ZoomAll",
                 "override": {
                     "Toolbar": {
@@ -1498,6 +1519,13 @@
                 "name": "Measure"
             },
             {
+                "name": "Print",
+                "cfg": {
+                    "useFixedScales": true,
+                    "mapWidth": 256
+                }
+            },
+            {
                 "name": "ZoomAll",
                 "override": {
                     "Toolbar": {
@@ -1653,6 +1681,15 @@
         ],
         "map_view": [
             {
+                "name": "Swamm"
+            },
+            {
+                "name": "Swamps"
+            },
+            {
+                "name": "Anuga"
+            },
+            {
                 "name": "SimpleView"
             },
             {
@@ -1739,6 +1776,13 @@
             },
             {
                 "name": "Measure"
+            },
+            {
+                "name": "Print",
+                "cfg": {
+                    "useFixedScales": true,
+                    "mapWidth": 256
+                }
             },
             {
                 "name": "ZoomAll",
@@ -1899,7 +1943,16 @@
         ],
         "map_edit": [
             {
+                "name": "Swamps"
+            },
+            {
+                "name": "Swamm"
+            },
+            {
                 "name": "SimpleView"
+            },
+            {
+                "name": "Anuga"
             },
             {
                 "name": "AddLayer"
@@ -1926,11 +1979,9 @@
                 }
             },
             {
-                "name": "BackgroundSelector"
-            },
-            {
                 "name": "Identify",
                 "cfg": {
+                    "disableCenterToMarker": true,
                     "viewerOptions": {
                         "container": "{context.ReactSwipe}"
                     }
@@ -1992,6 +2043,13 @@
                 "name": "Measure"
             },
             {
+                "name": "Print",
+                "cfg": {
+                    "useFixedScales": true,
+                    "mapWidth": 256
+                }
+            },
+            {
                 "name": "ZoomAll",
                 "override": {
                     "Toolbar": {
@@ -2003,7 +2061,7 @@
                 "name": "ZoomIn",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": true
+                        "alwaysVisible": false
                     }
                 }
             },
@@ -2011,7 +2069,7 @@
                 "name": "ZoomOut",
                 "override": {
                     "Toolbar": {
-                        "alwaysVisible": true
+                        "alwaysVisible": false
                     }
                 }
             },
@@ -2037,7 +2095,26 @@
                 "name": "ScaleBox"
             },
             {
-                "name": "FeatureEditor"
+                "name": "FeatureEditor",
+                "cfg": {
+                    "customEditorsOptions": {
+                        "rules": [
+                            {
+                                "regex": {
+                                    "attribute": "bdy_type",
+                                    "typeName": "^geonode:bdy_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Dirichlet", "Transmissive", "Reflective"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Dirichlet",
+                                    "allowEmpty": false
+                                }
+                            }
+                        ]
+                    }
+                }
             },
             {
                 "name": "QueryPanel",
