@@ -356,18 +356,19 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
             return Rx.Observable.of(action);
         })
         .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
-        .concatMap(() => {
+        .concatMap((action) => {
+            console.log('** action', action);
             const defaultPropertyMap = {
                 'geonode:bdy_': {
                     location: "External",
                     boundary: "Dirichlet"
                 },
                 'geonode:inf_': {
-                    type: "rainfall",
+                    type: "Rainfall",
                     data: 100
                 },
                 'geonode:str_': {
-                    method: 'reflective'
+                    method: 'Holes'
                 },
                 'geonode:fri_': {
                     manning: 0.035
@@ -377,7 +378,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                 }
             };
             return Rx.Observable.of(createNewFeatures([{
-                properties: defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer].substring(0, 12)
+                properties: defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)]
             }]));
         }
         );
