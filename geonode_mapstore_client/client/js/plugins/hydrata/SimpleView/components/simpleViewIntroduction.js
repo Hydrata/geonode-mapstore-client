@@ -31,7 +31,7 @@ class simpleViewIntroduction extends React.Component {
                         </Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
-                        <p>This application is currently under development.</p>
+                        <p>This application is not ready for production use yet.</p>
                         <p>
                             We are currently working with a select number of projects to
                             develop and improve the application.<br/><br/>

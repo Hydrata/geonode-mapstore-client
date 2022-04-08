@@ -13,7 +13,8 @@ import {
     createAnugaFrictionEpic,
     createAnugaInflowEpic,
     createAnugaStructureEpic,
-    createAnugaMeshRegionEpic
+    createAnugaMeshRegionEpic,
+    prePopulateAnugaFeatureGridWithDefaults
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -33,6 +34,7 @@ export default createPlugin('Anuga', {
         createAnugaInflowEpic,
         createAnugaStructureEpic,
         createAnugaMeshRegionEpic,
-        createAnugaBoundaryEpic
+        createAnugaBoundaryEpic,
+        prePopulateAnugaFeatureGridWithDefaults
     }
 });

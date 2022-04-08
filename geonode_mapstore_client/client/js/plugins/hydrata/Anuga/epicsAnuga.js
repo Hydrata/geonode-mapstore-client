@@ -1,8 +1,9 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
 import { addLayer } from '../../../../MapStore2/web/client/actions/layers';
-import { zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
-import {saveDirectContent} from "../../../actions/gnsave";
+import { zoomToExtent } from "../../../../MapStore2/web/client/actions/map";
+import { saveDirectContent } from "../../../actions/gnsave";
+import {CREATE_NEW_FEATURE, createNewFeatures} from "../../../../MapStore2/web/client/actions/featuregrid";
 
 import {
     INIT_ANUGA,
@@ -31,7 +32,6 @@ import {
     setAnugaScenarioMenu,
     setAnugaMeshRegionData,
     stopAnugaElevationPolling,
-    // buildAnugaScenarioSuccess,
     startAnugaScenarioPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
@@ -342,4 +342,42 @@ export const createAnugaMeshRegionEpic = (action$, store) =>
                             );
                         })
                 )
+        );
+
+
+export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
+    action$
+        .ofType(CREATE_NEW_FEATURE)
+        .take(1)
+        .concatMap((action) => {
+            console.log('store.getState()?.featuregrid?.selectedLayer', store.getState()?.featuregrid?.selectedLayer);
+            console.log('!!store.getState()?.featuregrid?.selectedLayer?.includes(\'geonode:bdy_\')', !!store.getState()?.featuregrid?.selectedLayer?.includes('geonode:bdy_'));
+            console.log('* action', action);
+            return Rx.Observable.of(action);
+        })
+        .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
+        .concatMap(() => {
+            const defaultPropertyMap = {
+                'geonode:bdy_': {
+                    location: "External",
+                    boundary: "Dirichlet"
+                },
+                'geonode:inf_': {
+                    type: "rainfall",
+                    data: 100
+                },
+                'geonode:str_': {
+                    method: 'reflective'
+                },
+                'geonode:fri_': {
+                    manning: 0.035
+                },
+                'geonode:mes_': {
+                    resolution: 100
+                }
+            };
+            return Rx.Observable.of(createNewFeatures([{
+                properties: defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer].substring(0, 12)
+            }]));
+        }
         );
