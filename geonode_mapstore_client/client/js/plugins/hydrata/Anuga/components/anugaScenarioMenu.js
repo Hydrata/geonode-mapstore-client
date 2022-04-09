@@ -48,7 +48,31 @@ class AnugaScenarioMenuClass extends React.Component {
         this.state = {};
         this.handleTextChange = this.handleTextChange.bind(this);
         this.handleIntChange = this.handleIntChange.bind(this);
+        this.handleTimeChange = this.handleTimeChange.bind(this);
+        this.handleTimeBlur = this.handleTimeBlur.bind(this);
     }
+
+    getSecondsFromHHMMSS = (userInputValue) => {
+        const [hours, minutes, seconds] = userInputValue.split(":");
+
+        const hoursNumber = Number(hours);
+        const minutesNumber = Number(minutes);
+        const secondsNumber = Number(seconds);
+
+        if (!isNaN(hoursNumber) && isNaN(minutesNumber) && isNaN(secondsNumber)) {
+            return hoursNumber;
+        }
+
+        if (!isNaN(hoursNumber) && !isNaN(minutesNumber) && isNaN(secondsNumber)) {
+            return hoursNumber * 60 + minutesNumber;
+        }
+
+        if (!isNaN(hoursNumber) && !isNaN(minutesNumber) && !isNaN(secondsNumber)) {
+            return hoursNumber * 60 * 60 + minutesNumber * 60 + secondsNumber;
+        }
+
+        return 0;
+    };
 
 
     render() {
@@ -91,7 +115,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Inflow</th>
                                 <th>Structures</th>
                                 <th>Mesh Regions</th>
-                                <OverlayTrigger placement="top" overlay={<Tooltip>seconds</Tooltip>}>
+                                <OverlayTrigger placement="top" overlay={<Tooltip>hh:mm:ss</Tooltip>}>
                                     <th>Duration</th>
                                 </OverlayTrigger>
                                 <th>Status</th>
@@ -235,39 +259,18 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     }
                                                 </select>
                                             </td>
-                                            {/*<td>*/}
-                                            {/*    <input*/}
-                                            {/*        id={'constant_rainfall'}*/}
-                                            {/*        key={`constantRainfall-${scenario.id}`}*/}
-                                            {/*        type={"number"}*/}
-                                            {/*        className={'scenario-input'}*/}
-                                            {/*        style={{'width': '50px'}}*/}
-                                            {/*        value={scenario.constant_rainfall}*/}
-                                            {/*        onChange={(e) => this.handleNumberChange(e, scenario)}*/}
-                                            {/*    />*/}
-                                            {/*</td>*/}
                                             <td>
                                                 <input
                                                     id={'duration'}
                                                     key={`duration-${scenario.id}`}
-                                                    type={"number"}
+                                                    type={"text"}
                                                     className={'scenario-input'}
                                                     style={{'width': '80px'}}
-                                                    value={scenario.duration}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
+                                                    value={scenario.tempTimeString || this.toHHMMSS(scenario.duration)}
+                                                    onChange={(event) => this.handleTimeChange(event, scenario)}
+                                                    onBlur={(event) => this.handleTimeBlur(event, scenario)}
                                                 />
                                             </td>
-                                            {/*<td>*/}
-                                            {/*    <input*/}
-                                            {/*        id={'maximum_triangle_area'}*/}
-                                            {/*        key={`maximumTriangleArea-${scenario.id}`}*/}
-                                            {/*        type={"number"}*/}
-                                            {/*        className={'scenario-input'}*/}
-                                            {/*        style={{'width': '50px'}}*/}
-                                            {/*        value={scenario.maximum_triangle_area}*/}
-                                            {/*        onChange={(e) => this.handleNumberChange(e, scenario)}*/}
-                                            {/*    />*/}
-                                            {/*</td>*/}
                                             <td>
                                                 {this.findScenarioStatus(scenario)}
                                             </td>
@@ -391,6 +394,43 @@ class AnugaScenarioMenuClass extends React.Component {
         kv[e.target.id] = parseFloat(e.target.value);
         this.props.updateAnugaScenario(scenario, kv);
     }
+
+    toHHMMSS = (secs) => {
+        if (!secs) {
+            return '00:00:00';
+        }
+        const secNum = parseInt(secs.toString(), 10);
+        const hours = Math.floor(secNum / 3600);
+        const minutes = Math.floor(secNum / 60) % 60;
+        const seconds = secNum % 60;
+
+        return [hours, minutes, seconds]
+            .map((val) => (val < 10 ? `0${val}` : val))
+            .filter((val, index) => val !== "00" || index > 0)
+            .join(":")
+            .replace(/^0/, "");
+    };
+
+    handleTimeChange = (event, scenario) => {
+        const kv = {
+            tempTimeString: event.target.value
+        };
+        console.log('kv', kv);
+        this.props.updateAnugaScenario(scenario, kv);
+    };
+
+    handleTimeBlur = (event, scenario) => {
+        console.log('handleTimeBlur', event);
+        const targetValue = event.target.value;
+        console.log('targetValue', targetValue);
+        const seconds = Math.max(0, this.getSecondsFromHHMMSS(targetValue));
+        console.log('seconds', seconds);
+        const kv = {};
+        kv[event.target.id] = seconds;
+        kv.tempTimeString = null;
+        console.log('kv', kv);
+        this.props.updateAnugaScenario(scenario, kv);
+    };
 }
 
 const mapStateToProps = (state) => {

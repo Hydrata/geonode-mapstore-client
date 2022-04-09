@@ -153,6 +153,12 @@
     word-wrap: break-word;
 }
 
+#anuga-scenario-menu {
+    overflow-y: hidden;
+    overflow-x: auto;
+    max-width: 98%;
+}
+
 ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
   color: white;
   opacity: 1; /* Firefox */
