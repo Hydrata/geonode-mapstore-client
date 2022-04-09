@@ -7,7 +7,7 @@ import {changeLayerProperties, browseData} from "../../../../../MapStore2/web/cl
 import '../simpleView.css';
 import {svSelectLayer, setOpenMenuGroupId} from '../actionsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
-import {setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
+import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
 
 
 class MenuRowClass extends React.Component {
@@ -21,7 +21,9 @@ class MenuRowClass extends React.Component {
         editLayer: PropTypes.func,
         featureTypeSelected: PropTypes.func,
         browseData: PropTypes.func,
-        setPermission: PropTypes.func
+        setPermission: PropTypes.func,
+        closeFeatureGrid: PropTypes.func,
+        selectFeatures: PropTypes.func
     };
 
     constructor(props) {
@@ -53,6 +55,8 @@ class MenuRowClass extends React.Component {
                                 className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
                                 style={{"color": "grey"}}
                                 onClick={() => {
+                                    this.props.closeFeatureGrid();
+                                    this.props.selectFeatures([]);
                                     this.props.setOpenMenuGroupId(null);
                                     this.props.setPermission({canEdit: true});
                                     this.props.svSelectLayer(this.props.layer);
@@ -103,7 +107,9 @@ const mapDispatchToProps = ( dispatch ) => {
         setOpenMenuGroupId: (openMenuGroupId) => dispatch(setOpenMenuGroupId(openMenuGroupId)),
         featureTypeSelected: (url, typeName) => dispatch(featureTypeSelected(url, typeName)),
         browseData: (layer) => dispatch(browseData(layer)),
-        setPermission: (permission) => dispatch(setPermission(permission))
+        setPermission: (permission) => dispatch(setPermission(permission)),
+        closeFeatureGrid: () => dispatch(closeFeatureGrid()),
+        selectFeatures: (features, append) => dispatch(selectFeatures(features, append))
     };
 };
 
