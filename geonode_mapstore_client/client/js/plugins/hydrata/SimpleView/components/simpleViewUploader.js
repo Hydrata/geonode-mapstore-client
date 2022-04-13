@@ -76,7 +76,7 @@ class simpleViewUploaderPanel extends React.Component {
                                     <td key="last"><DateFormat value={file.lastModifiedDate} /></td>
                                     <td key="status">
                                         {
-                                            (file.status === "begin" && file.size < 100000000) ?
+                                            (file.status === "begin" && file.size < 200000000) ?
                                                 <OverlayTrigger positionLeft overlay={<Tooltip>Enter a title</Tooltip>}>
                                                     <Button
                                                         onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
