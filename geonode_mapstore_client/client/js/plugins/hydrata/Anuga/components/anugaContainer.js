@@ -93,7 +93,7 @@ class AnugaContainer extends React.Component {
                 "editorProps": {
                     "values": ["Holes", "Reflective", "Mannings"],
                     "forceSelection": true,
-                    "defaultOption": "Holes",
+                    "defaultOption": "Mannings",
                     "allowEmpty": false
                 }
             },

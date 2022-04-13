@@ -137,8 +137,8 @@ class simpleViewUploaderPanel extends React.Component {
     }
 
     humanFileSize = (size) => {
-        if (size > 100000000) {
-            return "Too big: 100MB max";
+        if (size > 200000000) {
+            return "Too big: 200MB max";
         }
         const i = Math.floor( Math.log(size) / Math.log(1024) );
         return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
