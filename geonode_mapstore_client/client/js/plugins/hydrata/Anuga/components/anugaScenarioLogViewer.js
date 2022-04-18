@@ -24,16 +24,16 @@ class AnugaScenarioLogViewerClass extends React.Component {
     render() {
         return (
             <div id={'anuga-scenario-log-viewer-container'}>
-                <h5>
-                    {this.props.visibleAnugaLogScenario?.name}
+                <h5 style={{marginLeft: "9px"}}>
+                    Scenario: {this.props.visibleAnugaLogScenario?.name}
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => this.props.showAnugaScenarioLog(false)}
                     />
                 </h5>
-                <div id={'anuga-scenario-log-viewer'}>
+                <pre id={'anuga-scenario-log-viewer'} style={{color: "white", background: "black"}}>
                     {this.props.visibleAnugaLogScenario?.latest_run?.log}
-                </div>
+                </pre>
             </div>
         );
     }
