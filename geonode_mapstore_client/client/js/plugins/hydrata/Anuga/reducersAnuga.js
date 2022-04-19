@@ -54,7 +54,7 @@ export default ( state = initialState, action) => {
             ...state,
             scenarios: state.scenarios.map(scenario => {
                 const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
-                scenario.latest_run = newScenario?.latest_run || {status: 'unsaved'};
+                scenario.latest_run = {...newScenario?.latest_run};
                 scenario.status = newScenario?.status || 'unsaved';
                 scenario.latest_run_is_valid = newScenario?.latest_run_is_valid;
                 return scenario;
