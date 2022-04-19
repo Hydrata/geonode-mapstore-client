@@ -10,7 +10,8 @@ import {
 class AnugaScenarioLogViewerClass extends React.Component {
     static propTypes = {
         visibleAnugaLogScenario: PropTypes.object,
-        showAnugaScenarioLog: PropTypes.func
+        showAnugaScenarioLog: PropTypes.func,
+        logText: PropTypes.string
     };
 
     static defaultProps = {}
@@ -32,7 +33,7 @@ class AnugaScenarioLogViewerClass extends React.Component {
                     />
                 </h5>
                 <pre id={'anuga-scenario-log-viewer'} style={{color: "white", background: "black"}}>
-                    {this.props.visibleAnugaLogScenario?.latest_run?.log}
+                    {this.props.logText}
                 </pre>
             </div>
         );
@@ -40,10 +41,6 @@ class AnugaScenarioLogViewerClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('a', state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]);
-    return {
-        visibleAnugaLogScenario: state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]
-    };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
