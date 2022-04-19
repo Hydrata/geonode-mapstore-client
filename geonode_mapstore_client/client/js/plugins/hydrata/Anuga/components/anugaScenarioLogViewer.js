@@ -41,6 +41,9 @@ class AnugaScenarioLogViewerClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    return {
+        visibleAnugaLogScenario: state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]
+    };
 };
 
 const mapDispatchToProps = ( dispatch ) => {

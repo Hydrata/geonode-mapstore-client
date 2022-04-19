@@ -164,10 +164,10 @@ class AnugaContainer extends React.Component {
 
 const mapStateToProps = (state) => {
     console.log('state for Anuga:', state);
-    const isLatestRunValid = state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0].is_latest_run_valid;
+    const isLatestRunValid = state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]?.is_latest_run_valid;
     const logText = isLatestRunValid ?
-        state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0].latest_run.log :
-        state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0].log;
+        state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]?.latest_run?.log || '-' :
+        state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]?.log || '-';
     console.log('logText', logText);
     return {
         logText: logText,
