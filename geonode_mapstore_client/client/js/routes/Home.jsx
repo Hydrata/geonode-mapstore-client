@@ -75,6 +75,7 @@ function Home({
     fetchFeaturedResources = () => {},
     loading
 }) {
+    console.log('home', location);
 
     const cataloguePage = '/catalogue/';
 
