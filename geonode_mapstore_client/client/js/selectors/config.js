@@ -28,16 +28,25 @@ import {
  */
 export const getParsedGeoNodeConfiguration = (state) => {
     const user = userSelector(state);
+    console.log('user:', user);
     const monitoredState = getMonitoredState(state, getConfigProp('monitorState'));
+    console.log('monitoredState:', monitoredState);
     const geoNodeConfiguration = getConfigProp('geoNodeConfiguration');
+    console.log('geoNodeConfiguration:', geoNodeConfiguration);
     const getMonitorState = (path) => {
         return get(monitoredState, path);
     };
+    console.log('getMonitorState:', getMonitorState);
     const userState = { user };
+    console.log('userState:', userState);
     const confWithHandleExpression = mapObjectFunc(v => handleExpression(getMonitorState, {}, v))(geoNodeConfiguration);
+    console.log('confWithHandleExpression:', confWithHandleExpression);
     const filterMenuItemsAllowed = reduceArrayRecursive(confWithHandleExpression?.cardsMenu?.items, (item) => filterMenuItems(userState, item));
+    console.log('filterMenuItemsAllowed:', filterMenuItemsAllowed);
     const cardOptionsItemsAllowed = reduceArrayRecursive(confWithHandleExpression?.cardOptions?.items, (item) => filterMenuItems(userState, item));
+    console.log('cardOptionsItemsAllowed:', cardOptionsItemsAllowed);
     const filtersFormItemsAllowed = reduceArrayRecursive(confWithHandleExpression?.filtersForm?.items, (item) => filterMenuItems(userState, item));
+    console.log('filtersFormItemsAllowed:', filtersFormItemsAllowed);
     return {
         ...confWithHandleExpression,
         filterMenuItemsAllowed,
