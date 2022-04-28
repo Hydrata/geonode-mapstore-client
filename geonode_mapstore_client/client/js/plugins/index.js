@@ -427,6 +427,18 @@ export const plugins = {
     SyncPlugin: toLazyPlugin(
         'Sync',
         () => import(/* webpackChunkName: 'plugins/sync-plugin' */ '@js/plugins/Sync')
+    ),
+    SimpleViewPlugin: toLazyPlugin(
+        'SimpleView',
+        () => import(/* webpackChunkName: 'plugins/simpleview-plugin' */ '@js/plugins/hydrata/SimpleView/SimpleView')
+    ),
+    SwampsPlugin: toLazyPlugin(
+        'Swamps',
+        () => import(/* webpackChunkName: 'plugins/swamps-plugin' */ '@js/plugins/hydrata/Swamps/Swamps')
+    ),
+    AnugaPlugin: toLazyPlugin(
+        'Anuga',
+        () => import(/* webpackChunkName: 'plugins/anuga-plugin' */ '@js/plugins/hydrata/Anuga/Anuga')
     )
 };
 

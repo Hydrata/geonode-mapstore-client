@@ -1627,6 +1627,15 @@
                 }
             },
             {
+                "name": "SimpleView"
+            },
+            {
+                "name": "Swamps"
+            },
+            {
+                "name": "Anuga"
+            },
+            {
                 "name": "MapThumbnail"
             },
             {
@@ -1732,9 +1741,6 @@
                 }
             },
             {
-                "name": "BackgroundSelector"
-            },
-            {
                 "name": "Identify",
                 "cfg": {
                     "viewerOptions": {
@@ -1761,14 +1767,6 @@
                 "override": {
                     "Toolbar": {
                         "alwaysVisible": true
-                    }
-                }
-            },
-            {
-                "name": "DrawerMenu",
-                "cfg": {
-                    "menuOptions": {
-                        "width": 350
                     }
                 }
             },
@@ -2070,15 +2068,6 @@
                         "EPSG:3857"
                     ],
                     "additionalCRS": {}
-                }
-            },
-            {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
                 }
             },
             {

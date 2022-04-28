@@ -1,0 +1,20 @@
+.biocollect-modal {
+    position: absolute;
+    z-index: 1021;
+    top: 11px;
+    width: 100%;
+    height: 500px;
+    background-color: rgba(0, 60, 136, 0.6);
+    border-color: rgba(255, 255, 255, 0.7);
+    border-width: 2px;
+    padding: 3px 5px;
+    font-size: 12px;
+    line-height: 1.3;
+    border-radius: 4px;
+    color: red;
+    text-align: center;
+}
+
+#test {
+    color: red;
+}
