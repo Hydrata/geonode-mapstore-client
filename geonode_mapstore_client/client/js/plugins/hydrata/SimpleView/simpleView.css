@@ -192,3 +192,7 @@
 #gn-brand-navbar {
     background-color: #335781;
 }
+
+#mapstore-drawermenu {
+    display: none;
+}
