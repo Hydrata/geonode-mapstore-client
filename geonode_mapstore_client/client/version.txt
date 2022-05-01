@@ -1,1 +1,1 @@
-geonode-mapstore-client-v4.0.0-39da8514adbb1798bb8a0a60a8a8d16eb793de2d
+geonode-mapstore-client-v4.0.0-540a6d506531263dc41a4c26e21b4c30ee3383be
