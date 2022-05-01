@@ -13,7 +13,7 @@ import NavLink from '@js/components/Menu/NavLink';
 function BreadCrumb({ resource, titleItems }) {
 
     return (
-        <div className="gn-action-navbar-title">
+        <div className="gn-action-navbar-title" style={{minWidth: "250px"}}>
             <div>
                 <NavLink href="#" className="gn-action-navbar-breadcrumb-link">
                     <FaIcon name="home" />

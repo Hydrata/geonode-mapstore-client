@@ -50,7 +50,7 @@ export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA)
         .switchMap(() => Rx.Observable
-            .from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.map?.present?.info?.id}))
+            .from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id}))
             .switchMap(response1 => Rx.Observable
                 .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
                 .switchMap(response2 => Rx.Observable
