@@ -49,6 +49,7 @@ import {show} from '../../../../MapStore2/web/client/actions/notifications';
 export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA)
+        .filter(() => store.getState()?.gnresource.id)
         .switchMap(() => Rx.Observable
             .from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id}))
             .switchMap(response1 => Rx.Observable
