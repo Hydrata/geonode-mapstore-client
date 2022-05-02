@@ -1627,10 +1627,21 @@
                 }
             },
             {
+                "name": "SimpleView"
+            },
+            {
+                "name": "Swamps"
+            },
+            {
+                "name": "Anuga"
+            },
+            {
+                "name": "MapThumbnail"
+            },
+            {
                 "name": "ActionNavbar",
                 "cfg": {
                     "containerPosition": "header",
-                    "disableTitle": true,
                     "titleItems": [
                         {
                             "type": "plugin",
@@ -1655,6 +1666,22 @@
                             ]
                         },
                         {
+                            "labelId": "gnviewer.edit",
+                            "type": "dropdown",
+                            "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
+                            "items": [
+                                {
+                                    "type": "plugin",
+                                    "name": "DetailViewerButton"
+                                },
+                                {
+                                    "type": "link",
+                                    "href": "{context.getMetadataUrl(state('gnResourceData'))}",
+                                    "labelId": "gnviewer.editMetadata"
+                                }
+                            ]
+                        },
+                        {
                             "labelId": "gnviewer.view",
                             "type": "dropdown",
                             "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
@@ -1669,6 +1696,15 @@
                         {
                             "type": "plugin",
                             "name": "Share"
+                        },
+                        {
+                            "type": "plugin",
+                            "name": "DeleteResource",
+                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'delete_resourcebase')}"
+                        },
+                        {
+                            "type": "divider",
+                            "authenticated": true
                         },
                         {
                             "type": "plugin",
@@ -1696,16 +1732,7 @@
                 }
             },
             {
-                "name": "SimpleView"
-            },
-            {
-                "name": "Anuga"
-            },
-            {
-                "name": "Swamps"
-            },
-            {
-                "name": "MapThumbnail"
+                "name": "DeleteResource"
             },
             {
                 "name": "DetailViewer",
@@ -1740,14 +1767,6 @@
                 "override": {
                     "Toolbar": {
                         "alwaysVisible": true
-                    }
-                }
-            },
-            {
-                "name": "DrawerMenu",
-                "cfg": {
-                    "menuOptions": {
-                        "width": 350
                     }
                 }
             },
