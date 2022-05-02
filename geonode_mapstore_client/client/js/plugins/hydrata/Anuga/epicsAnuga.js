@@ -82,6 +82,7 @@ export const initAnugaEpic = (action$, store) =>
                 )
                 .catch(error => Rx.Observable.of(() => console.log('Error getting available elevations: ', error)))
             )
+            .catch(error => Rx.Observable.of(() => console.log('Error INIT_ANUGA: ', error)))
         );
 
 export const pollAnugaElevationEpic = (action$, store) =>
