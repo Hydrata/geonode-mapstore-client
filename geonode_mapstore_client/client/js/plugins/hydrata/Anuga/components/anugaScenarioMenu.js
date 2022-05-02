@@ -412,6 +412,7 @@ class AnugaScenarioMenuClass extends React.Component {
     };
 
     handleTimeChange = (event, scenario) => {
+        console.log('handleTimeChange', event);
         const kv = {
             tempTimeString: event.target.value
         };
@@ -422,9 +423,7 @@ class AnugaScenarioMenuClass extends React.Component {
     handleTimeBlur = (event, scenario) => {
         console.log('handleTimeBlur', event);
         const targetValue = event.target.value;
-        console.log('targetValue', targetValue);
         const seconds = Math.max(0, this.getSecondsFromHHMMSS(targetValue));
-        console.log('seconds', seconds);
         const kv = {};
         kv[event.target.id] = seconds;
         kv.tempTimeString = null;

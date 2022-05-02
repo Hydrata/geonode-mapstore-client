@@ -31,7 +31,7 @@ const initialState = {
 };
 
 export default ( state = initialState, action) => {
-    console.log('anuga:', action);
+    console.log('ACTION anuga:', action);
     switch (action.type) {
     case SET_CREATING_ANUGA_LAYER:
         return {

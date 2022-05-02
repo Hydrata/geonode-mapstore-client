@@ -168,7 +168,7 @@ const mapStateToProps = (state) => {
     const logText = isLatestRunValid ?
         state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]?.latest_run?.log || '-' :
         state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]?.log || '-';
-    console.log('logText', logText);
+    // console.log('logText', logText);
     return {
         logText: logText,
         isAnugaProject: state?.anuga?.project?.id,

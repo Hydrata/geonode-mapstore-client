@@ -70,7 +70,7 @@ class simpleViewUploaderPanel extends React.Component {
                                             onChange={(e) => this.setState({newTitle: e.target.value})}
                                         />
                                     </td>
-                                    <td key="name">{file.name}</td>
+                                    <td key="name" style={{wordWrap: "break-word"}}>{file.name}</td>
                                     <td key="size">{this.humanFileSize(file.size)}</td>
                                     <td key="type">{file.type}</td>
                                     <td key="last"><DateFormat value={file.lastModifiedDate} /></td>
