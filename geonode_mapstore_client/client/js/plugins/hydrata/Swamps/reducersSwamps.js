@@ -1,4 +1,3 @@
-import moment from 'moment';
 import {
     SET_VISIBLE_SWAMPS_CHART,
     SET_SELECTED_SWAMP_ID,

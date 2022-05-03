@@ -97,7 +97,7 @@ class AnugaContainer extends React.Component {
                     "defaultOption": "Mannings",
                     "allowEmpty": false
                 }
-            },
+            }
         ]
     }
 

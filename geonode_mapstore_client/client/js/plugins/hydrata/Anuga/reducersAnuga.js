@@ -80,16 +80,6 @@ export default ( state = initialState, action) => {
                     "unsaved": false
                 }]
         };
-    // case BUILD_ANUGA_SCENARIO:
-    //     return {
-    //         ...state,
-    //         scenarios: state.scenarios?.map(scenario => {
-    //             if (scenario.id === action.scenario.id) {
-    //                 scenario.status = 'building';
-    //             }
-    //             return scenario;
-    //         })
-    //     };
     case SET_ANUGA_SCENARIO_IS_LOADED:
         return {
             ...state,
