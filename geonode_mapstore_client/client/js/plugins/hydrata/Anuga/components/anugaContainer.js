@@ -1,7 +1,6 @@
 import React from 'react';
 import {connect} from 'react-redux';
 const PropTypes = require('prop-types');
-import {Button} from "react-bootstrap";
 
 import {
     initAnuga,
@@ -18,7 +17,6 @@ import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {updateCustomEditorsOptions} from "../../../../../MapStore2/web/client/actions/featuregrid";
-import Introduction from "@js/plugins/hydrata/SimpleView/components/simpleViewIntroduction";
 
 class AnugaContainer extends React.Component {
     static propTypes = {
@@ -164,10 +162,6 @@ class AnugaContainer extends React.Component {
                             <AnugaScenarioLogViewer logText={this.props.logText}/>
                             : null
                     }
-                    {this.props.visibleIntroduction ?
-                        <Introduction/>
-                        : null
-                    }
                 </div>
             ) :
             null;
@@ -193,8 +187,7 @@ const mapStateToProps = (state) => {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups?.length || 1,
         showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
-        visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId,
-        visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true
+        visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId
     };
 };
 
