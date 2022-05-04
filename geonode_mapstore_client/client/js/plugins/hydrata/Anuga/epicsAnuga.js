@@ -140,7 +140,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                 .timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
-                    Rx.Observable.from(axios.get(`/anuga/api/199/scenario/`))
+                    Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/`))
                         .switchMap(response => Rx.Observable
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
