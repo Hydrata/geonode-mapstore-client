@@ -116,13 +116,11 @@ export default ( state = initialState, action) => {
             selectedScenario: action.scenario
         };
     case SET_ANUGA_PROJECT_DATA:
-        if (action.data) {
-            return {
-                ...state,
-                project: action.data
-            };
-        }
-        return state;
+        console.log('initAnugaEpic SET_ANUGA_PROJECT_DATA', action);
+        return {
+            ...state,
+            projectData: action.data
+        };
     case SET_ANUGA_SCENARIO_DATA:
         if (state.scenarios.length === 0) {
             return {
@@ -139,7 +137,7 @@ export default ( state = initialState, action) => {
                         unsaved: true
                     };
                 }
-                if (scenario?.id === action.scenario.id) {
+                if (scenario?.id === action.scenario?.id) {
                     action.scenario.unsaved = false;
                     return action.scenario;
                 }

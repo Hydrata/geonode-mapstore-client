@@ -38,7 +38,8 @@ class AnugaContainer extends React.Component {
         startAnugaScenarioPolling: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func,
         updateCustomEditorsOptions: PropTypes.func,
-        logText: PropTypes.string
+        logText: PropTypes.string,
+        gnResourceLoaded: PropTypes.string
     };
 
     static defaultProps = {
@@ -106,7 +107,14 @@ class AnugaContainer extends React.Component {
     }
 
     componentDidMount() {
-        this.props.initAnuga();
+        this.props.updateCustomEditorsOptions(this.editorOptions);
+    }
+
+    componentDidUpdate() {
+        if (this.props.gnResourceLoaded && !this.props.isAnugaProject) {
+            console.log('componentDidUpdate initing Anuga');
+            this.props.initAnuga();
+        }
         this.props.updateCustomEditorsOptions(this.editorOptions);
     }
 
@@ -171,7 +179,8 @@ const mapStateToProps = (state) => {
     // console.log('logText', logText);
     return {
         logText: logText,
-        isAnugaProject: state?.anuga?.project?.id,
+        gnResourceLoaded: state?.gnresource?.id,
+        isAnugaProject: state?.anuga?.projectData?.id,
         anugaInputMenuGroupId: state?.layers?.groups?.filter((group) => group.title === "Input Data")[0]?.id,
         showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,

@@ -25,10 +25,6 @@ class SimpleViewContainer extends React.Component {
         super(props);
     }
 
-    componentDidMount() {
-        this.props.setVisibleIntroduction(true);
-    }
-
     render() {
         return (
             <div id={"simple-view-container"}>
@@ -81,7 +77,7 @@ const mapStateToProps = (state) => {
         menuGroups: state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name)),
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
-        visibleIntroduction: state?.simpleView?.visibleIntroduction && state?.anuga?.project
+        visibleIntroduction: state?.simpleView?.visibleIntroduction
     };
 };
 

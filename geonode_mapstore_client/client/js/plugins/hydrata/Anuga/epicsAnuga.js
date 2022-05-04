@@ -49,6 +49,14 @@ import {show} from '../../../../MapStore2/web/client/actions/notifications';
 export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA)
+        .filter((action) => {
+            console.log('initAnugaEpic', action, store.getState());
+            return action;
+        })
+        .filter((action) => {
+            console.log('initAnugaEpic2', action, store.getState()?.gnresource.id);
+            return action;
+        })
         .filter(() => store.getState()?.gnresource.id)
         .switchMap(() => Rx.Observable
             .from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id}))
@@ -81,10 +89,16 @@ export const initAnugaEpic = (action$, store) =>
                         Rx.Observable.of(startAnugaScenarioPolling())
                     )
                 )
-                .catch(error => Rx.Observable.of(() => console.log('Error getting available elevations: ', error)))
+                .filter((setAnugaProjectDataAction) => {
+                    console.log('initAnugaEpic4 setAnugaProjectDataAction', setAnugaProjectDataAction);
+                    return setAnugaProjectDataAction;
+                })
             )
-            .catch(error => Rx.Observable.of(() => console.log('Error INIT_ANUGA: ', error)))
-        );
+        )
+        .filter((response1) => {
+            console.log('initAnugaEpic3 final:', response1);
+            return response1;
+        });
 
 export const pollAnugaElevationEpic = (action$, store) =>
     action$
@@ -94,7 +108,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
-                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/elevation/available/`))
+                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/elevation/available/`))
                         // .map(response => setAnugaAvailableElevationData(response.data))
                         // .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
                 )
@@ -126,7 +140,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                 .timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
-                    Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`))
+                    Rx.Observable.from(axios.get(`/anuga/api/199/scenario/`))
                         .switchMap(response => Rx.Observable
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
@@ -177,7 +191,11 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                             })
                         )
                 )
-        );
+        )
+        .filter((thingLast) => {
+            console.log('pollAnugaScenarioEpic thingLast', thingLast);
+            return thingLast;
+        });
 
 export const deleteAnugaScenarioEpic = (action$, store) =>
     action$
