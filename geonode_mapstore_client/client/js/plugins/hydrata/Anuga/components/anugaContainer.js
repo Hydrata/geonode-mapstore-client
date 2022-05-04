@@ -18,6 +18,7 @@ import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {updateCustomEditorsOptions} from "../../../../../MapStore2/web/client/actions/featuregrid";
+import Introduction from "@js/plugins/hydrata/SimpleView/components/simpleViewIntroduction";
 
 class AnugaContainer extends React.Component {
     static propTypes = {
@@ -115,7 +116,6 @@ class AnugaContainer extends React.Component {
             console.log('componentDidUpdate initing Anuga');
             this.props.initAnuga();
         }
-        this.props.updateCustomEditorsOptions(this.editorOptions);
     }
 
     render() {
@@ -164,6 +164,10 @@ class AnugaContainer extends React.Component {
                             <AnugaScenarioLogViewer logText={this.props.logText}/>
                             : null
                     }
+                    {this.props.visibleIntroduction ?
+                        <Introduction/>
+                        : null
+                    }
                 </div>
             ) :
             null;
@@ -189,7 +193,8 @@ const mapStateToProps = (state) => {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups?.length || 1,
         showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
-        visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId
+        visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId,
+        visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true
     };
 };
 
