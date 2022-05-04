@@ -182,7 +182,7 @@ const mapStateToProps = (state) => {
     return {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
         serverUrl: state?.gnsettings?.geonodeUrl,
-        projectId: state?.anuga?.project?.id,
+        projectId: state?.anuga?.projectData?.id,
         uploadStatus: state?.simpleView?.uploadStatus || 0
     };
 };
