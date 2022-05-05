@@ -112,16 +112,17 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         // .map(response => setAnugaAvailableElevationData(response.data))
                         // .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
                 )
-                .switchMap(action => {
-                    if (action.data?.length === 0) {
+                .switchMap(response => {
+                    if (response.data?.length < 2) {
                         return Rx.Observable.empty();
                     }
+                    console.log('adding elevations:', response.data);
                     return Rx.Observable.concat(
-                        Rx.Observable.of(addLayer(action.data[0])),  // The elevation
-                        Rx.Observable.of(addLayer(action.data?.[1])),  // The hillshade
+                        Rx.Observable.of(addLayer(response.data[0])),  // The elevation
+                        Rx.Observable.of(addLayer(response.data?.[1])),  // The hillshade
                         Rx.Observable.of(zoomToExtent(
-                            action.data[0]?.bbox?.bounds,
-                            action.data[0]?.bbox?.crs,
+                            response.data[0]?.bbox?.bounds,
+                            response.data[0]?.bbox?.crs,
                             20
                         )),
                         Rx.Observable.of(updateUploadStatus('Complete')),
