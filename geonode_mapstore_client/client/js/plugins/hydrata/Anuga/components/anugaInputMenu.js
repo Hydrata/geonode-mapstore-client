@@ -22,7 +22,7 @@ import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
-        project: PropTypes.object,
+        projectData: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
         anugaGroupLength: PropTypes.number,
         elevations: PropTypes.array,
@@ -100,7 +100,7 @@ class AnugaInputMenuClass extends React.Component {
                     }
                 </div>
                 {
-                    this.props.project?.projection ?
+                    this.props.projectData?.projection ?
                         <React.Fragment>
                             <div
                                 className={'menu-rows-container'}
@@ -428,7 +428,7 @@ class AnugaInputMenuClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        project: state?.anuga?.project,
+        projectData: state?.anuga?.projectData,
         elevations: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations'),
         boundaries: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
         frictions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Maps'),

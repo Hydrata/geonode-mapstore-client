@@ -16,6 +16,11 @@ const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
 const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
 const CREATE_ANUGA_STRUCTURE = 'CREATE_ANUGA_STRUCTURE';
 const CREATE_ANUGA_MESH_REGION = 'CREATE_ANUGA_MESH_REGION';
+const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
+const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
+const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
+const ADD_ANUGA_STRUCTURE = 'ADD_ANUGA_STRUCTURE';
+const ADD_ANUGA_MESH_REGION = 'ADD_ANUGA_MESH_REGION';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
@@ -203,6 +208,36 @@ function createAnugaMeshRegion(meshRegionTitle) {
     };
 }
 
+function addAnugaBoundary() {
+    return {
+        type: ADD_ANUGA_BOUNDARY
+    };
+}
+
+function addAnugaFriction() {
+    return {
+        type: ADD_ANUGA_FRICTION
+    };
+}
+
+function addAnugaInflow() {
+    return {
+        type: ADD_ANUGA_INFLOW
+    };
+}
+
+function addAnugaStructure() {
+    return {
+        type: ADD_ANUGA_STRUCTURE
+    };
+}
+
+function addAnugaMeshRegion() {
+    return {
+        type: ADD_ANUGA_MESH_REGION
+    };
+}
+
 function setAnugaElevationData(data) {
     return {
         type: SET_ANUGA_ELEVATION_DATA,
@@ -348,6 +383,11 @@ module.exports = {
     CREATE_ANUGA_INFLOW, createAnugaInflow,
     CREATE_ANUGA_STRUCTURE, createAnugaStructure,
     CREATE_ANUGA_MESH_REGION, createAnugaMeshRegion,
+    ADD_ANUGA_BOUNDARY, addAnugaBoundary,
+    ADD_ANUGA_FRICTION, addAnugaFriction,
+    ADD_ANUGA_INFLOW, addAnugaInflow,
+    ADD_ANUGA_STRUCTURE, addAnugaStructure,
+    ADD_ANUGA_MESH_REGION, addAnugaMeshRegion,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,

@@ -12,6 +12,11 @@ import {
     CREATE_ANUGA_INFLOW,
     CREATE_ANUGA_STRUCTURE,
     CREATE_ANUGA_MESH_REGION,
+    ADD_ANUGA_BOUNDARY,
+    ADD_ANUGA_FRICTION,
+    ADD_ANUGA_INFLOW,
+    ADD_ANUGA_STRUCTURE,
+    ADD_ANUGA_MESH_REGION,
     CANCEL_ANUGA_RUN,
     RUN_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO,
@@ -20,6 +25,11 @@ import {
     START_ANUGA_ELEVATION_POLLING,
     STOP_ANUGA_ELEVATION_POLLING,
     DELETE_ANUGA_SCENARIO,
+    addAnugaBoundary,
+    addAnugaFriction,
+    addAnugaInflow,
+    addAnugaStructure,
+    addAnugaMeshRegion,
     setAnugaScenarioData,
     setAnugaScenarioResultsLoaded,
     setAnugaPollingData,
@@ -114,9 +124,14 @@ export const pollAnugaElevationEpic = (action$, store) =>
                 )
                 .switchMap(response => {
                     if (response.data?.length < 2) {
-                        return Rx.Observable.empty();
+                        return Rx.Observable.concat(
+                            Rx.Observable.of(addAnugaBoundary()),
+                            Rx.Observable.of(addAnugaFriction()),
+                            Rx.Observable.of(addAnugaStructure()),
+                            Rx.Observable.of(addAnugaInflow()),
+                            Rx.Observable.of(addAnugaMeshRegion())
+                        );
                     }
-                    console.log('adding elevations:', response.data);
                     return Rx.Observable.concat(
                         Rx.Observable.of(addLayer(response.data[0])),  // The elevation
                         Rx.Observable.of(addLayer(response.data?.[1])),  // The hillshade
@@ -201,14 +216,14 @@ export const pollAnugaScenarioEpic = (action$, store) =>
 export const deleteAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(DELETE_ANUGA_SCENARIO)
-        .concatMap((action) => Rx.Observable.from(axios.delete(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`)))
+        .concatMap((action) => Rx.Observable.from(axios.delete(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/`)))
         .concatMap((response) => Rx.Observable.of(deleteAnugaScenarioSuccess(response.data)));
 
 
 export const runAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
-        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/run/`, action.scenario)))
+        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/run/`, action.scenario)))
         .concatMap((response) => Rx.Observable.of(
             runAnugaScenarioSuccess(response.data),
             setAnugaScenarioMenu(true)
@@ -217,7 +232,7 @@ export const runAnugaScenarioEpic = (action$, store) =>
 export const cancelAnugaRunEpic = (action$, store) =>
     action$
         .ofType(CANCEL_ANUGA_RUN)
-        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/cancel/`, {"runId": action.scenario.latest_run.id})))
+        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/cancel/`, {"runId": action.scenario.latest_run.id})))
         .concatMap((response) => Rx.Observable.of(show({"message": "cancelling..."}, "warning")));
 
 
@@ -226,9 +241,9 @@ export const saveAnugaScenarioEpic = (action$, store) =>
         .ofType(SAVE_ANUGA_SCENARIO)
         .concatMap((action) => {
             if (action.scenario.id) {
-                return Rx.Observable.from(axios.put(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/${action.scenario.id}/`, action.scenario));
+                return Rx.Observable.from(axios.put(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/`, action.scenario));
             }
-            return Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/scenario/`, action.scenario));
+            return Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/`, action.scenario));
         })
         .concatMap((response) => Rx.Observable.of(
             saveAnugaScenarioSuccess(response.data),
@@ -240,25 +255,29 @@ export const createAnugaBoundaryEpic = (action$, store) =>
         .ofType(CREATE_ANUGA_BOUNDARY)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/`, {
                     "project": store.getState()?.anuga?.project?.id,
                     "title": action.boundaryTitle
                 }))
-                .switchMap(() =>
-                    Rx.Observable
-                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/boundary/available/`))
-                        .switchMap((response) => {
-                            if (response.data?.length === 0) {
-                                return Rx.Observable.empty();
-                            }
-                            return Rx.Observable.concat(
-                                Rx.Observable.of(addLayer(response.data[0])),
-                                Rx.Observable.of(saveDirectContent()),
-                                Rx.Observable.of(initAnuga()),
-                                Rx.Observable.of(setCreatingAnugaLayer(false))
-                            );
-                        })
-                )
+        );
+
+export const addAnugaBoundaryEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_BOUNDARY)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/available/`))
+                .switchMap((response) => {
+                    if (response.data?.length === 0) {
+                        return Rx.Observable.empty();
+                    }
+                    return Rx.Observable.concat(
+                        Rx.Observable.of(addLayer(response.data[0])),
+                        // Rx.Observable.of(saveDirectContent()),
+                        Rx.Observable.of(initAnuga()),
+                        Rx.Observable.of(setCreatingAnugaLayer(false))
+                    );
+                })
         );
 
 export const createAnugaFrictionEpic = (action$, store) =>
@@ -266,25 +285,29 @@ export const createAnugaFrictionEpic = (action$, store) =>
         .ofType(CREATE_ANUGA_FRICTION)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/friction/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/`, {
                     "project": store.getState()?.anuga?.project?.id,
                     "title": action.frictionTitle
                 }))
-                .switchMap(() =>
-                    Rx.Observable
-                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/friction/available/`))
-                        .switchMap((response) => {
-                            if (response.data?.length === 0) {
-                                return Rx.Observable.empty();
-                            }
-                            return Rx.Observable.concat(
-                                Rx.Observable.of(addLayer(response.data[0])),
-                                Rx.Observable.of(saveDirectContent()),
-                                Rx.Observable.of(initAnuga()),
-                                Rx.Observable.of(setCreatingAnugaLayer(false))
-                            );
-                        })
-                )
+        );
+
+export const addAnugaFrictionEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_FRICTION)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/available/`))
+                .switchMap((response) => {
+                    if (response.data?.length === 0) {
+                        return Rx.Observable.empty();
+                    }
+                    return Rx.Observable.concat(
+                        Rx.Observable.of(addLayer(response.data[0])),
+                        // Rx.Observable.of(saveDirectContent()),
+                        Rx.Observable.of(initAnuga()),
+                        Rx.Observable.of(setCreatingAnugaLayer(false))
+                    );
+                })
         );
 
 export const createAnugaInflowEpic = (action$, store) =>
@@ -292,25 +315,29 @@ export const createAnugaInflowEpic = (action$, store) =>
         .ofType(CREATE_ANUGA_INFLOW)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/inflow/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/`, {
                     "project": store.getState()?.anuga?.project?.id,
                     "title": action.inflowTitle
                 }))
-                .switchMap(() =>
-                    Rx.Observable
-                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/inflow/available/`))
-                        .switchMap((response) => {
-                            if (response.data?.length === 0) {
-                                return Rx.Observable.empty();
-                            }
-                            return Rx.Observable.concat(
-                                Rx.Observable.of(addLayer(response.data[0])),
-                                Rx.Observable.of(saveDirectContent()),
-                                Rx.Observable.of(initAnuga()),
-                                Rx.Observable.of(setCreatingAnugaLayer(false))
-                            );
-                        })
-                )
+        );
+
+export const addAnugaInflowEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_INFLOW)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/available/`))
+                .switchMap((response) => {
+                    if (response.data?.length === 0) {
+                        return Rx.Observable.empty();
+                    }
+                    return Rx.Observable.concat(
+                        Rx.Observable.of(addLayer(response.data[0])),
+                        // Rx.Observable.of(saveDirectContent()),
+                        Rx.Observable.of(initAnuga()),
+                        Rx.Observable.of(setCreatingAnugaLayer(false))
+                    );
+                })
         );
 
 export const createAnugaStructureEpic = (action$, store) =>
@@ -318,25 +345,29 @@ export const createAnugaStructureEpic = (action$, store) =>
         .ofType(CREATE_ANUGA_STRUCTURE)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/structure/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/`, {
                     "project": store.getState()?.anuga?.project?.id,
                     "title": action.structureTitle
                 }))
-                .switchMap(() =>
-                    Rx.Observable
-                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/structure/available/`))
-                        .switchMap((response) => {
-                            if (response.data?.length === 0) {
-                                return Rx.Observable.empty();
-                            }
-                            return Rx.Observable.concat(
-                                Rx.Observable.of(addLayer(response.data[0])),
-                                Rx.Observable.of(saveDirectContent()),
-                                Rx.Observable.of(initAnuga()),
-                                Rx.Observable.of(setCreatingAnugaLayer(false))
-                            );
-                        })
-                )
+        );
+
+export const addAnugaStructureEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_STRUCTURE)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/available/`))
+                .switchMap((response) => {
+                    if (response.data?.length === 0) {
+                        return Rx.Observable.empty();
+                    }
+                    return Rx.Observable.concat(
+                        Rx.Observable.of(addLayer(response.data[0])),
+                        // Rx.Observable.of(saveDirectContent()),
+                        Rx.Observable.of(initAnuga()),
+                        Rx.Observable.of(setCreatingAnugaLayer(false))
+                    );
+                })
         );
 
 export const createAnugaMeshRegionEpic = (action$, store) =>
@@ -344,25 +375,29 @@ export const createAnugaMeshRegionEpic = (action$, store) =>
         .ofType(CREATE_ANUGA_MESH_REGION)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.project?.id}/mesh-region/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/`, {
                     "project": store.getState()?.anuga?.project?.id,
                     "title": action.meshRegionTitle
                 }))
-                .switchMap(() =>
-                    Rx.Observable
-                        .from(axios.get(`/anuga/api/${store.getState()?.anuga?.project?.id}/mesh-region/available/`))
-                        .switchMap((response) => {
-                            if (response.data?.length === 0) {
-                                return Rx.Observable.empty();
-                            }
-                            return Rx.Observable.concat(
-                                Rx.Observable.of(addLayer(response.data[0])),
-                                Rx.Observable.of(saveDirectContent()),
-                                Rx.Observable.of(initAnuga()),
-                                Rx.Observable.of(setCreatingAnugaLayer(false))
-                            );
-                        })
-                )
+        );
+
+export const addAnugaMeshRegionEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_MESH_REGION)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/available/`))
+                .switchMap((response) => {
+                    if (response.data?.length === 0) {
+                        return Rx.Observable.empty();
+                    }
+                    return Rx.Observable.concat(
+                        Rx.Observable.of(addLayer(response.data[0])),
+                        // Rx.Observable.of(saveDirectContent()),
+                        Rx.Observable.of(initAnuga()),
+                        Rx.Observable.of(setCreatingAnugaLayer(false))
+                    );
+                })
         );
 
 
