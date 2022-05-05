@@ -3,7 +3,8 @@ import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 
 import {setVisibleIntroduction} from "../actionsSimpleView";
-import {Modal, Button} from "react-bootstrap";
+import Modal from "../../../../../MapStore2/web/client/components/misc/Modal";
+import Button from "../../../../../MapStore2/web/client/components/misc/Button";
 
 class simpleViewIntroduction extends React.Component {
     static propTypes = {
@@ -53,6 +54,7 @@ class simpleViewIntroduction extends React.Component {
                         <Button
                             onClick={() => this.props.setVisibleIntroduction(false)}
                             bsStyle="primary"
+                            style={{marginLeft: "45%"}}
                         >
                             Accept
                         </Button>
