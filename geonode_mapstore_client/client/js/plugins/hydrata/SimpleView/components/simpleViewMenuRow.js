@@ -17,7 +17,7 @@ class MenuRowClass extends React.Component {
         toggleLayer: PropTypes.func,
         setOpacity: PropTypes.func,
         setOpenMenuGroupId: PropTypes.func,
-        canEdit: PropTypes.bool,
+        canEditMap: PropTypes.bool,
         editLayer: PropTypes.func,
         featureTypeSelected: PropTypes.func,
         browseData: PropTypes.func,
@@ -50,7 +50,7 @@ class MenuRowClass extends React.Component {
                         onClick={() => {this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);}}
                     />
                     {
-                        this.props.canEdit ?
+                        this.props.canEditMap && this.canEdit(this.props.layer) ?
                             <span
                                 className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
                                 style={{"color": "grey"}}
@@ -87,15 +87,16 @@ class MenuRowClass extends React.Component {
             </div>
         );
     }
+    canEdit = (layer) => layer?.perms?.includes("change_dataset_data") && layer?.perms?.includes("change_resourcebase")
 }
 
 const mapStateToProps = (state) => {
     // TODO: move this check to within localConfig.json
     const excludedSites = ["theswamm.com"];
     const isExcludedSite = excludedSites.map(site => !state?.gnsettings?.geonodeUrl.includes(site)).includes(false);
-    const canEdit = !isExcludedSite && state?.gnresource?.permissions?.canEdit;
+    console.log('state?.gnresource?.initialResource?.perms?.includes(\'change_resourcebase\'):', state?.gnresource?.initialResource?.perms?.includes('change_resourcebase'));
     return {
-        canEdit: canEdit
+        canEditMap: !isExcludedSite && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase')
     };
 };
 
