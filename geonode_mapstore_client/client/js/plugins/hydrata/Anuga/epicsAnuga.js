@@ -255,7 +255,7 @@ export const createAnugaBoundaryEpic = (action$, store) =>
         .switchMap((action) =>
             Rx.Observable
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/`, {
-                    "project": store.getState()?.anuga?.project?.id,
+                    "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.boundaryTitle
                 }))
         );
@@ -289,7 +289,7 @@ export const createAnugaFrictionEpic = (action$, store) =>
         .switchMap((action) =>
             Rx.Observable
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/`, {
-                    "project": store.getState()?.anuga?.project?.id,
+                    "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.frictionTitle
                 }))
         );
@@ -323,7 +323,7 @@ export const createAnugaInflowEpic = (action$, store) =>
         .switchMap((action) =>
             Rx.Observable
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/`, {
-                    "project": store.getState()?.anuga?.project?.id,
+                    "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.inflowTitle
                 }))
         );
@@ -357,7 +357,7 @@ export const createAnugaStructureEpic = (action$, store) =>
         .switchMap((action) =>
             Rx.Observable
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/`, {
-                    "project": store.getState()?.anuga?.project?.id,
+                    "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.structureTitle
                 }))
         );
@@ -391,7 +391,7 @@ export const createAnugaMeshRegionEpic = (action$, store) =>
         .switchMap((action) =>
             Rx.Observable
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/`, {
-                    "project": store.getState()?.anuga?.project?.id,
+                    "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.meshRegionTitle
                 }))
         );

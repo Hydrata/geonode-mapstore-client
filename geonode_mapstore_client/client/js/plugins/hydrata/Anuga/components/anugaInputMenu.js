@@ -120,7 +120,7 @@ class AnugaInputMenuClass extends React.Component {
                                 >
                                     <span className="pull-left menu-row-text">Boundaries</span>
                                     <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-edit${this.state.boundaryTitle ? "" : " disabled"}`}
+                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.boundaryTitle ? "" : " disabled"}`}
                                         style={{
                                             "color": "limegreen",
                                             "fontSize": "smaller",
@@ -157,7 +157,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.boundaries?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No boundaries available
+                                            ...Creating default Boundary
                                         </div>
                                         : null
                                 }
@@ -180,7 +180,7 @@ class AnugaInputMenuClass extends React.Component {
                                 >
                                     <span className="pull-left menu-row-text">Friction Maps</span>
                                     <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-edit${this.state.frictionTitle ? "" : " disabled"}`}
+                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.frictionTitle ? "" : " disabled"}`}
                                         style={{
                                             "color": "limegreen",
                                             "fontSize": "smaller",
@@ -221,7 +221,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.frictions?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No friction maps available
+                                            ...Creating default Friction Map
                                         </div>
                                         : null
                                 }
@@ -244,7 +244,7 @@ class AnugaInputMenuClass extends React.Component {
                                 >
                                     <span className="pull-left menu-row-text">Inflows</span>
                                     <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-edit${this.state.inflowTitle ? "" : " disabled"}`}
+                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.inflowTitle ? "" : " disabled"}`}
                                         style={{
                                             "color": "limegreen",
                                             "fontSize": "smaller",
@@ -285,7 +285,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.inflows?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No inflows available
+                                            ...Creating default Inflows
                                         </div>
                                         : null
                                 }
@@ -308,7 +308,7 @@ class AnugaInputMenuClass extends React.Component {
                                 >
                                     <span className="pull-left menu-row-text">Structures</span>
                                     <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-edit${this.state.structureTitle ? "" : " disabled"}`}
+                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.structureTitle ? "" : " disabled"}`}
                                         style={{
                                             "color": "limegreen",
                                             "fontSize": "smaller",
@@ -349,7 +349,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.structures?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No structures available
+                                            ...Creating default Structures
                                         </div>
                                         : null
                                 }
@@ -372,7 +372,7 @@ class AnugaInputMenuClass extends React.Component {
                                 >
                                     <span className="pull-left menu-row-text">Mesh Regions</span>
                                     <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-edit${this.state.meshRegionTitle ? "" : " disabled"}`}
+                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.meshRegionTitle ? "" : " disabled"}`}
                                         style={{
                                             "color": "limegreen",
                                             "fontSize": "smaller",
@@ -413,7 +413,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.meshRegions?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            No Mesh Regions available
+                                            ...Creating default Mesh Region
                                         </div>
                                         : null
                                 }
