@@ -91,7 +91,7 @@ class MenuRowClass extends React.Component {
         console.log('layer:', layer);
         console.log('layer?.perms?.indexOf("change_dataset_data") > -1 :', layer?.perms?.indexOf("change_dataset_data") > -1);
         console.log('layer?.perms?.indexOf("change_resourcebase") > -1 :', layer?.perms?.indexOf("change_resourcebase") > -1 );
-        return (layer?.perms?.indexOf("change_dataset_data") > -1 && layer?.perms?.indexOf("change_resourcebase") > -1 ) || true;
+        return (layer?.perms?.indexOf("change_dataset_data") > -1 && layer?.perms?.indexOf("change_resourcebase") > -1 );
     }
 }
 
