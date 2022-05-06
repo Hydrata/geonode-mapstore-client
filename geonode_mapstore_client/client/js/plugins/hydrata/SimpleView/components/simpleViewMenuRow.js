@@ -87,7 +87,12 @@ class MenuRowClass extends React.Component {
             </div>
         );
     }
-    canEdit = (layer) => layer?.perms?.includes("change_dataset_data") && layer?.perms?.includes("change_resourcebase")
+    canEdit = (layer) => {
+        console.log('layer:', layer);
+        console.log('layer?.perms?.indexOf("change_dataset_data") > -1 :', layer?.perms?.indexOf("change_dataset_data") > -1);
+        console.log('layer?.perms?.indexOf("change_resourcebase") > -1 :', layer?.perms?.indexOf("change_resourcebase") > -1 );
+        return (layer?.perms?.indexOf("change_dataset_data") > -1 && layer?.perms?.indexOf("change_resourcebase") > -1 );
+    }
 }
 
 const mapStateToProps = (state) => {
