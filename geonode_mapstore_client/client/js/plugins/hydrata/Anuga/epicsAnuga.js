@@ -271,7 +271,7 @@ export const addAnugaBoundaryEpic = (action$, store) =>
                     console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
-                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name)) {
+                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
                         return Rx.Observable.concat(
                             Rx.Observable.of(addLayer(response.data[0])),
                             // Rx.Observable.of(saveDirectContent()),
@@ -305,7 +305,7 @@ export const addAnugaFrictionEpic = (action$, store) =>
                     console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
-                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name)) {
+                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
                         return Rx.Observable.concat(
                             Rx.Observable.of(addLayer(response.data[0])),
                             // Rx.Observable.of(saveDirectContent()),
@@ -339,7 +339,7 @@ export const addAnugaInflowEpic = (action$, store) =>
                     console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
-                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name)) {
+                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
                         return Rx.Observable.concat(
                             Rx.Observable.of(addLayer(response.data[0])),
                             // Rx.Observable.of(saveDirectContent()),
@@ -373,7 +373,7 @@ export const addAnugaStructureEpic = (action$, store) =>
                     console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
-                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name)) {
+                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
                         return Rx.Observable.concat(
                             Rx.Observable.of(addLayer(response.data[0])),
                             // Rx.Observable.of(saveDirectContent()),
@@ -407,7 +407,7 @@ export const addAnugaMeshRegionEpic = (action$, store) =>
                     console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
-                    } else if (!store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name)) {
+                    } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
                         return Rx.Observable.concat(
                             Rx.Observable.of(addLayer(response.data[0])),
                             // Rx.Observable.of(saveDirectContent()),
