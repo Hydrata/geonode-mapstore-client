@@ -28,7 +28,9 @@ class MenuRowClass extends React.Component {
 
     constructor(props) {
         super(props);
-        this.state = {};
+        this.state = {
+            newLayerTitle: props.layer.title
+        };
     }
 
     render() {
@@ -51,21 +53,37 @@ class MenuRowClass extends React.Component {
                     />
                     {
                         this.props.canEditMap && this.canEdit(this.props.layer) ?
-                            <span
-                                className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
-                                style={{"color": "grey"}}
-                                onClick={() => {
-                                    this.props.closeFeatureGrid();
-                                    this.props.selectFeatures([]);
-                                    this.props.setOpenMenuGroupId(null);
-                                    this.props.setPermission({canEdit: true});
-                                    this.props.svSelectLayer(this.props.layer);
-                                    this.props.browseData(this.props.layer);
-                                }}
-                            />
-                            : null
+                            <React.Fragment>
+                                <span
+                                    className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
+                                    style={{"color": "grey"}}
+                                    onClick={() => {
+                                        this.props.closeFeatureGrid();
+                                        this.props.selectFeatures([]);
+                                        this.props.setOpenMenuGroupId(null);
+                                        this.props.setPermission({canEdit: true});
+                                        this.props.svSelectLayer(this.props.layer);
+                                        this.props.browseData(this.props.layer);
+                                    }}
+                                />
+                                <input
+                                    id={'boundary-input'}
+                                    key={'boundary-input'}
+                                    className={'data-title-input'}
+                                    type={'text'}
+                                    value={this.state.newLayerTitle}
+                                    onChange={(e) => this.setState({newLayerTitle: e.target.value})}
+                                />
+                                {this.props.layer.title === this.state.newLayerTitle ? null :
+                                    <span
+                                        className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk"}
+                                        style={{"color": "grey"}}
+                                        onClick={() => console.log('save new title here: ', this.state.newLayerTitle)}
+                                    />
+                                }
+                            </React.Fragment>
+                            : <span className="menu-row-text">{this.props.layer.title}</span>
                     }
-                    <span className="menu-row-text">{this.props.layer.title}</span>
                 </span>
                 {
                     (this.props.layer.opacity === 0 || this.props.layer.opacity) ?
