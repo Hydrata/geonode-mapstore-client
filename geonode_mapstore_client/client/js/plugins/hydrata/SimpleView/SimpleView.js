@@ -2,7 +2,8 @@ import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtil
 import simpleView from "./reducersSimpleView";
 import simpleViewContainer from "./components/simpleViewContainer";
 import {
-    beginEditLayerEpic
+    beginEditLayerEpic,
+    updateDatasetTitle
 } from "./epicsSimpleView";
 
 export default createPlugin('SimpleView', {
@@ -11,6 +12,7 @@ export default createPlugin('SimpleView', {
         simpleView
     },
     epics: {
-        beginEditLayerEpic
+        beginEditLayerEpic,
+        updateDatasetTitle
     }
 });

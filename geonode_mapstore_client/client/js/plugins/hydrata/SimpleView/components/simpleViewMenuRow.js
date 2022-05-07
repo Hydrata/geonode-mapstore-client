@@ -3,12 +3,11 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 const Slider = require('react-nouislider');
 
-import {changeLayerProperties, browseData} from "../../../../../MapStore2/web/client/actions/layers";
+import {changeLayerProperties, browseData, removeNode, removeLayer} from "../../../../../MapStore2/web/client/actions/layers";
 import '../simpleView.css';
-import {svSelectLayer, setOpenMenuGroupId} from '../actionsSimpleView';
+import {svSelectLayer, setOpenMenuGroupId, updateDatasetTitle} from '../actionsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
-
 
 class MenuRowClass extends React.Component {
     static propTypes = {
@@ -23,13 +22,16 @@ class MenuRowClass extends React.Component {
         browseData: PropTypes.func,
         setPermission: PropTypes.func,
         closeFeatureGrid: PropTypes.func,
-        selectFeatures: PropTypes.func
+        selectFeatures: PropTypes.func,
+        updateDatasetTitle: PropTypes.func,
+        removeNode: PropTypes.func,
+        removeLayer: PropTypes.func
     };
 
     constructor(props) {
         super(props);
         this.state = {
-            newLayerTitle: props.layer.title
+            newTitle: props.layer.title
         };
     }
 
@@ -67,48 +69,83 @@ class MenuRowClass extends React.Component {
                                     }}
                                 />
                                 <input
-                                    id={'boundary-input'}
-                                    key={'boundary-input'}
+                                    id={`input-${this.props.layer.name}`}
+                                    key={`input-key-${this.props.layer.name}`}
                                     className={'data-title-input'}
+                                    style={{"width": "240px", "float": "none"}}
                                     type={'text'}
-                                    value={this.state.newLayerTitle}
-                                    onChange={(e) => this.setState({newLayerTitle: e.target.value})}
+                                    value={this.state.newTitle}
+                                    onChange={(e) => this.setState({newTitle: e.target.value})}
                                 />
-                                {this.props.layer.title === this.state.newLayerTitle ? null :
+                                {this.props.layer.title === this.state.newTitle ? null :
                                     <span
                                         className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk"}
-                                        style={{"color": "grey"}}
-                                        onClick={() => console.log('save new title here: ', this.state.newLayerTitle)}
+                                        style={{"color": "limegreen", "float": "right", "marginLeft": "8px"}}
+                                        onClick={() => this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle)}
                                     />
                                 }
                             </React.Fragment>
                             : <span className="menu-row-text">{this.props.layer.title}</span>
                     }
                 </span>
-                {
-                    (this.props.layer.opacity === 0 || this.props.layer.opacity) ?
-                        <div className="mapstore-slider dataset-transparency with-tooltip" onClick={(e) => { e.stopPropagation(); }}>
-                            <Slider
-                                step={1}
-                                start={this.props.layer?.opacity * 100}
-                                range={{
-                                    min: 0,
-                                    max: 100
+                <span className={"pull-right .menu-row-button"}>
+                    {
+                        (this.props.canEditMap && this.canEdit(this.props.layer)) ?
+                            <span
+                                className={"btn glyphicon menu-row-glyph glyphicon-trash"}
+                                style={{"color": "red", "float": "right"}}
+                                onClick={() => {
+                                    this.props.removeNode(this.props.layer.id, 'layers');
+                                    this.props.removeLayer(this.props.layer.id);
                                 }}
-                                onChange={(values) => {
-                                    this.props.setOpacity(this.props.layer?.id, values);
-                                }}
-                            />
-                        </div> :
-                        null
-                }
+                            /> : null
+                    }
+                    {
+                        (this.props.layer.opacity === 0 || this.props.layer.opacity) ?
+                            <div
+                                className="mapstore-slider dataset-transparency with-tooltip"
+                                onClick={(e) => { e.stopPropagation();}}
+                                style={
+                                    (this.props.canEditMap && this.canEdit(this.props.layer)) ?
+                                        {
+                                            "display": "inline-block",
+                                            "float": "right",
+                                            "width": "200px",
+                                            "marginRight": "10px",
+                                            "marginLeft": "10px",
+                                            "marginBottom": "-10px",
+                                            "marginTop": "2px"
+                                        } :
+                                        {
+                                            "display": "inline-block",
+                                            "float": "right",
+                                            "width": "200px",
+                                            "marginRight": "40px",
+                                            "marginLeft": "10px",
+                                            "marginBottom": "-10px",
+                                            "marginTop": "2px"
+                                        }
+                                }
+                            >
+                                <Slider
+                                    step={1}
+                                    start={this.props.layer?.opacity * 100}
+                                    range={{
+                                        min: 0,
+                                        max: 100
+                                    }}
+                                    onChange={(values) => {
+                                        this.props.setOpacity(this.props.layer?.id, values);
+                                    }}
+                                />
+                            </div> :
+                            null
+                    }
+                </span>
             </div>
         );
     }
     canEdit = (layer) => {
-        console.log('layer:', layer);
-        console.log('layer?.perms?.indexOf("change_dataset_data") > -1 :', layer?.perms?.indexOf("change_dataset_data") > -1);
-        console.log('layer?.perms?.indexOf("change_resourcebase") > -1 :', layer?.perms?.indexOf("change_resourcebase") > -1 );
         return (layer?.perms?.indexOf("change_dataset_data") > -1 && layer?.perms?.indexOf("change_resourcebase") > -1 );
     }
 }
@@ -117,7 +154,6 @@ const mapStateToProps = (state) => {
     // TODO: move this check to within localConfig.json
     const excludedSites = ["theswamm.com"];
     const isExcludedSite = excludedSites.map(site => !state?.gnsettings?.geonodeUrl.includes(site)).includes(false);
-    console.log('state?.gnresource?.initialResource?.perms?.includes(\'change_resourcebase\'):', state?.gnresource?.initialResource?.perms?.includes('change_resourcebase'));
     return {
         canEditMap: !isExcludedSite && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase')
     };
@@ -133,7 +169,10 @@ const mapDispatchToProps = ( dispatch ) => {
         browseData: (layer) => dispatch(browseData(layer)),
         setPermission: (permission) => dispatch(setPermission(permission)),
         closeFeatureGrid: () => dispatch(closeFeatureGrid()),
-        selectFeatures: (features, append) => dispatch(selectFeatures(features, append))
+        selectFeatures: (features, append) => dispatch(selectFeatures(features, append)),
+        updateDatasetTitle: (datasetName, newTitle) => dispatch(updateDatasetTitle(datasetName, newTitle)),
+        removeNode: (nodeId, type) => dispatch(removeNode(nodeId, type)),
+        removeLayer: (layerId) => dispatch(removeLayer(layerId))
     };
 };
 

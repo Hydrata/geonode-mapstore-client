@@ -162,7 +162,21 @@
 
 .dataset-transparency {
     margin-left: 330px;
-    margin-top: 15px;
+}
+
+.data-title-input {
+    float: right;
+    margin-top: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    padding-left: 3px;
+    vertical-align: middle;
+    text-overflow: ellipsis ellipsis;
+    overflow: hidden;
+    border: white;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.22);
+    color: #f4f4f4;
 }
 
 .mapstore-slider.with-tooltip.dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {

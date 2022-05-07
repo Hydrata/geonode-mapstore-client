@@ -66,21 +66,6 @@
     color: #f4f4f4;
 }
 
-.data-title-input {
-    float: right;
-    margin-top: 3px;
-    font-size: 12px;
-    white-space: nowrap;
-    padding-left: 3px;
-    vertical-align: middle;
-    text-overflow: ellipsis ellipsis;
-    overflow: hidden;
-    border: white;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.22);
-    color: #f4f4f4;
-}
-
 .table-hover > tbody > tr:hover {
     background-color: #ffffff45;
 }
