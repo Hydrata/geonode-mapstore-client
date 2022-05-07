@@ -59,14 +59,6 @@ import {show} from '../../../../MapStore2/web/client/actions/notifications';
 export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA)
-        .filter((action) => {
-            console.log('initAnugaEpic', action, store.getState());
-            return action;
-        })
-        .filter((action) => {
-            console.log('initAnugaEpic2', action, store.getState()?.gnresource.id);
-            return action;
-        })
         .filter(() => store.getState()?.gnresource.id)
         .switchMap(() => Rx.Observable
             .from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id}))
@@ -100,13 +92,11 @@ export const initAnugaEpic = (action$, store) =>
                     )
                 )
                 .filter((setAnugaProjectDataAction) => {
-                    console.log('initAnugaEpic4 setAnugaProjectDataAction', setAnugaProjectDataAction);
                     return setAnugaProjectDataAction;
                 })
             )
         )
         .filter((response1) => {
-            console.log('initAnugaEpic3 final:', response1);
             return response1;
         });
 

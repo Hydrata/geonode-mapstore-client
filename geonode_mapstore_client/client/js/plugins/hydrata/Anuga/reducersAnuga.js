@@ -116,7 +116,6 @@ export default ( state = initialState, action) => {
             selectedScenario: action.scenario
         };
     case SET_ANUGA_PROJECT_DATA:
-        console.log('initAnugaEpic SET_ANUGA_PROJECT_DATA', action);
         return {
             ...state,
             projectData: action.data

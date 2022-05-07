@@ -366,30 +366,18 @@ class AnugaScenarioMenuClass extends React.Component {
     }
 
     handleTextChange = (e, scenario) => {
-        console.log('handleTextChange', e, scenario);
-        console.log('e.target', e.target);
-        console.log('e.target.value', e.target.value);
-        console.log('e.target.id', e.target.id);
         const kv = {};
         kv[e.target.id] = e.target.value;
         this.props.updateAnugaScenario(scenario, kv);
     }
 
     handleIntChange = (e, scenario) => {
-        console.log('handleIntChange', e, scenario);
-        console.log('e.target', e.target);
-        console.log('e.target.value', e.target.value);
-        console.log('e.target.id', e.target.id);
         const kv = {};
         kv[e.target.id] = parseInt(e.target.value, 10);
         this.props.updateAnugaScenario(scenario, kv);
     }
 
     handleNumberChange = (e, scenario) => {
-        console.log('handleNumberChange', e, scenario);
-        console.log('e.target', e.target);
-        console.log('e.target.value', e.target.value);
-        console.log('e.target.id', e.target.id);
         const kv = {};
         kv[e.target.id] = parseFloat(e.target.value);
         this.props.updateAnugaScenario(scenario, kv);
@@ -412,22 +400,18 @@ class AnugaScenarioMenuClass extends React.Component {
     };
 
     handleTimeChange = (event, scenario) => {
-        console.log('handleTimeChange', event);
         const kv = {
             tempTimeString: event.target.value
         };
-        console.log('kv', kv);
         this.props.updateAnugaScenario(scenario, kv);
     };
 
     handleTimeBlur = (event, scenario) => {
-        console.log('handleTimeBlur', event);
         const targetValue = event.target.value;
         const seconds = Math.max(0, this.getSecondsFromHHMMSS(targetValue));
         const kv = {};
         kv[event.target.id] = seconds;
         kv.tempTimeString = null;
-        console.log('kv', kv);
         this.props.updateAnugaScenario(scenario, kv);
     };
 }
@@ -450,7 +434,6 @@ const mapDispatchToProps = ( dispatch ) => {
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario)),
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
-        // buildAnugaScenario: (scenario) => dispatch(buildAnugaScenario(scenario)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
         showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),

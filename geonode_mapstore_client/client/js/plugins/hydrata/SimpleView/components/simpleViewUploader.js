@@ -144,7 +144,6 @@ class simpleViewUploaderPanel extends React.Component {
         return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
     };
     uploadFile = (file, fileType) => {
-        console.log('uploadFile started', file);
         this.setState(prevState => ({
             itemList: prevState.uploaderFiles.map(
                 fileToCheck => (fileToCheck.preview === file.preview ? Object.assign(fileToCheck, { status: "uploading" }) : fileToCheck)
@@ -162,7 +161,6 @@ class simpleViewUploaderPanel extends React.Component {
         axios
             .put(`${url}anuga/api/${this.props.projectId}/elevation/upload/`, data, this.uploadConfig)
             .then(response => {
-                console.log('upload response', response);
                 this.setState(prevState => ({
                     itemList: prevState.uploaderFiles.map(
                         fileToCheck => (fileToCheck.preview === file.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
