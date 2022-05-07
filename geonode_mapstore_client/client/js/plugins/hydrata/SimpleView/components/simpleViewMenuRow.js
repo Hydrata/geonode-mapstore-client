@@ -5,10 +5,10 @@ const Slider = require('react-nouislider');
 
 import {
     changeLayerProperties,
+    refreshlayerVersion,
     browseData,
     removeNode,
-    removeLayer,
-    refreshLayers
+    removeLayer
 } from "../../../../../MapStore2/web/client/actions/layers";
 import '../simpleView.css';
 import {svSelectLayer, setOpenMenuGroupId, updateDatasetTitle} from '../actionsSimpleView';
@@ -32,7 +32,7 @@ class MenuRowClass extends React.Component {
         updateDatasetTitle: PropTypes.func,
         removeNode: PropTypes.func,
         removeLayer: PropTypes.func,
-        refreshLayers: PropTypes.func
+        refreshlayerVersion: PropTypes.func
     };
 
     constructor(props) {
@@ -104,7 +104,7 @@ class MenuRowClass extends React.Component {
                                 onClick={() => {
                                     this.props.removeNode(this.props.layer.id, 'layers');
                                     this.props.removeLayer(this.props.layer.id);
-                                    this.props.refreshLayers([this.props.layer]);
+                                    this.props.refreshlayerVersion(this.props.layer.id);
                                 }}
                             /> : null
                     }
@@ -118,7 +118,7 @@ class MenuRowClass extends React.Component {
                                         {
                                             "display": "inline-block",
                                             "float": "right",
-                                            "width": "150px",
+                                            "width": "195px",
                                             "marginRight": "10px",
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
@@ -127,7 +127,7 @@ class MenuRowClass extends React.Component {
                                         {
                                             "display": "inline-block",
                                             "float": "right",
-                                            "width": "120px",
+                                            "width": "195px",
                                             "marginRight": "40px",
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
@@ -181,7 +181,7 @@ const mapDispatchToProps = ( dispatch ) => {
         updateDatasetTitle: (datasetName, newTitle) => dispatch(updateDatasetTitle(datasetName, newTitle)),
         removeNode: (nodeId, type) => dispatch(removeNode(nodeId, type)),
         removeLayer: (layerId) => dispatch(removeLayer(layerId)),
-        refreshLayers: (layers) => dispatch(refreshLayers(layers))
+        refreshlayerVersion: (layerId) => dispatch(refreshlayerVersion(layerId))
     };
 };
 

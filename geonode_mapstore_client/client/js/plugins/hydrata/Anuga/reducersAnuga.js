@@ -77,6 +77,7 @@ export default ( state = initialState, action) => {
                     "project": state?.projectData?.id,
                     "boundary": "",
                     "elevation": "",
+                    "log": "log placeholder",
                     "unsaved": false
                 }]
         };
