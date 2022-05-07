@@ -361,7 +361,7 @@ class AnugaInputMenuClass extends React.Component {
                             <div
                                 className={'menu-rows-container'}
                                 style={{
-                                    "border": "1px solid rgba(255, 255, 255, 1)",
+                                    "border": "1px solid rgba(255, 255, 255, 0.5)",
                                     "borderRadius": "3px",
                                     "margin": "3px 0"
                                 }}

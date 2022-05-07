@@ -3,7 +3,13 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 const Slider = require('react-nouislider');
 
-import {changeLayerProperties, browseData, removeNode, removeLayer} from "../../../../../MapStore2/web/client/actions/layers";
+import {
+    changeLayerProperties,
+    browseData,
+    removeNode,
+    removeLayer,
+    refreshLayers
+} from "../../../../../MapStore2/web/client/actions/layers";
 import '../simpleView.css';
 import {svSelectLayer, setOpenMenuGroupId, updateDatasetTitle} from '../actionsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
@@ -25,7 +31,8 @@ class MenuRowClass extends React.Component {
         selectFeatures: PropTypes.func,
         updateDatasetTitle: PropTypes.func,
         removeNode: PropTypes.func,
-        removeLayer: PropTypes.func
+        removeLayer: PropTypes.func,
+        refreshLayers: PropTypes.func
     };
 
     constructor(props) {
@@ -93,10 +100,11 @@ class MenuRowClass extends React.Component {
                         (this.props.canEditMap && this.canEdit(this.props.layer)) ?
                             <span
                                 className={"btn glyphicon menu-row-glyph glyphicon-trash"}
-                                style={{"color": "red", "float": "right"}}
+                                style={{"color": "darkred", "float": "right"}}
                                 onClick={() => {
                                     this.props.removeNode(this.props.layer.id, 'layers');
                                     this.props.removeLayer(this.props.layer.id);
+                                    this.props.refreshLayers([this.props.layer]);
                                 }}
                             /> : null
                     }
@@ -172,7 +180,8 @@ const mapDispatchToProps = ( dispatch ) => {
         selectFeatures: (features, append) => dispatch(selectFeatures(features, append)),
         updateDatasetTitle: (datasetName, newTitle) => dispatch(updateDatasetTitle(datasetName, newTitle)),
         removeNode: (nodeId, type) => dispatch(removeNode(nodeId, type)),
-        removeLayer: (layerId) => dispatch(removeLayer(layerId))
+        removeLayer: (layerId) => dispatch(removeLayer(layerId)),
+        refreshLayers: (layers) => dispatch(refreshLayers(layers))
     };
 };
 

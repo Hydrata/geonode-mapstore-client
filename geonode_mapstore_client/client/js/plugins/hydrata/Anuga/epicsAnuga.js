@@ -196,11 +196,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                             })
                         )
                 )
-        )
-        .filter((thingLast) => {
-            console.log('pollAnugaScenarioEpic thingLast', thingLast);
-            return thingLast;
-        });
+        );
 
 export const deleteAnugaScenarioEpic = (action$, store) =>
     action$
@@ -248,6 +244,9 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.boundaryTitle
                 }))
+                .switchMap(() => {
+                    return Rx.Observable.of(addAnugaBoundary());
+                })
         );
 
 export const addAnugaBoundaryEpic = (action$, store) =>
@@ -257,8 +256,6 @@ export const addAnugaBoundaryEpic = (action$, store) =>
             Rx.Observable
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/available/`))
                 .switchMap((response) => {
-                    console.log("test", response.data?.[0]);
-                    console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
                     } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
@@ -282,6 +279,9 @@ export const createAnugaFrictionEpic = (action$, store) =>
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.frictionTitle
                 }))
+                .switchMap(() => {
+                    return Rx.Observable.of(addAnugaFriction());
+                })
         );
 
 export const addAnugaFrictionEpic = (action$, store) =>
@@ -291,8 +291,6 @@ export const addAnugaFrictionEpic = (action$, store) =>
             Rx.Observable
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/available/`))
                 .switchMap((response) => {
-                    console.log("test", response.data?.[0]);
-                    console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
                     } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
@@ -316,6 +314,9 @@ export const createAnugaInflowEpic = (action$, store) =>
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.inflowTitle
                 }))
+                .switchMap(() => {
+                    return Rx.Observable.of(addAnugaInflow());
+                })
         );
 
 export const addAnugaInflowEpic = (action$, store) =>
@@ -325,8 +326,6 @@ export const addAnugaInflowEpic = (action$, store) =>
             Rx.Observable
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/available/`))
                 .switchMap((response) => {
-                    console.log("test", response.data?.[0]);
-                    console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
                     } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
@@ -350,6 +349,9 @@ export const createAnugaStructureEpic = (action$, store) =>
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.structureTitle
                 }))
+                .switchMap(() => {
+                    return Rx.Observable.of(addAnugaStructure());
+                })
         );
 
 export const addAnugaStructureEpic = (action$, store) =>
@@ -359,8 +361,6 @@ export const addAnugaStructureEpic = (action$, store) =>
             Rx.Observable
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/available/`))
                 .switchMap((response) => {
-                    console.log("test", response.data?.[0]);
-                    console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
                     } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
@@ -384,6 +384,9 @@ export const createAnugaMeshRegionEpic = (action$, store) =>
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.meshRegionTitle
                 }))
+                .switchMap(() => {
+                    return Rx.Observable.of(addAnugaMeshRegion());
+                })
         );
 
 export const addAnugaMeshRegionEpic = (action$, store) =>
@@ -393,8 +396,6 @@ export const addAnugaMeshRegionEpic = (action$, store) =>
             Rx.Observable
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/available/`))
                 .switchMap((response) => {
-                    console.log("test", response.data?.[0]);
-                    console.log("test: ", store.getState().layers.flat.filter(layer => layer.name === response.data?.[0]?.name));
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
                     } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {

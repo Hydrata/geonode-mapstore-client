@@ -120,11 +120,9 @@
 }
 
 .menu-rows-container {
-    border-top: 1px solid #ffffffad;
 }
 
 .menu-row {
-    border-bottom: 1px solid #ffffffad;
     padding-left: 5px;
     margin: 0;
 }
