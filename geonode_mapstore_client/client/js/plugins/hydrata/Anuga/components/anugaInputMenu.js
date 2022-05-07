@@ -143,6 +143,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 id={'boundary-input'}
                                                 key={'boundary-input'}
                                                 className={'data-title-input'}
+                                                style={{marginTop: "3px", marginRight: "5px"}}
                                                 type={'text'}
                                                 value={this.state.boundaryTitle}
                                                 onChange={(e) => this.setState({boundaryTitle: e.target.value})}
@@ -207,6 +208,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 id={'friction-input'}
                                                 key={'friction-input'}
                                                 className={'data-title-input'}
+                                                style={{marginTop: "3px", marginRight: "5px"}}
                                                 type={'text'}
                                                 value={this.state.frictionTitle}
                                                 onChange={(e) => this.setState({frictionTitle: e.target.value})}
@@ -271,6 +273,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 id={'inflow-input'}
                                                 key={'inflow-input'}
                                                 className={'data-title-input'}
+                                                style={{marginTop: "3px", marginRight: "5px"}}
                                                 type={'text'}
                                                 value={this.state.inflowTitle}
                                                 onChange={(e) => this.setState({inflowTitle: e.target.value})}
@@ -335,6 +338,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 id={'structure-input'}
                                                 key={'structure-input'}
                                                 className={'data-title-input'}
+                                                style={{marginTop: "3px", marginRight: "5px"}}
                                                 type={'text'}
                                                 value={this.state.structureTitle}
                                                 onChange={(e) => this.setState({structureTitle: e.target.value})}
@@ -399,6 +403,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 id={'mesh-region-input'}
                                                 key={'mesh-region-input'}
                                                 className={'data-title-input'}
+                                                style={{marginTop: "3px", marginRight: "5px"}}
                                                 type={'text'}
                                                 value={this.state.meshRegionTitle}
                                                 onChange={(e) => this.setState({meshRegionTitle: e.target.value})}

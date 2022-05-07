@@ -72,7 +72,7 @@ class MenuRowClass extends React.Component {
                                     id={`input-${this.props.layer.name}`}
                                     key={`input-key-${this.props.layer.name}`}
                                     className={'data-title-input'}
-                                    style={{"width": "240px", "float": "none"}}
+                                    style={{"width": "160px", "float": "none"}}
                                     type={'text'}
                                     value={this.state.newTitle}
                                     onChange={(e) => this.setState({newTitle: e.target.value})}
@@ -110,7 +110,7 @@ class MenuRowClass extends React.Component {
                                         {
                                             "display": "inline-block",
                                             "float": "right",
-                                            "width": "200px",
+                                            "width": "150px",
                                             "marginRight": "10px",
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
@@ -119,7 +119,7 @@ class MenuRowClass extends React.Component {
                                         {
                                             "display": "inline-block",
                                             "float": "right",
-                                            "width": "200px",
+                                            "width": "120px",
                                             "marginRight": "40px",
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
