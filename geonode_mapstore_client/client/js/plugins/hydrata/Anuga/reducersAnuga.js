@@ -74,7 +74,7 @@ export default ( state = initialState, action) => {
                     "constant_rainfall": null,
                     "duration": null,
                     "status": "new",
-                    "project": state?.project?.id,
+                    "project": state?.projectData?.id,
                     "boundary": "",
                     "elevation": "",
                     "unsaved": false
