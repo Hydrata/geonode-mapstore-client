@@ -1695,7 +1695,8 @@
                         },
                         {
                             "type": "plugin",
-                            "name": "Share"
+                            "name": "Share",
+                            "labelId": "gnviewer.share"
                         },
                         {
                             "type": "plugin",
@@ -1717,10 +1718,6 @@
                         {
                             "type": "plugin",
                             "name": "Annotations"
-                        },
-                        {
-                            "type": "plugin",
-                            "name": "DatasetsCatalog"
                         }
                     ],
                     "rightMenuItems": [

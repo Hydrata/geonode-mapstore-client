@@ -61,7 +61,11 @@ export const initAnugaEpic = (action$, store) =>
         .ofType(INIT_ANUGA)
         .filter(() => store.getState()?.gnresource.id)
         .switchMap(() => Rx.Observable
-            .from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id}))
+            .from(
+                axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
+                    .catch((error) => {console.log('**', error); return 'error';})
+            )
+            .filter(response1 => response1 !== 'error')
             .switchMap(response1 => Rx.Observable
                 .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
                 .switchMap(response2 => Rx.Observable
