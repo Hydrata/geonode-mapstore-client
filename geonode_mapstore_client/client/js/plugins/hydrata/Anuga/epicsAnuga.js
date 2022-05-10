@@ -427,7 +427,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
         })
         .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
         .concatMap((action) => {
-            console.log('** action', action);
+            console.log('** CREATE_NEW_FEATURE action', action);
             const defaultPropertyMap = {
                 'geonode:bdy_': {
                     location: "External",
