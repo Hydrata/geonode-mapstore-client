@@ -28,22 +28,10 @@ class simpleViewIntroduction extends React.Component {
                 >
                     <Modal.Header closeButton>
                         <Modal.Title id="contained-modal-title-lg">
-                            Welcome to the HydrataHub preview!
+                            Welcome to Hydrata
                         </Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
-                        <p>This application is not ready for production use yet.</p>
-                        <p>
-                            We are currently working with a select number of projects to
-                            develop and improve the application.<br/><br/>
-                            Once this process is complete, we will notify you and invite you to
-                            create permanent projects.<br/><br/>
-                            Until then, feel free to try out the interface as much as you like - but
-                            do be aware we cannot guarantee data integrity until we formally launch the application.<br/><br/>
-                            Feedback is welcome via <a href="mailto:david.kennewell@hydrata.com">david.kennewell@hydrata.com</a>
-                        </p>
-                    </Modal.Body>
-                    <Modal.Footer style={{"textAlign": "left"}}>
                         <p style={{"fontSize": "small"}}>
                             The application is provided "as-is", without warranty of any kind, express or implied, including but not limited to
                             the warranties of merchantability, firness for a particular pupose and noninfringement. In no event shall the authors or
@@ -58,7 +46,7 @@ class simpleViewIntroduction extends React.Component {
                         >
                             Accept
                         </Button>
-                    </Modal.Footer>
+                    </Modal.Body>
                 </Modal>
             </div>
         );
