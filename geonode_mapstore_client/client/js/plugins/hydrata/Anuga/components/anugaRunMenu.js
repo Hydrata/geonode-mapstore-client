@@ -4,10 +4,11 @@ const PropTypes = require('prop-types');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
+    runAnugaScenario,
     showAnugaRunMenu,
     updateComputeInstance
 } from "../actionsAnuga";
-import {Button} from "react-bootstrap";
+import {Table, Button} from "react-bootstrap";
 
 class AnugaRunMenuClass extends React.Component {
     static propTypes = {
@@ -15,7 +16,8 @@ class AnugaRunMenuClass extends React.Component {
         showAnugaRunMenu: PropTypes.func,
         updateComputeInstance: PropTypes.func,
         computeInstances: PropTypes.array,
-        selectedScenario: PropTypes.object
+        selectedScenario: PropTypes.object,
+        runAnugaScenario: PropTypes.func
     };
 
     static defaultProps = {}
@@ -34,7 +36,7 @@ class AnugaRunMenuClass extends React.Component {
         return (
             <div id={'anuga-run-menu-container'}>
                 <h5 style={{marginLeft: "9px"}}>
-                    Scenario: {this.props.visibleAnugaRunMenu?.name}
+                    Scenario: {this.props.selectedScenario?.name}
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => this.props.showAnugaRunMenu(false)}
@@ -50,30 +52,56 @@ class AnugaRunMenuClass extends React.Component {
                     href={this.props.selectedScenario?.latest_run?.s3_package_url}
                     bsStyle={'success'}
                     bsSize={'xsmall'}
-                    style={{margin: "2px", borderRadius: "2px", position: "absolute", top: "40px", right: "28px"}}
+                    style={{margin: "2px", borderRadius: "2px", position: "absolute", top: "130px", left: "7px"}}
                 >
                     Download
                 </Button>
-                <hr/>
                 <div>
                     <h5 style={{marginLeft: "9px"}}>Available Run Servers:</h5>
-                    {
-                        this.props.computeInstances?.length > 0 ? this.props.computeInstances?.map(instance => {
-                            console.log('instance:', instance);
-                            return (
-                                <pre id={'anuga-compute-instance-menu'}>
-                                    <p>Name: {instance?.name}</p>
-                                    <p>Description: instance?.description}</p>
-                                    <p>CPUs Total: {instance?.cpus_total}</p>
-                                    <p>CPUs Available: {instance?.cpus_available}</p>
-                                    <p>Current Jobs: {instance?.currently_running}</p>
-                                </pre>
-                            );
-                        }) :
-                            <pre id={'anuga-compute-instance-menu'}>
-                                No servers available
-                            </pre>
-                    }
+                    <Table className={"run-server-table"}>
+                        <thead>
+                            <tr className={"run-server-table-header"}>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>CPUs Total</th>
+                                <th>CPUs Available</th>
+                                <th>Current Jobs</th>
+                                <th/>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {
+                                this.props.computeInstances?.length > 0 ? this.props.computeInstances?.map(instance => {
+                                    console.log('instance:', instance);
+                                    return (
+                                        <tr className={"run-server-table-row"}>
+                                            <td>{instance?.name}</td>
+                                            <td>{instance?.description}</td>
+                                            <td>{instance?.cpus_total}</td>
+                                            <td>{instance?.cpus_available}</td>
+                                            <td>{instance?.currently_running}</td>
+                                            <td>
+                                                <Button
+                                                    bsStyle={'success'}
+                                                    bsSize={'xsmall'}
+                                                    style={{margin: "2px", borderRadius: "2px"}}
+                                                    onClick={() => {
+                                                        this.props.runAnugaScenario(this.props.selectedScenario);
+                                                        this.props.showAnugaRunMenu(false);
+                                                    }}
+                                                >
+                                                    Log
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    );
+                                }) :
+                                    <tr className={"run-server-table-row"}>
+                                        No compute servers registered
+                                    </tr>
+                            }
+                        </tbody>
+                    </Table>
                 </div>
             </div>
         );
@@ -90,7 +118,8 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
-        updateComputeInstance: () => dispatch(updateComputeInstance())
+        updateComputeInstance: () => dispatch(updateComputeInstance()),
+        runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario))
     };
 };
 
