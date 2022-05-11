@@ -1983,8 +1983,8 @@
             },
             {
                 "name": "FeatureEditor",
-                "snapTool": false,
                 "cfg": {
+                    "snapTool": false,
                     "customEditorsOptions": {
                         "rules": [
                             {

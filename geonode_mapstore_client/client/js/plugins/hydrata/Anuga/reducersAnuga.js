@@ -8,6 +8,7 @@ import {
     SELECT_ANUGA_SCENARIO,
     ADD_ANUGA_SCENARIO,
     SHOW_ANUGA_SCENARIO_LOG,
+    SHOW_ANUGA_RUN_MENU,
     SAVE_ANUGA_SCENARIO_SUCCESS,
     SET_ANUGA_POLLING_DATA,
     SET_ANUGA_INFLOW_DATA,
@@ -96,6 +97,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             visibleAnugaScenarioLogId: action.scenarioId
+        };
+    case SHOW_ANUGA_RUN_MENU:
+        return {
+            ...state,
+            visibleAnugaRunMenu: action.visible
         };
     case SAVE_ANUGA_SCENARIO_SUCCESS:
         return {

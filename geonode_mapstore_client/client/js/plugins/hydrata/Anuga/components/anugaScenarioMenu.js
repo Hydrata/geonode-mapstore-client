@@ -15,7 +15,8 @@ import {
     setAnugaScenarioMenu,
     addAnugaScenario,
     stopAnugaScenarioPolling,
-    deleteAnugaScenario
+    deleteAnugaScenario,
+    showAnugaRunMenu
 } from "../actionsAnuga";
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -38,7 +39,8 @@ class AnugaScenarioMenuClass extends React.Component {
         stopAnugaScenarioPolling: PropTypes.func,
         addAnugaScenario: PropTypes.func,
         deleteAnugaScenario: PropTypes.func,
-        cancelAnugaRun: PropTypes.func
+        cancelAnugaRun: PropTypes.func,
+        showAnugaRunMenu: PropTypes.func
     };
 
     static defaultProps = {}
@@ -290,25 +292,14 @@ class AnugaScenarioMenuClass extends React.Component {
                                             </td>
                                             <td>
                                                 <Button
-                                                    download
-                                                    href={scenario?.latest_run?.s3_package_url}
-                                                    bsStyle={'success'}
-                                                    bsSize={'xsmall'}
-                                                    style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={this.findScenarioStatus(scenario) !== 'built' ? 'disabled' : null }
-                                                    onClick={() => console.log('downloading: ', scenario)}
-                                                >
-                                                    Download
-                                                </Button>
-                                            </td>
-                                            <td>
-                                                <Button
                                                     bsStyle={'success'}
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
                                                     className={this.findScenarioStatus(scenario) !== 'built' ? 'disabled' : null }
                                                     onClick={() => {
-                                                        this.props.runAnugaScenario(scenario);
+                                                        this.props.setAnugaScenarioMenu(false);
+                                                        this.props.selectAnugaScenario(scenario);
+                                                        this.props.showAnugaRunMenu(true);
                                                     }}
                                                 >
                                                     Run
@@ -320,6 +311,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
                                                     onClick={() => {
+                                                        this.props.selectAnugaScenario(scenario);
                                                         this.props.showAnugaScenarioLog(scenario.id);
                                                     }}
                                                 >
@@ -440,7 +432,8 @@ const mapDispatchToProps = ( dispatch ) => {
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
-        cancelAnugaRun: (scenario) => dispatch(cancelAnugaRun(scenario))
+        cancelAnugaRun: (scenario) => dispatch(cancelAnugaRun(scenario)),
+        showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible))
     };
 };
 

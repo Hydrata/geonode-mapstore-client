@@ -32,6 +32,7 @@ const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
 const DELETE_ANUGA_SCENARIO = 'DELETE_ANUGA_SCENARIO';
 const DELETE_ANUGA_SCENARIO_SUCCESS = 'DELETE_ANUGA_SCENARIO_SUCCESS';
 const SHOW_ANUGA_SCENARIO_LOG = 'SHOW_ANUGA_SCENARIO_LOG';
+const SHOW_ANUGA_RUN_MENU = 'SHOW_ANUGA_RUN_MENU';
 const START_ANUGA_SCENARIO_POLLING = 'START_ANUGA_SCENARIO_POLLING';
 const STOP_ANUGA_SCENARIO_POLLING = 'STOP_ANUGA_SCENARIO_POLLING';
 const START_ANUGA_ELEVATION_POLLING = 'START_ANUGA_ELEVATION_POLLING';
@@ -352,6 +353,13 @@ function showAnugaScenarioLog(scenarioId) {
     };
 }
 
+function showAnugaRunMenu(visible) {
+    return {
+        type: SHOW_ANUGA_RUN_MENU,
+        visible
+    };
+}
+
 function addAnugaScenario() {
     return {
         type: ADD_ANUGA_SCENARIO
@@ -400,6 +408,7 @@ module.exports = {
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario,
     SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,
+    SHOW_ANUGA_RUN_MENU, showAnugaRunMenu,
     START_ANUGA_SCENARIO_POLLING, startAnugaScenarioPolling,
     STOP_ANUGA_SCENARIO_POLLING, stopAnugaScenarioPolling,
     START_ANUGA_ELEVATION_POLLING, startAnugaElevationPolling,

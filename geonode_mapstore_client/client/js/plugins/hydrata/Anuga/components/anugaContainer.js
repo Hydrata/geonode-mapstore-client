@@ -18,6 +18,7 @@ import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 // import {updateCustomEditorsOptions} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import Introduction from "@js/plugins/hydrata/SimpleView/components/simpleViewIntroduction";
+import {AnugaRunMenu} from "@js/plugins/hydrata/Anuga/components/anugaRunMenu";
 
 class AnugaContainer extends React.Component {
     static propTypes = {
@@ -39,7 +40,8 @@ class AnugaContainer extends React.Component {
         stopAnugaScenarioPolling: PropTypes.func,
         updateCustomEditorsOptions: PropTypes.func,
         logText: PropTypes.string,
-        gnResourceLoaded: PropTypes.string
+        gnResourceLoaded: PropTypes.string,
+        visibleAnugaRunMenu: PropTypes.bool
     };
 
     static defaultProps = {
@@ -163,6 +165,11 @@ class AnugaContainer extends React.Component {
                             <AnugaScenarioLogViewer logText={this.props.logText}/>
                             : null
                     }
+                    {
+                        this.props.visibleAnugaRunMenu ?
+                            <AnugaRunMenu/>
+                            : null
+                    }
                     {this.props.visibleIntroduction ?
                         <Introduction />
                         : null
@@ -193,7 +200,8 @@ const mapStateToProps = (state) => {
         numberOfMenus: state?.layers?.groups?.length || 1,
         showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
         visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId,
-        visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true
+        visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
+        visibleAnugaRunMenu: state?.anuga?.visibleAnugaRunMenu
     };
 };
 
