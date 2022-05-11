@@ -57,7 +57,7 @@ class AnugaRunMenuClass extends React.Component {
                     Download
                 </Button>
                 <div>
-                    <Table className={"run-server-table"} striped bordered condensed hover>
+                    <Table className={"run-server-table"} bordered hover>
                         <thead>
                             <tr className={"run-server-table-header"}>
                                 <th>Server</th>
