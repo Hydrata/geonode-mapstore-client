@@ -25,6 +25,7 @@ import {
     START_ANUGA_ELEVATION_POLLING,
     STOP_ANUGA_ELEVATION_POLLING,
     DELETE_ANUGA_SCENARIO,
+    UPDATE_COMPUTE_INSTANCE,
     addAnugaBoundary,
     addAnugaFriction,
     addAnugaInflow,
@@ -41,7 +42,7 @@ import {
     setAnugaFrictionData,
     setAnugaScenarioMenu,
     setAnugaMeshRegionData,
-    stopAnugaElevationPolling,
+    updateComputeInstanceSuccess,
     startAnugaScenarioPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
@@ -411,6 +412,17 @@ export const addAnugaMeshRegionEpic = (action$, store) =>
                         );
                     }
                     return Rx.Observable.empty();
+                })
+        );
+
+export const updateComputeInstanceEpic = (action$, store) =>
+    action$
+        .ofType(UPDATE_COMPUTE_INSTANCE)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/compute-instance/`))
+                .switchMap((response) => {
+                    return Rx.Observable.of(updateComputeInstanceSuccess(response.data));
                 })
         );
 

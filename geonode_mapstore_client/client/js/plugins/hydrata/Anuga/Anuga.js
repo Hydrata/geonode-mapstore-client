@@ -19,7 +19,8 @@ import {
     addAnugaStructureEpic,
     addAnugaMeshRegionEpic,
     addAnugaBoundaryEpic,
-    prePopulateAnugaFeatureGridWithDefaults
+    prePopulateAnugaFeatureGridWithDefaults,
+    updateComputeInstanceEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -45,6 +46,7 @@ export default createPlugin('Anuga', {
         addAnugaStructureEpic,
         addAnugaMeshRegionEpic,
         addAnugaBoundaryEpic,
-        prePopulateAnugaFeatureGridWithDefaults
+        prePopulateAnugaFeatureGridWithDefaults,
+        updateComputeInstanceEpic
     }
 });

@@ -18,7 +18,8 @@ import {
     SET_ANUGA_MESH_REGION_DATA,
     SET_ANUGA_ELEVATION_DATA,
     SET_CREATING_ANUGA_LAYER,
-    SET_ANUGA_SCENARIO_IS_LOADED
+    SET_ANUGA_SCENARIO_IS_LOADED,
+    UPDATE_COMPUTE_INSTANCE_SUCCESS
 } from "./actionsAnuga";
 
 import {
@@ -149,6 +150,11 @@ export default ( state = initialState, action) => {
                 }
                 return scenario;
             })
+        };
+    case UPDATE_COMPUTE_INSTANCE_SUCCESS:
+        return {
+            ...state,
+            computeInstances: action.data
         };
     case SET_ANUGA_INFLOW_DATA:
         return {

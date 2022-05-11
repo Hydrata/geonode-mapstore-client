@@ -43,6 +43,8 @@ const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
 const CANCEL_ANUGA_RUN = 'CANCEL_ANUGA_RUN';
+const UPDATE_COMPUTE_INSTANCE = 'UPDATE_COMPUTE_INSTANCE';
+const UPDATE_COMPUTE_INSTANCE_SUCCESS = 'UPDATE_COMPUTE_INSTANCE_SUCCESS';
 
 
 function initAnuga() {
@@ -366,6 +368,19 @@ function addAnugaScenario() {
     };
 }
 
+function updateComputeInstance() {
+    return {
+        type: UPDATE_COMPUTE_INSTANCE
+    };
+}
+
+function updateComputeInstanceSuccess(data) {
+    return {
+        type: UPDATE_COMPUTE_INSTANCE_SUCCESS,
+        data
+    };
+}
+
 const selectAnugaScenario = (scenario) => {
     return {
         type: SELECT_ANUGA_SCENARIO,
@@ -415,8 +430,8 @@ module.exports = {
     STOP_ANUGA_ELEVATION_POLLING, stopAnugaElevationPolling,
     SET_ANUGA_POLLING_DATA, setAnugaPollingData,
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
-    // BUILD_ANUGA_SCENARIO, buildAnugaScenario,
-    // BUILD_ANUGA_SCENARIO_SUCCESS, buildAnugaScenarioSuccess,
     SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded,
-    CANCEL_ANUGA_RUN, cancelAnugaRun
+    CANCEL_ANUGA_RUN, cancelAnugaRun,
+    UPDATE_COMPUTE_INSTANCE, updateComputeInstance,
+    UPDATE_COMPUTE_INSTANCE_SUCCESS, updateComputeInstanceSuccess
 };

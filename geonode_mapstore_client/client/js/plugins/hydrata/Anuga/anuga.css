@@ -150,9 +150,25 @@
 }
 
 #anuga-run-menu {
+    color: black;
+    background: white;
     overflow-y: scroll;
     overflow-x: auto;
-    height: 70vh;
+    height: 10vh;
+    padding: 10px;
+    margin: 0 0 10px;
+    font-size: 12px;
+    white-space: pre-line;
+    word-break: break-all;
+    word-wrap: break-word;
+}
+
+#anuga-compute-instance-menu {
+    color: black;
+    background: white;
+    overflow-y: scroll;
+    overflow-x: auto;
+    height: 35vh;
     padding: 10px;
     margin: 0 0 10px;
     font-size: 12px;
