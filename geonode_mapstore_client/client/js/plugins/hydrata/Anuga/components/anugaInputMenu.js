@@ -20,6 +20,8 @@ import {
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
+import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
         projectData: PropTypes.object,
@@ -38,7 +40,8 @@ class AnugaInputMenuClass extends React.Component {
         meshRegions: PropTypes.array,
         startAnugaElevationPolling: PropTypes.func,
         isCreatingAnugaLayer: PropTypes.bool,
-        setCreatingAnugaLayer: PropTypes.func
+        setCreatingAnugaLayer: PropTypes.func,
+        canEditAnugaMap: PropTypes.func
     };
 
     static defaultProps = {}
@@ -119,35 +122,39 @@ class AnugaInputMenuClass extends React.Component {
                                     }}
                                 >
                                     <span className="pull-left menu-row-text">Boundaries</span>
-                                    <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.boundaryTitle ? "" : " disabled"}`}
-                                        style={{
-                                            "color": "limegreen",
-                                            "fontSize": "smaller",
-                                            "textAlign": "right",
-                                            "marginRight": "8px",
-                                            "float": "right"
-                                        }}
-                                        onClick={() => {
-                                            this.props.setCreatingAnugaLayer(true);
-                                            this.props.createAnugaBoundary(this.state.boundaryTitle);
-                                            this.setState({boundaryTitle: ''});
-                                        }}
-                                    />
-                                    {
-                                        this.props.isCreatingAnugaLayer ?
-                                            <span>
-                                                <Spinner color="white" style={{display: "inline-block", position: "absolute", right: "45px"}} spinnerName="circle" noFadeIn/>
-                                            </span> :
-                                            <input
-                                                id={'boundary-input'}
-                                                key={'boundary-input'}
-                                                className={'data-title-input'}
-                                                style={{marginTop: "3px", marginRight: "5px"}}
-                                                type={'text'}
-                                                value={this.state.boundaryTitle}
-                                                onChange={(e) => this.setState({boundaryTitle: e.target.value})}
+                                    {this.props.canEditAnugaMap ?
+                                        <React.Fragment>
+                                            <span
+                                                className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.boundaryTitle ? "" : " disabled"}`}
+                                                style={{
+                                                    "color": "limegreen",
+                                                    "fontSize": "smaller",
+                                                    "textAlign": "right",
+                                                    "marginRight": "8px",
+                                                    "float": "right"
+                                                }}
+                                                onClick={() => {
+                                                    this.props.setCreatingAnugaLayer(true);
+                                                    this.props.createAnugaBoundary(this.state.boundaryTitle);
+                                                    this.setState({boundaryTitle: ''});
+                                                }}
                                             />
+                                            {
+                                                this.props.isCreatingAnugaLayer ?
+                                                    <span>
+                                                        <Spinner color="white" style={{display: "inline-block", position: "absolute", right: "45px"}} spinnerName="circle" noFadeIn/>
+                                                    </span> :
+                                                    <input
+                                                        id={'boundary-input'}
+                                                        key={'boundary-input'}
+                                                        className={'data-title-input'}
+                                                        style={{marginTop: "3px", marginRight: "5px"}}
+                                                        type={'text'}
+                                                        value={this.state.boundaryTitle}
+                                                        onChange={(e) => this.setState({boundaryTitle: e.target.value})}
+                                                    />
+                                            }
+                                        </React.Fragment> : null
                                     }
                                 </div>
                                 {
@@ -180,39 +187,43 @@ class AnugaInputMenuClass extends React.Component {
                                     }}
                                 >
                                     <span className="pull-left menu-row-text">Friction Maps</span>
-                                    <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.frictionTitle ? "" : " disabled"}`}
-                                        style={{
-                                            "color": "limegreen",
-                                            "fontSize": "smaller",
-                                            "textAlign": "right",
-                                            "marginRight": "8px",
-                                            "float": "right"
-                                        }}
-                                        onClick={() => {
-                                            this.props.setCreatingAnugaLayer(true);
-                                            this.props.createAnugaFriction(this.state.frictionTitle);
-                                            this.setState({frictionTitle: ''});
-                                        }}
-                                    />
-                                    {
-                                        this.props.isCreatingAnugaLayer ?
-                                            <span>
-                                                <Spinner color="white" style={{
-                                                    display: "inline-block",
-                                                    position: "absolute",
-                                                    right: "45px"
-                                                }} spinnerName="circle" noFadeIn/>
-                                            </span> :
-                                            <input
-                                                id={'friction-input'}
-                                                key={'friction-input'}
-                                                className={'data-title-input'}
-                                                style={{marginTop: "3px", marginRight: "5px"}}
-                                                type={'text'}
-                                                value={this.state.frictionTitle}
-                                                onChange={(e) => this.setState({frictionTitle: e.target.value})}
+                                    {this.props.canEditAnugaMap ?
+                                        <React.Fragment>
+                                            <span
+                                                className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.frictionTitle ? "" : " disabled"}`}
+                                                style={{
+                                                    "color": "limegreen",
+                                                    "fontSize": "smaller",
+                                                    "textAlign": "right",
+                                                    "marginRight": "8px",
+                                                    "float": "right"
+                                                }}
+                                                onClick={() => {
+                                                    this.props.setCreatingAnugaLayer(true);
+                                                    this.props.createAnugaFriction(this.state.frictionTitle);
+                                                    this.setState({frictionTitle: ''});
+                                                }}
                                             />
+                                            {
+                                                this.props.isCreatingAnugaLayer ?
+                                                    <span>
+                                                        <Spinner color="white" style={{
+                                                            display: "inline-block",
+                                                            position: "absolute",
+                                                            right: "45px"
+                                                        }} spinnerName="circle" noFadeIn/>
+                                                    </span> :
+                                                    <input
+                                                        id={'friction-input'}
+                                                        key={'friction-input'}
+                                                        className={'data-title-input'}
+                                                        style={{marginTop: "3px", marginRight: "5px"}}
+                                                        type={'text'}
+                                                        value={this.state.frictionTitle}
+                                                        onChange={(e) => this.setState({frictionTitle: e.target.value})}
+                                                    />
+                                            }
+                                        </React.Fragment> : null
                                     }
                                 </div>
                                 {
@@ -245,39 +256,43 @@ class AnugaInputMenuClass extends React.Component {
                                     }}
                                 >
                                     <span className="pull-left menu-row-text">Inflows</span>
-                                    <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.inflowTitle ? "" : " disabled"}`}
-                                        style={{
-                                            "color": "limegreen",
-                                            "fontSize": "smaller",
-                                            "textAlign": "right",
-                                            "marginRight": "8px",
-                                            "float": "right"
-                                        }}
-                                        onClick={() => {
-                                            this.props.setCreatingAnugaLayer(true);
-                                            this.props.createAnugaInflow(this.state.inflowTitle);
-                                            this.setState({inflowTitle: ''});
-                                        }}
-                                    />
-                                    {
-                                        this.props.isCreatingAnugaLayer ?
-                                            <span>
-                                                <Spinner color="white" style={{
-                                                    display: "inline-block",
-                                                    position: "absolute",
-                                                    right: "45px"
-                                                }} spinnerName="circle" noFadeIn/>
-                                            </span> :
-                                            <input
-                                                id={'inflow-input'}
-                                                key={'inflow-input'}
-                                                className={'data-title-input'}
-                                                style={{marginTop: "3px", marginRight: "5px"}}
-                                                type={'text'}
-                                                value={this.state.inflowTitle}
-                                                onChange={(e) => this.setState({inflowTitle: e.target.value})}
+                                    {this.props.canEditAnugaMap ?
+                                        <React.Fragment>
+                                            <span
+                                                className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.inflowTitle ? "" : " disabled"}`}
+                                                style={{
+                                                    "color": "limegreen",
+                                                    "fontSize": "smaller",
+                                                    "textAlign": "right",
+                                                    "marginRight": "8px",
+                                                    "float": "right"
+                                                }}
+                                                onClick={() => {
+                                                    this.props.setCreatingAnugaLayer(true);
+                                                    this.props.createAnugaInflow(this.state.inflowTitle);
+                                                    this.setState({inflowTitle: ''});
+                                                }}
                                             />
+                                            {
+                                                this.props.isCreatingAnugaLayer ?
+                                                    <span>
+                                                        <Spinner color="white" style={{
+                                                            display: "inline-block",
+                                                            position: "absolute",
+                                                            right: "45px"
+                                                        }} spinnerName="circle" noFadeIn/>
+                                                    </span> :
+                                                    <input
+                                                        id={'inflow-input'}
+                                                        key={'inflow-input'}
+                                                        className={'data-title-input'}
+                                                        style={{marginTop: "3px", marginRight: "5px"}}
+                                                        type={'text'}
+                                                        value={this.state.inflowTitle}
+                                                        onChange={(e) => this.setState({inflowTitle: e.target.value})}
+                                                    />
+                                            }
+                                        </React.Fragment> : null
                                     }
                                 </div>
                                 {
@@ -310,39 +325,43 @@ class AnugaInputMenuClass extends React.Component {
                                     }}
                                 >
                                     <span className="pull-left menu-row-text">Structures</span>
-                                    <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.structureTitle ? "" : " disabled"}`}
-                                        style={{
-                                            "color": "limegreen",
-                                            "fontSize": "smaller",
-                                            "textAlign": "right",
-                                            "marginRight": "8px",
-                                            "float": "right"
-                                        }}
-                                        onClick={() => {
-                                            this.props.setCreatingAnugaLayer(true);
-                                            this.props.createAnugaStructure(this.state.structureTitle);
-                                            this.setState({structureTitle: ''});
-                                        }}
-                                    />
-                                    {
-                                        this.props.isCreatingAnugaLayer ?
-                                            <span>
-                                                <Spinner color="white" style={{
-                                                    display: "inline-block",
-                                                    position: "absolute",
-                                                    right: "45px"
-                                                }} spinnerName="circle" noFadeIn/>
-                                            </span> :
-                                            <input
-                                                id={'structure-input'}
-                                                key={'structure-input'}
-                                                className={'data-title-input'}
-                                                style={{marginTop: "3px", marginRight: "5px"}}
-                                                type={'text'}
-                                                value={this.state.structureTitle}
-                                                onChange={(e) => this.setState({structureTitle: e.target.value})}
+                                    {this.props.canEditAnugaMap ?
+                                        <React.Fragment>
+                                            <span
+                                                className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.structureTitle ? "" : " disabled"}`}
+                                                style={{
+                                                    "color": "limegreen",
+                                                    "fontSize": "smaller",
+                                                    "textAlign": "right",
+                                                    "marginRight": "8px",
+                                                    "float": "right"
+                                                }}
+                                                onClick={() => {
+                                                    this.props.setCreatingAnugaLayer(true);
+                                                    this.props.createAnugaStructure(this.state.structureTitle);
+                                                    this.setState({structureTitle: ''});
+                                                }}
                                             />
+                                            {
+                                                this.props.isCreatingAnugaLayer ?
+                                                    <span>
+                                                        <Spinner color="white" style={{
+                                                            display: "inline-block",
+                                                            position: "absolute",
+                                                            right: "45px"
+                                                        }} spinnerName="circle" noFadeIn/>
+                                                    </span> :
+                                                    <input
+                                                        id={'structure-input'}
+                                                        key={'structure-input'}
+                                                        className={'data-title-input'}
+                                                        style={{marginTop: "3px", marginRight: "5px"}}
+                                                        type={'text'}
+                                                        value={this.state.structureTitle}
+                                                        onChange={(e) => this.setState({structureTitle: e.target.value})}
+                                                    />
+                                            }
+                                        </React.Fragment> : null
                                     }
                                 </div>
                                 {
@@ -375,39 +394,43 @@ class AnugaInputMenuClass extends React.Component {
                                     }}
                                 >
                                     <span className="pull-left menu-row-text">Mesh Regions</span>
-                                    <span
-                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.meshRegionTitle ? "" : " disabled"}`}
-                                        style={{
-                                            "color": "limegreen",
-                                            "fontSize": "smaller",
-                                            "textAlign": "right",
-                                            "marginRight": "8px",
-                                            "float": "right"
-                                        }}
-                                        onClick={() => {
-                                            this.props.setCreatingAnugaLayer(true);
-                                            this.props.createAnugaMeshRegion(this.state.meshRegionTitle);
-                                            this.setState({meshRegionTitle: ''});
-                                        }}
-                                    />
-                                    {
-                                        this.props.isCreatingAnugaLayer ?
-                                            <span>
-                                                <Spinner color="white" style={{
-                                                    display: "inline-block",
-                                                    position: "absolute",
-                                                    right: "45px"
-                                                }} spinnerName="circle" noFadeIn/>
-                                            </span> :
-                                            <input
-                                                id={'mesh-region-input'}
-                                                key={'mesh-region-input'}
-                                                className={'data-title-input'}
-                                                style={{marginTop: "3px", marginRight: "5px"}}
-                                                type={'text'}
-                                                value={this.state.meshRegionTitle}
-                                                onChange={(e) => this.setState({meshRegionTitle: e.target.value})}
+                                    {this.props.canEditAnugaMap ?
+                                        <React.Fragment>
+                                            <span
+                                                className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.meshRegionTitle ? "" : " disabled"}`}
+                                                style={{
+                                                    "color": "limegreen",
+                                                    "fontSize": "smaller",
+                                                    "textAlign": "right",
+                                                    "marginRight": "8px",
+                                                    "float": "right"
+                                                }}
+                                                onClick={() => {
+                                                    this.props.setCreatingAnugaLayer(true);
+                                                    this.props.createAnugaMeshRegion(this.state.meshRegionTitle);
+                                                    this.setState({meshRegionTitle: ''});
+                                                }}
                                             />
+                                            {
+                                                this.props.isCreatingAnugaLayer ?
+                                                    <span>
+                                                        <Spinner color="white" style={{
+                                                            display: "inline-block",
+                                                            position: "absolute",
+                                                            right: "45px"
+                                                        }} spinnerName="circle" noFadeIn/>
+                                                    </span> :
+                                                    <input
+                                                        id={'mesh-region-input'}
+                                                        key={'mesh-region-input'}
+                                                        className={'data-title-input'}
+                                                        style={{marginTop: "3px", marginRight: "5px"}}
+                                                        type={'text'}
+                                                        value={this.state.meshRegionTitle}
+                                                        onChange={(e) => this.setState({meshRegionTitle: e.target.value})}
+                                                    />
+                                            }
+                                        </React.Fragment> : null
                                     }
                                 </div>
                                 {
@@ -440,7 +463,8 @@ const mapStateToProps = (state) => {
         inflows: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
         structures: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         meshRegions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
-        isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer
+        isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer,
+        canEditAnugaMap: canEditAnugaMap(state)
     };
 };
 
