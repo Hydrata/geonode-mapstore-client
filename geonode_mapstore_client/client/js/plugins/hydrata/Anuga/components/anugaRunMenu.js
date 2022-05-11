@@ -57,15 +57,17 @@ class AnugaRunMenuClass extends React.Component {
                     Download
                 </Button>
                 <div>
-                    <h5 style={{marginLeft: "9px"}}>Available Run Servers:</h5>
-                    <Table className={"run-server-table"}>
+                    <Table className={"run-server-table"} striped bordered condensed hover>
                         <thead>
                             <tr className={"run-server-table-header"}>
-                                <th>Name</th>
+                                <th>Server</th>
                                 <th>Description</th>
                                 <th>CPUs Total</th>
                                 <th>CPUs Available</th>
                                 <th>Current Jobs</th>
+                                <th>Rate ($/cpu/hour)</th>
+                                <th>Estimate (hours)</th>
+                                <th>Estimate ($)</th>
                                 <th/>
                             </tr>
                         </thead>
@@ -80,6 +82,9 @@ class AnugaRunMenuClass extends React.Component {
                                             <td>{instance?.cpus_total}</td>
                                             <td>{instance?.cpus_available}</td>
                                             <td>{instance?.currently_running}</td>
+                                            <td>-</td>
+                                            <td>-</td>
+                                            <td>-</td>
                                             <td>
                                                 <Button
                                                     bsStyle={'success'}
@@ -90,7 +95,7 @@ class AnugaRunMenuClass extends React.Component {
                                                         this.props.showAnugaRunMenu(false);
                                                     }}
                                                 >
-                                                    Log
+                                                    Run
                                                 </Button>
                                             </td>
                                         </tr>
