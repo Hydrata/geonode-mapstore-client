@@ -81,9 +81,9 @@ function SaveButton({
                 (event || window.event).returnValue = null;
             }
         }
-        window.addEventListener('beforeunload', onBeforeUnload);
+        // window.addEventListener('beforeunload', onBeforeUnload);
         return () => {
-            window.removeEventListener('beforeunload', onBeforeUnload);
+            // window.removeEventListener('beforeunload', onBeforeUnload);
             const isLocationChanged = prevPathname !== history?.location?.pathname;
             if (isLocationChanged && dirtyState.current) {
                 const confirmed = window.confirm(getMessageById(messages, 'gnviewer.prompPendingChanges')); // eslint-disable-line no-alert
@@ -99,7 +99,7 @@ function SaveButton({
 
     return enabled
         ? <Button
-            variant={dirtyStateProp ? 'warning' : (variant || "primary")}
+            variant={dirtyStateProp ? 'danger' : (variant || "primary")}
             size={size}
             onClick={() => onClick()}
             disabled={loading}
