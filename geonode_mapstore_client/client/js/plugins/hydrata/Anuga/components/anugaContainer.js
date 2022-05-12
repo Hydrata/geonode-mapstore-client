@@ -10,6 +10,7 @@ import {
     startAnugaScenarioPolling,
     stopAnugaScenarioPolling
 } from '../actionsAnuga';
+import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import {AnugaInputMenu} from './AnugaInputMenu';
 import {AnugaScenarioMenu} from './AnugaScenarioMenu';
 import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
@@ -41,7 +42,8 @@ class AnugaContainer extends React.Component {
         updateCustomEditorsOptions: PropTypes.func,
         logText: PropTypes.string,
         gnResourceLoaded: PropTypes.string,
-        visibleAnugaRunMenu: PropTypes.bool
+        visibleAnugaRunMenu: PropTypes.bool,
+        canEditAnugaMap: PropTypes.bool
     };
 
     static defaultProps = {
@@ -141,25 +143,29 @@ class AnugaContainer extends React.Component {
                             <AnugaInputMenu/>
                             : null
                     }
-                    <div id={"anuga-scenario"}>
-                        <button
-                            key="anuga-scenario-button"
-                            className={'simple-view-menu-button'}
-                            style={{left: (this.props.numberOfMenus * 100) + 120}}
-                            onClick={() => {
-                                this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
-                                this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
-                                this.props.setOpenMenuGroupId(null);
-                            }}
-                        >
-                            Scenarios
-                        </button>
-                        {
-                            this.props.showAnugaScenarioMenu ?
-                                <AnugaScenarioMenu/>
-                                : null
-                        }
-                    </div>
+                    {
+                        this.props.canEditAnugaMap ?
+                            <div id={"anuga-scenario"}>
+                                <button
+                                    key="anuga-scenario-button"
+                                    className={'simple-view-menu-button'}
+                                    style={{left: (this.props.numberOfMenus * 100) + 120}}
+                                    onClick={() => {
+                                        this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
+                                        this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
+                                        this.props.setOpenMenuGroupId(null);
+                                    }}
+                                >
+                                    Scenarios
+                                </button>
+                                {
+                                    this.props.showAnugaScenarioMenu ?
+                                        <AnugaScenarioMenu/>
+                                        : null
+                                }
+                            </div>
+                            : null
+                    }
                     {
                         this.props.visibleAnugaScenarioLogId ?
                             <AnugaScenarioLogViewer logText={this.props.logText}/>
@@ -201,7 +207,8 @@ const mapStateToProps = (state) => {
         showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
         visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId,
         visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
-        visibleAnugaRunMenu: state?.anuga?.visibleAnugaRunMenu
+        visibleAnugaRunMenu: state?.anuga?.visibleAnugaRunMenu,
+        canEditAnugaMap: canEditAnugaMap(state)
     };
 };
 
