@@ -217,7 +217,10 @@ export const deleteAnugaScenarioEpic = (action$, store) =>
 export const runAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
-        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/run/`, action.scenario)))
+        .concatMap((action) => Rx.Observable.from(
+            axios
+                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/run/`, action)
+        ))
         .concatMap((response) => Rx.Observable.of(
             runAnugaScenarioSuccess(response.data),
             setAnugaScenarioMenu(true)
@@ -226,6 +229,10 @@ export const runAnugaScenarioEpic = (action$, store) =>
 export const cancelAnugaRunEpic = (action$, store) =>
     action$
         .ofType(CANCEL_ANUGA_RUN)
+        .concatMap((action) => Rx.Observable.from(
+            axios
+                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/run/`, action)
+        ))
         .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/cancel/`, {"runId": action.scenario.latest_run.id})))
         .concatMap((response) => Rx.Observable.of(show({"message": "cancelling..."}, "warning")));
 

@@ -42,20 +42,6 @@ class AnugaRunMenuClass extends React.Component {
                         onClick={() => this.props.showAnugaRunMenu(false)}
                     />
                 </h5>
-                <pre id={'anuga-run-menu'}>
-                    Mesh size: {this.props.selectedScenario?.latest_run?.mesh_triangle_count_estimate}<br/>
-                    Model Start Time: {this.props.selectedScenario?.latest_run?.real_world_start}<br/>
-                    Model End Time: {this.props.selectedScenario?.latest_run?.real_world_end}<br/>
-                </pre>
-                <Button
-                    download
-                    href={this.props.selectedScenario?.latest_run?.s3_package_url}
-                    bsStyle={'success'}
-                    bsSize={'xsmall'}
-                    style={{margin: "2px", borderRadius: "2px", position: "absolute", top: "130px", left: "7px"}}
-                >
-                    Download
-                </Button>
                 <div>
                     <Table className={"run-server-table"} bordered hover>
                         <thead>
@@ -91,7 +77,7 @@ class AnugaRunMenuClass extends React.Component {
                                                     bsSize={'xsmall'}
                                                     style={{margin: "2px", borderRadius: "2px"}}
                                                     onClick={() => {
-                                                        this.props.runAnugaScenario(this.props.selectedScenario);
+                                                        this.props.runAnugaScenario(this.props.selectedScenario, instance.id);
                                                         this.props.showAnugaRunMenu(false);
                                                     }}
                                                 >
@@ -101,12 +87,29 @@ class AnugaRunMenuClass extends React.Component {
                                         </tr>
                                     );
                                 }) :
-                                    <tr className={"run-server-table-row"}>
-                                        No compute servers registered
+                                    <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
+                                        Loading... No compute servers yet registered
                                     </tr>
                             }
                         </tbody>
                     </Table>
+                </div>
+                <div>
+                    <pre id={'anuga-run-menu'}>
+                        Mesh size: {this.props.selectedScenario?.latest_run?.mesh_triangle_count_estimate} triangles<br/>
+                        Model Start Time: {this.props.selectedScenario?.latest_run?.real_world_start}<br/>
+                        Model End Time: {this.props.selectedScenario?.latest_run?.real_world_end}<br/>
+                    </pre>
+                    <p>Alternatively you can run the model on your own machine:</p>
+                    <Button
+                        download
+                        href={this.props.selectedScenario?.latest_run?.s3_package_url}
+                        bsStyle={'success'}
+                        bsSize={'xsmall'}
+                        style={{margin: "2px", borderRadius: "2px", position: "absolute", top: "130px", left: "7px"}}
+                    >
+                        Download
+                    </Button>
                 </div>
             </div>
         );

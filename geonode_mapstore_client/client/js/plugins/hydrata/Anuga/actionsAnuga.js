@@ -270,18 +270,20 @@ function saveAnugaScenario(scenario) {
     };
 }
 
-function runAnugaScenario(scenario) {
+function runAnugaScenario(scenario, computeInstanceId) {
     return {
         type: RUN_ANUGA_SCENARIO,
-        scenario
+        scenario,
+        computeInstanceId
     };
 }
 
 
-function cancelAnugaRun(scenario) {
+function cancelAnugaRun(scenario, computeInstanceId) {
     return {
         type: CANCEL_ANUGA_RUN,
-        scenario
+        scenario,
+        computeInstanceId
     };
 }
 
