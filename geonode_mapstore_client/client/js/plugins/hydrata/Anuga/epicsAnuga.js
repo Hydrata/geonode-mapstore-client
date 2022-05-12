@@ -64,9 +64,9 @@ export const initAnugaEpic = (action$, store) =>
         .switchMap(() => Rx.Observable
             .from(
                 axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
-                    .catch((error) => error)
+                    .catch((error) => {console.log('**', error); return 'error';})
             )
-            .filter(response1 => response1?.status >= 400)
+            .filter(response1 => response1?.status <= 400)
             .switchMap(response1 => Rx.Observable
                 .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
                 .switchMap(response2 => Rx.Observable
@@ -116,7 +116,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/elevation/available/`))
                         .catch((error) => error)
                 )
-                .filter(response1 => response1?.status >= 400)
+                .filter(response1 => response1?.status <= 400)
                 .switchMap(response => {
                     if (response.data?.length < 2) {
                         return Rx.Observable.concat(
@@ -154,7 +154,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                         axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/`)
                             .catch((error) => error)
                     )
-                        .filter(response1 => response1?.status >= 400)
+                        .filter(response1 => response1?.status <= 400)
                         .switchMap(response => Rx.Observable
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
@@ -255,7 +255,7 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                 })
                     .catch((error) => error)
                 ))
-        .filter(response1 => response1?.status >= 400)
+        .filter(response1 => response1?.status <= 400)
         .switchMap(() => {
             return Rx.Observable.of(addAnugaBoundary());
         });
@@ -268,7 +268,7 @@ export const addAnugaBoundaryEpic = (action$, store) =>
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/available/`)
                     .catch((error) => error)
                 )
-                .filter(response1 => response1?.status >= 400)
+                .filter(response1 => response1?.status <= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -295,7 +295,7 @@ export const createAnugaFrictionEpic = (action$, store) =>
                 })
                     .catch((error) => error)
                 ))
-        .filter(response1 => response1?.status >= 400)
+        .filter(response1 => response1?.status <= 400)
         .switchMap(() => {
             return Rx.Observable.of(addAnugaFriction());
         });
@@ -308,7 +308,7 @@ export const addAnugaFrictionEpic = (action$, store) =>
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/available/`)
                     .catch((error) => error)
                 )
-                .filter(response1 => response1?.status >= 400)
+                .filter(response1 => response1?.status <= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -335,7 +335,7 @@ export const createAnugaInflowEpic = (action$, store) =>
                 })
                     .catch((error) => error)
                 ))
-        .filter(response1 => response1?.status >= 400)
+        .filter(response1 => response1?.status <= 400)
         .switchMap(() => {
             return Rx.Observable.of(addAnugaInflow());
         });
@@ -348,7 +348,7 @@ export const addAnugaInflowEpic = (action$, store) =>
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/available/`)
                     .catch((error) => error)
                 )
-                .filter(response1 => response1?.status >= 400)
+                .filter(response1 => response1?.status <= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -375,7 +375,7 @@ export const createAnugaStructureEpic = (action$, store) =>
                 })
                     .catch((error) => error)
                 ))
-        .filter(response1 => response1?.status >= 400)
+        .filter(response1 => response1?.status <= 400)
         .switchMap(() => {
             return Rx.Observable.of(addAnugaStructure());
         });
@@ -388,7 +388,7 @@ export const addAnugaStructureEpic = (action$, store) =>
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/available/`)
                     .catch((error) => error)
                 )
-                .filter(response1 => response1?.status >= 400)
+                .filter(response1 => response1?.status <= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -415,7 +415,7 @@ export const createAnugaMeshRegionEpic = (action$, store) =>
                 })
                     .catch((error) => error)
                 ))
-        .filter(response1 => response1?.status >= 400)
+        .filter(response1 => response1?.status <= 400)
         .switchMap(() => {
             return Rx.Observable.of(addAnugaMeshRegion());
         });
@@ -428,7 +428,7 @@ export const addAnugaMeshRegionEpic = (action$, store) =>
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/available/`)
                     .catch((error) => error)
                 )
-                .filter(response1 => response1?.status >= 400)
+                .filter(response1 => response1?.status <= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
