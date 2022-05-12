@@ -8,6 +8,7 @@ import {
     updateUploadStatus
 } from "../actionsSimpleView";
 import '../simpleView.css';
+import {Countdown} from "./simpleViewCountdown"
 import {DateFormat} from "../../../../../MapStore2/web/client/components/I18N/I18N";
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
 
@@ -90,8 +91,8 @@ class simpleViewUploaderPanel extends React.Component {
                                                 </OverlayTrigger> :
                                                 <span>
                                                     <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
-                                                    {parseInt(this.props.uploadStatus, 10) === 100 ? 'importing...' : this.props.uploadStatus}
-                                                    {isNaN(parseInt(this.props.uploadStatus, 10)) ? '' : '%'}
+                                                    {parseInt(this.props.uploadStatus, 10) === 100 ? <span>importing: <Countdown/></span> : this.props.uploadStatus}
+                                                    {isNaN(parseInt(this.props.uploadStatus, 10)) || parseInt(this.props.uploadStatus, 10) === 100 ? '' : '%'}
                                                 </span>
                                         }
                                     </td>
