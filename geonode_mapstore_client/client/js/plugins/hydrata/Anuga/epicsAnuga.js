@@ -64,9 +64,9 @@ export const initAnugaEpic = (action$, store) =>
         .switchMap(() => Rx.Observable
             .from(
                 axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
-                    .catch((error) => {console.log('**', error); return 'error';})
+                    .catch((error) => error)
             )
-            .filter(response1 => response1 !== 'error')
+            .filter(response1 => response1?.status >= 400)
             .switchMap(response1 => Rx.Observable
                 .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
                 .switchMap(response2 => Rx.Observable
@@ -114,9 +114,9 @@ export const pollAnugaElevationEpic = (action$, store) =>
                 .switchMap(() =>
                     Rx.Observable
                         .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/elevation/available/`))
-                        // .map(response => setAnugaAvailableElevationData(response.data))
-                        // .catch(error => Rx.Observable.of(() => window.alert('Error getting available elevations: ' + JSON.stringify(error))))
+                        .catch((error) => error)
                 )
+                .filter(response1 => response1?.status >= 400)
                 .switchMap(response => {
                     if (response.data?.length < 2) {
                         return Rx.Observable.concat(
@@ -150,7 +150,11 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                 .timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
-                    Rx.Observable.from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/`))
+                    Rx.Observable.from(
+                        axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/`)
+                            .catch((error) => error)
+                    )
+                        .filter(response1 => response1?.status >= 400)
                         .switchMap(response => Rx.Observable
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
@@ -248,18 +252,23 @@ export const createAnugaBoundaryEpic = (action$, store) =>
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.boundaryTitle
-                }))
-                .switchMap(() => {
-                    return Rx.Observable.of(addAnugaBoundary());
                 })
-        );
+                    .catch((error) => error)
+                ))
+        .filter(response1 => response1?.status >= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaBoundary());
+        });
 
 export const addAnugaBoundaryEpic = (action$, store) =>
     action$
         .ofType(ADD_ANUGA_BOUNDARY)
         .switchMap(() =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/available/`))
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status >= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -283,18 +292,23 @@ export const createAnugaFrictionEpic = (action$, store) =>
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.frictionTitle
-                }))
-                .switchMap(() => {
-                    return Rx.Observable.of(addAnugaFriction());
                 })
-        );
+                    .catch((error) => error)
+                ))
+        .filter(response1 => response1?.status >= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaFriction());
+        });
 
 export const addAnugaFrictionEpic = (action$, store) =>
     action$
         .ofType(ADD_ANUGA_FRICTION)
         .switchMap(() =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/available/`))
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/friction/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status >= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -318,18 +332,23 @@ export const createAnugaInflowEpic = (action$, store) =>
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.inflowTitle
-                }))
-                .switchMap(() => {
-                    return Rx.Observable.of(addAnugaInflow());
                 })
-        );
+                    .catch((error) => error)
+                ))
+        .filter(response1 => response1?.status >= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaInflow());
+        });
 
 export const addAnugaInflowEpic = (action$, store) =>
     action$
         .ofType(ADD_ANUGA_INFLOW)
         .switchMap(() =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/available/`))
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/inflow/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status >= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -353,18 +372,23 @@ export const createAnugaStructureEpic = (action$, store) =>
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.structureTitle
-                }))
-                .switchMap(() => {
-                    return Rx.Observable.of(addAnugaStructure());
                 })
-        );
+                    .catch((error) => error)
+                ))
+        .filter(response1 => response1?.status >= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaStructure());
+        });
 
 export const addAnugaStructureEpic = (action$, store) =>
     action$
         .ofType(ADD_ANUGA_STRUCTURE)
         .switchMap(() =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/available/`))
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/structure/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status >= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
@@ -388,18 +412,23 @@ export const createAnugaMeshRegionEpic = (action$, store) =>
                 .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.meshRegionTitle
-                }))
-                .switchMap(() => {
-                    return Rx.Observable.of(addAnugaMeshRegion());
                 })
-        );
+                    .catch((error) => error)
+                ))
+        .filter(response1 => response1?.status >= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaMeshRegion());
+        });
 
 export const addAnugaMeshRegionEpic = (action$, store) =>
     action$
         .ofType(ADD_ANUGA_MESH_REGION)
         .switchMap(() =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/available/`))
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status >= 400)
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
