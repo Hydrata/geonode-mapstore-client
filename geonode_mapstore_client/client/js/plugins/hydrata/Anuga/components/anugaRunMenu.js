@@ -94,7 +94,7 @@ class AnugaRunMenuClass extends React.Component {
                         </tbody>
                     </Table>
                 </div>
-                <div>
+                <div style={{left: "7px"}}>
                     <pre id={'anuga-run-menu'}>
                         Mesh size: {this.props.selectedScenario?.latest_run?.mesh_triangle_count_estimate} triangles<br/>
                         Model Start Time: {this.props.selectedScenario?.latest_run?.real_world_start}<br/>
@@ -106,7 +106,7 @@ class AnugaRunMenuClass extends React.Component {
                         href={this.props.selectedScenario?.latest_run?.s3_package_url}
                         bsStyle={'success'}
                         bsSize={'xsmall'}
-                        style={{margin: "2px", borderRadius: "2px", position: "absolute", top: "130px", left: "7px"}}
+                        style={{margin: "2px", borderRadius: "2px", left: "7px"}}
                     >
                         Download
                     </Button>
@@ -127,7 +127,7 @@ const mapDispatchToProps = ( dispatch ) => {
     return {
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
         updateComputeInstance: () => dispatch(updateComputeInstance()),
-        runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario))
+        runAnugaScenario: (scenario, instanceId) => dispatch(runAnugaScenario(scenario, instanceId))
     };
 };
 
