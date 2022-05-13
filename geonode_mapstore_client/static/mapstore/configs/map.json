@@ -29,23 +29,6 @@
             20037508.34,
             20037508.34
         ],
-        "groups": [
-            {
-              "id": "results",
-              "title": "Results",
-              "expanded": true
-            },
-            {
-              "id": "scenarios",
-              "title": "Scenarios",
-              "expanded": true
-            },
-            {
-              "id": "input_data",
-              "title": "Input Data",
-              "expanded": true
-            }
-        ],
         "layers": []
     }
 }
