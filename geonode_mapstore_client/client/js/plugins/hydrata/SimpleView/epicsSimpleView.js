@@ -4,10 +4,6 @@ import {UPDATE_DATASET_TITLE} from "./actionsSimpleView";
 import {toggleEditMode, GRID_QUERY_RESULT} from "../../../../MapStore2/web/client/actions/featuregrid";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
 
-import {
-    refreshlayerVersion
-} from "../../../../MapStore2/web/client/actions/layers";
-
 
 export const beginEditLayerEpic = (action$) =>
     action$.ofType(GRID_QUERY_RESULT)
@@ -25,7 +21,5 @@ export const updateDatasetTitle = (action$) =>
                 .switchMap(response => Rx.Observable
                     .from(axios.patch(`/api/v2/datasets/${response?.data?.datasets?.[0]?.pk}/`, {"title": action.newTitle}))
                 )
-                .switchMap((response) => {
-                    return Rx.Observable.of(refreshlayerVersion([response?.data?.datasets?.[0]?.id]));
-                })
+                .switchMap(response => Rx.Observable.empty())
         );

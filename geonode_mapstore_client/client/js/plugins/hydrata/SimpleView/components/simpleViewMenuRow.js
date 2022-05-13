@@ -6,6 +6,7 @@ const Slider = require('react-nouislider');
 import {
     changeLayerProperties,
     refreshlayerVersion,
+    refreshLayers,
     browseData,
     removeNode,
     removeLayer
@@ -32,7 +33,9 @@ class MenuRowClass extends React.Component {
         updateDatasetTitle: PropTypes.func,
         removeNode: PropTypes.func,
         removeLayer: PropTypes.func,
-        refreshlayerVersion: PropTypes.func
+        refreshlayerVersion: PropTypes.func,
+        updateLayerTitle: PropTypes.func,
+        refreshLayers: PropTypes.func
     };
 
     constructor(props) {
@@ -88,7 +91,12 @@ class MenuRowClass extends React.Component {
                                     <span
                                         className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk"}
                                         style={{"color": "limegreen", "float": "right", "marginLeft": "8px"}}
-                                        onClick={() => this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle)}
+                                        onClick={
+                                            () => {
+                                                this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);
+                                                this.props.updateLayerTitle(this.props.layer.id, this.state.newTitle);
+                                            }
+                                        }
                                     />
                                 }
                             </React.Fragment>
@@ -115,7 +123,7 @@ class MenuRowClass extends React.Component {
                                 onClick={(e) => { e.stopPropagation();}}
                                 style={
                                     (this.props.canEditMap && this.canEdit(this.props.layer)) ?
-                                        {
+                                        this.props.layer.title === this.state.newTitle ? {
                                             "display": "inline-block",
                                             "float": "right",
                                             "width": "195px",
@@ -123,8 +131,15 @@ class MenuRowClass extends React.Component {
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
                                             "marginTop": "2px"
-                                        } :
-                                        {
+                                        } : {
+                                            "display": "inline-block",
+                                            "float": "right",
+                                            "width": "165px",
+                                            "marginRight": "10px",
+                                            "marginLeft": "10px",
+                                            "marginBottom": "-10px",
+                                            "marginTop": "2px"
+                                        } : {
                                             "display": "inline-block",
                                             "float": "right",
                                             "width": "195px",
@@ -181,7 +196,8 @@ const mapDispatchToProps = ( dispatch ) => {
         updateDatasetTitle: (datasetName, newTitle) => dispatch(updateDatasetTitle(datasetName, newTitle)),
         removeNode: (nodeId, type) => dispatch(removeNode(nodeId, type)),
         removeLayer: (layerId) => dispatch(removeLayer(layerId)),
-        refreshlayerVersion: (layerId) => dispatch(refreshlayerVersion(layerId))
+        updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
+        refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray))
     };
 };
 
