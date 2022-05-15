@@ -512,7 +512,7 @@ export const updateAnugaModelTitle = (action$, store) =>
                 .from(axios.get(`/api/v2/datasets?search=${action.datasetName.split('geonode:')[1]}&search_fields=name`))
                 .switchMap(response => {
                     // find the right anugaModel here, using the response?.data?.datasets?.[0]?.pk
-                    const gnLayerPk = response?.data?.datasets?.[0]?.pk;
+                    const gnLayerPk = parseInt(response?.data?.datasets?.[0]?.pk, 10);
                     console.log('gnLayerPk:', gnLayerPk);
                     const anugaModels = getAnugaModels(store?.getState());
                     console.log('anugaModels:', anugaModels);
