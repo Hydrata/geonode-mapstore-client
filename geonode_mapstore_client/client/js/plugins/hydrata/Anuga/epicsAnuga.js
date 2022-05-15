@@ -51,10 +51,12 @@ import {
     setCreatingAnugaLayer
 } from "./actionsAnuga";
 import {
+    UPDATE_DATASET_TITLE,
     updateUploadStatus
 } from "../SimpleView/actionsSimpleView";
 
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
+import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
 
 export const initAnugaEpic = (action$, store) =>
@@ -499,4 +501,25 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                 properties: defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)]
             }]));
         }
+        );
+
+
+export const updateAnugaModelTitle = (action$, store) =>
+    action$
+        .ofType(UPDATE_DATASET_TITLE)
+        .switchMap((action) =>
+            Rx.Observable
+                .from(axios.get(`/api/v2/datasets?search=${action.datasetName.split('geonode:')[1]}&search_fields=name`))
+                .switchMap(response => {
+                    // find the right anugaModel here, using the response?.data?.datasets?.[0]?.pk
+                    const gnLayerPk = response?.data?.datasets?.[0]?.pk;
+                    console.log('gnLayerPk:', gnLayerPk);
+                    const anugaModels = getAnugaModels(store?.getState());
+                    console.log('anugaModels:', anugaModels);
+                    const anugaModel = anugaModels.filter(model => model.id === gnLayerPk)?.[0];
+                    console.log('anugaModel:', anugaModel);
+                    return Rx.Observable
+                        .from(axios.patch(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/${anugaModel.apiKey}/${anugaModel.id}/`, {"title": action.newTitle}));
+                })
+                .switchMap(response => Rx.Observable.empty())
         );
