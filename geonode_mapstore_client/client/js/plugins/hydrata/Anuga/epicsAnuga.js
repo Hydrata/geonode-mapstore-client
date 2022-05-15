@@ -516,7 +516,7 @@ export const updateAnugaModelTitle = (action$, store) =>
                     console.log('gnLayerPk:', gnLayerPk);
                     const anugaModels = getAnugaModels(store?.getState());
                     console.log('anugaModels:', anugaModels);
-                    const anugaModel = anugaModels.filter(model => model.id === gnLayerPk)?.[0];
+                    const anugaModel = anugaModels.filter(model => model.gn_layer === gnLayerPk)?.[0];
                     console.log('anugaModel:', anugaModel);
                     return Rx.Observable
                         .from(axios.patch(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/${anugaModel.apiKey}/${anugaModel.id}/`, {"title": action.newTitle}));

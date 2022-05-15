@@ -21,6 +21,7 @@ export const isOwnerAnugaMap = (state) => {
 export const getAnugaModels = (state) => {
     const modelTypes = [
         'elevations',
+        'boundaries',
         'frictions',
         'inflows',
         'meshRegions',
@@ -28,6 +29,7 @@ export const getAnugaModels = (state) => {
     ];
     const modelTypesToApiKey = {
         elevations: 'elevation',
+        boundaries: 'boundary',
         frictions: 'friction',
         inflows: 'inflow',
         meshRegions: 'mesh-region',
