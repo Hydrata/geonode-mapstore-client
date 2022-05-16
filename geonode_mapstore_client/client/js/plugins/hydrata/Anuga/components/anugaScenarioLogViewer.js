@@ -9,7 +9,7 @@ import {
 
 class AnugaScenarioLogViewerClass extends React.Component {
     static propTypes = {
-        visibleAnugaLogScenario: PropTypes.object,
+        selectedScenario: PropTypes.object,
         showAnugaScenarioLog: PropTypes.func,
         logText: PropTypes.string
     };
@@ -26,7 +26,7 @@ class AnugaScenarioLogViewerClass extends React.Component {
         return (
             <div id={'anuga-scenario-log-viewer-container'}>
                 <h5 style={{marginLeft: "9px"}}>
-                    Scenario: {this.props.visibleAnugaLogScenario?.name}
+                    Scenario: {this.props.selectedScenario?.name}
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => this.props.showAnugaScenarioLog(false)}
@@ -42,7 +42,7 @@ class AnugaScenarioLogViewerClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        visibleAnugaLogScenario: state?.anuga?.scenarios?.filter((scenario) => state?.anuga?.visibleAnugaScenarioLogId === scenario.id)[0]
+        selectedScenario: state?.anuga?.selectedScenario
     };
 };
 

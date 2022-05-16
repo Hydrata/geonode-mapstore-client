@@ -60,7 +60,8 @@ export default ( state = initialState, action) => {
                 scenario.status = newScenario?.status || 'unsaved';
                 scenario.latest_run_is_valid = newScenario?.latest_run_is_valid;
                 return scenario;
-            })
+            }),
+            selectedScenario: action.scenarios.filter(actionScenario => state.selectedScenarioId === actionScenario.id)[0]
         };
     case ADD_ANUGA_SCENARIO:
         return {
@@ -121,6 +122,7 @@ export default ( state = initialState, action) => {
     case SELECT_ANUGA_SCENARIO:
         return {
             ...state,
+            selectedScenarioId: action.scenario.id,
             selectedScenario: action.scenario
         };
     case SET_ANUGA_PROJECT_DATA:
