@@ -40,11 +40,11 @@ class SimpleViewContainer extends React.Component {
                         (menu, index) => {
                             return (
                                 <button
-                                    key={menu.title}
+                                    key={menu?.title}
                                     className={'simple-view-menu-button'}
                                     style={{left: (index + 1) * 100 + 20}}
                                     onClick={() => {this.props.setOpenMenuGroupId(menu.id);}}>
-                                    {menu.title}
+                                    {menu?.title === 'Default' ? menu.name : menu.title}
                                 </button>
                             );
                         })

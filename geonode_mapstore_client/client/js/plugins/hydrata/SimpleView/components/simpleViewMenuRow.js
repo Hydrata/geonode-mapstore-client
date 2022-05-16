@@ -41,7 +41,7 @@ class MenuRowClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            newTitle: props.layer.title
+            newTitle: props.layer?.title
         };
     }
 
@@ -87,7 +87,7 @@ class MenuRowClass extends React.Component {
                                     value={this.state.newTitle}
                                     onChange={(e) => this.setState({newTitle: e.target.value})}
                                 />
-                                {this.props.layer.title === this.state.newTitle ? null :
+                                {this.props.layer?.title === this.state.newTitle ? null :
                                     <span
                                         className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk"}
                                         style={{"color": "limegreen", "float": "right", "marginLeft": "8px"}}
@@ -100,7 +100,7 @@ class MenuRowClass extends React.Component {
                                     />
                                 }
                             </React.Fragment>
-                            : <span className="menu-row-text">{this.props.layer.title}</span>
+                            : <span className="menu-row-text">{this.props.layer?.title}</span>
                     }
                 </span>
                 <span className={"pull-right .menu-row-button"}>
@@ -123,7 +123,7 @@ class MenuRowClass extends React.Component {
                                 onClick={(e) => { e.stopPropagation();}}
                                 style={
                                     (this.props.canEditMap && this.canEdit(this.props.layer)) ?
-                                        this.props.layer.title === this.state.newTitle ? {
+                                        this.props.layer?.title === this.state.newTitle ? {
                                             "display": "inline-block",
                                             "float": "right",
                                             "width": "195px",
