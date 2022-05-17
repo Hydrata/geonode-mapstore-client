@@ -189,11 +189,9 @@ class AnugaContainer extends React.Component {
 const mapStateToProps = (state) => {
     console.log('state for Anuga:', state);
     const latestRunIsValid = state?.anuga?.selectedScenario?.latest_run_is_valid;
-    console.log('latestRunIsValid:', latestRunIsValid);
     const logText = latestRunIsValid ?
         state?.anuga?.selectedScenario?.latest_run?.log || '-' :
         state?.anuga?.selectedScenario?.log || '-';
-    console.log('logText', logText);
     return {
         logText: logText,
         gnResourceLoaded: state?.gnresource?.id,

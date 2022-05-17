@@ -29,6 +29,7 @@ const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
 const SAVE_ANUGA_SCENARIO = 'SAVE_ANUGA_SCENARIO';
 const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
+const SAVE_ANUGA_SCENARIO_ERROR = 'SAVE_ANUGA_SCENARIO_ERROR';
 const DELETE_ANUGA_SCENARIO = 'DELETE_ANUGA_SCENARIO';
 const DELETE_ANUGA_SCENARIO_SUCCESS = 'DELETE_ANUGA_SCENARIO_SUCCESS';
 const SHOW_ANUGA_SCENARIO_LOG = 'SHOW_ANUGA_SCENARIO_LOG';
@@ -270,6 +271,42 @@ function saveAnugaScenario(scenario) {
     };
 }
 
+function saveAnugaScenarioSuccess(scenario) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario ID: ${scenario.id} building`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({
+            type: SAVE_ANUGA_SCENARIO_SUCCESS,
+            scenario
+        });
+    };
+}
+
+function saveAnugaScenarioError(error) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Error',
+            autoDismiss: 60,
+            position: 'tc',
+            message: `Error saving scenario: ${JSON.stringify(error?.data)}`,
+            uid: uuidv1(),
+            level: 'error'
+        });
+        dispatch({
+            type: SAVE_ANUGA_SCENARIO_ERROR,
+            error
+        });
+    };
+}
+
 function runAnugaScenario(scenario, computeInstanceId) {
     return {
         type: RUN_ANUGA_SCENARIO,
@@ -300,24 +337,6 @@ function runAnugaScenarioSuccess(scenario) {
         });
         dispatch({
             type: RUN_ANUGA_SCENARIO_SUCCESS,
-            scenario
-        });
-    };
-}
-
-function saveAnugaScenarioSuccess(scenario) {
-    return (dispatch) => {
-        dispatch({
-            type: SHOW_NOTIFICATION,
-            title: 'Success',
-            autoDismiss: 6,
-            position: 'tc',
-            message: `Scenario ID: ${scenario.id} building`,
-            uid: uuidv1(),
-            level: 'success'
-        });
-        dispatch({
-            type: SAVE_ANUGA_SCENARIO_SUCCESS,
             scenario
         });
     };
@@ -418,6 +437,7 @@ module.exports = {
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,
     ADD_ANUGA_SCENARIO, addAnugaScenario,
     SAVE_ANUGA_SCENARIO_SUCCESS, saveAnugaScenarioSuccess,
+    SAVE_ANUGA_SCENARIO_ERROR, saveAnugaScenarioError,
     DELETE_ANUGA_SCENARIO, deleteAnugaScenario,
     DELETE_ANUGA_SCENARIO_SUCCESS, deleteAnugaScenarioSuccess,
     RUN_ANUGA_SCENARIO, runAnugaScenario,
