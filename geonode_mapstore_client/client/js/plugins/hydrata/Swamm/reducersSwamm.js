@@ -460,7 +460,17 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             fetchingTargets: false,
-            targets: action.targets
+            targets: action.targets.map(target => {
+                return {
+                    ...target,
+                    barChartData: {
+                        ...target.barChartData,
+                        group_profile: target.barChartData.group_profile.slice().reverse(),
+                        status: target.barChartData.status.slice().reverse(),
+                        type: target.barChartData.type.slice().reverse()
+                    }
+                };
+            })
         };
     case SELECT_SWAMM_TARGET_ID:
         return {
