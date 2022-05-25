@@ -1630,7 +1630,7 @@
                 "name": "ActionNavbar",
                 "cfg": {
                     "containerPosition": "header",
-                    "disableTitle": true,
+                    "disableTitle": false,
                     "titleItems": [
                         {
                             "type": "plugin",
@@ -1640,21 +1640,12 @@
                     "leftMenuItems": [
                         {
                             "labelId": "gnviewer.save",
-                            "showPendingChangesIcon": true,
+                            "showPendingChangesIcon": false,
                             "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}",
-                            "type": "dropdown",
-                            "items": [
-                                {
                                     "type": "plugin",
                                     "name": "Save"
                                 },
                                 {
-                                    "type": "plugin",
-                                    "name": "SaveAs"
-                                }
-                            ]
-                        },
-                        {
                             "labelId": "gnviewer.view",
                             "type": "dropdown",
                             "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
@@ -1668,7 +1659,8 @@
                         },
                         {
                             "type": "plugin",
-                            "name": "Share"
+                            "name": "Share",
+                            "labelId": "gnviewer.share"
                         },
                         {
                             "type": "plugin",
@@ -1681,10 +1673,6 @@
                         {
                             "type": "plugin",
                             "name": "Annotations"
-                        },
-                        {
-                            "type": "plugin",
-                            "name": "DatasetsCatalog"
                         }
                     ],
                     "rightMenuItems": [
@@ -1696,13 +1684,13 @@
                 }
             },
             {
-                "name": "SimpleView"
-            },
-            {
                 "name": "Anuga"
             },
             {
                 "name": "Swamps"
+            },
+            {
+                "name": "SimpleView"
             },
             {
                 "name": "MapThumbnail"
@@ -1994,7 +1982,66 @@
                 "name": "ScaleBox"
             },
             {
-                "name": "FeatureEditor"
+                "name": "FeatureEditor",
+                "cfg": {
+                    "snapTool": false,
+                    "customEditorsOptions": {
+                        "rules": [
+                            {
+                                "regex": {
+                                    "attribute": "boundary",
+                                    "typeName": "^geonode:bdy_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Dirichlet", "Transmissive", "Reflective"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Dirichlet",
+                                    "allowEmpty": false
+                                }
+                            },
+                            {
+                                "regex": {
+                                    "attribute": "location",
+                                    "typeName": "^geonode:bdy_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["External", "Internal"],
+                                    "forceSelection": true,
+                                    "defaultOption": "External",
+                                    "allowEmpty": false
+                                }
+                            },
+                            {
+                                "regex": {
+                                    "attribute": "type",
+                                    "typeName": "^geonode:inf_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Rainfall", "Surface"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Rainfall",
+                                    "allowEmpty": false
+                                }
+                            },
+                            {
+                                "regex": {
+                                    "attribute": "method",
+                                    "typeName": "^geonode:str_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Holes", "Reflective", "Mannings"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Mannings",
+                                    "allowEmpty": false
+                                }
+                            }
+                        ]
+                    }
+                }
             },
             {
                 "name": "QueryPanel",
