@@ -7,7 +7,8 @@ import {
     runAnugaScenario,
     showAnugaRunMenu,
     updateComputeInstance,
-    setAnugaScenarioMenu
+    setAnugaScenarioMenu,
+    showAnugaScenarioLog
 } from "../actionsAnuga";
 import {Table, Button} from "react-bootstrap";
 
@@ -19,7 +20,8 @@ class AnugaRunMenuClass extends React.Component {
         computeInstances: PropTypes.array,
         selectedScenario: PropTypes.object,
         runAnugaScenario: PropTypes.func,
-        setAnugaScenarioMenu: PropTypes.func
+        setAnugaScenarioMenu: PropTypes.func,
+        showAnugaScenarioLog: PropTypes.func
     };
 
     static defaultProps = {}
@@ -91,6 +93,7 @@ class AnugaRunMenuClass extends React.Component {
                                                             onClick={() => {
                                                                 this.props.runAnugaScenario(this.props.selectedScenario, instance.id);
                                                                 this.props.showAnugaRunMenu(false);
+                                                                this.props.showAnugaScenarioLog(this.props.selectedScenario.id);
                                                                 this.props.setAnugaScenarioMenu(true);
                                                             }}
                                                         >
@@ -140,7 +143,8 @@ const mapDispatchToProps = ( dispatch ) => {
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
         updateComputeInstance: () => dispatch(updateComputeInstance()),
         runAnugaScenario: (scenario, instanceId) => dispatch(runAnugaScenario(scenario, instanceId)),
-        setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible))
+        setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
+        showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId))
     };
 };
 
