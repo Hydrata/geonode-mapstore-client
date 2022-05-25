@@ -419,8 +419,11 @@ class AnugaScenarioMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    console.log('state?.anuga?.scenarios:', state?.anuga?.scenarios);
+    let scenarios = state?.anuga?.scenarios?.sort((a, b) => a.id - b.id);
+    console.log('scenarios:', scenarios);
     return {
-        scenarios: state?.anuga?.scenarios?.sort((a, b) => a.id - b.id),
+        scenarios: scenarios,
         boundaries: state?.anuga?.boundaries,
         elevations: state?.anuga?.elevations,
         frictions: state?.anuga?.frictions,
