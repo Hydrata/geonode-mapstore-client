@@ -73,7 +73,7 @@ export default ( state = initialState, action) => {
                     "name": "",
                     "code": null,
                     "description": "",
-                    "maximum_triangle_area": 10,
+                    "maximum_triangle_area": 1000,
                     "constant_rainfall": null,
                     "duration": null,
                     "status": "new",

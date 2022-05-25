@@ -117,9 +117,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Inflow</th>
                                 <th>Structures</th>
                                 <th>Mesh Regions</th>
-                                <OverlayTrigger placement="top" overlay={<Tooltip>hh:mm:ss</Tooltip>}>
-                                    <th>Duration</th>
-                                </OverlayTrigger>
+                                <th>Resolution(m2)</th>
+                                <th>Duration</th>
                                 <th>Status</th>
                                 <th/>
                                 <th/>
@@ -260,6 +259,17 @@ class AnugaScenarioMenuClass extends React.Component {
                                                         })
                                                     }
                                                 </select>
+                                            </td>
+                                            <td>
+                                                <input
+                                                    id={'maximum_triangle_area'}
+                                                    key={`maximum_triangle_area-${scenario.id}`}
+                                                    type={"number"}
+                                                    className={'scenario-input'}
+                                                    style={{'width': '80px'}}
+                                                    value={scenario?.maximum_triangle_area}
+                                                    onChange={(event) => this.handleIntChange(event, scenario)}
+                                                />
                                             </td>
                                             <td>
                                                 <input
@@ -410,7 +420,7 @@ class AnugaScenarioMenuClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        scenarios: state?.anuga?.scenarios,
+        scenarios: state?.anuga?.scenarios?.sort((a, b) => a.id - b.id),
         boundaries: state?.anuga?.boundaries,
         elevations: state?.anuga?.elevations,
         frictions: state?.anuga?.frictions,
