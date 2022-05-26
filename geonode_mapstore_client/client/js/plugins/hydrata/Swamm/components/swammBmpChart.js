@@ -251,7 +251,7 @@ class SwammBmpChartClass extends React.Component {
                                                                         layout="vertical"
                                                                         verticalAlign="top"
                                                                         align="right"
-                                                                        wrapperStyle={{right: "-325px", top: "-40px"}}
+                                                                        wrapperStyle={{right: "-300px", top: "-40px"}}
                                                                         content={this.renderLegend}
                                                                     /> : null
                                                                 }
