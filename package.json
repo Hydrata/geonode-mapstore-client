@@ -11,7 +11,7 @@
     "bootstrap-v4": "npm:bootstrap@4.5.0",
     "dompurify": "2.2.6",
     "js-cookie": "2.2.1",
-    "mapstore": "git+https://github.com/geosolutions-it/MapStore2.git#26e65a7989b7f1a19330b88d2fce229b0b34942e",
+    "mapstore": "git+https://github.com/geosolutions-it/MapStore2.git#1d4d592e4b2a26964f2792a11775e6ab404d5e80",
     "react-bootstrap-v1": "npm:react-bootstrap@1.3.0",
     "recharts": "2.1.4"
   }
