@@ -252,6 +252,7 @@ class SwammBmpChartClass extends React.Component {
                                                                         verticalAlign="top"
                                                                         align="right"
                                                                         wrapperStyle={{right: "-325px", top: "-40px"}}
+                                                                        content={this.renderLegend}
                                                                     /> : null
                                                                 }
                                                             </BarChart>
@@ -330,6 +331,26 @@ class SwammBmpChartClass extends React.Component {
         );
     }
 
+    renderLegend = (props) => {
+        const { payload } = props;
+        console.log('renderLegend:', payload);
+        return (
+            <ul>
+                {
+                    payload.reverse().map((entry, index) => (
+                        <span key={`item-${index}`}>
+                            <div
+                                style={{
+                                    backgroundColor: entry.color
+                                }}>
+                            </div>
+                            {entry.value}
+                        </span>
+                    ))
+                }
+            </ul>
+        );
+    }
     pollutants = [
         {
             name: 'Phosphorus',
