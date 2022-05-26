@@ -333,12 +333,11 @@ class SwammBmpChartClass extends React.Component {
 
     renderLegend = (props) => {
         const { payload } = props;
-        console.log('renderLegend:', payload);
         return (
             <ul>
                 {
                     payload.reverse().map((entry, index) => (
-                        <span key={`item-${index}`}>
+                        <div key={`item-${index}`}>
                             <div
                                 style={{
                                     width: "14px",
@@ -349,7 +348,7 @@ class SwammBmpChartClass extends React.Component {
                                 }}>
                             </div>
                             {entry.value}
-                        </span>
+                        </div>
                     ))
                 }
             </ul>
