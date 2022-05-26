@@ -341,6 +341,10 @@ class SwammBmpChartClass extends React.Component {
                         <span key={`item-${index}`}>
                             <div
                                 style={{
+                                    width: "14px",
+                                    height: "14px",
+                                    display: 'inline-block',
+                                    marginRight: "5px",
                                     backgroundColor: entry.color
                                 }}>
                             </div>
