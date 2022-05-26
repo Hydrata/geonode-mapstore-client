@@ -223,19 +223,19 @@ class SwammBmpChartClass extends React.Component {
                                                             <BarChart
                                                                 width={600}
                                                                 height={80}
-                                                                data={[{'barOne': this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.slice().reverse()}]}
+                                                                data={[{'barOne': this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]}]}
                                                                 margin={{top: 0, right: 0, left: 10, bottom: 10}}
                                                                 layout="vertical"
                                                                 maxBarSize={100}
                                                             >
-                                                                {this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.slice().reverse().map((bar, index) => {
+                                                                {this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
                                                                     const key = `barOne.${index}.${pollutant.load_red_total_key}`;
                                                                     return (
                                                                         <Bar
                                                                             key={`${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`}
                                                                             stackId={'a'}
                                                                             dataKey={key}
-                                                                            fill={this.colours[index]}
+                                                                            fill={this.colours_reversed[index]}
                                                                             name={bar?.label}
                                                                             onMouseOver={ () => this.setState({ tooltipKey: key }) }
                                                                             isAnimationActive={false}
@@ -360,7 +360,14 @@ class SwammBmpChartClass extends React.Component {
         '#39CCCC', '#7FDBFF', '#0074D9', '#001f3f',
         '#FFDC00', '#01FF70', '#2ECC40', '#3D9970',
         '#DDDDDD', '#AAAAAA', '#B10DC9', '#F012BE',
-        '#85144b', '#FF4136', '#FF851B', '#FFFFFF'
+        '#85144b', '#FF4136', '#FF851B'
+    ];
+    colours_reversed = [
+        '#FF851B', '#FF4136', '#85144b',
+        '#F012BE', '#B10DC9', '#AAAAAA', '#DDDDDD',
+        '#3D9970', '#2ECC40', '#01FF70', '#FFDC00',
+        '#001f3f', '#0074D9', '#7FDBFF', '#39CCCC',
+        '#FF8042', '#FFBB28', '#00C49F', '#0088FE'
     ];
 }
 
