@@ -223,12 +223,12 @@ class SwammBmpChartClass extends React.Component {
                                                             <BarChart
                                                                 width={600}
                                                                 height={80}
-                                                                data={[{'barOne': this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]}]}
+                                                                data={[{'barOne': this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.slice().reverse()}]}
                                                                 margin={{top: 0, right: 0, left: 10, bottom: 10}}
                                                                 layout="vertical"
                                                                 maxBarSize={100}
                                                             >
-                                                                {this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
+                                                                {this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.slice().reverse().map((bar, index) => {
                                                                     const key = `barOne.${index}.${pollutant.load_red_total_key}`;
                                                                     return (
                                                                         <Bar
