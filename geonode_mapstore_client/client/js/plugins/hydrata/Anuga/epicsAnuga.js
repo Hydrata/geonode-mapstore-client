@@ -185,7 +185,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 // console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
                                 // and check frontend
                                 const currentLayerNames = store.getState()?.layers?.flat?.map(layer => layer.name);
-                                let wmsLayers = store.getState()?.layers?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
+                                let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
                                 if (scenarioToLoadResults &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&

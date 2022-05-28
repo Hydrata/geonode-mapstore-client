@@ -46,6 +46,7 @@ const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
 const CANCEL_ANUGA_RUN = 'CANCEL_ANUGA_RUN';
 const UPDATE_COMPUTE_INSTANCE = 'UPDATE_COMPUTE_INSTANCE';
 const UPDATE_COMPUTE_INSTANCE_SUCCESS = 'UPDATE_COMPUTE_INSTANCE_SUCCESS';
+const TOGGLE_SCENARIO_SELECTED = 'TOGGLE_SCENARIO_SELECTED';
 
 
 function initAnuga() {
@@ -53,6 +54,13 @@ function initAnuga() {
         type: INIT_ANUGA
     };
 }
+
+function toggleScenarioSelected(scenario) {
+    return {
+        type: TOGGLE_SCENARIO_SELECTED,
+        scenario
+    }
+};
 
 function setCreatingAnugaLayer(isCreatingAnugaLayer) {
     return {
@@ -455,5 +463,6 @@ module.exports = {
     SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded,
     CANCEL_ANUGA_RUN, cancelAnugaRun,
     UPDATE_COMPUTE_INSTANCE, updateComputeInstance,
-    UPDATE_COMPUTE_INSTANCE_SUCCESS, updateComputeInstanceSuccess
+    UPDATE_COMPUTE_INSTANCE_SUCCESS, updateComputeInstanceSuccess,
+    TOGGLE_SCENARIO_SELECTED, toggleScenarioSelected
 };

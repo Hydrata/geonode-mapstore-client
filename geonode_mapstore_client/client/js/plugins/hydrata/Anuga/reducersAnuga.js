@@ -19,7 +19,8 @@ import {
     SET_ANUGA_ELEVATION_DATA,
     SET_CREATING_ANUGA_LAYER,
     SET_ANUGA_SCENARIO_IS_LOADED,
-    UPDATE_COMPUTE_INSTANCE_SUCCESS
+    UPDATE_COMPUTE_INSTANCE_SUCCESS,
+    TOGGLE_SCENARIO_SELECTED
 } from "./actionsAnuga";
 
 import {
@@ -46,6 +47,17 @@ export default ( state = initialState, action) => {
             scenarios: state.scenarios.map((scenario) => {
                 if (scenario.id === action.scenario.id) {
                     action.scenario.unsaved = true;
+                    return action.scenario;
+                }
+                return scenario;
+            })
+        };
+    case TOGGLE_SCENARIO_SELECTED:
+        return {
+            ...state,
+            scenarios: state.scenarios.map((scenario) => {
+                if (scenario.id === action.scenario.id) {
+                    action.scenario.selected = !scenario.selected;
                     return action.scenario;
                 }
                 return scenario;
@@ -81,7 +93,8 @@ export default ( state = initialState, action) => {
                     "boundary": "",
                     "elevation": "",
                     "log": "log placeholder",
-                    "unsaved": false
+                    "unsaved": false,
+                    "selected": false
                 }]
         };
     case SET_ANUGA_SCENARIO_IS_LOADED:

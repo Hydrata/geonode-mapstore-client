@@ -16,7 +16,8 @@ import {
     addAnugaScenario,
     stopAnugaScenarioPolling,
     deleteAnugaScenario,
-    showAnugaRunMenu
+    showAnugaRunMenu,
+    toggleScenarioSelected
 } from "../actionsAnuga";
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -40,14 +41,17 @@ class AnugaScenarioMenuClass extends React.Component {
         addAnugaScenario: PropTypes.func,
         deleteAnugaScenario: PropTypes.func,
         cancelAnugaRun: PropTypes.func,
-        showAnugaRunMenu: PropTypes.func
+        showAnugaRunMenu: PropTypes.func,
+        toggleScenarioSelected: PropTypes.func
     };
 
     static defaultProps = {}
 
     constructor(props) {
         super(props);
-        this.state = {};
+        this.state = {
+            scenarioTableFold: 'controls'
+        };
         this.handleTextChange = this.handleTextChange.bind(this);
         this.handleIntChange = this.handleIntChange.bind(this);
         this.handleTimeChange = this.handleTimeChange.bind(this);
@@ -83,6 +87,33 @@ class AnugaScenarioMenuClass extends React.Component {
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                         Scenarios
+                        {
+                            this.state.scenarioTableFold === 'datasets' ?
+                                <span id={"scenario-fold-button"}>
+                                    <Button
+                                        bsStyle={'success'}
+                                        bsSize={'xsmall'}
+                                        style={{margin: "2px", borderRadius: "2px"}}
+                                        onClick={() => {
+                                            this.setState({scenarioTableFold: 'controls'})
+                                        }}
+                                    >
+                                        Datasets
+                                    </Button>
+                                </span> :
+                                <span id={"scenario-fold-button"}>
+                                    <Button
+                                        bsStyle={'success'}
+                                        bsSize={'xsmall'}
+                                        style={{margin: "2px", borderRadius: "2px"}}
+                                        onClick={() => {
+                                            this.setState({scenarioTableFold: 'datasets'})
+                                        }}
+                                    >
+                                        Controls
+                                    </Button>
+                                </span>
+                        }
                         <span id={"new-scenario-button"}>
                             <Button
                                 bsStyle={'success'}
@@ -111,20 +142,26 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Select</th>
                                 <th>Id</th>
                                 <th>Name</th>
-                                <th>Elevation</th>
-                                <th>Boundary</th>
-                                <th>Friction Map</th>
-                                <th>Inflow</th>
-                                <th>Structures</th>
-                                <th>Mesh Regions</th>
-                                <th>Resolution(m2)</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                                <th/>
-                                <th/>
-                                <th/>
-                                <th/>
-                                <th/>
+                                {
+                                    this.state.scenarioTableFold === 'datasets' ?
+                                        <React.Fragment>
+                                            <th>Elevation</th>
+                                            <th>Boundary</th>
+                                            <th>Friction Map</th>
+                                            <th>Inflow</th>
+                                            <th>Structures</th>
+                                            <th>Mesh Regions</th>
+                                        </React.Fragment> :
+                                        <React.Fragment>
+                                            <th>Resolution(m2)</th>
+                                            <th>Duration</th>
+                                            <th>Status</th>
+                                            <th/>
+                                            <th/>
+                                            <th/>
+                                            <th/>
+                                        </React.Fragment>
+                                }
                             </tr>
                         </thead>
                         <tbody>
@@ -133,12 +170,10 @@ class AnugaScenarioMenuClass extends React.Component {
                                     return (
                                         <tr className={'scenario-table-row'}>
                                             <td>
-                                                <input
-                                                    id={'scenario-selector-box'}
-                                                    type={'radio'}
-                                                    name={'scenario-selector'}
-                                                    value={false}
-                                                    onChange={() => this.props.selectAnugaScenario(scenario)}
+                                                <span
+                                                    className={"btn glyphicon menu-row-glyph " + (scenario?.selected ? "glyphicon-ok" : "glyphicon-remove")}
+                                                    style={{"color": scenario?.selected ? "limegreen" : "red", "fontSize": "10px"}}
+                                                    onClick={() => {this.props.toggleScenarioSelected(scenario);}}
                                                 />
                                             </td>
                                             <td>{scenario.id}</td>
@@ -152,233 +187,240 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     onChange={(e) => this.handleTextChange(e, scenario)}
                                                 />
                                             </td>
-                                            <td>
-                                                <select
-                                                    id={'elevation'}
-                                                    key={`elevation-${scenario.id}`}
-                                                    value={scenario?.elevation}
-                                                    className={'scenario-select'}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
-                                                >
-                                                    <option value={""}>-</option>
-                                                    {
-                                                        this.props.elevations?.map((elevation) => {
-                                                            return (
-                                                                <option value={elevation?.id}>{elevation?.title}</option>
-                                                            );
-                                                        })
-                                                    }
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    id={'boundary'}
-                                                    key={`boundary-${scenario.id}`}
-                                                    value={scenario?.boundary}
-                                                    className={'scenario-select'}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
-                                                >
-                                                    <option value={""}>-</option>
-                                                    {
-                                                        this.props.boundaries?.map((boundary) => {
-                                                            return (
-                                                                <option value={boundary?.id}>{boundary?.title}</option>
-                                                            );
-                                                        })
-                                                    }
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    id={'friction'}
-                                                    key={`friction-${scenario.id}`}
-                                                    value={scenario?.friction}
-                                                    className={'scenario-select'}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
-                                                >
-                                                    <option value={""}>-</option>
-                                                    {
-                                                        this.props.frictions?.map((friction) => {
-                                                            return (
-                                                                <option value={friction?.id}>{friction?.title}</option>
-                                                            );
-                                                        })
-                                                    }
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    id={'inflow'}
-                                                    key={`inflow-${scenario.id}`}
-                                                    value={scenario?.inflow}
-                                                    className={'scenario-select'}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
-                                                >
-                                                    <option value={""}>-</option>
-                                                    {
-                                                        this.props.inflows?.map((inflow) => {
-                                                            return (
-                                                                <option value={inflow?.id}>{inflow?.title}</option>
-                                                            );
-                                                        })
-                                                    }
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    id={'structure'}
-                                                    key={`structure-${scenario.id}`}
-                                                    value={scenario?.structure}
-                                                    className={'scenario-select'}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
-                                                >
-                                                    <option value={""}>-</option>
-                                                    {
-                                                        this.props.structures?.map((structure) => {
-                                                            return (
-                                                                <option value={structure?.id}>{structure?.title}</option>
-                                                            );
-                                                        })
-                                                    }
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    id={'mesh_region'}
-                                                    key={`meshRegion-${scenario.id}`}
-                                                    value={scenario?.mesh_region}
-                                                    className={'scenario-select'}
-                                                    onChange={(e) => this.handleIntChange(e, scenario)}
-                                                >
-                                                    <option value={""}>-</option>
-                                                    {
-                                                        this.props.meshRegions?.map((meshRegion) => {
-                                                            return (
-                                                                <option value={meshRegion?.id}>{meshRegion?.title}</option>
-                                                            );
-                                                        })
-                                                    }
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <input
-                                                    id={'maximum_triangle_area'}
-                                                    key={`maximum_triangle_area-${scenario.id}`}
-                                                    type={"number"}
-                                                    className={'scenario-input'}
-                                                    style={{'width': '80px'}}
-                                                    value={scenario?.maximum_triangle_area}
-                                                    onChange={(event) => this.handleIntChange(event, scenario)}
-                                                />
-                                            </td>
-                                            <td>
-                                                <input
-                                                    id={'duration'}
-                                                    key={`duration-${scenario.id}`}
-                                                    type={"text"}
-                                                    className={'scenario-input'}
-                                                    style={{'width': '80px'}}
-                                                    value={scenario.tempTimeString || this.toHHMMSS(scenario.duration)}
-                                                    onChange={(event) => this.handleTimeChange(event, scenario)}
-                                                    onBlur={(event) => this.handleTimeBlur(event, scenario)}
-                                                />
-                                            </td>
-                                            <td>
-                                                {this.findScenarioStatus(scenario)}
-                                            </td>
-                                            <td>
-                                                <Button
-                                                    bsStyle={'success'}
-                                                    bsSize={'xsmall'}
-                                                    style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={scenario.unsaved ? null : 'disabled'}
-                                                    onClick={() => {
-                                                        this.props.saveAnugaScenario(scenario);
-                                                        this.props.setOpenMenuGroupId(null);
-                                                    }}
-                                                >
-                                                    Save
-                                                </Button>
-                                            </td>
-                                            <td>
-                                                {(() => {
-                                                    const status = this.findScenarioStatus(scenario);
-                                                    switch (status) {
-                                                    case 'built':
-                                                        return (
+                                            {
+                                                this.state.scenarioTableFold === 'datasets' ?
+                                                    <React.Fragment>
+                                                        <td>
+                                                            <select
+                                                                id={'elevation'}
+                                                                key={`elevation-${scenario.id}`}
+                                                                value={scenario?.elevation}
+                                                                className={'scenario-select'}
+                                                                onChange={(e) => this.handleIntChange(e, scenario)}
+                                                            >
+                                                                <option value={""}>-</option>
+                                                                {
+                                                                    this.props.elevations?.map((elevation) => {
+                                                                        return (
+                                                                            <option value={elevation?.id}>{elevation?.title}</option>
+                                                                        );
+                                                                    })
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                id={'boundary'}
+                                                                key={`boundary-${scenario.id}`}
+                                                                value={scenario?.boundary}
+                                                                className={'scenario-select'}
+                                                                onChange={(e) => this.handleIntChange(e, scenario)}
+                                                            >
+                                                                <option value={""}>-</option>
+                                                                {
+                                                                    this.props.boundaries?.map((boundary) => {
+                                                                        return (
+                                                                            <option value={boundary?.id}>{boundary?.title}</option>
+                                                                        );
+                                                                    })
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                id={'friction'}
+                                                                key={`friction-${scenario.id}`}
+                                                                value={scenario?.friction}
+                                                                className={'scenario-select'}
+                                                                onChange={(e) => this.handleIntChange(e, scenario)}
+                                                            >
+                                                                <option value={""}>-</option>
+                                                                {
+                                                                    this.props.frictions?.map((friction) => {
+                                                                        return (
+                                                                            <option value={friction?.id}>{friction?.title}</option>
+                                                                        );
+                                                                    })
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                id={'inflow'}
+                                                                key={`inflow-${scenario.id}`}
+                                                                value={scenario?.inflow}
+                                                                className={'scenario-select'}
+                                                                onChange={(e) => this.handleIntChange(e, scenario)}
+                                                            >
+                                                                <option value={""}>-</option>
+                                                                {
+                                                                    this.props.inflows?.map((inflow) => {
+                                                                        return (
+                                                                            <option value={inflow?.id}>{inflow?.title}</option>
+                                                                        );
+                                                                    })
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                id={'structure'}
+                                                                key={`structure-${scenario.id}`}
+                                                                value={scenario?.structure}
+                                                                className={'scenario-select'}
+                                                                onChange={(e) => this.handleIntChange(e, scenario)}
+                                                            >
+                                                                <option value={""}>-</option>
+                                                                {
+                                                                    this.props.structures?.map((structure) => {
+                                                                        return (
+                                                                            <option value={structure?.id}>{structure?.title}</option>
+                                                                        );
+                                                                    })
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                id={'mesh_region'}
+                                                                key={`meshRegion-${scenario.id}`}
+                                                                value={scenario?.mesh_region}
+                                                                className={'scenario-select'}
+                                                                onChange={(e) => this.handleIntChange(e, scenario)}
+                                                            >
+                                                                <option value={""}>-</option>
+                                                                {
+                                                                    this.props.meshRegions?.map((meshRegion) => {
+                                                                        return (
+                                                                            <option value={meshRegion?.id}>{meshRegion?.title}</option>
+                                                                        );
+                                                                    })
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                    </React.Fragment> :
+                                                    <React.Fragment>
+                                                        <td>
+                                                            <input
+                                                                id={'maximum_triangle_area'}
+                                                                key={`maximum_triangle_area-${scenario.id}`}
+                                                                type={"number"}
+                                                                className={'scenario-input'}
+                                                                style={{'width': '80px'}}
+                                                                value={scenario?.maximum_triangle_area}
+                                                                onChange={(event) => this.handleIntChange(event, scenario)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                id={'duration'}
+                                                                key={`duration-${scenario.id}`}
+                                                                type={"text"}
+                                                                className={'scenario-input'}
+                                                                style={{'width': '80px'}}
+                                                                value={scenario.tempTimeString || this.toHHMMSS(scenario.duration)}
+                                                                onChange={(event) => this.handleTimeChange(event, scenario)}
+                                                                onBlur={(event) => this.handleTimeBlur(event, scenario)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            {this.findScenarioStatus(scenario)}
+                                                        </td>
+                                                        <td>
                                                             <Button
                                                                 bsStyle={'success'}
+                                                                bsSize={'xsmall'}
+                                                                style={{margin: "2px", borderRadius: "2px"}}
+                                                                className={scenario.unsaved ? null : 'disabled'}
+                                                                onClick={() => {
+                                                                    this.props.saveAnugaScenario(scenario);
+                                                                    this.props.setOpenMenuGroupId(null);
+                                                                }}
+                                                            >
+                                                                Save
+                                                            </Button>
+                                                        </td>
+                                                        <td>
+                                                            {(() => {
+                                                                const status = this.findScenarioStatus(scenario);
+                                                                switch (status) {
+                                                                case 'built':
+                                                                    return (
+                                                                        <Button
+                                                                            bsStyle={'success'}
+                                                                            bsSize={'xsmall'}
+                                                                            style={{margin: "2px", borderRadius: "2px"}}
+                                                                            onClick={() => {
+                                                                                this.props.setAnugaScenarioMenu(false);
+                                                                                this.props.selectAnugaScenario(scenario);
+                                                                                this.props.showAnugaRunMenu(true);
+                                                                            }}
+                                                                        >
+                                                                            Run
+                                                                        </Button>
+                                                                    );
+                                                                case 'complete':
+                                                                    return (
+                                                                        <Button
+                                                                            download
+                                                                            href={scenario?.latest_run?.s3_package_url}
+                                                                            bsStyle={'success'}
+                                                                            bsSize={'xsmall'}
+                                                                            style={{margin: "2px", borderRadius: "2px"}}
+                                                                        >
+                                                                            <span className="glyphicon glyphicon-download" aria-hidden="true" />
+                                                                        </Button>
+                                                                    );
+                                                                default:
+                                                                    return (
+                                                                        <Button
+                                                                            bsStyle={'success'}
+                                                                            bsSize={'xsmall'}
+                                                                            className={'disabled'}
+                                                                            style={{margin: "2px", borderRadius: "2px"}}
+                                                                        >
+                                                                            Run
+                                                                        </Button>
+                                                                    );
+                                                                }
+                                                            })()}
+                                                        </td>
+                                                        <td>
+                                                            <Button
+                                                                bsStyle={'info'}
                                                                 bsSize={'xsmall'}
                                                                 style={{margin: "2px", borderRadius: "2px"}}
                                                                 onClick={() => {
-                                                                    this.props.setAnugaScenarioMenu(false);
                                                                     this.props.selectAnugaScenario(scenario);
-                                                                    this.props.showAnugaRunMenu(true);
+                                                                    this.props.showAnugaScenarioLog(scenario.id);
                                                                 }}
                                                             >
-                                                                Run
+                                                                Log
                                                             </Button>
-                                                        );
-                                                    case 'complete':
-                                                        return (
+                                                        </td>
+                                                        <td>
                                                             <Button
-                                                                download
-                                                                href={scenario?.latest_run?.s3_package_url}
-                                                                bsStyle={'success'}
+                                                                bsStyle={'danger'}
                                                                 bsSize={'xsmall'}
-                                                                style={{margin: "2px", borderRadius: "2px"}}
+                                                                style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
+                                                                onClick={ this.findScenarioStatus(scenario).includes('%') ?
+                                                                    () => {
+                                                                        if (confirm('Cancel Run?')) {
+                                                                            this.props.cancelAnugaRun(scenario);
+                                                                        }
+                                                                    } :
+                                                                    () => {
+                                                                        if (confirm('Delete Scenario?')) {
+                                                                            this.props.deleteAnugaScenario(scenario);
+                                                                        }
+                                                                    }
+                                                                }
                                                             >
-                                                                <span className="glyphicon glyphicon-download" aria-hidden="true" />
+                                                                <span className="glyphicon glyphicon-trash" aria-hidden="true" />
                                                             </Button>
-                                                        );
-                                                    default:
-                                                        return (
-                                                            <Button
-                                                                bsStyle={'success'}
-                                                                bsSize={'xsmall'}
-                                                                className={'disabled'}
-                                                                style={{margin: "2px", borderRadius: "2px"}}
-                                                            >
-                                                                Run
-                                                            </Button>
-                                                        );
-                                                    }
-                                                })()}
-                                            </td>
-                                            <td>
-                                                <Button
-                                                    bsStyle={'info'}
-                                                    bsSize={'xsmall'}
-                                                    style={{margin: "2px", borderRadius: "2px"}}
-                                                    onClick={() => {
-                                                        this.props.selectAnugaScenario(scenario);
-                                                        this.props.showAnugaScenarioLog(scenario.id);
-                                                    }}
-                                                >
-                                                    Log
-                                                </Button>
-                                            </td>
-                                            <td>
-                                                <Button
-                                                    bsStyle={'danger'}
-                                                    bsSize={'xsmall'}
-                                                    style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
-                                                    onClick={ this.findScenarioStatus(scenario).includes('%') ?
-                                                        () => {
-                                                            if (confirm('Cancel Run?')) {
-                                                                this.props.cancelAnugaRun(scenario);
-                                                            }
-                                                        } :
-                                                        () => {
-                                                            if (confirm('Delete Scenario?')) {
-                                                                this.props.deleteAnugaScenario(scenario);
-                                                            }
-                                                        }
-                                                    }
-                                                >
-                                                    <span className="glyphicon glyphicon-trash" aria-hidden="true" />
-                                                </Button>
-                                            </td>
+                                                        </td>
+                                                    </React.Fragment>
+                                            }
                                         </tr>
                                     );
                                 })
@@ -476,7 +518,8 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaScenario: () => dispatch(addAnugaScenario()),
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
         cancelAnugaRun: (scenario) => dispatch(cancelAnugaRun(scenario)),
-        showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible))
+        showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
+        toggleScenarioSelected: (scenario) => dispatch(toggleScenarioSelected(scenario))
     };
 };
 
