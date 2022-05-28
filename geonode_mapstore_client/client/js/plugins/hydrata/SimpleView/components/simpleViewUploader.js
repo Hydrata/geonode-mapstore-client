@@ -77,7 +77,7 @@ class simpleViewUploaderPanel extends React.Component {
                                     <td key="last"><DateFormat value={file.lastModifiedDate} /></td>
                                     <td key="status">
                                         {
-                                            (file.status === "begin" && file.size < 200000000) ?
+                                            file.status === "begin" ?
                                                 <OverlayTrigger positionLeft overlay={<Tooltip>Enter a title</Tooltip>}>
                                                     <Button
                                                         onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
@@ -138,9 +138,9 @@ class simpleViewUploaderPanel extends React.Component {
     }
 
     humanFileSize = (size) => {
-        if (size > 200000000) {
-            return "Too big: 200MB max";
-        }
+        // if (size > 200000000) {
+        //     return "Too big: 200MB max";
+        // }
         const i = Math.floor( Math.log(size) / Math.log(1024) );
         return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
     };
