@@ -326,9 +326,9 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 href={scenario?.latest_run?.s3_package_url}
                                                                 bsStyle={'success'}
                                                                 bsSize={'xsmall'}
-                                                                style={{margin: "2px", borderRadius: "2px", left: "7px", bottom: "6px", position: "absolute"}}
+                                                                style={{margin: "2px", borderRadius: "2px"}}
                                                             >
-                                                                Download
+                                                                <span className="glyphicon glyphicon-download" aria-hidden="true" />
                                                             </Button>
                                                         );
                                                     default:

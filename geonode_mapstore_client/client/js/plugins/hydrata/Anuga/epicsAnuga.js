@@ -1,6 +1,6 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
-import { addLayer } from '../../../../MapStore2/web/client/actions/layers';
+import { addLayer, refreshLayers } from '../../../../MapStore2/web/client/actions/layers';
 import { zoomToExtent } from "../../../../MapStore2/web/client/actions/map";
 import { saveDirectContent } from "../../../actions/gnsave";
 import {CREATE_NEW_FEATURE, createNewFeatures} from "../../../../MapStore2/web/client/actions/featuregrid";
@@ -185,6 +185,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 // console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
                                 // and check frontend
                                 const currentLayerNames = store.getState()?.layers?.flat.map(layer => layer.name);
+                                let wmsLayers = store.getState().layers.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
                                 if (scenarioToLoadResults &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
@@ -200,7 +201,8 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                             Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max)),
                                             Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_max)),
                                             Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_velocity_max)),
-                                            Rx.Observable.of(setAnugaScenarioResultsLoaded(scenarioToLoadResults?.id, true))
+                                            Rx.Observable.of(setAnugaScenarioResultsLoaded(scenarioToLoadResults?.id, true)),
+                                            Rx.Observable.of(refreshLayers(wmsLayers))
                                         );
                                 }
                                 // console.log('not turning on anything');
