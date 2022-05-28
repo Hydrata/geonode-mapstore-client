@@ -5,7 +5,7 @@ const Slider = require('react-nouislider');
 
 import {
     changeLayerProperties,
-    refreshlayerVersion,
+    download,
     refreshLayers,
     browseData,
     removeNode,
@@ -35,7 +35,8 @@ class MenuRowClass extends React.Component {
         removeLayer: PropTypes.func,
         refreshlayerVersion: PropTypes.func,
         updateLayerTitle: PropTypes.func,
-        refreshLayers: PropTypes.func
+        refreshLayers: PropTypes.func,
+        download: PropTypes.func
     };
 
     constructor(props) {
@@ -64,7 +65,18 @@ class MenuRowClass extends React.Component {
                         onClick={() => {this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);}}
                     />
                     {
-                        this.props.canEditMap && this.canEdit(this.props.layer) ?
+                        this.props.canEditMap && this.canExportLayer(this.props.layer) ?
+                            <span
+                                className={"btn glyphicon menu-row-glyph glyphicon-download"}
+                                style={{"color": "limegreen"}}
+                                onClick={() => {
+                                    this.props.download(this.props.layer);
+                                }}
+                            />
+                            : null
+                    }
+                    {
+                        this.props.canEditMap && this.canEditLayer(this.props.layer) ?
                             <React.Fragment>
                                 <span
                                     className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
@@ -105,7 +117,7 @@ class MenuRowClass extends React.Component {
                 </span>
                 <span className={"pull-right .menu-row-button"}>
                     {
-                        (this.props.canEditMap && this.canEdit(this.props.layer)) ?
+                        (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
                             <span
                                 className={"btn glyphicon menu-row-glyph glyphicon-trash"}
                                 style={{"color": "darkred", "float": "right"}}
@@ -122,11 +134,11 @@ class MenuRowClass extends React.Component {
                                 className="mapstore-slider dataset-transparency with-tooltip"
                                 onClick={(e) => { e.stopPropagation();}}
                                 style={
-                                    (this.props.canEditMap && this.canEdit(this.props.layer)) ?
+                                    (this.props.canEditMap && this.canEditLayer(this.props.layer)) ?
                                         this.props.layer?.title === this.state.newTitle ? {
                                             "display": "inline-block",
                                             "float": "right",
-                                            "width": "195px",
+                                            "width": "170px",
                                             "marginRight": "10px",
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
@@ -134,7 +146,7 @@ class MenuRowClass extends React.Component {
                                         } : {
                                             "display": "inline-block",
                                             "float": "right",
-                                            "width": "165px",
+                                            "width": "140px",
                                             "marginRight": "10px",
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
@@ -142,7 +154,7 @@ class MenuRowClass extends React.Component {
                                         } : {
                                             "display": "inline-block",
                                             "float": "right",
-                                            "width": "195px",
+                                            "width": "170px",
                                             "marginRight": "40px",
                                             "marginLeft": "10px",
                                             "marginBottom": "-10px",
@@ -168,9 +180,17 @@ class MenuRowClass extends React.Component {
             </div>
         );
     }
-    canEdit = (layer) => {
+    canEditLayer = (layer) => {
         return (layer?.perms?.indexOf("change_dataset_data") > -1 && layer?.perms?.indexOf("change_resourcebase") > -1 );
-    }
+    };
+
+    canDeleteLayer = (layer) => {
+        return (layer?.perms?.indexOf("delete_resourcebase") > -1);
+    };
+
+    canExportLayer = (layer) => {
+        return (layer?.perms?.indexOf("download_resourcebase") > -1);
+    };
 }
 
 const mapStateToProps = (state) => {
@@ -197,7 +217,8 @@ const mapDispatchToProps = ( dispatch ) => {
         removeNode: (nodeId, type) => dispatch(removeNode(nodeId, type)),
         removeLayer: (layerId) => dispatch(removeLayer(layerId)),
         updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
-        refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray))
+        refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
+        download: (layer) => dispatch(download(layer))
     };
 };
 

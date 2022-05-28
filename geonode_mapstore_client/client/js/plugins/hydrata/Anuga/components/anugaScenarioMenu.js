@@ -301,19 +301,49 @@ class AnugaScenarioMenuClass extends React.Component {
                                                 </Button>
                                             </td>
                                             <td>
-                                                <Button
-                                                    bsStyle={'success'}
-                                                    bsSize={'xsmall'}
-                                                    style={{margin: "2px", borderRadius: "2px"}}
-                                                    className={this.findScenarioStatus(scenario) !== 'built' ? 'disabled' : null }
-                                                    onClick={() => {
-                                                        this.props.setAnugaScenarioMenu(false);
-                                                        this.props.selectAnugaScenario(scenario);
-                                                        this.props.showAnugaRunMenu(true);
-                                                    }}
-                                                >
-                                                    Run
-                                                </Button>
+                                                {(() => {
+                                                    const status = this.findScenarioStatus(scenario);
+                                                    switch (status) {
+                                                    case 'built':
+                                                        return (
+                                                            <Button
+                                                                bsStyle={'success'}
+                                                                bsSize={'xsmall'}
+                                                                style={{margin: "2px", borderRadius: "2px"}}
+                                                                onClick={() => {
+                                                                    this.props.setAnugaScenarioMenu(false);
+                                                                    this.props.selectAnugaScenario(scenario);
+                                                                    this.props.showAnugaRunMenu(true);
+                                                                }}
+                                                            >
+                                                                Run
+                                                            </Button>
+                                                        );
+                                                    case 'complete':
+                                                        return (
+                                                            <Button
+                                                                download
+                                                                href={scenario?.latest_run?.s3_package_url}
+                                                                bsStyle={'success'}
+                                                                bsSize={'xsmall'}
+                                                                style={{margin: "2px", borderRadius: "2px", left: "7px", bottom: "6px", position: "absolute"}}
+                                                            >
+                                                                Download
+                                                            </Button>
+                                                        );
+                                                    default:
+                                                        return (
+                                                            <Button
+                                                                bsStyle={'success'}
+                                                                bsSize={'xsmall'}
+                                                                className={'disabled'}
+                                                                style={{margin: "2px", borderRadius: "2px"}}
+                                                            >
+                                                                Run
+                                                            </Button>
+                                                        );
+                                                    }
+                                                })()}
                                             </td>
                                             <td>
                                                 <Button
