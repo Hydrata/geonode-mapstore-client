@@ -74,8 +74,12 @@
     margin-bottom: 0;
 }
 
-.scenario-table-row {
+.scenario-table-header {
+    height: 45px;
+}
 
+.scenario-table-row {
+    height: 45px
 }
 
 #new-scenario-button {

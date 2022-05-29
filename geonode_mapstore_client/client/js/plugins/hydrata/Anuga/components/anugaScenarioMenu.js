@@ -96,7 +96,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     color: this.state.scenarioTableTab === 'controls' ? "#3363a0" : 'white',
                                     backgroundColor: this.state.scenarioTableTab === 'controls' ? "white" : '#6085b5'
                                 }}
-                                className={this.state.scenarioTableTab === 'controls' ? null : 'disabled'}
+                                className={this.state.scenarioTableTab === 'controls' ? 'disabled' : null}
                                 onClick={
                                     () => this.state.scenarioTableTab === 'controls' ?
                                         null :
@@ -110,18 +110,34 @@ class AnugaScenarioMenuClass extends React.Component {
                                 style={{
                                     margin: "2px 0 -17px 8px",
                                     borderRadius: "6px 6px 0 0",
-                                    color: this.state.scenarioTableTab === 'datasets' ? "#3363a0" : 'white',
-                                    backgroundColor: this.state.scenarioTableTab === 'datasets' ? "white" : '#6085b5'
+                                    color: this.state.scenarioTableTab === 'inputs' ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTab === 'inputs' ? "white" : '#6085b5'
                                 }}
-                                className={this.state.scenarioTableTab === 'datasets' ? null : 'disabled'}
+                                className={this.state.scenarioTableTab === 'inputs' ? 'disabled' : null}
                                 onClick={
-                                    () => this.state.scenarioTableTab === 'datasets' ?
+                                    () => this.state.scenarioTableTab === 'inputs' ?
                                         null :
-                                        this.setState({scenarioTableTab: 'datasets'})
-
+                                        this.setState({scenarioTableTab: 'inputs'})
                                 }
                             >
-                                Datasets
+                                Inputs
+                            </Button>
+                            <Button
+                                bsSize={'medium'}
+                                style={{
+                                    margin: "2px 0 -17px 8px",
+                                    borderRadius: "6px 6px 0 0",
+                                    color: this.state.scenarioTableTab === 'compare' ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTab === 'compare' ? "white" : '#6085b5'
+                                }}
+                                className={this.state.scenarioTableTab === 'compare' ? 'disabled' : null}
+                                onClick={
+                                    () => this.state.scenarioTableTab === 'compare' ?
+                                        null :
+                                        this.setState({scenarioTableTab: 'compare'})
+                                }
+                            >
+                                Compare
                             </Button>
                         </span>
                         <span id={"new-scenario-button"}>
@@ -149,11 +165,10 @@ class AnugaScenarioMenuClass extends React.Component {
                     <Table className={"scenario-table"}>
                         <thead>
                             <tr className={"scenario-table-header"}>
-                                <th>Select</th>
                                 <th>Id</th>
                                 <th>Name</th>
                                 {
-                                    this.state.scenarioTableTab === 'datasets' ?
+                                    this.state.scenarioTableTab === 'inputs' ?
                                         <React.Fragment>
                                             <th>Elevation</th>
                                             <th>Boundary</th>
@@ -175,6 +190,26 @@ class AnugaScenarioMenuClass extends React.Component {
                                             <th/>
                                         </React.Fragment> : null
                                 }
+                                {
+                                    this.state.scenarioTableTab === 'compare' ?
+                                        <React.Fragment>
+                                            <th>Select</th>
+                                            <th>
+                                                <span id={"depth-difference-button"}>
+                                                    <Button
+                                                        bsStyle={'success'}
+                                                        bsSize={'xsmall'}
+                                                        style={{margin: "2px", borderRadius: "2px"}}
+                                                        onClick={() => {
+                                                            alert('This feature coming soon.');
+                                                        }}
+                                                    >
+                                                        Depth Difference
+                                                    </Button>
+                                                </span>
+                                            </th>
+                                        </React.Fragment> : null
+                                }
                             </tr>
                         </thead>
                         <tbody>
@@ -182,13 +217,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                 this.props.scenarios?.map(scenario => {
                                     return (
                                         <tr className={'scenario-table-row'}>
-                                            <td>
-                                                <span
-                                                    className={"btn glyphicon menu-row-glyph " + (scenario?.selected ? "glyphicon-ok" : "glyphicon-remove")}
-                                                    style={{"color": scenario?.selected ? "limegreen" : "red", "fontSize": "10px"}}
-                                                    onClick={() => {this.props.toggleScenarioSelected(scenario);}}
-                                                />
-                                            </td>
                                             <td>{scenario.id}</td>
                                             <td>
                                                 <input
@@ -201,7 +229,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                 />
                                             </td>
                                             {
-                                                this.state.scenarioTableTab === 'datasets' ?
+                                                this.state.scenarioTableTab === 'inputs' ?
                                                     <React.Fragment>
                                                         <td>
                                                             <select
@@ -215,7 +243,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 {
                                                                     this.props.elevations?.map((elevation) => {
                                                                         return (
-                                                                            <option value={elevation?.id}>{elevation?.title}</option>
+                                                                            <option
+                                                                                value={elevation?.id}>{elevation?.title}</option>
                                                                         );
                                                                     })
                                                                 }
@@ -233,7 +262,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 {
                                                                     this.props.boundaries?.map((boundary) => {
                                                                         return (
-                                                                            <option value={boundary?.id}>{boundary?.title}</option>
+                                                                            <option
+                                                                                value={boundary?.id}>{boundary?.title}</option>
                                                                         );
                                                                     })
                                                                 }
@@ -251,7 +281,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 {
                                                                     this.props.frictions?.map((friction) => {
                                                                         return (
-                                                                            <option value={friction?.id}>{friction?.title}</option>
+                                                                            <option
+                                                                                value={friction?.id}>{friction?.title}</option>
                                                                         );
                                                                     })
                                                                 }
@@ -269,7 +300,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 {
                                                                     this.props.inflows?.map((inflow) => {
                                                                         return (
-                                                                            <option value={inflow?.id}>{inflow?.title}</option>
+                                                                            <option
+                                                                                value={inflow?.id}>{inflow?.title}</option>
                                                                         );
                                                                     })
                                                                 }
@@ -287,7 +319,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 {
                                                                     this.props.structures?.map((structure) => {
                                                                         return (
-                                                                            <option value={structure?.id}>{structure?.title}</option>
+                                                                            <option
+                                                                                value={structure?.id}>{structure?.title}</option>
                                                                         );
                                                                     })
                                                                 }
@@ -305,13 +338,17 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 {
                                                                     this.props.meshRegions?.map((meshRegion) => {
                                                                         return (
-                                                                            <option value={meshRegion?.id}>{meshRegion?.title}</option>
+                                                                            <option
+                                                                                value={meshRegion?.id}>{meshRegion?.title}</option>
                                                                         );
                                                                     })
                                                                 }
                                                             </select>
                                                         </td>
-                                                    </React.Fragment> :
+                                                    </React.Fragment> : null
+                                            }
+                                            {
+                                                this.state.scenarioTableTab === 'controls' ?
                                                     <React.Fragment>
                                                         <td>
                                                             <input
@@ -432,7 +469,22 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 <span className="glyphicon glyphicon-trash" aria-hidden="true" />
                                                             </Button>
                                                         </td>
-                                                    </React.Fragment>
+                                                    </React.Fragment> : null
+                                            }
+                                            {
+                                                this.state.scenarioTableTab === 'compare' ?
+                                                    <td>
+                                                        <span
+                                                            className={"btn glyphicon menu-row-glyph " + (scenario?.selected ? "glyphicon-ok" : "glyphicon-remove")}
+                                                            style={{
+                                                                "color": scenario?.selected ? "limegreen" : "red",
+                                                                "fontSize": "10px"
+                                                            }}
+                                                            onClick={() => {
+                                                                this.props.toggleScenarioSelected(scenario);
+                                                            }}
+                                                        />
+                                                    </td> : null
                                             }
                                         </tr>
                                     );
