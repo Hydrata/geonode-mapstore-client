@@ -50,7 +50,7 @@ class AnugaScenarioMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            scenarioTableFold: 'controls'
+            scenarioTableTab: 'controls'
         };
         this.handleTextChange = this.handleTextChange.bind(this);
         this.handleIntChange = this.handleIntChange.bind(this);
@@ -87,33 +87,43 @@ class AnugaScenarioMenuClass extends React.Component {
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                         Scenarios
-                        {
-                            this.state.scenarioTableFold === 'datasets' ?
-                                <span id={"scenario-fold-button"}>
-                                    <Button
-                                        bsStyle={'success'}
-                                        bsSize={'xsmall'}
-                                        style={{margin: "2px", borderRadius: "2px"}}
-                                        onClick={() => {
-                                            this.setState({scenarioTableFold: 'controls'})
-                                        }}
-                                    >
-                                        Datasets
-                                    </Button>
-                                </span> :
-                                <span id={"scenario-fold-button"}>
-                                    <Button
-                                        bsStyle={'success'}
-                                        bsSize={'xsmall'}
-                                        style={{margin: "2px", borderRadius: "2px"}}
-                                        onClick={() => {
-                                            this.setState({scenarioTableFold: 'datasets'})
-                                        }}
-                                    >
-                                        Controls
-                                    </Button>
-                                </span>
-                        }
+                        <span id={"scenario-tab-button-group"}>
+                            <Button
+                                bsSize={'medium'}
+                                style={{
+                                    margin: "2px 0 -17px 20px",
+                                    borderRadius: "6px 6px 0 0",
+                                    color: this.state.scenarioTableTab === 'controls' ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTab === 'controls' ? "white" : '#6085b5'
+                                }}
+                                className={this.state.scenarioTableTab === 'controls' ? null : 'disabled'}
+                                onClick={
+                                    () => this.state.scenarioTableTab === 'controls' ?
+                                        null :
+                                        this.setState({scenarioTableTab: 'controls'})
+                                }
+                            >
+                                Controls
+                            </Button>
+                            <Button
+                                bsSize={'medium'}
+                                style={{
+                                    margin: "2px 0 -17px 8px",
+                                    borderRadius: "6px 6px 0 0",
+                                    color: this.state.scenarioTableTab === 'datasets' ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTab === 'datasets' ? "white" : '#6085b5'
+                                }}
+                                className={this.state.scenarioTableTab === 'datasets' ? null : 'disabled'}
+                                onClick={
+                                    () => this.state.scenarioTableTab === 'datasets' ?
+                                        null :
+                                        this.setState({scenarioTableTab: 'datasets'})
+
+                                }
+                            >
+                                Datasets
+                            </Button>
+                        </span>
                         <span id={"new-scenario-button"}>
                             <Button
                                 bsStyle={'success'}
@@ -143,7 +153,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Id</th>
                                 <th>Name</th>
                                 {
-                                    this.state.scenarioTableFold === 'datasets' ?
+                                    this.state.scenarioTableTab === 'datasets' ?
                                         <React.Fragment>
                                             <th>Elevation</th>
                                             <th>Boundary</th>
@@ -151,7 +161,10 @@ class AnugaScenarioMenuClass extends React.Component {
                                             <th>Inflow</th>
                                             <th>Structures</th>
                                             <th>Mesh Regions</th>
-                                        </React.Fragment> :
+                                        </React.Fragment> : null
+                                }
+                                {
+                                    this.state.scenarioTableTab === 'controls' ?
                                         <React.Fragment>
                                             <th>Resolution(m2)</th>
                                             <th>Duration</th>
@@ -160,7 +173,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                             <th/>
                                             <th/>
                                             <th/>
-                                        </React.Fragment>
+                                        </React.Fragment> : null
                                 }
                             </tr>
                         </thead>
@@ -188,7 +201,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                 />
                                             </td>
                                             {
-                                                this.state.scenarioTableFold === 'datasets' ?
+                                                this.state.scenarioTableTab === 'datasets' ?
                                                     <React.Fragment>
                                                         <td>
                                                             <select
