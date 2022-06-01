@@ -106,42 +106,42 @@ class AnugaRunMenuClass extends React.Component {
                                                             </Button>
                                                         </td>
                                                     </tr>
-                                                    <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
-                                                        <td>None</td>
-                                                        <td>Your machine</td>
-                                                        <td>-</td>
-                                                        <td>-</td>
-                                                        <td>-</td>
-                                                        <td>-</td>
-                                                        <td>-</td>
-                                                        <td>
-                                                            <Button
-                                                                download
-                                                                href={this.props.selectedScenario?.latest_run?.s3_package_url}
-                                                                bsStyle={'success'}
-                                                                bsSize={'xsmall'}
-                                                                style={{margin: "2px", borderRadius: "2px"}}
-                                                            >
-                                                                <span className="glyphicon glyphicon-download" aria-hidden="true" />
-                                                            </Button>
-                                                        </td>
-                                                    </tr>
                                                 </React.Fragment>
                                             );
                                         }) :
                                             <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
-                                                ...searching for available compute servers
-                                                <span>
+                                                <div>
                                                     <Spinner color="white" style={{display: "inline-block", margin: "20px"}} spinnerName="circle" noFadeIn/>
-                                                </span>
+                                                </div>
+                                                ...searching for available compute servers
                                             </tr>
                                     }
+                                    <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
+                                        <td>None</td>
+                                        <td>Your machine</td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>
+                                            <Button
+                                                download
+                                                href={this.props.selectedScenario?.latest_run?.s3_package_url}
+                                                bsStyle={'success'}
+                                                bsSize={'xsmall'}
+                                                style={{margin: "2px", borderRadius: "2px"}}
+                                            >
+                                                <span className="glyphicon glyphicon-download" aria-hidden="true" />
+                                            </Button>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </Table>
                         </div>
                     </div>
                     <div id={'anuga-run-menu'} style={{left: "7px"}}>
-                        Scenario: {this.props.selectedScenario?.name}
+                        Scenario: {this.props.selectedScenario?.name}<br/>
                         Mesh size: {formatMoney(this.props.selectedScenario?.latest_run?.mesh_triangle_count_estimate, 0)} triangles<br/>
                         Real world duration: {this.props.selectedScenario?.latest_run?.duration}<br/>
                     </div>
