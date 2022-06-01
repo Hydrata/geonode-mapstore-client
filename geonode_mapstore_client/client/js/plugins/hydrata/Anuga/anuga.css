@@ -161,13 +161,14 @@
 }
 
 #anuga-run-menu {
-    color: black;
-    background: white;
-    overflow-y: scroll;
+    color: white;
+    background: #000000cc;
+    border-radius: 5px;
+    font-family: Monospace;
     overflow-x: auto;
-    height: 10vh;
+    height: 100px;
     padding: 10px;
-    margin: 0 0 10px;
+    margin: 20px 0 10px;
 }
 
 #anuga-compute-instance-menu {
@@ -193,6 +194,27 @@
 ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
   color: white;
   opacity: 1; /* Firefox */
+}
+
+.run-server-table {
+    margin-bottom: 0;
+    text-align: center;
+}
+
+.run-server-table-header {
+    height: 45px;
+}
+
+.run-server-table-header > th {
+    text-align: center;
+}
+
+.run-server-table-row {
+    height: 45px
+}
+
+.run-server-table-row {
+    text-align: center;
 }
 
 /*#identify-container {*/
