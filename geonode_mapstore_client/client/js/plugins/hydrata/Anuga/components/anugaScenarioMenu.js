@@ -50,7 +50,7 @@ class AnugaScenarioMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            scenarioTableTab: 'controls'
+            scenarioTableTab: 'settings'
         };
         this.handleTextChange = this.handleTextChange.bind(this);
         this.handleIntChange = this.handleIntChange.bind(this);
@@ -93,17 +93,17 @@ class AnugaScenarioMenuClass extends React.Component {
                                 style={{
                                     margin: "2px 0 -17px 20px",
                                     borderRadius: "6px 6px 0 0",
-                                    color: this.state.scenarioTableTab === 'controls' ? "#3363a0" : 'white',
-                                    backgroundColor: this.state.scenarioTableTab === 'controls' ? "white" : '#6085b5'
+                                    color: this.state.scenarioTableTab === 'settings' ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTab === 'settings' ? "white" : '#6085b5'
                                 }}
-                                className={this.state.scenarioTableTab === 'controls' ? 'disabled' : null}
+                                className={this.state.scenarioTableTab === 'settings' ? 'disabled' : null}
                                 onClick={
-                                    () => this.state.scenarioTableTab === 'controls' ?
+                                    () => this.state.scenarioTableTab === 'settings' ?
                                         null :
-                                        this.setState({scenarioTableTab: 'controls'})
+                                        this.setState({scenarioTableTab: 'settings'})
                                 }
                             >
-                                Controls
+                                Settings
                             </Button>
                             <Button
                                 bsSize={'medium'}
@@ -179,7 +179,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                         </React.Fragment> : null
                                 }
                                 {
-                                    this.state.scenarioTableTab === 'controls' ?
+                                    this.state.scenarioTableTab === 'settings' ?
                                         <React.Fragment>
                                             <th>Resolution(m2)</th>
                                             <th>Duration</th>
@@ -348,7 +348,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     </React.Fragment> : null
                                             }
                                             {
-                                                this.state.scenarioTableTab === 'controls' ?
+                                                this.state.scenarioTableTab === 'settings' ?
                                                     <React.Fragment>
                                                         <td>
                                                             <input
