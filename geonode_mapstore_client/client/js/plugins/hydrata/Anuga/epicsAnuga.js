@@ -140,11 +140,11 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         )),
                         Rx.Observable.of(updateUploadStatus('Complete')),
                         Rx.Observable.of(saveDirectContent()),
-                        Rx.Observable.of(initAnuga()),
-                        Rx.Observable.of(() => {
-                            let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
-                            return refreshLayers(wmsLayers);
-                        })
+                        Rx.Observable.of(initAnuga())
+                        // Rx.Observable.of(() => {
+                        //     let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
+                        //     return refreshLayers(wmsLayers);
+                        // })
                     );
                 })
         );
