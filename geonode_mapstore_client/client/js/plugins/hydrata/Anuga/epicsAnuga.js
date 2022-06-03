@@ -2,7 +2,7 @@ import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
 import { addLayer, refreshLayers } from '../../../../MapStore2/web/client/actions/layers';
 import { zoomToExtent } from "../../../../MapStore2/web/client/actions/map";
-import { saveDirectContent } from "../../../actions/gnsave";
+import { saveDirectContent } from "@js/actions/gnsave";
 import {CREATE_NEW_FEATURE, createNewFeatures} from "../../../../MapStore2/web/client/actions/featuregrid";
 
 import {
@@ -130,6 +130,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                             Rx.Observable.of(addAnugaMeshRegion())
                         );
                     }
+                    let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
                     return Rx.Observable.concat(
                         Rx.Observable.of(addLayer(response.data[0])),  // The elevation
                         Rx.Observable.of(addLayer(response.data?.[1])),  // The hillshade
@@ -140,7 +141,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         )),
                         Rx.Observable.of(updateUploadStatus('Complete')),
                         Rx.Observable.of(saveDirectContent()),
-                        Rx.Observable.of(initAnuga())
+                        Rx.Observable.of(initAnuga()),
+                        Rx.Observable.of(refreshLayers(wmsLayers))
                     );
                 })
         );
