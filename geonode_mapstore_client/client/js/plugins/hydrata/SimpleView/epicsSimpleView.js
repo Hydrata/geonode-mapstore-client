@@ -34,7 +34,7 @@ export const svDownloadLayerEpic = (action$) =>
         .ofType(SV_DOWNLOAD_LAYER)
         .concatMap((action) =>
             Rx.Observable.concat(
-                Rx.Observable.of(selectNode(action?.layer?.id)),
+                Rx.Observable.of(selectNode(action?.layer?.id, 'layer')),
                 Rx.Observable.of(download(action?.layer))
             )
         );
