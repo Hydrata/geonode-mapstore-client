@@ -8,6 +8,7 @@ import {
     download,
     refreshLayers,
     browseData,
+    selectNode,
     removeNode,
     removeLayer
 } from "../../../../../MapStore2/web/client/actions/layers";
@@ -36,7 +37,8 @@ class MenuRowClass extends React.Component {
         refreshlayerVersion: PropTypes.func,
         updateLayerTitle: PropTypes.func,
         refreshLayers: PropTypes.func,
-        download: PropTypes.func
+        download: PropTypes.func,
+        selectNode: PropTypes.func
     };
 
     constructor(props) {
@@ -70,6 +72,7 @@ class MenuRowClass extends React.Component {
                                 className={"btn glyphicon menu-row-glyph glyphicon-download"}
                                 style={{"color": "limegreen"}}
                                 onClick={() => {
+                                    this.props.selectNode(this.props.layer.id, 'layer');
                                     this.props.download(this.props.layer);
                                 }}
                             />
@@ -218,7 +221,8 @@ const mapDispatchToProps = ( dispatch ) => {
         removeLayer: (layerId) => dispatch(removeLayer(layerId)),
         updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
         refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
-        download: (layer) => dispatch(download(layer))
+        download: (layer) => dispatch(download(layer)),
+        selectNode: (layerId, type, options) => dispatch(selectNode(layerId, type, options))
     };
 };
 
