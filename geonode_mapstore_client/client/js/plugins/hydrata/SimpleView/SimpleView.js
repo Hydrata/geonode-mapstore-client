@@ -3,7 +3,8 @@ import simpleView from "./reducersSimpleView";
 import simpleViewContainer from "./components/simpleViewContainer";
 import {
     beginEditLayerEpic,
-    updateDatasetTitle
+    updateDatasetTitleEpic,
+    svDownloadLayerEpic
 } from "./epicsSimpleView";
 
 export default createPlugin('SimpleView', {
@@ -13,6 +14,7 @@ export default createPlugin('SimpleView', {
     },
     epics: {
         beginEditLayerEpic,
-        updateDatasetTitle
+        updateDatasetTitleEpic,
+        svDownloadLayerEpic
     }
 });

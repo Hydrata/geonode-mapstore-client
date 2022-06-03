@@ -4,6 +4,7 @@ const SET_VISIBLE_INTRODUCTION = 'SET_VISIBLE_INTRODUCTION';
 const SET_VISIBLE_UPLOADER_PANEL = 'SET_VISIBLE_UPLOADER_PANEL';
 const UPDATE_UPLOAD_STATUS = 'UPDATE_UPLOAD_STATUS';
 const SV_SELECT_LAYER = 'SV_SELECT_LAYER';
+const SV_DOWNLOAD_LAYER = 'SV_DOWNLOAD_LAYER';
 const UPDATE_DATASET_TITLE = 'UPDATE_DATASET_TITLE';
 
 function setOpenMenuGroupId(openMenuGroupId) {
@@ -48,6 +49,13 @@ function svSelectLayer(layer) {
     };
 }
 
+function svDownloadLayer(layer) {
+    return {
+        type: SV_DOWNLOAD_LAYER,
+        layer
+    };
+}
+
 function updateDatasetTitle(datasetName, newTitle) {
     return {
         type: UPDATE_DATASET_TITLE,
@@ -63,5 +71,6 @@ module.exports = {
     SET_VISIBLE_UPLOADER_PANEL, setVisibleUploaderPanel,
     UPDATE_UPLOAD_STATUS, updateUploadStatus,
     UPDATE_DATASET_TITLE, updateDatasetTitle,
-    SV_SELECT_LAYER, svSelectLayer
+    SV_SELECT_LAYER, svSelectLayer,
+    SV_DOWNLOAD_LAYER, svDownloadLayer
 };

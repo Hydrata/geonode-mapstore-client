@@ -5,15 +5,13 @@ const Slider = require('react-nouislider');
 
 import {
     changeLayerProperties,
-    download,
     refreshLayers,
     browseData,
-    selectNode,
     removeNode,
     removeLayer
 } from "../../../../../MapStore2/web/client/actions/layers";
 import '../simpleView.css';
-import {svSelectLayer, setOpenMenuGroupId, updateDatasetTitle} from '../actionsSimpleView';
+import {svSelectLayer, setOpenMenuGroupId, updateDatasetTitle, svDownloadLayer} from '../actionsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
 
@@ -37,7 +35,7 @@ class MenuRowClass extends React.Component {
         refreshlayerVersion: PropTypes.func,
         updateLayerTitle: PropTypes.func,
         refreshLayers: PropTypes.func,
-        download: PropTypes.func,
+        svDownloadLayer: PropTypes.func,
         selectNode: PropTypes.func
     };
 
@@ -72,8 +70,7 @@ class MenuRowClass extends React.Component {
                                 className={"btn glyphicon menu-row-glyph glyphicon-download"}
                                 style={{"color": "limegreen"}}
                                 onClick={() => {
-                                    this.props.selectNode(this.props.layer.id, 'layer');
-                                    this.props.download(this.props.layer);
+                                    this.props.svDownloadLayer(this.props.layer);
                                 }}
                             />
                             : null
@@ -221,8 +218,7 @@ const mapDispatchToProps = ( dispatch ) => {
         removeLayer: (layerId) => dispatch(removeLayer(layerId)),
         updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
         refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
-        download: (layer) => dispatch(download(layer)),
-        selectNode: (layerId, type, options) => dispatch(selectNode(layerId, type, options))
+        svDownloadLayer: (layer) => dispatch(svDownloadLayer(layer))
     };
 };
 
