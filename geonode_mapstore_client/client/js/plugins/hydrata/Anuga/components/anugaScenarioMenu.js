@@ -176,6 +176,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                             <th>Inflow</th>
                                             <th>Structures</th>
                                             <th>Mesh Regions</th>
+                                            <th/>
                                         </React.Fragment> : null
                                 }
                                 {
@@ -345,6 +346,20 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 }
                                                             </select>
                                                         </td>
+                                                        <td>
+                                                            <Button
+                                                                bsStyle={'success'}
+                                                                bsSize={'xsmall'}
+                                                                style={{margin: "2px", borderRadius: "2px"}}
+                                                                className={scenario.unsaved ? null : 'disabled'}
+                                                                onClick={() => {
+                                                                    this.props.saveAnugaScenario(scenario);
+                                                                    this.props.setOpenMenuGroupId(null);
+                                                                }}
+                                                            >
+                                                                Save
+                                                            </Button>
+                                                        </td>
                                                     </React.Fragment> : null
                                             }
                                             {
@@ -473,18 +488,22 @@ class AnugaScenarioMenuClass extends React.Component {
                                             }
                                             {
                                                 this.state.scenarioTableTab === 'compare' ?
-                                                    <td>
-                                                        <span
-                                                            className={"btn glyphicon menu-row-glyph " + (scenario?.selected ? "glyphicon-ok" : "glyphicon-remove")}
-                                                            style={{
-                                                                "color": scenario?.selected ? "limegreen" : "red",
-                                                                "fontSize": "10px"
-                                                            }}
-                                                            onClick={() => {
-                                                                this.props.toggleScenarioSelected(scenario);
-                                                            }}
-                                                        />
-                                                    </td> : null
+                                                    <React.Fragment>
+                                                        <td>
+                                                            <span
+                                                                className={"btn glyphicon menu-row-glyph " + (scenario?.selected ? "glyphicon-ok" : "glyphicon-remove")}
+                                                                style={{
+                                                                    "color": scenario?.selected ? "limegreen" : "red",
+                                                                    "fontSize": "10px"
+                                                                }}
+                                                                onClick={() => {
+                                                                    window.alert('Scenario comparison coming soon');
+                                                                    this.props.toggleScenarioSelected(scenario);
+                                                                }}
+                                                            />
+                                                        </td>
+                                                        <td>-</td>
+                                                    </React.Fragment> : null
                                             }
                                         </tr>
                                     );
