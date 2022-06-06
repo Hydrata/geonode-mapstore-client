@@ -38,6 +38,8 @@ const START_ANUGA_SCENARIO_POLLING = 'START_ANUGA_SCENARIO_POLLING';
 const STOP_ANUGA_SCENARIO_POLLING = 'STOP_ANUGA_SCENARIO_POLLING';
 const START_ANUGA_ELEVATION_POLLING = 'START_ANUGA_ELEVATION_POLLING';
 const STOP_ANUGA_ELEVATION_POLLING = 'STOP_ANUGA_ELEVATION_POLLING';
+const START_ANUGA_MODEL_CREATION_POLLING = 'START_ANUGA_MODEL_CREATION_POLLING';
+const STOP_ANUGA_MODEL_CREATION_POLLING = 'STOP_ANUGA_MODEL_CREATION_POLLING';
 const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
@@ -104,6 +106,18 @@ function startAnugaElevationPolling() {
 function stopAnugaElevationPolling() {
     return {
         type: STOP_ANUGA_ELEVATION_POLLING
+    };
+}
+
+function startAnugaModelCreationPolling() {
+    return {
+        type: START_ANUGA_MODEL_CREATION_POLLING
+    };
+}
+
+function stopAnugaModelCreationPolling() {
+    return {
+        type: STOP_ANUGA_MODEL_CREATION_POLLING
     };
 }
 
@@ -458,6 +472,8 @@ module.exports = {
     STOP_ANUGA_SCENARIO_POLLING, stopAnugaScenarioPolling,
     START_ANUGA_ELEVATION_POLLING, startAnugaElevationPolling,
     STOP_ANUGA_ELEVATION_POLLING, stopAnugaElevationPolling,
+    START_ANUGA_MODEL_CREATION_POLLING, startAnugaModelCreationPolling,
+    STOP_ANUGA_MODEL_CREATION_POLLING, stopAnugaModelCreationPolling,
     SET_ANUGA_POLLING_DATA, setAnugaPollingData,
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
     SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded,

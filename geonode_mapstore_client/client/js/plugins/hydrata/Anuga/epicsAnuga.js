@@ -26,6 +26,8 @@ import {
     STOP_ANUGA_ELEVATION_POLLING,
     DELETE_ANUGA_SCENARIO,
     UPDATE_COMPUTE_INSTANCE,
+    START_ANUGA_MODEL_CREATION_POLLING,
+    STOP_ANUGA_MODEL_CREATION_POLLING,
     addAnugaBoundary,
     addAnugaFriction,
     addAnugaInflow,
@@ -44,7 +46,7 @@ import {
     setAnugaMeshRegionData,
     updateComputeInstanceSuccess,
     startAnugaScenarioPolling,
-    startAnugaElevationPolling,
+    startAnugaModelCreationPolling,
     stopAnugaElevationPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
@@ -110,6 +112,22 @@ export const initAnugaEpic = (action$, store) =>
             return response1;
         });
 
+export const pollAnugaModelCreationEpic = (action$, store) =>
+    action$
+        .ofType(START_ANUGA_MODEL_CREATION_POLLING)
+        .switchMap(() =>
+            Rx.Observable.timer(0, 6000)
+                .takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
+                .switchMap(() =>
+                    Rx.Observable.concat(
+                        Rx.Observable.of(addAnugaBoundary()),
+                        Rx.Observable.of(addAnugaFriction()),
+                        Rx.Observable.of(addAnugaStructure()),
+                        Rx.Observable.of(addAnugaInflow()),
+                        Rx.Observable.of(addAnugaMeshRegion())
+                    ))
+        );
+
 export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
@@ -124,13 +142,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                 .filter(response1 => response1?.status <= 400)
                 .switchMap(response => {
                     if (response.data?.length < 2) {
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addAnugaBoundary()),
-                            Rx.Observable.of(addAnugaFriction()),
-                            Rx.Observable.of(addAnugaStructure()),
-                            Rx.Observable.of(addAnugaInflow()),
-                            Rx.Observable.of(addAnugaMeshRegion())
-                        );
+                        return Rx.Observable.empty();
                     }
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
@@ -148,7 +160,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         Rx.Observable.of(updateUploadStatus('Complete')),
                         Rx.Observable.of(saveDirectContent()),
                         Rx.Observable.of(initAnuga()),
-                        Rx.Observable.of(startAnugaElevationPolling())
+                        Rx.Observable.of(startAnugaModelCreationPolling())
                     );
                 })
         );
