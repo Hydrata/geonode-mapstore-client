@@ -44,6 +44,7 @@ import {
     setAnugaMeshRegionData,
     updateComputeInstanceSuccess,
     startAnugaScenarioPolling,
+    stopAnugaElevationPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
     saveAnugaScenarioError,
@@ -112,7 +113,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 5000)
+            Rx.Observable.timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
@@ -131,6 +132,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         );
                     }
                     return Rx.Observable.concat(
+                        Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.of(() => {
                             let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
                             return refreshLayers(wmsLayers);
