@@ -44,6 +44,7 @@ import {
     setAnugaMeshRegionData,
     updateComputeInstanceSuccess,
     startAnugaScenarioPolling,
+    startAnugaElevationPolling,
     stopAnugaElevationPolling,
     runAnugaScenarioSuccess,
     saveAnugaScenarioSuccess,
@@ -146,7 +147,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         )),
                         Rx.Observable.of(updateUploadStatus('Complete')),
                         Rx.Observable.of(saveDirectContent()),
-                        Rx.Observable.of(initAnuga())
+                        Rx.Observable.of(initAnuga()),
+                        Rx.Observable.of(startAnugaElevationPolling())
                     );
                 })
         );
