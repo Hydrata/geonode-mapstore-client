@@ -1,64 +1,61 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
-import { addLayer, refreshLayers } from '../../../../MapStore2/web/client/actions/layers';
-import { zoomToExtent } from "../../../../MapStore2/web/client/actions/map";
-import { saveDirectContent } from "@js/actions/gnsave";
+import {addLayer, refreshLayers} from '../../../../MapStore2/web/client/actions/layers';
+import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
+import {saveDirectContent} from "@js/actions/gnsave";
 import {CREATE_NEW_FEATURE, createNewFeatures} from "../../../../MapStore2/web/client/actions/featuregrid";
 
 import {
-    INIT_ANUGA,
-    CREATE_ANUGA_BOUNDARY,
-    CREATE_ANUGA_FRICTION,
-    CREATE_ANUGA_INFLOW,
-    CREATE_ANUGA_STRUCTURE,
-    CREATE_ANUGA_MESH_REGION,
     ADD_ANUGA_BOUNDARY,
     ADD_ANUGA_FRICTION,
     ADD_ANUGA_INFLOW,
-    ADD_ANUGA_STRUCTURE,
     ADD_ANUGA_MESH_REGION,
-    CANCEL_ANUGA_RUN,
-    RUN_ANUGA_SCENARIO,
-    SAVE_ANUGA_SCENARIO,
-    START_ANUGA_SCENARIO_POLLING,
-    STOP_ANUGA_SCENARIO_POLLING,
-    START_ANUGA_ELEVATION_POLLING,
-    STOP_ANUGA_ELEVATION_POLLING,
-    DELETE_ANUGA_SCENARIO,
-    UPDATE_COMPUTE_INSTANCE,
-    START_ANUGA_MODEL_CREATION_POLLING,
-    STOP_ANUGA_MODEL_CREATION_POLLING,
+    ADD_ANUGA_STRUCTURE,
     addAnugaBoundary,
     addAnugaFriction,
     addAnugaInflow,
-    addAnugaStructure,
     addAnugaMeshRegion,
-    setAnugaScenarioData,
-    setAnugaScenarioResultsLoaded,
+    addAnugaStructure,
+    CANCEL_ANUGA_RUN,
+    CREATE_ANUGA_BOUNDARY,
+    CREATE_ANUGA_FRICTION,
+    CREATE_ANUGA_INFLOW,
+    CREATE_ANUGA_MESH_REGION,
+    CREATE_ANUGA_STRUCTURE,
+    DELETE_ANUGA_SCENARIO,
+    deleteAnugaScenarioSuccess,
+    INIT_ANUGA,
+    initAnuga,
+    RUN_ANUGA_SCENARIO,
+    runAnugaScenarioSuccess,
+    SAVE_ANUGA_SCENARIO,
+    saveAnugaScenarioError,
+    saveAnugaScenarioSuccess,
+    setAnugaBoundaryData,
+    setAnugaElevationData,
+    setAnugaFrictionData,
+    setAnugaInflowData,
+    setAnugaMeshRegionData,
     setAnugaPollingData,
     setAnugaProjectData,
-    setAnugaElevationData,
-    setAnugaBoundaryData,
-    setAnugaInflowData,
-    setAnugaStructureData,
-    setAnugaFrictionData,
+    setAnugaScenarioData,
     setAnugaScenarioMenu,
-    setAnugaMeshRegionData,
-    updateComputeInstanceSuccess,
-    startAnugaScenarioPolling,
+    setAnugaScenarioResultsLoaded,
+    setAnugaStructureData,
+    setCreatingAnugaLayer,
+    START_ANUGA_ELEVATION_POLLING,
+    START_ANUGA_MODEL_CREATION_POLLING,
+    START_ANUGA_SCENARIO_POLLING,
     startAnugaModelCreationPolling,
+    startAnugaScenarioPolling,
+    STOP_ANUGA_ELEVATION_POLLING,
+    STOP_ANUGA_MODEL_CREATION_POLLING,
+    STOP_ANUGA_SCENARIO_POLLING,
     stopAnugaElevationPolling,
-    runAnugaScenarioSuccess,
-    saveAnugaScenarioSuccess,
-    saveAnugaScenarioError,
-    deleteAnugaScenarioSuccess,
-    initAnuga,
-    setCreatingAnugaLayer
+    UPDATE_COMPUTE_INSTANCE,
+    updateComputeInstanceSuccess
 } from "./actionsAnuga";
-import {
-    UPDATE_DATASET_TITLE,
-    updateUploadStatus
-} from "../SimpleView/actionsSimpleView";
+import {UPDATE_DATASET_TITLE, updateUploadStatus} from "../SimpleView/actionsSimpleView";
 
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
@@ -181,28 +178,28 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                         .switchMap(response => Rx.Observable
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
-                                // console.log('filter this:', action.scenarios);
+                                console.log('filter this:', action.scenarios);
                                 // check backend
                                 let backendScenariosToLoadResults = action.scenarios?.filter(scenario =>
                                     scenario.latest_run?.status === 'complete'
                                 );
-                                // console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
+                                console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
                                 // now swap to frontend
                                 let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
-                                    // console.log('** testing scenarioBackend:', scenarioBackend);
+                                    console.log('** testing scenarioBackend:', scenarioBackend);
                                     const scenarioBackendTestResult = store.getState()?.anuga?.scenarios?.filter(scenarioFrontEnd => {
-                                        // console.log('scenarioFrontEnd:', scenarioFrontEnd);
+                                        console.log('scenarioFrontEnd:', scenarioFrontEnd);
                                         if (scenarioFrontEnd?.id === scenarioBackend.id && !scenarioFrontEnd.isLoaded) {
-                                            // console.log('using scenarioBackend:', scenarioBackend);
+                                            console.log('using scenarioBackend:', scenarioBackend);
                                             return scenarioBackend;
                                         }
-                                        // console.log('rejecting scenarioBackend:', scenarioBackend);
+                                        console.log('rejecting scenarioBackend:', scenarioBackend);
                                         return null;
                                     })[0];
-                                    // console.log('scenarioBackendTestResult:', scenarioBackendTestResult);
+                                    console.log('scenarioBackendTestResult:', scenarioBackendTestResult);
                                     return scenarioBackendTestResult;
                                 })[0];
-                                // console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
+                                console.log('frontend scenariosToLoadResults', scenarioToLoadResults);
                                 // and check frontend
                                 const currentLayerNames = store.getState()?.layers?.flat?.map(layer => layer.name);
                                 let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
@@ -214,7 +211,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.name) &&
                                     !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name)
                                 ) {
-                                    // console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
+                                    console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
                                     return Rx.Observable
                                         .concat(
                                             Rx.Observable.of(setAnugaPollingData(action.scenarios)),
@@ -225,7 +222,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                             Rx.Observable.of(refreshLayers(wmsLayers))
                                         );
                                 }
-                                // console.log('not turning on anything');
+                                console.log('not turning on anything');
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
                             })
                         )
