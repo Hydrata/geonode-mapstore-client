@@ -50,7 +50,7 @@ class AnugaScenarioMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            scenarioTableTab: 'settings'
+            scenarioTableTabs: ['settings', 'inputs']
         };
         this.handleTextChange = this.handleTextChange.bind(this);
         this.handleIntChange = this.handleIntChange.bind(this);
@@ -82,25 +82,49 @@ class AnugaScenarioMenuClass extends React.Component {
 
 
     render() {
+        console.log('this.state:', this.state)
         return (
             <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                         Scenarios
-                        <span id={"scenario-tab-button-group"}>
                             <Button
                                 bsSize={'medium'}
                                 style={{
                                     margin: "2px 0 -17px 20px",
                                     borderRadius: "6px 6px 0 0",
-                                    color: this.state.scenarioTableTab === 'settings' ? "#3363a0" : 'white',
-                                    backgroundColor: this.state.scenarioTableTab === 'settings' ? "white" : '#6085b5'
+                                    color: this.state.scenarioTableTabs.includes('inputs') ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTabs.includes('inputs') ? "white" : '#6085b5'
                                 }}
-                                className={this.state.scenarioTableTab === 'settings' ? 'disabled' : null}
                                 onClick={
-                                    () => this.state.scenarioTableTab === 'settings' ?
-                                        null :
-                                        this.setState({scenarioTableTab: 'settings'})
+                                    () => this.state.scenarioTableTabs.includes('inputs') ?
+                                        this.setState(prevState => ({
+                                            scenarioTableTabs: [...prevState.scenarioTableTabs.filter((tab, _) => tab !== 'inputs')]
+                                        })) :
+                                        this.setState(prevState => ({
+                                            scenarioTableTabs: [...prevState.scenarioTableTabs, 'inputs']
+                                        }))
+                                }
+                            >
+                                Inputs
+                            </Button>
+                        <span id={"scenario-tab-button-group"}>
+                            <Button
+                                bsSize={'medium'}
+                                style={{
+                                    margin: "2px 0 -17px 8px",
+                                    borderRadius: "6px 6px 0 0",
+                                    color: this.state.scenarioTableTabs.includes('settings') ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTabs.includes('settings') ? "white" : '#6085b5'
+                                }}
+                                onClick={
+                                    () => this.state.scenarioTableTabs.includes('settings') ?
+                                        this.setState(prevState => ({
+                                            scenarioTableTabs: [...prevState.scenarioTableTabs.filter((tab, _) => tab !== 'settings')]
+                                        })) :
+                                        this.setState(prevState => ({
+                                            scenarioTableTabs: [...prevState.scenarioTableTabs, 'settings']
+                                        }))
                                 }
                             >
                                 Settings
@@ -110,31 +134,17 @@ class AnugaScenarioMenuClass extends React.Component {
                                 style={{
                                     margin: "2px 0 -17px 8px",
                                     borderRadius: "6px 6px 0 0",
-                                    color: this.state.scenarioTableTab === 'inputs' ? "#3363a0" : 'white',
-                                    backgroundColor: this.state.scenarioTableTab === 'inputs' ? "white" : '#6085b5'
+                                    color: this.state.scenarioTableTabs.includes('compare') ? "#3363a0" : 'white',
+                                    backgroundColor: this.state.scenarioTableTabs.includes('compare') ? "white" : '#6085b5'
                                 }}
-                                className={this.state.scenarioTableTab === 'inputs' ? 'disabled' : null}
                                 onClick={
-                                    () => this.state.scenarioTableTab === 'inputs' ?
-                                        null :
-                                        this.setState({scenarioTableTab: 'inputs'})
-                                }
-                            >
-                                Inputs
-                            </Button>
-                            <Button
-                                bsSize={'medium'}
-                                style={{
-                                    margin: "2px 0 -17px 8px",
-                                    borderRadius: "6px 6px 0 0",
-                                    color: this.state.scenarioTableTab === 'compare' ? "#3363a0" : 'white',
-                                    backgroundColor: this.state.scenarioTableTab === 'compare' ? "white" : '#6085b5'
-                                }}
-                                className={this.state.scenarioTableTab === 'compare' ? 'disabled' : null}
-                                onClick={
-                                    () => this.state.scenarioTableTab === 'compare' ?
-                                        null :
-                                        this.setState({scenarioTableTab: 'compare'})
+                                    () => this.state.scenarioTableTabs.includes('compare') ?
+                                        this.setState(prevState => ({
+                                            scenarioTableTabs: [...prevState.scenarioTableTabs.filter((tab, _) => tab !== 'compare')]
+                                        })) :
+                                        this.setState(prevState => ({
+                                            scenarioTableTabs: [...prevState.scenarioTableTabs, 'compare']
+                                        }))
                                 }
                             >
                                 Compare
@@ -168,7 +178,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th>Id</th>
                                 <th>Name</th>
                                 {
-                                    this.state.scenarioTableTab === 'inputs' ?
+                                    this.state.scenarioTableTabs?.includes('inputs') ?
                                         <React.Fragment>
                                             <th>Elevation</th>
                                             <th>Boundary</th>
@@ -176,11 +186,14 @@ class AnugaScenarioMenuClass extends React.Component {
                                             <th>Inflow</th>
                                             <th>Structures</th>
                                             <th>Mesh Regions</th>
-                                            <th/>
+                                            {
+                                                !this.state.scenarioTableTabs?.includes('settings') ?
+                                                    <th/> : null
+                                            }
                                         </React.Fragment> : null
                                 }
                                 {
-                                    this.state.scenarioTableTab === 'settings' ?
+                                    this.state.scenarioTableTabs?.includes('settings') ?
                                         <React.Fragment>
                                             <th>Resolution(m2)</th>
                                             <th>Duration</th>
@@ -192,7 +205,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                         </React.Fragment> : null
                                 }
                                 {
-                                    this.state.scenarioTableTab === 'compare' ?
+                                    this.state.scenarioTableTabs?.includes('compare') ?
                                         <React.Fragment>
                                             <th>Select</th>
                                             <th>
@@ -230,7 +243,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                 />
                                             </td>
                                             {
-                                                this.state.scenarioTableTab === 'inputs' ?
+                                                this.state.scenarioTableTabs?.includes('inputs') ?
                                                     <React.Fragment>
                                                         <td>
                                                             <select
@@ -346,24 +359,27 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 }
                                                             </select>
                                                         </td>
-                                                        <td>
-                                                            <Button
-                                                                bsStyle={'success'}
-                                                                bsSize={'xsmall'}
-                                                                style={{margin: "2px", borderRadius: "2px"}}
-                                                                className={scenario.unsaved ? null : 'disabled'}
-                                                                onClick={() => {
-                                                                    this.props.saveAnugaScenario(scenario);
-                                                                    this.props.setOpenMenuGroupId(null);
-                                                                }}
-                                                            >
-                                                                Save
-                                                            </Button>
-                                                        </td>
+                                                        {
+                                                            !this.state.scenarioTableTabs?.includes('settings') ?
+                                                                <td>
+                                                                    <Button
+                                                                        bsStyle={'success'}
+                                                                        bsSize={'xsmall'}
+                                                                        style={{margin: "2px", borderRadius: "2px"}}
+                                                                        className={scenario.unsaved ? null : 'disabled'}
+                                                                        onClick={() => {
+                                                                            this.props.saveAnugaScenario(scenario);
+                                                                            this.props.setOpenMenuGroupId(null);
+                                                                        }}
+                                                                    >
+                                                                        Save
+                                                                    </Button>
+                                                                </td> : null
+                                                        }
                                                     </React.Fragment> : null
                                             }
                                             {
-                                                this.state.scenarioTableTab === 'settings' ?
+                                                this.state.scenarioTableTabs?.includes('settings') ?
                                                     <React.Fragment>
                                                         <td>
                                                             <input
@@ -487,7 +503,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     </React.Fragment> : null
                                             }
                                             {
-                                                this.state.scenarioTableTab === 'compare' ?
+                                                this.state.scenarioTableTabs?.includes('compare') ?
                                                     <React.Fragment>
                                                         <td>
                                                             <span
