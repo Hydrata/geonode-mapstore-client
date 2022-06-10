@@ -168,7 +168,9 @@ const isScenarioLoaded = (scenario, state) => {
     const velocityDepth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run.gn_layer_depth_integrated_velocity_max?.name)?.[0];
     const velocity = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run.gn_layer_velocity_max?.name)?.[0];
     console.log(depth, velocityDepth, velocity);
-    return depth?.length && velocityDepth?.length && velocity?.length;
+    const result = !!depth?.length && !!velocityDepth?.length && !!velocity?.length;
+    console.log(result);
+    return result;
 };
 
 export const pollAnugaScenarioEpic = (action$, store) =>
