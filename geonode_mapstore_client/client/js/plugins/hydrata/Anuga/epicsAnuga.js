@@ -164,9 +164,9 @@ export const pollAnugaElevationEpic = (action$, store) =>
 
 const isScenarioLoaded = (scenario, state) => {
     console.log('isScenarioLoaded', scenario);
-    const depth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run.gn_layer_depth_max?.name);
-    const velocityDepth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run.gn_layer_depth_integrated_velocity_max?.name);
-    const velocity = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run.gn_layer_velocity_max?.name);
+    const depth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_depth_max?.name);
+    const velocityDepth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_depth_integrated_velocity_max?.name);
+    const velocity = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_velocity_max?.name);
     console.log(depth, velocityDepth, velocity);
     const result = !!depth?.length && !!velocityDepth?.length && !!velocity?.length;
     console.log(result);
