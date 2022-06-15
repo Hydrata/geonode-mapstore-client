@@ -121,7 +121,7 @@
     position: absolute;
     z-index: 2000;
     top: 5%;
-    max-width: 1000px;
+    width: 800px;
     min-height: 600px;
     color: #333333;
     background-color: #f2f2f2;

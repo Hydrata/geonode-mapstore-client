@@ -9,6 +9,11 @@ import {
     setVisibleUploaderPanel
 } from "../../SimpleView/actionsSimpleView";
 import {
+    addAnugaBoundary,
+    addAnugaFriction,
+    addAnugaInflow,
+    addAnugaStructure,
+    addAnugaMeshRegion,
     createAnugaBoundary,
     createAnugaFriction,
     createAnugaInflow,
@@ -41,7 +46,12 @@ class AnugaInputMenuClass extends React.Component {
         startAnugaElevationPolling: PropTypes.func,
         isCreatingAnugaLayer: PropTypes.bool,
         setCreatingAnugaLayer: PropTypes.func,
-        canEditAnugaMap: PropTypes.func
+        canEditAnugaMap: PropTypes.func,
+        addAnugaBoundary: PropTypes.func,
+        addAnugaFriction: PropTypes.func,
+        addAnugaInflow: PropTypes.func,
+        addAnugaStructure: PropTypes.func,
+        addAnugaMeshRegion: PropTypes.func
     };
 
     static defaultProps = {}
@@ -57,6 +67,13 @@ class AnugaInputMenuClass extends React.Component {
         };
     }
 
+    componentDidMount() {
+        this.interval = setInterval(this.pollBlankAnugaModels, 6000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.state.interval);
+    }
 
     render() {
         return (
@@ -452,6 +469,14 @@ class AnugaInputMenuClass extends React.Component {
             </div>
         );
     }
+
+    pollBlankAnugaModels = () => {
+        this.props.boundaries?.length === 0 ? this.props.addAnugaBoundary() : null;
+        this.props.frictions?.length === 0 ? this.props.addAnugaFriction() : null;
+        this.props.inflows?.length === 0 ? this.props.addAnugaInflow() : null;
+        this.props.structures?.length === 0 ? this.props.addAnugaStructure() : null;
+        this.props.meshRegions?.length === 0 ? this.props.addAnugaMeshRegion() : null;
+    }
 }
 
 const mapStateToProps = (state) => {
@@ -470,6 +495,11 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
+        addAnugaBoundary: () => dispatch(addAnugaBoundary()),
+        addAnugaFriction: () => dispatch(addAnugaFriction()),
+        addAnugaInflow: () => dispatch(addAnugaInflow()),
+        addAnugaStructure: () => dispatch(addAnugaStructure()),
+        addAnugaMeshRegion: () => dispatch(addAnugaMeshRegion()),
         startAnugaElevationPolling: () => dispatch(startAnugaElevationPolling()),
         setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
