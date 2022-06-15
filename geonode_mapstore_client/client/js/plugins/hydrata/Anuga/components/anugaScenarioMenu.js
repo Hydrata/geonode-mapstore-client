@@ -593,6 +593,7 @@ class AnugaScenarioMenuClass extends React.Component {
 const mapStateToProps = (state) => {
     console.log('state?.anuga?.scenarios:', state?.anuga?.scenarios);
     let scenarios = state?.anuga?.scenarios?.sort((a, b) => a.id - b.id);
+    // !scenarios[0]?.id ? scenarios.splice(0, 0, this.splice(-1, 1)[0]) : null // put newly created scenarios at the bottom of the list
     console.log('scenarios:', scenarios);
     return {
         scenarios: scenarios,
