@@ -53,6 +53,7 @@ class AnugaScenarioMenuClass extends React.Component {
             scenarioTableTabs: ['settings', 'inputs']
         };
         this.handleTextChange = this.handleTextChange.bind(this);
+        this.handleBoolChange = this.handleBoolChange.bind(this);
         this.handleIntChange = this.handleIntChange.bind(this);
         this.handleTimeChange = this.handleTimeChange.bind(this);
         this.handleTimeBlur = this.handleTimeBlur.bind(this);
@@ -88,26 +89,26 @@ class AnugaScenarioMenuClass extends React.Component {
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                         Scenarios
-                            <Button
-                                bsSize={'medium'}
-                                style={{
-                                    margin: "2px 0 -17px 20px",
-                                    borderRadius: "6px 6px 0 0",
-                                    color: this.state.scenarioTableTabs.includes('inputs') ? "#3363a0" : 'white',
-                                    backgroundColor: this.state.scenarioTableTabs.includes('inputs') ? "white" : '#6085b5'
-                                }}
-                                onClick={
-                                    () => this.state.scenarioTableTabs.includes('inputs') ?
-                                        this.setState(prevState => ({
-                                            scenarioTableTabs: [...prevState.scenarioTableTabs.filter((tab, _) => tab !== 'inputs')]
-                                        })) :
-                                        this.setState(prevState => ({
-                                            scenarioTableTabs: [...prevState.scenarioTableTabs, 'inputs']
-                                        }))
-                                }
-                            >
-                                Inputs
-                            </Button>
+                        <Button
+                            bsSize={'medium'}
+                            style={{
+                                margin: "2px 0 -17px 20px",
+                                borderRadius: "6px 6px 0 0",
+                                color: this.state.scenarioTableTabs.includes('inputs') ? "#3363a0" : 'white',
+                                backgroundColor: this.state.scenarioTableTabs.includes('inputs') ? "white" : '#6085b5'
+                            }}
+                            onClick={
+                                () => this.state.scenarioTableTabs.includes('inputs') ?
+                                    this.setState(prevState => ({
+                                        scenarioTableTabs: [...prevState.scenarioTableTabs.filter((tab, _) => tab !== 'inputs')]
+                                    })) :
+                                    this.setState(prevState => ({
+                                        scenarioTableTabs: [...prevState.scenarioTableTabs, 'inputs']
+                                    }))
+                            }
+                        >
+                            Inputs
+                        </Button>
                         <span id={"scenario-tab-button-group"}>
                             <Button
                                 bsSize={'medium'}
@@ -196,6 +197,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     this.state.scenarioTableTabs?.includes('settings') ?
                                         <React.Fragment>
                                             <th>Resolution(m2)</th>
+                                            <th>Simplify Mesh</th>
                                             <th>Duration</th>
                                             <th>Status</th>
                                             <th/>
@@ -383,13 +385,25 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     <React.Fragment>
                                                         <td>
                                                             <input
-                                                                id={'maximum_triangle_area'}
-                                                                key={`maximum_triangle_area-${scenario.id}`}
+                                                                id={'resolution'}
+                                                                key={`resolution-${scenario.id}`}
                                                                 type={"number"}
                                                                 className={'scenario-input'}
                                                                 style={{'width': '80px'}}
-                                                                value={scenario?.maximum_triangle_area}
+                                                                value={scenario?.resolution}
                                                                 onChange={(event) => this.handleIntChange(event, scenario)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <span
+                                                                id={'simplify_mesh'}
+                                                                key={`simplify_mesh-${scenario.id}`}
+                                                                className={"btn glyphicon menu-row-glyph " + (scenario?.simplify_mesh ? "glyphicon-ok" : "glyphicon-remove")}
+                                                                style={{
+                                                                    "color": scenario?.simplify_mesh ? "limegreen" : "red",
+                                                                    "fontSize": "10px"
+                                                                }}
+                                                                onClick={(event) => this.handleBoolChange(event, scenario)}
                                                             />
                                                         </td>
                                                         <td>
@@ -545,6 +559,12 @@ class AnugaScenarioMenuClass extends React.Component {
         this.props.updateAnugaScenario(scenario, kv);
     }
 
+    handleBoolChange = (e, scenario) => {
+        const kv = {};
+        kv[e.target.id] = !scenario[e.target.id];
+        this.props.updateAnugaScenario(scenario, kv);
+    }
+
     handleIntChange = (e, scenario) => {
         const kv = {};
         kv[e.target.id] = parseInt(e.target.value, 10);
@@ -591,10 +611,10 @@ class AnugaScenarioMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('state?.anuga?.scenarios:', state?.anuga?.scenarios);
+    // console.log('state?.anuga?.scenarios:', state?.anuga?.scenarios);
     let scenarios = state?.anuga?.scenarios?.sort((a, b) => a.id - b.id);
     // !scenarios[0]?.id ? scenarios.splice(0, 0, this.splice(-1, 1)[0]) : null // put newly created scenarios at the bottom of the list
-    console.log('scenarios:', scenarios);
+    // console.log('scenarios:', scenarios);
     return {
         scenarios: scenarios,
         boundaries: state?.anuga?.boundaries,

@@ -189,34 +189,34 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                         .switchMap(response => Rx.Observable
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
-                                console.log('filter this:', action.scenarios);
+                                // console.log('filter this:', action.scenarios);
                                 // check backend
                                 let backendScenariosToLoadResults = action.scenarios?.filter(scenario =>
                                     scenario.latest_run?.status === 'complete'
                                 );
-                                console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
+                                // console.log('backendScenariosToLoadResults', backendScenariosToLoadResults);
                                 // now swap to frontend
                                 let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
-                                    console.log('** testing scenarioBackend:', scenarioBackend);
+                                    // console.log('** testing scenarioBackend:', scenarioBackend);
                                     const scenarioBackendTestResult = store.getState()?.anuga?.scenarios?.filter(scenarioFrontEnd => {
                                         console.log('scenarioFrontEnd:', scenarioFrontEnd);
                                         const frontendMatchesBackend = scenarioFrontEnd?.id === scenarioBackend.id;
                                         const frontendIsNotLoaded = !scenarioFrontEnd.isLoaded;
                                         const backendIsNotLoaded = !isScenarioLoaded(scenarioFrontEnd, store.getState());
-                                        console.log('frontendMatchesBackend:', frontendMatchesBackend);
-                                        console.log('frontendIsNotLoaded:', frontendIsNotLoaded);
-                                        console.log('backendIsNotLoaded:', backendIsNotLoaded);
+                                        // console.log('frontendMatchesBackend:', frontendMatchesBackend);
+                                        // console.log('frontendIsNotLoaded:', frontendIsNotLoaded);
+                                        // console.log('backendIsNotLoaded:', backendIsNotLoaded);
                                         if (frontendMatchesBackend && frontendIsNotLoaded && backendIsNotLoaded) {
-                                            console.log('using scenarioBackend:', scenarioBackend);
+                                            // console.log('using scenarioBackend:', scenarioBackend);
                                             return scenarioBackend;
                                         }
-                                        console.log('rejecting scenarioBackend:', scenarioBackend);
+                                        // console.log('rejecting scenarioBackend:', scenarioBackend);
                                         return null;
                                     })[0];
-                                    console.log('scenarioBackendTestResult:', scenarioBackendTestResult);
+                                    // console.log('scenarioBackendTestResult:', scenarioBackendTestResult);
                                     return scenarioBackendTestResult;
                                 })[0];
-                                console.log('frontend scenarioToLoadResults', scenarioToLoadResults);
+                                // console.log('frontend scenarioToLoadResults', scenarioToLoadResults);
                                 // and check frontend
                                 const currentLayerNames = store.getState()?.layers?.flat?.map(layer => layer?.name);
                                 let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l?.type === 'wms' && l?.group !== 'background') || [];
@@ -228,7 +228,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.name) &&
                                     !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name)
                                 ) {
-                                    console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
+                                    // console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
                                     return Rx.Observable
                                         .concat(
                                             Rx.Observable.of(setAnugaPollingData(action.scenarios)),
@@ -239,7 +239,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                             Rx.Observable.of(refreshLayers(wmsLayers))
                                         );
                                 }
-                                console.log('not turning on anything');
+                                // console.log('not turning on anything');
                                 return Rx.Observable.of(setAnugaPollingData(action.scenarios));
                             })
                         )

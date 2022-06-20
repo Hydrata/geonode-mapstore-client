@@ -78,6 +78,10 @@
     height: 45px;
 }
 
+.scenario-table-header th {
+    text-align:center;
+}
+
 .scenario-table-row {
     height: 45px
 }
