@@ -142,7 +142,7 @@ class AnugaRunMenuClass extends React.Component {
                     </div>
                     <div id={'anuga-run-menu'} style={{left: "7px"}}>
                         Scenario: {this.props.selectedScenario?.name}<br/>
-                        Mesh size: {formatMoney(this.props.selectedScenario?.latest_run?.mesh_triangle_count_estimate, 0)} triangles<br/>
+                        Mesh size: {formatMoney(this.props.selectedScenario?.latest_run?.mesh_triangle_count, 0)} triangles<br/>
                         Real world duration: {this.props.selectedScenario?.latest_run?.duration}<br/>
                     </div>
                 </div>
