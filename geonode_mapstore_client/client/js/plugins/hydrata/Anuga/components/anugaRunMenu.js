@@ -89,7 +89,7 @@ class AnugaRunMenuClass extends React.Component {
                                                         <td>{instance?.cpus_available}</td>
                                                         <td>{this.props.selectedScenario?.latest_run?.vcpu_hours_estimate}</td>
                                                         <td>200</td>
-                                                        <td>{instance?.cpus_available / this.props.selectedScenario?.latest_run?.vcpu_hours_estimate}</td>
+                                                        <td>{formatMoney(instance?.cpus_available / this.props.selectedScenario?.latest_run?.vcpu_hours_estimate, 0)}</td>
                                                         <td>
                                                             <Button
                                                                 bsStyle={'success'}
@@ -117,8 +117,8 @@ class AnugaRunMenuClass extends React.Component {
                                             </tr>
                                     }
                                     <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
-                                        <td>None</td>
                                         <td>Your machine</td>
+                                        <td>-</td>
                                         <td>-</td>
                                         <td>-</td>
                                         <td>-</td>
@@ -140,11 +140,11 @@ class AnugaRunMenuClass extends React.Component {
                             </Table>
                         </div>
                     </div>
-                    <div id={'anuga-run-menu'} style={{left: "7px"}}>
-                        Scenario: {this.props.selectedScenario?.name}<br/>
-                        Mesh size: {formatMoney(this.props.selectedScenario?.latest_run?.mesh_triangle_count, 0)} triangles<br/>
-                        Real world duration: {this.props.selectedScenario?.latest_run?.duration}<br/>
-                    </div>
+                    {/*<div id={'anuga-run-menu'} style={{left: "7px"}}>*/}
+                    {/*    Scenario: {this.props.selectedScenario?.name}<br/>*/}
+                    {/*    Mesh size: {formatMoney(this.props.selectedScenario?.latest_run?.mesh_triangle_count, 0)} triangles<br/>*/}
+                    {/*    Real world duration: {this.props.selectedScenario?.latest_run?.duration}<br/>*/}
+                    {/*</div>*/}
                 </div>
             </div>
         );
