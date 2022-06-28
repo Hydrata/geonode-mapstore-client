@@ -56,7 +56,6 @@ class AnugaRunMenuClass extends React.Component {
                                     <tr className={"run-server-table-header"}>
                                         <th>Server</th>
                                         <th>Description</th>
-                                        <th>vCPUs Total</th>
                                         <th>vCPUs Available</th>
                                         <th>Cost Estimate<br/>(vCPUhours)</th>
                                         <th>
@@ -85,11 +84,10 @@ class AnugaRunMenuClass extends React.Component {
                                                     <tr className={"run-server-table-row"}>
                                                         <td>{instance?.name}</td>
                                                         <td>{instance?.description}</td>
-                                                        <td>{instance?.cpus_total}</td>
                                                         <td>{instance?.cpus_available}</td>
                                                         <td>{this.props.selectedScenario?.latest_run?.vcpu_hours_estimate}</td>
                                                         <td>200</td>
-                                                        <td>{formatMoney(instance?.cpus_available / this.props.selectedScenario?.latest_run?.vcpu_hours_estimate, 0)}</td>
+                                                        <td>{formatMoney(this.props.selectedScenario?.latest_run?.vcpu_hours_estimate / instance?.cpus_available, 0)}</td>
                                                         <td>
                                                             <Button
                                                                 bsStyle={'success'}
