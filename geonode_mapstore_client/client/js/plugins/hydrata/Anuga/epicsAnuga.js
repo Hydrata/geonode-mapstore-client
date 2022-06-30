@@ -113,7 +113,7 @@ export const pollAnugaModelCreationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_MODEL_CREATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 6000000)
+            Rx.Observable.timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable.concat(
@@ -129,7 +129,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 6000000)
+            Rx.Observable.timer(0, 6000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
