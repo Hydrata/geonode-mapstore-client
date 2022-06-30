@@ -78,17 +78,23 @@ class simpleViewUploaderPanel extends React.Component {
                                     <td key="status">
                                         {
                                             file.status === "begin" ?
-                                                <OverlayTrigger positionLeft overlay={<Tooltip>Enter a title</Tooltip>}>
+                                                this.state.newTitle ?
                                                     <Button
                                                         onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
-                                                        className={this.state.newTitle ? '' : 'disabled'}
                                                         style={{'borderRadius': '3px'}}
                                                         bsSize={'small'}
                                                         bsStyle={'success'}
                                                     >
                                                         Begin
-                                                    </Button>
-                                                </OverlayTrigger> :
+                                                    </Button> :
+                                                    <Button
+                                                        className={'disabled'}
+                                                        style={{'borderRadius': '3px'}}
+                                                        bsSize={'small'}
+                                                        bsStyle={'success'}
+                                                    >
+                                                        Begin
+                                                    </Button> :
                                                 <span>
                                                     <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
                                                     {parseInt(this.props.uploadStatus, 10) === 100 ? <span>importing: <Countdown/></span> : this.props.uploadStatus}
