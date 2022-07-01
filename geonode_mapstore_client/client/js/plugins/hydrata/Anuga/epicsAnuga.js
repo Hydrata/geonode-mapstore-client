@@ -543,9 +543,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                     resolution: 10
                 }
             };
-            return Rx.Observable.of(createNewFeatures([{
-                properties: defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)]
-            }]));
+            action.properties = defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)];
         }
         );
 
