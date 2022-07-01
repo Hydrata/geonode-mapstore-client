@@ -544,6 +544,8 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                 }
             };
             action.properties = defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)];
+            console.log('** CREATE returning:', action);
+            return action;
         }
         );
 
