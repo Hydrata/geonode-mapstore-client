@@ -144,7 +144,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.of(() => {
-                            let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l.type === 'wms' && l.group !== 'background') || [];
+                            let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
                             return refreshLayers(wmsLayers);
                         }),
                         Rx.Observable.of(addLayer(response.data[0])),  // The elevation
@@ -157,7 +157,11 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         Rx.Observable.of(updateUploadStatus('Complete')),
                         Rx.Observable.of(saveDirectContent()),
                         Rx.Observable.of(initAnuga()),
-                        Rx.Observable.of(startAnugaModelCreationPolling())
+                        Rx.Observable.of(startAnugaModelCreationPolling()),
+                        Rx.Observable.of(() => {
+                            let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
+                            return refreshLayers(wmsLayers);
+                        })
                     );
                 })
         );
@@ -510,7 +514,6 @@ export const updateComputeInstanceEpic = (action$, store) =>
 export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
     action$
         .ofType(CREATE_NEW_FEATURE)
-        .take(1)
         .concatMap((action) => {
             console.log('store.getState()?.featuregrid?.selectedLayer', store.getState()?.featuregrid?.selectedLayer);
             console.log('!!store.getState()?.featuregrid?.selectedLayer?.includes(\'geonode:bdy_\')', !!store.getState()?.featuregrid?.selectedLayer?.includes('geonode:bdy_'));
@@ -518,6 +521,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
             return Rx.Observable.of(action);
         })
         .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
+        .filter((action) => action?.features?.length > 0)
         .concatMap((action) => {
             console.log('** CREATE_NEW_FEATURE action', action);
             const defaultPropertyMap = {
@@ -536,7 +540,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                     manning: 0.035
                 },
                 'geonode:mes_': {
-                    resolution: 100
+                    resolution: 10
                 }
             };
             return Rx.Observable.of(createNewFeatures([{

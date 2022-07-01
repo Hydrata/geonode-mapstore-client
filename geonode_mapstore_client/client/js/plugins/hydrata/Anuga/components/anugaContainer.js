@@ -49,63 +49,6 @@ class AnugaContainer extends React.Component {
     static defaultProps = {
     };
 
-    // editorOptions = {
-    //     "rules": [
-    //         {
-    //             "regex": {
-    //                 "attribute": "boundary",
-    //                 "typeName": "^geonode:bdy_"
-    //             },
-    //             "editor": "BoundaryTypeEditor",
-    //             "editorProps": {
-    //                 "values": ["Dirichlet", "Transmissive", "Reflective"],
-    //                 "forceSelection": true,
-    //                 "defaultOption": "Dirichlet",
-    //                 "allowEmpty": false
-    //             }
-    //         },
-    //         {
-    //             "regex": {
-    //                 "attribute": "location",
-    //                 "typeName": "^geonode:bdy_"
-    //             },
-    //             "editor": "BoundaryLocationEditor",
-    //             "editorProps": {
-    //                 "values": ["External", "Internal"],
-    //                 "forceSelection": true,
-    //                 "defaultOption": "External",
-    //                 "allowEmpty": false
-    //             }
-    //         },
-    //         {
-    //             "regex": {
-    //                 "attribute": "type",
-    //                 "typeName": "^geonode:inf_"
-    //             },
-    //             "editor": "InflowEditor",
-    //             "editorProps": {
-    //                 "values": ["Rainfall", "Surface"],
-    //                 "forceSelection": true,
-    //                 "defaultOption": "Rainfall",
-    //                 "allowEmpty": false
-    //             }
-    //         },
-    //         {
-    //             "regex": {
-    //                 "attribute": "method",
-    //                 "typeName": "^geonode:str_"
-    //             },
-    //             "editor": "StructureEditor",
-    //             "editorProps": {
-    //                 "values": ["Holes", "Reflective", "Mannings"],
-    //                 "forceSelection": true,
-    //                 "defaultOption": "Mannings",
-    //                 "allowEmpty": false
-    //             }
-    //         }
-    //     ]
-    // }
-
     constructor(props) {
         super(props);
     }
