@@ -524,7 +524,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
         .concatMap((action) => {
             console.log('** CREATE_NEW_FEATURE action', action);
             if (action?.features?.[0] && Object.keys(action?.features?.[0])?.length > 0) {
-                return Rx.Observable.of(action);
+                return Rx.Observable.empty();
             }
             const defaultPropertyMap = {
                 'geonode:bdy_': {
