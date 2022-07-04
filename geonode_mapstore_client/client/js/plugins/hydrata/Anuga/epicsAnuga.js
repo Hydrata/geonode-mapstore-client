@@ -523,8 +523,8 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
         .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
         .concatMap((action) => {
             console.log('** CREATE_NEW_FEATURE action', action);
-            if (action?.features?.length > 0) {
-                return Rx.Observable.empty();
+            if (Object.keys(action?.features?.[0].properties)?.length > 0) {
+                return Rx.Observable.of(action);
             }
             const defaultPropertyMap = {
                 'geonode:bdy_': {
@@ -545,7 +545,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                     resolution: 10
                 }
             };
-            action.properties = defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)];
+            action.features[0].properties = defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)];
             console.log('** CREATE returning:', action);
             return Rx.Observable.of(action);
         }
