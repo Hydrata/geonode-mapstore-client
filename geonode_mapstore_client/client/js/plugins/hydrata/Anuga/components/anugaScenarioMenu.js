@@ -391,7 +391,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 className={'scenario-input'}
                                                                 style={{'width': '80px'}}
                                                                 value={scenario?.resolution}
-                                                                onChange={(event) => this.handleIntChange(event, scenario)}
+                                                                onChange={(event) => this.handleNumberChange(event, scenario)}
                                                             />
                                                         </td>
                                                         <td>
