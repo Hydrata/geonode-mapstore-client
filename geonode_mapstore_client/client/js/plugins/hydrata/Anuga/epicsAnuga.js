@@ -71,9 +71,9 @@ export const initAnugaEpic = (action$, store) =>
                     .catch((error) => {console.log('**', error); return 'error';})
             )
             .filter(response1 => response1?.status <= 400)
+            .filter(() => !!store.getState()?.security?.user)
             .switchMap(response1 => Rx.Observable
                 .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
-                .filter(response2 => response2?.status <= 400)
                 .switchMap(response2 => Rx.Observable
                     .of(setAnugaProjectData(response2.data))
                     .concat(
