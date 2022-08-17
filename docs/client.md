@@ -227,8 +227,7 @@ set new Featured Resources includes data, page, links</p>
 <a name="module_actions/gnresource"></a>
 
 ## actions/gnresource
-Actions for GeoNode resource
-store information of the resource in use
+Actions for GeoNode resourcestore information of the resource in use
 
 
 * [actions/gnresource](#module_actions/gnresource)
@@ -468,14 +467,12 @@ Save or updates a resource (trigger epic actions.gnsaveDirectContent)
 <a name="module_actions/gnsearch"></a>
 
 ## actions/gnsearch
-Actions for GeoNode resource featured items
-set new Featured Resources includes data, page, links
+Actions for GeoNode resource featured itemsset new Featured Resources includes data, page, links
 
 <a name="module_actions/gnsearch.loadFeaturedResources"></a>
 
 ### actions/gnsearch.loadFeaturedResources(action, pageSize)
-Actions for GeoNode resource featured items
-loads new featured resources basing on the action, previous or next
+Actions for GeoNode resource featured itemsloads new featured resources basing on the action, previous or next
 
 **Kind**: static method of [<code>actions/gnsearch</code>](#module_actions/gnsearch)  
 
@@ -544,8 +541,7 @@ Handles checking and for permissions of a layer when its selected
 <a name="module_epics/index.gnSetDatasetsPermissions"></a>
 
 ### epics/index.gnSetDatasetsPermissions
-Checks the permissions for layers when a map is loaded and when a new layer is added
-to a map
+Checks the permissions for layers when a map is loaded and when a new layer is addedto a map
 
 **Kind**: static constant of [<code>epics/index</code>](#module_epics/index)  
 <a name="module_epics/layersetting"></a>
@@ -596,9 +592,7 @@ Plugin for layer and groups settings
 **Kind**: inner property of [<code>plugins/LayerSettings</code>](#module_plugins/LayerSettings)  
 **Example**  
 ```js
-{
-  "name": "LayerSettings",
-}
+{  "name": "LayerSettings",}
 ```
 <a name="module_plugins/MediaViewer"></a>
 
@@ -648,8 +642,7 @@ Plugin for SaveAs modal
 <a name="module_selectors/config.getParsedGeoNodeConfiguration"></a>
 
 ### selectors/config.getParsedGeoNodeConfiguration
-get the parsed geonode configuration that take into account
-user permissions and expressions
+get the parsed geonode configuration that take into accountuser permissions and expressions
 
 **Kind**: static constant of [<code>selectors/config</code>](#module_selectors/config)  
 
@@ -676,8 +669,7 @@ Utilities for api requests
 <a name="module_utils/APIUtils.parseDevHostname"></a>
 
 ### utils/APIUtils.parseDevHostname ⇒ <code>string</code>
-In development mode it returns the request with a relative path
-if the request url contain localhost:8000
+In development mode it returns the request with a relative pathif the request url contain localhost:8000
 
 **Kind**: static constant of [<code>utils/APIUtils</code>](#module_utils/APIUtils)  
 **Returns**: <code>string</code> - correct url for localhost  
@@ -706,13 +698,10 @@ Given a bounds { minx, miny, maxx, maxy } and a crs return the extent param as s
 <a name="module_utils/CoordinatesUtils.getExtent"></a>
 
 ### utils/CoordinatesUtils.getExtent ⇒ <code>Array</code>
-Get the extent of area of interest from map bbox
-the values of the extent are expressed in the unit of the projection
+Get the extent of area of interest from map bboxthe values of the extent are expressed in the unit of the projection
 
 **Kind**: static constant of [<code>utils/CoordinatesUtils</code>](#module_utils/CoordinatesUtils)  
-**Returns**: <code>Array</code> - containng minx, miny, maxx, maxy
-minx, miny -> bottom-left corner of square
-maxx, maxy -> top-right corner of square  
+**Returns**: <code>Array</code> - containng minx, miny, maxx, maxyminx, miny -> bottom-left corner of squaremaxx, maxy -> top-right corner of square  
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -842,8 +831,7 @@ Parse map response object
 <a name="module_utils/ResourceUtils.canCopyResource"></a>
 
 ### utils/ResourceUtils.canCopyResource
-Util to check if resosurce can be cloned (Save As)
-Requirements for copying are 'add_resource' permission and is_copyable property on resource
+Util to check if resosurce can be cloned (Save As)Requirements for copying are 'add_resource' permission and is_copyable property on resource
 
 **Kind**: static constant of [<code>utils/ResourceUtils</code>](#module_utils/ResourceUtils)  
 <a name="SYNC_RESOURCES"></a>
