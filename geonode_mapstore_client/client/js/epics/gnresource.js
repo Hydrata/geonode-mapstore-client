@@ -42,7 +42,8 @@ import {
     resourceConfigError,
     setResourceCompactPermissions,
     updateResourceProperties,
-    SET_RESOURCE_THUMBNAIL
+    SET_RESOURCE_THUMBNAIL,
+    updateResource
 } from '@js/actions/gnresource';
 
 import {
@@ -75,11 +76,12 @@ import { updateAdditionalLayer } from '@mapstore/framework/actions/additionallay
 import { STYLE_OWNER_NAME } from '@mapstore/framework/utils/StyleEditorUtils';
 import { styleServiceSelector } from '@mapstore/framework/selectors/styleeditor';
 import { updateStyleService } from '@mapstore/framework/api/StyleEditor';
-import { resizeMap } from '@mapstore/framework/actions/map';
+import { CLICK_ON_MAP, resizeMap } from '@mapstore/framework/actions/map';
 import { saveError } from '@js/actions/gnsave';
 import {
     error as errorNotification,
-    success as successNotification
+    success as successNotification,
+    warning as warningNotification
 } from '@mapstore/framework/actions/notifications';
 import { getStyleProperties } from '@js/api/geonode/style';
 
@@ -161,6 +163,9 @@ const resourceTypes = {
                                 updateStatus('edit'),
                                 resizeMap()
                             ]
+                            : []),
+                        ...(newLayer?.bboxError
+                            ? [warningNotification({ title: "gnviewer.invalidBbox", message: "gnviewer.invalidBboxMsg" })]
                             : [])
                     );
                 });
@@ -437,7 +442,7 @@ export const gnViewerSetNewResourceThumbnail = (action$, store) =>
 
             return Observable.defer(() => setResourceThumbnail(resourceIDThumbnail, body))
                 .switchMap((res) => {
-                    return Observable.of(updateResourceProperties({ ...currentResource, thumbnail_url: res.thumbnail_url, thumbnailChanged: false, updatingThumbnail: false }),
+                    return Observable.of(updateResourceProperties({ ...currentResource, thumbnail_url: res.thumbnail_url, thumbnailChanged: false, updatingThumbnail: false }), updateResource({ ...currentResource, thumbnail_url: res.thumbnail_url }),
                         successNotification({ title: "gnviewer.thumbnailsaved", message: "gnviewer.thumbnailsaved" }));
                 }).catch((error) => {
                     return Observable.of(
@@ -447,8 +452,13 @@ export const gnViewerSetNewResourceThumbnail = (action$, store) =>
                 });
         });
 
+export const closeInfoPanelOnMapClick = (action$, store) => action$.ofType(CLICK_ON_MAP)
+    .filter(() => store.getState().controls?.rightOverlay?.enabled === 'DetailViewer' || store.getState().controls?.rightOverlay?.enabled === 'Share')
+    .switchMap(() => Observable.of(setControlProperty('rightOverlay', 'enabled', false)));
+
 export default {
     gnViewerRequestNewResourceConfig,
     gnViewerRequestResourceConfig,
-    gnViewerSetNewResourceThumbnail
+    gnViewerSetNewResourceThumbnail,
+    closeInfoPanelOnMapClick
 };

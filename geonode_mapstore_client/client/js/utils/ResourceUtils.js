@@ -13,10 +13,7 @@ import { getConfigProp, convertFromLegacy, normalizeConfig } from '@mapstore/fra
 import { parseDevHostname } from '@js/utils/APIUtils';
 import { ProcessTypes, ProcessStatus } from '@js/utils/ResourceServiceUtils';
 import { bboxToPolygon } from '@js/utils/CoordinatesUtils';
-import uniqBy from 'lodash/uniqBy';
-import orderBy from 'lodash/orderBy';
-import isString from 'lodash/isString';
-import isObject from 'lodash/isObject';
+import { uniqBy, orderBy, isString, isObject, pick, difference } from 'lodash';
 import { excludeGoogleBackground, extractTileMatrixFromSources } from '@mapstore/framework/utils/LayersUtils';
 
 /**
@@ -33,6 +30,12 @@ function getExtentFromResource({ ll_bbox_polygon: llBboxPolygon }) {
         geometry: llBboxPolygon
     });
     const [minx, miny, maxx, maxy] = extent;
+
+    // if the extent is greater than the max extent of the WGS84 return null
+    const WGS84_MAX_EXTENT = [-180, -90, 180, 90];
+    if (minx < WGS84_MAX_EXTENT[0] || miny < WGS84_MAX_EXTENT[1] || maxx > WGS84_MAX_EXTENT[2] || maxy > WGS84_MAX_EXTENT[3]) {
+        return null;
+    }
     const bbox = {
         crs: 'EPSG:4326',
         bounds: { minx, miny, maxx, maxy }
@@ -138,7 +141,7 @@ export const resourceToLayerConfig = (resource) => {
                     url: wfsUrl
                 }
             }),
-            ...(bbox && { bbox }),
+            ...(bbox ? { bbox } : { bboxError: true }),
             ...(template && {
                 featureInfo: {
                     format: 'TEMPLATE',
@@ -602,15 +605,83 @@ export const parseUploadResponse = (upload) => {
 
 export const processUploadResponse = (response) => {
     const newResponse = response.reduce((acc, currentResponse) => {
-        const duplicate = acc.find((upload) => upload.id === currentResponse.id);
+        const duplicate = acc.find((upload) => {
+            if (upload.id && currentResponse.id) {
+                return upload.id === currentResponse.id;
+            } else if (upload.id && currentResponse.exec_id) {
+                return upload.id === currentResponse.exec_id;
+            } else if (upload.exec_id && currentResponse.id) {
+                return upload.exec_id === currentResponse.id;
+            }
+            return upload.exec_id === currentResponse.exec_id;
+        });
         if (duplicate) {
-            const newAcc = acc.filter((upload) => upload.id !== duplicate.id);
-            return [currentResponse, ...newAcc];
+            const newAcc = acc.filter((upload) => {
+                if (upload.id && currentResponse.id) {
+                    return upload.id !== currentResponse.id;
+                } else if (upload.id && currentResponse.exec_id) {
+                    return upload.id !== currentResponse.exec_id;
+                } else if (upload.exec_id && currentResponse.id) {
+                    return upload.exec_id !== currentResponse.id;
+                }
+                return upload.exec_id !== currentResponse.exec_id;
+            });
+            return [{...currentResponse, ...(!currentResponse.id && {create_date: currentResponse.created, id: currentResponse.exec_id})}, ...newAcc];
         }
-        return [currentResponse, ...acc];
+        return [{...currentResponse, ...(!currentResponse.id && {create_date: currentResponse.created, id: currentResponse.exec_id})}, ...acc];
     }, []);
 
     const uploads = parseUploadResponse(newResponse);
 
     return uploads;
+};
+
+export const cleanUrl = (targetUrl) => {
+    const {
+        search,
+        ...params
+    } = url.parse(targetUrl);
+    const hash = params.hash && `#${cleanUrl(params.hash.replace('#', ''))}`;
+    return url.format({
+        ...params,
+        ...(hash && { hash })
+    });
+};
+
+export const parseUploadFiles = (data) => {
+    const { uploadFiles = {}, supportedDatasetTypes = [], supportedOptionalExtensions = [], supportedRequiresExtensions = [] } = data;
+    const mainFileTypes = supportedDatasetTypes.filter(file => !file.needsFiles);
+    const mainFileTypeKeys = mainFileTypes.map(({ id }) => id);
+
+    return Object.keys(uploadFiles)
+        .reduce((acc, baseName) => {
+            const uploadFile = uploadFiles[baseName] || {};
+            const { requires = [], ext = [], optional = [], needsFiles = [] } = supportedDatasetTypes.find(({ id }) => id === uploadFile.type) || {};
+            const cleanedFiles = pick(uploadFile.files, [...requires, ...ext, ...optional, ...needsFiles]);
+            const filesKeys = Object.keys(cleanedFiles);
+            const files = requires.length > 0
+                ? cleanedFiles
+                : filesKeys.length > 1
+                    ? pick(cleanedFiles, supportedOptionalExtensions.includes(ext[0]) ? [...needsFiles, ext[0]] : ext[0])
+                    : cleanedFiles;
+            const newFileKeys = Object.keys(files);
+            const requiredFilesIncluded = newFileKeys.filter((id) => supportedRequiresExtensions.includes(id)) || [];
+            const missingExt = requires.length > 0
+                ? requires.filter((fileExt) => !filesKeys.includes(fileExt))
+                : requiredFilesIncluded.length > 0 ? difference(supportedRequiresExtensions, requiredFilesIncluded) : [];
+
+            const mainExt = filesKeys.find(key => ext.includes(key));
+            const addMissingFiles = supportedOptionalExtensions.includes(mainExt) && missingExt?.length === 0 && !(mainFileTypeKeys.some((type) => newFileKeys.includes(type)));
+
+            return {
+                ...acc,
+                [baseName]: {
+                    ...uploadFile,
+                    mainExt,
+                    files,
+                    missingExt,
+                    addMissingFiles
+                }
+            };
+        }, {});
 };

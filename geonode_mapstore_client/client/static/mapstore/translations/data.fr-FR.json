@@ -43,6 +43,7 @@
             "groupsCategories": "Catégories de groupe",
             "view": "Voir",
             "viewDataset": "Visualiser dataset",
+            "viewDatasets": "Afficher les ensembles de données",
             "viewMap": "Voir la carte",
             "viewGeoStory": "Voir la GeoStory",
             "viewDocument": "Voir document",
@@ -127,7 +128,8 @@
             "createDataset": "Créer un ensemble de données",
             "search": "Chercher...",
             "permissionsMissing": "Vous n'êtes pas autorisé à afficher ou télécharger la ressource",
-            "filter": "Filtre"
+            "filter": "Filtre",
+            "noPreview": "Un aperçu n'est pas disponible pour cette ressource"
         },
         "viewer": {
             "document": {
@@ -219,6 +221,7 @@
             "legendWidth": "Largeur du symbole de la légende",
             "legendHeight": "Hauteur du symbole de la légende",
             "legendPreview": "Aperçu de la légende",
+            "legend": "Légende",
             "nodeTooltipContent": "Contenu de l'info-bulle",
             "nodeTooltipPlacement": "Placement de l'info-bulle",
 
@@ -235,9 +238,11 @@
             "deleteStyleMessage": "Voulez-vous vraiment supprimer ce style?",
             "deleteStyleCancel": "Non, ne le supprime pas",
             "deleteStyleConfirm": "Oui, je suis sûr",
-            "syncErrorTitle": "Impossible de synchroniser la géohistoire actuelle",
+            "syncErrorgeostoryTitle": "Impossible de synchroniser la géohistoire actuelle",
+            "syncErrordashboardTitle": "Impossible de synchroniser le tableau de bord actuel",
             "syncErrorDefault": "Erreur réseau",
-            "syncSuccessTitle": "Géohistoire synchronisée",
+            "syncSuccessgeostoryTitle": "Géohistoire synchronisée",
+            "syncSuccessdashboardTitle": "Tableau de bord synchronisé",
             "syncSuccessMessage": "Synchronisé avec succès",
             "syncWarningTitle": "Impossible de synchroniser certaines ressources",
             "syncErrorMessage": "Échec de la synchronisation des ressources",
@@ -277,7 +282,17 @@
             "cannotPerfomAction": "Échec de l'exécution de l'action sur cette ressource.",
             "cancelUpload": "Annuler le téléchargement",
             "parallelUploadLimit": "Le nombre de fichiers sélectionné dépasse la limite autorisée de {limit} fichiers. Veuillez supprimer certains fichiers de la liste.",
-            "parallelLimitError": "Le nombre de téléchargements parallèles actifs dépasse {limit}. Attendez que ceux en attente se terminent."
+            "parallelLimitError": "Le nombre de téléchargements parallèles actifs dépasse {limit}. Attendez que ceux en attente se terminent.",
+            "thisPage": "Cette page",
+            "addMainFiles": "Ajouter le fichier principal",
+            "invalidBbox": "Extension d'ensemble de données non valide",
+            "invalidBboxMsg": "L'extension du jeu de données dépasse l'étendue maximale du WGS84 [-180, -90, 180, 90]",
+            "embedmap": "Intégrer cette carte",
+            "embeddataset": "Intégrer cet ensemble de données",
+            "embedgeostory": "Intégrer cette Geostory",
+            "embeddocument": "Intégrer ce document",
+            "embeddashboard": "Intégrer ce Tableau de bord",
+            "directLink": "BLien direct"
         }
     }
 }

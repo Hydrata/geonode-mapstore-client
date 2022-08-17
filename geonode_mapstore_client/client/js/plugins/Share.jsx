@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
@@ -31,7 +31,7 @@ import {
 import { updateResourceCompactPermissions } from '@js/actions/gnresource';
 import Permissions from '@js/components/Permissions';
 import { getUsers, getGroups, getResourceTypes } from '@js/api/geonode/v2';
-import { resourceToPermissionEntry, availableResourceTypes, getResourcePermissions } from '@js/utils/ResourceUtils';
+import { resourceToPermissionEntry, availableResourceTypes, getResourcePermissions, cleanUrl } from '@js/utils/ResourceUtils';
 import SharePageLink from '@js/plugins/share/SharePageLink';
 import { getCurrentResourcePermissionsLoading } from '@js/selectors/resourceservice';
 
@@ -93,8 +93,18 @@ function Share({
     onClose,
     canEdit,
     permissionsLoading,
-    resourceType
+    resourceType,
+    embedUrl,
+    downloadUrl
 }) {
+
+    const isMounted = useRef(false);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
 
     const [permissionsObject, setPermissionsObject] = useState({});
     useEffect(() => {
@@ -106,9 +116,14 @@ function Share({
             } else { // set a default permission object
                 responseOptions = getResourcePermissions(data[0].allowed_perms.compact);
             }
-            setPermissionsObject(responseOptions);
+            if (isMounted.current) {
+                setPermissionsObject(responseOptions);
+            }
         });
     }, [availableResourceTypes]);
+
+    const pageUrl = cleanUrl(window.location.href);
+
 
     return (
         <OverlayContainer
@@ -121,11 +136,13 @@ function Share({
                 <div className="gn-share-panel-head">
                     <h2><Message msgId="gnviewer.shareThisResource" /></h2>
                     <Button className="square-button" onClick={() => onClose()}>
-                        <Glyphicon glyph="1-close"/>
+                        <Glyphicon glyph="1-close" />
                     </Button>
                 </div>
                 <div className="gn-share-panel-body">
-                    <SharePageLink />
+                    <SharePageLink url={pageUrl} label={<Message msgId="gnviewer.thisPage" />} />
+                    <SharePageLink url={embedUrl} label={<Message msgId={`gnviewer.embed${resourceType}`} />} />
+                    {(resourceType === 'document' && !!downloadUrl) && <SharePageLink url={downloadUrl} label={<Message msgId={`gnviewer.directLink`} />} />}
                     {canEdit && <>
                         <Permissions
                             compactPermissions={compactPermissions}
@@ -174,7 +191,8 @@ const SharePlugin = connect(
         canEdit,
         permissionsLoading,
         embedUrl: resource?.embed_url,
-        resourceType: type
+        resourceType: type,
+        downloadUrl: resource?.download_url
     })),
     {
         onClose: setControlProperty.bind(null, 'rightOverlay', 'enabled', false),

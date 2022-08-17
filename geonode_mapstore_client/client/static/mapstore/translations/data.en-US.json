@@ -43,6 +43,7 @@
             "groupsCategories": "Groups categories",
             "view": "View",
             "viewDataset": "View dataset",
+            "viewDatasets": "View datasets",
             "viewMap": "View map",
             "viewGeoStory": "View GeoStory",
             "viewDocument": "View document",
@@ -127,7 +128,8 @@
             "createDataset": "Create dataset",
             "search": "Search...",
             "permissionsMissing": "You don't have permission to view or download the resource",
-            "filter": "Filter"
+            "filter": "Filter",
+            "noPreview": "A preview is not available for this resource"
         },
         "viewer": {
             "document": {
@@ -219,6 +221,7 @@
             "legendWidth": "Legend symbol width",
             "legendHeight": "Legend symbol height",
             "legendPreview": "Legend preview",
+            "legend": "Legend",
             "nodeTooltipContent": "Tooltip content",
             "nodeTooltipPlacement": "Tooltip placement",
 
@@ -235,9 +238,11 @@
             "deleteStyleMessage": "Are you sure you want to delete this style?",
             "deleteStyleCancel": "No, don't delete it",
             "deleteStyleConfirm": "Yes, I'm sure",
-            "syncErrorTitle": "Cannot sync the current geostory",
+            "syncErrorgeostoryTitle": "Cannot sync the current geostory",
+            "syncErrordashboardTitle": "Cannot sync the current dashboard",
             "syncErrorDefault": "Network error",
-            "syncSuccessTitle": "Geostory synced",
+            "syncSuccessgeostoryTitle": "Geostory synced",
+            "syncSuccessdashboardTitle": "Dashboard synced",
             "syncSuccessMessage": "Synchronized successfully",
             "syncWarningTitle": "Could not sync some resources",
             "syncErrorMessage": "Failed to sync resources",
@@ -277,7 +282,17 @@
             "cannotPerfomAction": "Failed to perform action on this resource.",
             "cancelUpload": "Cancel upload",
             "parallelUploadLimit": "The selected number of files exceeds the allowed limit of {limit} files. Please remove some files from the list.",
-            "parallelLimitError": "The number of active parallel uploads exceeds {limit}. Wait for the pending ones to finish."
+            "parallelLimitError": "The number of active parallel uploads exceeds {limit}. Wait for the pending ones to finish.",
+            "thisPage": "This page",
+            "addMainFiles": "Add main file",
+            "invalidBbox": "Invalid dataset extension",
+            "invalidBboxMsg": "The dataset extension exceed the WGS84 maximum extent [-180, -90, 180, 90]",
+            "embedmap": "Embed this Map",
+            "embeddataset": "Embed this Dataset",
+            "embedgeostory": "Embed this Geostory",
+            "embeddocument": "Embed this Document",
+            "embeddashboard": "Embed this Dashboard",
+            "directLink": "Direct Link"
         }
     }
 }

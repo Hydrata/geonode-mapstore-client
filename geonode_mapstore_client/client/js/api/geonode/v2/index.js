@@ -8,7 +8,8 @@
 
 import axios from '@mapstore/framework/libs/ajax';
 import {
-    parseDevHostname
+    parseDevHostname,
+    getApiToken
 } from '@js/utils/APIUtils';
 import merge from 'lodash/merge';
 import mergeWith from 'lodash/mergeWith';
@@ -42,7 +43,9 @@ let endpoints = {
     'keywords': '/api/v2/keywords',
     'regions': '/api/v2/regions',
     'groups': '/api/v2/groups',
-    'uploads': '/api/v2/uploads'
+    'uploads': '/api/v2/uploads',
+    'status': '/api/v2/resource-service/execution-status',
+    'exectionRequest': '/api/v2/executionrequest'
 };
 
 const RESOURCES = 'resources';
@@ -58,6 +61,8 @@ const CATEGORIES = 'categories';
 const KEYWORDS = 'keywords';
 const GROUPS = 'groups';
 const UPLOADS = 'uploads';
+const STATUS = 'status';
+const EXECUTIONREQUEST = 'exectionRequest';
 
 function addCountToLabel(name, count) {
     return `${name} (${count || 0})`;
@@ -91,7 +96,12 @@ export const setEndpoints = (data) => {
  * get all thw endpoints available from API V2
  */
 export const getEndpoints = () => {
-    return axios.get('/api/v2/')
+    const apikey = getApiToken();
+    return axios.get('/api/v2/', {
+        params: {
+            ...(apikey && { apikey })
+        }
+    })
         .then(({ data }) => {
             setEndpoints(data);
             return data;
@@ -287,6 +297,11 @@ export const setFavoriteResource = (pk, favorite) => {
         .then(({ data }) => data );
 };
 
+export const getUserFavoriteResources = () => {
+    return axios.get(parseDevHostname(`${endpoints[RESOURCES]}/favorites`))
+        .then(({ data }) => data.favorites.map(({ pk }) => pk));
+};
+
 export const getResourceByPk = (pk) => {
     return axios.get(parseDevHostname(`${endpoints[RESOURCES]}/${pk}`), {
         params: {
@@ -413,15 +428,20 @@ export const getGroups = ({
         });
 };
 
-export const getUserByPk = (pk) => {
-    return axios.get(parseDevHostname(`${endpoints[USERS]}/${pk}`))
+export const getUserByPk = (pk, apikey) => {
+    return axios.get(parseDevHostname(`${endpoints[USERS]}/${pk}`), {
+        params: {
+            ...(apikey && { apikey })
+        }
+    })
         .then(({ data }) => data.user);
 };
 
 export const getAccountInfo = () => {
-    return getUserInfo()
+    const apikey = getApiToken();
+    return getUserInfo(apikey)
         .then((info) => {
-            return getUserByPk(info.sub)
+            return getUserByPk(info.sub, apikey)
                 .then((user) => ({
                     ...user,
                     info,
@@ -585,7 +605,8 @@ export const getCategories = ({ q, includes, page, pageSize, config, ...params }
             page,
             ...params,
             ...(includes && {'filter{identifier.in}': includes}),
-            ...(q && { 'filter{identifier.icontains}': q })
+            ...(q && { 'filter{identifier.icontains}': q }),
+            with_resources: "True"
         }
     })
         .then(({ data }) => {
@@ -618,7 +639,8 @@ export const getRegions = ({ q, includes, page, pageSize, config, ...params }, f
             page,
             ...params,
             ...(includes && {'filter{name.in}': includes}),
-            ...(q && { 'filter{name.icontains}': q })
+            ...(q && { 'filter{name.icontains}': q }),
+            with_resources: "True"
         }
     })
         .then(({ data }) => {
@@ -715,7 +737,11 @@ export const getCompactPermissionsByPk = (pk) => {
 };
 
 export const updateCompactPermissionsByPk = (pk, body) => {
-    return axios.put(parseDevHostname(`${endpoints[RESOURCES]}/${pk}/permissions`), 'permissions=' + JSON.stringify(body))
+    return axios({
+        url: parseDevHostname(`${endpoints[RESOURCES]}/${pk}/permissions`),
+        data: body,
+        method: 'put'
+    })
         .then(({ data }) => data);
 };
 
@@ -738,7 +764,7 @@ export const downloadResource = (resource) => {
     return axios.get(url, {
         responseType: 'blob',
         headers: {
-            'Content_type': 'application/json'
+            'Content-Type': 'application/json'
         }
     })
         .then(({ data, headers }) => ({output: data, headers}));
@@ -753,6 +779,18 @@ export const getPendingUploads = () => {
         }
     })
         .then(({ data }) => data?.uploads);
+};
+
+export const getPendingExecutionRequests = () => {
+    return axios.get(parseDevHostname(endpoints[EXECUTIONREQUEST]), {
+        params: {
+            'filter{action}': 'import',
+            'page': 1,
+            'page_size': 99999
+        }
+    })
+        .then(({ data }) => data?.requests)
+        .catch(() => null);
 };
 
 export const getProcessedUploadsById = (ids) => {
@@ -814,6 +852,15 @@ export const uploadDocument = ({
         .then(({ data }) => (data));
 };
 
+export const getExecutionStatus = (executionId) => {
+    return axios.get(`${parseDevHostname(endpoints[STATUS])}/${executionId}`)
+        .then(({ data }) => ({...data, id: executionId, create_date: data.created }));
+};
+
+export const deleteExecutionRequest = (executionId) => {
+    return axios.delete(`${parseDevHostname(endpoints[EXECUTIONREQUEST])}/${executionId}`);
+};
+
 export default {
     getEndpoints,
     getResources,
@@ -847,7 +894,10 @@ export default {
     downloadResource,
     getDatasets,
     getPendingUploads,
+    getPendingExecutionRequests,
     getProcessedUploadsById,
     getProcessedUploadsByImportId,
-    uploadDocument
+    uploadDocument,
+    getExecutionStatus,
+    deleteExecutionRequest
 };

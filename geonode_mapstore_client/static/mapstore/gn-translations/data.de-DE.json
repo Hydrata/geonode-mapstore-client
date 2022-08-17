@@ -43,6 +43,7 @@
             "groupsCategories": "Gruppenkategorien",
             "view": "Ansehen",
             "viewDataset": "Datensatz ansehen",
+            "viewDatasets": "Datensätze anzeigen",
             "viewMap": "Karte ansehen",
             "viewGeoStory": "GeoStory ansehen",
             "viewDocument": "Dokument ansehen",
@@ -127,7 +128,8 @@
             "createDataset": "Datensatz erstellen",
             "search": "Suchen...",
             "permissionsMissing": "Sie sind nicht berechtigt, diese Ressource anzuzeigen",
-            "filter": "Filter"
+            "filter": "Filter",
+            "noPreview": "Für diese Ressource ist keine Vorschau verfügbar"
         },
         "viewer": {
             "document": {
@@ -219,6 +221,7 @@
             "legendWidth": "Legendensymbolbreite",
             "legendHeight": "Höhe des Legendensymbols",
             "legendPreview": "Legendenvorschau",
+            "legend": "Legende",
             "nodeTooltipContent": "Tooltip-Inhalt",
             "nodeTooltipPlacement": "Tooltip-Platzierung",
 
@@ -235,9 +238,11 @@
             "deleteStyleMessage": "Möchten Sie diesen Stil wirklich löschen?",
             "deleteStyleCancel": "Nein, nicht löschen",
             "deleteStyleConfirm": "Ja, ich bin sicher",
-            "syncErrorTitle": "Die aktuelle GeoStory kann nicht synchronisiert werden",
+            "syncErrorgeostoryTitle": "Die aktuelle GeoStory kann nicht synchronisiert werden",
+            "syncErrordashboardTitle": "Kann das aktuelle Dashboard nicht synchronisieren",
             "syncErrorDefault": "Netzwerkfehler",
-            "syncSuccessTitle": "GeoStory synchronisiert",
+            "syncSuccessgeostoryTitle": "GeoStory synchronisiert",
+            "syncSuccessdashboardTitle": "Dashboard synchronisiert",
             "syncSuccessMessage": "Erfolgreich synchronisiert",
             "syncWarningTitle": "Einige Ressourcen konnten nicht synchronisiert werden",
             "syncErrorMessage": "Fehler beim Synchronisieren der Ressourcen",
@@ -277,7 +282,17 @@
             "cannotPerfomAction": "Die Aktion für diese Ressource konnte nicht ausgeführt werden.",
             "cancelUpload": "Hochladen abbrechen",
             "parallelUploadLimit": "Die ausgewählte Anzahl von Dateien überschreitet das zulässige Limit von {limit} Dateien. Bitte entfernen Sie einige Dateien aus der Liste.",
-            "parallelLimitError": "Die Anzahl aktiver paralleler Uploads überschreitet {limit}. Warten Sie, bis die ausstehenden abgeschlossen sind."
+            "parallelLimitError": "Die Anzahl aktiver paralleler Uploads überschreitet {limit}. Warten Sie, bis die ausstehenden abgeschlossen sind.",
+            "thisPage": "Diese Seite",
+            "addMainFiles": "Hauptdatei hinzufügen",
+            "invalidBbox": "Ungültige Datensatzerweiterung",
+            "invalidBboxMsg": "Die Datensatzerweiterung überschreitet die maximale WGS84-Ausdehnung [-180, -90, 180, 90]",
+            "embedmap": "Diese Karte einbetten",
+            "embeddataset": "Betten Sie diesen Datensatz ein",
+            "embedgeostory": "Betten Sie diese Geostory ein",
+            "embeddocument": "Betten Sie dieses Dokument ein",
+            "embeddashboard": "Betten Sie dieses Dashboard ein",
+            "directLink": "Direkte Verbindung"
         }
     }
 }

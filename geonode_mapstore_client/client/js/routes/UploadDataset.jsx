@@ -9,7 +9,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import omit from 'lodash/omit';
-import pick from 'lodash/pick';
 import merge from 'lodash/merge';
 import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
@@ -17,57 +16,15 @@ import {
     getPendingUploads,
     getProcessedUploadsById,
     getProcessedUploadsByImportId,
-    uploadDataset
+    uploadDataset,
+    getPendingExecutionRequests,
+    deleteExecutionRequest
 } from '@js/api/geonode/v2';
-import uuidv1 from 'uuid/v1';
 import axios from '@mapstore/framework/libs/ajax';
 import UploadListContainer from '@js/routes/upload/UploadListContainer';
 import UploadContainer from '@js/routes/upload/UploadContainer';
 import { getConfigProp } from '@mapstore/framework/utils/ConfigUtils';
-import { parseUploadResponse, processUploadResponse } from '@js/utils/ResourceUtils';
-
-const supportedDatasetTypes = [
-    {
-        id: 'shp',
-        label: 'ESRI Shapefile',
-        format: 'vector',
-        ext: ['shp'],
-        requires: ['shp', 'prj', 'dbf', 'shx']
-    },
-    {
-        id: 'tiff',
-        label: 'GeoTIFF',
-        format: 'raster',
-        ext: ['tiff', 'tif'],
-        mimeType: ['image/tiff']
-    },
-    {
-        id: 'csv',
-        label: 'Comma Separated Value (CSV)',
-        format: 'vector',
-        ext: ['csv'],
-        mimeType: ['text/csv']
-    },
-    {
-        id: 'geojson',
-        label: 'GeoJSON',
-        format: 'vector',
-        ext: ['geojson']
-    },
-    {
-        id: 'zip',
-        label: 'Zip Archive',
-        format: 'archive',
-        ext: ['zip'],
-        mimeType: ['application/zip']
-    }
-];
-
-
-const supportedExtensions = supportedDatasetTypes.map(({ ext }) => ext || []).flat();
-const supportedMimeTypes = supportedDatasetTypes.map(({ mimeType }) => mimeType || []).flat();
-const supportedRequiresExtensions = supportedDatasetTypes.map(({ requires }) => requires || []).flat();
-const supportedLabels = supportedDatasetTypes.map(({ label }) => label ).join(', ');
+import { parseUploadResponse, processUploadResponse, parseUploadFiles } from '@js/utils/ResourceUtils';
 
 function getFileNameParts(file) {
     const { name } = file;
@@ -77,10 +34,10 @@ function getFileNameParts(file) {
     return { ext, baseName };
 }
 
-function getDatasetFileType(file) {
+function getDatasetFileType(file, supportedTypes) {
     const { type } = file;
     const { ext } = getFileNameParts(file);
-    const datasetFileType = supportedDatasetTypes.find((fileType) =>
+    const datasetFileType = supportedTypes.find((fileType) =>
         (fileType.ext || []).includes(ext)
         || (fileType.mimeType || []).includes(type)
         || (fileType.requires || []).includes(ext)
@@ -95,6 +52,15 @@ function UploadList({
     children,
     onSuccess
 }) {
+    const { maxParallelUploads, upload: uploadSettings = {} } = getConfigProp('geoNodeSettings') || {};
+
+    const { supportedDatasetFileTypes: supportedDatasetTypes } = uploadSettings;
+
+    const supportedExtensions = supportedDatasetTypes.map(({ ext }) => ext || []).flat();
+    const supportedMimeTypes = supportedDatasetTypes.map(({ mimeType }) => mimeType || []).flat();
+    const supportedRequiresExtensions = supportedDatasetTypes.map(({ requires }) => requires || []).flat();
+    const supportedLabels = supportedDatasetTypes.map(({ label }) => label).join(', ');
+    const supportedOptionalExtensions = supportedDatasetTypes.map(({ optional }) => optional || []).flat();
 
     const [waitingUploads, setWaitingUploads] = useState({});
     const [readyUploads, setReadyUploads] = useState({});
@@ -102,37 +68,14 @@ function UploadList({
     const [loading, setLoading] = useState(false);
     const [uploadContainerProgress, setUploadContainerProgress] = useState({});
 
-    function parseUploadFiles(uploadFiles) {
-        return Object.keys(uploadFiles)
-            .reduce((acc, baseName) => {
-                const uploadFile = uploadFiles[baseName];
-                const { requires = [], ext = []} = supportedDatasetTypes.find(({ id }) => id === uploadFile.type) || {};
-                const cleanedFiles = pick(uploadFiles[baseName].files, [...requires, ...ext]);
-                const filesKeys = Object.keys(cleanedFiles);
-                const files = requires.length > 0
-                    ? cleanedFiles
-                    : filesKeys.length > 1
-                        ? pick(cleanedFiles, ext[0])
-                        : cleanedFiles;
-                const missingExt = requires.filter((fileExt) => !filesKeys.includes(fileExt));
-                return {
-                    ...acc,
-                    [baseName]: {
-                        ...uploadFile,
-                        mainExt: filesKeys.find(key => ext.includes(key)),
-                        files,
-                        missingExt
-                    }
-                };
-            }, {});
-    }
-
     function updateWaitingUploads(uploadFiles) {
-        const newWaitingUploads = parseUploadFiles(uploadFiles);
+        // prepare params for parseUploadFiles
+        const params = { uploadFiles, supportedDatasetTypes, supportedOptionalExtensions, supportedRequiresExtensions };
+        const newWaitingUploads = parseUploadFiles(params);
         setWaitingUploads(newWaitingUploads);
         const newReadyUploads = Object.keys(newWaitingUploads)
             .reduce((acc, baseName) => {
-                if (newWaitingUploads[baseName]?.missingExt?.length > 0) {
+                if (newWaitingUploads[baseName]?.missingExt?.length > 0 || newWaitingUploads[baseName]?.addMissingFiles) {
                     return acc;
                 }
                 return {
@@ -148,7 +91,7 @@ function UploadList({
             const { type } = file;
             const { ext } = getFileNameParts(file);
             return {
-                supported: !!(supportedMimeTypes.includes(type) || supportedExtensions.includes(ext) || supportedRequiresExtensions.includes(ext)),
+                supported: !!(supportedMimeTypes.includes(type) || supportedExtensions.includes(ext) || supportedRequiresExtensions.includes(ext) || supportedOptionalExtensions.includes(ext)),
                 file
             };
         });
@@ -157,11 +100,14 @@ function UploadList({
             .filter(({ supported }) => supported)
             .reduce((acc, { file }) => {
                 const { ext, baseName } = getFileNameParts(file);
-                const type = getDatasetFileType(file);
+                let type = getDatasetFileType(file, supportedDatasetTypes);
+                if (!type && supportedOptionalExtensions.includes(ext)) {
+                    type = checkedFiles.length > 1 ? acc[baseName]?.type : ext;
+                }
                 return {
                     ...acc,
                     [baseName]: {
-                        type,
+                        type: type,
                         files: {
                             ...acc[baseName]?.files,
                             [ext]: file
@@ -180,6 +126,12 @@ function UploadList({
         setUploadContainerProgress((prevFiles) => ({ ...prevFiles, [fileName]: percentCompleted }));
     };
 
+    function getValidFileExt({ files }) {
+        const validFile = Object.keys(files).find(key => key !== 'sld' && key !== 'xml');
+
+        return validFile;
+    }
+
     function handleUploadProcess() {
         if (!loading) {
             setLoading(true);
@@ -188,6 +140,11 @@ function UploadList({
                 const readyUpload = readyUploads[baseName];
                 cancelTokens[baseName] = axios.CancelToken;
                 sources[baseName] = cancelTokens[baseName].source();
+
+                const mainExt = (readyUpload.mainExt !== 'sld' && readyUpload.mainExt !== 'xml') ? readyUpload.mainExt : getValidFileExt(readyUpload);
+
+                readyUpload.mainExt = mainExt;
+
                 return uploadDataset({
                     file: readyUpload.files[readyUpload.mainExt],
                     ext: readyUpload.mainExt,
@@ -209,32 +166,26 @@ function UploadList({
                 .then((responses) => {
                     const successfulUploads = responses.filter(({ status }) => status === 'success');
                     const errorUploads = responses.filter(({ status }) => status === 'error');
+                    if (errorUploads.length > 0) {
+                        errorUploads.forEach((upload) => {
+                            const { baseName } = upload;
+                            waitingUploads[baseName].error = true;
+                        });
+                    }
                     if (successfulUploads.length > 0) {
-                        const successfulUploadsIds = successfulUploads.map(({ data }) => data?.id);
+                        const successfulUploadsIds = successfulUploads.filter(({ data }) => !!data?.id).map(({data}) => data?.id);
                         const successfulUploadsNames = successfulUploads.map(({ baseName }) => baseName);
                         updateWaitingUploads(omit(waitingUploads, successfulUploadsNames));
-                        getProcessedUploadsByImportId(successfulUploadsIds)
+
+                        successfulUploadsIds.length > 0 && getProcessedUploadsByImportId(successfulUploadsIds)
                             .then((successfulUploadProcesses) => {
                                 onSuccess(successfulUploadProcesses);
-                                setLoading(false);
                             })
                             .catch(() => {
                                 setLoading(false);
                             });
-                    } else {
-                        setLoading(false);
                     }
-                    if (errorUploads.length > 0) {
-                        const failedUploads = errorUploads.map(({ baseName: name, error }) => ({
-                            id: uuidv1(),
-                            name,
-                            progress: 100,
-                            state: 'INVALID',
-                            create_date: Date.now(),
-                            error
-                        }));
-                        onSuccess(failedUploads);
-                    }
+                    setLoading(false);
                 })
                 .catch(() => {
                     setLoading(false);
@@ -251,8 +202,6 @@ function UploadList({
     const handleCancelAllUploads = useCallback((files) => {
         return files.forEach((file) => sources[file].cancel());
     }, []);
-
-    const { maxParallelUploads } = getConfigProp('geoNodeSettings');
 
     return (
         <UploadContainer
@@ -291,13 +240,15 @@ function ProcessingUploadList({
     updatePending.current = () => {
         if (!loading) {
             setLoading(true);
-            getPendingUploads()
+            axios.all([getPendingUploads(), getPendingExecutionRequests()])
+                .then(incomingUploads => [...incomingUploads[0], ...incomingUploads[1]])
                 .then((newPendingUploads) => {
                     if (isMounted.current) {
                         const failedPendingUploads = pendingUploads.filter(({ state }) => state === 'INVALID');
                         const newIds = newPendingUploads.map(({ id }) => id);
+                        const pendingImports = newPendingUploads.filter(({ action, exec_id: execitionId }) => !!action && action === 'import' && !deletedIds.includes(execitionId)).map(pendingImport => ({ ...pendingImport, create_date: pendingImport.created, id: pendingImport.exec_id }));
                         const missingIds = pendingUploads
-                            .filter(upload => (upload.state !== 'PROCESSED' && upload.state !== 'INVALID') && !newIds.includes(upload.id) && !deletedIds.includes(upload.id))
+                            .filter(upload => (!!upload.state && upload.state !== 'PROCESSED' && upload.state !== 'INVALID') && !newIds.includes(upload.id) && !deletedIds.includes(upload.id))
                             .map(({ id }) => id);
                         const currentProcessed = pendingUploads.filter((upload) => upload.state === 'PROCESSED');
                         if (missingIds.length > 0) {
@@ -305,6 +256,7 @@ function ProcessingUploadList({
                                 .then((processed) => {
                                     onChange([
                                         ...failedPendingUploads,
+                                        ...pendingImports,
                                         ...processed,
                                         ...currentProcessed,
                                         ...newPendingUploads
@@ -314,6 +266,7 @@ function ProcessingUploadList({
                                 .catch(() => {
                                     onChange([
                                         ...failedPendingUploads,
+                                        ...pendingImports,
                                         ...currentProcessed,
                                         ...newPendingUploads
                                     ]);
@@ -322,6 +275,7 @@ function ProcessingUploadList({
                         } else {
                             onChange([
                                 ...failedPendingUploads,
+                                ...pendingImports,
                                 ...currentProcessed,
                                 ...newPendingUploads
                             ]);
@@ -337,8 +291,9 @@ function ProcessingUploadList({
         }
     };
 
-    function handleDelete({ id, deleteUrl }) {
-        axios.get(deleteUrl)
+    function handleDelete({ id, deleteUrl = null }) {
+        const deleteRequest = deleteUrl ? () => axios.get(deleteUrl) : () => deleteExecutionRequest(id);
+        deleteRequest()
             .finally(() => {
                 if (isMounted.current) {
                     setDeletedIds((ids) => [...ids, id]);

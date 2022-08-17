@@ -1,6 +1,7 @@
 {% load client_lib_tags %}
 {% load base_tags %}
 {% load get_menu_json %}
+{% load apikey %}
 {% comment %}
     app and map configuration need to be normalized
 {% endcomment %}
@@ -12,6 +13,10 @@
 
 {% get_menu_json 'CARDS_MENU' as CARDS_MENU %}
 {{ CARDS_MENU|json_script:"menu-CARDS_MENU" }}
+{% generate_proxyurl PROXY_URL|default:"/proxy/?url=" request as UPDATED_PROXY_URL %}
+{% retrieve_apikey request as user_apikey %}
+
+{% mapbox_access_token as MAPBOX_ACCESS_TOKEN %}
 
 <script>
     (function(){
@@ -48,6 +53,7 @@
         const defaultLayerFormat = geoNodeSettings.DEFAULT_LAYER_FORMAT || 'image/png';
         const catalogueServices = geoNodeSettings.CATALOGUE_SERVICES || {};
         const catalogueSelectedService = geoNodeSettings.CATALOGUE_SELECTED_SERVICE || '';
+        const createLayer = geoNodeSettings.CREATE_LAYER || false
         const timeEnabled = geoNodeSettings.TIME_ENABLED || false;
         const allowedDocumentTypes = geoNodeSettings.ALLOWED_DOCUMENT_TYPES || [];
         const languages = geoNodeSettings.LANGUAGES;
@@ -55,6 +61,7 @@
         const pluginsConfigPatchRules  = geoNodeSettings.PLUGINS_CONFIG_PATCH_RULES || [];
         const translationsPath = geoNodeSettings.TRANSLATIONS_PATH;
         const extensionsFolder = geoNodeSettings.EXTENSIONS_FOLDER_PATH;
+        const supportedDatasetFileTypes = geoNodeSettings.SUPPORTED_DATASET_FILE_TYPES;
 
         const isEmbed = checkBoolean('{{ is_embed }}') || false;
         const pluginsConfigKey = '{{ plugins_config_key }}';
@@ -72,14 +79,33 @@
             isEmbed: isEmbed,
             pluginsConfigKey: pluginsConfigKey,
             pluginsConfigPatchRules: pluginsConfigPatchRules,
+            apikey: '{%if user_apikey %}{{user_apikey}}{% else %}{% endif %}',
             localConfig: {
                 proxyUrl: {
-                    url: '{{ PROXY_URL|default:"/proxy/?url=" }}',
+                    url: '{{UPDATED_PROXY_URL|safe }}',
                     useCORS: []
                 },
+                useAuthenticationRules: true,
+                authenticationRules: [
+                    {
+                        urlPattern: '.*geoserver.*',
+                        authkeyParamName: 'access_token',
+                        method: 'authkey'
+                    },
+                    {
+                        urlPattern: '.*gs.*',
+                        authkeyParamName: 'access_token',
+                        method: 'authkey'
+                    },
+                    {
+                        urlPattern: '.*api/v2.*',
+                        method: 'bearer'
+                    }
+                ],
                 extensionsFolder: extensionsFolder,
                 printUrl: geoServerPublicLocation + 'pdf/info.json',
                 bingApiKey: '{% bing_api_key %}',
+                mapboxAccessToken: '{{ MAPBOX_ACCESS_TOKEN }}',
                 geoNodeApi: {
                     endpointV1: siteUrl + 'api',
                     endpointV2: siteUrl + 'api/v2'
@@ -90,6 +116,7 @@
                 geoNodeSettings: {
                     catalogueSelectedService: catalogueSelectedService,
                     catalogueServices: catalogueServices,
+                    createLayer: createLayer,
                     geonodeUrl: siteUrl,
                     geoserverUrl: geoServerPublicLocation,
                     siteName: siteName,
@@ -101,6 +128,9 @@
                     datasetMaxUploadSize: datasetMaxUploadSize,
                     documentMaxUploadSize: documentMaxUploadSize,
                     maxParallelUploads: maxParallelUploads,
+                    upload: { 
+                        supportedDatasetFileTypes: supportedDatasetFileTypes
+                        }
                 },
                 geoNodeConfiguration: {
                     cardsMenu: {

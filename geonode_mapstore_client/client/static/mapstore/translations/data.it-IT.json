@@ -43,6 +43,7 @@
             "groupsCategories": "Categorie gruppo",
             "view": "View",
             "viewDataset": "Visualizza dataset",
+            "viewDatasets": "Visualizzare i set di dati",
             "viewMap": "Visualizza mappa",
             "viewGeoStory": "Visualizza GeoStory",
             "viewDocument": "Visualizza documento",
@@ -129,7 +130,8 @@
             "createDataset": "Crea dataset",
             "search": "Cerca...",
             "permissionsMissing": "Non hai i permessi per visualizzare o scaricare la risorsa",
-            "filter": "Filtra"
+            "filter": "Filtra",
+            "noPreview": "Un'anteprima non è disponibile per questa risorsa"
         },
         "viewer": {
             "document": {
@@ -221,6 +223,7 @@
             "legendWidth": "Larghezza simbolo legenda",
             "legendHeight": "Altezza simbolo legenda",
             "legendPreview": "Anteprima legenda",
+            "legend": "Legenda",
             "nodeTooltipContent": "Contenuto tooltip",
             "nodeTooltipPlacement": "Posizionamento tooltip",
 
@@ -237,9 +240,11 @@
             "deleteStyleMessage": "Sei sicuro di voler eliminare questo stile?",
             "deleteStyleCancel": "No, non cancellarlo",
             "deleteStyleConfirm": "Si, cancella stile",
-            "syncErrorTitle": "Impossibile sincronizzare la geostoria attuale",
+            "syncErrorgeostoryTitle": "Impossibile sincronizzare la geostoria attuale",
+            "syncErrordashboardTitle": "Impossibile sincronizzare la dashboard corrente",
             "syncErrorDefault": "Errore di rete",
-            "syncSuccessTitle": "Geostoria sincronizzata",
+            "syncSuccessgeostoryTitle": "Geostoria sincronizzata",
+            "syncSuccessdashboardTitle": "Dashboard sincronizzato",
             "syncSuccessMessage": "Sincronizzato con successo",
             "syncWarningTitle": "Impossibile sincronizzare alcune risorse",
             "syncErrorMessage": "Impossibile sincronizzare le risorse",
@@ -279,7 +284,17 @@
             "cannotPerfomAction": "Impossibile eseguire l'azione su questa risorsa.",
             "cancelUpload": "Annulla caricamento",
             "parallelUploadLimit": "Il numero selezionato di file supera il limite consentito di {limit} file. Si prega di rimuovere alcuni file dall'elenco.",
-            "parallelLimitError": "Il numero di caricamenti paralleli attivi supera {limit}. Aspetta che quelli in sospeso finiscano."
+            "parallelLimitError": "Il numero di caricamenti paralleli attivi supera {limit}. Aspetta che quelli in sospeso finiscano.",
+            "thisPage": "Questa pagina",
+            "addMainFiles": "Aggiungi file principale",
+            "invalidBbox": "Estensione del dataset non valida",
+            "invalidBboxMsg": "L'estensione del dataset è maggiore del'estensione massima supportata della proiezione WGS84 [-180, -90, 180, 90]",
+            "embedmap": "Incorpora questa Mappa",
+            "embeddataset": "Incorpora questo Set di dati",
+            "embedgeostory": "Incorpora questa Geostoria",
+            "embeddocument": "Incorpora questo Documento",
+            "embeddashboard": "Incorpora questo Dashboard",
+            "directLink": "Collegamento Diretto"
         }
     }
 }

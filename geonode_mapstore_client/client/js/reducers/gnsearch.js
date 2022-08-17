@@ -13,8 +13,11 @@ import {
     UPDATE_RESOURCES,
     LOADING_RESOURCES,
     UPDATE_RESOURCES_METADATA,
-    SET_FEATURED_RESOURCES
+    SET_FEATURED_RESOURCES,
+    REDUCE_TOTAL_COUNT
 } from '@js/actions/gnsearch';
+
+import { UPDATE_SINGLE_RESOURCE } from '@js/actions/gnresource';
 
 const defaultState = {
     resources: [],
@@ -44,6 +47,20 @@ function gnsearch(state = defaultState, action) {
                     ...state.resources,
                     ...action.resources
                 ]
+        };
+    }
+    case UPDATE_SINGLE_RESOURCE: {
+        const updatedState = state.resources.map(resource => {
+            if (resource.pk === action?.data?.pk) {
+                return action?.data;
+            } return resource;
+        });
+        return {
+            ...state,
+            isFirstRequest: false,
+            resources: [
+                ...updatedState
+            ]
         };
     }
     case UPDATE_RESOURCES_METADATA: {
@@ -81,6 +98,12 @@ function gnsearch(state = defaultState, action) {
                 ...action.data
             }
         };
+    case REDUCE_TOTAL_COUNT: {
+        return {
+            ...state,
+            total: state.total - 1
+        };
+    }
     default:
         return state;
     }

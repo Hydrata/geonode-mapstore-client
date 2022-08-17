@@ -3,24 +3,6 @@
         "url": "proxy/?url=",
         "useCORS": []
     },
-    "useAuthenticationRules": true,
-    "authenticationRules": [
-        {
-            "urlPattern": ".*geoserver.*",
-            "authkeyParamName": "access_token",
-            "method": "authkey"
-        },
-        {
-            "urlPattern": ".*gs.*",
-            "authkeyParamName": "access_token",
-            "method": "authkey"
-        },
-        {
-            "urlPattern": ".*api/v2.*",
-            "method": "bearer"
-        }
-    ],
-    "defaultLayerFormat": "image/png",
     "geoNodeApi": {
         "endpointV1": "/api",
         "endpointV2": "/api/v2"
@@ -368,6 +350,7 @@
                             "value": "layer",
                             "type": "link",
                             "href": "/createlayer/",
+                            "disableIf": "{((state('settings') && state('settings').createLayer) ? false : true)}",
                             "authenticated": true,
                             "perms": [
                                 {
@@ -525,6 +508,9 @@
             },
             {
                 "name": "FitBounds"
+            },
+            {
+                "name": "Notifications"
             }
         ],
         "map_preview": [
@@ -662,6 +648,9 @@
             },
             {
                 "name": "FitBounds"
+            },
+            {
+                "name": "Notifications"
             }
         ],
         "map_embed": [
@@ -826,6 +815,11 @@
                 "cfg": {
                     "minLayoutWidth": 768
                 }
+            }
+        ],
+        "document_embed": [
+            {
+                "name": "MediaViewer"
             }
         ],
         "dataset_viewer": [
@@ -1206,7 +1200,7 @@
                         },
                         {
                             "name": "application/wfs-collection-1.0",
-                            "label": "wfs-collection-1.0",
+                            "label": "GML (FeatureCollection)",
                             "type": "vector",
                             "validServices": [
                                 "wps"
@@ -1214,7 +1208,7 @@
                         },
                         {
                             "name": "application/wfs-collection-1.1",
-                            "label": "wfs-collection-1.1",
+                            "label": "GML (WFS 1.1.0 FeatureCollection)",
                             "type": "vector",
                             "validServices": [
                                 "wps"
@@ -1349,6 +1343,9 @@
             },
             {
                 "name": "Notifications"
+            },
+            {
+                "name": "Locate"
             },
             {
                 "name": "FitBounds"
@@ -1624,10 +1621,12 @@
                 }
             },
             {
+                "name": "MapThumbnail"
+            },
+            {
                 "name": "ActionNavbar",
                 "cfg": {
                     "containerPosition": "header",
-                    "disableTitle": false,
                     "titleItems": [
                         {
                             "type": "plugin",
@@ -1637,12 +1636,37 @@
                     "leftMenuItems": [
                         {
                             "labelId": "gnviewer.save",
-                            "showPendingChangesIcon": false,
+                            "showPendingChangesIcon": true,
                             "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}",
+                            "type": "dropdown",
+                            "items": [
+                                {
                                     "type": "plugin",
                                     "name": "Save"
                                 },
                                 {
+                                    "type": "plugin",
+                                    "name": "SaveAs"
+                                }
+                            ]
+                        },
+                        {
+                            "labelId": "gnviewer.edit",
+                            "type": "dropdown",
+                            "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
+                            "items": [
+                                {
+                                    "type": "plugin",
+                                    "name": "DetailViewerButton"
+                                },
+                                {
+                                    "type": "link",
+                                    "href": "{context.getMetadataUrl(state('gnResourceData'))}",
+                                    "labelId": "gnviewer.editMetadata"
+                                }
+                            ]
+                        },
+                        {
                             "labelId": "gnviewer.view",
                             "type": "dropdown",
                             "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
@@ -1660,16 +1684,30 @@
                         },
                         {
                             "type": "plugin",
+                            "name": "DeleteResource",
+                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'delete_resourcebase')}"
+                        },
+                        {
+                            "type": "divider",
+                            "authenticated": true
+                        },
+                        {
+                            "type": "plugin",
+                            "name": "Print"
+                        },
+                        {
+                            "type": "plugin",
                             "name": "Measure"
                         },
                         {
                             "type": "plugin",
-                            "name": "Annotations"
+                            "name": "Annotations",
+                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !state('isNewResource')}"
                         },
                         {
                             "type": "plugin",
                             "name": "DatasetsCatalog",
-                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}"
+                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !state('isNewResource')}"
                         }
                     ],
                     "rightMenuItems": [
@@ -1681,22 +1719,16 @@
                 }
             },
             {
-                "name": "Anuga"
-            },
-            {
-                "name": "Swamps"
-            },
-            {
-                "name": "SimpleView"
-            },
-            {
-                "name": "MapThumbnail"
+                "name": "DeleteResource"
             },
             {
                 "name": "DetailViewer",
                 "cfg": {
                     "containerPosition": "rightOverlay"
                 }
+            },
+            {
+                "name": "BackgroundSelector"
             },
             {
                 "name": "Identify",
@@ -1912,7 +1944,7 @@
                         },
                         {
                             "name": "application/wfs-collection-1.0",
-                            "label": "wfs-collection-1.0",
+                            "label": "GML (FeatureCollection)",
                             "type": "vector",
                             "validServices": [
                                 "wps"
@@ -1920,7 +1952,7 @@
                         },
                         {
                             "name": "application/wfs-collection-1.1",
-                            "label": "wfs-collection-1.1",
+                            "label": "GML (WFS 1.1.0 FeatureCollection)",
                             "type": "vector",
                             "validServices": [
                                 "wps"
@@ -1979,66 +2011,7 @@
                 "name": "ScaleBox"
             },
             {
-                "name": "FeatureEditor",
-                "cfg": {
-                    "snapTool": false,
-                    "customEditorsOptions": {
-                        "rules": [
-                            {
-                                "regex": {
-                                    "attribute": "boundary",
-                                    "typeName": "^geonode:bdy_"
-                                },
-                                "editor": "DropDownEditor",
-                                "editorProps": {
-                                    "values": ["Dirichlet", "Transmissive", "Reflective"],
-                                    "forceSelection": true,
-                                    "defaultOption": "Dirichlet",
-                                    "allowEmpty": false
-                                }
-                            },
-                            {
-                                "regex": {
-                                    "attribute": "location",
-                                    "typeName": "^geonode:bdy_"
-                                },
-                                "editor": "DropDownEditor",
-                                "editorProps": {
-                                    "values": ["External", "Internal"],
-                                    "forceSelection": true,
-                                    "defaultOption": "External",
-                                    "allowEmpty": false
-                                }
-                            },
-                            {
-                                "regex": {
-                                    "attribute": "type",
-                                    "typeName": "^geonode:inf_"
-                                },
-                                "editor": "DropDownEditor",
-                                "editorProps": {
-                                    "values": ["Rainfall", "Surface"],
-                                    "forceSelection": true,
-                                    "defaultOption": "Rainfall",
-                                    "allowEmpty": false
-                                }
-                            },
-                            {
-                                "regex": {
-                                    "attribute": "method",
-                                    "typeName": "^geonode:str_"
-                                },
-                                "editor": "DropDownEditor",
-                                "editorProps": {
-                                    "values": ["Holes", "Reflective", "Mannings"],
-                                    "forceSelection": true,
-                                    "defaultOption": "Mannings",
-                                    "allowEmpty": false
-                                }
-                            }
-                        ]
-                    }
-                }
+                "name": "FeatureEditor"
             },
             {
                 "name": "QueryPanel",
@@ -2096,6 +2069,15 @@
                 }
             },
             {
+                "name": "Search",
+                "cfg": {
+                    "withToggle": [
+                        "max-width: 768px",
+                        "min-width: 768px"
+                    ]
+                }
+            },
+            {
                 "name": "FullScreen",
                 "override": {
                     "Toolbar": {
@@ -2131,6 +2113,9 @@
                 "name": "Swipe"
             },
             {
+                "name": "Locate"
+            },
+            {
                 "name": "WidgetsBuilder"
             },
             {
@@ -2146,7 +2131,8 @@
                 "name": "Annotations",
                 "cfg": {
                     "measurementAnnotationEdit": false,
-                    "geodesic": false
+                    "geodesic": false,
+                    "symbolsPath": "/static/mapstore/symbols/"
                 }
             },
             {
@@ -2729,6 +2715,9 @@
                 "name": "FitBounds"
             },
             {
+                "name": "Locate"
+            },
+            {
                 "name": "BackgroundSelector",
                 "cfg": {
                     "bottom": 25,
@@ -2841,6 +2830,9 @@
                 "name": "FitBounds"
             },
             {
+                "name": "Locate"
+            },
+            {
                 "name": "BackgroundSelector",
                 "cfg": {
                     "bottom": 25,
@@ -2853,6 +2845,9 @@
                         "vertical": true
                     }
                 }
+            },
+            {
+                "name": "Notifications"
             }
         ],
         "geostory_viewer_mobile": [
