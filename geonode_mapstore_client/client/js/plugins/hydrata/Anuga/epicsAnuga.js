@@ -168,13 +168,13 @@ export const pollAnugaElevationEpic = (action$, store) =>
         );
 
 const isScenarioLoaded = (scenario, state) => {
-    console.log('isScenarioLoaded', scenario);
+    // console.log('isScenarioLoaded', scenario);
     const depth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_depth_max?.name);
     const velocityDepth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_depth_integrated_velocity_max?.name);
     const velocity = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_velocity_max?.name);
-    console.log(depth, velocityDepth, velocity);
+    // console.log(depth, velocityDepth, velocity);
     const result = !!depth?.length && !!velocityDepth?.length && !!velocity?.length;
-    console.log(result);
+    // console.log(result);
     return result;
 };
 
@@ -204,7 +204,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
                                     // console.log('** testing scenarioBackend:', scenarioBackend);
                                     const scenarioBackendTestResult = store.getState()?.anuga?.scenarios?.filter(scenarioFrontEnd => {
-                                        console.log('scenarioFrontEnd:', scenarioFrontEnd);
+                                        // console.log('scenarioFrontEnd:', scenarioFrontEnd);
                                         const frontendMatchesBackend = scenarioFrontEnd?.id === scenarioBackend.id;
                                         const frontendIsNotLoaded = !scenarioFrontEnd.isLoaded;
                                         const backendIsNotLoaded = !isScenarioLoaded(scenarioFrontEnd, store.getState());
@@ -516,14 +516,14 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
     action$
         .ofType(CREATE_NEW_FEATURE)
         .concatMap((action) => {
-            console.log('store.getState()?.featuregrid?.selectedLayer', store.getState()?.featuregrid?.selectedLayer);
-            console.log('!!store.getState()?.featuregrid?.selectedLayer?.includes(\'geonode:bdy_\')', !!store.getState()?.featuregrid?.selectedLayer?.includes('geonode:bdy_'));
-            console.log('* action', action);
+            // console.log('store.getState()?.featuregrid?.selectedLayer', store.getState()?.featuregrid?.selectedLayer);
+            // console.log('!!store.getState()?.featuregrid?.selectedLayer?.includes(\'geonode:bdy_\')', !!store.getState()?.featuregrid?.selectedLayer?.includes('geonode:bdy_'));
+            // console.log('* action', action);
             return Rx.Observable.of(action);
         })
         .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
         .concatMap((action) => {
-            console.log('** CREATE_NEW_FEATURE action', action);
+            // console.log('** CREATE_NEW_FEATURE action', action);
             if (action?.features?.[0] && Object.keys(action?.features?.[0])?.length > 0) {
                 return Rx.Observable.empty();
             }
@@ -547,7 +547,7 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                 }
             };
             action.features[0].properties = defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)];
-            console.log('** CREATE returning:', action);
+            // console.log('** CREATE returning:', action);
             return Rx.Observable.of(action);
         }
         );
@@ -562,11 +562,11 @@ export const updateAnugaModelTitle = (action$, store) =>
                 .switchMap(response => {
                     // find the right anugaModel here, using the response?.data?.datasets?.[0]?.pk
                     const gnLayerPk = parseInt(response?.data?.datasets?.[0]?.pk, 10);
-                    console.log('gnLayerPk:', gnLayerPk);
+                    // console.log('gnLayerPk:', gnLayerPk);
                     const anugaModels = getAnugaModels(store?.getState());
-                    console.log('anugaModels:', anugaModels);
+                    // console.log('anugaModels:', anugaModels);
                     const anugaModel = anugaModels.filter(model => model.gn_layer === gnLayerPk)?.[0];
-                    console.log('anugaModel:', anugaModel);
+                    // console.log('anugaModel:', anugaModel);
                     return Rx.Observable
                         .from(axios.patch(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/${anugaModel.apiKey}/${anugaModel.id}/`, {"title": action.newTitle}));
                 })

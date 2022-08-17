@@ -83,7 +83,7 @@ class AnugaScenarioMenuClass extends React.Component {
 
 
     render() {
-        console.log('this.state:', this.state)
+        // console.log('this.state:', this.state)
         return (
             <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>

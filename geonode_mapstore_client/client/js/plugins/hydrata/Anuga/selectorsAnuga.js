@@ -38,9 +38,9 @@ export const getAnugaModels = (state) => {
     let modelsArray = Array();
     modelTypes.map(anugaModel => {
         state?.anuga?.[anugaModel].map(instance => {
-            console.log('getAnugaModels modelsArray:', modelsArray);
-            console.log('getAnugaModels anugaModel:', anugaModel);
-            console.log('getAnugaModels instance:', instance);
+            // console.log('getAnugaModels modelsArray:', modelsArray);
+            // console.log('getAnugaModels anugaModel:', anugaModel);
+            // console.log('getAnugaModels instance:', instance);
             modelsArray.push({...instance, apiKey: modelTypesToApiKey[anugaModel]});
         });
     });
