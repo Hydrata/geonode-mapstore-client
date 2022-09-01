@@ -43,7 +43,7 @@ class SwampsControlsClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        swampGroupLength: state?.layers?.groups?.filter((group) => group?.name === "Swamps")?.[0]?.nodes?.length
+        swampGroupLength: state?.layers?.groups?.filter((group) => group?.name === "Swamps")?.[0]?.nodes?.length || 0
     };
 };
 
