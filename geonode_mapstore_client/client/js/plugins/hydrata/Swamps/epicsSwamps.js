@@ -58,10 +58,12 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
     action$
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
+            console.log('LOAD_FEATURE_INFO unfiltered:', action);
             if (action?.data?.features?.[0]?.id?.includes('bluemountains_thpss')) {
                 console.log('queryLayerAttributesToStoreStep1', action);
                 return action;
             }
+            console.log('LOAD_FEATURE_INFO returning null');
             return null;
         })
         .mergeMap((action) => Rx.Observable.merge(
