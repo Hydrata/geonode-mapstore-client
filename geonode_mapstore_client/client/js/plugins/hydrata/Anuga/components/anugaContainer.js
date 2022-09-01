@@ -139,7 +139,7 @@ const mapStateToProps = (state) => {
         logText: logText,
         gnResourceLoaded: state?.gnresource?.id,
         isAnugaProject: state?.anuga?.projectData?.id,
-        anugaInputMenuGroupId: state?.layers?.groups?.filter((group) => group.title === "Input Data")[0]?.id,
+        anugaInputMenuGroupId: state?.layers?.groups?.filter((group) => group.name === "Input Data")?.[0]?.id,
         showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,
         showAnugaResultMenu: state?.anuga?.showAnugaResultMenu,
