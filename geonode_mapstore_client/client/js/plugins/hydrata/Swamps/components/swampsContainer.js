@@ -11,8 +11,8 @@ class SwampsContainer extends React.Component {
     static propTypes = {
         visibleSwampsChart: PropTypes.bool,
         initSwamps: PropTypes.func,
-        viewSwampsGroupId: PropTypes.string,
-        openMenuGroupId: PropTypes.string
+        viewSwampsGroupId: PropTypes.number,
+        openMenuGroupId: PropTypes.number
     };
 
     static defaultProps = {
@@ -50,8 +50,8 @@ const mapStateToProps = (state) => {
     // console.log('state for Swamps:', state);
     return {
         visibleSwampsChart: state?.swamps?.visibleSwampsChart,
-        viewSwampsGroupId: state?.mapConfigRawData?.map?.groups?.filter((group) => group?.name === "Swamps")?.[0]?.id,
-        openMenuGroupId: state?.simpleView?.openMenuGroupId
+        viewSwampsGroupId: state?.mapConfigRawData?.map?.groups?.filter((group) => group?.name === "Swamps")?.[0]?.id || 0,
+        openMenuGroupId: state?.simpleView?.openMenuGroupId || 0
     };
 };
 
