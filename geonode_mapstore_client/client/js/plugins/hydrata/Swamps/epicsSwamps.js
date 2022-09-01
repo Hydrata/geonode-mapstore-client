@@ -68,10 +68,10 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         })
         .mergeMap((action) => Rx.Observable.merge(
             Rx.Observable.of(setVisibleSwampsChart(true)),
-            Rx.Observable.of(setSelectedSwampId(action?.layer?.id)),
+            Rx.Observable.of(setSelectedSwampId(action?.data?.substring(action?.data.indexOf("FID_1 = ") + 8, action?.data.lastIndexOf('\nSWAMP')))),
             Rx.Observable.of(closeIdentify()),
             Rx.Observable.of(setLayer(action?.layer.id)),
-            Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', action?.layer?.id))
+            Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', action?.layer?.name))
         ));
 
 
@@ -89,7 +89,7 @@ export const queryLayerAttributesToStoreStep2 = (action$, store) =>
             query(
                 store.getState()?.gnsettings?.geoserverUrl + '/ows',
                 {
-                    "featureTypeName": action.typeName,
+                    "featureTypeName": "bluemountains_thpss_e_4480_32756",
                     "filterType": "OGC",
                     "ogcVersion": "1.1.0",
                     "pagination": {
