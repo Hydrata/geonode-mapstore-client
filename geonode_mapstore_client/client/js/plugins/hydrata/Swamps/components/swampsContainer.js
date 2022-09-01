@@ -50,7 +50,7 @@ const mapStateToProps = (state) => {
     // console.log('state for Swamps:', state);
     return {
         visibleSwampsChart: state?.swamps?.visibleSwampsChart,
-        viewSwampsGroupId: state?.mapConfigRawData?.map?.groups?.filter((group) => group?.name === "Swamps")?.[0]?.id || 0,
+        viewSwampsGroupId: state?.mapConfigRawData?.map?.groups?.filter((group) => group?.title === "Swamps")?.[0]?.id || 0,
         openMenuGroupId: state?.simpleView?.openMenuGroupId || 0
     };
 };
