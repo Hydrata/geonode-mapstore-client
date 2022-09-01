@@ -59,7 +59,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
             console.log('LOAD_FEATURE_INFO unfiltered:', action);
-            if (action?.data?.features?.[0]?.id?.includes('bluemountains_thpss')) {
+            if (action?.layer?.id?.includes('bluemountains_thpss')) {
                 console.log('queryLayerAttributesToStoreStep1', action);
                 return action;
             }
@@ -68,10 +68,10 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         })
         .mergeMap((action) => Rx.Observable.merge(
             Rx.Observable.of(setVisibleSwampsChart(true)),
-            Rx.Observable.of(setSelectedSwampId(action?.data?.features?.[0]?.id)),
+            Rx.Observable.of(setSelectedSwampId(action?.layer?.id)),
             Rx.Observable.of(closeIdentify()),
             Rx.Observable.of(setLayer(action?.layer.id)),
-            Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', "geonode:" + action?.data?.features?.[0]?.id.split('.')[0]))
+            Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', action?.layer?.id))
         ));
 
 
