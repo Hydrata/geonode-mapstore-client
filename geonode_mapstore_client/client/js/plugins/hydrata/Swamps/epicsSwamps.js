@@ -68,7 +68,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         })
         .mergeMap((action) => Rx.Observable.merge(
             Rx.Observable.of(setVisibleSwampsChart(true)),
-            Rx.Observable.of(setSelectedSwampId(`bluemountains_thpss_e_4480_32756.${action?.data?.substring(action?.data.indexOf("FID_1 = ") + 6, action?.data.lastIndexOf('\nSWAMP'))}`)),
+            Rx.Observable.of(setSelectedSwampId(`bluemountains_thpss_e_4480_32756.${action?.data?.substring(action?.data.indexOf("FID_1 = ") + 8, action?.data.lastIndexOf('.0\nSWAMP'))}`)),
             Rx.Observable.of(closeIdentify()),
             Rx.Observable.of(setLayer(action?.layer.id)),
             Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', action?.layer?.name))
@@ -110,9 +110,13 @@ export const queryLayerAttributesToStoreStep3 = (action$, store) =>
         .mergeMap((action) => {
             console.log('queryLayerAttributesToStoreStep3', action);
             const selectedSwampId = store.getState().swamps?.selectedSwampId;
+            console.log('selectedSwampId', selectedSwampId);
             const selectedSwampIdInt = parseInt(selectedSwampId.split('.')[1], 10);
+            console.log('selectedSwampIdInt', selectedSwampIdInt);
             const selectedSwampData = action.result.features.filter((feature) => feature.id === selectedSwampId)[0];
+            console.log('selectedSwampData', selectedSwampData);
             selectedSwampData.sites = store.getState().swamps?.surveySites?.filter((site) => site?.swamp === selectedSwampIdInt);
+            console.log('selectedSwampData', selectedSwampData);
             return Rx.Observable.of(
                 saveSwampQueryToStore(selectedSwampData)
             );
