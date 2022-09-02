@@ -68,7 +68,7 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
         })
         .mergeMap((action) => Rx.Observable.merge(
             Rx.Observable.of(setVisibleSwampsChart(true)),
-            Rx.Observable.of(setSelectedSwampId(action?.data?.substring(action?.data.indexOf("FID_1 = ") + 8, action?.data.lastIndexOf('\nSWAMP')))),
+            Rx.Observable.of(setSelectedSwampId(`bluemountains_thpss_e_4480_32756.${action?.data?.substring(action?.data.indexOf("FID_1 = ") + 6, action?.data.lastIndexOf('\nSWAMP'))}`)),
             Rx.Observable.of(closeIdentify()),
             Rx.Observable.of(setLayer(action?.layer.id)),
             Rx.Observable.of(featureTypeSelected(store.getState()?.gnsettings?.geoserverUrl + '/wfs', action?.layer?.name))
