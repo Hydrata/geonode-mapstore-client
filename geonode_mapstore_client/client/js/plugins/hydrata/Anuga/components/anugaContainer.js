@@ -43,7 +43,8 @@ class AnugaContainer extends React.Component {
         logText: PropTypes.string,
         gnResourceLoaded: PropTypes.string,
         visibleAnugaRunMenu: PropTypes.bool,
-        canEditAnugaMap: PropTypes.bool
+        canEditAnugaMap: PropTypes.bool,
+        hasEPSGset: PropTypes.bool
     };
 
     static defaultProps = {
@@ -87,7 +88,7 @@ class AnugaContainer extends React.Component {
                             : null
                     }
                     {
-                        this.props.canEditAnugaMap ?
+                        this.props.canEditAnugaMap && this.props.hasEPSGset ?
                             <div id={"anuga-scenario"}>
                                 <button
                                     key="anuga-scenario-button"
@@ -139,6 +140,7 @@ const mapStateToProps = (state) => {
         logText: logText,
         gnResourceLoaded: state?.gnresource?.id,
         isAnugaProject: state?.anuga?.projectData?.id,
+        hasEPSGset: !!state?.anuga?.projectData?.projection,
         anugaInputMenuGroupId: state?.layers?.groups?.filter((group) => group.name === "Input Data")?.[0]?.id,
         showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,

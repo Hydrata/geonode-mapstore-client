@@ -55,7 +55,7 @@ import {
     UPDATE_COMPUTE_INSTANCE,
     updateComputeInstanceSuccess
 } from "./actionsAnuga";
-import {UPDATE_DATASET_TITLE, updateUploadStatus} from "../SimpleView/actionsSimpleView";
+import {UPDATE_DATASET_TITLE, updateUploadStatus, UPDATE_DATASET_TITLE_SUCCESS} from "../SimpleView/actionsSimpleView";
 
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
@@ -63,7 +63,7 @@ import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
 export const initAnugaEpic = (action$, store) =>
     action$
-        .ofType(INIT_ANUGA)
+        .ofType(INIT_ANUGA, UPDATE_DATASET_TITLE_SUCCESS)
         .filter(() => store.getState()?.gnresource.id)
         .switchMap(() => Rx.Observable
             .from(

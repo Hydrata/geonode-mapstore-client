@@ -1,6 +1,6 @@
 import Rx from "rxjs";
 
-import {UPDATE_DATASET_TITLE, SV_DOWNLOAD_LAYER} from "./actionsSimpleView";
+import {UPDATE_DATASET_TITLE, SV_DOWNLOAD_LAYER, updateDatasetTitleSuccess} from "./actionsSimpleView";
 import {toggleEditMode, GRID_QUERY_RESULT} from "../../../../MapStore2/web/client/actions/featuregrid";
 import {
     download,
@@ -22,10 +22,10 @@ export const updateDatasetTitleEpic = (action$) =>
         .switchMap((action) =>
             Rx.Observable
                 .from(axios.get(`/api/v2/datasets?search=${action.datasetName.split('geonode:')[1]}&search_fields=name`))
-                .switchMap(response => Rx.Observable
+                .concatMap(response => Rx.Observable
                     .from(axios.patch(`/api/v2/datasets/${response?.data?.datasets?.[0]?.pk}/`, {"title": action.newTitle}))
                 )
-                .switchMap(response => Rx.Observable.empty())
+                .concatMap(() => Rx.Observable.of(updateDatasetTitleSuccess()))
         );
 
 
