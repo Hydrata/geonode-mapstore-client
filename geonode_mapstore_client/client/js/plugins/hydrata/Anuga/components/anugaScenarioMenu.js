@@ -59,23 +59,23 @@ class AnugaScenarioMenuClass extends React.Component {
         this.handleTimeBlur = this.handleTimeBlur.bind(this);
     }
 
-    getSecondsFromHHMMSS = (userInputValue) => {
-        const [hours, minutes, seconds] = userInputValue.split(":");
+    getSecondsFromHHMM = (userInputValue) => {
+        console.log('userInputValue', userInputValue);
+        const [hours, minutes] = userInputValue.split(":");
 
         const hoursNumber = Number(hours);
         const minutesNumber = Number(minutes);
-        const secondsNumber = Number(seconds);
+        console.log('hoursNumber', hoursNumber);
+        console.log('minutesNumber', minutesNumber);
 
-        if (!isNaN(hoursNumber) && isNaN(minutesNumber) && isNaN(secondsNumber)) {
-            return hoursNumber;
+        if (!isNaN(hoursNumber) && isNaN(minutesNumber)) {
+            console.log('returning:', hoursNumber * 60 * 60);
+            return hoursNumber * 60 * 60;
         }
 
-        if (!isNaN(hoursNumber) && !isNaN(minutesNumber) && isNaN(secondsNumber)) {
-            return hoursNumber * 60 + minutesNumber;
-        }
-
-        if (!isNaN(hoursNumber) && !isNaN(minutesNumber) && !isNaN(secondsNumber)) {
-            return hoursNumber * 60 * 60 + minutesNumber * 60 + secondsNumber;
+        if (!isNaN(hoursNumber) && !isNaN(minutesNumber)) {
+            console.log('returning:', (hoursNumber * 60 + minutesNumber) * 60;
+            return (hoursNumber * 60 + minutesNumber) * 60;
         }
 
         return 0;
@@ -197,7 +197,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     this.state.scenarioTableTabs?.includes('settings') ?
                                         <React.Fragment>
                                             <th>Resolution(m2)</th>
-                                            <th>Simplify Mesh</th>
+                                            {/*<th>Simplify Mesh</th>*/}
                                             <th>Duration</th>
                                             <th>Status</th>
                                             <th/>
@@ -394,18 +394,18 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 onChange={(event) => this.handleNumberChange(event, scenario)}
                                                             />
                                                         </td>
-                                                        <td>
-                                                            <span
-                                                                id={'simplify_mesh'}
-                                                                key={`simplify_mesh-${scenario.id}`}
-                                                                className={"btn glyphicon menu-row-glyph " + (scenario?.simplify_mesh ? "glyphicon-ok" : "glyphicon-remove")}
-                                                                style={{
-                                                                    "color": scenario?.simplify_mesh ? "limegreen" : "red",
-                                                                    "fontSize": "10px"
-                                                                }}
-                                                                onClick={(event) => this.handleBoolChange(event, scenario)}
-                                                            />
-                                                        </td>
+                                                        {/*<td>*/}
+                                                        {/*    <span*/}
+                                                        {/*        id={'simplify_mesh'}*/}
+                                                        {/*        key={`simplify_mesh-${scenario.id}`}*/}
+                                                        {/*        className={"btn glyphicon menu-row-glyph " + (scenario?.simplify_mesh ? "glyphicon-ok" : "glyphicon-remove")}*/}
+                                                        {/*        style={{*/}
+                                                        {/*            "color": scenario?.simplify_mesh ? "limegreen" : "red",*/}
+                                                        {/*            "fontSize": "10px"*/}
+                                                        {/*        }}*/}
+                                                        {/*        onClick={(event) => this.handleBoolChange(event, scenario)}*/}
+                                                        {/*    />*/}
+                                                        {/*</td>*/}
                                                         <td>
                                                             <input
                                                                 id={'duration'}
@@ -413,7 +413,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 type={"text"}
                                                                 className={'scenario-input'}
                                                                 style={{'width': '80px'}}
-                                                                value={scenario.tempTimeString || this.toHHMMSS(scenario.duration)}
+                                                                value={scenario.tempTimeString || this.toHHMM(scenario.duration)}
                                                                 onChange={(event) => this.handleTimeChange(event, scenario)}
                                                                 onBlur={(event) => this.handleTimeBlur(event, scenario)}
                                                             />
@@ -577,20 +577,21 @@ class AnugaScenarioMenuClass extends React.Component {
         this.props.updateAnugaScenario(scenario, kv);
     }
 
-    toHHMMSS = (secs) => {
-        if (!secs) {
-            return '00:00:00';
+    toHHMM = (mins) => {
+        if (!mins) {
+            return 'hh:mm';
         }
-        const secNum = parseInt(secs.toString(), 10);
-        const hours = Math.floor(secNum / 3600);
-        const minutes = Math.floor(secNum / 60) % 60;
-        const seconds = secNum % 60;
+        const minNum = parseInt(mins.toString(), 10);
+        const hours = Math.floor(minNum / 60);
+        console.log('minNum', minNum);
+        console.log('hours', hours);
 
-        return [hours, minutes, seconds]
+        const out = [hours, minNum]
             .map((val) => (val < 10 ? `0${val}` : val))
             .filter((val, index) => val !== "00" || index > 0)
             .join(":")
             .replace(/^0/, "");
+        console.log('out', out);
     };
 
     handleTimeChange = (event, scenario) => {
@@ -602,7 +603,9 @@ class AnugaScenarioMenuClass extends React.Component {
 
     handleTimeBlur = (event, scenario) => {
         const targetValue = event.target.value;
-        const seconds = Math.max(0, this.getSecondsFromHHMMSS(targetValue));
+        console.log('targetValue', targetValue);
+        const seconds = Math.max(0, this.getSecondsFromHHMM(targetValue));
+        console.log('seconds', seconds);
         const kv = {};
         kv[event.target.id] = seconds;
         kv.tempTimeString = null;
