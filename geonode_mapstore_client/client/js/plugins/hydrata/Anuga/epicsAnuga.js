@@ -488,10 +488,17 @@ export const addAnugaMeshRegionEpic = (action$, store) =>
                 .switchMap((response) => {
                     if (response.data?.length === 0) {
                         return Rx.Observable.empty();
-                    } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
+                    } else if (response.data?.length === 1 && store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
                         return Rx.Observable.concat(
                             Rx.Observable.of(addLayer(response.data[0])),
                             // Rx.Observable.of(saveDirectContent()),
+                            Rx.Observable.of(initAnuga()),
+                            Rx.Observable.of(setCreatingAnugaLayer(false))
+                        );
+                    } else if (response.data?.length > 1 && store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
+                        return Rx.Observable.concat(
+                            Rx.Observable.of(addLayer(response.data[0])),
+                            Rx.Observable.of(saveDirectContent()),
                             Rx.Observable.of(initAnuga()),
                             Rx.Observable.of(setCreatingAnugaLayer(false))
                         );
