@@ -69,11 +69,13 @@ class AnugaScenarioMenuClass extends React.Component {
         console.log('minutesNumber', minutesNumber);
 
         if (!isNaN(hoursNumber) && isNaN(minutesNumber)) {
-            console.log('returning:', hoursNumber * 60 * 60);
-            return hoursNumber * 60 * 60;
+            // case where just minutes were entered - hoursNumber is actually the required minutes
+            console.log('returning:', hoursNumber * 60);
+            return hoursNumber * 60;
         }
 
         if (!isNaN(hoursNumber) && !isNaN(minutesNumber)) {
+            // case where user entered both hours and minutes hh:mm
             console.log('returning:', (hoursNumber * 60 + minutesNumber) * 60);
             return (hoursNumber * 60 + minutesNumber) * 60;
         }
@@ -577,20 +579,21 @@ class AnugaScenarioMenuClass extends React.Component {
         this.props.updateAnugaScenario(scenario, kv);
     }
 
-    toHHMM = (mins) => {
-        if (!mins) {
+    toHHMM = (secs) => {
+        if (!secs) {
             return 'hh:mm';
         }
-        const minNum = parseInt(mins.toString(), 10);
-        const hours = Math.floor(minNum / 60);
-        console.log('minNum', minNum);
-        console.log('hours', hours);
+        const secNum = parseInt(secs.toString(), 10);
+        const hours = Math.floor(secNum / 3600);
+        const minutes = Math.floor(secNum / 60) % 60;
+        const seconds = secNum % 60;
 
-        return [hours, minNum]
+        return [hours, minutes, seconds]
             .map((val) => (val < 10 ? `0${val}` : val))
             .filter((val, index) => val !== "00" || index > 0)
             .join(":")
-            .replace(/^0/, "");
+            .replace(/^0/, "")
+            .slice(0, -3);
     };
 
     handleTimeChange = (event, scenario) => {
