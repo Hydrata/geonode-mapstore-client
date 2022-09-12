@@ -586,12 +586,11 @@ class AnugaScenarioMenuClass extends React.Component {
         console.log('minNum', minNum);
         console.log('hours', hours);
 
-        const out = [hours, minNum]
+        return [hours, minNum]
             .map((val) => (val < 10 ? `0${val}` : val))
             .filter((val, index) => val !== "00" || index > 0)
             .join(":")
             .replace(/^0/, "");
-        console.log('out', out);
     };
 
     handleTimeChange = (event, scenario) => {
