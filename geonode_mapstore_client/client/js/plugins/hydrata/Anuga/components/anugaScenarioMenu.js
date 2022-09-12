@@ -74,7 +74,7 @@ class AnugaScenarioMenuClass extends React.Component {
         }
 
         if (!isNaN(hoursNumber) && !isNaN(minutesNumber)) {
-            console.log('returning:', (hoursNumber * 60 + minutesNumber) * 60;
+            console.log('returning:', (hoursNumber * 60 + minutesNumber) * 60);
             return (hoursNumber * 60 + minutesNumber) * 60;
         }
 
