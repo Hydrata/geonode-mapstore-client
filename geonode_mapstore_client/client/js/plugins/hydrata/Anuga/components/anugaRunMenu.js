@@ -94,7 +94,7 @@ class AnugaRunMenuClass extends React.Component {
                                                                 bsSize={'xsmall'}
                                                                 style={{margin: "2px", borderRadius: "2px"}}
                                                                 onClick={() => {
-                                                                    this.props.runAnugaScenario(this.props.selectedScenario, instance.id);
+                                                                    this.props.runAnugaScenario(this.props.selectedScenario, 0);
                                                                     this.props.showAnugaRunMenu(false);
                                                                     this.props.showAnugaScenarioLog(this.props.selectedScenario.id);
                                                                     this.props.setAnugaScenarioMenu(true);
