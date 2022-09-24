@@ -49,6 +49,7 @@ const CANCEL_ANUGA_RUN = 'CANCEL_ANUGA_RUN';
 const UPDATE_COMPUTE_INSTANCE = 'UPDATE_COMPUTE_INSTANCE';
 const UPDATE_COMPUTE_INSTANCE_SUCCESS = 'UPDATE_COMPUTE_INSTANCE_SUCCESS';
 const TOGGLE_SCENARIO_SELECTED = 'TOGGLE_SCENARIO_SELECTED';
+const SHOW_MANAGE_ACCOUNT = 'SHOW_MANAGE_ACCOUNT';
 
 
 function initAnuga() {
@@ -431,6 +432,13 @@ const selectAnugaScenario = (scenario) => {
     };
 };
 
+const showManageAccount = (visible) => {
+    return {
+        type: SHOW_MANAGE_ACCOUNT,
+        visible
+    };
+};
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -480,5 +488,6 @@ module.exports = {
     CANCEL_ANUGA_RUN, cancelAnugaRun,
     UPDATE_COMPUTE_INSTANCE, updateComputeInstance,
     UPDATE_COMPUTE_INSTANCE_SUCCESS, updateComputeInstanceSuccess,
-    TOGGLE_SCENARIO_SELECTED, toggleScenarioSelected
+    TOGGLE_SCENARIO_SELECTED, toggleScenarioSelected,
+    SHOW_MANAGE_ACCOUNT, showManageAccount
 };

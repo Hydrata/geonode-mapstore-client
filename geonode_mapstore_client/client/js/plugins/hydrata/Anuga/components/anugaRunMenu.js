@@ -9,7 +9,8 @@ import {
     showAnugaRunMenu,
     updateComputeInstance,
     setAnugaScenarioMenu,
-    showAnugaScenarioLog
+    showAnugaScenarioLog,
+    showManageAccount
 } from "../actionsAnuga";
 import {Table, Button} from "react-bootstrap";
 import {formatMoney} from "@js/plugins/hydrata/Utils/utils";
@@ -23,7 +24,8 @@ class AnugaRunMenuClass extends React.Component {
         selectedScenario: PropTypes.object,
         runAnugaScenario: PropTypes.func,
         setAnugaScenarioMenu: PropTypes.func,
-        showAnugaScenarioLog: PropTypes.func
+        showAnugaScenarioLog: PropTypes.func,
+        showManageAccount: PropTypes.func
     };
 
     static defaultProps = {}
@@ -54,74 +56,31 @@ class AnugaRunMenuClass extends React.Component {
                             <Table className={"run-server-table"}>
                                 <thead>
                                     <tr className={"run-server-table-header"}>
-                                        <th>Server</th>
-                                        <th>Description</th>
-                                        <th>vCPUs Available</th>
-                                        <th>Cost Estimate<br/>(vCPUhours)</th>
-                                        <th>
+                                        <th style={{width: "300px", textAlign: "left"}}>Run Scenario</th>
+                                        <th style={{width: "80px"}}>Available Hours</th>
+                                        <th style={{width: "80px"}}>Run</th>
+                                        <th style={{width: "80px"}}>Download</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
+                                        <td style={{'textAlign': 'left'}}>{this.props.selectedScenario.name}</td>
+                                        <td>200</td>
+                                        <td>
                                             <Button
                                                 bsStyle={'success'}
                                                 bsSize={'xsmall'}
                                                 style={{margin: "2px", borderRadius: "2px"}}
                                                 onClick={() => {
-                                                    window.alert('coming soon');
+                                                    this.props.runAnugaScenario(this.props.selectedScenario, 0);
+                                                    this.props.showAnugaRunMenu(false);
+                                                    this.props.showAnugaScenarioLog(this.props.selectedScenario.id);
+                                                    this.props.setAnugaScenarioMenu(true);
                                                 }}
                                             >
-                                                Purchase
-                                            </Button><br/>
-                                            Availabe vCPUhours
-                                        </th>
-                                        <th>RunTime Estimate<br/>(hours)</th>
-                                        <th/>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {
-                                        this.props.computeInstances?.length > 0 ? this.props.computeInstances?.map(instance => {
-                                            console.log('instance:', instance);
-                                            return (
-                                                <React.Fragment>
-                                                    <tr className={"run-server-table-row"}>
-                                                        <td>{instance?.name}</td>
-                                                        <td>{instance?.description}</td>
-                                                        <td>{instance?.cpus_available}</td>
-                                                        <td>{this.props.selectedScenario?.latest_run?.vcpu_hours_estimate}</td>
-                                                        <td>200</td>
-                                                        <td>{formatMoney(this.props.selectedScenario?.latest_run?.vcpu_hours_estimate / instance?.cpus_available, 0)}</td>
-                                                        <td>
-                                                            <Button
-                                                                bsStyle={'success'}
-                                                                bsSize={'xsmall'}
-                                                                style={{margin: "2px", borderRadius: "2px"}}
-                                                                onClick={() => {
-                                                                    this.props.runAnugaScenario(this.props.selectedScenario, 0);
-                                                                    this.props.showAnugaRunMenu(false);
-                                                                    this.props.showAnugaScenarioLog(this.props.selectedScenario.id);
-                                                                    this.props.setAnugaScenarioMenu(true);
-                                                                }}
-                                                            >
-                                                                Run
-                                                            </Button>
-                                                        </td>
-                                                    </tr>
-                                                </React.Fragment>
-                                            );
-                                        }) :
-                                            <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
-                                                <div>
-                                                    <Spinner color="white" style={{display: "inline-block", margin: "20px"}} spinnerName="circle" noFadeIn/>
-                                                </div>
-                                                ...searching for available compute servers
-                                            </tr>
-                                    }
-                                    <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
-                                        <td>Your machine</td>
-                                        <td>-</td>
-                                        <td>-</td>
-                                        <td>-</td>
-                                        <td>-</td>
-                                        <td>-</td>
-                                        <td>-</td>
+                                                Run
+                                            </Button>
+                                        </td>
                                         <td>
                                             <Button
                                                 download
@@ -138,12 +97,18 @@ class AnugaRunMenuClass extends React.Component {
                             </Table>
                         </div>
                     </div>
-                    {/*<div id={'anuga-run-menu'} style={{left: "7px"}}>*/}
-                    {/*    Scenario: {this.props.selectedScenario?.name}<br/>*/}
-                    {/*    Mesh size: {formatMoney(this.props.selectedScenario?.latest_run?.mesh_triangle_count, 0)} triangles<br/>*/}
-                    {/*    Real world duration: {this.props.selectedScenario?.latest_run?.duration}<br/>*/}
-                    {/*</div>*/}
                 </div>
+                <Button
+                    bsStyle={'success'}
+                    bsSize={'small'}
+                    style={{margin: "10px", borderRadius: "2px"}}
+                    onClick={() => {
+                        this.props.showManageAccount(true);
+                        this.props.showAnugaRunMenu(false);
+                    }}
+                >
+                    Manage Account
+                </Button>
             </div>
         );
     }
@@ -162,7 +127,8 @@ const mapDispatchToProps = ( dispatch ) => {
         updateComputeInstance: () => dispatch(updateComputeInstance()),
         runAnugaScenario: (scenario, instanceId) => dispatch(runAnugaScenario(scenario, instanceId)),
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
-        showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId))
+        showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),
+        showManageAccount: (visible) => dispatch(showManageAccount(visible))
     };
 };
 
