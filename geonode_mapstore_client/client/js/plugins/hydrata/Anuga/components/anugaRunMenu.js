@@ -56,8 +56,8 @@ class AnugaRunMenuClass extends React.Component {
                             <Table className={"run-server-table"}>
                                 <thead>
                                     <tr className={"run-server-table-header"}>
-                                        <th style={{width: "300px", textAlign: "left"}}>Run Scenario</th>
-                                        <th style={{width: "80px"}}>Available Hours</th>
+                                        <th style={{width: "200px", textAlign: "left"}}>Run Scenario</th>
+                                        <th style={{width: "100px"}}>Available Hours</th>
                                         <th style={{width: "80px"}}>Run</th>
                                         <th style={{width: "80px"}}>Download</th>
                                     </tr>
