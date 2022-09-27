@@ -354,7 +354,7 @@ function runAnugaScenarioSuccess(scenario) {
             title: 'Success',
             autoDismiss: 6,
             position: 'tc',
-            message: `Scenario ID: ${scenario.id} running`,
+            message: `Scenario running`,
             uid: uuidv1(),
             level: 'success'
         });

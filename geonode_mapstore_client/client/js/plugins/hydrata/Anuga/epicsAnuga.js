@@ -1,10 +1,10 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
 import {addLayer, refreshLayers} from '../../../../MapStore2/web/client/actions/layers';
+import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
 import {saveDirectContent} from "@js/actions/gnsave";
 import {CREATE_NEW_FEATURE, createNewFeatures} from "../../../../MapStore2/web/client/actions/featuregrid";
-
 import {
     ADD_ANUGA_BOUNDARY,
     ADD_ANUGA_FRICTION,
@@ -56,10 +56,31 @@ import {
     updateComputeInstanceSuccess
 } from "./actionsAnuga";
 import {UPDATE_DATASET_TITLE, updateUploadStatus, UPDATE_DATASET_TITLE_SUCCESS} from "../SimpleView/actionsSimpleView";
-
-import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
+const addAnugaLayerFromAvailableResponse = (response, store) => {
+    if (response.data?.length === 0) {
+        return Rx.Observable.empty();
+    }
+    let actions = [
+        initAnuga(),
+        setCreatingAnugaLayer(false)
+    ];
+    response.data.map(model => {
+        if (store.getState().layers.flat.filter(layer => layer.name === model?.name).length === 0) {
+            actions.unshift(addLayer(model));
+            actions.push(
+                show({
+                    "message": "New layers added... You should save your project.",
+                    "title": "Layers added",
+                    "uid": 1000,
+                    "position": "tc"
+                })
+            );
+        }
+    });
+    return Rx.Observable.from(actions);
+};
 
 export const initAnugaEpic = (action$, store) =>
     action$
@@ -325,19 +346,7 @@ export const addAnugaBoundaryEpic = (action$, store) =>
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
-                .switchMap((response) => {
-                    if (response.data?.length === 0) {
-                        return Rx.Observable.empty();
-                    } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addLayer(response.data[0])),
-                            // Rx.Observable.of(saveDirectContent()),
-                            Rx.Observable.of(initAnuga()),
-                            Rx.Observable.of(setCreatingAnugaLayer(false))
-                        );
-                    }
-                    return Rx.Observable.empty();
-                })
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
         );
 
 export const createAnugaFrictionEpic = (action$, store) =>
@@ -365,19 +374,7 @@ export const addAnugaFrictionEpic = (action$, store) =>
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
-                .switchMap((response) => {
-                    if (response.data?.length === 0) {
-                        return Rx.Observable.empty();
-                    } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addLayer(response.data[0])),
-                            // Rx.Observable.of(saveDirectContent()),
-                            Rx.Observable.of(initAnuga()),
-                            Rx.Observable.of(setCreatingAnugaLayer(false))
-                        );
-                    }
-                    return Rx.Observable.empty();
-                })
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
         );
 
 export const createAnugaInflowEpic = (action$, store) =>
@@ -405,19 +402,7 @@ export const addAnugaInflowEpic = (action$, store) =>
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
-                .switchMap((response) => {
-                    if (response.data?.length === 0) {
-                        return Rx.Observable.empty();
-                    } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addLayer(response.data[0])),
-                            // Rx.Observable.of(saveDirectContent()),
-                            Rx.Observable.of(initAnuga()),
-                            Rx.Observable.of(setCreatingAnugaLayer(false))
-                        );
-                    }
-                    return Rx.Observable.empty();
-                })
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
         );
 
 export const createAnugaStructureEpic = (action$, store) =>
@@ -445,19 +430,7 @@ export const addAnugaStructureEpic = (action$, store) =>
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
-                .switchMap((response) => {
-                    if (response.data?.length === 0) {
-                        return Rx.Observable.empty();
-                    } else if (store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addLayer(response.data[0])),
-                            // Rx.Observable.of(saveDirectContent()),
-                            Rx.Observable.of(initAnuga()),
-                            Rx.Observable.of(setCreatingAnugaLayer(false))
-                        );
-                    }
-                    return Rx.Observable.empty();
-                })
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
         );
 
 export const createAnugaMeshRegionEpic = (action$, store) =>
@@ -485,26 +458,7 @@ export const addAnugaMeshRegionEpic = (action$, store) =>
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
-                .switchMap((response) => {
-                    if (response.data?.length === 0) {
-                        return Rx.Observable.empty();
-                    } else if (response.data?.length === 1 && store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addLayer(response.data[0])),
-                            // Rx.Observable.of(saveDirectContent()),
-                            Rx.Observable.of(initAnuga()),
-                            Rx.Observable.of(setCreatingAnugaLayer(false))
-                        );
-                    } else if (response.data?.length > 1 && store.getState().layers.flat.filter(layer => layer.name === response.data[0]?.name).length === 0) {
-                        return Rx.Observable.concat(
-                            Rx.Observable.of(addLayer(response.data[0])),
-                            Rx.Observable.of(saveDirectContent()),
-                            Rx.Observable.of(initAnuga()),
-                            Rx.Observable.of(setCreatingAnugaLayer(false))
-                        );
-                    }
-                    return Rx.Observable.empty();
-                })
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
         );
 
 export const updateComputeInstanceEpic = (action$, store) =>

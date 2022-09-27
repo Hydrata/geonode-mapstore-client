@@ -20,7 +20,9 @@ import {
     createAnugaStructure,
     createAnugaMeshRegion,
     setCreatingAnugaLayer,
-    startAnugaElevationPolling
+    startAnugaElevationPolling,
+    startAnugaModelCreationPolling,
+    stopAnugaModelCreationPolling
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
@@ -32,18 +34,21 @@ class AnugaInputMenuClass extends React.Component {
         projectData: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
         anugaGroupLength: PropTypes.number,
-        elevations: PropTypes.array,
-        boundaries: PropTypes.array,
+        elevationLayers: PropTypes.array,
+        boundaryLayers: PropTypes.array,
         createAnugaBoundary: PropTypes.func,
         createAnugaFriction: PropTypes.func,
         createAnugaInflow: PropTypes.func,
         createAnugaStructure: PropTypes.func,
         createAnugaMeshRegion: PropTypes.func,
-        frictions: PropTypes.array,
-        inflows: PropTypes.array,
-        structures: PropTypes.array,
-        meshRegions: PropTypes.array,
+        frictionLayers: PropTypes.array,
+        inflowLayers: PropTypes.array,
+        structureLayers: PropTypes.array,
+        meshRegionLayers: PropTypes.array,
         startAnugaElevationPolling: PropTypes.func,
+        stopAnugaElevationPolling: PropTypes.func,
+        startAnugaModelCreationPolling: PropTypes.func,
+        stopAnugaModelCreationPolling: PropTypes.func,
         isCreatingAnugaLayer: PropTypes.bool,
         setCreatingAnugaLayer: PropTypes.func,
         canEditAnugaMap: PropTypes.func,
@@ -51,7 +56,12 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaFriction: PropTypes.func,
         addAnugaInflow: PropTypes.func,
         addAnugaStructure: PropTypes.func,
-        addAnugaMeshRegion: PropTypes.func
+        addAnugaMeshRegion: PropTypes.func,
+        boundaryModels: PropTypes.array,
+        frictionModels: PropTypes.array,
+        inflowModels: PropTypes.array,
+        structureModels: PropTypes.array,
+        meshRegionModels: PropTypes.array
     };
 
     static defaultProps = {}
@@ -68,11 +78,11 @@ class AnugaInputMenuClass extends React.Component {
     }
 
     componentDidMount() {
-        this.interval = setInterval(this.pollBlankAnugaModels, 6000);
+        this.props.startAnugaModelCreationPolling();
     }
 
     componentWillUnmount() {
-        clearInterval(this.state.interval);
+        this.props.stopAnugaModelCreationPolling();
     }
 
     render() {
@@ -107,12 +117,12 @@ class AnugaInputMenuClass extends React.Component {
                         </OverlayTrigger>
                     </div>
                     {
-                        this.props.elevations?.map(elevation => (
+                        this.props.elevationLayers?.map(elevation => (
                             <MenuRow layer={elevation}/>
                         ))
                     }
                     {
-                        this.props.elevations?.length === 0 ?
+                        this.props.elevationLayers?.length === 0 ?
                             <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
                                 No elevations available
                             </div>
@@ -175,12 +185,12 @@ class AnugaInputMenuClass extends React.Component {
                                     }
                                 </div>
                                 {
-                                    this.props.boundaries?.map(boundary => (
+                                    this.props.boundaryLayers?.map(boundary => (
                                         <MenuRow layer={boundary}/>
                                     ))
                                 }
                                 {
-                                    this.props.boundaries?.length === 0 ?
+                                    this.props.boundaryLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
                                             ...Creating default Boundary
                                         </div>
@@ -244,12 +254,12 @@ class AnugaInputMenuClass extends React.Component {
                                     }
                                 </div>
                                 {
-                                    this.props.frictions?.map(friction => (
+                                    this.props.frictionLayers?.map(friction => (
                                         <MenuRow layer={friction}/>
                                     ))
                                 }
                                 {
-                                    this.props.frictions?.length === 0 ?
+                                    this.props.frictionLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
                                             ...Creating default Friction Map
                                         </div>
@@ -313,12 +323,12 @@ class AnugaInputMenuClass extends React.Component {
                                     }
                                 </div>
                                 {
-                                    this.props.inflows?.map(inflow => (
+                                    this.props.inflowLayers?.map(inflow => (
                                         <MenuRow layer={inflow}/>
                                     ))
                                 }
                                 {
-                                    this.props.inflows?.length === 0 ?
+                                    this.props.inflowLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
                                             ...Creating default Inflows
                                         </div>
@@ -382,12 +392,12 @@ class AnugaInputMenuClass extends React.Component {
                                     }
                                 </div>
                                 {
-                                    this.props.structures?.map(structure => (
+                                    this.props.structureLayers?.map(structure => (
                                         <MenuRow layer={structure}/>
                                     ))
                                 }
                                 {
-                                    this.props.structures?.length === 0 ?
+                                    this.props.structureLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
                                             ...Creating default Structures
                                         </div>
@@ -451,12 +461,12 @@ class AnugaInputMenuClass extends React.Component {
                                     }
                                 </div>
                                 {
-                                    this.props.meshRegions?.map(meshRegion => (
+                                    this.props.meshRegionLayers?.map(meshRegion => (
                                         <MenuRow layer={meshRegion}/>
                                     ))
                                 }
                                 {
-                                    this.props.meshRegions?.length === 0 ?
+                                    this.props.meshRegionLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
                                             ...Creating default Mesh Region
                                         </div>
@@ -469,25 +479,23 @@ class AnugaInputMenuClass extends React.Component {
             </div>
         );
     }
-
-    pollBlankAnugaModels = () => {
-        this.props.boundaries?.length === 0 ? this.props.addAnugaBoundary() : null;
-        this.props.frictions?.length === 0 ? this.props.addAnugaFriction() : null;
-        this.props.inflows?.length === 0 ? this.props.addAnugaInflow() : null;
-        this.props.structures?.length === 0 ? this.props.addAnugaStructure() : null;
-        this.props.meshRegions?.length === 0 ? this.props.addAnugaMeshRegion() : null;
-    }
 }
 
 const mapStateToProps = (state) => {
     return {
         projectData: state?.anuga?.projectData,
-        elevations: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations'),
-        boundaries: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
-        frictions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Maps'),
-        inflows: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
-        structures: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
-        meshRegions: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
+        elevationLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations'),
+        boundaryLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
+        frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Maps'),
+        inflowLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
+        structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
+        meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
+        elevationModels: state?.anuga?.elevations,
+        boundaryModels: state?.anuga?.boundaries,
+        frictionModels: state?.anuga?.frictions,
+        inflowModels: state?.anuga?.inflows,
+        structureModels: state?.anuga?.structures,
+        meshRegionModels: state?.anuga?.meshRegions,
         isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer,
         canEditAnugaMap: canEditAnugaMap(state)
     };
@@ -501,6 +509,8 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaStructure: () => dispatch(addAnugaStructure()),
         addAnugaMeshRegion: () => dispatch(addAnugaMeshRegion()),
         startAnugaElevationPolling: () => dispatch(startAnugaElevationPolling()),
+        startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
+        stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
         setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
