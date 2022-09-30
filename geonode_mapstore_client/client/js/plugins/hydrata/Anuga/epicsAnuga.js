@@ -1,10 +1,10 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
-import {addLayer, refreshLayers} from '../../../../MapStore2/web/client/actions/layers';
+import {addLayer, removeLayer, refreshLayers} from '../../../../MapStore2/web/client/actions/layers';
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
 import {saveDirectContent} from "@js/actions/gnsave";
-import {CREATE_NEW_FEATURE, createNewFeatures} from "../../../../MapStore2/web/client/actions/featuregrid";
+import {CREATE_NEW_FEATURE} from "../../../../MapStore2/web/client/actions/featuregrid";
 import {
     ADD_ANUGA_BOUNDARY,
     ADD_ANUGA_FRICTION,
@@ -246,6 +246,14 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                 // and check frontend
                                 const currentLayerNames = store.getState()?.layers?.flat?.map(layer => layer?.name);
                                 let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l?.type === 'wms' && l?.group !== 'background') || [];
+                                // remove existing results from that scenario:
+                                const newResultLayerTitles = [
+                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.title,
+                                    scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.title,
+                                    scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.title
+                                ];
+                                let existingResultLayers = store.getState()?.layers?.flat?.filter(layer => newResultLayerTitles.includes(layer.title));
+                                console.log('remove these existingResultLayers:', existingResultLayers);
                                 if (scenarioToLoadResults &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&
@@ -257,6 +265,9 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     // console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
                                     return Rx.Observable
                                         .concat(
+                                            Rx.Observable.of(removeLayer(existingResultLayers?.[0]?.id)),
+                                            Rx.Observable.of(removeLayer(existingResultLayers?.[1]?.id)),
+                                            Rx.Observable.of(removeLayer(existingResultLayers?.[2]?.id)),
                                             Rx.Observable.of(setAnugaPollingData(action.scenarios)),
                                             Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max)),
                                             Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_max)),
