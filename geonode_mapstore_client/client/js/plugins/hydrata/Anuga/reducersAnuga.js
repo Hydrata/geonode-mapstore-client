@@ -64,15 +64,26 @@ export default ( state = initialState, action) => {
             })
         };
     case SET_ANUGA_POLLING_DATA:
+        let scenarios = state.scenarios.map(scenario => {
+            const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
+            scenario.latest_run = {...newScenario?.latest_run};
+            scenario.status = newScenario?.status || 'unsaved';
+            scenario.latest_run_is_valid = newScenario?.latest_run_is_valid;
+            return scenario;
+        });
+        // also check for copied new scenarios (this happens on the backend):
+        const frontendScenarioIds = state.scenarios?.map(scenario => scenario?.id);
+        const newCopiedScenario = action.scenarios?.filter(backendScenario => !frontendScenarioIds.includes(backendScenario.id))?.[0];
+        if (newCopiedScenario) {
+            scenarios = [
+                ...scenarios,
+                newCopiedScenario
+            ];
+        }
+        console.log('scenarios', scenarios);
         return {
             ...state,
-            scenarios: state.scenarios.map(scenario => {
-                const newScenario = action.scenarios.filter(actionScenario => scenario.id === actionScenario.id)[0];
-                scenario.latest_run = {...newScenario?.latest_run};
-                scenario.status = newScenario?.status || 'unsaved';
-                scenario.latest_run_is_valid = newScenario?.latest_run_is_valid;
-                return scenario;
-            }),
+            scenarios: scenarios,
             selectedScenario: action.scenarios.filter(actionScenario => state.selectedScenarioId === actionScenario.id)[0]
         };
     case ADD_ANUGA_SCENARIO:
