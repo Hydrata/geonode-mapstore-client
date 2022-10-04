@@ -89,6 +89,10 @@
         {
             "name": "printEnabled",
             "path": "print.capabilities"
+        },
+        {
+            "name": "anuga",
+            "path": "anuga.projectData"
         }
     ],
     "projectionDefs": [],
@@ -1656,7 +1660,9 @@
                         },
                         {
                             "type": "plugin",
-                            "name": "Share"
+                            "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
+                            "name": "Share",
+                            "labelId": "gnviewer.share"
                         },
                         {
                             "type": "plugin",
@@ -1664,12 +1670,14 @@
                         },
                         {
                             "type": "plugin",
-                            "name": "Annotations"
+                            "name": "Annotations",
+                            "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}"
                         },
                         {
                             "type": "plugin",
                             "name": "DatasetsCatalog",
-                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}"
+                            "disableIf": "{!context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+                            "label": "gnviewer.viewMetadata"
                         }
                     ],
                     "rightMenuItems": [

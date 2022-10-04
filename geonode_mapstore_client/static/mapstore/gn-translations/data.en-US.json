@@ -209,7 +209,7 @@
             "copyFrom": "Copy from",
             "copy": "Copy",
             "createMap": "Create Map",
-            "addLayer": "Add dataset",
+            "addLayer": "External data",
             "datasetsCatalogTitle": "Datasets catalog",
             "datasetsCatalogFilterPlaceholder": "Filter datasets by title or abstract...",
             "datasetsCatalogEntriesNoResults": "No results match your search",
