@@ -10,17 +10,28 @@ const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
 const SET_ANUGA_FRICTION_DATA = 'SET_ANUGA_FRICTION_DATA';
 const SET_ANUGA_INFLOW_DATA = 'SET_ANUGA_INFLOW_DATA';
 const SET_ANUGA_STRUCTURE_DATA = 'SET_ANUGA_STRUCTURE_DATA';
+const SET_ANUGA_FULL_MESH_DATA = 'SET_ANUGA_FULL_MESH_DATA';
 const SET_ANUGA_MESH_REGION_DATA = 'SET_ANUGA_MESH_REGION_DATA';
+const SET_ANUGA_LUMPED_CATCHMENT_DATA = 'SET_ANUGA_LUMPED_CATCHMENT_DATA';
+const SET_ANUGA_NODES_DATA = 'SET_ANUGA_NODES_DATA';
+const SET_ANUGA_LINKS_DATA = 'SET_ANUGA_LINKS_DATA';
 const CREATE_ANUGA_BOUNDARY = 'CREATE_ANUGA_BOUNDARY';
 const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
 const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
 const CREATE_ANUGA_STRUCTURE = 'CREATE_ANUGA_STRUCTURE';
 const CREATE_ANUGA_MESH_REGION = 'CREATE_ANUGA_MESH_REGION';
+const CREATE_ANUGA_LUMPED_CATCHMENT = 'CREATE_ANUGA_LUMPED_CATCHMENT';
+const CREATE_ANUGA_NODES = 'CREATE_ANUGA_NODES';
+const CREATE_ANUGA_LINKS = 'CREATE_ANUGA_LINKS';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
 const ADD_ANUGA_STRUCTURE = 'ADD_ANUGA_STRUCTURE';
+const ADD_ANUGA_FULL_MESH = 'ADD_ANUGA_FULL_MESH';
 const ADD_ANUGA_MESH_REGION = 'ADD_ANUGA_MESH_REGION';
+const ADD_ANUGA_LUMPED_CATCHMENT = 'ADD_ANUGA_LUMPED_CATCHMENT';
+const ADD_ANUGA_NODES = 'ADD_ANUGA_NODES';
+const ADD_ANUGA_LINKS = 'ADD_ANUGA_LINKS';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
@@ -172,9 +183,37 @@ function setAnugaInflowData(data) {
     };
 }
 
+function setAnugaFullMeshData(data) {
+    return {
+        type: SET_ANUGA_FULL_MESH_DATA,
+        data
+    };
+}
+
 function setAnugaMeshRegionData(data) {
     return {
         type: SET_ANUGA_MESH_REGION_DATA,
+        data
+    };
+}
+
+function setAnugaLumpedCatchmentData(data) {
+    return {
+        type: SET_ANUGA_LUMPED_CATCHMENT_DATA,
+        data
+    };
+}
+
+function setAnugaNodesData(data) {
+    return {
+        type: SET_ANUGA_NODES_DATA,
+        data
+    };
+}
+
+function setAnugaLinksData(data) {
+    return {
+        type: SET_ANUGA_LINKS_DATA,
         data
     };
 }
@@ -235,6 +274,27 @@ function createAnugaMeshRegion(meshRegionTitle) {
     };
 }
 
+function createAnugaLumpedCatchment(lumpedCatchmentTitle) {
+    return {
+        type: CREATE_ANUGA_LUMPED_CATCHMENT,
+        lumpedCatchmentTitle
+    };
+}
+
+function createAnugaNodes(nodesTitle) {
+    return {
+        type: CREATE_ANUGA_NODES,
+        lumpedCatchmentTitle
+    };
+}
+
+function createAnugaLinks(linksTitle) {
+    return {
+        type: CREATE_ANUGA_LINKS,
+        linksTitle
+    };
+}
+
 function addAnugaBoundary() {
     return {
         type: ADD_ANUGA_BOUNDARY
@@ -259,9 +319,33 @@ function addAnugaStructure() {
     };
 }
 
+function addAnugaFullMesh() {
+    return {
+        type: ADD_ANUGA_FULL_MESH
+    };
+}
+
 function addAnugaMeshRegion() {
     return {
         type: ADD_ANUGA_MESH_REGION
+    };
+}
+
+function addAnugaLumpedCatchment() {
+    return {
+        type: ADD_ANUGA_LUMPED_CATCHMENT
+    };
+}
+
+function addAnugaNodes() {
+    return {
+        type: ADD_ANUGA_NODES
+    };
+}
+
+function addAnugaLinks() {
+    return {
+        type: ADD_ANUGA_LINKS
     };
 }
 
@@ -451,17 +535,28 @@ module.exports = {
     SET_ANUGA_FRICTION_DATA, setAnugaFrictionData,
     SET_ANUGA_INFLOW_DATA, setAnugaInflowData,
     SET_ANUGA_STRUCTURE_DATA, setAnugaStructureData,
+    SET_ANUGA_FULL_MESH_DATA, setAnugaFullMeshData,
     SET_ANUGA_MESH_REGION_DATA, setAnugaMeshRegionData,
+    SET_ANUGA_LUMPED_CATCHMENT_DATA, setAnugaLumpedCatchmentData,
+    SET_ANUGA_NODES_DATA, setAnugaNodesData,
+    SET_ANUGA_LINKS_DATA, setAnugaLinksData,
     CREATE_ANUGA_BOUNDARY, createAnugaBoundary,
     CREATE_ANUGA_FRICTION, createAnugaFriction,
     CREATE_ANUGA_INFLOW, createAnugaInflow,
     CREATE_ANUGA_STRUCTURE, createAnugaStructure,
     CREATE_ANUGA_MESH_REGION, createAnugaMeshRegion,
+    CREATE_ANUGA_LUMPED_CATCHMENT, createAnugaLumpedCatchment,
+    CREATE_ANUGA_NODES, createAnugaNodes,
+    CREATE_ANUGA_LINKS, createAnugaLinks,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,
     ADD_ANUGA_STRUCTURE, addAnugaStructure,
     ADD_ANUGA_MESH_REGION, addAnugaMeshRegion,
+    ADD_ANUGA_FULL_MESH, addAnugaFullMesh,
+    ADD_ANUGA_LUMPED_CATCHMENT, addAnugaLumpedCatchment,
+    ADD_ANUGA_NODES, addAnugaNodes,
+    ADD_ANUGA_LINKS, addAnugaLinks,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,

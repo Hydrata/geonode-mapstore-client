@@ -9,19 +9,30 @@ import {
     ADD_ANUGA_BOUNDARY,
     ADD_ANUGA_FRICTION,
     ADD_ANUGA_INFLOW,
-    ADD_ANUGA_MESH_REGION,
     ADD_ANUGA_STRUCTURE,
+    ADD_ANUGA_FULL_MESH,
+    ADD_ANUGA_MESH_REGION,
+    ADD_ANUGA_LUMPED_CATCHMENT,
+    ADD_ANUGA_NODES,
+    ADD_ANUGA_LINKS,
     addAnugaBoundary,
-    addAnugaFriction,
     addAnugaInflow,
-    addAnugaMeshRegion,
+    addAnugaFriction,
     addAnugaStructure,
+    addAnugaFullMesh,
+    addAnugaMeshRegion,
+    addAnugaLumpedCatchment,
+    addAnugaNodes,
+    addAnugaLinks,
     CANCEL_ANUGA_RUN,
     CREATE_ANUGA_BOUNDARY,
     CREATE_ANUGA_FRICTION,
     CREATE_ANUGA_INFLOW,
     CREATE_ANUGA_MESH_REGION,
     CREATE_ANUGA_STRUCTURE,
+    CREATE_ANUGA_LUMPED_CATCHMENT,
+    CREATE_ANUGA_NODES,
+    CREATE_ANUGA_LINKS,
     DELETE_ANUGA_SCENARIO,
     deleteAnugaScenarioSuccess,
     INIT_ANUGA,
@@ -444,6 +455,66 @@ export const addAnugaStructureEpic = (action$, store) =>
                 .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
         );
 
+export const addAnugaFullMeshEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_FULL_MESH)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/full-mesh/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status <= 400)
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
+        );
+
+export const addAnugaMeshRegionEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_MESH_REGION)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status <= 400)
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
+        );
+
+export const addAnugaLumpedCatchmentEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_LUMPED_CATCHMENT)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/lumped-catchment/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status <= 400)
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
+        );
+
+export const addAnugaNodesEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_NODES)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/nodes/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status <= 400)
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
+        );
+
+export const addAnugaLinksEpic = (action$, store) =>
+    action$
+        .ofType(ADD_ANUGA_LINKS)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/links/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status <= 400)
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
+        );
+
 export const createAnugaMeshRegionEpic = (action$, store) =>
     action$
         .ofType(CREATE_ANUGA_MESH_REGION)
@@ -460,17 +531,53 @@ export const createAnugaMeshRegionEpic = (action$, store) =>
             return Rx.Observable.of(addAnugaMeshRegion());
         });
 
-export const addAnugaMeshRegionEpic = (action$, store) =>
+export const createAnugaLumpedCatchmentEpic = (action$, store) =>
     action$
-        .ofType(ADD_ANUGA_MESH_REGION)
-        .switchMap(() =>
+        .ofType(CREATE_ANUGA_LUMPED_CATCHMENT)
+        .switchMap((action) =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/mesh-region/available/`)
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/lumped-catchment/`, {
+                    "project": store.getState()?.anuga?.projectData?.id,
+                    "title": action.lumpedCatchmentTitle
+                })
                     .catch((error) => error)
-                )
-                .filter(response1 => response1?.status <= 400)
-                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
-        );
+                ))
+        .filter(response1 => response1?.status <= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaLumpedCatchment());
+        });
+
+export const createAnugaNodesEpic = (action$, store) =>
+    action$
+        .ofType(CREATE_ANUGA_NODES)
+        .switchMap((action) =>
+            Rx.Observable
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/nodes/`, {
+                    "project": store.getState()?.anuga?.projectData?.id,
+                    "title": action.nodeTitle
+                })
+                    .catch((error) => error)
+                ))
+        .filter(response1 => response1?.status <= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaNodes());
+        });
+
+export const createAnugaLinksEpic = (action$, store) =>
+    action$
+        .ofType(CREATE_ANUGA_LINKS)
+        .switchMap((action) =>
+            Rx.Observable
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/links/`, {
+                    "project": store.getState()?.anuga?.projectData?.id,
+                    "title": action.linksTitle
+                })
+                    .catch((error) => error)
+                ))
+        .filter(response1 => response1?.status <= 400)
+        .switchMap(() => {
+            return Rx.Observable.of(addAnugaLinks());
+        });
 
 export const updateComputeInstanceEpic = (action$, store) =>
     action$

@@ -15,7 +15,11 @@ import {
     SET_ANUGA_FRICTION_DATA,
     SET_ANUGA_STRUCTURE_DATA,
     SET_ANUGA_BOUNDARY_DATA,
+    SET_ANUGA_FULL_MESH_DATA,
     SET_ANUGA_MESH_REGION_DATA,
+    SET_ANUGA_LUMPED_CATCHMENT_DATA,
+    SET_ANUGA_NODES_DATA,
+    SET_ANUGA_LINKS_DATA,
     SET_ANUGA_ELEVATION_DATA,
     SET_CREATING_ANUGA_LAYER,
     SET_ANUGA_SCENARIO_IS_LOADED,
@@ -207,10 +211,30 @@ export default ( state = initialState, action) => {
             ...state,
             elevations: action.data
         };
+    case SET_ANUGA_FULL_MESH_DATA:
+        return {
+            ...state,
+            fullMeshes: action.data
+        };
     case SET_ANUGA_MESH_REGION_DATA:
         return {
             ...state,
             meshRegions: action.data
+        };
+    case SET_ANUGA_LUMPED_CATCHMENT_DATA:
+        return {
+            ...state,
+            lumpedCatchments: action.data
+        };
+    case SET_ANUGA_NODES_DATA:
+        return {
+            ...state,
+            nodes: action.data
+        };
+    case SET_ANUGA_LINKS_DATA:
+        return {
+            ...state,
+            links: action.data
         };
     case SET_OPEN_MENU_GROUP_ID:
         if (action.openMenuGroupId) {
