@@ -23,6 +23,9 @@ import {
     createAnugaInflow,
     createAnugaStructure,
     createAnugaMeshRegion,
+    createAnugaLumpedCatchment,
+    createAnugaNodes,
+    createAnugaLinks,
     setCreatingAnugaLayer,
     startAnugaElevationPolling,
     startAnugaModelCreationPolling,
@@ -88,6 +91,7 @@ class AnugaInputMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+            showAdvanced: false,
             boundaryTitle: '',
             frictionTitle: '',
             inflowTitle: '',
@@ -288,432 +292,467 @@ class AnugaInputMenuClass extends React.Component {
                                         : null
                                 }
                             </div>
-                            <div id={'advancedInputs'}>
+                            <div
+                                className={'menu-rows-container'}
+                                style={{
+                                    "border": "1px solid rgba(255, 255, 255)",
+                                    "borderRadius": "3px",
+                                    "margin": "3px 0"
+                                }}
+                            >
                                 <div
-                                    className={'menu-rows-container'}
+                                    className={"row menu-row menu-row-header"}
                                     style={{
-                                        "border": "1px solid rgba(255, 255, 255)",
-                                        "borderRadius": "3px",
-                                        "margin": "3px 0"
+                                        width: "480px",
+                                        textAlign: "left",
+                                        border: "none"
                                     }}
                                 >
-                                    <div
-                                        className={"row menu-row menu-row-header"}
+                                    <span className="pull-left menu-row-text">Advanced</span>
+                                    <span
+                                        className={`btn glyphicon menu-row-glyph ${this.state.showAdvanced ? "glyphicon-chevron-down" : "glyphicon-chevron-right"}`}
                                         style={{
-                                            width: "480px",
-                                            textAlign: "left",
-                                            border: "none"
+                                            "color": "#325f93",
+                                            "fontSize": "smaller",
+                                            "textAlign": "right",
+                                            "marginRight": "8px",
+                                            "float": "right"
                                         }}
-                                    >
-                                        <span className="pull-left menu-row-text">Friction Maps</span>
-                                        {this.props.canEditAnugaMap ?
-                                            <React.Fragment>
-                                                <span
-                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.frictionTitle ? "" : " disabled"}`}
-                                                    style={{
-                                                        "color": "limegreen",
-                                                        "fontSize": "smaller",
-                                                        "textAlign": "right",
-                                                        "marginRight": "8px",
-                                                        "float": "right"
-                                                    }}
-                                                    onClick={() => {
-                                                        this.props.setCreatingAnugaLayer(true);
-                                                        this.props.createAnugaFriction(this.state.frictionTitle);
-                                                        this.setState({frictionTitle: ''});
-                                                    }}
-                                                />
-                                                {
-                                                    this.props.isCreatingAnugaLayer ?
-                                                        <span>
-                                                            <Spinner color="white" style={{
-                                                                display: "inline-block",
-                                                                position: "absolute",
-                                                                right: "45px"
-                                                            }} spinnerName="circle" noFadeIn/>
-                                                        </span> :
-                                                        <input
-                                                            id={'friction-input'}
-                                                            key={'friction-input'}
-                                                            className={'data-title-input'}
-                                                            style={{marginTop: "3px", marginRight: "5px"}}
-                                                            type={'text'}
-                                                            value={this.state.frictionTitle}
-                                                            onChange={(e) => this.setState({frictionTitle: e.target.value})}
-                                                        />
-                                                }
-                                            </React.Fragment> : null
-                                        }
-                                    </div>
-                                    {
-                                        this.props.frictionLayers?.map(friction => (
-                                            <MenuRow layer={friction}/>
-                                        ))
-                                    }
-                                    {
-                                        this.props.frictionLayers?.length === 0 ?
-                                            <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                                ...Creating default Friction Map
-                                            </div>
-                                            : null
-                                    }
-                                </div>
-                                <div
-                                    className={'menu-rows-container'}
-                                    style={{
-                                        "border": "1px solid rgba(255, 255, 255)",
-                                        "borderRadius": "3px",
-                                        "margin": "3px 0"
-                                    }}
-                                >
-                                    <div
-                                        className={"row menu-row menu-row-header"}
-                                        style={{
-                                            width: "480px",
-                                            textAlign: "left",
-                                            border: "none"
+                                        onClick={() => {
+                                            this.setState(prevState => ({showAdvanced: !prevState.showAdvanced}));
                                         }}
-                                    >
-                                        <span className="pull-left menu-row-text">Structures</span>
-                                        {this.props.canEditAnugaMap ?
-                                            <React.Fragment>
-                                                <span
-                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.structureTitle ? "" : " disabled"}`}
-                                                    style={{
-                                                        "color": "limegreen",
-                                                        "fontSize": "smaller",
-                                                        "textAlign": "right",
-                                                        "marginRight": "8px",
-                                                        "float": "right"
-                                                    }}
-                                                    onClick={() => {
-                                                        this.props.setCreatingAnugaLayer(true);
-                                                        this.props.createAnugaStructure(this.state.structureTitle);
-                                                        this.setState({structureTitle: ''});
-                                                    }}
-                                                />
-                                                {
-                                                    this.props.isCreatingAnugaLayer ?
-                                                        <span>
-                                                            <Spinner color="white" style={{
-                                                                display: "inline-block",
-                                                                position: "absolute",
-                                                                right: "45px"
-                                                            }} spinnerName="circle" noFadeIn/>
-                                                        </span> :
-                                                        <input
-                                                            id={'structure-input'}
-                                                            key={'structure-input'}
-                                                            className={'data-title-input'}
-                                                            style={{marginTop: "3px", marginRight: "5px"}}
-                                                            type={'text'}
-                                                            value={this.state.structureTitle}
-                                                            onChange={(e) => this.setState({structureTitle: e.target.value})}
-                                                        />
-                                                }
-                                            </React.Fragment> : null
-                                        }
-                                    </div>
-                                    {
-                                        this.props.structureLayers?.map(structure => (
-                                            <MenuRow layer={structure}/>
-                                        ))
-                                    }
-                                    {
-                                        this.props.structureLayers?.length === 0 ?
-                                            <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                                ...Creating default Structures
-                                            </div>
-                                            : null
-                                    }
-                                </div>
-                                <div
-                                    className={'menu-rows-container'}
-                                    style={{
-                                        "border": "1px solid rgba(255, 255, 255)",
-                                        "borderRadius": "3px",
-                                        "margin": "3px 0"
-                                    }}
-                                >
-                                    <div
-                                        className={"row menu-row menu-row-header"}
-                                        style={{
-                                            width: "480px",
-                                            textAlign: "left",
-                                            border: "none"
-                                        }}
-                                    >
-                                        <span className="pull-left menu-row-text">Full Mesh</span>
-                                    </div>
-                                    {
-                                        this.props.fullMeshLayers?.map(fullMesh => (
-                                            <MenuRow layer={fullMesh}/>
-                                        ))
-                                    }
-                                    {
-                                        this.props.fullMeshLayers?.length === 0 ?
-                                            <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                                Mesh will appear here when a Scenario is built.
-                                            </div>
-                                            : null
-                                    }
-                                </div>
-                                <div
-                                    className={'menu-rows-container'}
-                                    style={{
-                                        "border": "1px solid rgba(255, 255, 255)",
-                                        "borderRadius": "3px",
-                                        "margin": "3px 0"
-                                    }}
-                                >
-                                    <div
-                                        className={"row menu-row menu-row-header"}
-                                        style={{
-                                            width: "480px",
-                                            textAlign: "left",
-                                            border: "none"
-                                        }}
-                                    >
-                                        <span className="pull-left menu-row-text">Mesh Regions</span>
-                                        {this.props.canEditAnugaMap ?
-                                            <React.Fragment>
-                                                <span
-                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.meshRegionTitle ? "" : " disabled"}`}
-                                                    style={{
-                                                        "color": "limegreen",
-                                                        "fontSize": "smaller",
-                                                        "textAlign": "right",
-                                                        "marginRight": "8px",
-                                                        "float": "right"
-                                                    }}
-                                                    onClick={() => {
-                                                        this.props.setCreatingAnugaLayer(true);
-                                                        this.props.createAnugaMeshRegion(this.state.meshRegionTitle);
-                                                        this.setState({meshRegionTitle: ''});
-                                                    }}
-                                                />
-                                                {
-                                                    this.props.isCreatingAnugaLayer ?
-                                                        <span>
-                                                            <Spinner color="white" style={{
-                                                                display: "inline-block",
-                                                                position: "absolute",
-                                                                right: "45px"
-                                                            }} spinnerName="circle" noFadeIn/>
-                                                        </span> :
-                                                        <input
-                                                            id={'mesh-region-input'}
-                                                            key={'mesh-region-input'}
-                                                            className={'data-title-input'}
-                                                            style={{marginTop: "3px", marginRight: "5px"}}
-                                                            type={'text'}
-                                                            value={this.state.meshRegionTitle}
-                                                            onChange={(e) => this.setState({meshRegionTitle: e.target.value})}
-                                                        />
-                                                }
-                                            </React.Fragment> : null
-                                        }
-                                    </div>
-                                    {
-                                        this.props.meshRegionLayers?.map(meshRegion => (
-                                            <MenuRow layer={meshRegion}/>
-                                        ))
-                                    }
-                                    {
-                                        this.props.meshRegionLayers?.length === 0 ?
-                                            <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                                ...Creating default Mesh Region
-                                            </div>
-                                            : null
-                                    }
-                                </div>
-                                <div
-                                    className={'menu-rows-container'}
-                                    style={{
-                                        "border": "1px solid rgba(255, 255, 255)",
-                                        "borderRadius": "3px",
-                                        "margin": "3px 0"
-                                    }}
-                                >
-                                    <div
-                                        className={"row menu-row menu-row-header"}
-                                        style={{
-                                            width: "480px",
-                                            textAlign: "left",
-                                            border: "none"
-                                        }}
-                                    >
-                                        <span className="pull-left menu-row-text">Lumped Catchments</span>
-                                        {this.props.canEditAnugaMap ?
-                                            <React.Fragment>
-                                                <span
-                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.lumpedCatchmentTitle ? "" : " disabled"}`}
-                                                    style={{
-                                                        "color": "limegreen",
-                                                        "fontSize": "smaller",
-                                                        "textAlign": "right",
-                                                        "marginRight": "8px",
-                                                        "float": "right"
-                                                    }}
-                                                    onClick={() => {
-                                                        this.props.setCreatingAnugaLayer(true);
-                                                        this.props.createAnugaLumpedCatchment(this.state.lumpedCatchmentTitle);
-                                                        this.setState({lumpedCatchmentTitle: ''});
-                                                    }}
-                                                />
-                                                {
-                                                    this.props.isCreatingAnugaLayer ?
-                                                        <span>
-                                                            <Spinner color="white" style={{
-                                                                display: "inline-block",
-                                                                position: "absolute",
-                                                                right: "45px"
-                                                            }} spinnerName="circle" noFadeIn/>
-                                                        </span> :
-                                                        <input
-                                                            id={'lumped-catchment-input'}
-                                                            key={'lumped-catchment-input'}
-                                                            className={'data-title-input'}
-                                                            style={{marginTop: "3px", marginRight: "5px"}}
-                                                            type={'text'}
-                                                            value={this.state.lumpedCatchmentTitle}
-                                                            onChange={(e) => this.setState({lumpedCatchmentTitle: e.target.value})}
-                                                        />
-                                                }
-                                            </React.Fragment> : null
-                                        }
-                                    </div>
-                                    {
-                                        this.props.lumpedCatchmentLayers?.map(lumpedCatchment => (
-                                            <MenuRow layer={lumpedCatchment}/>
-                                        ))
-                                    }
-                                </div>
-                                <div
-                                    className={'menu-rows-container'}
-                                    style={{
-                                        "border": "1px solid rgba(255, 255, 255)",
-                                        "borderRadius": "3px",
-                                        "margin": "3px 0"
-                                    }}
-                                >
-                                    <div
-                                        className={"row menu-row menu-row-header"}
-                                        style={{
-                                            width: "480px",
-                                            textAlign: "left",
-                                            border: "none"
-                                        }}
-                                    >
-                                        <span className="pull-left menu-row-text">Nodes</span>
-                                        {this.props.canEditAnugaMap ?
-                                            <React.Fragment>
-                                                <span
-                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.nodesTitle ? "" : " disabled"}`}
-                                                    style={{
-                                                        "color": "limegreen",
-                                                        "fontSize": "smaller",
-                                                        "textAlign": "right",
-                                                        "marginRight": "8px",
-                                                        "float": "right"
-                                                    }}
-                                                    onClick={() => {
-                                                        this.props.setCreatingAnugaLayer(true);
-                                                        this.props.createAnugaNodes(this.state.nodesTitle);
-                                                        this.setState({nodesTitle: ''});
-                                                    }}
-                                                />
-                                                {
-                                                    this.props.isCreatingAnugaLayer ?
-                                                        <span>
-                                                            <Spinner color="white" style={{
-                                                                display: "inline-block",
-                                                                position: "absolute",
-                                                                right: "45px"
-                                                            }} spinnerName="circle" noFadeIn/>
-                                                        </span> :
-                                                        <input
-                                                            id={'nodes-input'}
-                                                            key={'nodes-input'}
-                                                            className={'data-title-input'}
-                                                            style={{marginTop: "3px", marginRight: "5px"}}
-                                                            type={'text'}
-                                                            value={this.state.nodesTitle}
-                                                            onChange={(e) => this.setState({nodesTitle: e.target.value})}
-                                                        />
-                                                }
-                                            </React.Fragment> : null
-                                        }
-                                    </div>
-                                    {
-                                        this.props.nodesLayers?.map(nodes => (
-                                            <MenuRow layer={nodes}/>
-                                        ))
-                                    }
-                                </div>
-                                <div
-                                    className={'menu-rows-container'}
-                                    style={{
-                                        "border": "1px solid rgba(255, 255, 255)",
-                                        "borderRadius": "3px",
-                                        "margin": "3px 0"
-                                    }}
-                                >
-                                    <div
-                                        className={"row menu-row menu-row-header"}
-                                        style={{
-                                            width: "480px",
-                                            textAlign: "left",
-                                            border: "none"
-                                        }}
-                                    >
-                                        <span className="pull-left menu-row-text">Links</span>
-                                        {this.props.canEditAnugaMap ?
-                                            <React.Fragment>
-                                                <span
-                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.linksTitle ? "" : " disabled"}`}
-                                                    style={{
-                                                        "color": "limegreen",
-                                                        "fontSize": "smaller",
-                                                        "textAlign": "right",
-                                                        "marginRight": "8px",
-                                                        "float": "right"
-                                                    }}
-                                                    onClick={() => {
-                                                        this.props.setCreatingAnugaLayer(true);
-                                                        this.props.createAnugaLinks(this.state.linksTitle);
-                                                        this.setState({linksTitle: ''});
-                                                    }}
-                                                />
-                                                {
-                                                    this.props.isCreatingAnugaLayer ?
-                                                        <span>
-                                                            <Spinner color="white" style={{
-                                                                display: "inline-block",
-                                                                position: "absolute",
-                                                                right: "45px"
-                                                            }} spinnerName="circle" noFadeIn/>
-                                                        </span> :
-                                                        <input
-                                                            id={'links-input'}
-                                                            key={'links-input'}
-                                                            className={'data-title-input'}
-                                                            style={{marginTop: "3px", marginRight: "5px"}}
-                                                            type={'text'}
-                                                            value={this.state.linksTitle}
-                                                            onChange={(e) => this.setState({linksTitle: e.target.value})}
-                                                        />
-                                                }
-                                            </React.Fragment> : null
-                                        }
-                                    </div>
-                                    {
-                                        this.props.linksLayers?.map(links => (
-                                            <MenuRow layer={links}/>
-                                        ))
-                                    }
+                                    />
                                 </div>
                             </div>
+                            {this.state.showAdvanced ?
+                                <div id={'advancedInputs'}>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "480px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
+                                            <span className="pull-left menu-row-text">Full Mesh</span>
+                                        </div>
+                                        {
+                                            this.props.fullMeshLayers?.map(fullMesh => (
+                                                <MenuRow layer={fullMesh}/>
+                                            ))
+                                        }
+                                        {
+                                            this.props.fullMeshLayers?.length === 0 ?
+                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                    Mesh will appear here when a Scenario is built.
+                                                </div>
+                                                : null
+                                        }
+                                    </div>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "480px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
+                                            <span className="pull-left menu-row-text">Mesh Regions</span>
+                                            {this.props.canEditAnugaMap ?
+                                                <React.Fragment>
+                                                    <span
+                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.meshRegionTitle ? "" : " disabled"}`}
+                                                        style={{
+                                                            "color": "limegreen",
+                                                            "fontSize": "smaller",
+                                                            "textAlign": "right",
+                                                            "marginRight": "8px",
+                                                            "float": "right"
+                                                        }}
+                                                        onClick={() => {
+                                                            this.props.setCreatingAnugaLayer(true);
+                                                            this.props.createAnugaMeshRegion(this.state.meshRegionTitle);
+                                                            this.setState({meshRegionTitle: ''});
+                                                        }}
+                                                    />
+                                                    {
+                                                        this.props.isCreatingAnugaLayer ?
+                                                            <span>
+                                                                <Spinner color="white" style={{
+                                                                    display: "inline-block",
+                                                                    position: "absolute",
+                                                                    right: "45px"
+                                                                }} spinnerName="circle" noFadeIn/>
+                                                            </span> :
+                                                            <input
+                                                                id={'mesh-region-input'}
+                                                                key={'mesh-region-input'}
+                                                                className={'data-title-input'}
+                                                                style={{marginTop: "3px", marginRight: "5px"}}
+                                                                type={'text'}
+                                                                value={this.state.meshRegionTitle}
+                                                                onChange={(e) => this.setState({meshRegionTitle: e.target.value})}
+                                                            />
+                                                    }
+                                                </React.Fragment> : null
+                                            }
+                                        </div>
+                                        {
+                                            this.props.meshRegionLayers?.map(meshRegion => (
+                                                <MenuRow layer={meshRegion}/>
+                                            ))
+                                        }
+                                        {
+                                            this.props.meshRegionLayers?.length === 0 ?
+                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                    ...Creating default Mesh Region
+                                                </div>
+                                                : null
+                                        }
+                                    </div>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "480px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
+                                            <span className="pull-left menu-row-text">Friction Maps</span>
+                                            {this.props.canEditAnugaMap ?
+                                                <React.Fragment>
+                                                    <span
+                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.frictionTitle ? "" : " disabled"}`}
+                                                        style={{
+                                                            "color": "limegreen",
+                                                            "fontSize": "smaller",
+                                                            "textAlign": "right",
+                                                            "marginRight": "8px",
+                                                            "float": "right"
+                                                        }}
+                                                        onClick={() => {
+                                                            this.props.setCreatingAnugaLayer(true);
+                                                            this.props.createAnugaFriction(this.state.frictionTitle);
+                                                            this.setState({frictionTitle: ''});
+                                                        }}
+                                                    />
+                                                    {
+                                                        this.props.isCreatingAnugaLayer ?
+                                                            <span>
+                                                                <Spinner color="white" style={{
+                                                                    display: "inline-block",
+                                                                    position: "absolute",
+                                                                    right: "45px"
+                                                                }} spinnerName="circle" noFadeIn/>
+                                                            </span> :
+                                                            <input
+                                                                id={'friction-input'}
+                                                                key={'friction-input'}
+                                                                className={'data-title-input'}
+                                                                style={{marginTop: "3px", marginRight: "5px"}}
+                                                                type={'text'}
+                                                                value={this.state.frictionTitle}
+                                                                onChange={(e) => this.setState({frictionTitle: e.target.value})}
+                                                            />
+                                                    }
+                                                </React.Fragment> : null
+                                            }
+                                        </div>
+                                        {
+                                            this.props.frictionLayers?.map(friction => (
+                                                <MenuRow layer={friction}/>
+                                            ))
+                                        }
+                                        {
+                                            this.props.frictionLayers?.length === 0 ?
+                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                    ...Creating default Friction Map
+                                                </div>
+                                                : null
+                                        }
+                                    </div>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "480px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
+                                            <span className="pull-left menu-row-text">Structures</span>
+                                            {this.props.canEditAnugaMap ?
+                                                <React.Fragment>
+                                                    <span
+                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.structureTitle ? "" : " disabled"}`}
+                                                        style={{
+                                                            "color": "limegreen",
+                                                            "fontSize": "smaller",
+                                                            "textAlign": "right",
+                                                            "marginRight": "8px",
+                                                            "float": "right"
+                                                        }}
+                                                        onClick={() => {
+                                                            this.props.setCreatingAnugaLayer(true);
+                                                            this.props.createAnugaStructure(this.state.structureTitle);
+                                                            this.setState({structureTitle: ''});
+                                                        }}
+                                                    />
+                                                    {
+                                                        this.props.isCreatingAnugaLayer ?
+                                                            <span>
+                                                                <Spinner color="white" style={{
+                                                                    display: "inline-block",
+                                                                    position: "absolute",
+                                                                    right: "45px"
+                                                                }} spinnerName="circle" noFadeIn/>
+                                                            </span> :
+                                                            <input
+                                                                id={'structure-input'}
+                                                                key={'structure-input'}
+                                                                className={'data-title-input'}
+                                                                style={{marginTop: "3px", marginRight: "5px"}}
+                                                                type={'text'}
+                                                                value={this.state.structureTitle}
+                                                                onChange={(e) => this.setState({structureTitle: e.target.value})}
+                                                            />
+                                                    }
+                                                </React.Fragment> : null
+                                            }
+                                        </div>
+                                        {
+                                            this.props.structureLayers?.map(structure => (
+                                                <MenuRow layer={structure}/>
+                                            ))
+                                        }
+                                        {
+                                            this.props.structureLayers?.length === 0 ?
+                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                    ...Creating default Structures
+                                                </div>
+                                                : null
+                                        }
+                                    </div>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "480px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
+                                            <span className="pull-left menu-row-text">Lumped Catchments</span>
+                                            {this.props.canEditAnugaMap ?
+                                                <React.Fragment>
+                                                    <span
+                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.lumpedCatchmentTitle ? "" : " disabled"}`}
+                                                        style={{
+                                                            "color": "limegreen",
+                                                            "fontSize": "smaller",
+                                                            "textAlign": "right",
+                                                            "marginRight": "8px",
+                                                            "float": "right"
+                                                        }}
+                                                        onClick={() => {
+                                                            this.props.setCreatingAnugaLayer(true);
+                                                            this.props.createAnugaLumpedCatchment(this.state.lumpedCatchmentTitle);
+                                                            this.setState({lumpedCatchmentTitle: ''});
+                                                        }}
+                                                    />
+                                                    {
+                                                        this.props.isCreatingAnugaLayer ?
+                                                            <span>
+                                                                <Spinner color="white" style={{
+                                                                    display: "inline-block",
+                                                                    position: "absolute",
+                                                                    right: "45px"
+                                                                }} spinnerName="circle" noFadeIn/>
+                                                            </span> :
+                                                            <input
+                                                                id={'lumped-catchment-input'}
+                                                                key={'lumped-catchment-input'}
+                                                                className={'data-title-input'}
+                                                                style={{marginTop: "3px", marginRight: "5px"}}
+                                                                type={'text'}
+                                                                value={this.state.lumpedCatchmentTitle}
+                                                                onChange={(e) => this.setState({lumpedCatchmentTitle: e.target.value})}
+                                                            />
+                                                    }
+                                                </React.Fragment> : null
+                                            }
+                                        </div>
+                                        {
+                                            this.props.lumpedCatchmentLayers?.map(lumpedCatchment => (
+                                                <MenuRow layer={lumpedCatchment}/>
+                                            ))
+                                        }
+                                    </div>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "480px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
+                                            <span className="pull-left menu-row-text">Nodes</span>
+                                            {this.props.canEditAnugaMap ?
+                                                <React.Fragment>
+                                                    <span
+                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.nodesTitle ? "" : " disabled"}`}
+                                                        style={{
+                                                            "color": "limegreen",
+                                                            "fontSize": "smaller",
+                                                            "textAlign": "right",
+                                                            "marginRight": "8px",
+                                                            "float": "right"
+                                                        }}
+                                                        onClick={() => {
+                                                            this.props.setCreatingAnugaLayer(true);
+                                                            this.props.createAnugaNodes(this.state.nodesTitle);
+                                                            this.setState({nodesTitle: ''});
+                                                        }}
+                                                    />
+                                                    {
+                                                        this.props.isCreatingAnugaLayer ?
+                                                            <span>
+                                                                <Spinner color="white" style={{
+                                                                    display: "inline-block",
+                                                                    position: "absolute",
+                                                                    right: "45px"
+                                                                }} spinnerName="circle" noFadeIn/>
+                                                            </span> :
+                                                            <input
+                                                                id={'nodes-input'}
+                                                                key={'nodes-input'}
+                                                                className={'data-title-input'}
+                                                                style={{marginTop: "3px", marginRight: "5px"}}
+                                                                type={'text'}
+                                                                value={this.state.nodesTitle}
+                                                                onChange={(e) => this.setState({nodesTitle: e.target.value})}
+                                                            />
+                                                    }
+                                                </React.Fragment> : null
+                                            }
+                                        </div>
+                                        {
+                                            this.props.nodesLayers?.map(nodes => (
+                                                <MenuRow layer={nodes}/>
+                                            ))
+                                        }
+                                    </div>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "480px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
+                                            <span className="pull-left menu-row-text">Links</span>
+                                            {this.props.canEditAnugaMap ?
+                                                <React.Fragment>
+                                                    <span
+                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.linksTitle ? "" : " disabled"}`}
+                                                        style={{
+                                                            "color": "limegreen",
+                                                            "fontSize": "smaller",
+                                                            "textAlign": "right",
+                                                            "marginRight": "8px",
+                                                            "float": "right"
+                                                        }}
+                                                        onClick={() => {
+                                                            this.props.setCreatingAnugaLayer(true);
+                                                            this.props.createAnugaLinks(this.state.linksTitle);
+                                                            this.setState({linksTitle: ''});
+                                                        }}
+                                                    />
+                                                    {
+                                                        this.props.isCreatingAnugaLayer ?
+                                                            <span>
+                                                                <Spinner color="white" style={{
+                                                                    display: "inline-block",
+                                                                    position: "absolute",
+                                                                    right: "45px"
+                                                                }} spinnerName="circle" noFadeIn/>
+                                                            </span> :
+                                                            <input
+                                                                id={'links-input'}
+                                                                key={'links-input'}
+                                                                className={'data-title-input'}
+                                                                style={{marginTop: "3px", marginRight: "5px"}}
+                                                                type={'text'}
+                                                                value={this.state.linksTitle}
+                                                                onChange={(e) => this.setState({linksTitle: e.target.value})}
+                                                            />
+                                                    }
+                                                </React.Fragment> : null
+                                            }
+                                        </div>
+                                        {
+                                            this.props.linksLayers?.map(links => (
+                                                <MenuRow layer={links}/>
+                                            ))
+                                        }
+                                    </div>
+                                </div> :
+                                null
+                            }
                         </React.Fragment> : null
                 }
                 <UploaderPanel fileType={'elevation'}/>
@@ -730,11 +769,11 @@ const mapStateToProps = (state) => {
         inflowLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
         frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Maps'),
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
-        fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Meshes'),
+        fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Mesh'),
         meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
         lumpedCatchmentLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Lumped Catchments'),
-        NodesLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Nodes'),
-        LinksLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Links'),
+        nodesLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Nodes'),
+        linksLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Links'),
         elevationModels: state?.anuga?.elevations,
         boundaryModels: state?.anuga?.boundaries,
         inflowModels: state?.anuga?.inflows,
@@ -773,7 +812,7 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
         createAnugaLumpedCatchment: (lumpedCatchmentTitle) => dispatch(createAnugaLumpedCatchment(lumpedCatchmentTitle)),
         createAnugaNodes: (nodesTitle) => dispatch(createAnugaNodes(nodesTitle)),
-        createAnugaLinks: (linksTitle) => dispatch(createAnugaNodes(linksTitle))
+        createAnugaLinks: (linksTitle) => dispatch(createAnugaLinks(linksTitle))
     };
 };
 

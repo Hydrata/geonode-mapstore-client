@@ -284,7 +284,7 @@ function createAnugaLumpedCatchment(lumpedCatchmentTitle) {
 function createAnugaNodes(nodesTitle) {
     return {
         type: CREATE_ANUGA_NODES,
-        lumpedCatchmentTitle
+        nodesTitle
     };
 }
 
