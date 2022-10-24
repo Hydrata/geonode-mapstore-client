@@ -29,7 +29,9 @@ import {
     setCreatingAnugaLayer,
     startAnugaElevationPolling,
     startAnugaModelCreationPolling,
-    stopAnugaModelCreationPolling
+    stopAnugaModelCreationPolling,
+    setLumpedCatchmentMenu,
+    setAnugaInputMenu
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
@@ -83,7 +85,9 @@ class AnugaInputMenuClass extends React.Component {
         meshRegionModels: PropTypes.array,
         lumpedCatchmentModels: PropTypes.array,
         nodesModels: PropTypes.array,
-        linksModels: PropTypes.array
+        linksModels: PropTypes.array,
+        setLumpedCatchmentMenu: PropTypes.func,
+        setAnugaInputMenu: PropTypes.func
     };
 
     static defaultProps = {}
@@ -581,6 +585,20 @@ class AnugaInputMenuClass extends React.Component {
                                             }}
                                         >
                                             <span className="pull-left menu-row-text">Lumped Catchments</span>
+                                            <span
+                                                className={`btn glyphicon menu-row-glyph glyphicon-cog`}
+                                                style={{
+                                                    "color": "#325f93",
+                                                    "fontSize": "smaller",
+                                                    "textAlign": "right",
+                                                    "marginLeft": "8px",
+                                                    "float": "left"
+                                                }}
+                                                onClick={() => {
+                                                    this.props.setLumpedCatchmentMenu(true);
+                                                    this.props.setAnugaInputMenu(false);
+                                                }}
+                                            />
                                             {this.props.canEditAnugaMap ?
                                                 <React.Fragment>
                                                     <span
@@ -798,6 +816,8 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaFullMesh: () => dispatch(addAnugaFullMesh()),
         addAnugaMeshRegion: () => dispatch(addAnugaMeshRegion()),
         addAnugaLumpedCatchment: () => dispatch(addAnugaLumpedCatchment()),
+        setLumpedCatchmentMenu: (visible) => dispatch(setLumpedCatchmentMenu(visible)),
+        setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         addAnugaNodes: () => dispatch(addAnugaNodes()),
         addAnugaLinks: () => dispatch(addAnugaLinks()),
         startAnugaElevationPolling: () => dispatch(startAnugaElevationPolling()),

@@ -2,6 +2,7 @@ import {
     SET_ANUGA_INPUT_MENU,
     SET_ANUGA_SCENARIO_MENU,
     SET_ANUGA_RESULT_MENU,
+    SET_LUMPED_CATCHMENT_MENU,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
     UPDATE_ANUGA_SCENARIO,
@@ -266,6 +267,14 @@ export default ( state = initialState, action) => {
             showAnugaScenarioMenu: false,
             showAnugaInputMenu: false,
             showAnugaResultMenu: action.visible
+        };
+    case SET_LUMPED_CATCHMENT_MENU:
+        return {
+            ...state,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false,
+            showLumpedCatchmentMenu: action.visible
         };
     default:
         return state;

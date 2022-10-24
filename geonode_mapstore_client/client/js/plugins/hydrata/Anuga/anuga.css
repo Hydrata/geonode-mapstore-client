@@ -86,6 +86,22 @@
     height: 45px
 }
 
+.lumped-catchment-table {
+    margin-bottom: 0;
+}
+
+.lumped-catchment-table-header {
+    height: 45px;
+}
+
+.lumped-catchment-table-header th {
+    text-align:center;
+}
+
+.lumped-catchment-table-row {
+    height: 45px
+}
+
 #new-scenario-button {
     position: absolute;
     right: 40px;

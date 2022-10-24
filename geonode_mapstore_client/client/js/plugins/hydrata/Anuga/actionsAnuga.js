@@ -4,6 +4,7 @@ const INIT_ANUGA = 'INIT_ANUGA';
 const SET_ANUGA_INPUT_MENU = 'SET_ANUGA_INPUT_MENU';
 const SET_ANUGA_SCENARIO_MENU = 'SET_ANUGA_SCENARIO_MENU';
 const SET_ANUGA_RESULT_MENU = 'SET_ANUGA_RESULT_MENU';
+const SET_LUMPED_CATCHMENT_MENU = 'SET_LUMPED_CATCHMENT_MENU';
 const SET_ANUGA_PROJECT_DATA = 'SET_ANUGA_PROJECT_DATA';
 const SET_ANUGA_SCENARIO_DATA = 'SET_ANUGA_SCENARIO_DATA';
 const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
@@ -38,6 +39,8 @@ const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
 const ADD_ANUGA_SCENARIO = 'ADD_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
+const RUN_LUMPED_CATCHMENT = 'RUN_LUMPED_CATCHMENT';
+const RUN_LUMPED_CATCHMENT_SUCCESS = 'RUN_LUMPED_CATCHMENT_SUCCESS';
 const SAVE_ANUGA_SCENARIO = 'SAVE_ANUGA_SCENARIO';
 const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
 const SAVE_ANUGA_SCENARIO_ERROR = 'SAVE_ANUGA_SCENARIO_ERROR';
@@ -73,8 +76,8 @@ function toggleScenarioSelected(scenario) {
     return {
         type: TOGGLE_SCENARIO_SELECTED,
         scenario
-    }
-};
+    };
+}
 
 function setCreatingAnugaLayer(isCreatingAnugaLayer) {
     return {
@@ -449,6 +452,38 @@ function runAnugaScenarioSuccess(scenario) {
     };
 }
 
+function setLumpedCatchmentMenu(visible) {
+    return {
+        type: SET_LUMPED_CATCHMENT_MENU,
+        visible
+    };
+}
+
+function runLumpedCatchment(lumpedCatchment) {
+    return {
+        type: RUN_LUMPED_CATCHMENT,
+        lumpedCatchment
+    };
+}
+
+function runLumpedCatchmentSuccess(lumpedCatchment) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Catchment Calculated`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({
+            type: RUN_LUMPED_CATCHMENT_SUCCESS,
+            lumpedCatchment
+        });
+    };
+}
+
 function deleteAnugaScenarioSuccess(scenario) {
     return (dispatch) => {
         dispatch({
@@ -567,6 +602,9 @@ module.exports = {
     DELETE_ANUGA_SCENARIO_SUCCESS, deleteAnugaScenarioSuccess,
     RUN_ANUGA_SCENARIO, runAnugaScenario,
     RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,
+    SET_LUMPED_CATCHMENT_MENU, setLumpedCatchmentMenu,
+    RUN_LUMPED_CATCHMENT, runLumpedCatchment,
+    RUN_LUMPED_CATCHMENT_SUCCESS, runLumpedCatchmentSuccess,
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario,
     SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,
