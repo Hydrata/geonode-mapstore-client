@@ -610,7 +610,7 @@ class AnugaScenarioMenuClass extends React.Component {
         console.log('seconds', seconds);
         const kv = {};
         kv[event.target.id] = seconds;
-        kv.tempTimeString = null;
+        delete kv.tempTimeString;
         this.props.updateAnugaScenario(scenario, kv);
     };
 }

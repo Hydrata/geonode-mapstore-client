@@ -6,6 +6,7 @@ import {
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
     UPDATE_ANUGA_SCENARIO,
+    UPDATE_LUMPED_CATCHMENT,
     SELECT_ANUGA_SCENARIO,
     ADD_ANUGA_SCENARIO,
     SHOW_ANUGA_SCENARIO_LOG,
@@ -55,6 +56,17 @@ export default ( state = initialState, action) => {
                     return action.scenario;
                 }
                 return scenario;
+            })
+        };
+    case UPDATE_LUMPED_CATCHMENT:
+        return {
+            ...state,
+            lumpedCatchments: state.lumpedCatchments.map((lumpedCatchment) => {
+                if (lumpedCatchment.id === action.lumpedCatchment.id) {
+                    action.lumpedCatchment.unsaved = true;
+                    return action.lumpedCatchment;
+                }
+                return lumpedCatchment;
             })
         };
     case TOGGLE_SCENARIO_SELECTED:

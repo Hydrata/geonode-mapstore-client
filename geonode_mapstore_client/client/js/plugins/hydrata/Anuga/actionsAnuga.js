@@ -56,6 +56,7 @@ const START_ANUGA_MODEL_CREATION_POLLING = 'START_ANUGA_MODEL_CREATION_POLLING';
 const STOP_ANUGA_MODEL_CREATION_POLLING = 'STOP_ANUGA_MODEL_CREATION_POLLING';
 const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
+const UPDATE_LUMPED_CATCHMENT = 'UPDATE_LUMPED_CATCHMENT';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
@@ -511,6 +512,16 @@ function updateAnugaScenario(scenario, kv) {
     };
 }
 
+function updateLumpedCatchment(lumpedCatchment, kv) {
+    return {
+        type: UPDATE_LUMPED_CATCHMENT,
+        lumpedCatchment: {
+            ...lumpedCatchment,
+            ...kv
+        }
+    };
+}
+
 function showAnugaScenarioLog(scenarioId) {
     return {
         type: SHOW_ANUGA_SCENARIO_LOG,
@@ -605,6 +616,7 @@ module.exports = {
     SET_LUMPED_CATCHMENT_MENU, setLumpedCatchmentMenu,
     RUN_LUMPED_CATCHMENT, runLumpedCatchment,
     RUN_LUMPED_CATCHMENT_SUCCESS, runLumpedCatchmentSuccess,
+    UPDATE_LUMPED_CATCHMENT, updateLumpedCatchment,
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario,
     SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,

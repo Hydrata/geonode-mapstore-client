@@ -39,6 +39,9 @@ import {
     initAnuga,
     RUN_ANUGA_SCENARIO,
     runAnugaScenarioSuccess,
+    RUN_LUMPED_CATCHMENT,
+    runLumpedCatchementSuccess,
+    setAnugaLumpedCatchmentMenu,
     SAVE_ANUGA_SCENARIO,
     saveAnugaScenarioError,
     saveAnugaScenarioSuccess,
@@ -327,9 +330,9 @@ export const runAnugaScenarioEpic = (action$, store) =>
         .concatMap((action) => Rx.Observable.from(
             axios
                 .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/run/`, action)
+                .then(response => runAnugaScenarioSuccess(response.data))
         ))
-        .concatMap((response) => Rx.Observable.of(
-            runAnugaScenarioSuccess(response.data),
+        .concatMap(() => Rx.Observable.of(
             setAnugaScenarioMenu(true)
         ));
 
@@ -362,6 +365,19 @@ export const saveAnugaScenarioEpic = (action$, store) =>
                 .catch(error => saveAnugaScenarioError(error))
             );
         });
+
+
+export const runLumpedCatchmentEpic = (action$, store) =>
+    action$
+        .ofType(RUN_LUMPED_CATCHMENT)
+        .concatMap((action) => Rx.Observable.from(
+            axios
+                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/lumped-catchment/${action.lumpedCatchment.id}/run/`, action.lumpedCatchment)
+                .then(response => runLumpedCatchementSuccess(response.data))
+        ))
+        .concatMap(() => Rx.Observable.of(
+            setAnugaLumpedCatchmentMenu(true)
+        ));
 
 export const createAnugaBoundaryEpic = (action$, store) =>
     action$

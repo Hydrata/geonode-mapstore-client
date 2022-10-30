@@ -25,23 +25,26 @@ export const getAnugaModels = (state) => {
         'frictions',
         'inflows',
         'meshRegions',
-        'structures'
+        'structures',
+        'lumpedCatchments',
+        'nodes',
+        'links'
     ];
-    const modelTypesToApiKey = {
+    const modelTypesToApiName = {
         elevations: 'elevation',
         boundaries: 'boundary',
         frictions: 'friction',
         inflows: 'inflow',
         meshRegions: 'mesh-region',
-        structures: 'structure'
+        structures: 'structure',
+        lumpedCatchments: 'lumped-catchment',
+        nodes: 'nodes',
+        links: 'links'
     };
     let modelsArray = Array();
     modelTypes.map(anugaModel => {
         state?.anuga?.[anugaModel].map(instance => {
-            // console.log('getAnugaModels modelsArray:', modelsArray);
-            // console.log('getAnugaModels anugaModel:', anugaModel);
-            // console.log('getAnugaModels instance:', instance);
-            modelsArray.push({...instance, apiKey: modelTypesToApiKey[anugaModel]});
+            modelsArray.push({...instance, apiKey: modelTypesToApiName[anugaModel]});
         });
     });
     return modelsArray;
