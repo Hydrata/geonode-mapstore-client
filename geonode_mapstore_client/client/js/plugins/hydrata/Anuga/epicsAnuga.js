@@ -144,10 +144,10 @@ export const initAnugaEpic = (action$, store) =>
                             .from(axios.get(`/anuga/api/${response1.data.projectId}/lumped-catchment/`))
                             .switchMap((response11) => Rx.Observable.of(setAnugaLumpedCatchmentData(response11.data))),
                         Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/node/`))
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/nodes/`))
                             .switchMap((response12) => Rx.Observable.of(setAnugaNodesData(response12.data))),
                         Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/link/`))
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/links/`))
                             .switchMap((response13) => Rx.Observable.of(setAnugaLinksData(response13.data))),
                         Rx.Observable.of(startAnugaScenarioPolling())
                     )
@@ -532,7 +532,7 @@ export const addAnugaNodesEpic = (action$, store) =>
         .ofType(ADD_ANUGA_NODES)
         .switchMap(() =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/node/available/`)
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/nodes/available/`)
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
@@ -544,7 +544,7 @@ export const addAnugaLinksEpic = (action$, store) =>
         .ofType(ADD_ANUGA_LINKS)
         .switchMap(() =>
             Rx.Observable
-                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/link/available/`)
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/links/available/`)
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
@@ -588,7 +588,7 @@ export const createAnugaNodesEpic = (action$, store) =>
         .ofType(CREATE_ANUGA_NODES)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/node/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/nodes/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.nodesTitle
                 })
@@ -604,7 +604,7 @@ export const createAnugaLinksEpic = (action$, store) =>
         .ofType(CREATE_ANUGA_LINKS)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/link/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/links/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.linksTitle
                 })
