@@ -158,6 +158,19 @@
     overflow: hidden;
 }
 
+.menu-row-mini-heading {
+    width: 100%;
+    margin-top: 10px;
+    margin-left: 10px;
+    text-align: left;
+}
+
+.menu-row-mini-container {
+    border: 1px solid #ffffff80;
+    border-radius: 3px;
+    margin: 1px;
+}
+
 .dataset-transparency {
     margin-left: 330px;
 }
