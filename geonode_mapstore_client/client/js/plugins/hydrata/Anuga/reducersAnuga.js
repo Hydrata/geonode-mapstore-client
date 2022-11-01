@@ -2,11 +2,11 @@ import {
     SET_ANUGA_INPUT_MENU,
     SET_ANUGA_SCENARIO_MENU,
     SET_ANUGA_RESULT_MENU,
-    SET_LUMPED_CATCHMENT_MENU,
+    SET_NETWORK_MENU,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
     UPDATE_ANUGA_SCENARIO,
-    UPDATE_LUMPED_CATCHMENT,
+    UPDATE_NETWORK,
     SELECT_ANUGA_SCENARIO,
     ADD_ANUGA_SCENARIO,
     SHOW_ANUGA_SCENARIO_LOG,
@@ -19,7 +19,8 @@ import {
     SET_ANUGA_BOUNDARY_DATA,
     SET_ANUGA_FULL_MESH_DATA,
     SET_ANUGA_MESH_REGION_DATA,
-    SET_ANUGA_LUMPED_CATCHMENT_DATA,
+    SET_LUMPED_CATCHMENT_DATA,
+    SET_NETWORK_DATA,
     SET_ANUGA_NODES_DATA,
     SET_ANUGA_LINKS_DATA,
     SET_ANUGA_ELEVATION_DATA,
@@ -58,15 +59,15 @@ export default ( state = initialState, action) => {
                 return scenario;
             })
         };
-    case UPDATE_LUMPED_CATCHMENT:
+    case UPDATE_NETWORK:
         return {
             ...state,
-            lumpedCatchments: state.lumpedCatchments.map((lumpedCatchment) => {
-                if (lumpedCatchment.id === action.lumpedCatchment.id) {
-                    action.lumpedCatchment.unsaved = true;
-                    return action.lumpedCatchment;
+            networks: state.networks.map((network) => {
+                if (network.id === action.network.id) {
+                    action.network.unsaved = true;
+                    return action.network;
                 }
-                return lumpedCatchment;
+                return network;
             })
         };
     case TOGGLE_SCENARIO_SELECTED:
@@ -234,7 +235,12 @@ export default ( state = initialState, action) => {
             ...state,
             meshRegions: action.data
         };
-    case SET_ANUGA_LUMPED_CATCHMENT_DATA:
+    case SET_NETWORK_DATA:
+        return {
+            ...state,
+            networks: action.data
+        };
+    case SET_LUMPED_CATCHMENT_DATA:
         return {
             ...state,
             lumpedCatchments: action.data
@@ -280,13 +286,13 @@ export default ( state = initialState, action) => {
             showAnugaInputMenu: false,
             showAnugaResultMenu: action.visible
         };
-    case SET_LUMPED_CATCHMENT_MENU:
+    case SET_NETWORK_MENU:
         return {
             ...state,
             showAnugaInputMenu: false,
             showAnugaScenarioMenu: false,
             showAnugaResultMenu: false,
-            showLumpedCatchmentMenu: action.visible
+            showNetworkMenu: action.visible
         };
     default:
         return state;

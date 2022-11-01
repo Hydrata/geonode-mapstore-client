@@ -5,21 +5,22 @@ const Spinner = require('react-spinkit');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
-    setLumpedCatchmentMenu,
-    updateLumpedCatchment,
-    runLumpedCatchment
+    setNetworkMenu,
+    updateNetwork,
+    runNetwork
 } from "../actionsAnuga";
 import {Table, Button} from "react-bootstrap";
 
-class LumpedCatchmentMenuClass extends React.Component {
+class NetworkMenuClass extends React.Component {
     static propTypes = {
-        setLumpedCatchmentMenu: PropTypes.func,
-        updateLumpedCatchment: PropTypes.func,
-        runLumpedCatchment: PropTypes.func,
+        setNetworkMenu: PropTypes.func,
+        updateNetwork: PropTypes.func,
+        runNetwork: PropTypes.func,
         nodes: PropTypes.array,
+        links: PropTypes.array,
         inflows: PropTypes.array,
         elevations: PropTypes.array,
-        lumpedCatchments: PropTypes.array
+        networks: PropTypes.array
     };
 
     static defaultProps = {}
@@ -35,24 +36,25 @@ class LumpedCatchmentMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-lumped-catchment-container'} className={'simple-view-panel'} style={{top: "70px", height: "80%", width: "80%"}}>
+            <div id={'anuga-network-container'} className={'simple-view-panel'} style={{top: "70px", height: "80%", width: "80%"}}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"}>
                         <h3>Hydrology</h3>
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={() => {
-                                this.props.setLumpedCatchmentMenu(false);
+                                this.props.setNetworkMenu(false);
                             }}
                         />
                         <div>
-                            <Table className={"lumped-catchment-table"}>
+                            <Table className={"network-table"}>
                                 <thead>
-                                    <tr className={"lumped-catchment-table-header"}>
+                                    <tr className={"network-table-header"}>
                                         <th>Id</th>
                                         <th>Name</th>
-                                        <th>Nodes</th>
                                         <th>Elevation</th>
+                                        <th>Nodes</th>
+                                        <th>Links</th>
                                         <th>Method</th>
                                         <th>Inflow Dataset<br/>to Store Results</th>
                                         <th></th>
@@ -60,20 +62,39 @@ class LumpedCatchmentMenuClass extends React.Component {
                                 </thead>
                                 <tbody>
                                     {
-                                        this.props.lumpedCatchments?.map(lumpedCatchment => {
+                                        this.props.networks?.map(network => {
                                             return (
                                                 <tr className={'scenario-table-row'}>
-                                                    <td>{lumpedCatchment.id}</td>
+                                                    <td>{network.id}</td>
                                                     <td>
-                                                        {lumpedCatchment.title}
+                                                        {network.title}
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            id={'elevation'}
+                                                            key={`elevation-${network.id}`}
+                                                            value={network?.elevation}
+                                                            className={'scenario-select'}
+                                                            onChange={(e) => this.handleIntChange(e, network)}
+                                                        >
+                                                            <option value={""}>-</option>
+                                                            {
+                                                                this.props.elevations?.map((elevation) => {
+                                                                    return (
+                                                                        <option
+                                                                            value={elevation?.id}>{elevation?.title}</option>
+                                                                    );
+                                                                })
+                                                            }
+                                                        </select>
                                                     </td>
                                                     <td>
                                                         <select
                                                             id={'node'}
-                                                            key={`node-${lumpedCatchment.id}`}
-                                                            value={lumpedCatchment?.node}
+                                                            key={`node-${network.id}`}
+                                                            value={network?.node}
                                                             className={'scenario-select'}
-                                                            onChange={(e) => this.handleIntChange(e, lumpedCatchment)}
+                                                            onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
                                                             {
@@ -88,18 +109,18 @@ class LumpedCatchmentMenuClass extends React.Component {
                                                     </td>
                                                     <td>
                                                         <select
-                                                            id={'elevation'}
-                                                            key={`elevation-${lumpedCatchment.id}`}
-                                                            value={lumpedCatchment?.elevation}
+                                                            id={'links'}
+                                                            key={`links-${network.id}`}
+                                                            value={network?.links}
                                                             className={'scenario-select'}
-                                                            onChange={(e) => this.handleIntChange(e, lumpedCatchment)}
+                                                            onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
                                                             {
-                                                                this.props.elevations?.map((elevation) => {
+                                                                this.props.links?.map((link) => {
                                                                     return (
                                                                         <option
-                                                                            value={elevation?.id}>{elevation?.title}</option>
+                                                                            value={link?.id}>{link?.title}</option>
                                                                     );
                                                                 })
                                                             }
@@ -118,10 +139,10 @@ class LumpedCatchmentMenuClass extends React.Component {
                                                     <td>
                                                         <select
                                                             id={'inflow'}
-                                                            key={`inflow-${lumpedCatchment.id}`}
-                                                            value={lumpedCatchment?.inflow}
+                                                            key={`inflow-${network.id}`}
+                                                            value={network?.inflow}
                                                             className={'scenario-select'}
-                                                            onChange={(e) => this.handleIntChange(e, lumpedCatchment)}
+                                                            onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
                                                             {
@@ -140,7 +161,7 @@ class LumpedCatchmentMenuClass extends React.Component {
                                                             bsSize={'xsmall'}
                                                             style={{margin: "2px", borderRadius: "2px"}}
                                                             onClick={() => {
-                                                                this.props.runLumpedCatchment(lumpedCatchment);
+                                                                this.props.runNetwork(network);
                                                             }}
                                                         >
                                                             Run
@@ -159,50 +180,51 @@ class LumpedCatchmentMenuClass extends React.Component {
         );
     }
 
-    handleTextChange = (e, lumpedCatchment) => {
+    handleTextChange = (e, network) => {
         const kv = {};
         kv[e.target.id] = e.target.value;
-        this.props.updateLumpedCatchment(lumpedCatchment, kv);
+        this.props.updateNetwork(network, kv);
     }
 
-    handleBoolChange = (e, lumpedCatchment) => {
+    handleBoolChange = (e, network) => {
         const kv = {};
-        kv[e.target.id] = !lumpedCatchment[e.target.id];
-        this.props.updateLumpedCatchment(lumpedCatchment, kv);
+        kv[e.target.id] = !network[e.target.id];
+        this.props.updateNetwork(network, kv);
     }
 
-    handleIntChange = (e, lumpedCatchment) => {
+    handleIntChange = (e, network) => {
         const kv = {};
         kv[e.target.id] = parseInt(e.target.value, 10);
-        this.props.updateLumpedCatchment(lumpedCatchment, kv);
+        this.props.updateNetwork(network, kv);
     }
 
-    handleNumberChange = (e, lumpedCatchment) => {
+    handleNumberChange = (e, network) => {
         const kv = {};
         kv[e.target.id] = parseFloat(e.target.value);
-        this.props.updateLumpedCatchment(lumpedCatchment, kv);
+        this.props.updateNetwork(network, kv);
     }
 }
 
 const mapStateToProps = (state) => {
-    let lumpedCatchments = state?.anuga?.lumpedCatchments?.sort((a, b) => a.id - b.id);
+    let networks = state?.anuga?.networks?.sort((a, b) => a.id - b.id);
     return {
-        lumpedCatchments: lumpedCatchments,
+        networks: networks,
         elevations: state?.anuga?.elevations,
         nodes: state?.anuga?.nodes,
+        links: state?.anuga?.links,
         inflows: state?.anuga?.inflows
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        setLumpedCatchmentMenu: (visible) => dispatch(setLumpedCatchmentMenu(visible)),
-        updateLumpedCatchment: (lumpedCatchment, kv) => dispatch(updateLumpedCatchment(lumpedCatchment, kv)),
-        runLumpedCatchment: (lumpedCatchment) => dispatch(runLumpedCatchment(lumpedCatchment))
+        setNetworkMenu: (visible) => dispatch(setNetworkMenu(visible)),
+        updateNetwork: (network, kv) => dispatch(updateNetwork(network, kv)),
+        runNetwork: (network) => dispatch(runNetwork(network))
     };
 };
 
-const LumpedCatchmentMenu = connect(mapStateToProps, mapDispatchToProps)(LumpedCatchmentMenuClass);
+const NetworkMenu = connect(mapStateToProps, mapDispatchToProps)(NetworkMenuClass);
 
 
-export {LumpedCatchmentMenu};
+export {NetworkMenu};

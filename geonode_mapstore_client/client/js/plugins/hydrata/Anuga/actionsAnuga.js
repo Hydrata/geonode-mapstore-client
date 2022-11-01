@@ -4,7 +4,7 @@ const INIT_ANUGA = 'INIT_ANUGA';
 const SET_ANUGA_INPUT_MENU = 'SET_ANUGA_INPUT_MENU';
 const SET_ANUGA_SCENARIO_MENU = 'SET_ANUGA_SCENARIO_MENU';
 const SET_ANUGA_RESULT_MENU = 'SET_ANUGA_RESULT_MENU';
-const SET_LUMPED_CATCHMENT_MENU = 'SET_LUMPED_CATCHMENT_MENU';
+const SET_NETWORK_MENU = 'SET_NETWORK_MENU';
 const SET_ANUGA_PROJECT_DATA = 'SET_ANUGA_PROJECT_DATA';
 const SET_ANUGA_SCENARIO_DATA = 'SET_ANUGA_SCENARIO_DATA';
 const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
@@ -13,7 +13,8 @@ const SET_ANUGA_INFLOW_DATA = 'SET_ANUGA_INFLOW_DATA';
 const SET_ANUGA_STRUCTURE_DATA = 'SET_ANUGA_STRUCTURE_DATA';
 const SET_ANUGA_FULL_MESH_DATA = 'SET_ANUGA_FULL_MESH_DATA';
 const SET_ANUGA_MESH_REGION_DATA = 'SET_ANUGA_MESH_REGION_DATA';
-const SET_ANUGA_LUMPED_CATCHMENT_DATA = 'SET_ANUGA_LUMPED_CATCHMENT_DATA';
+const SET_NETWORK_DATA = 'SET_NETWORK_DATA';
+const SET_LUMPED_CATCHMENT_DATA = 'SET_LUMPED_CATCHMENT_DATA';
 const SET_ANUGA_NODES_DATA = 'SET_ANUGA_NODES_DATA';
 const SET_ANUGA_LINKS_DATA = 'SET_ANUGA_LINKS_DATA';
 const CREATE_ANUGA_BOUNDARY = 'CREATE_ANUGA_BOUNDARY';
@@ -21,26 +22,28 @@ const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
 const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
 const CREATE_ANUGA_STRUCTURE = 'CREATE_ANUGA_STRUCTURE';
 const CREATE_ANUGA_MESH_REGION = 'CREATE_ANUGA_MESH_REGION';
-const CREATE_ANUGA_LUMPED_CATCHMENT = 'CREATE_ANUGA_LUMPED_CATCHMENT';
-const CREATE_ANUGA_NODES = 'CREATE_ANUGA_NODES';
-const CREATE_ANUGA_LINKS = 'CREATE_ANUGA_LINKS';
+const CREATE_NETWORK = 'CREATE_NETWORK';
+const CREATE_LUMPED_CATCHMENT = 'CREATE_LUMPED_CATCHMENT';
+const CREATE_NODES = 'CREATE_NODES';
+const CREATE_LINKS = 'CREATE_LINKS';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
 const ADD_ANUGA_STRUCTURE = 'ADD_ANUGA_STRUCTURE';
 const ADD_ANUGA_FULL_MESH = 'ADD_ANUGA_FULL_MESH';
 const ADD_ANUGA_MESH_REGION = 'ADD_ANUGA_MESH_REGION';
-const ADD_ANUGA_LUMPED_CATCHMENT = 'ADD_ANUGA_LUMPED_CATCHMENT';
-const ADD_ANUGA_NODES = 'ADD_ANUGA_NODES';
-const ADD_ANUGA_LINKS = 'ADD_ANUGA_LINKS';
+const ADD_NETWORK = 'ADD_ANUGA_NETWORK';
+const ADD_LUMPED_CATCHMENT = 'ADD_LUMPED_CATCHMENT';
+const ADD_NODES = 'ADD_NODES';
+const ADD_LINKS = 'ADD_LINKS';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
 const ADD_ANUGA_SCENARIO = 'ADD_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
-const RUN_LUMPED_CATCHMENT = 'RUN_LUMPED_CATCHMENT';
-const RUN_LUMPED_CATCHMENT_SUCCESS = 'RUN_LUMPED_CATCHMENT_SUCCESS';
+const RUN_NETWORK = 'RUN_NETWORK';
+const RUN_NETWORK_SUCCESS = 'RUN_NETWORK_SUCCESS';
 const SAVE_ANUGA_SCENARIO = 'SAVE_ANUGA_SCENARIO';
 const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
 const SAVE_ANUGA_SCENARIO_ERROR = 'SAVE_ANUGA_SCENARIO_ERROR';
@@ -56,7 +59,7 @@ const START_ANUGA_MODEL_CREATION_POLLING = 'START_ANUGA_MODEL_CREATION_POLLING';
 const STOP_ANUGA_MODEL_CREATION_POLLING = 'STOP_ANUGA_MODEL_CREATION_POLLING';
 const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
-const UPDATE_LUMPED_CATCHMENT = 'UPDATE_LUMPED_CATCHMENT';
+const UPDATE_NETWORK = 'UPDATE_NETWORK';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
@@ -201,9 +204,16 @@ function setAnugaMeshRegionData(data) {
     };
 }
 
-function setAnugaLumpedCatchmentData(data) {
+function setLumpedCatchmentData(data) {
     return {
-        type: SET_ANUGA_LUMPED_CATCHMENT_DATA,
+        type: SET_LUMPED_CATCHMENT_DATA,
+        data
+    };
+}
+
+function setNetworkData(data) {
+    return {
+        type: SET_NETWORK_DATA,
         data
     };
 }
@@ -278,23 +288,30 @@ function createAnugaMeshRegion(meshRegionTitle) {
     };
 }
 
-function createAnugaLumpedCatchment(lumpedCatchmentTitle) {
+function createNetwork(networkTitle) {
     return {
-        type: CREATE_ANUGA_LUMPED_CATCHMENT,
+        type: CREATE_NETWORK,
+        networkTitle
+    };
+}
+
+function createLumpedCatchment(lumpedCatchmentTitle) {
+    return {
+        type: CREATE_LUMPED_CATCHMENT,
         lumpedCatchmentTitle
     };
 }
 
-function createAnugaNodes(nodesTitle) {
+function createNodes(nodesTitle) {
     return {
-        type: CREATE_ANUGA_NODES,
+        type: CREATE_NODES,
         nodesTitle
     };
 }
 
-function createAnugaLinks(linksTitle) {
+function createLinks(linksTitle) {
     return {
-        type: CREATE_ANUGA_LINKS,
+        type: CREATE_LINKS,
         linksTitle
     };
 }
@@ -335,21 +352,27 @@ function addAnugaMeshRegion() {
     };
 }
 
-function addAnugaLumpedCatchment() {
+function addNetwork() {
     return {
-        type: ADD_ANUGA_LUMPED_CATCHMENT
+        type: ADD_NETWORK
     };
 }
 
-function addAnugaNodes() {
+function addLumpedCatchment() {
     return {
-        type: ADD_ANUGA_NODES
+        type: ADD_LUMPED_CATCHMENT
     };
 }
 
-function addAnugaLinks() {
+function addNodes() {
     return {
-        type: ADD_ANUGA_LINKS
+        type: ADD_NODES
+    };
+}
+
+function addLinks() {
+    return {
+        type: ADD_LINKS
     };
 }
 
@@ -453,34 +476,34 @@ function runAnugaScenarioSuccess(scenario) {
     };
 }
 
-function setLumpedCatchmentMenu(visible) {
+function setNetworkMenu(visible) {
     return {
-        type: SET_LUMPED_CATCHMENT_MENU,
+        type: SET_NETWORK_MENU,
         visible
     };
 }
 
-function runLumpedCatchment(lumpedCatchment) {
+function runNetwork(network) {
     return {
-        type: RUN_LUMPED_CATCHMENT,
-        lumpedCatchment
+        type: RUN_NETWORK,
+        network
     };
 }
 
-function runLumpedCatchmentSuccess(lumpedCatchment) {
+function runNetworkSuccess(network) {
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Success',
             autoDismiss: 6,
             position: 'tc',
-            message: `Catchment Calculated`,
+            message: `Network Calculated`,
             uid: uuidv1(),
             level: 'success'
         });
         dispatch({
-            type: RUN_LUMPED_CATCHMENT_SUCCESS,
-            lumpedCatchment
+            type: RUN_NETWORK_SUCCESS,
+            network
         });
     };
 }
@@ -512,11 +535,11 @@ function updateAnugaScenario(scenario, kv) {
     };
 }
 
-function updateLumpedCatchment(lumpedCatchment, kv) {
+function updateNetwork(network, kv) {
     return {
-        type: UPDATE_LUMPED_CATCHMENT,
-        lumpedCatchment: {
-            ...lumpedCatchment,
+        type: UPDATE_NETWORK,
+        network: {
+            ...network,
             ...kv
         }
     };
@@ -583,7 +606,8 @@ module.exports = {
     SET_ANUGA_STRUCTURE_DATA, setAnugaStructureData,
     SET_ANUGA_FULL_MESH_DATA, setAnugaFullMeshData,
     SET_ANUGA_MESH_REGION_DATA, setAnugaMeshRegionData,
-    SET_ANUGA_LUMPED_CATCHMENT_DATA, setAnugaLumpedCatchmentData,
+    SET_NETWORK_DATA, setNetworkData,
+    SET_LUMPED_CATCHMENT_DATA, setLumpedCatchmentData,
     SET_ANUGA_NODES_DATA, setAnugaNodesData,
     SET_ANUGA_LINKS_DATA, setAnugaLinksData,
     CREATE_ANUGA_BOUNDARY, createAnugaBoundary,
@@ -591,18 +615,20 @@ module.exports = {
     CREATE_ANUGA_INFLOW, createAnugaInflow,
     CREATE_ANUGA_STRUCTURE, createAnugaStructure,
     CREATE_ANUGA_MESH_REGION, createAnugaMeshRegion,
-    CREATE_ANUGA_LUMPED_CATCHMENT, createAnugaLumpedCatchment,
-    CREATE_ANUGA_NODES, createAnugaNodes,
-    CREATE_ANUGA_LINKS, createAnugaLinks,
+    CREATE_NETWORK, createNetwork,
+    CREATE_LUMPED_CATCHMENT, createLumpedCatchment,
+    CREATE_NODES, createNodes,
+    CREATE_LINKS, createLinks,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,
     ADD_ANUGA_STRUCTURE, addAnugaStructure,
     ADD_ANUGA_MESH_REGION, addAnugaMeshRegion,
     ADD_ANUGA_FULL_MESH, addAnugaFullMesh,
-    ADD_ANUGA_LUMPED_CATCHMENT, addAnugaLumpedCatchment,
-    ADD_ANUGA_NODES, addAnugaNodes,
-    ADD_ANUGA_LINKS, addAnugaLinks,
+    ADD_NETWORK, addNetwork,
+    ADD_LUMPED_CATCHMENT, addLumpedCatchment,
+    ADD_NODES, addNodes,
+    ADD_LINKS, addLinks,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,
@@ -613,10 +639,10 @@ module.exports = {
     DELETE_ANUGA_SCENARIO_SUCCESS, deleteAnugaScenarioSuccess,
     RUN_ANUGA_SCENARIO, runAnugaScenario,
     RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,
-    SET_LUMPED_CATCHMENT_MENU, setLumpedCatchmentMenu,
-    RUN_LUMPED_CATCHMENT, runLumpedCatchment,
-    RUN_LUMPED_CATCHMENT_SUCCESS, runLumpedCatchmentSuccess,
-    UPDATE_LUMPED_CATCHMENT, updateLumpedCatchment,
+    SET_NETWORK_MENU, setNetworkMenu,
+    RUN_NETWORK, runNetwork,
+    RUN_NETWORK_SUCCESS, runNetworkSuccess,
+    UPDATE_NETWORK, updateNetwork,
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario,
     SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,

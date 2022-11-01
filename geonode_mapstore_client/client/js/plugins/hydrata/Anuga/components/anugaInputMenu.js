@@ -15,22 +15,24 @@ import {
     addAnugaStructure,
     addAnugaFullMesh,
     addAnugaMeshRegion,
-    addAnugaLumpedCatchment,
-    addAnugaNodes,
-    addAnugaLinks,
+    addNetwork,
+    addLumpedCatchment,
+    addNodes,
+    addLinks,
     createAnugaBoundary,
     createAnugaFriction,
     createAnugaInflow,
     createAnugaStructure,
     createAnugaMeshRegion,
-    createAnugaLumpedCatchment,
-    createAnugaNodes,
-    createAnugaLinks,
+    createNetwork,
+    createLumpedCatchment,
+    createNodes,
+    createLinks,
     setCreatingAnugaLayer,
     startAnugaElevationPolling,
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
-    setLumpedCatchmentMenu,
+    setNetworkMenu,
     setAnugaInputMenu
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
@@ -50,9 +52,10 @@ class AnugaInputMenuClass extends React.Component {
         createAnugaInflow: PropTypes.func,
         createAnugaStructure: PropTypes.func,
         createAnugaMeshRegion: PropTypes.func,
-        createAnugaLumpedCatchment: PropTypes.func,
-        createAnugaNodes: PropTypes.func,
-        createAnugaLinks: PropTypes.func,
+        createNetwork: PropTypes.func,
+        createLumpedCatchment: PropTypes.func,
+        createNodes: PropTypes.func,
+        createLinks: PropTypes.func,
         frictionLayers: PropTypes.array,
         inflowLayers: PropTypes.array,
         structureLayers: PropTypes.array,
@@ -74,9 +77,11 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaStructure: PropTypes.func,
         addAnugaFullMesh: PropTypes.func,
         addAnugaMeshRegion: PropTypes.func,
-        addAnugaLumpedCatchment: PropTypes.func,
-        addAnugaNodes: PropTypes.func,
-        addAnugaLinks: PropTypes.func,
+        addLumpedCatchment: PropTypes.func,
+        addNodes: PropTypes.func,
+        addLinks: PropTypes.func,
+        networks: PropTypes.array,
+        setNetworkMenu: PropTypes.func,
         boundaryModels: PropTypes.array,
         frictionModels: PropTypes.array,
         inflowModels: PropTypes.array,
@@ -86,7 +91,6 @@ class AnugaInputMenuClass extends React.Component {
         lumpedCatchmentModels: PropTypes.array,
         nodesModels: PropTypes.array,
         linksModels: PropTypes.array,
-        setLumpedCatchmentMenu: PropTypes.func,
         setAnugaInputMenu: PropTypes.func
     };
 
@@ -101,6 +105,7 @@ class AnugaInputMenuClass extends React.Component {
             inflowTitle: '',
             structureTitle: '',
             meshRegionTitle: '',
+            networkTitle: '',
             lumpedCatchmentTitle: '',
             nodesTitle: '',
             linksTitle: ''
@@ -584,7 +589,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 border: "none"
                                             }}
                                         >
-                                            <span className="pull-left menu-row-text">Lumped Catchments</span>
+                                            <span className="pull-left menu-row-text" style={{"marginTop": "4px"}}>Networks</span>
                                             <span
                                                 className={`btn glyphicon menu-row-glyph glyphicon-cog`}
                                                 style={{
@@ -595,14 +600,14 @@ class AnugaInputMenuClass extends React.Component {
                                                     "float": "left"
                                                 }}
                                                 onClick={() => {
-                                                    this.props.setLumpedCatchmentMenu(true);
+                                                    this.props.setNetworkMenu(true);
                                                     this.props.setAnugaInputMenu(false);
                                                 }}
                                             />
                                             {this.props.canEditAnugaMap ?
                                                 <React.Fragment>
                                                     <span
-                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.lumpedCatchmentTitle ? "" : " disabled"}`}
+                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.networkTitle ? "" : " disabled"}`}
                                                         style={{
                                                             "color": "limegreen",
                                                             "fontSize": "smaller",
@@ -612,8 +617,8 @@ class AnugaInputMenuClass extends React.Component {
                                                         }}
                                                         onClick={() => {
                                                             this.props.setCreatingAnugaLayer(true);
-                                                            this.props.createAnugaLumpedCatchment(this.state.lumpedCatchmentTitle);
-                                                            this.setState({lumpedCatchmentTitle: ''});
+                                                            this.props.createNetwork(this.state.networkTitle);
+                                                            this.setState({networkTitle: ''});
                                                         }}
                                                     />
                                                     {
@@ -626,147 +631,44 @@ class AnugaInputMenuClass extends React.Component {
                                                                 }} spinnerName="circle" noFadeIn/>
                                                             </span> :
                                                             <input
-                                                                id={'lumped-catchment-input'}
-                                                                key={'lumped-catchment-input'}
+                                                                id={'network-input'}
+                                                                key={'network-input'}
                                                                 className={'data-title-input'}
                                                                 style={{marginTop: "3px", marginRight: "5px"}}
                                                                 type={'text'}
-                                                                value={this.state.lumpedCatchmentTitle}
-                                                                onChange={(e) => this.setState({lumpedCatchmentTitle: e.target.value})}
+                                                                value={this.state.networkTitle}
+                                                                onChange={(e) => this.setState({networkTitle: e.target.value})}
                                                             />
                                                     }
                                                 </React.Fragment> : null
                                             }
                                         </div>
-                                        {
-                                            this.props.lumpedCatchmentLayers?.map(lumpedCatchment => (
-                                                <MenuRow layer={lumpedCatchment}/>
-                                            ))
-                                        }
-                                    </div>
-                                    <div
-                                        className={'menu-rows-container'}
-                                        style={{
-                                            "border": "1px solid rgba(255, 255, 255)",
-                                            "borderRadius": "3px",
-                                            "margin": "3px 0"
-                                        }}
-                                    >
-                                        <div
-                                            className={"row menu-row menu-row-header"}
-                                            style={{
-                                                width: "480px",
-                                                textAlign: "left",
-                                                border: "none"
-                                            }}
-                                        >
-                                            <span className="pull-left menu-row-text">Nodes</span>
-                                            {this.props.canEditAnugaMap ?
-                                                <React.Fragment>
-                                                    <span
-                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.nodesTitle ? "" : " disabled"}`}
-                                                        style={{
-                                                            "color": "limegreen",
-                                                            "fontSize": "smaller",
-                                                            "textAlign": "right",
-                                                            "marginRight": "8px",
-                                                            "float": "right"
-                                                        }}
-                                                        onClick={() => {
-                                                            this.props.setCreatingAnugaLayer(true);
-                                                            this.props.createAnugaNodes(this.state.nodesTitle);
-                                                            this.setState({nodesTitle: ''});
-                                                        }}
-                                                    />
-                                                    {
-                                                        this.props.isCreatingAnugaLayer ?
-                                                            <span>
-                                                                <Spinner color="white" style={{
-                                                                    display: "inline-block",
-                                                                    position: "absolute",
-                                                                    right: "45px"
-                                                                }} spinnerName="circle" noFadeIn/>
-                                                            </span> :
-                                                            <input
-                                                                id={'nodes-input'}
-                                                                key={'nodes-input'}
-                                                                className={'data-title-input'}
-                                                                style={{marginTop: "3px", marginRight: "5px"}}
-                                                                type={'text'}
-                                                                value={this.state.nodesTitle}
-                                                                onChange={(e) => this.setState({nodesTitle: e.target.value})}
-                                                            />
-                                                    }
-                                                </React.Fragment> : null
-                                            }
+                                        <div>
+                                            <div className={'menu-row-mini-container'}>
+                                                <p className={'menu-row-mini-heading'}>Catchments</p>
+                                                {
+                                                    this.props.lumpedCatchmentLayers?.map(lumpedCatchment => (
+                                                        <MenuRow layer={lumpedCatchment}/>
+                                                    ))
+                                                }
+                                            </div>
+                                            <div className={'menu-row-mini-container'}>
+                                                <p className={'menu-row-mini-heading'}>Nodes</p>
+                                                {
+                                                    this.props.nodesLayers?.map(nodes => (
+                                                        <MenuRow layer={nodes}/>
+                                                    ))
+                                                }
+                                            </div>
+                                            <div className={'menu-row-mini-container'}>
+                                                <p className={'menu-row-mini-heading'}>Links</p>
+                                                {
+                                                    this.props.linksLayers?.map(links => (
+                                                        <MenuRow layer={links}/>
+                                                    ))
+                                                }
+                                            </div>
                                         </div>
-                                        {
-                                            this.props.nodesLayers?.map(nodes => (
-                                                <MenuRow layer={nodes}/>
-                                            ))
-                                        }
-                                    </div>
-                                    <div
-                                        className={'menu-rows-container'}
-                                        style={{
-                                            "border": "1px solid rgba(255, 255, 255)",
-                                            "borderRadius": "3px",
-                                            "margin": "3px 0"
-                                        }}
-                                    >
-                                        <div
-                                            className={"row menu-row menu-row-header"}
-                                            style={{
-                                                width: "480px",
-                                                textAlign: "left",
-                                                border: "none"
-                                            }}
-                                        >
-                                            <span className="pull-left menu-row-text">Links</span>
-                                            {this.props.canEditAnugaMap ?
-                                                <React.Fragment>
-                                                    <span
-                                                        className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.linksTitle ? "" : " disabled"}`}
-                                                        style={{
-                                                            "color": "limegreen",
-                                                            "fontSize": "smaller",
-                                                            "textAlign": "right",
-                                                            "marginRight": "8px",
-                                                            "float": "right"
-                                                        }}
-                                                        onClick={() => {
-                                                            this.props.setCreatingAnugaLayer(true);
-                                                            this.props.createAnugaLinks(this.state.linksTitle);
-                                                            this.setState({linksTitle: ''});
-                                                        }}
-                                                    />
-                                                    {
-                                                        this.props.isCreatingAnugaLayer ?
-                                                            <span>
-                                                                <Spinner color="white" style={{
-                                                                    display: "inline-block",
-                                                                    position: "absolute",
-                                                                    right: "45px"
-                                                                }} spinnerName="circle" noFadeIn/>
-                                                            </span> :
-                                                            <input
-                                                                id={'links-input'}
-                                                                key={'links-input'}
-                                                                className={'data-title-input'}
-                                                                style={{marginTop: "3px", marginRight: "5px"}}
-                                                                type={'text'}
-                                                                value={this.state.linksTitle}
-                                                                onChange={(e) => this.setState({linksTitle: e.target.value})}
-                                                            />
-                                                    }
-                                                </React.Fragment> : null
-                                            }
-                                        </div>
-                                        {
-                                            this.props.linksLayers?.map(links => (
-                                                <MenuRow layer={links}/>
-                                            ))
-                                        }
                                     </div>
                                 </div> :
                                 null
@@ -789,6 +691,7 @@ const mapStateToProps = (state) => {
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Mesh'),
         meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
+        networkLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Networks'),
         lumpedCatchmentLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Lumped Catchments'),
         nodesLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Nodes'),
         linksLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Links'),
@@ -815,11 +718,12 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaStructure: () => dispatch(addAnugaStructure()),
         addAnugaFullMesh: () => dispatch(addAnugaFullMesh()),
         addAnugaMeshRegion: () => dispatch(addAnugaMeshRegion()),
-        addAnugaLumpedCatchment: () => dispatch(addAnugaLumpedCatchment()),
-        setLumpedCatchmentMenu: (visible) => dispatch(setLumpedCatchmentMenu(visible)),
+        addLumpedCatchment: () => dispatch(addLumpedCatchment()),
+        setNetworkMenu: (visible) => dispatch(setNetworkMenu(visible)),
         setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
-        addAnugaNodes: () => dispatch(addAnugaNodes()),
-        addAnugaLinks: () => dispatch(addAnugaLinks()),
+        addNetwork: () => dispatch(addNetwork()),
+        addNodes: () => dispatch(addNodes()),
+        addLinks: () => dispatch(addLinks()),
         startAnugaElevationPolling: () => dispatch(startAnugaElevationPolling()),
         startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
         stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
@@ -830,9 +734,10 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
-        createAnugaLumpedCatchment: (lumpedCatchmentTitle) => dispatch(createAnugaLumpedCatchment(lumpedCatchmentTitle)),
-        createAnugaNodes: (nodesTitle) => dispatch(createAnugaNodes(nodesTitle)),
-        createAnugaLinks: (linksTitle) => dispatch(createAnugaLinks(linksTitle))
+        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle))
+        // createLumpedCatchment: (lumpedCatchmentTitle) => dispatch(createLumpedCatchment(lumpedCatchmentTitle)),
+        // createNodes: (nodesTitle) => dispatch(createNodes(nodesTitle)),
+        // createLinks: (linksTitle) => dispatch(createLinks(linksTitle))
     };
 };
 

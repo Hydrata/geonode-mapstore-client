@@ -14,7 +14,7 @@ import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import {AnugaInputMenu} from './AnugaInputMenu';
 import {AnugaScenarioMenu} from './AnugaScenarioMenu';
 import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
-import {LumpedCatchmentMenu} from "./lumpedCatchmentMenu";
+import {NetworkMenu} from "./networkMenu";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -31,7 +31,7 @@ class AnugaContainer extends React.Component {
         setAnugaScenarioMenu: PropTypes.func,
         showAnugaResultMenu: PropTypes.bool,
         setAnugaResultMenu: PropTypes.func,
-        showLumpedCatchmentMenu: PropTypes.bool,
+        showNetworkMenu: PropTypes.bool,
         isAnugaMenuOpen: PropTypes.bool,
         openMenuGroupId: PropTypes.string,
         numberOfMenus: PropTypes.number,
@@ -123,8 +123,8 @@ class AnugaContainer extends React.Component {
                             : null
                     }
                     {
-                        this.props.showLumpedCatchmentMenu ?
-                            <LumpedCatchmentMenu/>
+                        this.props.showNetworkMenu ?
+                            <NetworkMenu/>
                             : null
                     }
                     {this.props.visibleIntroduction ?
@@ -158,8 +158,8 @@ const mapStateToProps = (state) => {
         showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
         visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId,
         visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
-        showLumpedCatchmentMenu: state?.anuga?.showLumpedCatchmentMenu,
-        visibleLumpedCatchmentMenu: state?.anuga?.visibleLumpedCatchmentMenu,
+        showNetworkMenu: state?.anuga?.showNetworkMenu,
+        visibleNetworkMenu: state?.anuga?.visibleNetworkMenu,
         canEditAnugaMap: canEditAnugaMap(state)
     };
 };

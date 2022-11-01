@@ -86,19 +86,19 @@
     height: 45px
 }
 
-.lumped-catchment-table {
+.network-table {
     margin-bottom: 0;
 }
 
-.lumped-catchment-table-header {
+.network-table-header {
     height: 45px;
 }
 
-.lumped-catchment-table-header th {
+.network-table-header th {
     text-align:center;
 }
 
-.lumped-catchment-table-row {
+.network-table-row {
     height: 45px
 }
 
