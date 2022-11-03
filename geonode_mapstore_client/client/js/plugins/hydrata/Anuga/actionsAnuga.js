@@ -204,7 +204,7 @@ function setAnugaMeshRegionData(data) {
     };
 }
 
-function setLumpedCatchmentData(data) {
+function setCatchmentData(data) {
     return {
         type: SET_LUMPED_CATCHMENT_DATA,
         data
@@ -295,10 +295,10 @@ function createNetwork(networkTitle) {
     };
 }
 
-function createLumpedCatchment(lumpedCatchmentTitle) {
+function createCatchment(catchmentTitle) {
     return {
         type: CREATE_LUMPED_CATCHMENT,
-        lumpedCatchmentTitle
+        catchmentTitle
     };
 }
 
@@ -358,7 +358,7 @@ function addNetwork() {
     };
 }
 
-function addLumpedCatchment() {
+function addCatchment() {
     return {
         type: ADD_LUMPED_CATCHMENT
     };
@@ -607,7 +607,7 @@ module.exports = {
     SET_ANUGA_FULL_MESH_DATA, setAnugaFullMeshData,
     SET_ANUGA_MESH_REGION_DATA, setAnugaMeshRegionData,
     SET_NETWORK_DATA, setNetworkData,
-    SET_LUMPED_CATCHMENT_DATA, setLumpedCatchmentData,
+    SET_LUMPED_CATCHMENT_DATA, setCatchmentData,
     SET_ANUGA_NODES_DATA, setAnugaNodesData,
     SET_ANUGA_LINKS_DATA, setAnugaLinksData,
     CREATE_ANUGA_BOUNDARY, createAnugaBoundary,
@@ -616,7 +616,7 @@ module.exports = {
     CREATE_ANUGA_STRUCTURE, createAnugaStructure,
     CREATE_ANUGA_MESH_REGION, createAnugaMeshRegion,
     CREATE_NETWORK, createNetwork,
-    CREATE_LUMPED_CATCHMENT, createLumpedCatchment,
+    CREATE_LUMPED_CATCHMENT, createCatchment,
     CREATE_NODES, createNodes,
     CREATE_LINKS, createLinks,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
@@ -626,7 +626,7 @@ module.exports = {
     ADD_ANUGA_MESH_REGION, addAnugaMeshRegion,
     ADD_ANUGA_FULL_MESH, addAnugaFullMesh,
     ADD_NETWORK, addNetwork,
-    ADD_LUMPED_CATCHMENT, addLumpedCatchment,
+    ADD_LUMPED_CATCHMENT, addCatchment,
     ADD_NODES, addNodes,
     ADD_LINKS, addLinks,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,

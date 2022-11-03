@@ -243,7 +243,7 @@ export default ( state = initialState, action) => {
     case SET_LUMPED_CATCHMENT_DATA:
         return {
             ...state,
-            lumpedCatchments: action.data
+            catchments: action.data
         };
     case SET_ANUGA_NODES_DATA:
         return {

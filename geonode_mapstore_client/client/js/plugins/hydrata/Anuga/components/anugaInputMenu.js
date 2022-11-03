@@ -16,7 +16,7 @@ import {
     addAnugaFullMesh,
     addAnugaMeshRegion,
     addNetwork,
-    addLumpedCatchment,
+    addCatchment,
     addNodes,
     addLinks,
     createAnugaBoundary,
@@ -25,7 +25,7 @@ import {
     createAnugaStructure,
     createAnugaMeshRegion,
     createNetwork,
-    createLumpedCatchment,
+    createCatchment,
     createNodes,
     createLinks,
     setCreatingAnugaLayer,
@@ -53,7 +53,7 @@ class AnugaInputMenuClass extends React.Component {
         createAnugaStructure: PropTypes.func,
         createAnugaMeshRegion: PropTypes.func,
         createNetwork: PropTypes.func,
-        createLumpedCatchment: PropTypes.func,
+        createCatchment: PropTypes.func,
         createNodes: PropTypes.func,
         createLinks: PropTypes.func,
         frictionLayers: PropTypes.array,
@@ -61,7 +61,7 @@ class AnugaInputMenuClass extends React.Component {
         structureLayers: PropTypes.array,
         fullMeshLayers: PropTypes.array,
         meshRegionLayers: PropTypes.array,
-        lumpedCatchmentLayers: PropTypes.array,
+        catchmentLayers: PropTypes.array,
         nodesLayers: PropTypes.array,
         linksLayers: PropTypes.array,
         startAnugaElevationPolling: PropTypes.func,
@@ -77,7 +77,7 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaStructure: PropTypes.func,
         addAnugaFullMesh: PropTypes.func,
         addAnugaMeshRegion: PropTypes.func,
-        addLumpedCatchment: PropTypes.func,
+        addCatchment: PropTypes.func,
         addNodes: PropTypes.func,
         addLinks: PropTypes.func,
         networks: PropTypes.array,
@@ -88,7 +88,7 @@ class AnugaInputMenuClass extends React.Component {
         structureModels: PropTypes.array,
         fullMeshModels: PropTypes.array,
         meshRegionModels: PropTypes.array,
-        lumpedCatchmentModels: PropTypes.array,
+        catchmentModels: PropTypes.array,
         nodesModels: PropTypes.array,
         linksModels: PropTypes.array,
         setAnugaInputMenu: PropTypes.func
@@ -106,7 +106,7 @@ class AnugaInputMenuClass extends React.Component {
             structureTitle: '',
             meshRegionTitle: '',
             networkTitle: '',
-            lumpedCatchmentTitle: '',
+            catchmentTitle: '',
             nodesTitle: '',
             linksTitle: ''
         };
@@ -647,8 +647,8 @@ class AnugaInputMenuClass extends React.Component {
                                             <div className={'menu-row-mini-container'}>
                                                 <p className={'menu-row-mini-heading'}>Catchments</p>
                                                 {
-                                                    this.props.lumpedCatchmentLayers?.map(lumpedCatchment => (
-                                                        <MenuRow layer={lumpedCatchment}/>
+                                                    this.props.catchmentLayers?.map(catchment => (
+                                                        <MenuRow layer={catchment}/>
                                                     ))
                                                 }
                                             </div>
@@ -692,7 +692,7 @@ const mapStateToProps = (state) => {
         fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Mesh'),
         meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
         networkLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Networks'),
-        lumpedCatchmentLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Lumped Catchments'),
+        catchmentLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Catchments'),
         nodesLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Nodes'),
         linksLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Links'),
         elevationModels: state?.anuga?.elevations,
@@ -702,7 +702,7 @@ const mapStateToProps = (state) => {
         structureModels: state?.anuga?.structures,
         fullMeshModels: state?.anuga?.fullMeshes,
         meshRegionModels: state?.anuga?.meshRegions,
-        lumpedCatchmentModels: state?.anuga?.lumpedCatchments,
+        catchmentModels: state?.anuga?.catchments,
         nodesModels: state?.anuga?.nodes,
         linksModels: state?.anuga?.links,
         isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer,
@@ -718,7 +718,7 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaStructure: () => dispatch(addAnugaStructure()),
         addAnugaFullMesh: () => dispatch(addAnugaFullMesh()),
         addAnugaMeshRegion: () => dispatch(addAnugaMeshRegion()),
-        addLumpedCatchment: () => dispatch(addLumpedCatchment()),
+        addCatchment: () => dispatch(addCatchment()),
         setNetworkMenu: (visible) => dispatch(setNetworkMenu(visible)),
         setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         addNetwork: () => dispatch(addNetwork()),
@@ -735,7 +735,7 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
         createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle))
-        // createLumpedCatchment: (lumpedCatchmentTitle) => dispatch(createLumpedCatchment(lumpedCatchmentTitle)),
+        // createCatchment: (catchmentTitle) => dispatch(createCatchment(catchmentTitle)),
         // createNodes: (nodesTitle) => dispatch(createNodes(nodesTitle)),
         // createLinks: (linksTitle) => dispatch(createLinks(linksTitle))
     };

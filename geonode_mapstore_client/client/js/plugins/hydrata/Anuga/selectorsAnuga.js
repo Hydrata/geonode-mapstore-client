@@ -26,7 +26,7 @@ export const getAnugaModels = (state) => {
         'inflows',
         'meshRegions',
         'structures',
-        'lumpedCatchments',
+        'catchments',
         'nodes',
         'links'
     ];
@@ -37,7 +37,7 @@ export const getAnugaModels = (state) => {
         inflows: 'inflow',
         meshRegions: 'mesh-region',
         structures: 'structure',
-        lumpedCatchments: 'lumped-catchment',
+        catchments: 'catchment',
         nodes: 'nodes',
         links: 'links'
     };
