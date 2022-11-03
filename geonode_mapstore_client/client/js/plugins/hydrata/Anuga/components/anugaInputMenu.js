@@ -227,7 +227,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.boundaryLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            ...Creating default Boundary
+                                            None
                                         </div>
                                         : null
                                 }
@@ -296,7 +296,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.inflowLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                            ...Creating default Inflows
+                                            None
                                         </div>
                                         : null
                                 }
@@ -430,7 +430,7 @@ class AnugaInputMenuClass extends React.Component {
                                         {
                                             this.props.meshRegionLayers?.length === 0 ?
                                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                                    ...Creating default Mesh Region
+                                                    None
                                                 </div>
                                                 : null
                                         }
@@ -499,7 +499,7 @@ class AnugaInputMenuClass extends React.Component {
                                         {
                                             this.props.frictionLayers?.length === 0 ?
                                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                                    ...Creating default Friction Map
+                                                    None
                                                 </div>
                                                 : null
                                         }
@@ -568,7 +568,7 @@ class AnugaInputMenuClass extends React.Component {
                                         {
                                             this.props.structureLayers?.length === 0 ?
                                                 <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
-                                                    ...Creating default Structures
+                                                    None
                                                 </div>
                                                 : null
                                         }

@@ -592,7 +592,7 @@ export const createNetworkEpic = (action$, store) =>
         .ofType(CREATE_NETWORK)
         .switchMap((action) =>
             Rx.Observable
-                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/networks/`, {
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/network/`, {
                     "project": store.getState()?.anuga?.projectData?.id,
                     "title": action.networkTitle
                 })

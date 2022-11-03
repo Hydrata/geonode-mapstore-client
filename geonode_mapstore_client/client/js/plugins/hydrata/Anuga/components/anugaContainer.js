@@ -127,9 +127,10 @@ class AnugaContainer extends React.Component {
                             <NetworkMenu/>
                             : null
                     }
-                    {this.props.visibleIntroduction ?
-                        <Introduction />
-                        : null
+                    {
+                        this.props.visibleIntroduction ?
+                            <Introduction />
+                            : null
                     }
                 </div>
             ) :
@@ -160,6 +161,7 @@ const mapStateToProps = (state) => {
         visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
         showNetworkMenu: state?.anuga?.showNetworkMenu,
         visibleNetworkMenu: state?.anuga?.visibleNetworkMenu,
+        visibleAnugaRunMenu: state?.anuga?.visibleAnugaRunMenu,
         canEditAnugaMap: canEditAnugaMap(state)
     };
 };
