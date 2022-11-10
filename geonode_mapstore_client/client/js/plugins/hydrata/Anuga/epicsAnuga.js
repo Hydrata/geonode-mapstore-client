@@ -75,8 +75,11 @@ import {
     STOP_ANUGA_SCENARIO_POLLING,
     stopAnugaElevationPolling,
     UPDATE_COMPUTE_INSTANCE,
-    updateComputeInstanceSuccess
+    updateComputeInstanceSuccess,
+    COMPARE_SCENARIOS,
+    compareScenariosSuccess
 } from "./actionsAnuga";
+
 import {UPDATE_DATASET_TITLE, updateUploadStatus, UPDATE_DATASET_TITLE_SUCCESS} from "../SimpleView/actionsSimpleView";
 import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
@@ -373,6 +376,19 @@ export const saveAnugaScenarioEpic = (action$, store) =>
                 .catch(error => saveAnugaScenarioError(error))
             );
         });
+
+
+export const compareScenarioEpic = (action$, store) =>
+    action$
+        .ofType(COMPARE_SCENARIOS)
+        .concatMap((action) => Rx.Observable.from(
+            axios
+                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/compare/`, action)
+                .then(response => compareScenariosSuccess(response.data))
+        ))
+        .concatMap(() => Rx.Observable.of(
+            setAnugaScenarioMenu(true)
+        ));
 
 
 export const runNetworkEpic = (action$, store) =>

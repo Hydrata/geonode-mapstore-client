@@ -68,6 +68,8 @@ const UPDATE_COMPUTE_INSTANCE = 'UPDATE_COMPUTE_INSTANCE';
 const UPDATE_COMPUTE_INSTANCE_SUCCESS = 'UPDATE_COMPUTE_INSTANCE_SUCCESS';
 const TOGGLE_SCENARIO_SELECTED = 'TOGGLE_SCENARIO_SELECTED';
 const SHOW_MANAGE_ACCOUNT = 'SHOW_MANAGE_ACCOUNT';
+const COMPARE_SCENARIOS = 'COMPARE_SCENARIOS';
+const COMPARE_SCENARIOS_SUCCESS = 'COMPARE_SCENARIOS_SUCCESS';
 
 
 function initAnuga() {
@@ -592,6 +594,30 @@ const showManageAccount = (visible) => {
     };
 };
 
+const compareScenarios = (scenarios) => {
+    return {
+        type: COMPARE_SCENARIOS,
+        scenarios
+    };
+};
+
+function compareScenariosSuccess() {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario comparison started`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({
+            type: COMPARE_SCENARIOS_SUCCESS
+        });
+    };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -660,5 +686,7 @@ module.exports = {
     UPDATE_COMPUTE_INSTANCE, updateComputeInstance,
     UPDATE_COMPUTE_INSTANCE_SUCCESS, updateComputeInstanceSuccess,
     TOGGLE_SCENARIO_SELECTED, toggleScenarioSelected,
-    SHOW_MANAGE_ACCOUNT, showManageAccount
+    SHOW_MANAGE_ACCOUNT, showManageAccount,
+    COMPARE_SCENARIOS, compareScenarios,
+    COMPARE_SCENARIOS_SUCCESS, compareScenariosSuccess
 };

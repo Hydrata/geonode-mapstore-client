@@ -18,6 +18,10 @@ export const isOwnerAnugaMap = (state) => {
     return ["owner"].includes(currentUserPerm);
 };
 
+export const selectedScenarios = (state) => {
+    return state?.anuga?.scenarios.filter(scenario => scenario?.selected);
+};
+
 export const getAnugaModels = (state) => {
     const modelTypes = [
         'elevations',

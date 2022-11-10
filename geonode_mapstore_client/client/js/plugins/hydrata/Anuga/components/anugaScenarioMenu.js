@@ -17,8 +17,11 @@ import {
     stopAnugaScenarioPolling,
     deleteAnugaScenario,
     showAnugaRunMenu,
-    toggleScenarioSelected
+    toggleScenarioSelected,
+    compareScenarios
 } from "../actionsAnuga";
+
+import {selectedScenarios} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
 class AnugaScenarioMenuClass extends React.Component {
     static propTypes = {
@@ -43,7 +46,9 @@ class AnugaScenarioMenuClass extends React.Component {
         deleteAnugaScenario: PropTypes.func,
         cancelAnugaRun: PropTypes.func,
         showAnugaRunMenu: PropTypes.func,
-        toggleScenarioSelected: PropTypes.func
+        toggleScenarioSelected: PropTypes.func,
+        selectedScenarios: PropTypes.array,
+        compareScenarios: PropTypes.func
     };
 
     static defaultProps = {}
@@ -217,7 +222,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                 {
                                     this.state.scenarioTableTabs?.includes('compare') ?
                                         <React.Fragment>
-                                            <th>Select</th>
                                             <th>
                                                 <span id={"depth-difference-button"}>
                                                     <Button
@@ -225,10 +229,10 @@ class AnugaScenarioMenuClass extends React.Component {
                                                         bsSize={'xsmall'}
                                                         style={{margin: "2px", borderRadius: "2px"}}
                                                         onClick={() => {
-                                                            alert('This feature coming soon.');
+                                                            this.props.compareScenarios(this.props.selectedScenarios);
                                                         }}
                                                     >
-                                                        Depth Difference
+                                                        Compare
                                                     </Button>
                                                 </span>
                                             </th>
@@ -547,12 +551,10 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                     "fontSize": "10px"
                                                                 }}
                                                                 onClick={() => {
-                                                                    window.alert('Scenario comparison coming soon');
                                                                     this.props.toggleScenarioSelected(scenario);
                                                                 }}
                                                             />
                                                         </td>
-                                                        <td>-</td>
                                                     </React.Fragment> : null
                                             }
                                         </tr>
@@ -640,6 +642,7 @@ const mapStateToProps = (state) => {
     // console.log('scenarios:', scenarios);
     return {
         scenarios: scenarios,
+        selectedScenarios: selectedScenarios(state),
         boundaries: state?.anuga?.boundaries,
         elevations: state?.anuga?.elevations,
         frictions: state?.anuga?.frictions,
@@ -664,7 +667,8 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
         cancelAnugaRun: (scenario) => dispatch(cancelAnugaRun(scenario)),
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
-        toggleScenarioSelected: (scenario) => dispatch(toggleScenarioSelected(scenario))
+        toggleScenarioSelected: (scenario) => dispatch(toggleScenarioSelected(scenario)),
+        compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios))
     };
 };
 
