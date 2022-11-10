@@ -15,7 +15,8 @@ class SimpleViewContainer extends React.Component {
         baseMapMenuGroup: PropTypes.object,
         openMenuGroupId: PropTypes.string,
         visibleIntroduction: PropTypes.bool,
-        setVisibleIntroduction: PropTypes.func
+        setVisibleIntroduction: PropTypes.func,
+        numberOfCustomMenuSpaces: PropTypes.number
     };
 
     static defaultProps = {
@@ -42,7 +43,7 @@ class SimpleViewContainer extends React.Component {
                                 <button
                                     key={menu?.title}
                                     className={'simple-view-menu-button'}
-                                    style={{left: (index + 1) * 100 + 20}}
+                                    style={{left: (index + this.props.numberOfCustomMenuSpaces + 1) * 100 + 20}}
                                     onClick={() => {this.props.setOpenMenuGroupId(menu.id);}}>
                                     {menu?.title === 'Default' ? menu.name : menu.title}
                                 </button>
@@ -73,7 +74,9 @@ class SimpleViewContainer extends React.Component {
 
 const mapStateToProps = (state) => {
     const groupBlacklist = ['Input Data'];  // TODO: move these to config
+    const numberOfCustomMenuSpaces = state?.anuga?.projectData?.id ? 2 : 0;
     return {
+        numberOfCustomMenuSpaces: numberOfCustomMenuSpaces,
         menuGroups: state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name)),
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
