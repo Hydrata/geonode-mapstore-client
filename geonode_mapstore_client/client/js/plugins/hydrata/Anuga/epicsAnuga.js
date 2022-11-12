@@ -383,7 +383,7 @@ export const compareScenarioEpic = (action$, store) =>
         .ofType(COMPARE_SCENARIOS)
         .concatMap((action) => Rx.Observable.from(
             axios
-                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/compare/`, action)
+                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/compare/`, action.scenarios)
                 .then(response => compareScenariosSuccess(response.data))
         ))
         .concatMap(() => Rx.Observable.of(
