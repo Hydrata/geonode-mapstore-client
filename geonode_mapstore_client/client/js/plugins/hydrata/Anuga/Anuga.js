@@ -25,7 +25,6 @@ import {
     addAnugaStructureEpic,
     addAnugaFullMeshEpic,
     addAnugaMeshRegionEpic,
-    // addNetworkEpic,
     addCatchmentEpic,
     addNodesEpic,
     addLinksEpic,
@@ -33,7 +32,9 @@ import {
     updateComputeInstanceEpic,
     updateAnugaModelTitle,
     pollAnugaModelCreationEpic,
-    compareScenarioEpic
+    compareScenarioEpic,
+    pollComparisonEpic,
+    addComparisonEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -65,7 +66,6 @@ export default createPlugin('Anuga', {
         addAnugaStructureEpic,
         addAnugaFullMeshEpic,
         addAnugaMeshRegionEpic,
-        // addNetworkEpic,
         addCatchmentEpic,
         addNodesEpic,
         addLinksEpic,
@@ -73,6 +73,8 @@ export default createPlugin('Anuga', {
         updateComputeInstanceEpic,
         updateAnugaModelTitle,
         pollAnugaModelCreationEpic,
-        compareScenarioEpic
+        compareScenarioEpic,
+        pollComparisonEpic,
+        addComparisonEpic
     }
 });

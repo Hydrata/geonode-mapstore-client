@@ -24,6 +24,7 @@ import {
     SET_ANUGA_NODES_DATA,
     SET_ANUGA_LINKS_DATA,
     SET_ANUGA_ELEVATION_DATA,
+    SET_COMPARISON_DATA,
     SET_CREATING_ANUGA_LAYER,
     SET_ANUGA_SCENARIO_IS_LOADED,
     UPDATE_COMPUTE_INSTANCE_SUCCESS,
@@ -199,6 +200,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             computeInstances: action.data
+        };
+    case SET_COMPARISON_DATA:
+        return {
+            ...state,
+            comparisons: action.data
         };
     case SET_ANUGA_INFLOW_DATA:
         return {

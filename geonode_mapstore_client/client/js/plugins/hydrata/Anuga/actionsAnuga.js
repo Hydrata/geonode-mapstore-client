@@ -36,6 +36,7 @@ const ADD_NETWORK = 'ADD_ANUGA_NETWORK';
 const ADD_LUMPED_CATCHMENT = 'ADD_LUMPED_CATCHMENT';
 const ADD_NODES = 'ADD_NODES';
 const ADD_LINKS = 'ADD_LINKS';
+const ADD_COMPARISON = 'ADD_COMPARISON';
 const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
 const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
 const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
@@ -57,6 +58,9 @@ const START_ANUGA_ELEVATION_POLLING = 'START_ANUGA_ELEVATION_POLLING';
 const STOP_ANUGA_ELEVATION_POLLING = 'STOP_ANUGA_ELEVATION_POLLING';
 const START_ANUGA_MODEL_CREATION_POLLING = 'START_ANUGA_MODEL_CREATION_POLLING';
 const STOP_ANUGA_MODEL_CREATION_POLLING = 'STOP_ANUGA_MODEL_CREATION_POLLING';
+const START_COMPARISON_POLLING = 'START_COMPARISON_POLLING';
+const STOP_COMPARISON_POLLING = 'STOP_COMPARISON_POLLING';
+const SET_COMPARISON_DATA = 'SET_COMPARISON_DATA';
 const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const UPDATE_NETWORK = 'UPDATE_NETWORK';
@@ -118,6 +122,18 @@ function stopAnugaScenarioPolling() {
     };
 }
 
+function startComparisonPolling() {
+    return {
+        type: START_COMPARISON_POLLING
+    };
+}
+
+function stopComparisonPolling() {
+    return {
+        type: STOP_COMPARISON_POLLING
+    };
+}
+
 function startAnugaElevationPolling() {
     return {
         type: START_ANUGA_ELEVATION_POLLING
@@ -139,6 +155,13 @@ function startAnugaModelCreationPolling() {
 function stopAnugaModelCreationPolling() {
     return {
         type: STOP_ANUGA_MODEL_CREATION_POLLING
+    };
+}
+
+function setComparisonData(data) {
+    return {
+        type: SET_COMPARISON_DATA,
+        data
     };
 }
 
@@ -315,6 +338,12 @@ function createLinks(linksTitle) {
     return {
         type: CREATE_LINKS,
         linksTitle
+    };
+}
+
+function addComparison() {
+    return {
+        type: ADD_COMPARISON
     };
 }
 
@@ -655,6 +684,7 @@ module.exports = {
     ADD_LUMPED_CATCHMENT, addCatchment,
     ADD_NODES, addNodes,
     ADD_LINKS, addLinks,
+    ADD_COMPARISON, addComparison,
     SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
     CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,
@@ -679,6 +709,9 @@ module.exports = {
     STOP_ANUGA_ELEVATION_POLLING, stopAnugaElevationPolling,
     START_ANUGA_MODEL_CREATION_POLLING, startAnugaModelCreationPolling,
     STOP_ANUGA_MODEL_CREATION_POLLING, stopAnugaModelCreationPolling,
+    START_COMPARISON_POLLING, startComparisonPolling,
+    STOP_COMPARISON_POLLING, stopComparisonPolling,
+    SET_COMPARISON_DATA, setComparisonData,
     SET_ANUGA_POLLING_DATA, setAnugaPollingData,
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
     SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded,

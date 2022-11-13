@@ -16,6 +16,7 @@ import {
     ADD_LUMPED_CATCHMENT,
     ADD_NODES,
     ADD_LINKS,
+    ADD_COMPARISON,
     addAnugaBoundary,
     addAnugaInflow,
     addAnugaFriction,
@@ -26,6 +27,7 @@ import {
     addCatchment,
     addNodes,
     addLinks,
+    addComparison,
     CANCEL_ANUGA_RUN,
     CREATE_ANUGA_BOUNDARY,
     CREATE_ANUGA_FRICTION,
@@ -68,11 +70,15 @@ import {
     START_ANUGA_ELEVATION_POLLING,
     START_ANUGA_MODEL_CREATION_POLLING,
     START_ANUGA_SCENARIO_POLLING,
+    START_COMPARISON_POLLING,
+    setComparisonData,
     startAnugaModelCreationPolling,
     startAnugaScenarioPolling,
     STOP_ANUGA_ELEVATION_POLLING,
     STOP_ANUGA_MODEL_CREATION_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
+    STOP_COMPARISON_POLLING,
+    stopComparisonPolling,
     stopAnugaElevationPolling,
     UPDATE_COMPUTE_INSTANCE,
     updateComputeInstanceSuccess,
@@ -80,7 +86,12 @@ import {
     compareScenariosSuccess
 } from "./actionsAnuga";
 
-import {UPDATE_DATASET_TITLE, updateUploadStatus, UPDATE_DATASET_TITLE_SUCCESS} from "../SimpleView/actionsSimpleView";
+import {
+    UPDATE_DATASET_TITLE,
+    updateUploadStatus,
+    UPDATE_DATASET_TITLE_SUCCESS,
+    SET_OPEN_MENU_GROUP_ID
+} from "../SimpleView/actionsSimpleView";
 import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
 const addAnugaLayerFromAvailableResponse = (response, store) => {
@@ -159,6 +170,9 @@ export const initAnugaEpic = (action$, store) =>
                         Rx.Observable
                             .from(axios.get(`/anuga/api/${response1.data.projectId}/links/`))
                             .switchMap((response14) => Rx.Observable.of(setAnugaLinksData(response14.data))),
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/comparison/`))
+                            .switchMap((response15) => Rx.Observable.of(setComparisonData(response15.data))),
                         Rx.Observable.of(startAnugaScenarioPolling())
                     )
                 )
@@ -391,6 +405,19 @@ export const compareScenarioEpic = (action$, store) =>
         ));
 
 
+export const pollComparisonEpic = (action$, store) =>
+    action$
+        .ofType(SET_OPEN_MENU_GROUP_ID)
+        .filter(action => action?.openMenuGroupId === 'Results')
+        .switchMap(() =>
+            Rx.Observable.timer(0, 10000)
+                .takeUntil(action$.ofType(STOP_COMPARISON_POLLING))
+                .switchMap(() =>
+                    Rx.Observable.concat(
+                        Rx.Observable.of(addComparison())
+                    ))
+        );
+
 export const runNetworkEpic = (action$, store) =>
     action$
         .ofType(RUN_NETWORK)
@@ -425,6 +452,18 @@ export const addAnugaBoundaryEpic = (action$, store) =>
         .switchMap(() =>
             Rx.Observable
                 .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/boundary/available/`)
+                    .catch((error) => error)
+                )
+                .filter(response1 => response1?.status <= 400)
+                .switchMap((response1) => addAnugaLayerFromAvailableResponse(response1, store))
+        );
+
+export const addComparisonEpic = (action$, store) =>
+    action$
+        .ofType(ADD_COMPARISON)
+        .switchMap(() =>
+            Rx.Observable
+                .from(axios.get(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/comparison/available/`)
                     .catch((error) => error)
                 )
                 .filter(response1 => response1?.status <= 400)
