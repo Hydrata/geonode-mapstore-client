@@ -630,7 +630,7 @@ const compareScenarios = (scenarios) => {
     };
 };
 
-function compareScenariosSuccess() {
+function compareScenariosSuccess(scenarios) {
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -642,7 +642,8 @@ function compareScenariosSuccess() {
             level: 'success'
         });
         dispatch({
-            type: COMPARE_SCENARIOS_SUCCESS
+            type: COMPARE_SCENARIOS_SUCCESS,
+            scenarios
         });
     };
 }

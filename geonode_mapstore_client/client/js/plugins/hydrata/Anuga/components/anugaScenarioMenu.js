@@ -48,7 +48,8 @@ class AnugaScenarioMenuClass extends React.Component {
         showAnugaRunMenu: PropTypes.func,
         toggleScenarioSelected: PropTypes.func,
         selectedScenarios: PropTypes.array,
-        compareScenarios: PropTypes.func
+        compareScenarios: PropTypes.func,
+        readyToCompare: PropTypes.number
     };
 
     static defaultProps = {}
@@ -56,7 +57,7 @@ class AnugaScenarioMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            scenarioTableTabs: ['manage']
+            scenarioTableTabs: ['manage', 'compare']
         };
         this.handleTextChange = this.handleTextChange.bind(this);
         this.handleBoolChange = this.handleBoolChange.bind(this);
@@ -227,6 +228,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                     <Button
                                                         bsStyle={'success'}
                                                         bsSize={'xsmall'}
+                                                        className={this.props.readyToCompare ? '' : 'disabled'}
                                                         style={{margin: "2px", borderRadius: "2px"}}
                                                         onClick={() => {
                                                             this.props.compareScenarios(this.props.selectedScenarios);
@@ -643,6 +645,7 @@ const mapStateToProps = (state) => {
     return {
         scenarios: scenarios,
         selectedScenarios: selectedScenarios(state),
+        readyToCompare: selectedScenarios(state).length === 2,
         boundaries: state?.anuga?.boundaries,
         elevations: state?.anuga?.elevations,
         frictions: state?.anuga?.frictions,
