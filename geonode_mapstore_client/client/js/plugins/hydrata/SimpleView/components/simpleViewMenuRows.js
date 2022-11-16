@@ -42,11 +42,9 @@ class MenuRowsClass extends React.Component {
                 {this.props.layerSubheadings.map(subHeading => (
                     <React.Fragment>
                         <h5 style={{textAlign: "left"}}>{subHeading}</h5>
-                        {this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading).map(layer => {
-                            return layer?.loadingError ?
-                                <MenuRow layer={layer} lineThrough/> :
-                                <MenuRow layer={layer}/>;
-                        })}
+                        {this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading).map(layer =>
+                            <MenuRow layer={layer}/>
+                        )}
                     </React.Fragment>
                 ))}
             </div>

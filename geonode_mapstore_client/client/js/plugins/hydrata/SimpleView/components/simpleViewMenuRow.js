@@ -113,7 +113,7 @@ class MenuRowClass extends React.Component {
                                     />
                                 }
                             </React.Fragment>
-                            : <span className="menu-row-text" style={this.props.lineThrough ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
+                            : <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
                     }
                 </span>
                 <span className={"pull-right .menu-row-button"}>
