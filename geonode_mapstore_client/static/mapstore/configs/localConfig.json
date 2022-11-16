@@ -1676,7 +1676,7 @@
                         {
                             "type": "plugin",
                             "name": "DatasetsCatalog",
-                            "disableIf": "{!context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+                            "disableIf": "{state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
                             "label": "gnviewer.viewMetadata"
                         }
                     ],
