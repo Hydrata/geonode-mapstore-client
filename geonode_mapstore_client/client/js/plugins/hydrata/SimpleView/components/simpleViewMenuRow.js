@@ -36,7 +36,8 @@ class MenuRowClass extends React.Component {
         updateLayerTitle: PropTypes.func,
         refreshLayers: PropTypes.func,
         svDownloadLayer: PropTypes.func,
-        selectNode: PropTypes.func
+        selectNode: PropTypes.func,
+        lineThrough: PropTypes.bool
     };
 
     constructor(props) {
@@ -112,7 +113,7 @@ class MenuRowClass extends React.Component {
                                     />
                                 }
                             </React.Fragment>
-                            : <span className="menu-row-text">{this.props.layer?.title}</span>
+                            : <span className="menu-row-text" style={this.props.lineThrough ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
                     }
                 </span>
                 <span className={"pull-right .menu-row-button"}>
