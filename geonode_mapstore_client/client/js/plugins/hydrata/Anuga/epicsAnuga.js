@@ -399,9 +399,6 @@ export const compareScenarioEpic = (action$, store) =>
             axios
                 .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/compare/`, action.scenarios)
                 .then(response => compareScenariosSuccess(response.data))
-        ))
-        .concatMap(() => Rx.Observable.of(
-            setAnugaScenarioMenu(true)
         ));
 
 
