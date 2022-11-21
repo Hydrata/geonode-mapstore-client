@@ -3,6 +3,8 @@ import {
     SET_ANUGA_SCENARIO_MENU,
     SET_ANUGA_RESULT_MENU,
     SET_NETWORK_MENU,
+    SET_REVIEW_PANEL,
+    SET_PUBLICATION_PANEL,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
     UPDATE_ANUGA_SCENARIO,
@@ -276,21 +278,30 @@ export default ( state = initialState, action) => {
             ...state,
             showAnugaInputMenu: action.visible,
             showAnugaScenarioMenu: false,
-            showAnugaResultMenu: false
+            showAnugaResultMenu: false,
+            showNetworkMenu: false,
+            showReviewPanel: false,
+            showPublicationPanel: false
         };
     case SET_ANUGA_SCENARIO_MENU:
         return {
             ...state,
             showAnugaInputMenu: false,
             showAnugaScenarioMenu: action.visible,
-            showAnugaResultMenu: false
+            showAnugaResultMenu: false,
+            showNetworkMenu: false,
+            showReviewPanel: false,
+            showPublicationPanel: false
         };
     case SET_ANUGA_RESULT_MENU:
         return {
             ...state,
             showAnugaScenarioMenu: false,
             showAnugaInputMenu: false,
-            showAnugaResultMenu: action.visible
+            showAnugaResultMenu: action.visible,
+            showNetworkMenu: false,
+            showReviewPanel: false,
+            showPublicationPanel: false
         };
     case SET_NETWORK_MENU:
         return {
@@ -298,7 +309,29 @@ export default ( state = initialState, action) => {
             showAnugaInputMenu: false,
             showAnugaScenarioMenu: false,
             showAnugaResultMenu: false,
-            showNetworkMenu: action.visible
+            showNetworkMenu: action.visible,
+            showReviewPanel: false,
+            showPublicationPanel: false
+        };
+    case SET_REVIEW_PANEL:
+        return {
+            ...state,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false,
+            showNetworkMenu: false,
+            showReviewPanel: action.visible,
+            showPublicationPanel: false
+        };
+    case SET_PUBLICATION_PANEL:
+        return {
+            ...state,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false,
+            showNetworkMenu: false,
+            showReviewPanel: false,
+            showPublicationPanel: action.visible
         };
     default:
         return state;

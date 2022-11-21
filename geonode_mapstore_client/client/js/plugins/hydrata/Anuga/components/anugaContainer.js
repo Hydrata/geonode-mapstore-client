@@ -7,19 +7,21 @@ import {
     setAnugaInputMenu,
     setAnugaScenarioMenu,
     setAnugaResultMenu,
+    setReviewPanel,
+    setPublicationPanel,
     startAnugaScenarioPolling,
     stopAnugaScenarioPolling
 } from '../actionsAnuga';
-import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {canEditAnugaMap, canViewAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import {AnugaInputMenu} from './AnugaInputMenu';
 import {AnugaScenarioMenu} from './AnugaScenarioMenu';
+import {ReviewPanel} from './reviewPanel';
+import {PublicationPanel} from './publicationPanel';
 import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {NetworkMenu} from "./networkMenu";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
-// import {updateCustomEditorsOptions} from "../../../../../MapStore2/web/client/actions/featuregrid";
-import Introduction from "@js/plugins/hydrata/SimpleView/components/simpleViewIntroduction";
 import {AnugaRunMenu} from "@js/plugins/hydrata/Anuga/components/anugaRunMenu";
 
 class AnugaContainer extends React.Component {
@@ -32,6 +34,10 @@ class AnugaContainer extends React.Component {
         showAnugaResultMenu: PropTypes.bool,
         setAnugaResultMenu: PropTypes.func,
         showNetworkMenu: PropTypes.bool,
+        setReviewPanel: PropTypes.func,
+        showReviewPanel: PropTypes.bool,
+        setPublicationPanel: PropTypes.func,
+        showPublicationPanel: PropTypes.bool,
         isAnugaMenuOpen: PropTypes.bool,
         openMenuGroupId: PropTypes.string,
         numberOfMenus: PropTypes.number,
@@ -46,7 +52,10 @@ class AnugaContainer extends React.Component {
         gnResourceLoaded: PropTypes.string,
         visibleAnugaRunMenu: PropTypes.bool,
         canEditAnugaMap: PropTypes.bool,
-        hasEPSGset: PropTypes.bool
+        canViewAnugaMap: PropTypes.bool,
+        hasEPSGset: PropTypes.bool,
+        resultsGroup: PropTypes.object,
+        isAnugaProject: PropTypes.bool
     };
 
     static defaultProps = {
@@ -113,6 +122,64 @@ class AnugaContainer extends React.Component {
                             : null
                     }
                     {
+                        this.props.canViewAnugaMap && this.props.hasEPSGset ?
+                            <button
+                                key={this.props.resultsGroup?.title}
+                                className={'simple-view-menu-button'}
+                                style={{left: 320}}
+                                onClick={() => {
+                                    this.props.setOpenMenuGroupId('Results');
+                                }}
+                            >
+                                Results
+                            </button>
+                            : null
+                    }
+                    {
+                        this.props.canEditAnugaMap && this.props.hasEPSGset ?
+                            <div id={"review-panel-container"}>
+                                <button
+                                    key="review-panel-button"
+                                    className={'simple-view-menu-button disabled'}
+                                    style={{left: 420}}
+                                    onClick={() => {
+                                        this.props.setReviewPanel(!this.props.showReviewPanel);
+                                        this.props.setOpenMenuGroupId(null);
+                                    }}
+                                >
+                                    Review
+                                </button>
+                                {
+                                    this.props.showReviewPanel ?
+                                        <ReviewPanel/>
+                                        : null
+                                }
+                            </div>
+                            : null
+                    }
+                    {
+                        this.props.canEditAnugaMap && this.props.hasEPSGset ?
+                            <div id={"publication-panel-container"}>
+                                <button
+                                    key="publication-panel-button"
+                                    className={'simple-view-menu-button disabled'}
+                                    style={{left: 520}}
+                                    onClick={() => {
+                                        this.props.setPublicationPanel(!this.props.showPublicationPanel);
+                                        this.props.setOpenMenuGroupId(null);
+                                    }}
+                                >
+                                    Publish
+                                </button>
+                                {
+                                    this.props.showPublicationPanel ?
+                                        <PublicationPanel/>
+                                        : null
+                                }
+                            </div>
+                            : null
+                    }
+                    {
                         this.props.visibleAnugaScenarioLogId ?
                             <AnugaScenarioLogViewer logText={this.props.logText}/>
                             : null
@@ -125,11 +192,6 @@ class AnugaContainer extends React.Component {
                     {
                         this.props.showNetworkMenu ?
                             <NetworkMenu/>
-                            : null
-                    }
-                    {
-                        this.props.visibleIntroduction ?
-                            <Introduction />
                             : null
                     }
                 </div>
@@ -153,6 +215,8 @@ const mapStateToProps = (state) => {
         showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,
         showAnugaResultMenu: state?.anuga?.showAnugaResultMenu,
+        showReviewPanel: state?.anuga?.showReviewPanel,
+        showPublicationPanel: state?.anuga?.showPublicationPanel,
         isAnugaMenuOpen: state?.anuga?.showAnugaInputMenu || state?.anuga?.showAnugaScenarioMenu || state?.anuga?.showAnugaResultMenu,
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups?.length || 1,
@@ -162,7 +226,8 @@ const mapStateToProps = (state) => {
         showNetworkMenu: state?.anuga?.showNetworkMenu,
         visibleNetworkMenu: state?.anuga?.visibleNetworkMenu,
         visibleAnugaRunMenu: state?.anuga?.visibleAnugaRunMenu,
-        canEditAnugaMap: canEditAnugaMap(state)
+        canEditAnugaMap: canEditAnugaMap(state),
+        canViewAnugaMap: canViewAnugaMap(state)
     };
 };
 
@@ -172,6 +237,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         setAnugaResultMenu: (visible) => dispatch(setAnugaResultMenu(visible)),
+        setReviewPanel: (visible) => dispatch(setReviewPanel(visible)),
+        setPublicationPanel: (visible) => dispatch(setPublicationPanel(visible)),
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling())

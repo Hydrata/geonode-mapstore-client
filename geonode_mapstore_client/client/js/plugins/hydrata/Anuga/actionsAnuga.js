@@ -5,6 +5,8 @@ const SET_ANUGA_INPUT_MENU = 'SET_ANUGA_INPUT_MENU';
 const SET_ANUGA_SCENARIO_MENU = 'SET_ANUGA_SCENARIO_MENU';
 const SET_ANUGA_RESULT_MENU = 'SET_ANUGA_RESULT_MENU';
 const SET_NETWORK_MENU = 'SET_NETWORK_MENU';
+const SET_REVIEW_PANEL = 'SET_REVIEW_PANEL';
+const SET_PUBLICATION_PANEL = 'SET_PUBLICATION_PANEL';
 const SET_ANUGA_PROJECT_DATA = 'SET_ANUGA_PROJECT_DATA';
 const SET_ANUGA_SCENARIO_DATA = 'SET_ANUGA_SCENARIO_DATA';
 const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
@@ -106,6 +108,20 @@ function setAnugaInputMenu(visible) {
 function setAnugaScenarioMenu(visible) {
     return {
         type: SET_ANUGA_SCENARIO_MENU,
+        visible
+    };
+}
+
+function setReviewPanel(visible) {
+    return {
+        type: SET_REVIEW_PANEL,
+        visible
+    };
+}
+
+function setPublicationPanel(visible) {
+    return {
+        type: SET_PUBLICATION_PANEL,
         visible
     };
 }
@@ -653,6 +669,8 @@ module.exports = {
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
     SET_ANUGA_SCENARIO_MENU, setAnugaScenarioMenu,
     SET_ANUGA_RESULT_MENU, setAnugaResultMenu,
+    SET_REVIEW_PANEL, setReviewPanel,
+    SET_PUBLICATION_PANEL, setPublicationPanel,
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
     SET_ANUGA_ELEVATION_DATA, setAnugaElevationData,
