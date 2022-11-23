@@ -19,6 +19,7 @@ const SET_NETWORK_DATA = 'SET_NETWORK_DATA';
 const SET_LUMPED_CATCHMENT_DATA = 'SET_LUMPED_CATCHMENT_DATA';
 const SET_ANUGA_NODES_DATA = 'SET_ANUGA_NODES_DATA';
 const SET_ANUGA_LINKS_DATA = 'SET_ANUGA_LINKS_DATA';
+const SET_PUBLICATION_DATA = 'SET_PUBLICATION_DATA';
 const CREATE_ANUGA_BOUNDARY = 'CREATE_ANUGA_BOUNDARY';
 const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
 const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
@@ -269,6 +270,13 @@ function setAnugaNodesData(data) {
 function setAnugaLinksData(data) {
     return {
         type: SET_ANUGA_LINKS_DATA,
+        data
+    };
+}
+
+function setPublicationData(data) {
+    return {
+        type: SET_PUBLICATION_DATA,
         data
     };
 }
@@ -684,6 +692,7 @@ module.exports = {
     SET_LUMPED_CATCHMENT_DATA, setCatchmentData,
     SET_ANUGA_NODES_DATA, setAnugaNodesData,
     SET_ANUGA_LINKS_DATA, setAnugaLinksData,
+    SET_PUBLICATION_DATA, setPublicationData,
     CREATE_ANUGA_BOUNDARY, createAnugaBoundary,
     CREATE_ANUGA_FRICTION, createAnugaFriction,
     CREATE_ANUGA_INFLOW, createAnugaInflow,

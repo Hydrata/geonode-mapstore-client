@@ -66,6 +66,7 @@ import {
     setAnugaScenarioMenu,
     setAnugaScenarioResultsLoaded,
     setAnugaStructureData,
+    setPublicationData,
     setCreatingAnugaLayer,
     START_ANUGA_ELEVATION_POLLING,
     START_ANUGA_MODEL_CREATION_POLLING,
@@ -173,6 +174,9 @@ export const initAnugaEpic = (action$, store) =>
                         Rx.Observable
                             .from(axios.get(`/anuga/api/${response1.data.projectId}/comparison/`))
                             .switchMap((response15) => Rx.Observable.of(setComparisonData(response15.data))),
+                        Rx.Observable
+                            .from(axios.get(`/anuga/api/${response1.data.projectId}/publication/`))
+                            .switchMap((response16) => Rx.Observable.of(setPublicationData(response16.data))),
                         Rx.Observable.of(startAnugaScenarioPolling())
                     )
                 )

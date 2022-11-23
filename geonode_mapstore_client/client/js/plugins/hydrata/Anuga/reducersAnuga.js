@@ -7,6 +7,7 @@ import {
     SET_PUBLICATION_PANEL,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
+    SET_PUBLICATION_DATA,
     UPDATE_ANUGA_SCENARIO,
     UPDATE_NETWORK,
     SELECT_ANUGA_SCENARIO,
@@ -262,6 +263,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             links: action.data
+        };
+    case SET_PUBLICATION_DATA:
+        return {
+            ...state,
+            publications: action.data
         };
     case SET_OPEN_MENU_GROUP_ID:
         if (action.openMenuGroupId) {
