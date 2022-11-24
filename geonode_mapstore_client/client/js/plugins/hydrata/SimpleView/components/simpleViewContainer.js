@@ -73,11 +73,11 @@ class SimpleViewContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    let groupBlacklist = [];
-    let numberOfCustomMenuSpaces = 0;
-    if (state?.anuga?.projectData?.id) {
-        groupBlacklist = ['Input Data', 'Results'];
-        numberOfCustomMenuSpaces =  4;
+    let groupBlacklist = ['Input Data', 'Results'];
+    let numberOfCustomMenuSpaces =  4;
+    if (!!!state?.anuga?.projectData?.id) {
+        groupBlacklist = [];
+        numberOfCustomMenuSpaces = 0;
     }
     return {
         numberOfCustomMenuSpaces: numberOfCustomMenuSpaces,
