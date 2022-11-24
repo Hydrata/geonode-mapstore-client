@@ -11,6 +11,7 @@ import {
 
 class ReviewPanelClass extends React.Component {
     static propTypes = {
+        setReviewPanel: PropTypes.func
     };
 
     static defaultProps = {}
@@ -21,7 +22,7 @@ class ReviewPanelClass extends React.Component {
             <div id={'publication-panel'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                        Review
+                        -- Under development -- Model review process.
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={

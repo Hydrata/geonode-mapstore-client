@@ -33,7 +33,7 @@ class PublicationPanelClass extends React.Component {
         return (
             <div id={'publication-panel'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
+                    <div className={"row"} style={{height: "20px", textAlign: "left", fontSize: "large"}}>
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={
@@ -52,7 +52,7 @@ class PublicationPanelClass extends React.Component {
                                     bsSize={'xlarge'}
                                     style={{marginTop: "4px", borderRadius: "2px", "float": "right", display: "inlineBlock"}}
                                     onClick={() => {
-                                        window.open(publication?.geostory?.detail_url, '_blank').focus();
+                                        window.open(publication?.geostory?.detail_url, '_blank');
                                     }}
                                 >
                                     Edit Publication
@@ -65,16 +65,16 @@ class PublicationPanelClass extends React.Component {
                                         <Button
                                             bsStyle={'success'}
                                             bsSize={'xsmall'}
-                                            style={{borderRadius: "2px"}}
+                                            style={{borderRadius: "2px", marginTop: "5px", display: "block", width: "375px", textAlign: "left"}}
                                             onClick={() => {
-                                                window.open(figure?.detail_url, '_blank').focus();
+                                                window.open(figure?.detail_url, '_blank');
                                             }}
                                         >
                                             {figure?.title}
                                         </Button>
                                     )
                                 }
-                                <div>
+                                <div style={{borderTop: "2px solid #ffffffad", paddingTop: "15px", marginTop: "5px", marginBottom: "10px"}}>
                                     <input
                                         id={'figure-input'}
                                         key={'figure-input'}

@@ -140,8 +140,8 @@ class AnugaContainer extends React.Component {
                             <div id={"review-panel-container"}>
                                 <button
                                     key="review-panel-button"
-                                    className={'simple-view-menu-button disabled'}
-                                    style={{left: 420}}
+                                    className={'simple-view-menu-button'}
+                                    style={{left: 420, color: "#b9b8b8"}}
                                     onClick={() => {
                                         this.props.setReviewPanel(!this.props.showReviewPanel);
                                         this.props.setOpenMenuGroupId(null);

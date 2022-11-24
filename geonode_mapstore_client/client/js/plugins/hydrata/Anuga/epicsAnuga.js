@@ -670,7 +670,13 @@ export const createFigureEpic = (action$, store) =>
                 })
                     .catch((error) => error)
                 )
-        );
+        )
+        .filter(response1 => response1?.status <= 400)
+        .switchMap((response1) => {
+            console.log('response1:', response1);
+            window.open(response1?.data?.detail_url, '_blank').focus();
+            return Rx.Observable.of(initAnuga());
+        });
 
 export const createCatchmentEpic = (action$, store) =>
     action$
