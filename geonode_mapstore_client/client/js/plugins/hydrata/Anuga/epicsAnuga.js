@@ -35,6 +35,7 @@ import {
     CREATE_ANUGA_MESH_REGION,
     CREATE_ANUGA_STRUCTURE,
     CREATE_NETWORK,
+    CREATE_FIGURE,
     CREATE_LUMPED_CATCHMENT,
     CREATE_NODES,
     CREATE_LINKS,
@@ -658,6 +659,18 @@ export const createNetworkEpic = (action$, store) =>
         .switchMap(() => {
             return Rx.Observable.of(addNetwork());
         });
+
+export const createFigureEpic = (action$, store) =>
+    action$
+        .ofType(CREATE_FIGURE)
+        .switchMap((action) =>
+            Rx.Observable
+                .from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/publication/${action.publicationId}/create-figure/`, {
+                    "title": action.figureTitle
+                })
+                    .catch((error) => error)
+                )
+        );
 
 export const createCatchmentEpic = (action$, store) =>
     action$

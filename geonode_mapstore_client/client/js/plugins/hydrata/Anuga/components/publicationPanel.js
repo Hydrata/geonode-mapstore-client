@@ -6,25 +6,34 @@ import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
+    createFigure,
     setPublicationPanel
 } from "../actionsAnuga";
-import {ReviewPanel} from "@js/plugins/hydrata/Anuga/components/reviewPanel";
 
 class PublicationPanelClass extends React.Component {
     static propTypes = {
         publications: PropTypes.array,
         setPublicationPanel: PropTypes.func,
-        geonodeUrl: PropTypes.string
+        createFigure: PropTypes.func,
+        geonodeUrl: PropTypes.string,
+        figureTitle: PropTypes.string
     };
 
     static defaultProps = {}
+
+    constructor(props) {
+        super(props);
+        this.state = {
+            figureTitle: ''
+        };
+    }
 
     render() {
         // console.log('this.state:', this.state)
         return (
             <div id={'publication-panel'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
+                    <div className={"row"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={
@@ -37,7 +46,7 @@ class PublicationPanelClass extends React.Component {
                     {
                         this.props.publications?.map(publication =>
                             <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                                <span style={{lineHeight: "40px"}}>{publication?.geostory?.title}</span>
+                                <span style={{lineHeight: "40px"}}>Publish: {publication?.geostory?.title}</span>
                                 <Button
                                     bsStyle={'success'}
                                     bsSize={'xlarge'}
@@ -66,15 +75,25 @@ class PublicationPanelClass extends React.Component {
                                     )
                                 }
                                 <div>
+                                    <input
+                                        id={'figure-input'}
+                                        key={'figure-input'}
+                                        className={'data-title-input'}
+                                        style={{width: "375px", marginTop: "3px", marginRight: "5px", "float": "left"}}
+                                        type={'text'}
+                                        value={this.state.figureTitle}
+                                        onChange={(e) => this.setState({figureTitle: e.target.value})}
+                                    />
                                     <Button
                                         bsStyle={'success'}
                                         bsSize={'xsmall'}
                                         style={{margin: "2px", borderRadius: "2px", "float": "left"}}
                                         onClick={() => {
-                                            window.open(`${this.props.geonodeUrl}catalogue/#/map/new`, '_blank').focus();
+                                            this.props.createFigure(this.state.figureTitle, publication.id);
+                                            this.setState({networkTitle: ''});
                                         }}
                                     >
-                                        Create New Figure
+                                        Create Figure
                                     </Button>
                                 </div>
                             </div>
@@ -96,7 +115,8 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
-        setPublicationPanel: (visible) => dispatch(setPublicationPanel(visible))
+        setPublicationPanel: (visible) => dispatch(setPublicationPanel(visible)),
+        createFigure: (figureTitle, publicationId) => dispatch(createFigure(figureTitle, publicationId))
     };
 };
 

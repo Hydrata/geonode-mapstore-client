@@ -29,6 +29,7 @@ const CREATE_NETWORK = 'CREATE_NETWORK';
 const CREATE_LUMPED_CATCHMENT = 'CREATE_LUMPED_CATCHMENT';
 const CREATE_NODES = 'CREATE_NODES';
 const CREATE_LINKS = 'CREATE_LINKS';
+const CREATE_FIGURE = 'CREATE_FIGURE';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
@@ -362,6 +363,14 @@ function createLinks(linksTitle) {
     return {
         type: CREATE_LINKS,
         linksTitle
+    };
+}
+
+function createFigure(figureTitle, publicationId) {
+    return {
+        type: CREATE_FIGURE,
+        figureTitle,
+        publicationId
     };
 }
 
@@ -702,6 +711,7 @@ module.exports = {
     CREATE_LUMPED_CATCHMENT, createCatchment,
     CREATE_NODES, createNodes,
     CREATE_LINKS, createLinks,
+    CREATE_FIGURE, createFigure,
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,
