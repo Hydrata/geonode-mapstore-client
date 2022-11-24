@@ -79,6 +79,10 @@ const mapStateToProps = (state) => {
         groupBlacklist = [];
         numberOfCustomMenuSpaces = 0;
     }
+    console.log('groupBlacklist:', groupBlacklist);
+    console.log('numberOfCustomMenuSpaces:', numberOfCustomMenuSpaces);
+    console.log('menuGroups:', state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name)));
+    console.log('state?.layers?.groups:', state?.layers?.groups);
     return {
         numberOfCustomMenuSpaces: numberOfCustomMenuSpaces,
         menuGroups: state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name)),
