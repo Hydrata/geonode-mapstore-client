@@ -79,13 +79,14 @@ const mapStateToProps = (state) => {
         groupBlacklist = [];
         numberOfCustomMenuSpaces = 0;
     }
+    const menuGroups = state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name));
     console.log('groupBlacklist:', groupBlacklist);
     console.log('numberOfCustomMenuSpaces:', numberOfCustomMenuSpaces);
-    console.log('menuGroups:', state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name)));
+    console.log('menuGroups:', menuGroups);
     console.log('state?.layers?.groups:', state?.layers?.groups);
     return {
         numberOfCustomMenuSpaces: numberOfCustomMenuSpaces,
-        menuGroups: state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name)),
+        menuGroups: menuGroups,
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         visibleIntroduction: state?.simpleView?.visibleIntroduction
