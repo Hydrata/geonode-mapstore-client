@@ -44,7 +44,7 @@ class SimpleViewContainer extends React.Component {
                                 return (
                                     <button
                                         id={`simpleViewContainer-mapped-button-${menu?.name}-${menu?.title}`}
-                                        key={menu?.title}
+                                        key={`simpleViewContainer-mapped-button-${menu?.name}-${menu?.title}`}
                                         className={'simple-view-menu-button'}
                                         style={{left: (index + this.props.numberOfCustomMenuSpaces + 1) * 100 + 20}}
                                         onClick={() => {this.props.setOpenMenuGroupId(menu.id);}}>
