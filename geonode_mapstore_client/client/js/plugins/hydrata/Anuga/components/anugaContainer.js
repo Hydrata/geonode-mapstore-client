@@ -151,7 +151,8 @@ class AnugaContainer extends React.Component {
                                 </button>
                                 {
                                     this.props.showReviewPanel ?
-                                        <ReviewPanel/>
+                                        null
+                                        // <ReviewPanel/>
                                         : null
                                 }
                             </div>
