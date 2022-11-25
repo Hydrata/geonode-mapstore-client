@@ -38,18 +38,21 @@ class SimpleViewContainer extends React.Component {
                         onClick={() => {this.props.setOpenMenuGroupId(this.props.baseMapMenuGroup?.id);}}>
                         BaseMaps
                     </button>
-                    {this.props.menuGroups && this.props.menuGroups.length && this.props.menuGroups.map(
-                        (menu, index) => {
-                            return (
-                                <button
-                                    key={menu?.title}
-                                    className={'simple-view-menu-button'}
-                                    style={{left: (index + this.props.numberOfCustomMenuSpaces + 1) * 100 + 20}}
-                                    onClick={() => {this.props.setOpenMenuGroupId(menu.id);}}>
-                                    {menu?.title === 'Default' ? menu.name : menu.title}
-                                </button>
-                            );
-                        })
+                    {this.props.menuGroups && this.props.menuGroups.length ?
+                        this.props.menuGroups.map(
+                            (menu, index) => {
+                                return (
+                                    <button
+                                        id={`simpleViewContainer-mapped-button-${menu?.name}-${menu?.title}`}
+                                        key={menu?.title}
+                                        className={'simple-view-menu-button'}
+                                        style={{left: (index + this.props.numberOfCustomMenuSpaces + 1) * 100 + 20}}
+                                        onClick={() => {this.props.setOpenMenuGroupId(menu.id);}}>
+                                        {menu?.title === 'Default' ? menu.name : menu.title}
+                                    </button>
+                                );
+                            }) :
+                        null
                     }
                 </ul>
                 {(() => {

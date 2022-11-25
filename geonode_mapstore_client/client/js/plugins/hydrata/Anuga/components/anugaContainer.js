@@ -124,6 +124,7 @@ class AnugaContainer extends React.Component {
                     {
                         this.props.canViewAnugaMap && this.props.hasEPSGset ?
                             <button
+                                id={'anugaContainer-results-button-01'}
                                 key={this.props.resultsGroup?.title}
                                 className={'simple-view-menu-button'}
                                 style={{left: 320}}
