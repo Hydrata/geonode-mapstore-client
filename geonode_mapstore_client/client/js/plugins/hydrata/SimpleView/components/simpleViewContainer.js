@@ -27,6 +27,7 @@ class SimpleViewContainer extends React.Component {
     }
 
     render() {
+        console.log('render this.props.menuGroups:', this.props.menuGroups);
         return (
             <div id={"simple-view-container"}>
                 <ul className="menu-groups">
@@ -73,11 +74,11 @@ class SimpleViewContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    let groupBlacklist = ['Input Data', 'Results'];
-    let numberOfCustomMenuSpaces =  3;
-    if (!!!state?.anuga?.projectData?.id) {
-        groupBlacklist = [];
-        numberOfCustomMenuSpaces = 0;
+    let groupBlacklist = [];
+    let numberOfCustomMenuSpaces =  0;
+    if (state?.anuga?.projectData?.id) {
+        groupBlacklist = ['Input Data', 'Results'];
+        numberOfCustomMenuSpaces = 4;
     }
     const menuGroups = state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name));
     console.log('groupBlacklist:', groupBlacklist);
