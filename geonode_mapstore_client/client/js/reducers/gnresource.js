@@ -45,6 +45,7 @@ const defaultState = {
 };
 
 function gnresource(state = defaultState, action) {
+    console.log('gnresource:', action);
     switch (action.type) {
     case RESET_RESOURCE_STATE: {
         return defaultState;

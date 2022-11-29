@@ -421,6 +421,9 @@ export const gnViewerRequestResourceConfig = (action$, store) =>
                 )
             )
                 .catch((error) => {
+                    if (error?.statusText === "Forbidden") {
+                        error.statusText = "Forbidden. Please Sign In";
+                    }
                     return Observable.of(
                         ...getResetActions(),
                         resourceConfigError(error?.data?.detail || error?.statusText || error?.message)
