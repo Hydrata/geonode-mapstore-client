@@ -114,10 +114,12 @@ class AnugaInputMenuClass extends React.Component {
 
     componentDidMount() {
         this.props.startAnugaModelCreationPolling();
+        this.props.startAnugaElevationPolling();
     }
 
     componentWillUnmount() {
         this.props.stopAnugaModelCreationPolling();
+        this.props.stopAnugaElevationPolling();
     }
 
     render() {
