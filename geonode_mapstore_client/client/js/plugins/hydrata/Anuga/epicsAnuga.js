@@ -1,6 +1,6 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
-import {addLayer, removeLayer, refreshLayers} from '../../../../MapStore2/web/client/actions/layers';
+import {addLayer, removeLayer, refreshLayers, moveNode} from '../../../../MapStore2/web/client/actions/layers';
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
 import {saveDirectContent} from "@js/actions/gnsave";
@@ -227,6 +227,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     if (response.data?.length < 2) {
                         return Rx.Observable.empty();
                     }
+                    const numberOfInputDataGroups = store.getState()?.layers.groups.filter(group => group.id === "Input Data")?.[0]?.nodes?.length;
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.of(() => {
@@ -247,7 +248,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         Rx.Observable.of(() => {
                             let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
                             return refreshLayers(wmsLayers);
-                        })
+                        }),
+                        Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', numberOfInputDataGroups))
                     );
                 })
         );
