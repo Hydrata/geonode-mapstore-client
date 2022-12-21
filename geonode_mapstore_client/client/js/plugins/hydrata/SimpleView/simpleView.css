@@ -1,0 +1,223 @@
+.simple-view-menu-button {
+    position: absolute;
+    z-index: 1021;
+    top: 11px;
+    width: 85px;
+    height: 50px;
+    background-color: rgba(0, 60, 136, 0.6);
+    border-color: rgba(255, 255, 255, 0.7);
+    border-width: 2px;
+    padding: 3px 5px;
+    font-size: 12px;
+    line-height: 1.3;
+    border-radius: 4px;
+    color: white;
+    text-align: center
+}
+
+.simple-view-panel {
+    position: absolute;
+    z-index: 1021;
+    top: 65px;
+    left: 20px;
+    min-width: 500px;
+    background-color: rgba(0, 60, 136, 0.8);
+    border: #ffffff99 solid 1px;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: white;
+    text-align: center;
+}
+
+#simple-view-editor > * {
+    text-align: left;
+}
+
+.legend-button {
+    right: 12px;
+}
+
+.legend-panel {
+    top: 10px;
+    right: 60px;
+    left: unset;
+    text-align: right;
+    padding-bottom: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 92%;
+    max-width: 400px;
+}
+
+.legend-button-with-search {
+    top: 65px;
+    right: 15px;
+}
+
+.legend-panel-with-search {
+    top: 65px;
+    right: 15px;
+    left: unset;
+    text-align: right;
+    padding-bottom: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 92%;
+    max-width: 400px;
+}
+
+.legend-row {
+    padding: 10px;
+    margin: -1px 10px -1px 10px;
+    border: 1px solid #ffffffad;
+    border-radius: 3px;
+}
+
+.legend-background {
+    background-color: white;
+    padding: 3px;
+    border-radius: 3px;
+}
+
+.legend-image {                                                
+    display: block;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 80%;
+}
+
+.legend-text-label {
+    text-align: left;
+}
+
+.legend-heading {
+    text-align: center;
+}
+
+.legend-close {
+    position: absolute;
+    right: 0;
+    color: red;
+}
+
+.uploader-panel {
+    position: fixed;
+    top: 70px;
+    right: 10px;
+    left: unset;
+    padding-bottom: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 92%;
+    max-width: 600px;
+}
+
+.uploader-panel>tbody {
+    background-color: transparent;
+}
+
+.menu-rows-container {
+}
+
+.menu-row {
+    padding-left: 5px;
+    margin: 0;
+}
+
+.menu-row-header {
+    font-size: larger;
+    border-bottom: 2px solid #ffffffad;
+    padding-left: 5px;
+    margin: 0;
+}
+
+.menu-row-button {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+
+.menu-row-glyph {
+    background: #ffffff;
+    border-radius: 3px;
+    margin: 2px 5px 4px 0;
+    color: limegreen;
+    font-size: 14px;
+    padding: 3px 4px;
+}
+
+.menu-row-text {
+    font-size: 14px;
+    white-space: nowrap;
+    padding-left: 3px;
+    vertical-align: middle;
+    text-overflow: ellipsis ellipsis;
+    overflow: hidden;
+}
+
+.menu-row-mini-heading {
+    width: 100%;
+    margin-top: 10px;
+    margin-left: 10px;
+    text-align: left;
+}
+
+.menu-row-mini-container {
+    border: 1px solid #ffffff80;
+    border-radius: 3px;
+    margin: 1px;
+}
+
+.dataset-transparency {
+    margin-left: 330px;
+}
+
+.data-title-input {
+    float: right;
+    margin-top: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    padding-left: 3px;
+    vertical-align: middle;
+    text-overflow: ellipsis ellipsis;
+    overflow: hidden;
+    border: white;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.22);
+    color: #f4f4f4;
+}
+
+.mapstore-slider.with-tooltip.dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
+    width: 20px;
+    left: -10px;
+    border: 2px solid #dddddd;
+    border-radius: 10px;
+    cursor: default;
+}
+
+.mapstore-slider.with-tooltip.dataset-transparency .noUi-target {
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    background-color: #335781;
+}
+
+.sk-circle:before {
+    background-color: white !important;
+}
+
+.introduction-modal {
+    background-color: #335781;
+    color: white;
+    opacity: 0.95;
+}
+
+#gn-brand-navbar {
+    background-color: #335781;
+}
+
+#mapstore-drawermenu {
+    display: none;
+}
