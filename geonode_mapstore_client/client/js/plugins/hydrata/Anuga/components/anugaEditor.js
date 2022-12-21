@@ -1,0 +1,174 @@
+import React from "react";
+import {connect} from "react-redux";
+const PropTypes = require('prop-types');
+// import {svSelectLayer} from '../../simpleView/actionsSimpleView';
+import {Button, Table} from "react-bootstrap";
+// import '../../simpleView/simpleView.css';
+import {
+    createNewFeatures,
+    selectFeatures,
+    saveChanges,
+    clearChanges,
+    startDrawingFeature,
+    closeFeatureGrid
+} from "../../../../../MapStore2/web/client/actions/featuregrid";
+import {
+    QUERY_RESULT,
+    query,
+    FEATURE_TYPE_LOADED,
+    FEATURE_TYPE_SELECTED,
+    resetQuery
+} from "../../../../../MapStore2/web/client/actions/wfsquery";
+import {
+    setAnugaEditor
+} from "../actionsAnuga";
+
+class SimpleViewEditorClass extends React.Component {
+    static propTypes = {
+        selectedLayer: PropTypes.object,
+        selectedFeatures: PropTypes.array,
+        closeFeatureGrid: PropTypes.func,
+        createNewFeatures: PropTypes.func,
+        saveChanges: PropTypes.func,
+        clearChanges: PropTypes.func,
+        startDrawingFeature: PropTypes.func,
+        availableFeatures: PropTypes.array,
+        availableAttributes: PropTypes.array,
+        selectFeatures: PropTypes.func,
+        drawOwner: PropTypes.string,
+        featureLoading: PropTypes.bool,
+        isEditorVisible: PropTypes.bool
+    };
+
+    constructor(props) {
+        super(props);
+    }
+
+    render() {
+        return this.props.isEditorVisible ?
+            (
+                <div className={'simple-view-panel'} id={'simple-view-editor'}>
+                    <div className={'row menu-row-header'}>
+                        {this.props.selectedLayer?.title}
+                        <span
+                            className={"btn glyphicon glyphicon-remove legend-close"}
+                            onClick={() => {
+                                this.props.closeFeatureGrid();
+                                this.props.setAnugaEditor(false);
+                                this.props.resetQuery();
+                            }}
+                        />
+                    </div>
+                    {this.props.availableFeatures ?
+                        <Table className={"editor-table"} style={{"width": "100%"}}>
+                            <thead>
+                                <tr>
+                                    <th style={{"maxWidth": "10%"}}>Select</th>
+                                    {this.props.availableAttributes.map((attribute) =>
+                                        <th style={{"maxWidth": `${90 / this.props.availableAttributes.length}%`}}>{attribute.label}</th>
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {this.props.availableFeatures?.map((feature) =>
+                                    <tr>
+                                        <td>
+                                            <input
+                                                id={'feature-selector-box'}
+                                                type={'radio'}
+                                                name={'feature-selector'}
+                                                value={false}
+                                                onChange={() => this.props.selectFeatures([feature], false)}
+                                            />
+                                        </td>
+                                        {this.props.availableAttributes?.map((attribute) =>
+                                            <td>
+                                                {feature?.properties[attribute.label]}
+                                            </td>
+                                        )}
+                                    </tr>
+                                )}
+                            </tbody>
+                        </Table> :
+                        this.props.selectedFeatures?.length > 0 ?
+                            <div className={'row menu-row'}>
+                                Selected: {this.props.selectedFeatures?.[0]?.id}
+                            </div> :
+                            <div className={'row menu-row'}>
+                                Select a feature...
+                            </div>
+                    }
+                    <div className={'row menu-row'}>
+                        {
+                            (this.props.selectedFeatures?.length > 0 && this.props.drawOwner === "featureGrid" && !this.props.featureLoading) ?
+                                <React.Fragment>
+                                    <Button
+                                        bsStyle={'success'}
+                                        bsSize={'xsmall'}
+                                        style={{margin: "2px", borderRadius: "2px"}}
+                                        onClick={() => {
+                                            this.props.saveChanges();
+                                        }}
+                                    >
+                                        Save Feature
+                                    </Button>
+                                    <Button
+                                        bsStyle={'danger'}
+                                        bsSize={'xsmall'}
+                                        style={{margin: "2px", borderRadius: "2px"}}
+                                        onClick={() => {
+                                            this.props.clearChanges();
+                                        }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </React.Fragment> :
+                                <Button
+                                    bsStyle={'success'}
+                                    bsSize={'xsmall'}
+                                    style={{margin: "2px", borderRadius: "2px"}}
+                                    onClick={() => {
+                                        this.props.createNewFeatures([{}]);
+                                        this.props.startDrawingFeature();
+                                    }}
+                                >
+                                    Create Feature
+                                </Button>
+                        }
+                    </div>
+                </div>
+            ) : null;
+    }
+}
+
+const mapStateToProps = (state) => {
+    return {
+        selectedLayer: state?.simpleView?.selectedLayer,
+        selectedFeatures: state?.featuregrid?.select,
+        availableFeatures: state?.featuregrid?.features || [],
+        drawOwner: state?.draw?.drawOwner,
+        featureLoading: state?.query?.featureLoading,
+        availableAttributes: state?.query?.featureTypes?.[state?.featuregrid?.selectedLayer.split('__')[0]]?.attributes || [],
+        isEditorVisible: state?.anuga?.isEditorVisible
+    };
+};
+
+const mapDispatchToProps = ( dispatch ) => {
+    return {
+        closeFeatureGrid: () => dispatch(closeFeatureGrid()),
+        createNewFeatures: (features) => dispatch(createNewFeatures(features)),
+        saveChanges: () => dispatch(saveChanges()),
+        clearChanges: () => dispatch(clearChanges()),
+        startDrawingFeature: () => dispatch(startDrawingFeature()),
+        selectFeatures: (features, append) => dispatch(selectFeatures(features, append)),
+        setAnugaEditor: (visible) => dispatch(setAnugaEditor(visible)),
+        resetQuery: () => dispatch(resetQuery())
+    };
+};
+
+const AnugaEditor = connect(mapStateToProps, mapDispatchToProps)(SimpleViewEditorClass);
+
+
+export {
+    AnugaEditor
+};
