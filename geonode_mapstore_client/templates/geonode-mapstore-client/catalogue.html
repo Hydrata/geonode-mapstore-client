@@ -30,7 +30,13 @@
             {% endblock %}
             <div class="gn-catalogue gn-theme">
                 {% block header %}
-                    {% include './snippets/header.html' %}
+                    {% if job_name == 'hydratabase' %}
+                        {% include './snippets/header_hydratabase.html' %}
+                    {% elif job_name == 'swamm' %}
+                        {% include './snippets/header_swamm.html' %}
+                    {% else %}
+                        {% include './snippets/header_hydratabase.html' %}
+                    {% endif %}
                 {% endblock %}
 
                 {% block container %}
@@ -49,7 +55,13 @@
                 {% endblock %}
 
                 {% block footer %}
-                    {% include './snippets/footer.html' %}
+                    {% if job_name == 'hydratabase' %}
+                        {% include './snippets/footer_hydratabase.html' %}
+                    {% elif job_name == 'swamm' %}
+                        {% include './snippets/footer_swamm.html' %}
+                    {% else %}
+                        {% include './snippets/footer.html' %}
+                    {% endif %}
                 {% endblock %}
 
                 {% block scripts %}
