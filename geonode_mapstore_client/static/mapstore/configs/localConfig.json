@@ -1421,12 +1421,12 @@
                 }
               ]
             },
-            {
-                "type": "plugin",
-                "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
-                "name": "Share",
-                "labelId": "gnviewer.share"
-            },
+                        {
+                            "type": "plugin",
+                            "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
+                            "name": "Share",
+                            "labelId": "gnviewer.share"
+                        },
             {
               "type": "plugin",
               "name": "DeleteResource",
@@ -1452,8 +1452,8 @@
             {
               "type": "plugin",
               "name": "DatasetsCatalog",
-              "disableIf": "{state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
-              "label": "gnviewer.viewMetadata"
+                            "disableIf": "{state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+                            "label": "gnviewer.viewMetadata"
             }
           ],
           "rightMenuItems": [
