@@ -71,10 +71,14 @@
     {
       "name": "printEnabled",
       "path": "print.capabilities"
-        },
-        {
-            "name": "anuga",
-            "path": "anuga.projectData"
+    },
+    {
+      "name": "anuga",
+      "path": "anuga.projectData"
+    },
+    {
+      "name": "swamm",
+      "path": "swamm.projectData"
     }
   ],
   "projectionDefs": [],
@@ -1452,8 +1456,8 @@
             {
               "type": "plugin",
               "name": "DatasetsCatalog",
-                            "disableIf": "{state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
-                            "label": "gnviewer.viewMetadata"
+              "disableIf": "{state('swamm') || state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+              "label": "gnviewer.viewMetadata"
             }
           ],
           "rightMenuItems": [
@@ -1464,18 +1468,18 @@
           ]
         }
       },
-            {
-                "name": "Anuga"
-            },
-            {
-                "name": "Swamps"
-            },
-            {
-                "name": "SimpleView"
-            },
-            {
-                "name": "MapThumbnail"
-            },
+      {
+          "name": "Anuga"
+      },
+      {
+          "name": "Swamm"
+      },
+      {
+          "name": "SimpleView"
+      },
+      {
+          "name": "MapThumbnail"
+      },
       {
         "name": "DeleteResource"
       },

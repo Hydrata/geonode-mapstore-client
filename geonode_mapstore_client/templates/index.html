@@ -24,7 +24,13 @@
             <div class="gn-theme gn-homepage">
                 {% include './geonode-mapstore-client/_geonode_config.html' %}
                 {% block header %}
-                    {% include './geonode-mapstore-client/snippets/header.html' with show_hero=True %}
+                    {% if job_name == 'hydratabase' %}
+                        {% include './geonode-mapstore-client/snippets/header_hydratabase.html' with show_hero=True %}
+                    {% elif job_name == 'swamm' %}
+                        {% include './geonode-mapstore-client/snippets/header_swamm.html' with show_hero=True %}
+                    {% else %}
+                        {% include './geonode-mapstore-client/snippets/header.html' with show_hero=True %}
+                    {% endif %}
                 {% endblock %}
     
                 {% block content %}

@@ -16,7 +16,13 @@
 {% block body_extra_class %}gn-legacy gn-theme {% if request.user_agent.is_mobile %}gn-mobile{% else %}gn-desktop{% endif %}{% endblock %}
 
 {% block header %}
-{% include './geonode-mapstore-client/snippets/header.html' %}
+    {% if job_name == 'hydratabase' %}
+        {% include './geonode-mapstore-client/snippets/header_hydratabase.html' %}
+    {% elif job_name == 'swamm' %}
+        {% include './geonode-mapstore-client/snippets/header_swamm.html' %}
+    {% else %}
+        {% include './geonode-mapstore-client/snippets/header.html' %}
+    {% endif %}
 {% endblock %}
 
 {% block footer %}

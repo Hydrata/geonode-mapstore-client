@@ -427,6 +427,10 @@ export const plugins = {
     AnugaPlugin: toModulePlugin(
         'Anuga',
         () => import(/* webpackChunkName: 'plugins/anuga-plugin' */ '@js/plugins/hydrata/Anuga/Anuga')
+    ),
+    SwammPlugin: toModulePlugin(
+        'Swamm',
+        () => import(/* webpackChunkName: 'plugins/anuga-plugin' */ '@js/plugins/hydrata/Swamm/Swamm')
     )
 };
 

@@ -1,10 +1,10 @@
 {% load static %}
-<header class="gn-main-header">
+<header class="gn-main-header swamm-dummy-class-header_swamm">
     {% include './navbar_swamm.html'  with id='gn-brand-navbar' %}
 </header>
-{#<div class="gn-main-header-placeholder"></div>#}
+<div class="gn-main-header-placeholder"></div>
 {% if show_hero %}
-    {% include './hero.html' %}
+    {% include './hero_swamm.html' %}
 {% endif %}
 
 {#{% include './topbar.html' with id='gn-topbar' %}#}

@@ -55,6 +55,8 @@ const ResourceCard = forwardRef(({
         onClick(data);
     }
     const imgClassName = layoutCardsStyle === 'list' ? 'card-img-left' : 'card-img-top';
+    console.log('gn-resource-card-link', res && getDetailHref(res));
+    console.log('detailUrl', detailUrl);
     return (
         <div
             ref={ref}
@@ -68,7 +70,7 @@ const ResourceCard = forwardRef(({
             {!readOnly && (
                 <a
                     className="gn-resource-card-link"
-                    href={getDetailHref(res)}
+                    href={detailUrl}
                 />
             )}
             {!readOnly &&

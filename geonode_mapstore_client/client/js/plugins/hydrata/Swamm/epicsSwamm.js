@@ -43,6 +43,56 @@ import {
 import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
 import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
+import {
+    INIT_ANUGA,
+    setAnugaBoundaryData,
+    setAnugaElevationData,
+    setAnugaFrictionData,
+    setAnugaFullMeshData,
+    setAnugaInflowData,
+    setAnugaLinksData,
+    setAnugaMeshRegionData,
+    setAnugaNodesData,
+    setAnugaProjectData,
+    setAnugaScenarioData,
+    setAnugaStructureData,
+    setCatchmentData,
+    setComparisonData,
+    setNetworkData,
+    setPublicationData,
+    startAnugaScenarioPolling
+} from "@js/plugins/hydrata/Anuga/actionsAnuga";
+
+
+export const initSwammEpic = (action$, store) =>
+    action$
+        .ofType(INIT_SWAMM)
+        .filter(() => store.getState()?.gnresource.id)
+        .switchMap(() => Rx.Observable
+            .from(
+                axios.post(`/swamm/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
+                    .catch((error) => {console.log('**', error); return 'error';})
+            )
+            .filter(response1 => response1?.status <= 400)
+            .filter(() => !!store.getState()?.security?.user)
+            .switchMap(response1 => Rx.Observable
+                .from(axios.get(`/swamm/api/project/${response1.data.projectId}/`))
+                .switchMap(response2 => Rx.Observable
+                    .of(setSwammProjectData(response2.data))
+                    .concat(
+                        Rx.Observable
+                            .from(axios.get(`/swamm/api/${response1.data.projectId}/scenario/`))
+                            .switchMap((response3) => Rx.Observable.of(setAnugaScenarioData(response3.data)))
+                    )
+                )
+                .filter((setAnugaProjectDataAction) => {
+                    return setAnugaProjectDataAction;
+                })
+            )
+        )
+        .filter((response1) => {
+            return response1;
+        });
 
 
 export const catchBmpFeatureClick = (action$, store) =>
