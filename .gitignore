@@ -27,3 +27,4 @@ geonode_mapstore_client/client/package-lock.json
 #dist/
 
 /dist/
+!/dist/node_modules/*
