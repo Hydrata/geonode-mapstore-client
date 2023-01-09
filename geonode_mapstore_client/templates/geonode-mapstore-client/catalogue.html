@@ -35,9 +35,17 @@
                     {% elif job_name == 'swamm' %}
                         {% include './snippets/header_swamm.html' %}
                     {% else %}
-                        {% include './snippets/header_hydratabase.html' %}
+                        {% include './snippets/header.html' %}
                     {% endif %}
                 {% endblock %}
+
+                {% if job_name == 'swamm' %}
+                    {% block content %}
+                        <div class="gn-container">
+                            <div id="gn-home-featured-resources-grid"></div>
+                        </div>
+                    {% endblock %}
+                {% endif %}
 
                 {% block container %}
                     <div id="ms-container">
