@@ -1451,7 +1451,7 @@
             {
               "type": "plugin",
               "name": "DatasetsCatalog",
-              "disableIf": "{state('swamm') || state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+              "disableIf": "{state('swammProjectData') && !context.resourceHasPermission(state('swammProjectData'), 'add_data_to_project') || state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
               "label": "gnviewer.viewMetadata"
             }
           ],

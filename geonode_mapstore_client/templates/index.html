@@ -34,29 +34,51 @@
                 {% endblock %}
 
                 {% block content %}
-                        {% comment %}
-                        <!-- example of content extension -->
-                        <div class="gn-container">
-                            <div class="gn-content">
-                                <!-- My custom content -->
-                            </div>
-                        </div>
-                        {% endcomment %}
+                    {% if job_name == 'hydratabase' %}
                         <div class="gn-container">
                             <div id="gn-home-featured-resources-grid"></div>
                             <div id="gn-home-resources-grid"></div>
                         </div>
+                    {% elif job_name == 'swamm' %}
+                        <div class="gn-container" id="content-block-swamm-empty">
+                        </div>
+                    {% else %}
+                        <div class="gn-container">
+                            <div id="gn-home-featured-resources-grid"></div>
+                            <div id="gn-home-resources-grid"></div>
+                        </div>
+                    {% endif %}
                 {% endblock %}
-    
+
                 {% block container %}
-                    <div id="ms-container">
-                        <div class="gn-main-event-container">
-                            <div class="gn-main-event-content">
-                                <div class="gn-main-loader"></div>
-                                <div class="gn-main-event-text"></div>
+                    {% if job_name == 'hydratabase' %}
+                        <div id="ms-container">
+                            <div class="gn-main-event-container">
+                                <div class="gn-main-event-content">
+                                    <div class="gn-main-loader"></div>
+                                    <div class="gn-main-event-text"></div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    {% elif job_name == 'swamm' %}
+                        <div id="ms-container">
+                            <div class="gn-main-event-container">
+                                <div class="gn-main-event-content">
+                                    <div class="gn-main-loader"></div>
+                                    <div class="gn-main-event-text"></div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div id="ms-container">
+                            <div class="gn-main-event-container">
+                                <div class="gn-main-event-content">
+                                    <div class="gn-main-loader"></div>
+                                    <div class="gn-main-event-text"></div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
                 {% endblock %}
 
                 <script>
@@ -93,9 +115,15 @@
                 {% block ms_scripts %}
                     <script id="gn-script" src="{% static 'mapstore/dist/js/gn-components.js' %}?{% client_version %}"></script>
                 {% endblock %}
-    
+
                 {% block footer %}
-                    {% include './geonode-mapstore-client/snippets/footer.html' %}
+                    {% if job_name == 'hydratabase' %}
+                        {% include './geonode-mapstore-client/snippets/footer_hydratabase.html' %}
+                    {% elif job_name == 'swamm' %}
+                        {% include './geonode-mapstore-client/snippets/footer_swamm.html' %}
+                    {% else %}
+                        {% include './geonode-mapstore-client/snippets/footer.html' %}
+                    {% endif %}
                 {% endblock %}
     
                 {% block scripts %}
