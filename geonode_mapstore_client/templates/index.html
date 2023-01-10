@@ -32,20 +32,20 @@
                         {% include './geonode-mapstore-client/snippets/header.html' with show_hero=True %}
                     {% endif %}
                 {% endblock %}
-    
+
                 {% block content %}
-                    {% comment %}
-                    <!-- example of content extension -->
-                    <div class="gn-container">
-                        <div class="gn-content">
-                            <!-- My custom content -->
+                        {% comment %}
+                        <!-- example of content extension -->
+                        <div class="gn-container">
+                            <div class="gn-content">
+                                <!-- My custom content -->
+                            </div>
                         </div>
-                    </div>
-                    {% endcomment %}
-                    <div class="gn-container">
-                        <div id="gn-home-featured-resources-grid"></div>
-                        <div id="gn-home-resources-grid"></div>
-                    </div>
+                        {% endcomment %}
+                        <div class="gn-container">
+                            <div id="gn-home-featured-resources-grid"></div>
+                            <div id="gn-home-resources-grid"></div>
+                        </div>
                 {% endblock %}
     
                 {% block container %}

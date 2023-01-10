@@ -77,7 +77,7 @@
       "path": "anuga.projectData"
     },
     {
-      "name": "swamm",
+      "name": "swammProjectData",
       "path": "swamm.projectData"
     }
   ],
@@ -1373,18 +1373,13 @@
         "name": "ActionNavbar",
         "cfg": {
           "containerPosition": "header",
-                    "disableTitle": false,
-          "titleItems": [
-            {
-              "type": "plugin",
-              "name": "DetailViewerButton"
-            }
-          ],
+          "disableTitle": false,
+          "titleItems": [],
           "leftMenuItems": [
             {
               "labelId": "gnviewer.save",
               "showPendingChangesIcon": true,
-              "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}",
+              "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user')) || !context.resourceHasPermission(state('swammProjectData'), 'can_save_swamm_project')}",
               "type": "dropdown",
               "items": [
                 {
@@ -1416,7 +1411,7 @@
             {
               "labelId": "gnviewer.view",
               "type": "dropdown",
-              "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
+              "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') || state('swammProjectData') && !context.resourceHasPermission(state('swammProjectData'), 'save_swamm_project')}",
               "items": [
                 {
                   "type": "link",
@@ -1425,12 +1420,12 @@
                 }
               ]
             },
-                        {
-                            "type": "plugin",
-                            "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
-                            "name": "Share",
-                            "labelId": "gnviewer.share"
-                        },
+            {
+                "type": "plugin",
+                "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
+                "name": "Share",
+                "labelId": "gnviewer.share"
+            },
             {
               "type": "plugin",
               "name": "DeleteResource",
