@@ -1,5 +1,8 @@
 const axios = require('../../../../MapStore2/web/client/libs/ajax');
 
+const INIT_SWAMM = 'INIT_SWAMM';
+const SET_SWAMM_PROJECT_DATA = 'SET_SWAMM_PROJECT_DATA';
+
 const FETCH_SWAMM_BMPTYPES = 'FETCH_SWAMM_BMPTYPES';
 const FETCH_SWAMM_BMPTYPES_ERROR = 'FETCH_SWAMM_BMPTYPES_ERROR';
 const FETCH_SWAMM_BMPTYPES_SUCCESS = 'FETCH_SWAMM_BMPTYPES_SUCCESS';
@@ -92,6 +95,20 @@ const DOWNLOAD_BMP_REPORT = 'DOWNLOAD_BMP_REPORT';
 
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
+
+
+function initSwamm() {
+    return {
+        type: INIT_SWAMM
+    };
+}
+
+function setSwammProjectData(projectData) {
+    return {
+        type: SET_SWAMM_PROJECT_DATA,
+        projectData
+    };
+}
 
 const fetchSwammBmpTypesSuccess = (bmpTypes) => {
     bmpTypes.map(type => {
@@ -915,6 +932,8 @@ function setAllBmpTypesVisibility(boolValue) {
 }
 
 module.exports = {
+    INIT_SWAMM, initSwamm,
+    SET_SWAMM_PROJECT_DATA, setSwammProjectData,
     UPDATE_BMP_TYPE_GROUPS, updateBmpTypeGroups,
     FETCH_SWAMM_BMPTYPES, fetchSwammBmpTypes,
     FETCH_SWAMM_BMPTYPES_ERROR, fetchSwammBmpTypesError,

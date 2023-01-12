@@ -2,6 +2,7 @@ import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtil
 import swamm from "./reducersSwamm";
 import SwammContainer from "./components/swammContainer";
 import {
+    initSwammEpic,
     startBmpCreateFeatureEpic,
     saveBmpCreateFeatureEpic,
     setCreateBmpDrawingLayerEpic,
@@ -20,6 +21,7 @@ export default createPlugin('Swamm', {
     component: SwammContainer,
     reducers: {swamm},
     epics: {
+        initSwammEpic,
         startBmpCreateFeatureEpic,
         saveBmpCreateFeatureEpic,
         setCreateBmpDrawingLayerEpic,

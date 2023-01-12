@@ -73,7 +73,7 @@
       "path": "print.capabilities"
     },
     {
-      "name": "anuga",
+      "name": "anugaProjectData",
       "path": "anuga.projectData"
     },
     {
@@ -1377,20 +1377,11 @@
           "titleItems": [],
           "leftMenuItems": [
             {
-              "labelId": "gnviewer.save",
+              "type": "plugin",
               "showPendingChangesIcon": true,
-              "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user')) || !context.resourceHasPermission(state('swammProjectData'), 'can_save_swamm_project')}",
-              "type": "dropdown",
-              "items": [
-                {
-                  "type": "plugin",
-                  "name": "Save"
-                },
-                {
-                  "type": "plugin",
-                  "name": "SaveAs"
-                }
-              ]
+              "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}",
+              "name": "Save",
+              "labelId": "gnviewer.save"
             },
             {
               "labelId": "gnviewer.edit",
@@ -1422,7 +1413,7 @@
             },
             {
                 "type": "plugin",
-                "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
+                "disableIf": "{state('isNewResource') ||  state('anugaProjectData.id') && !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
                 "name": "Share",
                 "labelId": "gnviewer.share"
             },
@@ -1451,7 +1442,7 @@
             {
               "type": "plugin",
               "name": "DatasetsCatalog",
-              "disableIf": "{state('swammProjectData') && !context.resourceHasPermission(state('swammProjectData'), 'add_data_to_project') || state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+              "disableIf": "{state('swammProjectData.id') && !context.resourceHasPermission(state('swammProjectData'), 'add_data_to_project') || state('anugaProjectData.id') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
               "label": "gnviewer.viewMetadata"
             }
           ],

@@ -4,6 +4,7 @@ const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
 const Spinner = require('react-spinkit');
 import {
+    initSwamm,
     fetchSwammBmpTypes,
     fetchProjectManagerConfig,
     fetchGroupProfiles,
@@ -80,7 +81,10 @@ class SwammContainer extends React.Component {
         viewBmpGroupId: PropTypes.string,
         openMenuGroupId: PropTypes.string,
         setBmpLayers: PropTypes.func,
-        toggleSyncWms: PropTypes.func
+        toggleSyncWms: PropTypes.func,
+        gnResourceLoaded: PropTypes.string,
+        isSwammProject: PropTypes.bool,
+        initSwamm: PropTypes.func
     };
 
     static defaultProps = {};
@@ -91,61 +95,66 @@ class SwammContainer extends React.Component {
 
     componentDidMount() {
         // this.props.toggleSyncWms();
+        this.props.initSwamm();
     }
 
     componentDidUpdate() {
-        if (!this.props.mapId && !this.fetching) {
-            this.fetching = false;
+        if (this.props.gnResourceLoaded && !this.props.isSwammProject) {
+            console.log('componentDidUpdate initing Swamm');
+            this.props.initSwamm();
         }
-        if (this.props.mapId && !this.props.hasPmData && !this.fetching) {
-            this.props.fetchProjectManagerConfig(this.props.mapId);
-            this.fetching = true;
-        }
-        if (this.props.mapId && this.props.hasPmData) {
-            this.fetching = false;
-        }
-        if (this.props.hasPmData) {
-            if (!this.props.mapId && !this.fetchingBmpTypes) {
-                this.fetchingBmpTypes = false;
-            }
-            if (this.props.mapId && (this.props.bmpTypes?.length === 0) && !this.fetchingBmpTypes) {
-                this.fetchingBmpTypes = true;
-                this.props.fetchSwammBmpTypes(this.props.mapId);
-            }
-            if (this.props.mapId && (this.props.bmpTypes?.length > 0)) {
-                this.fetchingBmpTypes = false;
-            }
-            if (!this.props.mapId && !this.fetchingGroupProfiles) {
-                this.fetchingGroupProfiles = false;
-            }
-            if (this.props.mapId && (this.props.groupProfiles?.length === 0) && !this.fetchingGroupProfiles) {
-                this.fetchingGroupProfiles = true;
-                this.props.fetchGroupProfiles();
-            }
-            if (this.props.mapId && (this.props.groupProfiles?.length > 0)) {
-                this.fetchingGroupProfiles = false;
-            }
-            if (!this.props.mapId && !this.fetchingStatuses) {
-                this.fetchingStatuses = false;
-            }
-            if (this.props.mapId && (this.props.statuses.length === 0) && !this.fetchingStatuses) {
-                this.fetchingStatuses = true;
-                this.props.fetchSwammBmpStatuses(this.props.mapId);
-            }
-            if (this.props.mapId && (this.props.statuses.length > 0)) {
-                this.fetchingStatuses = false;
-            }
-            if (!this.props.mapId && !this.fetchingTargets) {
-                this.fetchingTargets = false;
-            }
-            if (this.props.mapId && (this.props.targets.length === 0) && !this.fetchingTargets) {
-                this.fetchingTargets = true;
-                this.props.fetchSwammTargets(this.props.mapId);
-            }
-            if (this.props.mapId && (this.props.targets.length > 0)) {
-                this.fetchingTargets = false;
-            }
-        }
+        // if (!this.props.mapId && !this.fetching) {
+        //     this.fetching = false;
+        // }
+        // if (this.props.mapId && !this.props.hasPmData && !this.fetching) {
+        //     this.props.fetchProjectManagerConfig(this.props.mapId);
+        //     this.fetching = true;
+        // }
+        // if (this.props.mapId && this.props.hasPmData) {
+        //     this.fetching = false;
+        // }
+        // if (this.props.hasPmData) {
+        //     if (!this.props.mapId && !this.fetchingBmpTypes) {
+        //         this.fetchingBmpTypes = false;
+        //     }
+        //     if (this.props.mapId && (this.props.bmpTypes?.length === 0) && !this.fetchingBmpTypes) {
+        //         this.fetchingBmpTypes = true;
+        //         this.props.fetchSwammBmpTypes(this.props.mapId);
+        //     }
+        //     if (this.props.mapId && (this.props.bmpTypes?.length > 0)) {
+        //         this.fetchingBmpTypes = false;
+        //     }
+        //     if (!this.props.mapId && !this.fetchingGroupProfiles) {
+        //         this.fetchingGroupProfiles = false;
+        //     }
+        //     if (this.props.mapId && (this.props.groupProfiles?.length === 0) && !this.fetchingGroupProfiles) {
+        //         this.fetchingGroupProfiles = true;
+        //         this.props.fetchGroupProfiles();
+        //     }
+        //     if (this.props.mapId && (this.props.groupProfiles?.length > 0)) {
+        //         this.fetchingGroupProfiles = false;
+        //     }
+        //     if (!this.props.mapId && !this.fetchingStatuses) {
+        //         this.fetchingStatuses = false;
+        //     }
+        //     if (this.props.mapId && (this.props.statuses.length === 0) && !this.fetchingStatuses) {
+        //         this.fetchingStatuses = true;
+        //         this.props.fetchSwammBmpStatuses(this.props.mapId);
+        //     }
+        //     if (this.props.mapId && (this.props.statuses.length > 0)) {
+        //         this.fetchingStatuses = false;
+        //     }
+        //     if (!this.props.mapId && !this.fetchingTargets) {
+        //         this.fetchingTargets = false;
+        //     }
+        //     if (this.props.mapId && (this.props.targets.length === 0) && !this.fetchingTargets) {
+        //         this.fetchingTargets = true;
+        //         this.props.fetchSwammTargets(this.props.mapId);
+        //     }
+        //     if (this.props.mapId && (this.props.targets.length > 0)) {
+        //         this.fetchingTargets = false;
+        //     }
+        // }
     }
 
     render() {
@@ -296,6 +305,8 @@ const mapStateToProps = (state) => {
     const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
+        gnResourceLoaded: state?.gnresource?.id,
+        isSwammProject: true,  // !!state?.swamm?.projectData?.id,
         mapId: state?.map?.present?.info?.id,
         hasPmData: state?.swamm?.data,
         defaultGroupProfile: allowedGroupProfiles[0],
@@ -322,6 +333,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
+        initSwamm: () => dispatch(initSwamm()),
         fetchSwammBmpTypes: (mapId) => dispatch(fetchSwammBmpTypes(mapId)),
         fetchProjectManagerConfig: fetchProjectManagerConfig(dispatch),
         fetchGroupProfiles: () => dispatch(fetchGroupProfiles()),

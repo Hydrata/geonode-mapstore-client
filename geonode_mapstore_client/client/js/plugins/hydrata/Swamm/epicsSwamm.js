@@ -12,6 +12,8 @@ import {
     refreshLayerVersion
 } from "../../../../MapStore2/web/client/actions/layers";
 import {
+    INIT_SWAMM,
+    setSwammProjectData,
     FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
     DOWNLOAD_BMP_REPORT,
     clearDrawingBmpLayerName,
@@ -30,8 +32,9 @@ import {
     TOGGLE_BMP_STATUS_VISIBILITY,
     TOGGLE_BMP_GROUP_PROFILE_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
-    setBmpLayers, TOGGLE_BMP_PRIORITY_VISIBILITY
-} from "./actionsSwamm";
+    setBmpLayers, TOGGLE_BMP_PRIORITY_VISIBILITY,
+    fetchSwammBmpTypesSuccess
+} from "@js/plugins/hydrata/Swamm/actionsSwamm";
 import {
     toggleEditMode,
     toggleViewMode,
@@ -43,25 +46,6 @@ import {
 import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
 import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
-import {
-    INIT_ANUGA,
-    setAnugaBoundaryData,
-    setAnugaElevationData,
-    setAnugaFrictionData,
-    setAnugaFullMeshData,
-    setAnugaInflowData,
-    setAnugaLinksData,
-    setAnugaMeshRegionData,
-    setAnugaNodesData,
-    setAnugaProjectData,
-    setAnugaScenarioData,
-    setAnugaStructureData,
-    setCatchmentData,
-    setComparisonData,
-    setNetworkData,
-    setPublicationData,
-    startAnugaScenarioPolling
-} from "@js/plugins/hydrata/Anuga/actionsAnuga";
 
 
 export const initSwammEpic = (action$, store) =>
@@ -71,7 +55,9 @@ export const initSwammEpic = (action$, store) =>
         .switchMap(() => Rx.Observable
             .from(
                 axios.post(`/swamm/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
-                    .catch((error) => {console.log('**', error); return 'error';})
+                    .catch((error) => {
+                        console.log('**', error); return 'error';
+                    })
             )
             .filter(response1 => response1?.status <= 400)
             .filter(() => !!store.getState()?.security?.user)
@@ -81,18 +67,15 @@ export const initSwammEpic = (action$, store) =>
                     .of(setSwammProjectData(response2.data))
                     .concat(
                         Rx.Observable
-                            .from(axios.get(`/swamm/api/${response1.data.projectId}/scenario/`))
-                            .switchMap((response3) => Rx.Observable.of(setAnugaScenarioData(response3.data)))
+                            .from(
+                                axios
+                                    .get(`/swamm/api/${response1.data.projectId}/bmp-type/`)
+                            )
+                            .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data)))
                     )
                 )
-                .filter((setAnugaProjectDataAction) => {
-                    return setAnugaProjectDataAction;
-                })
             )
-        )
-        .filter((response1) => {
-            return response1;
-        });
+        );
 
 
 export const catchBmpFeatureClick = (action$, store) =>

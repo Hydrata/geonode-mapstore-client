@@ -1,4 +1,5 @@
 import {
+    SET_SWAMM_PROJECT_DATA,
     FETCH_SWAMM_BMPTYPES_SUCCESS,
     FETCH_SWAMM_BMPTYPES,
     FETCH_SWAMM_ALL_BMPS_SUCCESS,
@@ -78,6 +79,11 @@ const initialState = {
 export default ( state = initialState, action) => {
     // console.log(action);
     switch (action.type) {
+    case SET_SWAMM_PROJECT_DATA:
+        return {
+            ...state,
+            projectData: action.projectData
+        };
     case FETCH_GROUP_PROFILES:
         return {
             ...state,
