@@ -9,8 +9,10 @@ import {
 } from "../../../../MapStore2/web/client/actions/wfsquery";
 import {
     changeLayerProperties,
-    refreshLayerVersion
+    refreshLayerVersion,
+    addLayer
 } from "../../../../MapStore2/web/client/actions/layers";
+import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {
     INIT_SWAMM,
     setSwammProjectData,
@@ -47,6 +49,27 @@ import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
 import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
 
+const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
+    let actions = [];
+    if (store.getState().layers.flat.filter(layer => layer.name === layerToAdd?.name).length === 0) {
+        layerToAdd.visibility = true;
+        layerToAdd.opacity = 1;
+        layerToAdd.group = group;
+        actions.push(addLayer(layerToAdd));
+        actions.push(
+            show({
+                "message": "BMP layers added.",
+                "title": "Layers added",
+                "uid": 1000,
+                "position": "tc"
+            })
+        );
+    }
+    console.log('layerToAdd:', layerToAdd);
+    console.log('actions:', actions);
+    return Rx.Observable.from(actions);
+};
+
 
 export const initSwammEpic = (action$, store) =>
     action$
@@ -56,22 +79,22 @@ export const initSwammEpic = (action$, store) =>
             .from(
                 axios.post(`/swamm/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
                     .catch((error) => {
-                        console.log('**', error); return 'error';
+                        console.log('** swamm get_project_from_map_id', error); return 'error';
                     })
             )
             .filter(response1 => response1?.status <= 400)
             .filter(() => !!store.getState()?.security?.user)
             .switchMap(response1 => Rx.Observable
                 .from(axios.get(`/swamm/api/project/${response1.data.projectId}/`))
+                // .filter(response2 => response2?.status <= 400)
                 .switchMap(response2 => Rx.Observable
                     .of(setSwammProjectData(response2.data))
                     .concat(
-                        Rx.Observable
-                            .from(
-                                axios
-                                    .get(`/swamm/api/${response1.data.projectId}/bmp-type/`)
-                            )
-                            .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data)))
+                        Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_outlet, store, "View BMPs")),
+                        Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_footprint, store, "View BMPs")),
+                        Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_watershed, store, "View BMPs"))
+                        // Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/`))
+                        //     .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data)))
                     )
                 )
             )

@@ -99,10 +99,10 @@ class SwammContainer extends React.Component {
     }
 
     componentDidUpdate() {
-        if (this.props.gnResourceLoaded && !this.props.isSwammProject) {
-            console.log('componentDidUpdate initing Swamm');
-            this.props.initSwamm();
-        }
+        // if (this.props.gnResourceLoaded && !this.props.isSwammProject) {
+        //     console.log('componentDidUpdate initing Swamm');
+        //     this.props.initSwamm();
+        // }
         // if (!this.props.mapId && !this.fetching) {
         //     this.fetching = false;
         // }
@@ -160,7 +160,7 @@ class SwammContainer extends React.Component {
     render() {
         return (
             <div id={"swamm-container"}>
-                {this.props.hasPmData ?
+                {this.props.isSwammProject ?
                     <React.Fragment>
                         {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.drawingBmpLayerName && !this.props.editingBmpFeatureId ?
                             <React.Fragment>
@@ -306,7 +306,7 @@ const mapStateToProps = (state) => {
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
         gnResourceLoaded: state?.gnresource?.id,
-        isSwammProject: true,  // !!state?.swamm?.projectData?.id,
+        isSwammProject: !!state?.swamm?.projectData?.id,
         mapId: state?.map?.present?.info?.id,
         hasPmData: state?.swamm?.data,
         defaultGroupProfile: allowedGroupProfiles[0],
@@ -326,7 +326,7 @@ const mapStateToProps = (state) => {
         visibleTargetForm: state?.swamm?.visibleTargetForm,
         loadingBmp: state?.swamm?.loadingBmp,
         numberOfMenus: state?.layers?.groups?.length,
-        viewBmpGroupId: state?.mapConfigRawData?.map?.groups?.filter((group) => group.title === "View BMPs")[0]?.id,
+        viewBmpGroupId: state?.layers?.groups?.filter((group) => group.name === "View BMPs")[0]?.id,
         openMenuGroupId: state?.simpleView?.openMenuGroupId
     };
 };

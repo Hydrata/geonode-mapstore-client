@@ -202,9 +202,9 @@ const mapStateToProps = (state) => {
         //     temp.visibility = false;
         //     return temp;
         // });
-    console.log('allowedGroupProfiles', allowedGroupProfiles);
+    // console.log('allowedGroupProfiles', allowedGroupProfiles);
     allowedGroupProfiles.sort((a, b) => a.title.localeCompare(b.title));
-    console.log('allowedGroupProfiles', allowedGroupProfiles);
+    // console.log('allowedGroupProfiles', allowedGroupProfiles);
     return {
         mapId: state?.swamm?.data?.base_map,
         projectData: state?.swamm?.data,
