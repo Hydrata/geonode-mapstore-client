@@ -35,7 +35,10 @@ import {
     TOGGLE_BMP_GROUP_PROFILE_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
     setBmpLayers, TOGGLE_BMP_PRIORITY_VISIBILITY,
-    fetchSwammBmpTypesSuccess
+    fetchSwammBmpTypesSuccess,
+    fetchGroupProfilesSuccess,
+    fetchSwammBmpStatusesSuccess,
+    fetchSwammTargetsSuccess
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
 import {
     toggleEditMode,
@@ -90,11 +93,19 @@ export const initSwammEpic = (action$, store) =>
                 .switchMap(response2 => Rx.Observable
                     .of(setSwammProjectData(response2.data))
                     .concat(
-                        Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_outlet, store, "View BMPs")),
-                        Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_footprint, store, "View BMPs")),
-                        Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_watershed, store, "View BMPs"))
-                        // Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/`))
-                        //     .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data)))
+                        // Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_outlet, store, "View BMPs")),
+                        // Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_footprint, store, "View BMPs")),
+                        // Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_watershed, store, "View BMPs")),
+                        Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/`))
+                            .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data))),
+                        Rx.Observable.from(axios.get(`/api/v2/groups?page_size=1000`))
+                            .switchMap((response4) => Rx.Observable.of(fetchGroupProfilesSuccess(response4.data?.group_profiles))),
+                        Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmps/status_list/`))
+                            .switchMap((response5) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(response5.data))),
+                        Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/pollutant-loading-target/`))
+                            .switchMap((response6) => Rx.Observable.of(fetchSwammTargetsSuccess(response6.data))),
+                        Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/bmp_type_group_list/`))
+                            .switchMap((response7) => Rx.Observable.of(updateBmpTypeGroups(response7.data)))
                     )
                 )
             )

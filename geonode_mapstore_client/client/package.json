@@ -39,7 +39,8 @@
     "react-helmet": "6.1.0",
     "react-intl": "2.3.0",
     "three": "0.134.0",
-    "three-stdlib": "2.6.1"
+    "three-stdlib": "2.6.1",
+    "react-bootstrap": "0.33.1"
   },
   "mapstore": {
     "output": "dist",

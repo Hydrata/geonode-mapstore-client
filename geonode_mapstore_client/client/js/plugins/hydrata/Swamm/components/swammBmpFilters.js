@@ -194,7 +194,7 @@ class SwammBmpFiltersClass extends React.Component {
 
 const mapStateToProps = (state) => {
     const allowedGroupProfileSlugs = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
-    allowedGroupProfileSlugs.push('nwr', 'hyd') // always allow northwater & hydrata stuff to be visible
+    allowedGroupProfileSlugs.push('nwr', 'hyd'); // always allow northwater & hydrata stuff to be visible
     const allowedGroupProfiles = state?.swamm?.groupProfiles
         .filter(item=> allowedGroupProfileSlugs.includes(item.slug));
         // .map(item => {
@@ -215,9 +215,9 @@ const mapStateToProps = (state) => {
         query: state?.query,
         expandedFilter: state?.swamm?.expandedFilter,
         bmpFilter: state?.swamm?.bmpFilter,
-        bmpOutletLayer: state?.swamm?.bmpOutletLayer,
-        bmpFootprintLayer: state?.swamm?.bmpFootprintLayer,
-        bmpWatershedLayer: state?.swamm?.bmpWatershedLayer,
+        bmpOutletLayer: state?.swamm?.projectData?.bmp_outlet,
+        bmpFootprintLayer: state?.swamm?.projectData?.bmp_footprint,
+        bmpWatershedLayer: state?.swamm?.projectData?.bmp_watershed,
         priorities: state?.swamm?.priorities
     };
 };

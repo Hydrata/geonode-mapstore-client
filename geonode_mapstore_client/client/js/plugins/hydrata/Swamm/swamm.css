@@ -46,3 +46,10 @@
 .form-group {
      margin-bottom: 5px;
 }
+
+#swamm-bmp-form-panel {
+    width: 98vw;
+    max-width: 98vw;
+    max-height: 98vw;
+    font-size: small;
+}

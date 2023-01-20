@@ -183,7 +183,7 @@ const fetchGroupProfilesSuccess = (groupProfiles) => {
     const cleanedGroupProfiles = groupProfiles.map((gp) => {
         return {
             ...gp,
-            id: gp.pk,
+            id: gp?.pk,
             visibility: true
         };
     });

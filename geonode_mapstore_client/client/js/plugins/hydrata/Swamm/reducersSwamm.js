@@ -270,7 +270,7 @@ export default ( state = initialState, action) => {
             creatingNewBmp: true,
             visibleBmpForm: true,
             storedBmpForm: {
-                group_profile_id: action.groupProfile.pk,
+                group_profile_id: action.groupProfile?.pk,
                 group_profile: action.groupProfile,
                 bmpName: ''
             }
