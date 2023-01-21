@@ -152,8 +152,9 @@ export const setCreateBmpDrawingLayerEpic = (action$, store) =>
     action$
         .ofType(FEATURE_TYPE_LOADED)
         .filter((action) => {
-            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_'));
-            return action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_');
+            console.log('action?.typeName', action?.typeName);
+            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.swamm?.drawingBmpLayerName));
+            return action?.typeName?.includes(store.getState()?.swamm?.drawingBmpLayerName);
         })
         .flatMap((action) => Rx.Observable.of(
             query(
@@ -255,7 +256,7 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
             const mapId = store.getState()?.swamm?.data?.base_map;
             const geomType = store.getState()?.swamm?.drawingBmpLayerName?.slice(8);
             return Rx.Observable.from(
-                axios.get(`/swamm/api/${mapId}/bmps/get-latest-feature-id/${geomType}/`)
+                axios.get(`/swamm/api/${store.getState()?.swamm?.projectData?.id}/bmps/get-latest-feature-id/${geomType}/`)
             );
         })
         .mergeMap((response) => Rx.Observable.of(
@@ -264,7 +265,7 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
             drawStopped(),
             toggleViewMode(),
             setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map),
+            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
             resetQuery(),
             refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.drawingBmpLayerName))[0].id),
             clearDrawingBmpLayerName()
@@ -281,7 +282,7 @@ export const saveBmpEditFeatureEpic = (action$, store) =>
             drawStopped(),
             toggleViewMode(),
             setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map),
+            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
             resetQuery(),
             refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.drawingBmpLayerName))[0].id),
             clearDrawingBmpLayerName()
@@ -295,7 +296,7 @@ export const autoSaveBmpFormEpic = (action$, store) =>
         )
         .flatMap(() => {
             return Rx.Observable.of(
-                submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.data?.base_map)
+                submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
             );
         });
 

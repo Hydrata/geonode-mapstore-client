@@ -76,7 +76,7 @@ class SwammBmpFormClass extends React.Component {
         clearEditingBmpFeatureId: PropTypes.func,
         layers: PropTypes.object,
         query: PropTypes.func,
-        mapId: PropTypes.number,
+        projectId: PropTypes.number,
         purgeMapInfoResults: PropTypes.func,
         bmpUniqueNames: PropTypes.array,
         setHighlightFeaturesPath: PropTypes.func,
@@ -849,7 +849,7 @@ class SwammBmpFormClass extends React.Component {
                                     style={{position: "absolute", bottom: "20px", right: "620px", minWidth: "80px"}}
                                     onClick={() => {
                                         if (window.confirm('This action can not be undone. Are you sure?')) {
-                                            this.props.deleteBmp(this.props.mapId, this.props.storedBmpForm?.id);
+                                            this.props.deleteBmp(this.props.projectId, this.props.storedBmpForm?.id);
                                         }
                                     }}>
                                     Delete
@@ -916,7 +916,7 @@ class SwammBmpFormClass extends React.Component {
                             className={this.props.hasGeometry ? '' : 'disabled'}
                             style={{position: "absolute", bottom: "20px", right: "20px", minWidth: "80px"}}
                             onClick={() => {
-                                this.props.submitBmpForm(this.props.storedBmpForm, this.props.mapId);
+                                this.props.submitBmpForm(this.props.storedBmpForm, this.props.projectId);
                             }}>
                             Save
                         </Button>
@@ -970,23 +970,26 @@ class SwammBmpFormClass extends React.Component {
         this.props.makeDefaultsBmpForm(selectedBmpType);
     }
     drawBmpStep1(layerName, featureId) {
+        console.log('this.props.bmpOutletLayer?.id', this.props.bmpOutletLayer?.id);
+        console.log('this.props.bmpFootprintLayer?.id', this.props.bmpFootprintLayer?.id);
+        console.log('this.props.bmpWatershedLayer?.id', this.props.bmpWatershedLayer?.id);
         this.refreshBmpLayers();
         this.props.hideBmpForm();
         const targetLayer = this.props.layers.flat.filter(layer => layer?.name.includes(layerName))[0];
         console.log('drawBmpStep1 targetLayer', targetLayer);
         console.log('drawBmpStep1 layerName', layerName);
         console.log('drawBmpStep1 featureId', featureId);
-        this.props.setDrawingBmpLayerName(layerName);
+        this.props.setDrawingBmpLayerName(targetLayer.name);
         featureId ? this.props.setEditingBmpFeatureId(featureId) : this.props.clearEditingBmpFeatureId();
         this.props.toggleLayer(targetLayer.id, true);
         this.props.setLayer(targetLayer?.id);
-        this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer?.name);
+        this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer.name);
         console.log('drawBmpStep1 finished');
     }
     refreshBmpLayers() {
-        this.props.refreshLayerVersion(this.props.bmpOutletLayer.id);
-        this.props.refreshLayerVersion(this.props.bmpFootprintLayer.id);
-        this.props.refreshLayerVersion(this.props.bmpWatershedLayer.id);
+        this.props.refreshLayerVersion(this.props.bmpOutletLayer?.id);
+        this.props.refreshLayerVersion(this.props.bmpFootprintLayer?.id);
+        this.props.refreshLayerVersion(this.props.bmpWatershedLayer?.id);
     }
 }
 
@@ -994,7 +997,7 @@ const mapStateToProps = (state) => {
     const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
     return {
-        mapId: state?.swamm?.data?.base_map,
+        projectId: state?.swamm?.projectData?.id,
         projectData: state?.swamm?.projectData,
         bmpUniqueNames: bmpByUniqueNameSelector(state).map(bmpType => bmpType.name),
         bmpTypes: state?.swamm?.bmpTypes,
@@ -1006,9 +1009,9 @@ const mapStateToProps = (state) => {
         thisBmpType: state?.swamm?.bmpTypes.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
         storedBmpForm: state?.swamm?.storedBmpForm || {},
         complexBmpForm: state?.swamm?.complexBmpForm || false,
-        bmpOutletLayer: state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.projectData?.bmp_outlet?.name))[0],
-        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.projectData?.bmp_footprint?.name))[0],
-        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.projectData?.bmp_watershed?.name))[0],
+        bmpOutletLayer: state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_outlet)[0],
+        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_footprint)[0],
+        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_watershed)[0],
         hasGeometry: state?.swamm?.storedBmpForm?.outlet_fid || state?.swamm?.storedBmpForm?.footprint_fid || state?.swamm?.storedBmpForm?.watershed_fid,
         requiresOutlet: state?.swamm?.storedBmpForm?.type_data?.requires_outlet,
         requiresFootprint: state?.swamm?.storedBmpForm?.type_data?.requires_footprint,
@@ -1034,10 +1037,10 @@ const mapDispatchToProps = ( dispatch ) => {
         hideBmpForm: () => dispatch(hideBmpForm()),
         hideLoadingBmp: () => dispatch(hideLoadingBmp()),
         showLoadingBmp: () => dispatch(showLoadingBmp()),
-        submitBmpForm: (newBmp, mapId) => dispatch(submitBmpForm(newBmp, mapId)),
+        submitBmpForm: (newBmp, projectId) => dispatch(submitBmpForm(newBmp, projectId)),
         updateBmpForm: (kv) => dispatch(updateBmpForm(kv)),
         clearBmpForm: () => dispatch(clearBmpForm()),
-        deleteBmp: (mapId, bmpId) => dispatch(deleteBmp(mapId, bmpId)),
+        deleteBmp: (projectId, bmpId) => dispatch(deleteBmp(projectId, bmpId)),
         makeDefaultsBmpForm: (bmpType) => dispatch(makeDefaultsBmpForm(bmpType)),
         setChangingBmpType: (changingBmpType) => dispatch(setChangingBmpType(changingBmpType)),
         setComplexBmpForm: (complexBmpForm) => dispatch(setComplexBmpForm(complexBmpForm)),

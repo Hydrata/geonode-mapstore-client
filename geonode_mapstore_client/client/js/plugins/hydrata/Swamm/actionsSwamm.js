@@ -577,17 +577,17 @@ function submitBmpFormError(e) {
     };
 }
 
-const submitBmpForm = (newBmp, mapId) => {
+const submitBmpForm = (newBmp, projectId) => {
     if (newBmp.id) {
         return (dispatch) => {
             console.log('updating existing BMP: ', newBmp);
-            return axios.patch(`/swamm/api/${mapId}/bmps/${newBmp.id}/`, newBmp
+            return axios.patch(`/swamm/api/${projectId}/bmps/${newBmp.id}/`, newBmp
             ).then(
                 response => {
                     dispatch(submitBmpFormSuccess(response.data));
                     dispatch(setChangingBmpType(false));
                     dispatch(makeExistingBmpForm(response.data));
-                    dispatch(fetchSwammTargets(mapId));
+                    dispatch(fetchSwammTargets(projectId));
                 }
             ).catch(
                 e => {
@@ -598,13 +598,13 @@ const submitBmpForm = (newBmp, mapId) => {
     }
     return (dispatch) => {
         console.log('creating new BMP: ', newBmp);
-        return axios.post(`/swamm/api/${mapId}/bmps/`, newBmp
+        return axios.post(`/swamm/api/${projectId}/bmps/`, newBmp
         ).then(
             response => {
                 dispatch(submitBmpFormSuccess(response.data));
                 dispatch(setChangingBmpType(false));
                 dispatch(makeExistingBmpForm(response.data));
-                dispatch(fetchSwammTargets(mapId));
+                dispatch(fetchSwammTargets(projectId));
             }
         ).catch(
             e => {
