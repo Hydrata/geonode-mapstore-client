@@ -137,8 +137,8 @@ export const catchBmpFeatureClick = (action$, store) =>
                 }
                 return null;
             });
-            const mapId = store.getState()?.swamm?.data?.base_map;
-            return Rx.Observable.from(axios.get(`/swamm/api/${mapId}/bmps/${possibleBmpFeature[0]?.properties?.id}/`));
+            const projectId = store.getState()?.swamm?.projectData?.id;
+            return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/${possibleBmpFeature[0]?.properties?.id}/`));
         })
         .mergeMap((response) => Rx.Observable.of(
             closeIdentify(),
@@ -253,10 +253,10 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
             return store.getState()?.swamm?.missingBmpFeatureId;
         })
         .mergeMap(() => {
-            const mapId = store.getState()?.swamm?.data?.base_map;
+            const projectId = store.getState()?.swamm?.projectData?.id;
             const geomType = store.getState()?.swamm?.drawingBmpLayerName?.slice(8);
             return Rx.Observable.from(
-                axios.get(`/swamm/api/${store.getState()?.swamm?.projectData?.id}/bmps/get-latest-feature-id/${geomType}/`)
+                axios.get(`/swamm/api/${projectId}/bmps/get-latest-feature-id/${geomType}/`)
             );
         })
         .mergeMap((response) => Rx.Observable.of(
