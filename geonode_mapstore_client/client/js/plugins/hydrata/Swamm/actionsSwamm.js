@@ -571,7 +571,7 @@ function submitBmpFormError(e) {
         title: 'Submit Bmp Form Error',
         autoDismiss: 600,
         position: 'tc',
-        message: `Error saving BMP: ${e?.data}`,
+        message: `Error saving BMP: ${e?.data?.errors?.[0]}`,
         uid: uuidv1(),
         level: 'error'
     };

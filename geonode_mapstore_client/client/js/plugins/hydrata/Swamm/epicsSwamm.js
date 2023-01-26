@@ -77,7 +77,10 @@ const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
 export const initSwammEpic = (action$, store) =>
     action$
         .ofType(INIT_SWAMM)
-        .filter(() => store.getState()?.gnresource.id)
+        .filter(() => {
+            console.log("INIT_SWAMM version 2023-01-26 17:21");
+            return store.getState()?.gnresource.id;
+        })
         .switchMap(() => Rx.Observable
             .from(
                 axios.post(`/swamm/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
