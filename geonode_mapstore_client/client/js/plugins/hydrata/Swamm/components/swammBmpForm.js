@@ -131,29 +131,11 @@ class SwammBmpFormClass extends React.Component {
             <div
                 id={'swamm-bmp-form-panel'}
                 className={'simple-view-panel menu-rows-container'}
-                style={{
-                    top: "70px",
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gridTemplateRows: "50px 3fr 1fr 0 100px",
-                    gridColumnGap: "30px",
-                    gridRowGap: "10px",
-                    backgroundColor: "#2b5994f2",
-                    textAlign: "left"
-                }}
             >
-                <div
-                    id={"grid-header"}
-                    style={{
-                        gridRowStart: 1,
-                        gridRowEnd: 2,
-                        gridColumnStart: 1,
-                        gridColumnEnd: 3
-                    }}
-                >
+                <div id={"swamm-bmp-form-grid-header"}>
                     <div className={'simple-view-panel-header'}>
                         {this.props.storedBmpForm.id ?
-                            "BMP " + this.props.storedBmpForm.id + ": " + this.props.storedBmpForm?.type_data?.name :
+                            "BMP " + this.props.storedBmpForm.id + ": " + this.props.storedBmpForm?.bmpName :
                             "Create a new BMP"
                         }
                     </div>
@@ -166,434 +148,396 @@ class SwammBmpFormClass extends React.Component {
                         }}
                     />
                 </div>
-                <div
-                    id={"grid-column-one-top"}
-                    style={{
-                        gridRowStart: 2,
-                        gridRowEnd: 3,
-                        gridColumnStart: 1,
-                        gridColumnEnd: 2,
-                        maxWidth: "650px",
-                        maxHeight: "80%",
-                        overflowY: "scroll",
-                        marginLeft: "10%"
-                    }}
-                >
-                    <div>
-                        {
-                            this.props.requiresOutlet || this.props.complexBmpForm ?
-                                <div className={"simple-view-panel-item-row"}>
-                                    <div>
-                                        Outlet Point:
-                                    </div>
-                                    {this.props.storedBmpForm?.outlet_fid ?
-                                        <button
-                                            type={'button'}
-                                            className={""}
-                                            style={{opacity: "0.7"}}
-                                            onClick={() => {
-                                                this.props.showLoadingBmp(true);
-                                                this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
-                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_outlet', this.props.storedBmpForm?.outlet_fid);
-                                            }}>
-                                        Edit
-                                        </button> :
-                                        <button
-                                            type={'button'}
-                                            disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
-                                            bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
-                                            onClick={() => {
-                                                this.props.showLoadingBmp(true);
-                                                this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
-                                                this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null);
-                                            }}>
-                                        Locate
-                                        </button>
-                                    }
+                <div id={"swamm-bmp-form-grid-col-one"}>
+                    <div className={"simple-view-panel-item-row"}>
+                        <div>
+                            Type: {this.props.storedBmpForm?.type_data?.name}
+                        </div>
+                        <button
+                            type={'button'}
+                            className={'bmp-form-button'}
+                            onClick={() => {
+                                if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
+                                    this.props.setChangingBmpType(true);
+                                }
+                            }}>
+                            Edit Type
+                        </button>
+                    </div>
+                    {
+                        this.props.requiresOutlet || this.props.complexBmpForm ?
+                            <div className={"simple-view-panel-item-row"}>
+                                <div>
+                                    Outlet Point:
                                 </div>
-                                : null
-                        }
-                        {
-                            this.props.requiresFootprint || this.props.complexBmpForm ?
-                                <div className={"simple-view-panel-item-row"}>
-                                    <div>
-                                        Footprint:
-                                    </div>
-                                    {this.props.storedBmpForm?.footprint_fid ?
-                                        <React.Fragment>
-                                            <div>
-                                                {
-                                                    this.props.storedBmpForm?.calculated_footprint_area ?
-                                                        this.props.storedBmpForm?.calculated_footprint_area?.toFixed(2) + " acres" :
-                                                        null
-                                                }
-                                            </div>
-                                            <button
-                                                type={'button'}
-                                                onClick={() => {
-                                                    this.props.showLoadingBmp(true);
-                                                    this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
-                                                    this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint', this.props.storedBmpForm?.footprint_fid);
-                                                }}
-                                            >
-                                                Edit
-                                            </button>
-                                        </React.Fragment> :
+                                {this.props.storedBmpForm?.outlet_fid ?
+                                    <button
+                                        type={'button'}
+                                        className={'bmp-form-button'}
+                                        style={{opacity: "0.7"}}
+                                        onClick={() => {
+                                            this.props.showLoadingBmp(true);
+                                            this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
+                                            this.drawBmpStep1(this.props?.projectData?.code + '_bmp_outlet', this.props.storedBmpForm?.outlet_fid);
+                                        }}>
+                                    Edit
+                                    </button> :
+                                    <button
+                                        type={'button'}
+                                        disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
+                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "bmp-form-button default" : "bmp-form-button default" }
+                                        onClick={() => {
+                                            this.props.showLoadingBmp(true);
+                                            this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
+                                            this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null);
+                                        }}>
+                                    Locate
+                                    </button>
+                                }
+                            </div>
+                            : null
+                    }
+                    {
+                        this.props.requiresFootprint || this.props.complexBmpForm ?
+                            <div className={"simple-view-panel-item-row"}>
+                                {this.props.storedBmpForm?.footprint_fid ?
+                                    <React.Fragment>
+                                        <div>
+                                            Footprint: {
+                                                this.props.storedBmpForm?.calculated_footprint_area ?
+                                                    this.props.storedBmpForm?.calculated_footprint_area?.toFixed(2) + " acres" :
+                                                    ' '
+                                            }
+                                        </div>
                                         <button
                                             type={'button'}
-                                            disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
-                                            bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                            className={'bmp-form-button'}
                                             onClick={() => {
                                                 this.props.showLoadingBmp(true);
                                                 this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
-                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint');
+                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint', this.props.storedBmpForm?.footprint_fid);
                                             }}
                                         >
-                                            Draw
+                                            Edit
                                         </button>
-                                    }
-                                </div>
-                                : null
-                        }
-                        {
-                            (this.props.requiresWatershed || this.props.complexBmpForm) && !this.props.watershedIsFootprint ?
-                                <div className={"simple-view-panel-item-row"}>
-                                    <div style={{textAlign: "left"}}>
-                                        Watershed:
-                                    </div>
-                                    {this.props.storedBmpForm?.watershed_fid ?
-                                        <React.Fragment>
-                                            <div>
-                                                {this.props.storedBmpForm?.calculated_watershed_area ?
-                                                    this.props.storedBmpForm?.calculated_watershed_area?.toFixed(2) + " acres" :
-                                                    ''}
-                                            </div>
-                                            <button
-                                                type={'button'}
-                                                onClick={() => {
-                                                    this.props.showLoadingBmp(true);
-                                                    this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
-                                                    this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed', this.props.storedBmpForm?.watershed_fid);
-                                                }}
-                                            >
-                                                Edit
-                                            </button>
-                                        </React.Fragment> :
+                                    </React.Fragment> :
+                                    <button
+                                        type={'button'}
+                                        disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
+                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "bmp-form-button default" : "bmp-form-button default" }
+                                        onClick={() => {
+                                            this.props.showLoadingBmp(true);
+                                            this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
+                                            this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint');
+                                        }}
+                                    >
+                                        Draw
+                                    </button>
+                                }
+                            </div>
+                            : null
+                    }
+                    {
+                        (this.props.requiresWatershed || this.props.complexBmpForm) && !this.props.watershedIsFootprint ?
+                            <div className={"simple-view-panel-item-row"}>
+                                {this.props.storedBmpForm?.watershed_fid ?
+                                    <React.Fragment>
+                                        <div>
+                                            Footprint: {this.props.storedBmpForm?.calculated_watershed_area ?
+                                                this.props.storedBmpForm?.calculated_watershed_area?.toFixed(2) + " acres" :
+                                                ' '}
+                                        </div>
                                         <button
-                                            disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
-                                            // bsStyle={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "default" : "success" }
+                                            type={'button'}
+                                            className={'bmp-form-button'}
                                             onClick={() => {
                                                 this.props.showLoadingBmp(true);
                                                 this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
-                                                this.drawBmpStep1(this.props?.bmpWatershedLayer?.name);
+                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed', this.props.storedBmpForm?.watershed_fid);
                                             }}
                                         >
-                                            Draw watershed
+                                            Edit
                                         </button>
-                                    }
-                                </div>
-                                : null
-                        }
-                        <div className={"simple-view-panel-item-row"}>
-                            <div>
-                              Field Identifier:
+                                    </React.Fragment> :
+                                    <button
+                                        disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
+                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "bmp-form-button default" : "bmp-form-button default" }
+                                        onClick={() => {
+                                            this.props.showLoadingBmp(true);
+                                            this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
+                                            this.drawBmpStep1(this.props?.bmpWatershedLayer?.name);
+                                        }}
+                                    >
+                                        Draw watershed
+                                    </button>
+                                }
                             </div>
-                            <input
-                                type={"text"}
-                                name="field_identifier"
-                                value={this.props.storedBmpForm?.field_identifier}
-                                onChange={this.handleChange}
-                                placeholder="optional"
-                            />
-                        </div>
-                        <div className={"simple-view-panel-item-row"}>
-                            <div style={{textAlign: "left"}}>
-                              Owner details:
-                            </div>
-                            <input
-                                type={"text"}
-                                name="owner_identifier"
-                                value={this.props.storedBmpForm?.owner_identifier}
-                                onChange={this.handleChange}
-                                placeholder="optional"
-                            />
-                        </div>
-                        {
-                            this.props.complexBmpForm ?
-                                <React.Fragment>
-                                    <div className={"simple-view-panel-item-row"} id="organization-selector-container">
-                                        <div>
-                                          Organization
-                                        </div>
-                                        <select
-                                            id="organization-selector"
-                                            name={'group_profile'}
-                                            value={this.props.storedBmpForm?.group_profile?.pk}
-                                            onChange={this.handleGroupProfileChange}
-                                            placeholder={this.props.storedBmpForm?.group_profile?.title}
-                                        >
-                                            {this.props.allowedGroupProfiles.map((groupProfile) => {
-                                                return (
-                                                    <option
-                                                        key={groupProfile.pk}
-                                                        value={groupProfile?.pk}
-                                                    >
-                                                        {groupProfile.title}
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="status-selector-container">
-                                        <div>
-                                          BMP Status
-                                        </div>
-                                        <select
-                                            id="status-selectorr"
-                                            name={'status'}
-                                            value={this.props.storedBmpForm?.status}
-                                            onChange={this.handleChange}
-                                        >
-                                            <option key={'Unknown'} value={'Unknown'}>{'Unknown'}</option>
-                                            {this.props.statuses
-                                                .filter(status => status.name !== 'Unknown')
-                                                .map(status => <option key={status.name} value={status.name}>{status.name}</option>)
-                                            }
-                                        </select>
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="priority-selector-container">
-                                        <div>
-                                          BMP Priority
-                                        </div>
-                                        <select
-                                            id="priority-selectorr"
-                                            name="priority"
-                                            value={this.props.storedBmpForm?.priority?.id}
-                                            onChange={this.handleChange}
-                                        >
-                                            {this.props.priorities.map((priority) => {
-                                                return (
-                                                    <option
-                                                        key={priority.id}
-                                                        value={priority?.value}
-                                                    >
-                                                        {priority.label}
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="n_surface_red_percent-selector-container">
-                                        <div>
-                                          Surface Nitrogen Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_n_surface_red_percent"
-                                            value={this.props.storedBmpForm?.override_n_surface_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="p_surface_red_percent-selector-container">
-                                        <div>
-                                          Surface Phosphorus Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_p_surface_red_percent"
-                                            value={this.props.storedBmpForm?.override_p_surface_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="s_surface_red_percent-selector-container">
-                                        <div>
-                                          Surface Sediment Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_s_surface_red_percent"
-                                            value={this.props.storedBmpForm?.override_s_surface_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="n_tiled_red_percent-selector-container">
-                                        <div>
-                                          Tiled Nitrogen Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_n_tiled_red_percent"
-                                            value={this.props.storedBmpForm?.override_n_tiled_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="p_tiled_red_percent-selector-container">
-                                        <div>
-                                          Tiled Phosphorus Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_p_tiled_red_percent"
-                                            value={this.props.storedBmpForm?.override_p_tiled_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="s_tiled_red_percent-selector-container">
-                                        <div>
-                                          Tiled Sediment Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_s_tiled_red_percent"
-                                            value={this.props.storedBmpForm?.override_s_tiled_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="n_erosion_red_percent-selector-container">
-                                        <div>
-                                          Erosion Nitrogen Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_n_erosion_red_percent"
-                                            value={this.props.storedBmpForm?.override_n_erosion_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="p_erosion_red_percent-selector-container">
-                                        <div>
-                                          Erosion Phosphorus Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_p_erosion_red_percent"
-                                            value={this.props.storedBmpForm?.override_p_erosion_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="s_erosion_red_percent-selector-container">
-                                        <div>
-                                          Erosion Sediment Reduction Percentage
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_s_tiled_red_percent"
-                                            value={this.props.storedBmpForm?.override_s_erosion_red_percent}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="override_cost_base-selector-container">
-                                        <div>
-                                          Base Cost ($)
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_cost_base"
-                                            value={this.props.storedBmpForm?.override_cost_base}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="cost_rate_per_footprint_area-selector-container">
-                                        <div>
-                                          Footprint Cost ($/acre)
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_cost_rate_per_footprint_area"
-                                            value={this.props.storedBmpForm?.override_cost_rate_per_footprint_area}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                    <div className={"simple-view-panel-item-row"} id="cost_rate_per_watershed_area-selector-container">
-                                        <div>
-                                          Watershed Cost ($/acre)
-                                        </div>
-                                        <input
-                                            type={"number"}
-                                            step={1}
-                                            name="override_cost_rate_per_watershed_area"
-                                            value={this.props.storedBmpForm?.override_cost_rate_per_watershed_area}
-                                            onChange={this.handleChange}
-                                            placeholder="optional"
-                                        />
-                                    </div>
-                                </React.Fragment>
-                                : null
-                        }
+                            : null
+                    }
+                    <div className={"simple-view-panel-item-row"}>
                         <div>
-                            Notes
+                          Field Identifier:
                         </div>
                         <input
-                            type="textarea"
-                            rows={3}
-                            cols={60}
-                            style={{
-                                maxWidth: "280px"
-                            }}
-                            name="notes"
-                            value={this.props.storedBmpForm?.notes}
+                            type={"text"}
+                            name="field_identifier"
+                            value={this.props.storedBmpForm?.field_identifier}
                             onChange={this.handleChange}
+                            placeholder="---"
                         />
                     </div>
-                </div>
-                <div
-                    id={"grid-column-one-bottom"}
-                    style={{
-                        gridRowStart: 3,
-                        gridRowEnd: 4,
-                        gridColumnStart: 1,
-                        gridColumnEnd: 2
-                    }}
-                >
                     <div className={"simple-view-panel-item-row"}>
-                        grid-column-one-bottom
+                        <div style={{textAlign: "left"}}>
+                          Owner details:
+                        </div>
+                        <input
+                            type={"text"}
+                            name="owner_identifier"
+                            value={this.props.storedBmpForm?.owner_identifier}
+                            onChange={this.handleChange}
+                            placeholder="---"
+                        />
                     </div>
+                    {
+                        this.props.complexBmpForm ?
+                            <React.Fragment>
+                                <div className={"simple-view-panel-item-row"} id="organization-selector-container">
+                                    <div>
+                                      Organization
+                                    </div>
+                                    <select
+                                        id="organization-selector"
+                                        name={'group_profile'}
+                                        value={this.props.storedBmpForm?.group_profile?.pk}
+                                        onChange={this.handleGroupProfileChange}
+                                        placeholder={this.props.storedBmpForm?.group_profile?.title}
+                                    >
+                                        {this.props.allowedGroupProfiles.map((groupProfile) => {
+                                            return (
+                                                <option
+                                                    key={groupProfile.pk}
+                                                    value={groupProfile?.pk}
+                                                >
+                                                    {groupProfile.title}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="status-selector-container">
+                                    <div>
+                                      BMP Status
+                                    </div>
+                                    <select
+                                        id="status-selectorr"
+                                        name={'status'}
+                                        value={this.props.storedBmpForm?.status}
+                                        onChange={this.handleChange}
+                                    >
+                                        <option key={'Unknown'} value={'Unknown'}>{'Unknown'}</option>
+                                        {this.props.statuses
+                                            .filter(status => status.name !== 'Unknown')
+                                            .map(status => <option key={status.name} value={status.name}>{status.name}</option>)
+                                        }
+                                    </select>
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="priority-selector-container">
+                                    <div>
+                                      BMP Priority
+                                    </div>
+                                    <select
+                                        id="priority-selectorr"
+                                        name="priority"
+                                        value={this.props.storedBmpForm?.priority?.id}
+                                        onChange={this.handleChange}
+                                    >
+                                        {this.props.priorities.map((priority) => {
+                                            return (
+                                                <option
+                                                    key={priority.id}
+                                                    value={priority?.value}
+                                                >
+                                                    {priority.label}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="n_surface_red_percent-selector-container">
+                                    <div>
+                                      Surface Nitrogen Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_n_surface_red_percent"
+                                        value={this.props.storedBmpForm?.override_n_surface_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="p_surface_red_percent-selector-container">
+                                    <div>
+                                      Surface Phosphorus Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_p_surface_red_percent"
+                                        value={this.props.storedBmpForm?.override_p_surface_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="s_surface_red_percent-selector-container">
+                                    <div>
+                                      Surface Sediment Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_s_surface_red_percent"
+                                        value={this.props.storedBmpForm?.override_s_surface_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="n_tiled_red_percent-selector-container">
+                                    <div>
+                                      Tiled Nitrogen Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_n_tiled_red_percent"
+                                        value={this.props.storedBmpForm?.override_n_tiled_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="p_tiled_red_percent-selector-container">
+                                    <div>
+                                      Tiled Phosphorus Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_p_tiled_red_percent"
+                                        value={this.props.storedBmpForm?.override_p_tiled_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="s_tiled_red_percent-selector-container">
+                                    <div>
+                                      Tiled Sediment Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_s_tiled_red_percent"
+                                        value={this.props.storedBmpForm?.override_s_tiled_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="n_erosion_red_percent-selector-container">
+                                    <div>
+                                      Erosion Nitrogen Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_n_erosion_red_percent"
+                                        value={this.props.storedBmpForm?.override_n_erosion_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="p_erosion_red_percent-selector-container">
+                                    <div>
+                                      Erosion Phosphorus Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_p_erosion_red_percent"
+                                        value={this.props.storedBmpForm?.override_p_erosion_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="s_erosion_red_percent-selector-container">
+                                    <div>
+                                      Erosion Sediment Reduction Percentage
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_s_tiled_red_percent"
+                                        value={this.props.storedBmpForm?.override_s_erosion_red_percent}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="override_cost_base-selector-container">
+                                    <div>
+                                      Base Cost ($)
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_cost_base"
+                                        value={this.props.storedBmpForm?.override_cost_base}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="cost_rate_per_footprint_area-selector-container">
+                                    <div>
+                                      Footprint Cost ($/acre)
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_cost_rate_per_footprint_area"
+                                        value={this.props.storedBmpForm?.override_cost_rate_per_footprint_area}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                                <div className={"simple-view-panel-item-row"} id="cost_rate_per_watershed_area-selector-container">
+                                    <div>
+                                      Watershed Cost ($/acre)
+                                    </div>
+                                    <input
+                                        type={"number"}
+                                        step={1}
+                                        name="override_cost_rate_per_watershed_area"
+                                        value={this.props.storedBmpForm?.override_cost_rate_per_watershed_area}
+                                        onChange={this.handleChange}
+                                        placeholder="---"
+                                    />
+                                </div>
+                            </React.Fragment>
+                            : null
+                    }
+                    <div>
+                        Notes
+                    </div>
+                    <textarea
+                        id={'bmp-notes'}
+                        rows={4}
+                        cols={50}
+                        name="notes"
+                        value={this.props.storedBmpForm?.notes}
+                        onChange={this.handleChange}
+                    />
                 </div>
-                <div
-                    id={"grid-column-two-top"}
-                    style={{
-                        gridRowStart: 2,
-                        gridRowEnd: 3,
-                        gridColumnStart: 2,
-                        gridColumnEnd: 3,
-                        maxWidth: "800px",
-                        maxHeight: "80%",
-                        overflowY: "scroll",
-                        marginRight: "10%"
-                    }}
-                >
+                <div id={"swamm-bmp-form-grid-col-two"}>
                     {
                         !this.props.storedBmpForm?.id || this.props.changingBmpType ?
                             <React.Fragment>
-                                {this.props.changingBmpType ?
-                                    <button
-                                        type={'button'}
-                                        style={{opacity: "0.7", position: "absolute", bottom: "20px", right: "220px", minWidth: "80px"}}
-                                        onClick={() => this.props.setChangingBmpType(false)}>
-                                        Accept
-                                    </button> : null}
                                 <div style={{textAlign: "left"}}>
                                     {
                                         !this.props.storedBmpForm.bmpName ?
@@ -617,7 +561,7 @@ class SwammBmpFormClass extends React.Component {
                                                                         id={`bmp-type-selector-box-${bmpType.name}`}
                                                                         // style={formControlStyle}
                                                                         type={'radio'}
-                                                                        name={'bmpName'}
+                                                                        name={'bmpType'}
                                                                         value={bmpType.name}
                                                                         onChange={this.handleBmpChange}
                                                                     />
@@ -635,6 +579,17 @@ class SwammBmpFormClass extends React.Component {
                                         );
                                     })}
                                 </div>
+                                {this.props.changingBmpType ?
+                                    <button
+                                        type={'button'}
+                                        className={'bmp-form-button'}
+                                        style={{marginTop: "20px", backgroundColor: "darkgreen"}}
+                                        onClick={() => this.props.setChangingBmpType(false)}
+                                    >
+                                        Accept
+                                    </button> :
+                                    null
+                                }
                             </React.Fragment> :
                             this.props.complexBmpForm ?
                                 <React.Fragment>
@@ -655,7 +610,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <th style={{"width": "30%"}}>Results</th>
                                                 <th style={{"width": "13%"}}>Surface</th>
                                                 <th style={{"width": "13%"}}>Tiled</th>
-                                                <th style={{"width": "13%", "word-break": "break-word"}}>Gully/<wbr/>Lake/<wbr/>Streambank</th>
+                                                <th style={{"width": "13%", "word-break": "break-word"}}>Gully/<wbr/>Bank</th>
                                                 <th style={{"width": "10%"}}>Total</th>
                                                 {
                                                     this.props.watershedIsFootprint ?
@@ -845,56 +800,15 @@ class SwammBmpFormClass extends React.Component {
                     }
                 </div>
                 <div
-                    id={"grid-column-two-bottom"}
-                    style={{
-                        gridRowStart: 3,
-                        gridRowEnd: 4,
-                        gridColumnStart: 2,
-                        gridColumnEnd: 3
-                    }}
-                >
-                    <div className={"simple-view-panel-item-row"}>
-                        grid-column-two-bottom
-                    </div>
-                </div>
-                <div
-                    id={"grid-footer"}
+                    id={"swamm-bmp-form-grid-footer"}
                     className={"simple-view-panel-item-row"}
                     style={{
-                        gridRowStart: 4,
-                        gridRowEnd: 5,
-                        gridColumnStart: 1,
-                        gridColumnEnd: 3
+                        display: "flex",
+                        justifyContent: "flex-end"
                     }}
                 >
                     {this.props.storedBmpForm?.id ?
                         <React.Fragment>
-                            <button
-                                type={'button'}
-                                className={'bmp-form-button'}
-                                onClick={() => {
-                                    if (window.confirm('This action can not be undone. Are you sure?')) {
-                                        this.props.deleteBmp(this.props.projectId, this.props.storedBmpForm?.id);
-                                    }
-                                }}>
-                                Delete
-                            </button>
-                            <button
-                                type={'button'}
-                                className={'bmp-form-button'}
-                                onClick={() => {
-                                    if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
-                                        this.props.setChangingBmpType(true);
-                                    }
-                                }}>
-                                Edit Type
-                            </button>
-                            <button
-                                type={'button'}
-                                className={'bmp-form-button'}
-                                onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
-                                Make PDF
-                            </button>
                             {
                                 this.props.complexBmpForm ?
                                     <button
@@ -911,14 +825,14 @@ class SwammBmpFormClass extends React.Component {
                                         Advanced
                                     </button>
                             }
+                            <button
+                                type={'button'}
+                                className={'bmp-form-button'}
+                                onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
+                                Make PDF
+                            </button>
                         </React.Fragment>
                         : null}
-                    <button
-                        type={'button'}
-                        className={`bmp-form-button ${this.props.standard_url ? "" : "disabled"}`}
-                        onClick={() => window.open(this.props.standard_url, "_blank")}>
-                        View<br/>Standard
-                    </button>
                     <button
                         type={'button'}
                         className={'bmp-form-button'}
@@ -930,7 +844,31 @@ class SwammBmpFormClass extends React.Component {
                     </button>
                     <button
                         type={'button'}
+                        className={`bmp-form-button ${this.props.standard_url ? "" : "disabled"}`}
+                        onClick={() => window.open(this.props.standard_url, "_blank")}>
+                        Description
+                    </button>
+                    {this.props.storedBmpForm?.id ?
+                        <button
+                            type={'button'}
+                            className={'bmp-form-button'}
+                            style={{
+                                backgroundColor: "darkred"
+                            }}
+                            onClick={() => {
+                                if (window.confirm('This action can not be undone. Are you sure?')) {
+                                    this.props.deleteBmp(this.props.projectId, this.props.storedBmpForm?.id);
+                                }
+                            }}>
+                            Delete
+                        </button> : null
+                    }
+                    <button
+                        type={'button'}
                         className={this.props.hasGeometry ? 'bmp-form-button' : 'bmp-form-button disabled'}
+                        style={{
+                            backgroundColor: "darkgreen"
+                        }}
                         onClick={() => {
                             this.props.submitBmpForm(this.props.storedBmpForm, this.props.projectId);
                         }}>
