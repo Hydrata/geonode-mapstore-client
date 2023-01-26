@@ -1379,7 +1379,7 @@
             {
               "type": "plugin",
               "showPendingChangesIcon": true,
-              "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}",
+              "disableIf": "{(!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))) || state('swammProjectData.id') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
               "name": "Save",
               "labelId": "gnviewer.save"
             },

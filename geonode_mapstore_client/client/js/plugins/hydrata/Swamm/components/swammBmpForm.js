@@ -243,7 +243,7 @@ class SwammBmpFormClass extends React.Component {
                                 {this.props.storedBmpForm?.watershed_fid ?
                                     <React.Fragment>
                                         <div>
-                                            Footprint: {this.props.storedBmpForm?.calculated_watershed_area ?
+                                            Watershed: {this.props.storedBmpForm?.calculated_watershed_area ?
                                                 this.props.storedBmpForm?.calculated_watershed_area?.toFixed(2) + " acres" :
                                                 ' '}
                                         </div>
@@ -281,6 +281,9 @@ class SwammBmpFormClass extends React.Component {
                         <input
                             type={"text"}
                             name="field_identifier"
+                            style={{
+                                maxWidth: "fit-content"
+                            }}
                             value={this.props.storedBmpForm?.field_identifier}
                             onChange={this.handleChange}
                             placeholder="---"
@@ -293,6 +296,9 @@ class SwammBmpFormClass extends React.Component {
                         <input
                             type={"text"}
                             name="owner_identifier"
+                            style={{
+                                maxWidth: "fit-content"
+                            }}
                             value={this.props.storedBmpForm?.owner_identifier}
                             onChange={this.handleChange}
                             placeholder="---"
@@ -596,17 +602,17 @@ class SwammBmpFormClass extends React.Component {
                                     <Table
                                         condensed
                                         bordered
-                                        responsive="sm"
                                         hover
+                                        responsive="sm"
                                         className={"text-right"}
                                         style={{
                                             tableLayout: "fixed",
                                             border: "solid 1px rgb(255, 255, 255, 0.2)",
-                                            borderRadius: "4px"
+                                            borderRadius: "2px"
                                         }}
                                     >
                                         <thead>
-                                            <tr>
+                                            <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <th style={{"width": "30%"}}>Results</th>
                                                 <th style={{"width": "13%"}}>Surface</th>
                                                 <th style={{"width": "13%"}}>Tiled</th>
@@ -624,7 +630,7 @@ class SwammBmpFormClass extends React.Component {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <tr style={{borderTop: "solid 1px rgb(255, 255, 255, 0.2)"}}>
+                                            <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Nitrogen load previous: </td>
                                                 <td>{this.props.storedBmpForm?.surface_previous_n_load?.toFixed(0)}</td>
                                                 <td>{this.props.storedBmpForm?.tiled_previous_n_load?.toFixed(0)}</td>
@@ -660,7 +666,7 @@ class SwammBmpFormClass extends React.Component {
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
-                                            <tr style={{borderTop: "solid 1px rgb(255, 255, 255, 0.2)"}}>
+                                            <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Phosphorus load previous: </td>
                                                 <td>{this.props.storedBmpForm?.surface_previous_p_load?.toFixed(0)}</td>
                                                 <td>{this.props.storedBmpForm?.tiled_previous_p_load?.toFixed(0)}</td>
@@ -696,7 +702,7 @@ class SwammBmpFormClass extends React.Component {
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
-                                            <tr style={{borderTop: "solid 1px rgb(255, 255, 255, 0.2)"}}>
+                                            <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Sediment load previous: </td>
                                                 <td>{this.props.storedBmpForm?.surface_previous_s_load?.toFixed(0)}</td>
                                                 <td>{this.props.storedBmpForm?.tiled_previous_s_load?.toFixed(0)}</td>
@@ -720,7 +726,7 @@ class SwammBmpFormClass extends React.Component {
                                                 }
                                                 <td className={"text-left"}>tons/<wbr/>year</td>
                                             </tr>
-                                            <tr style={{borderBottom: "solid 1px rgb(255, 255, 255, 0.2)"}}>
+                                            <tr style={{borderBottom: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Sediment load new: </td>
                                                 <td>{this.props.storedBmpForm?.surface_new_s_load?.toFixed(0)}</td>
                                                 <td>{this.props.storedBmpForm?.tiled_new_s_load?.toFixed(0)}</td>
@@ -771,7 +777,18 @@ class SwammBmpFormClass extends React.Component {
                                         null
                                     }
                                 </React.Fragment> :
-                                <Table bordered condensed hover className={"text-right"}>
+                                <Table
+                                    bordered
+                                    condensed
+                                    hover
+                                    responsive="sm"
+                                    style={{
+                                        tableLayout: "fixed",
+                                        border: "solid 1px rgb(255, 255, 255, 0.2)",
+                                        borderRadius: "2px"
+                                    }}
+                                    className={"text-right"}
+                                >
                                     <thead>
                                         <tr>
                                             <th>Results</th>
@@ -844,7 +861,8 @@ class SwammBmpFormClass extends React.Component {
                     </button>
                     <button
                         type={'button'}
-                        className={`bmp-form-button ${this.props.standard_url ? "" : "disabled"}`}
+                        disabled={!!this.props.standard_url}
+                        className={`bmp-form-button ${this.props.standard_url ? "" : "bmp-form-button-disabled"}`}
                         onClick={() => window.open(this.props.standard_url, "_blank")}>
                         Description
                     </button>

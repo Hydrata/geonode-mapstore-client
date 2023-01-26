@@ -88,6 +88,11 @@
     min-width: 100px;
 }
 
+.bmp-form-button-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 .simple-view-panel-item-row select {
     background-color: #5279B0FF;
     border-radius: 4px;
