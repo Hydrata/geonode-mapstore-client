@@ -93,6 +93,11 @@
     opacity: 0.5;
 }
 
+.non-savable-group-profile {
+    background-color: #fff1f1;
+    color: grey;
+}
+
 .simple-view-panel-item-row select {
     background-color: #5279B0FF;
     border-radius: 4px;

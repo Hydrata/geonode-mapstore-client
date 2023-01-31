@@ -42,7 +42,7 @@ class SwammBmpChartClass extends React.Component {
 
     render() {
         return (
-            <Modal
+            <div
                 show
                 onHide={() => console.log('onHide')}
                 style={{
@@ -51,20 +51,20 @@ class SwammBmpChartClass extends React.Component {
                 }}
                 dialogClassName="swamm-big-modal"
             >
-                <Modal.Header>
-                    <Modal.Title style={{textAlign: "center"}}>
+                <div>
+                    <div style={{textAlign: "center"}}>
                         <h4 style={{padding: "0", margin: "0"}}>{this.props.selectedTarget?.name}</h4>
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Grid>
-                        <Col sm={2}>
-                            <Row className={'well'} style={{paddingTop: "0"}}>
+                    </div>
+                </div>
+                <div>
+                    <div>
+                        <div sm={2}>
+                            <div className={'well'} style={{paddingTop: "0"}}>
                                 <h4 style={{paddingTop: "5px", paddingBottom: "10px", margin: "0", textAlign: "center", fontSize: "14px"}}>Targets</h4>
                                 {this.props.targets.map((target) => {
                                     return (
                                         <div className={'row-no-gutters'}>
-                                            <Button
+                                            <button
                                                 bsStyle="success"
                                                 bsSize="xsmall"
                                                 block
@@ -75,34 +75,34 @@ class SwammBmpChartClass extends React.Component {
                                                 }}
                                                 onClick={() => this.props.selectSwammTargetId(target?.id)}>
                                                 {target?.name}
-                                            </Button>
+                                            </button>
                                         </div>);
                                 })}
                                 <div className={'row-no-gutters'}>
-                                    <Button
+                                    <button
                                         bsStyle="info"
                                         bsSize="xsmall"
                                         block
                                         style={{marginTop: "4px", fontSize: "x-small"}}
                                         onClick={() => this.props.showTargetForm(null)}>
                                         New Target
-                                    </Button>
+                                    </button>
                                 </div>
                                 <div className={'row-no-gutters'}>
-                                    <Button
+                                    <button
                                         bsStyle="info"
                                         bsSize="xsmall"
                                         block
                                         style={{marginTop: "4px", fontSize: "x-small"}}
                                         onClick={() => this.props.showTargetForm(this.props.selectedTarget)}>
                                         Edit Target
-                                    </Button>
+                                    </button>
                                 </div>
-                            </Row>
-                            <Row className={'well'} style={{paddingTop: "20px"}}>
+                            </div>
+                            <div className={'well'} style={{paddingTop: "20px"}}>
                                 <h4 style={{paddingTop: "5px", paddingBottom: "10px", margin: "0", textAlign: "center", fontSize: "14px"}}>Sort Data By:</h4>
                                 <div className={'row-no-gutters'}>
-                                    <Button
+                                    <button
                                         bsStyle="success"
                                         bsSize="xsmall"
                                         block
@@ -113,7 +113,7 @@ class SwammBmpChartClass extends React.Component {
                                         }}
                                         onClick={() => this.props.setBmpFilterMode('type')}>
                                         BMP Type
-                                    </Button>
+                                    </button>
                                 </div>
                                 <div className={'row-no-gutters'}>
                                     <Button
@@ -143,19 +143,19 @@ class SwammBmpChartClass extends React.Component {
                                         Organization
                                     </Button>
                                 </div>
-                            </Row>
-                        </Col>
+                            </div>
+                        </div>
                         {this.props.selectedTargetId ?
-                            <Col sm={8} style={{marginLeft: 20, marginRight: -20}}>
+                            <div sm={8} style={{marginLeft: 20, marginRight: -20}}>
                                 {
                                     this.pollutants.map(pollutant => {
                                         return (
-                                            <Row
+                                            <div
                                                 className={"well"}
                                             >
                                                 {
                                                     pollutant.name !== 'area' ?
-                                                        <Col sm={3} style={{padding: 0}}>
+                                                        <div sm={3} style={{padding: 0}}>
                                                             <h4 style={{
                                                                 textAlign: "center",
                                                                 fontSize: "14px",
@@ -165,7 +165,7 @@ class SwammBmpChartClass extends React.Component {
                                                                 {pollutant.name}
                                                             </h4>
                                                             <div style={{width: circleSize * 1.5, height: circleSize / 1.2}}>
-                                                                <ResponsiveContainer>
+                                                                <div>
                                                                     <PieChart
                                                                         width={circleSize * 1.5}
                                                                         height={circleSize * 1.5}
@@ -203,12 +203,12 @@ class SwammBmpChartClass extends React.Component {
                                                                             }
                                                                         </text>
                                                                     </PieChart>
-                                                                </ResponsiveContainer>
+                                                                </div>
                                                             </div>
-                                                        </Col> :
+                                                        </div> :
                                                         null
                                                 }
-                                                <Col sm={8}>
+                                                <div sm={8}>
                                                     <h4 style={{
                                                         textAlign: "center",
                                                         fontSize: "14px",
@@ -219,7 +219,7 @@ class SwammBmpChartClass extends React.Component {
                                                         {pollutant.title}
                                                     </h4>
                                                     <div style={{width: '100%', height: 100}}>
-                                                        <ResponsiveContainer>
+                                                        <div>
                                                             <BarChart
                                                                 width={600}
                                                                 height={80}
@@ -258,14 +258,14 @@ class SwammBmpChartClass extends React.Component {
                                                                     /> : null
                                                                 }
                                                             </BarChart>
-                                                        </ResponsiveContainer>
+                                                        </div>
                                                     </div>
-                                                </Col>
-                                            </Row>
+                                                </div>
+                                            </div>
                                         );
                                     })
                                 }
-                                <Row>
+                                <div>
                                     <Table bordered condensed hover className={"text-right"}>
                                         <thead>
                                             <tr>
@@ -314,22 +314,22 @@ class SwammBmpChartClass extends React.Component {
                                             </tr>
                                         </tbody>
                                     </Table>
-                                </Row>
-                            </Col>
-                            : <Col sm={8} style={{marginLeft: 20, marginRight: -20, textAlign: "center"}}>Please select a target on the left</Col>
+                                </div>
+                            </div>
+                            : <div sm={8} style={{marginLeft: 20, marginRight: -20, textAlign: "center"}}>Please select a target on the left</div>
                         }
-                    </Grid>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button
+                    </div>
+                </div>
+                <div>
+                    <button
                         bsStyle="danger"
                         bsSize="small"
                         style={{opacity: "0.7"}}
                         onClick={() => this.props.hideSwammBmpChart()}>
                         Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+                    </button>
+                </div>
+            </div>
         );
     }
 

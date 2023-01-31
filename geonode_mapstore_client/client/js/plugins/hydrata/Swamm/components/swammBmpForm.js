@@ -59,8 +59,7 @@ class SwammBmpFormClass extends React.Component {
         storedBmpForm: PropTypes.object,
         clearBmpForm: PropTypes.func,
         groupProfiles: PropTypes.array,
-        allowedGroupProfiles: PropTypes.array,
-        defaultGroupProfile: PropTypes.string,
+        saveableGroupProfiles: PropTypes.array,
         makeDefaultsBmpForm: PropTypes.func,
         makeExistingBmpForm: PropTypes.func,
         updateBmpForm: PropTypes.func,
@@ -178,7 +177,6 @@ class SwammBmpFormClass extends React.Component {
                                     <button
                                         type={'button'}
                                         className={'bmp-form-button'}
-                                        style={{opacity: "0.7"}}
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
                                             this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
@@ -325,11 +323,12 @@ class SwammBmpFormClass extends React.Component {
                                         onChange={this.handleGroupProfileChange}
                                         placeholder={this.props.storedBmpForm?.group_profile?.title}
                                     >
-                                        {this.props.allowedGroupProfiles.map((groupProfile) => {
+                                        {this.props.saveableGroupProfiles.map((groupProfile) => {
                                             return (
                                                 <option
                                                     key={groupProfile.pk}
                                                     value={groupProfile?.pk}
+                                                    className={groupProfile?.saveable ? "" : "non-savable-group-profile"}
                                                 >
                                                     {groupProfile.title}
                                                 </option>
@@ -972,17 +971,23 @@ class SwammBmpFormClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('rendering swammBmpForm version 2023-01-26 20:16');
-    const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
-    const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item=> allowedGroupProfileNames.includes(item.slug));
+    console.log('rendering swammBmpForm version 2023-01-31 12:13pm');
+    const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
+    console.log('validGroupProfiles:', validGroupProfiles);
+    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups?.includes(item.id));
+    console.log('viewableGroupProfiles:', viewableGroupProfiles);
+    const saveableGroupProfiles = viewableGroupProfiles.map(item => {
+        item.saveable = state?.security?.user?.info?.groups?.includes(item?.slug);
+        return item;
+    });
+    console.log('saveableGroupProfiles:', saveableGroupProfiles);
     return {
         projectId: state?.swamm?.projectData?.id,
         projectData: state?.swamm?.projectData,
         bmpUniqueNames: bmpByUniqueNameSelector(state).map(bmpType => bmpType.name),
         bmpTypes: state?.swamm?.bmpTypes,
         bmpTypeGroups: state?.swamm?.bmpTypeGroups || [],
-        allowedGroupProfiles: allowedGroupProfiles,
-        defaultGroupProfile: allowedGroupProfileNames[0],
+        saveableGroupProfiles: saveableGroupProfiles,
         statuses: state?.swamm?.statuses,
         priorities: state?.swamm?.priorities,
         thisBmpType: state?.swamm?.bmpTypes.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
