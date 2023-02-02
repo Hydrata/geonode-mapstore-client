@@ -433,13 +433,16 @@ export const filterBmpEpic = (action$, store) =>
             const outletFilter = JSON.parse(JSON.stringify(newFilter));
             const footprintFilter = JSON.parse(JSON.stringify(newFilter));
             const watershedFilter = JSON.parse(JSON.stringify(newFilter));
-            outletFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpOutletLayer?.name;
-            footprintFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpFootprintLayer?.name;
-            watershedFilter.filterObj.featureTypeName = store.getState()?.swamm?.bmpWatershedLayer?.name;
+            const bmpOutletLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_outlet))[0];
+            const bmpFootprintLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_footprint))[0];
+            const bmpWatershedLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_watershed))[0];
+            outletFilter.filterObj.featureTypeName = bmpOutletLayer.name;
+            footprintFilter.filterObj.featureTypeName = bmpFootprintLayer.name;
+            watershedFilter.filterObj.featureTypeName = bmpWatershedLayer.name;
             console.log('watershed filter: ', watershedFilter);
             return Rx.Observable.of(
-                changeLayerProperties(store.getState()?.swamm?.bmpOutletLayer?.id, outletFilter),
-                changeLayerProperties(store.getState()?.swamm?.bmpFootprintLayer?.id, footprintFilter),
-                changeLayerProperties(store.getState()?.swamm?.bmpWatershedLayer?.id, watershedFilter)
+                changeLayerProperties(bmpOutletLayer?.id, outletFilter),
+                changeLayerProperties(bmpFootprintLayer?.id, footprintFilter),
+                changeLayerProperties(bmpWatershedLayer?.id, watershedFilter)
             );
         });

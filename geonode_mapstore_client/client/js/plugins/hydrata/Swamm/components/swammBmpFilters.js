@@ -193,24 +193,19 @@ class SwammBmpFiltersClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const allowedGroupProfileSlugs = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item));
-    allowedGroupProfileSlugs.push('nwr', 'hyd'); // always allow northwater & hydrata stuff to be visible
-    const allowedGroupProfiles = state?.swamm?.groupProfiles
-        .filter(item=> allowedGroupProfileSlugs.includes(item.slug));
-        // .map(item => {
-        //     let temp = Object.assign({}, item);
-        //     temp.visibility = false;
-        //     return temp;
-        // });
-    // console.log('allowedGroupProfiles', allowedGroupProfiles);
-    allowedGroupProfiles.sort((a, b) => a.title.localeCompare(b.title));
+    const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
+    console.log('validGroupProfiles:', validGroupProfiles);
+    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups?.includes(item.id));
+    console.log('viewableGroupProfiles:', viewableGroupProfiles);
+    viewableGroupProfiles.sort((a, b) => a.title.localeCompare(b.title));
+    console.log('viewableGroupProfiles:', viewableGroupProfiles);
     // console.log('allowedGroupProfiles', allowedGroupProfiles);
     return {
         mapId: state?.swamm?.data?.base_map,
         projectData: state?.swamm?.data,
         bmpTypes: state?.swamm?.bmpTypes,
         statuses: state?.swamm?.statuses,
-        groupProfiles: allowedGroupProfiles,
+        groupProfiles: viewableGroupProfiles,
         layers: state?.layers,
         query: state?.query,
         expandedFilter: state?.swamm?.expandedFilter,
