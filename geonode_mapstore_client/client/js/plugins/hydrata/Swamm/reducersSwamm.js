@@ -18,6 +18,7 @@ import {
     SET_ALL_BMP_TYPES_VISIBILITY,
     SET_BMP_TYPE,
     SET_CHANGING_BMP_TYPE,
+    SET_EXPANDED_BMP_TYPE_GROUP_NAME,
     SET_COMPLEX_BMP_FORM,
     SET_MENU_GROUP,
     SET_EXPANDED_FILTER,
@@ -413,6 +414,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             drawingBmpLayerName: null
+        };
+    case SET_EXPANDED_BMP_TYPE_GROUP_NAME:
+        return {
+            ...state,
+            expandedBmpTypeGroupName: action.expandedBmpTypeGroupName
         };
     case REGISTER_MISSING_BMP_FEATURE_ID:
         return {

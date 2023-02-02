@@ -77,6 +77,7 @@ const CLEAR_BMP_FORM = 'CLEAR_BMP_FORM';
 const MAKE_DEFAULTS_BMP_FORM = 'MAKE_DEFAULTS_BMP_FORM';
 const MAKE_EXISTING_BMP_FORM = 'MAKE_EXISTING_BMP_FORM';
 const SET_UPDATING_BMP = 'SET_UPDATING_BMP';
+const SET_EXPANDED_BMP_TYPE_GROUP_NAME = 'SET_EXPANDED_BMP_TYPE_GROUP_NAME';
 const GET_BMP_FORM_SUCCESS = 'GET_BMP_FORM_SUCCESS';
 const UPDATE_BMP_FORM = 'UPDATE_BMP_FORM';
 const SET_DRAWING_BMP_LAYER_NAME = 'SET_DRAWING_BMP_LAYER_NAME';
@@ -376,6 +377,13 @@ const showSwammBmpChart = () => {
 const hideSwammBmpChart = () => {
     return {
         type: HIDE_SWAMM_BMP_CHART
+    };
+};
+
+const setExpandedBmpTypeGroupName = (expandedBmpTypeGroupName) => {
+    return {
+        type: SET_EXPANDED_BMP_TYPE_GROUP_NAME,
+        expandedBmpTypeGroupName
     };
 };
 
@@ -983,6 +991,7 @@ module.exports = {
     MAKE_DEFAULTS_BMP_FORM, makeDefaultsBmpForm,
     MAKE_EXISTING_BMP_FORM, makeExistingBmpForm,
     SET_UPDATING_BMP, setUpdatingBmp,
+    SET_EXPANDED_BMP_TYPE_GROUP_NAME, setExpandedBmpTypeGroupName,
     SET_CHANGING_BMP_TYPE, setChangingBmpType,
     SET_COMPLEX_BMP_FORM, setComplexBmpForm,
     SET_EXPANDED_FILTER, setExpandedFilter,

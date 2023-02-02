@@ -8,6 +8,7 @@ import {
     submitBmpForm,
     makeDefaultsBmpForm,
     makeExistingBmpForm,
+    setExpandedBmpTypeGroupName,
     updateBmpForm,
     hideLoadingBmp,
     showLoadingBmp,
@@ -97,7 +98,9 @@ class SwammBmpFormClass extends React.Component {
         ned_url: PropTypes.string,
         infosheet_url: PropTypes.string,
         downloadBmpReport: PropTypes.func,
-        refreshLayerVersion: PropTypes.func
+        refreshLayerVersion: PropTypes.func,
+        expandedBmpTypeGroupName: PropTypes.string,
+        setExpandedBmpTypeGroupName: PropTypes.func
     };
 
     static defaultProps = {
@@ -534,7 +537,7 @@ class SwammBmpFormClass extends React.Component {
                             </React.Fragment>
                             : null
                     }
-                    <div>
+                    <div style={{marginTop: "10px"}}>
                         Notes
                     </div>
                     <textarea
@@ -551,41 +554,62 @@ class SwammBmpFormClass extends React.Component {
                         !this.props.storedBmpForm?.id || this.props.changingBmpType ?
                             <React.Fragment>
                                 <div style={{textAlign: "left"}}>
-                                    {
-                                        !this.props.storedBmpForm.bmpName ?
-                                            <h5>Select a BMP Type...</h5> :
-                                            null
-                                    }
+                                    <h5>Select a BMP Type...</h5>
                                     {this.props.bmpTypeGroups?.map((group) => {
                                         return (
                                             <div
                                                 key={`group-${group}`}
-                                                style={{textAlign: "left", marginLeft: 0, marginBottom: "3px", padding: "3px", border: "1px solid white"}}
+                                                style={{
+                                                    textAlign: "left",
+                                                    marginLeft: 0,
+                                                    marginBottom: "3px",
+                                                    padding: "3px",
+                                                    border: "1px solid white",
+                                                    borderRadius: "3px"
+                                                }}
                                             >
-                                                <div style={{marginLeft: "15px"}}>{group[1]}</div>
+                                                <span
+                                                    style={{marginLeft: "15px"}}
+                                                    className={"btn glyphicon bmp-type-group-glyph" + (this.props.expandedBmpTypeGroupName === group[0] ? " glyphicon-chevron-down bmp-type-group-bottom-margin" : " glyphicon-chevron-right")}
+                                                    onClick={
+                                                        this.props.expandedBmpTypeGroupName === group[0] ?
+                                                            () => this.props.setExpandedBmpTypeGroupName(null) :
+                                                            () => this.props.setExpandedBmpTypeGroupName(group[0])
+                                                    }
+                                                />
+                                                <span className="bmp-type-group-name">
+                                                    {group[1]}
+                                                </span>
                                                 {
-                                                    this.props.bmpTypes
-                                                        .filter(bmpType => bmpType.group_name === group[0])
-                                                        .map(bmpType => {
-                                                            return (
-                                                                <div key={`bmpType-${bmpType.name}`}>
-                                                                    <input
-                                                                        id={`bmp-type-selector-box-${bmpType.name}`}
-                                                                        // style={formControlStyle}
-                                                                        type={'radio'}
-                                                                        name={'bmpType'}
-                                                                        value={bmpType.name}
-                                                                        onChange={this.handleBmpChange}
-                                                                    />
-                                                                    <label
-                                                                        htmlFor={`bmp-type-selector-box-${bmpType.name}`}
-                                                                        style={{marginLeft: "6px", verticalAlign: "middle"}}
+                                                    this.props.expandedBmpTypeGroupName === group[0] ?
+                                                        this.props.bmpTypes
+                                                            .filter(bmpType => bmpType.group_name === group[0])
+                                                            .map(bmpType => {
+                                                                return (
+                                                                    <div
+                                                                        key={`bmpType-${bmpType.name}`}
+                                                                        style={{
+                                                                            marginLeft: "30px"
+                                                                        }}
                                                                     >
-                                                                        {bmpType.name}
-                                                                    </label>
-                                                                </div>
-                                                            );
-                                                        })
+                                                                        <input
+                                                                            id={`bmp-type-selector-box-${bmpType.name}`}
+                                                                            // style={formControlStyle}
+                                                                            type={'radio'}
+                                                                            name={'bmpType'}
+                                                                            value={bmpType.name}
+                                                                            onChange={this.handleBmpChange}
+                                                                        />
+                                                                        <label
+                                                                            htmlFor={`bmp-type-selector-box-${bmpType.name}`}
+                                                                            style={{marginLeft: "6px", verticalAlign: "middle"}}
+                                                                        >
+                                                                            {bmpType.name}
+                                                                        </label>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        : null
                                                 }
                                             </div>
                                         );
@@ -980,13 +1004,15 @@ const mapStateToProps = (state) => {
         item.saveable = state?.security?.user?.info?.groups?.includes(item?.slug);
         return item;
     });
-    console.log('saveableGroupProfiles:', saveableGroupProfiles);
+    console.log('expandedBmpTypeGroupName:', state?.swamm?.expandedBmpTypeGroupName);
+    console.log('bmpTypeGroups:', state?.swamm?.bmpTypeGroups);
     return {
         projectId: state?.swamm?.projectData?.id,
         projectData: state?.swamm?.projectData,
         bmpUniqueNames: bmpByUniqueNameSelector(state).map(bmpType => bmpType.name),
         bmpTypes: state?.swamm?.bmpTypes,
         bmpTypeGroups: state?.swamm?.bmpTypeGroups || [],
+        expandedBmpTypeGroupName: state?.swamm?.expandedBmpTypeGroupName,
         saveableGroupProfiles: saveableGroupProfiles,
         statuses: state?.swamm?.statuses,
         priorities: state?.swamm?.priorities,
@@ -1027,6 +1053,7 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteBmp: (projectId, bmpId) => dispatch(deleteBmp(projectId, bmpId)),
         makeDefaultsBmpForm: (bmpType) => dispatch(makeDefaultsBmpForm(bmpType)),
         setChangingBmpType: (changingBmpType) => dispatch(setChangingBmpType(changingBmpType)),
+        setExpandedBmpTypeGroupName: (expandedBmpTypeGroupName) => dispatch(setExpandedBmpTypeGroupName(expandedBmpTypeGroupName)),
         setComplexBmpForm: (complexBmpForm) => dispatch(setComplexBmpForm(complexBmpForm)),
         setLayer: (id) => dispatch(setLayer(id)),
         setDrawingBmpLayerName: (layerName) => dispatch(setDrawingBmpLayerName(layerName)),
