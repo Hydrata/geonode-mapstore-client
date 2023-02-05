@@ -13,6 +13,7 @@ import {
     showSwammBmpChart,
     makeBmpForm,
     setEditingBmpFeatureId,
+    selectSwammTargetId,
     clearDrawingBmpLayerName,
     clearEditingBmpFeatureId,
     toggleBmpType,
@@ -69,6 +70,8 @@ class SwammContainer extends React.Component {
         toggleBmpType: PropTypes.func,
         visibleSwammBmpChart: PropTypes.bool,
         visibleTargetForm: PropTypes.bool,
+        defaultTargetId: PropTypes.number,
+        selectSwammTargetId: PropTypes.func,
         showSwammBmpChart: PropTypes.func,
         bmpByUniqueNameSelector: PropTypes.func,
         setLayer: PropTypes.func,
@@ -253,6 +256,7 @@ class SwammContainer extends React.Component {
                                 style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
                                 onClick={() => {
                                     this.props.showSwammBmpChart();
+                                    this.props.selectSwammTargetId(this.props.defaultTargetId);
                                     this.props.setOpenMenuGroupId(null);
                                 }}
                             >
@@ -275,15 +279,11 @@ class SwammContainer extends React.Component {
                             : null
                         }
                         {this.props.visibleSwammBmpChart ?
-                            <div>
-                                <SwammBmpChart/>
-                            </div>
+                            <SwammBmpChart/>
                             : null
                         }
                         {this.props.viewBmpGroupId === this.props.openMenuGroupId ?
-                            <div>
-                                <SwammBmpFilters/>
-                            </div>
+                            <SwammBmpFilters/>
                             : null
                         }
                         {this.props.loadingBmp ?
@@ -323,6 +323,7 @@ const mapStateToProps = (state) => {
         drawingBmpLayerName: state?.swamm?.drawingBmpLayerName,
         editingBmpFeatureId: state?.swamm?.editingBmpFeatureId,
         visibleSwammBmpChart: state?.swamm?.visibleSwammBmpChart,
+        defaultTargetId: state?.swamm?.targets?.[0]?.id || 0,
         visibleTargetForm: state?.swamm?.visibleTargetForm,
         loadingBmp: state?.swamm?.loadingBmp,
         numberOfMenus: state?.layers?.groups?.length,
@@ -339,6 +340,7 @@ const mapDispatchToProps = ( dispatch ) => {
         fetchGroupProfiles: () => dispatch(fetchGroupProfiles()),
         fetchSwammBmpStatuses: (mapId) => dispatch(fetchSwammBmpStatuses(mapId)),
         fetchSwammTargets: (mapId) => dispatch(fetchSwammTargets(mapId)),
+        selectSwammTargetId: (targetId) => dispatch(selectSwammTargetId(targetId)),
         toggleLayer: (layer, isVisible) => dispatch(changeLayerProperties(layer, {visibility: isVisible})),
         showBmpForm: () => dispatch(showBmpForm()),
         setLayer: (layerName) => dispatch(setLayer(layerName)),

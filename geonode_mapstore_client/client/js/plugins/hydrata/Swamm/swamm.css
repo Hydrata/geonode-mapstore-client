@@ -1,4 +1,3 @@
-
 #swamm-bmp-form-panel {
     top: 70px;
     display: grid;
@@ -40,6 +39,169 @@
     grid-row-end: 4;
     grid-column-start: 1;
     grid-column-end: 3;
+}
+
+#swamm-bmp-chart-panel {
+    top: 70px;
+    display: flex;
+    flex-direction: column;
+    background-color: #063167;
+    text-align: left;
+    width: 95%;
+    height: 80%;
+    font-size: small;
+    background-color: rgba(43, 89, 148);
+}
+
+#swamm-bmp-chart-header {
+    text-align: center;
+    min-height: 50px;
+    font-size: x-large;
+}
+
+#swamm-bmp-chart-body {
+    display: flex;
+    flex-direction: row;
+}
+
+#swamm-bmp-chart-col-one {
+    display: flex;
+    flex-direction: column;
+    width: 250px;
+    margin-left: auto;
+    margin-right: 20px;
+    padding: 10px;
+    max-height: 100%;
+    overflow-y: auto;
+    border: solid 1px rgba(53, 133, 176);
+    border-radius: 4px;
+    text-align: center;
+
+}
+
+#swamm-bmp-chart-col-two {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    height: 800px;
+    max-height: inherit;
+    width: 100%;
+    overflow-y: auto;
+    border: solid 1px rgba(53, 133, 176);
+    border-radius: 4px;
+}
+
+#swamm-bmp-chart-col-three {
+    display: flex;
+    flex-direction: column;
+    max-width: 200px;
+    margin-right: auto;
+    margin-left: 20px;
+    padding: 10px;
+    max-height: 100%;
+    overflow-y: auto;
+    border: solid 1px rgba(53, 133, 176);
+    border-radius: 4px;
+}
+
+#swamm-bmp-chart-targets {
+    margin-bottom: 20px;
+}
+
+#swamm-bmp-chart-filter {
+    margin-bottom: 20px;
+}
+
+#swamm-bmp-chart-phosphorus-graph-box {
+    color: #155481;
+    background-color: white;
+    margin: 10px;
+    border-radius: 4px;
+}
+
+#swamm-bmp-chart-nitrogen-graph-box {
+    color: #155481;
+    background-color: white;
+    margin: 10px;
+    border-radius: 4px;
+}
+
+#swamm-bmp-chart-sediment-graph-box {
+    color: #155481;
+    background-color: white;
+    margin: 10px;
+    border-radius: 4px;
+}
+
+#swamm-bmp-chart-total-graph-box {
+    color: #155481;
+    background-color: white;
+    margin: 10px;
+    border-radius: 4px;
+}
+
+#swamm-bmp-chart-summary {
+    color: #155481;
+    background-color: white;
+    margin: 10px;
+    border-radius: 4px;
+}
+
+#swamm-bmp-chart-legend-container {
+    color: #155481;
+    background-color: white;
+    margin: 10px;
+    width: 200px;
+    height: 300px;
+    border-radius: 4px;
+}
+
+.swamm-bmp-chart-legend-row {
+    display: flex;
+    margin-top: 4px;
+    margin-left: 15px;
+}
+
+#swamm-bmp-chart-footer {
+    border-top: solid 1px #3585b0;
+    width: 100%;
+    padding: 10px;
+    display: flex;
+    flex-direction: row-reverse;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+}
+
+.swamm-bmp-chart-heading {
+    font-size: medium;
+    text-align: center;
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+.swamm-bmp-chart-graph-container {
+
+}
+
+.swamm-bmp-chart-graph-box {
+    display: flex;
+    height: 100px;
+}
+
+.swamm-bmp-chart-pie-group {
+    margin-top: 10px;
+    margin-left: 10px;
+    width: 200px;
+    display: inline-block;
+}
+
+.swamm-bmp-chart-bar-group {
+    margin-top: 10px;
+    margin-right: 10px;
+    width: 100%;
+    height: 200px;
+    display: inline-block;
 }
 
 .bmp-type-group-glyph {
@@ -101,17 +263,19 @@
     z-index: 10000;
 }
 
-.bmp-form-button {
+.swamm-button {
     border-radius: 4px;
     border: 1px solid white;
     color: white;
     background: rgb(82, 121, 176);
     text-align: center;
-    margin-left: 20px;
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 10px;
     min-width: 100px;
 }
 
-.bmp-form-button-disabled {
+.swamm-button-disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }

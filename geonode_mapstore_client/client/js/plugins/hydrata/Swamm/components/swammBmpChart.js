@@ -1,7 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Modal, Button, Col, Grid, Row, Table} from "react-bootstrap";
+import {Table} from "react-bootstrap";
 import {formatMoney} from "../../Utils/utils";
 import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm} from "../actionsSwamm";
 const {Cell, BarChart, Bar, PieChart, Pie, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip} = require('recharts');
@@ -43,186 +43,137 @@ class SwammBmpChartClass extends React.Component {
     render() {
         return (
             <div
-                show
-                onHide={() => console.log('onHide')}
-                style={{
-                    marginTop: "50px",
-                    width: "100%"
-                }}
-                dialogClassName="swamm-big-modal"
+                id={'swamm-bmp-chart-panel'}
+                className={'simple-view-panel menu-rows-container'}
             >
-                <div>
-                    <div style={{textAlign: "center"}}>
-                        <h4 style={{padding: "0", margin: "0"}}>{this.props.selectedTarget?.name}</h4>
-                    </div>
+                <div id={"swamm-bmp-chart-header"}>
+                    <div>Dashboard: {this.props.selectedTarget?.name}</div>
                 </div>
-                <div>
-                    <div>
-                        <div sm={2}>
-                            <div className={'well'} style={{paddingTop: "0"}}>
-                                <h4 style={{paddingTop: "5px", paddingBottom: "10px", margin: "0", textAlign: "center", fontSize: "14px"}}>Targets</h4>
-                                {this.props.targets.map((target) => {
-                                    return (
-                                        <div className={'row-no-gutters'}>
-                                            <button
-                                                bsStyle="success"
-                                                bsSize="xsmall"
-                                                block
-                                                style={{
-                                                    backgroundColor: target.id === this.props.selectedTargetId ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
-                                                    marginTop: "4px",
-                                                    fontSize: "x-small"
-                                                }}
-                                                onClick={() => this.props.selectSwammTargetId(target?.id)}>
-                                                {target?.name}
-                                            </button>
-                                        </div>);
-                                })}
-                                <div className={'row-no-gutters'}>
+                <div id={"swamm-bmp-chart-body"}>
+                    <div id={"swamm-bmp-chart-col-one"}>
+                        <div id={"swamm-bmp-chart-targets"}>
+                            <div className={"swamm-bmp-chart-heading"}>Targets</div>
+                            {this.props.targets.map((target) => {
+                                return (
                                     <button
-                                        bsStyle="info"
-                                        bsSize="xsmall"
-                                        block
-                                        style={{marginTop: "4px", fontSize: "x-small"}}
-                                        onClick={() => this.props.showTargetForm(null)}>
-                                        New Target
-                                    </button>
-                                </div>
-                                <div className={'row-no-gutters'}>
-                                    <button
-                                        bsStyle="info"
-                                        bsSize="xsmall"
-                                        block
-                                        style={{marginTop: "4px", fontSize: "x-small"}}
-                                        onClick={() => this.props.showTargetForm(this.props.selectedTarget)}>
-                                        Edit Target
-                                    </button>
-                                </div>
-                            </div>
-                            <div className={'well'} style={{paddingTop: "20px"}}>
-                                <h4 style={{paddingTop: "5px", paddingBottom: "10px", margin: "0", textAlign: "center", fontSize: "14px"}}>Sort Data By:</h4>
-                                <div className={'row-no-gutters'}>
-                                    <button
-                                        bsStyle="success"
-                                        bsSize="xsmall"
-                                        block
+                                        className={"swamm-button"}
                                         style={{
-                                            backgroundColor: this.props.bmpFilterMode === 'type' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
-                                            marginTop: "4px",
-                                            fontSize: "x-small"
+                                            backgroundColor: target.id === this.props.selectedTargetId ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
                                         }}
-                                        onClick={() => this.props.setBmpFilterMode('type')}>
-                                        BMP Type
+                                        onClick={() => this.props.selectSwammTargetId(target?.id)}>
+                                        {target?.name}
                                     </button>
-                                </div>
-                                <div className={'row-no-gutters'}>
-                                    <Button
-                                        bsStyle="success"
-                                        bsSize="xsmall"
-                                        block
-                                        style={{
-                                            backgroundColor: this.props.bmpFilterMode === 'status' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
-                                            marginTop: "4px",
-                                            fontSize: "x-small"
-                                        }}
-                                        onClick={() => this.props.setBmpFilterMode('status')}>
-                                        BMP Status
-                                    </Button>
-                                </div>
-                                <div className={'row-no-gutters'}>
-                                    <Button
-                                        bsStyle="success"
-                                        bsSize="xsmall"
-                                        block
-                                        style={{
-                                            backgroundColor: this.props.bmpFilterMode === 'group_profile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)",
-                                            marginTop: "4px",
-                                            fontSize: "x-small"
-                                        }}
-                                        onClick={() => this.props.setBmpFilterMode('group_profile')}>
-                                        Organization
-                                    </Button>
-                                </div>
-                            </div>
+                                );
+                            })}
+                            <button
+                                className={"swamm-button"}
+                                style={{marginTop: "10px"}}
+                                onClick={() => this.props.showTargetForm(null)}>
+                                New Target
+                            </button>
+                            <button
+                                className={"swamm-button"}
+                                style={{marginTop: "10px", marginBottom: "10px"}}
+                                onClick={() => this.props.showTargetForm(this.props.selectedTarget)}>
+                                Edit Target
+                            </button>
                         </div>
-                        {this.props.selectedTargetId ?
-                            <div sm={8} style={{marginLeft: 20, marginRight: -20}}>
-                                {
-                                    this.pollutants.map(pollutant => {
-                                        return (
-                                            <div
-                                                className={"well"}
-                                            >
-                                                {
-                                                    pollutant.name !== 'area' ?
-                                                        <div sm={3} style={{padding: 0}}>
-                                                            <h4 style={{
-                                                                textAlign: "center",
-                                                                fontSize: "14px",
-                                                                padding: "5px 50px 10px 5px",
-                                                                margin: 0
-                                                            }}>
-                                                                {pollutant.name}
-                                                            </h4>
-                                                            <div style={{width: circleSize * 1.5, height: circleSize / 1.2}}>
-                                                                <div>
-                                                                    <PieChart
-                                                                        width={circleSize * 1.5}
-                                                                        height={circleSize * 1.5}
-                                                                        style={{paddingTop: "10px"}}
-                                                                    >
-                                                                        <Pie
-                                                                            data={this.props.selectedTarget?.speedDialData?.[`percent${pollutant.name}Target`]}
-                                                                            dataKey="value"
-                                                                            cx={circleSize / 1.3 - 10}
-                                                                            cy={circleSize / 2}
-                                                                            innerRadius={circleSize / 3}
-                                                                            outerRadius={circleSize / 2}
-                                                                            fill="#82ca9d"
-                                                                            startAngle={180}
-                                                                            endAngle={0}
-                                                                            isAnimationActive={false}
-                                                                        >
-                                                                            <Cell fill={"#27ca3b"} cornerRadius={1}/>
-                                                                            <Cell fill={"#97b3c3"} cornerRadius={1}/>
-                                                                        </Pie>
-                                                                        <text
-                                                                            x={circleSize / 1.3 - 10}
-                                                                            y={circleSize / 2 - 5}
-                                                                            textAnchor="middle"
-                                                                            fontSize={circleSize / 5}
-                                                                            dominantBaseline="middle"
-                                                                            className="progress-label"
-                                                                        >
-                                                                            {
-                                                                                (
-                                                                                    pollutant.initial !== 'a' ?
-                                                                                        this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1) + '%' :
-                                                                                        this.props.selectedTarget?.barChartData?.total_bmp_count
-                                                                                )
-                                                                            }
-                                                                        </text>
-                                                                    </PieChart>
-                                                                </div>
-                                                            </div>
-                                                        </div> :
-                                                        null
-                                                }
-                                                <div sm={8}>
-                                                    <h4 style={{
-                                                        textAlign: "center",
-                                                        fontSize: "14px",
-                                                        paddingTop: "5px",
-                                                        paddingBottom: "10px",
-                                                        margin: 0
-                                                    }}>
-                                                        {pollutant.title}
-                                                    </h4>
-                                                    <div style={{width: '100%', height: 100}}>
-                                                        <div>
+                        <div id={"swamm-bmp-chart-filter"}>
+                            <div className={"swamm-bmp-chart-heading"}>
+                                Sort Data By:
+                            </div>
+                            <button
+                                className={"swamm-button"}
+                                style={{
+                                    backgroundColor: this.props.bmpFilterMode === 'type' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                                }}
+                                onClick={() => this.props.setBmpFilterMode('type')}
+                            >
+                                BMP Type
+                            </button>
+                            <button
+                                className={"swamm-button"}
+                                style={{
+                                    backgroundColor: this.props.bmpFilterMode === 'status' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                                }}
+                                onClick={() => this.props.setBmpFilterMode('status')}
+                            >
+                                BMP Status
+                            </button>
+                            <button
+                                className={"swamm-button"}
+                                style={{
+                                    backgroundColor: this.props.bmpFilterMode === 'group_profile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                                }}
+                                onClick={() => this.props.setBmpFilterMode('group_profile')}
+                            >
+                                Organization
+                            </button>
+                        </div>
+                    </div>
+                    <div id={"swamm-bmp-chart-col-two"}>
+                        {
+                            this.pollutants.map(pollutant => {
+                                return (
+                                    <div
+                                        id={`swamm-bmp-chart-${pollutant.name.toLowerCase()}`}
+                                        className={"swamm-bmp-chart-graph-container"}
+                                    >
+                                        <div className={"swamm-bmp-chart-heading"}>
+                                            {pollutant.title}
+                                        </div>
+                                        {
+                                            pollutant.name !== 'area' ?
+                                                <div
+                                                    id={`swamm-bmp-chart-${pollutant.name.toLowerCase()}-graph-box`}
+                                                    className={"swamm-bmp-chart-graph-box"}
+                                                >
+                                                    <div className={"swamm-bmp-chart-pie-group"}>
+                                                        <PieChart
+                                                            width={circleSize * 1.5}
+                                                            height={circleSize * 1.5}
+                                                            style={{paddingTop: "10px"}}
+                                                        >
+                                                            <Pie
+                                                                data={this.props.selectedTarget?.speedDialData?.[`percent${pollutant.name}Target`]}
+                                                                dataKey="value"
+                                                                cx={circleSize / 1.3 - 10}
+                                                                cy={circleSize / 2}
+                                                                innerRadius={circleSize / 3}
+                                                                outerRadius={circleSize / 2}
+                                                                fill="#82ca9d"
+                                                                startAngle={180}
+                                                                endAngle={0}
+                                                                isAnimationActive={false}
+                                                            >
+                                                                <Cell fill={"#27ca3b"} cornerRadius={1}/>
+                                                                <Cell fill={"#97b3c3"} cornerRadius={1}/>
+                                                            </Pie>
+                                                            <text
+                                                                x={circleSize / 1.3 - 5}
+                                                                y={circleSize / 2 - 5}
+                                                                textAnchor="middle"
+                                                                fontSize={circleSize / 5}
+                                                                dominantBaseline="middle"
+                                                                className="progress-label"
+                                                            >
+                                                                {
+                                                                    (
+                                                                        pollutant.initial !== 'a' ?
+                                                                            this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1) + '%' :
+                                                                            `BMP Count: ${this.props.selectedTarget?.barChartData?.total_bmp_count}`
+                                                                    )
+                                                                }
+                                                            </text>
+                                                        </PieChart>
+                                                    </div>
+                                                    <div className={"swamm-bmp-chart-bar-group"}>
+                                                        <ResponsiveContainer
+                                                            width={'95%'}
+                                                            height={150}
+                                                            id={'responsive-test'}
+                                                        >
                                                             <BarChart
-                                                                width={600}
-                                                                height={80}
                                                                 data={[{'barOne': this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]}]}
                                                                 margin={{top: 0, right: 0, left: 10, bottom: 10}}
                                                                 layout="vertical"
@@ -230,6 +181,8 @@ class SwammBmpChartClass extends React.Component {
                                                             >
                                                                 {this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
                                                                     const key = `barOne.${index}.${pollutant.load_red_total_key}`;
+                                                                    console.log('bar returning: ', bar, index, this.colours[index]);
+                                                                    console.log('bar returning key: ', `${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`);
                                                                     return (
                                                                         <Bar
                                                                             key={`${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`}
@@ -237,7 +190,7 @@ class SwammBmpChartClass extends React.Component {
                                                                             dataKey={key}
                                                                             fill={this.colours[index]}
                                                                             name={bar?.label}
-                                                                            onMouseOver={ () => this.setState({ tooltipKey: key }) }
+                                                                            // onMouseOver={ () => this.setState({ tooltipKey: key }) }
                                                                             isAnimationActive={false}
                                                                         />
                                                                     );
@@ -245,86 +198,98 @@ class SwammBmpChartClass extends React.Component {
                                                                 <Tooltip content={<CustomTooltipTwo tooltipKey={this.state.tooltipKey}/>} />
                                                                 <XAxis type="number"/>
                                                                 <YAxis type="category" hide/>
-                                                                {(pollutant.initial === 'p') ?
-                                                                    <Legend
-                                                                        layout="vertical"
-                                                                        verticalAlign="top"
-                                                                        align="left"
-                                                                        wrapperStyle={{
-                                                                            left: "300px",
-                                                                            top: "-40px",
-                                                                            width: "300px"
-                                                                        }}
-                                                                    /> : null
                                                                 }
                                                             </BarChart>
-                                                        </div>
+                                                        </ResponsiveContainer>
                                                     </div>
+                                                </div> :
+                                                <div id={`${pollutant}-placeholder`}>
+                                                </div>
+                                        }
+                                    </div>
+                                );
+                            })
+                        }
+                        <div id={"swamm-bmp-chart-summary"}>
+                            <Table bordered condensed hover className={"text-right"}>
+                                <thead>
+                                    <tr>
+                                        <th>Summary</th>
+                                        <th style={{'textAlign': 'center'}}>Phosphorus</th>
+                                        <th style={{'textAlign': 'center'}}>Nitrogen</th>
+                                        <th style={{'textAlign': 'center'}}>Sediment</th>
+                                        <th/>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Current total untreated pollutant volume:</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentPhosphorusLoad, 0)}</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentNitrogenLoad, 0)}</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentSedimentLoad, 0)}</td>
+                                        <td className={"text-left"}>units/year</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Selected target reduction percentage:</td>
+                                        <td>{this.props.selectedTarget?.speedDialData?.percentPhosphorusReductionTarget * 100}</td>
+                                        <td>{this.props.selectedTarget?.speedDialData?.percentNitrogenReductionTarget * 100}</td>
+                                        <td>{this.props.selectedTarget?.speedDialData?.percentSedimentReductionTarget * 100}</td>
+                                        <td className={"text-left"}>% of total</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Selected target load reduction required:</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetPhosphorusLoadReductionRequired, 0)}</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetNitrogenLoadReductionRequired, 0)}</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetSedimentLoadReductionRequired, 0)}</td>
+                                        <td className={"text-left"}>units/year</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Actual pollutant reduction from BMPs:</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpPhosphorusReduction, 0)}</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpNitrogenReduction, 0)}</td>
+                                        <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpSedimentReduction, 0)}</td>
+                                        <td className={"text-left"}>units/year</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Percentage of target achieved:</td>
+                                        <td>{this.props.selectedTarget?.speedDialData?.percentPhosphorusTarget?.[0]?.value?.toFixed(1)}</td>
+                                        <td>{this.props.selectedTarget?.speedDialData?.percentNitrogenTarget?.[0]?.value?.toFixed(1)}</td>
+                                        <td>{this.props.selectedTarget?.speedDialData?.percentSedimentTarget?.[0]?.value?.toFixed(1)}</td>
+                                        <td className={"text-left"}>%</td>
+                                    </tr>
+                                </tbody>
+                            </Table>
+                        </div>
+                    </div>
+                    <div id={"smamm-bmp-chart-col-three"}>
+                        <div id={"swamm-bmp-chart-legend-container"}>
+                            <div className={"swamm-bmp-chart-heading"}>Legend</div>
+                            <div id={"swamm-bmp-chart-legend-rows"}>
+                                {
+                                    this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
+                                        return (
+                                            <div className={"swamm-bmp-chart-legend-row"}>
+                                                <svg width="15" height="15">
+                                                    <rect
+                                                        width="15"
+                                                        height="15"
+                                                        fill={this.colours[index]}
+                                                    />
+                                                </svg>
+                                                <div style={{marginLeft: "15px"}}>
+                                                    {bar?.label}
                                                 </div>
                                             </div>
                                         );
                                     })
                                 }
-                                <div>
-                                    <Table bordered condensed hover className={"text-right"}>
-                                        <thead>
-                                            <tr>
-                                                <th>Summary</th>
-                                                <th style={{'textAlign': 'center'}}>Phosphorus</th>
-                                                <th style={{'textAlign': 'center'}}>Nitrogen</th>
-                                                <th style={{'textAlign': 'center'}}>Sediment</th>
-                                                <th/>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>Current total untreated pollutant volume:</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentPhosphorusLoad, 0)}</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentNitrogenLoad, 0)}</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentSedimentLoad, 0)}</td>
-                                                <td className={"text-left"}>units/year</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Selected target reduction percentage:</td>
-                                                <td>{this.props.selectedTarget?.speedDialData?.percentPhosphorusReductionTarget * 100}</td>
-                                                <td>{this.props.selectedTarget?.speedDialData?.percentNitrogenReductionTarget * 100}</td>
-                                                <td>{this.props.selectedTarget?.speedDialData?.percentSedimentReductionTarget * 100}</td>
-                                                <td className={"text-left"}>% of total</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Selected target load reduction required:</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetPhosphorusLoadReductionRequired, 0)}</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetNitrogenLoadReductionRequired, 0)}</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetSedimentLoadReductionRequired, 0)}</td>
-                                                <td className={"text-left"}>units/year</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Actual pollutant reduction from BMPs:</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpPhosphorusReduction, 0)}</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpNitrogenReduction, 0)}</td>
-                                                <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpSedimentReduction, 0)}</td>
-                                                <td className={"text-left"}>units/year</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Percentage of target achieved:</td>
-                                                <td>{this.props.selectedTarget?.speedDialData?.percentPhosphorusTarget?.[0]?.value?.toFixed(1)}</td>
-                                                <td>{this.props.selectedTarget?.speedDialData?.percentNitrogenTarget?.[0]?.value?.toFixed(1)}</td>
-                                                <td>{this.props.selectedTarget?.speedDialData?.percentSedimentTarget?.[0]?.value?.toFixed(1)}</td>
-                                                <td className={"text-left"}>%</td>
-                                            </tr>
-                                        </tbody>
-                                    </Table>
-                                </div>
                             </div>
-                            : <div sm={8} style={{marginLeft: 20, marginRight: -20, textAlign: "center"}}>Please select a target on the left</div>
-                        }
+                        </div>
                     </div>
                 </div>
-                <div>
+                <div id={"swamm-bmp-chart-footer"}>
                     <button
-                        bsStyle="danger"
-                        bsSize="small"
-                        style={{opacity: "0.7"}}
+                        className={"swamm-button"}
                         onClick={() => this.props.hideSwammBmpChart()}>
                         Close
                     </button>
@@ -337,23 +302,23 @@ class SwammBmpChartClass extends React.Component {
         {
             name: 'Phosphorus',
             load_red_total_key: 'total_p_load_reduction',
-            title: 'Load reductions (lbs/year)',
+            title: 'Phosphorus Load reductions (lbs/year)',
             initial: 'p'
         },
         {
             name: 'Nitrogen',
             load_red_total_key: 'total_n_load_reduction',
-            title: 'Load reductions (lbs/year)',
+            title: 'Nitrogen Load reductions (lbs/year)',
             initial: 'n'
         },
         {
             name: 'Sediment',
             load_red_total_key: 'total_s_load_reduction',
-            title: 'Load reductions (tons/year)',
+            title: 'Sediment Load reductions (tons/year)',
             initial: 's'
         },
         {
-            name: 'Total BMP Count',
+            name: 'Total',
             load_red_total_key: 'calculated_watershed_area',
             title: 'Treated Area (acres)',
             initial: 'a'
@@ -376,7 +341,9 @@ const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
                 const barValue = bar.payload[tooltipKeys[0]][Number(tooltipKeys[1])][tooltipKeys[2]];
                 return (
                     <div className="custom-tooltip" style={{background: "black", borderRadius: "3px"}}>
-                        <div className="label">{bar.name} - {formatMoney(barValue, 0)}</div>
+                        <div className="label">
+                            {bar.name} - {formatMoney(barValue, 0)}
+                        </div>
                         <br/>
                     </div >
                 );
@@ -398,7 +365,6 @@ const mapStateToProps = (state) => {
         targets: state?.swamm?.targets || [],
         selectedTargetId: state?.swamm?.selectedTargetId,
         selectedTarget: state?.swamm?.targets?.filter((target) => target.id === state?.swamm?.selectedTargetId)?.[0],
-        // defaultTargetId: state?.swamm?.targets?.[0]?.id || 0,
         bmpFilterMode: state?.swamm?.bmpFilterMode || 'type',
         visibleTargetForm: state?.swamm.visibleTargetForm
     };

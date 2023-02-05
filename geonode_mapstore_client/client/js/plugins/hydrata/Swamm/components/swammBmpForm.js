@@ -159,7 +159,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <button
                                     type={'button'}
-                                    className={'bmp-form-button'}
+                                    className={'swamm-button'}
                                     onClick={() => {
                                         if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
                                             this.props.setChangingBmpType(true);
@@ -179,7 +179,7 @@ class SwammBmpFormClass extends React.Component {
                                 {this.props.storedBmpForm?.outlet_fid ?
                                     <button
                                         type={'button'}
-                                        className={'bmp-form-button'}
+                                        className={'swamm-button'}
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
                                             this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
@@ -191,7 +191,7 @@ class SwammBmpFormClass extends React.Component {
                                         type={'button'}
                                         style={{backgroundColor: "darkgreen"}}
                                         disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
-                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "bmp-form-button default" : "bmp-form-button default" }
+                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "swamm-button default" : "swamm-button default" }
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
                                             this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
@@ -217,7 +217,7 @@ class SwammBmpFormClass extends React.Component {
                                         </div>
                                         <button
                                             type={'button'}
-                                            className={'bmp-form-button'}
+                                            className={'swamm-button'}
                                             onClick={() => {
                                                 this.props.showLoadingBmp(true);
                                                 this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
@@ -230,7 +230,7 @@ class SwammBmpFormClass extends React.Component {
                                     <button
                                         type={'button'}
                                         disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
-                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "bmp-form-button default" : "bmp-form-button default" }
+                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "swamm-button default" : "swamm-button default" }
                                         style={{backgroundColor: "darkgreen"}}
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
@@ -256,7 +256,7 @@ class SwammBmpFormClass extends React.Component {
                                         </div>
                                         <button
                                             type={'button'}
-                                            className={'bmp-form-button'}
+                                            className={'swamm-button'}
                                             onClick={() => {
                                                 this.props.showLoadingBmp(true);
                                                 this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
@@ -268,7 +268,7 @@ class SwammBmpFormClass extends React.Component {
                                     </React.Fragment> :
                                     <button
                                         disabled={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName)}
-                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "bmp-form-button default" : "bmp-form-button default" }
+                                        className={(!this.props.storedBmpForm?.group_profile_id || !this.props.storedBmpForm.bmpName) ? "swamm-button default" : "swamm-button default" }
                                         style={{backgroundColor: "darkgreen"}}
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
@@ -618,7 +618,7 @@ class SwammBmpFormClass extends React.Component {
                                 {this.props.changingBmpType ?
                                     <button
                                         type={'button'}
-                                        className={'bmp-form-button'}
+                                        className={'swamm-button'}
                                         style={{marginTop: "20px", backgroundColor: "darkgreen"}}
                                         onClick={() => this.props.setChangingBmpType(false)}
                                     >
@@ -860,21 +860,21 @@ class SwammBmpFormClass extends React.Component {
                                 this.props.complexBmpForm ?
                                     <button
                                         type={'button'}
-                                        className={'bmp-form-button'}
+                                        className={'swamm-button'}
                                         onClick={() => this.props.setComplexBmpForm(false)}>
                                         Simple
                                     </button>
                                     :
                                     <button
                                         type={'button'}
-                                        className={'bmp-form-button'}
+                                        className={'swamm-button'}
                                         onClick={() => this.props.setComplexBmpForm(true)}>
                                         Advanced
                                     </button>
                             }
                             <button
                                 type={'button'}
-                                className={'bmp-form-button'}
+                                className={'swamm-button'}
                                 onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
                                 Make PDF
                             </button>
@@ -882,7 +882,7 @@ class SwammBmpFormClass extends React.Component {
                         : null}
                     <button
                         type={'button'}
-                        className={'bmp-form-button'}
+                        className={'swamm-button'}
                         onClick={() => {
                             this.props.hideBmpForm();
                             this.refreshBmpLayers();
@@ -892,14 +892,14 @@ class SwammBmpFormClass extends React.Component {
                     <button
                         type={'button'}
                         disabled={!!this.props.standard_url}
-                        className={`bmp-form-button ${this.props.standard_url ? "" : "bmp-form-button-disabled"}`}
+                        className={`swamm-button ${this.props.standard_url ? "" : "swamm-button-disabled"}`}
                         onClick={() => window.open(this.props.standard_url, "_blank")}>
                         Description
                     </button>
                     {this.props.storedBmpForm?.id ?
                         <button
                             type={'button'}
-                            className={'bmp-form-button'}
+                            className={'swamm-button'}
                             style={{
                                 backgroundColor: "darkred"
                             }}
@@ -913,7 +913,7 @@ class SwammBmpFormClass extends React.Component {
                     }
                     <button
                         type={'button'}
-                        className={this.props.hasGeometry ? 'bmp-form-button' : 'bmp-form-button disabled'}
+                        className={this.props.hasGeometry ? 'swamm-button' : 'swamm-button disabled'}
                         style={{
                             backgroundColor: "darkgreen"
                         }}
