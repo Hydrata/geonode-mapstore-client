@@ -875,7 +875,8 @@ class SwammBmpFormClass extends React.Component {
                             <button
                                 type={'button'}
                                 className={'swamm-button'}
-                                onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
+                                // onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
+                                onClick={() => { window.alert('PDF creation feature is under maintenance.');}}>
                                 Make PDF
                             </button>
                         </React.Fragment>
@@ -995,7 +996,6 @@ class SwammBmpFormClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('rendering swammBmpForm version 2023-01-31 12:13pm');
     const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
     console.log('validGroupProfiles:', validGroupProfiles);
     const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups?.includes(item.id));

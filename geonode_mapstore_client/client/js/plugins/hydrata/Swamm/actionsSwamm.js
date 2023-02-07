@@ -284,9 +284,9 @@ function fetchSwammBmpStatusesError(e) {
     };
 }
 
-const fetchSwammBmpStatuses = (mapId) => {
+const fetchSwammBmpStatuses = (projectId) => {
     return (dispatch) => {
-        return axios.get(`/swamm/api/${mapId}/bmps/status_list/`
+        return axios.get(`/swamm/api/${projectId}/bmps/status_list/`
         ).then(
             response => {
                 dispatch(fetchSwammBmpStatusesSuccess(response.data));
@@ -539,9 +539,9 @@ const fetchSwammTargetsError = (e) => {
     };
 };
 
-const fetchSwammTargets = (mapId) => {
+const fetchSwammTargets = (projectId) => {
     return (dispatch) => {
-        return axios.get(`/swamm/api/${mapId}/pollutant-loading-target/`
+        return axios.get(`/swamm/api/${projectId}/pollutant-loading-target/`
         ).then(
             response => {
                 dispatch(fetchSwammTargetsSuccess(response.data));
@@ -788,15 +788,15 @@ function submitTargetFormError(e) {
     };
 }
 
-const submitTargetForm = (target, mapId) => {
+const submitTargetForm = (target, projectId) => {
     if (target.id) {
         return (dispatch) => {
             console.log('updating existing Target: ', target);
-            return axios.patch(`/swamm/api/${mapId}/pollutant-loading-target/${target.id}/`, target
+            return axios.patch(`/swamm/api/${projectId}/pollutant-loading-target/${target.id}/`, target
             ).then(
                 response => {
                     dispatch(submitTargetFormSuccess(response.data));
-                    dispatch(fetchSwammTargets(mapId));
+                    dispatch(fetchSwammTargets(projectId));
                     dispatch(hideTargetForm());
                     dispatch(clearTargetForm());
                 }
@@ -809,11 +809,11 @@ const submitTargetForm = (target, mapId) => {
     }
     return (dispatch) => {
         console.log('creating new Target: ', target);
-        return axios.post(`/swamm/api/${mapId}/pollutant-loading-target/`, target
+        return axios.post(`/swamm/api/${projectId}/pollutant-loading-target/`, target
         ).then(
             response => {
                 dispatch(submitTargetFormSuccess(response.data));
-                dispatch(fetchSwammTargets(mapId));
+                dispatch(fetchSwammTargets(projectId));
                 dispatch(hideTargetForm());
                 dispatch(clearTargetForm());
             }
@@ -863,13 +863,13 @@ const deleteTargetError = (e) => {
     };
 };
 
-const deleteTarget = (mapId, targetId) => {
+const deleteTarget = (projectId, targetId) => {
     return (dispatch) => {
-        return axios.delete(`/swamm/api/${mapId}/pollutant-loading-target/${targetId}/`, {}
+        return axios.delete(`/swamm/api/${projectId}/pollutant-loading-target/${targetId}/`, {}
         ).then(
             response => {
                 dispatch(deleteTargetSuccess(targetId));
-                dispatch(fetchSwammTargets(mapId));
+                dispatch(fetchSwammTargets(projectId));
                 dispatch(hideTargetForm());
                 dispatch(clearTargetForm());
             }

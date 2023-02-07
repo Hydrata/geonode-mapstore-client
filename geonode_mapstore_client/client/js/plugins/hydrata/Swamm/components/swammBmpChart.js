@@ -12,9 +12,8 @@ const circleSize = 100;
 class SwammBmpChartClass extends React.Component {
     static propTypes = {
         hideSwammBmpChart: PropTypes.func,
-        allBmps: PropTypes.array,
         data: PropTypes.array,
-        layerForLegend: PropTypes.object,
+        rechartsBarData: PropTypes.array,
         targets: PropTypes.array,
         selectSwammTargetId: PropTypes.func,
         showTargetForm: PropTypes.func,
@@ -47,7 +46,15 @@ class SwammBmpChartClass extends React.Component {
                 className={'simple-view-panel menu-rows-container'}
             >
                 <div id={"swamm-bmp-chart-header"}>
-                    <div>Dashboard: {this.props.selectedTarget?.name}</div>
+                    <div>
+                        Dashboard: {this.props.selectedTarget?.name}
+                    </div>
+                    <span
+                        className={"btn glyphicon glyphicon-remove legend-close"}
+                        onClick={() => {
+                            this.props.hideSwammBmpChart();
+                        }}
+                    />
                 </div>
                 <div id={"swamm-bmp-chart-body"}>
                     <div id={"swamm-bmp-chart-col-one"}>
@@ -122,90 +129,82 @@ class SwammBmpChartClass extends React.Component {
                                         <div className={"swamm-bmp-chart-heading"}>
                                             {pollutant.title}
                                         </div>
-                                        {
-                                            pollutant.name !== 'area' ?
-                                                <div
-                                                    id={`swamm-bmp-chart-${pollutant.name.toLowerCase()}-graph-box`}
-                                                    className={"swamm-bmp-chart-graph-box"}
+                                        <div
+                                            id={`swamm-bmp-chart-${pollutant.name.toLowerCase()}-graph-box`}
+                                            className={"swamm-bmp-chart-graph-box"}
+                                        >
+                                            <div className={"swamm-bmp-chart-pie-group"}>
+                                                <PieChart
+                                                    width={circleSize * 1.5}
+                                                    height={circleSize * 1.5}
+                                                    style={{paddingTop: "10px"}}
                                                 >
-                                                    <div className={"swamm-bmp-chart-pie-group"}>
-                                                        <PieChart
-                                                            width={circleSize * 1.5}
-                                                            height={circleSize * 1.5}
-                                                            style={{paddingTop: "10px"}}
-                                                        >
-                                                            <Pie
-                                                                data={this.props.selectedTarget?.speedDialData?.[`percent${pollutant.name}Target`]}
-                                                                dataKey="value"
-                                                                cx={circleSize / 1.3 - 10}
-                                                                cy={circleSize / 2}
-                                                                innerRadius={circleSize / 3}
-                                                                outerRadius={circleSize / 2}
-                                                                fill="#82ca9d"
-                                                                startAngle={180}
-                                                                endAngle={0}
-                                                                isAnimationActive={false}
-                                                            >
-                                                                <Cell fill={"#27ca3b"} cornerRadius={1}/>
-                                                                <Cell fill={"#97b3c3"} cornerRadius={1}/>
-                                                            </Pie>
-                                                            <text
-                                                                x={circleSize / 1.3 - 5}
-                                                                y={circleSize / 2 - 5}
-                                                                textAnchor="middle"
-                                                                fontSize={circleSize / 5}
-                                                                dominantBaseline="middle"
-                                                                className="progress-label"
-                                                            >
-                                                                {
-                                                                    (
-                                                                        pollutant.initial !== 'a' ?
-                                                                            this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1) + '%' :
-                                                                            `BMP Count: ${this.props.selectedTarget?.barChartData?.total_bmp_count}`
-                                                                    )
-                                                                }
-                                                            </text>
-                                                        </PieChart>
-                                                    </div>
-                                                    <div className={"swamm-bmp-chart-bar-group"}>
-                                                        <ResponsiveContainer
-                                                            width={'95%'}
-                                                            height={150}
-                                                            id={'responsive-test'}
-                                                        >
-                                                            <BarChart
-                                                                data={[{'barOne': this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]}]}
-                                                                margin={{top: 0, right: 0, left: 10, bottom: 10}}
-                                                                layout="vertical"
-                                                                maxBarSize={100}
-                                                            >
-                                                                {this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
-                                                                    const key = `barOne.${index}.${pollutant.load_red_total_key}`;
-                                                                    console.log('bar returning: ', bar, index, this.colours[index]);
-                                                                    console.log('bar returning key: ', `${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`);
-                                                                    return (
-                                                                        <Bar
-                                                                            key={`${bar[this.props.bmpFilterMode]} + ${pollutant.initial}`}
-                                                                            stackId={'a'}
-                                                                            dataKey={key}
-                                                                            fill={this.colours[index]}
-                                                                            name={bar?.label}
-                                                                            // onMouseOver={ () => this.setState({ tooltipKey: key }) }
-                                                                            isAnimationActive={false}
-                                                                        />
-                                                                    );
-                                                                })}
-                                                                <Tooltip content={<CustomTooltipTwo tooltipKey={this.state.tooltipKey}/>} />
-                                                                <XAxis type="number"/>
-                                                                <YAxis type="category" hide/>
-                                                                }
-                                                            </BarChart>
-                                                        </ResponsiveContainer>
-                                                    </div>
-                                                </div> :
-                                                <div id={`${pollutant}-placeholder`}>
-                                                </div>
-                                        }
+                                                    <Pie
+                                                        data={this.props.selectedTarget?.speedDialData?.[`percent${pollutant.name}Target`]}
+                                                        dataKey="value"
+                                                        cx={circleSize / 1.3 - 10}
+                                                        cy={circleSize / 2}
+                                                        innerRadius={circleSize / 3}
+                                                        outerRadius={circleSize / 2}
+                                                        fill="#82ca9d"
+                                                        startAngle={180}
+                                                        endAngle={0}
+                                                        isAnimationActive={false}
+                                                    >
+                                                        <Cell fill={"#27ca3b"} cornerRadius={1}/>
+                                                        <Cell fill={"#97b3c3"} cornerRadius={1}/>
+                                                    </Pie>
+                                                    <text
+                                                        x={circleSize / 1.3 - 5}
+                                                        y={circleSize / 2 - 5}
+                                                        textAnchor="middle"
+                                                        fontSize={circleSize / 5}
+                                                        dominantBaseline="middle"
+                                                        className="progress-label"
+                                                    >
+                                                        {
+                                                            (
+                                                                pollutant.initial !== 'a' ?
+                                                                    this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1) + '%' :
+                                                                    `BMP Count: ${this.props.selectedTarget?.barChartData?.total_bmp_count}`
+                                                            )
+                                                        }
+                                                    </text>
+                                                </PieChart>
+                                            </div>
+                                            <div className={"swamm-bmp-chart-bar-group"}>
+                                                <ResponsiveContainer
+                                                    width={'95%'}
+                                                    height={100}
+                                                    id={'responsive-test'}
+                                                >
+                                                    <BarChart
+                                                        data={this.props.rechartsBarData}
+                                                        layout="vertical"
+                                                        height={100}
+                                                    >
+                                                        {this.props.rechartsBarData?.[0]?.barOne?.map((bar, index) => {
+                                                            const dataKey = `barOne.${index}.${pollutant.load_red_total_key}`;
+                                                            return (
+                                                                <Bar
+                                                                    key={`${bar?.type} + ${pollutant.initial} + ${index}`}
+                                                                    stackId={`a`}
+                                                                    dataKey={dataKey}
+                                                                    fill={this.colours[index]}
+                                                                    name={bar?.label}
+                                                                    onMouseOver={ () => this.setState({ tooltipKey: dataKey }) }
+                                                                    isAnimationActive={false}
+                                                                />
+                                                            );
+                                                        })}
+                                                        <Tooltip content={<CustomTooltipTwo tooltipKey={this.state.tooltipKey}/>} />
+                                                        <XAxis type="number"/>
+                                                        <YAxis type="category" domain={[0, 0]} hide />
+                                                        }
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
                                     </div>
                                 );
                             })
@@ -316,14 +315,14 @@ class SwammBmpChartClass extends React.Component {
             load_red_total_key: 'total_s_load_reduction',
             title: 'Sediment Load reductions (tons/year)',
             initial: 's'
-        },
-        {
+        }, {
             name: 'Total',
             load_red_total_key: 'calculated_watershed_area',
             title: 'Treated Area (acres)',
             initial: 'a'
         }
     ]
+
     colours = [
         '#0088FE', '#00C49F', '#FFBB28', '#FF8042',
         '#39CCCC', '#7FDBFF', '#0074D9', '#001f3f',
@@ -335,19 +334,24 @@ class SwammBmpChartClass extends React.Component {
 
 const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
     if (active && payload && payload.length && tooltipKey) {
+        // console.log('*** payload:', payload);
         return payload.map(bar => {
             if (bar.dataKey === tooltipKey) {
                 const tooltipKeys = tooltipKey.split('.');
                 const barValue = bar.payload[tooltipKeys[0]][Number(tooltipKeys[1])][tooltipKeys[2]];
+                // console.log('CustomTooltipTwo tooltipKeys: ', tooltipKeys);
+                // console.log('CustomTooltipTwo barValue: ', barValue);
+                // console.log('CustomTooltipTwo label: ', label);
                 return (
-                    <div className="custom-tooltip" style={{background: "black", borderRadius: "3px"}}>
-                        <div className="label">
+                    <div className="custom-tooltip">
+                        <div className="custom-tooltip-label">
                             {bar.name} - {formatMoney(barValue, 0)}
                         </div>
                         <br/>
                     </div >
                 );
             }
+            console.log('*** missing bar:', bar);
             return null;
         });
     }
@@ -355,17 +359,21 @@ const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
 };
 
 const mapStateToProps = (state) => {
-    const projectCode = state?.swamm?.data?.code;
-    const legendLayerName = projectCode + '_bmp_footprint';
+    console.log('mapStateToProps start __________________');
+    const selectedTarget = state?.swamm?.targets?.filter((target) => target.id === state?.swamm?.selectedTargetId)?.[0];
+    console.log('selectedTarget:', selectedTarget);
+    const bmpFilterMode = state?.swamm?.bmpFilterMode || 'type';
+    console.log('bmpFilterMode:', bmpFilterMode);
+    const rechartsBarData = [{'barOne': selectedTarget?.barChartData?.[bmpFilterMode]}];
+    console.log('rechartsBarData:', rechartsBarData);
+    console.log('mapStateToProps finish __________________');
     return {
-        mapId: state?.swamm?.data?.base_map,
-        layerForLegend: state?.layers?.flat?.filter((layer) => layer.name === legendLayerName)[0],
-        allBmps: state?.swamm?.allBmps,
         statuses: state?.swamm?.statuses || [],
         targets: state?.swamm?.targets || [],
         selectedTargetId: state?.swamm?.selectedTargetId,
-        selectedTarget: state?.swamm?.targets?.filter((target) => target.id === state?.swamm?.selectedTargetId)?.[0],
-        bmpFilterMode: state?.swamm?.bmpFilterMode || 'type',
+        selectedTarget: selectedTarget,
+        rechartsBarData: rechartsBarData,
+        bmpFilterMode: bmpFilterMode,
         visibleTargetForm: state?.swamm.visibleTargetForm
     };
 };
