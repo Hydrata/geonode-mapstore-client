@@ -875,8 +875,7 @@ class SwammBmpFormClass extends React.Component {
                             <button
                                 type={'button'}
                                 className={'swamm-button'}
-                                // onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
-                                onClick={() => { window.alert('PDF creation feature is under maintenance.');}}>
+                                onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
                                 Make PDF
                             </button>
                         </React.Fragment>
