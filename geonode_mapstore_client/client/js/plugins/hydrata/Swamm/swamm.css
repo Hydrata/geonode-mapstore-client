@@ -154,7 +154,7 @@
     background-color: white;
     margin: 10px;
     width: 200px;
-    height: 300px;
+    height: auto;
     border-radius: 4px;
 }
 
@@ -397,4 +397,9 @@
 
 .form-group {
      margin-bottom: 5px;
+}
+
+/*Override recharts default that causes bar to go grey on hover*/
+.swamm-bmp-chart-bar-group-responsive > div > svg > path {
+    fill: none;
 }

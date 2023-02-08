@@ -154,29 +154,62 @@ class SwammBmpChartClass extends React.Component {
                                                         <Cell fill={"#27ca3b"} cornerRadius={1}/>
                                                         <Cell fill={"#97b3c3"} cornerRadius={1}/>
                                                     </Pie>
-                                                    <text
-                                                        x={circleSize / 1.3 - 5}
-                                                        y={circleSize / 2 - 5}
-                                                        textAnchor="middle"
-                                                        fontSize={circleSize / 5}
-                                                        dominantBaseline="middle"
-                                                        className="progress-label"
-                                                    >
-                                                        {
-                                                            (
-                                                                pollutant.initial !== 'a' ?
-                                                                    this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1) + '%' :
-                                                                    `BMP Count: ${this.props.selectedTarget?.barChartData?.total_bmp_count}`
-                                                            )
-                                                        }
-                                                    </text>
+                                                    {
+                                                        (
+                                                            pollutant.initial !== 'a' ?
+                                                                <React.Fragment>
+                                                                    <text
+                                                                        x={circleSize / 1.3 - 5}
+                                                                        y={circleSize / 2 - 5}
+                                                                        textAnchor="middle"
+                                                                        fontSize={circleSize / 5}
+                                                                        dominantBaseline="middle"
+                                                                        className="progress-label"
+                                                                    >
+                                                                        {this.props.selectedTarget?.speedDialData[`percent${pollutant.name}Target`]?.[0]?.value.toFixed(1) + '%'}
+                                                                    </text>
+                                                                    <text
+                                                                        x={circleSize / 1.3 - 5}
+                                                                        y={circleSize / 2 + 18}
+                                                                        textAnchor="middle"
+                                                                        fontSize={circleSize / 5}
+                                                                        dominantBaseline="middle"
+                                                                        className="progress-label"
+                                                                    >
+                                                                        of Target
+                                                                    </text>
+                                                                </React.Fragment> :
+                                                                <React.Fragment>
+                                                                    <text
+                                                                        x={circleSize / 1.3 - 5}
+                                                                        y={18}
+                                                                        textAnchor="middle"
+                                                                        fontSize={circleSize / 5}
+                                                                        dominantBaseline="middle"
+                                                                        className="progress-label"
+                                                                    >
+                                                                        BMP Count:
+                                                                    </text>
+                                                                    <text
+                                                                        x={circleSize / 1.3 - 5}
+                                                                        y={40}
+                                                                        textAnchor="middle"
+                                                                        fontSize={circleSize / 5}
+                                                                        dominantBaseline="middle"
+                                                                        className="progress-label"
+                                                                    >
+                                                                        {this.props.selectedTarget?.barChartData?.total_bmp_count}
+                                                                    </text>
+                                                                </React.Fragment>
+                                                        )
+                                                    }
                                                 </PieChart>
                                             </div>
                                             <div className={"swamm-bmp-chart-bar-group"}>
                                                 <ResponsiveContainer
                                                     width={'95%'}
                                                     height={100}
-                                                    id={'responsive-test'}
+                                                    className={'swamm-bmp-chart-bar-group-responsive'}
                                                 >
                                                     <BarChart
                                                         data={this.props.rechartsBarData}
