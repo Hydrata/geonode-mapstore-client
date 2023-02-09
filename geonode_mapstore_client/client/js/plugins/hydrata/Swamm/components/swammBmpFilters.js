@@ -195,7 +195,7 @@ class SwammBmpFiltersClass extends React.Component {
 const mapStateToProps = (state) => {
     const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
     console.log('validGroupProfiles:', validGroupProfiles);
-    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups?.includes(item.id));
+    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
     console.log('viewableGroupProfiles:', viewableGroupProfiles);
     viewableGroupProfiles.sort((a, b) => a.title.localeCompare(b.title));
     console.log('viewableGroupProfiles:', viewableGroupProfiles);
