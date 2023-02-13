@@ -86,7 +86,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                             style={{"color": bmpType?.visibility ? "limegreen" : "red"}}
                                                             onClick={() => this.props.toggleBmpTypeVisibility(bmpType)}
                                                         />
-                                                        <span className="menu-row-text">{bmpType.name}</span>
+                                                        <span className="menu-row-text">{bmpType?.name}</span>
                                                     </Col>
                                                 ))
                                             }
@@ -144,7 +144,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                             style={{"color": status?.visibility ? "limegreen" : "red"}}
                                                             onClick={() => this.props.toggleBmpStatusVisibility(status)}
                                                         />
-                                                        <span className="menu-row-text">{status.name}</span>
+                                                        <span className="menu-row-text">{status?.name}</span>
                                                     </Col>
                                                 ))
                                             }

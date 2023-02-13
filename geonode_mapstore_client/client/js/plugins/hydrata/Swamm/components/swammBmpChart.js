@@ -378,7 +378,7 @@ const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
                 return (
                     <div className="custom-tooltip">
                         <div className="custom-tooltip-label">
-                            {bar.name} - {formatMoney(barValue, 0)}
+                            {bar?.name} - {formatMoney(barValue, 0)}
                         </div>
                         <br/>
                     </div >

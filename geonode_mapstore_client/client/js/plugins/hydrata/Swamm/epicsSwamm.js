@@ -54,7 +54,7 @@ import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client
 
 const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
     let actions = [];
-    if (store.getState().layers.flat.filter(layer => layer.name === layerToAdd?.name).length === 0) {
+    if (store.getState().layers.flat.filter(layer => layer?.name === layerToAdd?.name).length === 0) {
         layerToAdd.visibility = true;
         layerToAdd.opacity = 1;
         layerToAdd.group = group;
@@ -78,7 +78,7 @@ export const initSwammEpic = (action$, store) =>
     action$
         .ofType(INIT_SWAMM)
         .filter(() => {
-            console.log("INIT_SWAMM version 2023-01-26 17:21");
+            console.log("INIT_SWAMM version 2023-02-10 15:04");
             return store.getState()?.gnresource.id;
         })
         .switchMap(() => Rx.Observable
@@ -313,9 +313,9 @@ export const getBmpTypeGroups = (action$, store) =>
             );
         })
         .exhaustMap((response) => {
-            const bmpOutletLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_outlet"))[0];
-            const bmpFootprintLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_footprint"))[0];
-            const bmpWatershedLayer = store.getState()?.layers?.flat?.filter((layer) => layer.name.includes(store.getState()?.swamm?.data?.code + "_bmp_watershed"))[0];
+            const bmpOutletLayer = store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.data?.code + "_bmp_outlet"))[0];
+            const bmpFootprintLayer = store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.data?.code + "_bmp_footprint"))[0];
+            const bmpWatershedLayer = store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.data?.code + "_bmp_watershed"))[0];
             return Rx.Observable.of(
                 updateBmpTypeGroups(response.data),
                 setBmpLayers(bmpOutletLayer, bmpFootprintLayer, bmpWatershedLayer)
@@ -425,7 +425,7 @@ export const filterBmpEpic = (action$, store) =>
             });
             store.getState()?.swamm?.statuses.map((status) => {
                 if (status.visibility) {
-                    const filterField = createFilterField('status', status.name);
+                    const filterField = createFilterField('status', status?.name);
                     newFilter.filterObj.filterFields.push(filterField);
                     // atLeastOnegroupProfileVisible = true;
                 }
@@ -436,9 +436,11 @@ export const filterBmpEpic = (action$, store) =>
             const bmpOutletLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_outlet))[0];
             const bmpFootprintLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_footprint))[0];
             const bmpWatershedLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_watershed))[0];
-            outletFilter.filterObj.featureTypeName = bmpOutletLayer.name;
-            footprintFilter.filterObj.featureTypeName = bmpFootprintLayer.name;
-            watershedFilter.filterObj.featureTypeName = bmpWatershedLayer.name;
+            outletFilter.filterObj.featureTypeName = bmpOutletLayer?.name;
+            footprintFilter.filterObj.featureTypeName = bmpFootprintLayer?.name;
+            watershedFilter.filterObj.featureTypeName = bmpWatershedLayer?.name;
+            console.log('watershed filter: ', outletFilter);
+            console.log('watershed filter: ', footprintFilter);
             console.log('watershed filter: ', watershedFilter);
             return Rx.Observable.of(
                 changeLayerProperties(bmpOutletLayer?.id, outletFilter),

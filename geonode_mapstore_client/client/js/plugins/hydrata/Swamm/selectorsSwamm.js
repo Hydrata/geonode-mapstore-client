@@ -1,6 +1,6 @@
 export const bmpByUniqueNameSelector = (state) => state?.swamm?.bmpTypes ?
     state?.swamm?.bmpTypes.filter(
-        (v, i, a)=>a.findIndex(t=>(t.name === v.name)
+        (v, i, a)=>a.findIndex(t=>(t?.name === v?.name)
         ) === i
     ) :
     [];

@@ -351,8 +351,8 @@ class SwammBmpFormClass extends React.Component {
                                     >
                                         <option key={'Unknown'} value={'Unknown'}>{'Unknown'}</option>
                                         {this.props.statuses
-                                            .filter(status => status.name !== 'Unknown')
-                                            .map(status => <option key={status.name} value={status.name}>{status.name}</option>)
+                                            .filter(status => status?.name !== 'Unknown')
+                                            .map(status => <option key={status?.name} value={status?.name}>{status?.name}</option>)
                                         }
                                     </select>
                                 </div>
@@ -587,24 +587,24 @@ class SwammBmpFormClass extends React.Component {
                                                             .map(bmpType => {
                                                                 return (
                                                                     <div
-                                                                        key={`bmpType-${bmpType.name}`}
+                                                                        key={`bmpType-${bmpType?.name}`}
                                                                         style={{
                                                                             marginLeft: "30px"
                                                                         }}
                                                                     >
                                                                         <input
-                                                                            id={`bmp-type-selector-box-${bmpType.name}`}
+                                                                            id={`bmp-type-selector-box-${bmpType?.name}`}
                                                                             // style={formControlStyle}
                                                                             type={'radio'}
                                                                             name={'bmpType'}
-                                                                            value={bmpType.name}
+                                                                            value={bmpType?.name}
                                                                             onChange={this.handleBmpChange}
                                                                         />
                                                                         <label
-                                                                            htmlFor={`bmp-type-selector-box-${bmpType.name}`}
+                                                                            htmlFor={`bmp-type-selector-box-${bmpType?.name}`}
                                                                             style={{marginLeft: "6px", verticalAlign: "middle"}}
                                                                         >
-                                                                            {bmpType.name}
+                                                                            {bmpType?.name}
                                                                         </label>
                                                                     </div>
                                                                 );
@@ -966,7 +966,7 @@ class SwammBmpFormClass extends React.Component {
         let fieldValue = event.target.value;
         console.log('fieldValue:', fieldValue);
         const selectedBmpType = this.props.bmpTypes.filter(
-            bmpType => bmpType.name === fieldValue
+            bmpType => bmpType?.name === fieldValue
         )[0];
         this.props.makeDefaultsBmpForm(selectedBmpType);
     }
@@ -980,11 +980,11 @@ class SwammBmpFormClass extends React.Component {
         console.log('drawBmpStep1 targetLayer', targetLayer);
         console.log('drawBmpStep1 layerName', layerName);
         console.log('drawBmpStep1 featureId', featureId);
-        this.props.setDrawingBmpLayerName(targetLayer.name);
+        this.props.setDrawingBmpLayerName(targetLayer?.name);
         featureId ? this.props.setEditingBmpFeatureId(featureId) : this.props.clearEditingBmpFeatureId();
         this.props.toggleLayer(targetLayer.id, true);
         this.props.setLayer(targetLayer?.id);
-        this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer.name);
+        this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer?.name);
         console.log('drawBmpStep1 finished');
     }
     refreshBmpLayers() {
@@ -1008,7 +1008,7 @@ const mapStateToProps = (state) => {
     return {
         projectId: state?.swamm?.projectData?.id,
         projectData: state?.swamm?.projectData,
-        bmpUniqueNames: bmpByUniqueNameSelector(state).map(bmpType => bmpType.name),
+        bmpUniqueNames: bmpByUniqueNameSelector(state).map(bmpType => bmpType?.name),
         bmpTypes: state?.swamm?.bmpTypes,
         bmpTypeGroups: state?.swamm?.bmpTypeGroups || [],
         expandedBmpTypeGroupName: state?.swamm?.expandedBmpTypeGroupName,
