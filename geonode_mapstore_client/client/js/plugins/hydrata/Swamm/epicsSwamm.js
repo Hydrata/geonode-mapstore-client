@@ -84,7 +84,7 @@ export const initSwammEpic = (action$, store) =>
     action$
         .ofType(INIT_SWAMM)
         .filter(() => {
-            console.log("INIT_SWAMM version 2023-02-10 15:04");
+            console.log("INIT_SWAMM version 2023-02-13 14:03");
             return store.getState()?.gnresource.id;
         })
         .switchMap(() => Rx.Observable
