@@ -51,6 +51,12 @@ import {
 import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
 import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
+import {
+    bmpOutletLayerSelector,
+    bmpFootprintLayerSelector,
+    bmpWatershedLayerSelector
+} from "@js/plugins/hydrata/Swamm/selectorsSwamm";
+
 
 const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
     let actions = [];
@@ -433,9 +439,9 @@ export const filterBmpEpic = (action$, store) =>
             const outletFilter = JSON.parse(JSON.stringify(newFilter));
             const footprintFilter = JSON.parse(JSON.stringify(newFilter));
             const watershedFilter = JSON.parse(JSON.stringify(newFilter));
-            const bmpOutletLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_outlet))[0];
-            const bmpFootprintLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_footprint))[0];
-            const bmpWatershedLayer = store.getState()?.layers?.flat?.filter(layer => layer?.extendedParams?.pk === JSON.stringify(store.getState()?.swamm?.projectData?.bmp_watershed))[0];
+            const bmpOutletLayer = bmpOutletLayerSelector(store.getState());
+            const bmpFootprintLayer = bmpFootprintLayerSelector(store.getState());
+            const bmpWatershedLayer = bmpWatershedLayerSelector(store.getState());
             outletFilter.filterObj.featureTypeName = bmpOutletLayer?.name;
             footprintFilter.filterObj.featureTypeName = bmpFootprintLayer?.name;
             watershedFilter.filterObj.featureTypeName = bmpWatershedLayer?.name;

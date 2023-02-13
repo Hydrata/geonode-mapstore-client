@@ -5,6 +5,15 @@ export const bmpByUniqueNameSelector = (state) => state?.swamm?.bmpTypes ?
     ) :
     [];
 
+export const bmpOutletLayerSelector = (state) => state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_outlet)[0] ||
+    state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.projectData?.bmp_outlet?.name))[0];
+
+export const bmpFootprintLayerSelector = (state) => state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_footprint)[0] ||
+    state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.projectData?.bmp_footprint?.name))[0];
+
+export const bmpWatershedLayerSelector = (state) => state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_watershed)[0] ||
+    state?.layers?.flat?.filter((layer) => layer.name.includes(state?.swamm?.projectData?.bmp_watershed?.name))[0];
+
 // export const bmpDashboardDataSelector = (state) => {
 //     let bmps = state?.swamm?.allBmps ? state?.swamm?.allBmps : [];
 //     let outputObj = {};

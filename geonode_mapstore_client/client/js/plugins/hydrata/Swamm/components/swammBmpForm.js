@@ -1,7 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Table, ControlLabel, FormControl, FormGroup} from "react-bootstrap";
+import {Table} from "react-bootstrap";
 import {
     hideBmpForm,
     clearBmpForm,
@@ -32,7 +32,12 @@ import {
 import { purgeMapInfoResults } from "../../../../../MapStore2/web/client/actions/mapInfo";
 import {featureTypeSelected, createQuery, query} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {isInt} from "../../Utils/utils";
-import {bmpByUniqueNameSelector} from "../selectorsSwamm";
+import {
+    bmpByUniqueNameSelector,
+    bmpOutletLayerSelector,
+    bmpFootprintLayerSelector,
+    bmpWatershedLayerSelector
+} from "../selectorsSwamm";
 import {changeLayerProperties, refreshLayerVersion} from "../../../../../MapStore2/web/client/actions/layers";
 
 class SwammBmpFormClass extends React.Component {
@@ -1018,9 +1023,9 @@ const mapStateToProps = (state) => {
         thisBmpType: state?.swamm?.bmpTypes.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
         storedBmpForm: state?.swamm?.storedBmpForm || {},
         complexBmpForm: state?.swamm?.complexBmpForm || false,
-        bmpOutletLayer: state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_outlet)[0],
-        bmpFootprintLayer: state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_footprint)[0],
-        bmpWatershedLayer: state?.layers?.flat?.filter((layer) => parseInt(layer?.extendedParams?.pk, 10) === state?.swamm?.projectData?.bmp_watershed)[0],
+        bmpOutletLayer: bmpOutletLayerSelector(state),
+        bmpFootprintLayer: bmpFootprintLayerSelector(state),
+        bmpWatershedLayer: bmpWatershedLayerSelector(state),
         hasGeometry: state?.swamm?.storedBmpForm?.outlet_fid || state?.swamm?.storedBmpForm?.footprint_fid || state?.swamm?.storedBmpForm?.watershed_fid,
         requiresOutlet: state?.swamm?.storedBmpForm?.type_data?.requires_outlet,
         requiresFootprint: state?.swamm?.storedBmpForm?.type_data?.requires_footprint,
