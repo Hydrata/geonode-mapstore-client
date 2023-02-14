@@ -102,9 +102,6 @@ export const initSwammEpic = (action$, store) =>
                 .switchMap(response2 => Rx.Observable
                     .of(setSwammProjectData(response2.data))
                     .concat(
-                        // Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_outlet, store, "View BMPs")),
-                        // Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_footprint, store, "View BMPs")),
-                        // Rx.Observable.from(addLayerFromGeonodeResponse(response2.data?.bmp_watershed, store, "View BMPs")),
                         Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/`))
                             .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data))),
                         Rx.Observable.from(axios.get(`/api/v2/groups?page_size=1000`))
@@ -319,9 +316,9 @@ export const getBmpTypeGroups = (action$, store) =>
             );
         })
         .exhaustMap((response) => {
-            const bmpOutletLayer = store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.data?.code + "_bmp_outlet"))[0];
-            const bmpFootprintLayer = store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.data?.code + "_bmp_footprint"))[0];
-            const bmpWatershedLayer = store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.data?.code + "_bmp_watershed"))[0];
+            const bmpOutletLayer = bmpOutletLayerSelector(store.getState());
+            const bmpFootprintLayer = bmpFootprintLayerSelector(store.getState());
+            const bmpWatershedLayer = bmpWatershedLayerSelector(store.getState());
             return Rx.Observable.of(
                 updateBmpTypeGroups(response.data),
                 setBmpLayers(bmpOutletLayer, bmpFootprintLayer, bmpWatershedLayer)
@@ -445,9 +442,9 @@ export const filterBmpEpic = (action$, store) =>
             outletFilter.filterObj.featureTypeName = bmpOutletLayer?.name;
             footprintFilter.filterObj.featureTypeName = bmpFootprintLayer?.name;
             watershedFilter.filterObj.featureTypeName = bmpWatershedLayer?.name;
-            console.log('watershed filter: ', outletFilter);
-            console.log('watershed filter: ', footprintFilter);
-            console.log('watershed filter: ', watershedFilter);
+            console.log('outletFilter: ', outletFilter);
+            console.log('footprintFilter: ', footprintFilter);
+            console.log('watershedFilter: ', watershedFilter);
             return Rx.Observable.of(
                 changeLayerProperties(bmpOutletLayer?.id, outletFilter),
                 changeLayerProperties(bmpFootprintLayer?.id, footprintFilter),

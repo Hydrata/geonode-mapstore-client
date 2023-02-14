@@ -384,7 +384,7 @@ const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
                     </div >
                 );
             }
-            console.log('*** missing bar:', bar);
+            // console.log('*** missing bar:', bar);
             return null;
         });
     }
@@ -392,14 +392,14 @@ const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
 };
 
 const mapStateToProps = (state) => {
-    console.log('mapStateToProps start __________________');
+    // console.log('mapStateToProps start __________________');
     const selectedTarget = state?.swamm?.targets?.filter((target) => target.id === state?.swamm?.selectedTargetId)?.[0];
-    console.log('selectedTarget:', selectedTarget);
+    // console.log('selectedTarget:', selectedTarget);
     const bmpFilterMode = state?.swamm?.bmpFilterMode || 'type';
-    console.log('bmpFilterMode:', bmpFilterMode);
+    // console.log('bmpFilterMode:', bmpFilterMode);
     const rechartsBarData = [{'barOne': selectedTarget?.barChartData?.[bmpFilterMode]}];
-    console.log('rechartsBarData:', rechartsBarData);
-    console.log('mapStateToProps finish __________________');
+    // console.log('rechartsBarData:', rechartsBarData);
+    // console.log('mapStateToProps finish __________________');
     return {
         statuses: state?.swamm?.statuses || [],
         targets: state?.swamm?.targets || [],

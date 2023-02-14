@@ -11,6 +11,11 @@ import {
     toggleBmpPriorityVisibility
 } from "../actionsSwamm";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
+import {
+    bmpFootprintLayerSelector,
+    bmpOutletLayerSelector,
+    bmpWatershedLayerSelector
+} from "@js/plugins/hydrata/Swamm/selectorsSwamm";
 
 class SwammBmpFiltersClass extends React.Component {
     static propTypes = {
@@ -194,11 +199,11 @@ class SwammBmpFiltersClass extends React.Component {
 
 const mapStateToProps = (state) => {
     const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
-    console.log('validGroupProfiles:', validGroupProfiles);
+    // console.log('validGroupProfiles:', validGroupProfiles);
     const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
-    console.log('viewableGroupProfiles:', viewableGroupProfiles);
+    // console.log('viewableGroupProfiles:', viewableGroupProfiles);
     viewableGroupProfiles.sort((a, b) => a.title.localeCompare(b.title));
-    console.log('viewableGroupProfiles:', viewableGroupProfiles);
+    // console.log('viewableGroupProfiles:', viewableGroupProfiles);
     // console.log('allowedGroupProfiles', allowedGroupProfiles);
     return {
         mapId: state?.swamm?.data?.base_map,
@@ -210,9 +215,9 @@ const mapStateToProps = (state) => {
         query: state?.query,
         expandedFilter: state?.swamm?.expandedFilter,
         bmpFilter: state?.swamm?.bmpFilter,
-        bmpOutletLayer: state?.swamm?.projectData?.bmp_outlet,
-        bmpFootprintLayer: state?.swamm?.projectData?.bmp_footprint,
-        bmpWatershedLayer: state?.swamm?.projectData?.bmp_watershed,
+        bmpOutletLayer: bmpOutletLayerSelector(store.getState()),
+        bmpFootprintLayer: bmpFootprintLayerSelector(store.getState()),
+        bmpWatershedLayer: bmpWatershedLayerSelector(store.getState()),
         priorities: state?.swamm?.priorities
     };
 };

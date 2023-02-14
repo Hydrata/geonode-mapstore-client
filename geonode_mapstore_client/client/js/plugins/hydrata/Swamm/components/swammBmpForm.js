@@ -188,7 +188,7 @@ class SwammBmpFormClass extends React.Component {
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
                                             this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
-                                            this.drawBmpStep1(this.props?.projectData?.code + '_bmp_outlet', this.props.storedBmpForm?.outlet_fid);
+                                            this.drawBmpStep1(this.props.bmpOutletLayer?.name, this.props.storedBmpForm?.outlet_fid);
                                         }}>
                                     Edit Outlet
                                     </button> :
@@ -200,7 +200,7 @@ class SwammBmpFormClass extends React.Component {
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
                                             this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
-                                            this.drawBmpStep1(this.props.projectData?.code + '_bmp_outlet', null);
+                                            this.drawBmpStep1(this.props.bmpOutletLayer?.name, null);
                                         }}>
                                     Locate
                                     </button>
@@ -226,7 +226,7 @@ class SwammBmpFormClass extends React.Component {
                                             onClick={() => {
                                                 this.props.showLoadingBmp(true);
                                                 this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
-                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint', this.props.storedBmpForm?.footprint_fid);
+                                                this.drawBmpStep1(this.props.bmpFootprintLayer?.name, this.props.storedBmpForm?.footprint_fid);
                                             }}
                                         >
                                             Edit Footprint
@@ -240,7 +240,7 @@ class SwammBmpFormClass extends React.Component {
                                         onClick={() => {
                                             this.props.showLoadingBmp(true);
                                             this.props.toggleLayer(this.props.bmpFootprintLayer?.id, true);
-                                            this.drawBmpStep1(this.props?.projectData?.code + '_bmp_footprint');
+                                            this.drawBmpStep1(this.props.bmpFootprintLayer?.name);
                                         }}
                                     >
                                         Draw Footprint
@@ -265,7 +265,7 @@ class SwammBmpFormClass extends React.Component {
                                             onClick={() => {
                                                 this.props.showLoadingBmp(true);
                                                 this.props.toggleLayer(this.props.bmpWatershedLayer?.id, true);
-                                                this.drawBmpStep1(this.props?.projectData?.code + '_bmp_watershed', this.props.storedBmpForm?.watershed_fid);
+                                                this.drawBmpStep1(this.props.bmpWatershedLayer?.name, this.props.storedBmpForm?.watershed_fid);
                                             }}
                                         >
                                             Edit Watershed
@@ -967,9 +967,9 @@ class SwammBmpFormClass extends React.Component {
         this.props.updateBmpForm(kv);
     }
     handleBmpChange(event) {
-        console.log('event:', event);
+        // console.log('event:', event);
         let fieldValue = event.target.value;
-        console.log('fieldValue:', fieldValue);
+        // console.log('fieldValue:', fieldValue);
         const selectedBmpType = this.props.bmpTypes.filter(
             bmpType => bmpType?.name === fieldValue
         )[0];
@@ -1001,15 +1001,15 @@ class SwammBmpFormClass extends React.Component {
 
 const mapStateToProps = (state) => {
     const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
-    console.log('validGroupProfiles:', validGroupProfiles);
+    // console.log('validGroupProfiles:', validGroupProfiles);
     const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
     const saveableGroupProfiles = viewableGroupProfiles.map(item => {
         item.saveable = state?.security?.user?.info?.groups?.includes(item?.slug);
         return item;
     });
-    console.log('saveableGroupProfiles:', saveableGroupProfiles);
-    console.log('expandedBmpTypeGroupName:', state?.swamm?.expandedBmpTypeGroupName);
-    console.log('bmpTypeGroups:', state?.swamm?.bmpTypeGroups);
+    // console.log('saveableGroupProfiles:', saveableGroupProfiles);
+    // console.log('expandedBmpTypeGroupName:', state?.swamm?.expandedBmpTypeGroupName);
+    // console.log('bmpTypeGroups:', state?.swamm?.bmpTypeGroups);
     return {
         projectId: state?.swamm?.projectData?.id,
         projectData: state?.swamm?.projectData,
