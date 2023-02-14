@@ -215,9 +215,9 @@ const mapStateToProps = (state) => {
         query: state?.query,
         expandedFilter: state?.swamm?.expandedFilter,
         bmpFilter: state?.swamm?.bmpFilter,
-        bmpOutletLayer: bmpOutletLayerSelector(store.getState()),
-        bmpFootprintLayer: bmpFootprintLayerSelector(store.getState()),
-        bmpWatershedLayer: bmpWatershedLayerSelector(store.getState()),
+        bmpOutletLayer: bmpOutletLayerSelector(state),
+        bmpFootprintLayer: bmpFootprintLayerSelector(state),
+        bmpWatershedLayer: bmpWatershedLayerSelector(state),
         priorities: state?.swamm?.priorities
     };
 };
