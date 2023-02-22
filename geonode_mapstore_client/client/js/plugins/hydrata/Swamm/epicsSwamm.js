@@ -106,7 +106,7 @@ export const initSwammEpic = (action$, store) =>
                 .switchMap(response2 => Rx.Observable
                     .of(setSwammProjectData(response2.data))
                     .concat(
-                        Rx.Observable.of(setSvConfig(response2.data)),
+                        Rx.Observable.of(setSvConfig(response2.data?.simple_view_config)),
                         Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/`))
                             .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data))),
                         Rx.Observable.from(axios.get(`/api/v2/groups?page_size=1000`))

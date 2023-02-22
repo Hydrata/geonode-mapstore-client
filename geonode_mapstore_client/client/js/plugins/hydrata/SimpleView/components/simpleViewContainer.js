@@ -16,7 +16,7 @@ class SimpleViewContainer extends React.Component {
         openMenuGroupId: PropTypes.string,
         visibleIntroduction: PropTypes.bool,
         setVisibleIntroduction: PropTypes.func,
-        numberOfCustomMenuSpaces: PropTypes.number
+        menuSpaces: PropTypes.number
     };
 
     static defaultProps = {
@@ -45,7 +45,7 @@ class SimpleViewContainer extends React.Component {
                                         id={`simpleViewContainer-mapped-button-${menu?.name}-${menu?.title}`}
                                         key={`simpleViewContainer-mapped-button-${menu?.name}-${menu?.title}`}
                                         className={'simple-view-menu-button'}
-                                        style={{left: (index + this.props.numberOfCustomMenuSpaces + 1) * 100 + 20}}
+                                        style={{left: (index + this.props.menuSpaces + 1) * 100 + 20}}
                                         onClick={() => {this.props.setOpenMenuGroupId(menu.id);}}>
                                         {menu?.title === 'Default' ? menu.name : menu.title}
                                     </button>
@@ -76,19 +76,19 @@ class SimpleViewContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    let groupBlacklist = [];
-    let numberOfCustomMenuSpaces =  0;
+    let customMenus = state?.simpleView?.config?.customMenus || [];
+    let menuSpaces = state?.simpleView?.config?.menuSpaces || 0;
     if (state?.anuga?.projectData?.id) {
-        groupBlacklist = ['Input Data', 'Results'];
-        numberOfCustomMenuSpaces = 4;
+        customMenus = ['Input Data', 'Results'];
+        menuSpaces = 4;
     }
-    const menuGroups = state?.layers?.groups?.filter(group => !groupBlacklist.includes(group.name));
+    const menuGroups = state?.layers?.groups?.filter(group => !customMenus.includes(group.name));
     // console.log('groupBlacklist:', groupBlacklist);
     // console.log('numberOfCustomMenuSpaces:', numberOfCustomMenuSpaces);
     // console.log('menuGroups:', menuGroups);
     // console.log('state?.layers?.groups:', state?.layers?.groups);
     return {
-        numberOfCustomMenuSpaces: numberOfCustomMenuSpaces,
+        menuSpaces: menuSpaces,
         menuGroups: menuGroups,
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
