@@ -40,6 +40,11 @@ import {
     fetchSwammBmpStatusesSuccess,
     fetchSwammTargetsSuccess
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
+
+import {
+    setSvConfig
+} from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
+
 import {
     toggleEditMode,
     toggleViewMode,
@@ -84,7 +89,6 @@ export const initSwammEpic = (action$, store) =>
     action$
         .ofType(INIT_SWAMM)
         .filter(() => {
-            console.log("INIT_SWAMM version 2023-02-13 14:03");
             return store.getState()?.gnresource.id;
         })
         .switchMap(() => Rx.Observable
@@ -102,6 +106,7 @@ export const initSwammEpic = (action$, store) =>
                 .switchMap(response2 => Rx.Observable
                     .of(setSwammProjectData(response2.data))
                     .concat(
+                        Rx.Observable.of(setSvConfig(response2.data)),
                         Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/`))
                             .switchMap((response3) => Rx.Observable.of(fetchSwammBmpTypesSuccess(response3.data))),
                         Rx.Observable.from(axios.get(`/api/v2/groups?page_size=1000`))

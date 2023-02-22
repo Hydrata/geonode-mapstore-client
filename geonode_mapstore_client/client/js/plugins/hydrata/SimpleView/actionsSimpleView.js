@@ -7,6 +7,7 @@ const SV_SELECT_LAYER = 'SV_SELECT_LAYER';
 const SV_DOWNLOAD_LAYER = 'SV_DOWNLOAD_LAYER';
 const UPDATE_DATASET_TITLE = 'UPDATE_DATASET_TITLE';
 const UPDATE_DATASET_TITLE_SUCCESS = 'UPDATE_DATASET_TITLE_SUCCESS';
+const SET_SV_CONFIG = 'SET_SV_CONFIG';
 
 function setOpenMenuGroupId(openMenuGroupId) {
     return {
@@ -71,6 +72,13 @@ function updateDatasetTitleSuccess() {
     };
 }
 
+function setSvConfig(config) {
+    return {
+        type: SET_SV_CONFIG,
+        config
+    };
+}
+
 module.exports = {
     SET_OPEN_MENU_GROUP_ID, setOpenMenuGroupId,
     SET_VISIBLE_LEGEND_PANEL, setVisibleLegendPanel,
@@ -80,5 +88,6 @@ module.exports = {
     UPDATE_DATASET_TITLE, updateDatasetTitle,
     UPDATE_DATASET_TITLE_SUCCESS, updateDatasetTitleSuccess,
     SV_SELECT_LAYER, svSelectLayer,
-    SV_DOWNLOAD_LAYER, svDownloadLayer
+    SV_DOWNLOAD_LAYER, svDownloadLayer,
+    SET_SV_CONFIG, setSvConfig
 };

@@ -24,6 +24,9 @@ class simpleViewUploaderPanel extends React.Component {
         serverUrl: PropTypes.string,
         projectId: PropTypes.number,
         newTitle: PropTypes.string,
+        dataTypeTitle: PropTypes.string,
+        suggestedFileType: PropTypes.string,
+        uploadUrl: PropTypes.string,
         fileType: PropTypes.string
     };
 
@@ -40,7 +43,7 @@ class simpleViewUploaderPanel extends React.Component {
         return this.props.visibleUploaderPanel ?
             <div className={'simple-view-panel uploader-panel'}>
                 <div className={"row h4 legend-heading"}>
-                    Upload GeoTiff File (*.tif)
+                    Upload {this.props.suggestedFileType} File (*.tif)
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => this.props.setVisibleUploaderPanel(false)}

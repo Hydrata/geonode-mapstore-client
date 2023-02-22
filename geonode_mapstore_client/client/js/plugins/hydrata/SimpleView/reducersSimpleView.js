@@ -4,11 +4,17 @@ import {
     SET_OPEN_MENU_GROUP_ID,
     SV_SELECT_LAYER,
     SET_VISIBLE_UPLOADER_PANEL,
-    UPDATE_UPLOAD_STATUS
+    UPDATE_UPLOAD_STATUS,
+    SET_SV_CONFIG
 } from "./actionsSimpleView";
 
 export default ( state = {}, action) => {
     switch (action.type) {
+    case SET_SV_CONFIG:
+        return {
+            ...state,
+            config: action.config
+        };
     case SET_OPEN_MENU_GROUP_ID:
         if (state.openMenuGroupId === action.openMenuGroupId) {
             return {
