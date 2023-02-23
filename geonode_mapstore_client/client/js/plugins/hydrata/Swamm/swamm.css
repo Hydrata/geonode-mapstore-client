@@ -13,6 +13,11 @@
     background-color: rgba(43, 89, 148);
 }
 
+#swamm-bmp-form-panel input {
+    text-align: right;
+    max-width: 80px;
+}
+
 #swamm-bmp-form-grid-header {
     grid-row-start: 1;
     grid-row-end: 2;

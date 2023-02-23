@@ -11,6 +11,7 @@ import {
     fetchSwammBmpStatuses,
     showBmpForm,
     showSwammBmpChart,
+    setSwammInputMenu,
     makeBmpForm,
     setEditingBmpFeatureId,
     selectSwammTargetId,
@@ -25,13 +26,14 @@ import {SwammBmpChart} from "./swammBmpChart";
 import {SwammBmpFilters} from "./swammBmpFilters";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
-import {bmpByUniqueNameSelector} from "../selectorsSwamm";
+import {bmpByUniqueNameSelector, canEditSwammMap} from "../selectorsSwamm";
 import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import {drawStopped} from "../../../../../MapStore2/web/client/actions/draw";
 import {query, toggleSyncWms} from "../../../../../MapStore2/web/client/actions/wfsquery";
 
 import "../../SimpleView/simpleView.css";
 import "../swamm.css";
+import {SwammInputMenu} from "@js/plugins/hydrata/Swamm/components/swammInputMenu";
 
 
 class SwammContainer extends React.Component {
@@ -87,7 +89,10 @@ class SwammContainer extends React.Component {
         toggleSyncWms: PropTypes.func,
         gnResourceLoaded: PropTypes.string,
         isSwammProject: PropTypes.bool,
-        initSwamm: PropTypes.func
+        initSwamm: PropTypes.func,
+        setSwammInputMenu: PropTypes.func,
+        showSwammInputMenu: PropTypes.bool,
+        canEditSwammMap: PropTypes.func
     };
 
     static defaultProps = {};
@@ -97,67 +102,10 @@ class SwammContainer extends React.Component {
     }
 
     componentDidMount() {
-        // this.props.toggleSyncWms();
         this.props.initSwamm();
     }
 
     componentDidUpdate() {
-        // if (this.props.gnResourceLoaded && !this.props.isSwammProject) {
-        //     console.log('componentDidUpdate initing Swamm');
-        //     this.props.initSwamm();
-        // }
-        // if (!this.props.mapId && !this.fetching) {
-        //     this.fetching = false;
-        // }
-        // if (this.props.mapId && !this.props.hasPmData && !this.fetching) {
-        //     this.props.fetchProjectManagerConfig(this.props.mapId);
-        //     this.fetching = true;
-        // }
-        // if (this.props.mapId && this.props.hasPmData) {
-        //     this.fetching = false;
-        // }
-        // if (this.props.hasPmData) {
-        //     if (!this.props.mapId && !this.fetchingBmpTypes) {
-        //         this.fetchingBmpTypes = false;
-        //     }
-        //     if (this.props.mapId && (this.props.bmpTypes?.length === 0) && !this.fetchingBmpTypes) {
-        //         this.fetchingBmpTypes = true;
-        //         this.props.fetchSwammBmpTypes(this.props.mapId);
-        //     }
-        //     if (this.props.mapId && (this.props.bmpTypes?.length > 0)) {
-        //         this.fetchingBmpTypes = false;
-        //     }
-        //     if (!this.props.mapId && !this.fetchingGroupProfiles) {
-        //         this.fetchingGroupProfiles = false;
-        //     }
-        //     if (this.props.mapId && (this.props.groupProfiles?.length === 0) && !this.fetchingGroupProfiles) {
-        //         this.fetchingGroupProfiles = true;
-        //         this.props.fetchGroupProfiles();
-        //     }
-        //     if (this.props.mapId && (this.props.groupProfiles?.length > 0)) {
-        //         this.fetchingGroupProfiles = false;
-        //     }
-        //     if (!this.props.mapId && !this.fetchingStatuses) {
-        //         this.fetchingStatuses = false;
-        //     }
-        //     if (this.props.mapId && (this.props.statuses.length === 0) && !this.fetchingStatuses) {
-        //         this.fetchingStatuses = true;
-        //         this.props.fetchSwammBmpStatuses(this.props.mapId);
-        //     }
-        //     if (this.props.mapId && (this.props.statuses.length > 0)) {
-        //         this.fetchingStatuses = false;
-        //     }
-        //     if (!this.props.mapId && !this.fetchingTargets) {
-        //         this.fetchingTargets = false;
-        //     }
-        //     if (this.props.mapId && (this.props.targets.length === 0) && !this.fetchingTargets) {
-        //         this.fetchingTargets = true;
-        //         this.props.fetchSwammTargets(this.props.mapId);
-        //     }
-        //     if (this.props.mapId && (this.props.targets.length > 0)) {
-        //         this.fetchingTargets = false;
-        //     }
-        // }
     }
 
     render() {
@@ -270,6 +218,24 @@ class SwammContainer extends React.Component {
                                 <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
                             </button>
                         }
+                        {this.props.canEditSwammMap ?
+                            <button
+                                key="swamm-input-button"
+                                className={'simple-view-menu-button'}
+                                style={{left: 520}}
+                                onClick={() => {
+                                    this.props.setSwammInputMenu(!this.props.showSwammInputMenu);
+                                    this.props.setOpenMenuGroupId(null);
+                                }}
+                            >
+                                Swamm Model
+                            </button> : null
+                        }
+                        {
+                            this.props.showSwammInputMenu ?
+                                <SwammInputMenu/>
+                                : null
+                        }
                         {this.props.visibleTargetForm ?
                             <SwammTargetForm/>
                             : null
@@ -305,6 +271,7 @@ const mapStateToProps = (state) => {
     const allowedGroupProfileNames = state?.security?.user?.info?.groups.filter(item => !["anonymous", "registered-members", "admin"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles.filter(item => allowedGroupProfileNames.includes(item.slug));
     return {
+        canEditSwammMap: canEditSwammMap(state),
         gnResourceLoaded: state?.gnresource?.id,
         isSwammProject: !!state?.swamm?.projectData?.id,
         mapId: state?.map?.present?.info?.id,
@@ -323,6 +290,7 @@ const mapStateToProps = (state) => {
         drawingBmpLayerName: state?.swamm?.drawingBmpLayerName,
         editingBmpFeatureId: state?.swamm?.editingBmpFeatureId,
         visibleSwammBmpChart: state?.swamm?.visibleSwammBmpChart,
+        showSwammInputMenu: state?.swamm?.showSwammInputMenu,
         defaultTargetId: state?.swamm?.targets?.[0]?.id || 0,
         visibleTargetForm: state?.swamm?.visibleTargetForm,
         loadingBmp: state?.swamm?.loadingBmp,
@@ -335,6 +303,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         initSwamm: () => dispatch(initSwamm()),
+        setSwammInputMenu: (visible) => dispatch(setSwammInputMenu(visible)),
         fetchSwammBmpTypes: (mapId) => dispatch(fetchSwammBmpTypes(mapId)),
         fetchProjectManagerConfig: fetchProjectManagerConfig(dispatch),
         fetchGroupProfiles: () => dispatch(fetchGroupProfiles()),

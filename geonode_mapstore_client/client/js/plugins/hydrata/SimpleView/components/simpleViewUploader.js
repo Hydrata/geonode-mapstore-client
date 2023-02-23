@@ -27,7 +27,8 @@ class simpleViewUploaderPanel extends React.Component {
         dataTypeTitle: PropTypes.string,
         suggestedFileType: PropTypes.string,
         uploadUrl: PropTypes.string,
-        fileType: PropTypes.string
+        fileType: PropTypes.string,
+        config: PropTypes.object
     };
 
     constructor(props) {
@@ -40,10 +41,11 @@ class simpleViewUploaderPanel extends React.Component {
     }
 
     render() {
+        console.log('simpleViewUploader state: ', this.state);
         return this.props.visibleUploaderPanel ?
             <div className={'simple-view-panel uploader-panel'}>
                 <div className={"row h4 legend-heading"}>
-                    Upload {this.props.suggestedFileType} File (*.tif)
+                    Upload {this.props?.config?.title} File ({this.props?.config?.filetype})
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => this.props.setVisibleUploaderPanel(false)}
@@ -53,10 +55,9 @@ class simpleViewUploaderPanel extends React.Component {
                     <Table bordered condensed hover ref={this.beginTooltip} style={{'tableLayout': 'fixed'}}>
                         <thead>
                             <tr>
-                                <th width="155px" key="hname">Title</th>
-                                <th width="80px" key="hname">Filename</th>
+                                <th width="160px" key="hname">Title</th>
+                                <th width="200px" key="hname">Filename</th>
                                 <th width="80px" key="hsize">Filesize</th>
-                                <th width="80px" key="htype">Filetype</th>
                                 <th width="80px" key="hlast">Modified</th>
                                 <th width="80px" key="hstatus">Status</th>
                             </tr>
@@ -65,44 +66,47 @@ class simpleViewUploaderPanel extends React.Component {
                             {this.state.uploaderFiles && this.state.uploaderFiles.map((file, index) =>
                                 (<tr key={"row_" + index}>
                                     <td key="title">
-                                        <input
-                                            id={'newTitle'}
-                                            key={'newTitle'}
-                                            className={'data-title-input'}
-                                            type={'text'}
-                                            value={this.state.newTitle}
-                                            onChange={(e) => this.setState({newTitle: e.target.value})}
-                                        />
+                                        { file.baseFile ?
+                                            <input
+                                                id={'newTitle'}
+                                                key={'newTitle'}
+                                                className={'data-title-input'}
+                                                type={'text'}
+                                                value={this.state.newTitle}
+                                                onChange={(e) => this.setState({newTitle: e.target.value})}
+                                            /> : ""
+                                        }
                                     </td>
-                                    <td key="name" style={{wordWrap: "break-word"}}>{file.name}</td>
+                                    <td key="name">{file.name}</td>
                                     <td key="size">{this.humanFileSize(file.size)}</td>
-                                    <td key="type">{file.type}</td>
                                     <td key="last"><DateFormat value={file.lastModifiedDate} /></td>
                                     <td key="status">
                                         {
-                                            file.status === "begin" ?
-                                                this.state.newTitle ?
-                                                    <Button
-                                                        onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
-                                                        style={{'borderRadius': '3px'}}
-                                                        bsSize={'small'}
-                                                        bsStyle={'success'}
-                                                    >
-                                                        Begin
-                                                    </Button> :
-                                                    <Button
-                                                        className={'disabled'}
-                                                        style={{'borderRadius': '3px'}}
-                                                        bsSize={'small'}
-                                                        bsStyle={'success'}
-                                                    >
-                                                        Begin
-                                                    </Button> :
-                                                <span>
-                                                    <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
-                                                    {parseInt(this.props.uploadStatus, 10) === 100 ? <span>importing: <Countdown/></span> : this.props.uploadStatus}
-                                                    {isNaN(parseInt(this.props.uploadStatus, 10)) || parseInt(this.props.uploadStatus, 10) === 100 ? '' : '%'}
-                                                </span>
+                                            file.baseFile ?
+                                                file.status === "begin" ?
+                                                    this.state.newTitle ?
+                                                        <Button
+                                                            onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
+                                                            style={{'borderRadius': '3px'}}
+                                                            bsSize={'small'}
+                                                            bsStyle={'success'}
+                                                        >
+                                                            Begin
+                                                        </Button> :
+                                                        <Button
+                                                            className={'disabled'}
+                                                            style={{'borderRadius': '3px'}}
+                                                            bsSize={'small'}
+                                                            bsStyle={'success'}
+                                                        >
+                                                            Begin
+                                                        </Button> :
+                                                    <span>
+                                                        <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
+                                                        {parseInt(this.props.uploadStatus, 10) === 100 ? <span>importing: <Countdown/></span> : this.props.uploadStatus}
+                                                        {isNaN(parseInt(this.props.uploadStatus, 10)) || parseInt(this.props.uploadStatus, 10) === 100 ? '' : '%'}
+                                                    </span> :
+                                                null
                                         }
                                     </td>
                                 </tr>) )
@@ -114,13 +118,7 @@ class simpleViewUploaderPanel extends React.Component {
                         rejectClassName="alert-danger"
                         className="alert alert-info"
                         onDrop={(files) => this.setState({
-                            uploaderFiles: files.map((file) => {
-                                Object.defineProperty(file, 'status', {
-                                    value: "begin",
-                                    writable: true
-                                });
-                                return file;
-                            })
+                            uploaderFiles: this.prepareFiles(files)
                         })}
                         style={this.props.dropZoneStyle}
                         activeStyle={this.props.dropZoneActiveStyle}>
@@ -145,6 +143,23 @@ class simpleViewUploaderPanel extends React.Component {
             </div> :
             null;
     }
+        prepareFiles = (files) => {
+            files
+                .map((file) => {
+                    Object.defineProperty(file, 'status', {
+                        value: "begin",
+                        writable: true
+                    });
+                    Object.defineProperty(file, 'baseFile', {
+                        value: ["shp", "tif"].includes(file.name.split('.').slice(-1)[0]),
+                        writable: true
+                    });
+                    return file;
+                });
+            const theBaseFile = files.splice(files.findIndex(file => file.baseFile), 1)[0];
+            files.unshift(theBaseFile);
+            return files;
+        };
 
     humanFileSize = (size) => {
         // if (size > 200000000) {
@@ -162,14 +177,14 @@ class simpleViewUploaderPanel extends React.Component {
         const data = new FormData();
         data.append(fileType, file);
         data.append('title', this.state.newTitle);
-        let url;
+        let host;
         if (this.props.serverUrl.includes('localhost')) {
-            url = 'http://localhost:8081/';
+            host = 'http://localhost:8081/';
         } else {
-            url = this.props.serverUrl;
+            host = this.props.serverUrl;
         }
         axios
-            .put(`${url}anuga/api/${this.props.projectId}/elevation/upload/`, data, this.uploadConfig)
+            .put(`${host}${this.props?.config?.app_url}/api/${this.props.projectId}${this.props?.config.import_url}`, data, this.uploadManager)
             .then(response => {
                 this.setState(prevState => ({
                     itemList: prevState.uploaderFiles.map(
@@ -178,7 +193,7 @@ class simpleViewUploaderPanel extends React.Component {
                 }));
             });
     };
-    uploadConfig = {
+    uploadManager = {
         onUploadProgress: (progressEvent) => {
             let status = Math.round( (progressEvent.loaded * 100) / progressEvent.total);
             this.props.updateUploadStatus(status);
@@ -189,8 +204,9 @@ class simpleViewUploaderPanel extends React.Component {
 const mapStateToProps = (state) => {
     return {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
+        config: state?.simpleView?.config?.importer_config?.[state?.simpleView?.uploaderConfigKey],
         serverUrl: state?.gnsettings?.geonodeUrl,
-        projectId: state?.anuga?.projectData?.id,
+        projectId: state?.simpleView?.config?.project_id,
         uploadStatus: state?.simpleView?.uploadStatus || 0
     };
 };

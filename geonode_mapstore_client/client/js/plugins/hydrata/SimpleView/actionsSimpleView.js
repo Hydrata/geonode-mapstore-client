@@ -8,6 +8,7 @@ const SV_DOWNLOAD_LAYER = 'SV_DOWNLOAD_LAYER';
 const UPDATE_DATASET_TITLE = 'UPDATE_DATASET_TITLE';
 const UPDATE_DATASET_TITLE_SUCCESS = 'UPDATE_DATASET_TITLE_SUCCESS';
 const SET_SV_CONFIG = 'SET_SV_CONFIG';
+const SET_SV_PROJECT_DATA = 'SET_SV_PROJECT_DATA';
 
 function setOpenMenuGroupId(openMenuGroupId) {
     return {
@@ -30,10 +31,18 @@ function setVisibleIntroduction(visible) {
     };
 }
 
-function setVisibleUploaderPanel(visible) {
+function setVisibleUploaderPanel(visible, configKey) {
     return {
         type: SET_VISIBLE_UPLOADER_PANEL,
-        visible
+        visible,
+        configKey
+    };
+}
+
+function setSVProjectData(projectId) {
+    return {
+        type: SET_SV_PROJECT_DATA,
+        projectId
     };
 }
 

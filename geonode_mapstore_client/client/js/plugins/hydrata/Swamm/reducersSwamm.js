@@ -51,7 +51,8 @@ import {
     SET_BMP_FILTER_MODE,
     SHOW_TARGET_FORM,
     HIDE_TARGET_FORM,
-    UPDATE_TARGET_FORM
+    UPDATE_TARGET_FORM,
+    SET_SWAMM_INPUT_MENU
 } from "./actionsSwamm";
 
 const initialState = {
@@ -215,6 +216,11 @@ export default ( state = initialState, action) => {
             };
         }
         return state;
+    case SET_SWAMM_INPUT_MENU:
+        return {
+            ...state,
+            showSwammInputMenu: action.showSwammInputMenu
+        };
     case SHOW_BMP_MANAGER:
         return {
             ...state,

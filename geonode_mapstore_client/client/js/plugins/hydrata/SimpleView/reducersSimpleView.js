@@ -39,7 +39,8 @@ export default ( state = {}, action) => {
     case SET_VISIBLE_UPLOADER_PANEL:
         return {
             ...state,
-            visibleUploaderPanel: action.visible
+            visibleUploaderPanel: action.visible,
+            uploaderConfigKey: action.configKey
         };
     case UPDATE_UPLOAD_STATUS:
         return {

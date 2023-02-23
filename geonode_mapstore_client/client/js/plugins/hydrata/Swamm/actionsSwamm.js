@@ -93,6 +93,7 @@ const DELETE_BMP_SUCCESS = 'DELETE_BMP_SUCCESS';
 const DELETE_BMP_ERROR = 'DELETE_BMP_ERROR';
 const SET_BMP_FILTER_MODE = 'SET_BMP_FILTER_MODE';
 const DOWNLOAD_BMP_REPORT = 'DOWNLOAD_BMP_REPORT';
+const SET_SWAMM_INPUT_MENU = 'SET_SWAMM_INPUT_MENU';
 
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
@@ -108,6 +109,13 @@ function setSwammProjectData(projectData) {
     return {
         type: SET_SWAMM_PROJECT_DATA,
         projectData
+    };
+}
+
+function setSwammInputMenu(visible) {
+    return {
+        type: SET_SWAMM_INPUT_MENU,
+        showSwammInputMenu: visible
     };
 }
 
@@ -1018,5 +1026,6 @@ module.exports = {
     DELETE_TARGET, deleteTarget,
     DELETE_TARGET_SUCCESS, deleteTargetSuccess,
     DELETE_TARGET_ERROR, deleteTargetError,
-    DOWNLOAD_BMP_REPORT, downloadBmpReport
+    DOWNLOAD_BMP_REPORT, downloadBmpReport,
+    SET_SWAMM_INPUT_MENU, setSwammInputMenu
 };
