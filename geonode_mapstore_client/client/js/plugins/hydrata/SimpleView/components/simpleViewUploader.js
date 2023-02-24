@@ -35,7 +35,7 @@ class simpleViewUploaderPanel extends React.Component {
         super(props);
         this.state = {
             uploaderFiles: [],
-            newTitle: ''
+            newTitle: null
         };
         this.beginTooltip = React.createRef();
     }
@@ -66,13 +66,13 @@ class simpleViewUploaderPanel extends React.Component {
                             {this.state.uploaderFiles && this.state.uploaderFiles.map((file, index) =>
                                 (<tr key={"row_" + index}>
                                     <td key="title">
-                                        { file.baseFile ?
+                                        { this.isBaseFile(file) ?
                                             <input
                                                 id={'newTitle'}
                                                 key={'newTitle'}
                                                 className={'data-title-input'}
                                                 type={'text'}
-                                                value={this.state.newTitle}
+                                                value={this.state.newTitle || file.name.split('.').slice(0)[0]}
                                                 onChange={(e) => this.setState({newTitle: e.target.value})}
                                             /> : ""
                                         }
@@ -82,25 +82,16 @@ class simpleViewUploaderPanel extends React.Component {
                                     <td key="last"><DateFormat value={file.lastModifiedDate} /></td>
                                     <td key="status">
                                         {
-                                            file.baseFile ?
+                                            this.isBaseFile(file) ?
                                                 file.status === "begin" ?
-                                                    this.state.newTitle ?
-                                                        <Button
-                                                            onClick={() => this.uploadFile(file, this.props.fileType || 'file')}
-                                                            style={{'borderRadius': '3px'}}
-                                                            bsSize={'small'}
-                                                            bsStyle={'success'}
-                                                        >
-                                                            Begin
-                                                        </Button> :
-                                                        <Button
-                                                            className={'disabled'}
-                                                            style={{'borderRadius': '3px'}}
-                                                            bsSize={'small'}
-                                                            bsStyle={'success'}
-                                                        >
-                                                            Begin
-                                                        </Button> :
+                                                    <Button
+                                                        onClick={() => this.uploadFile(this.state.uploaderFiles, this.props.fileType || 'file')}
+                                                        style={{'borderRadius': '3px'}}
+                                                        bsSize={'small'}
+                                                        bsStyle={'success'}
+                                                    >
+                                                        Begin
+                                                    </Button> :
                                                     <span>
                                                         <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
                                                         {parseInt(this.props.uploadStatus, 10) === 100 ? <span>importing: <Countdown/></span> : this.props.uploadStatus}
@@ -143,21 +134,32 @@ class simpleViewUploaderPanel extends React.Component {
             </div> :
             null;
     }
+
+        isBaseFile = file => ["shp", "tif"].includes(file.extension);
+
         prepareFiles = (files) => {
+            console.log("files1: ", files);
             files
                 .map((file) => {
                     Object.defineProperty(file, 'status', {
                         value: "begin",
                         writable: true
                     });
-                    Object.defineProperty(file, 'baseFile', {
-                        value: ["shp", "tif"].includes(file.name.split('.').slice(-1)[0]),
+                    Object.defineProperty(file, 'extension', {
+                        value: file.name.split('.').slice(-1)[0],
                         writable: true
                     });
                     return file;
                 });
-            const theBaseFile = files.splice(files.findIndex(file => file.baseFile), 1)[0];
+            console.log("files2: ", files);
+            const spliceIndex = files.findIndex(file => file.extension === "shp");
+            console.log("files3: ", files);
+            console.log("spliceIndex: ", spliceIndex);
+            const theBaseFile = files.splice(spliceIndex, 1)[0];
+            console.log("theBaseFile: ", theBaseFile);
+            console.log("files4: ", files);
             files.unshift(theBaseFile);
+            console.log("files5: ", files);
             return files;
         };
 
@@ -168,15 +170,19 @@ class simpleViewUploaderPanel extends React.Component {
         const i = Math.floor( Math.log(size) / Math.log(1024) );
         return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
     };
-    uploadFile = (file, fileType) => {
+
+    uploadFile = (files) => {
+        const formData = new FormData();
+        files.map(file => {
+            formData.append(file.extension, file);
+        });
+        const baseFile = files[0];
+        formData.append('title', this.state.newTitle);
         this.setState(prevState => ({
             itemList: prevState.uploaderFiles.map(
-                fileToCheck => (fileToCheck.preview === file.preview ? Object.assign(fileToCheck, { status: "uploading" }) : fileToCheck)
+                fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "uploading" }) : fileToCheck)
             )
         }));
-        const data = new FormData();
-        data.append(fileType, file);
-        data.append('title', this.state.newTitle);
         let host;
         if (this.props.serverUrl.includes('localhost')) {
             host = 'http://localhost:8081/';
@@ -184,13 +190,15 @@ class simpleViewUploaderPanel extends React.Component {
             host = this.props.serverUrl;
         }
         axios
-            .put(`${host}${this.props?.config?.app_url}/api/${this.props.projectId}${this.props?.config.import_url}`, data, this.uploadManager)
+            .put(`${host}${this.props?.config?.app_url}/api/${this.props.projectId}${this.props?.config.import_url}`, formData, this.uploadManager)
             .then(response => {
                 this.setState(prevState => ({
                     itemList: prevState.uploaderFiles.map(
-                        fileToCheck => (fileToCheck.preview === file.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
+                        fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
                     )
                 }));
+                console.log('action here?');
+                console.log('response:', response);
             });
     };
     uploadManager = {
