@@ -349,7 +349,7 @@ class SwammBmpFormClass extends React.Component {
                                       BMP Status
                                     </div>
                                     <select
-                                        id="status-selectorr"
+                                        id="status-selector"
                                         name={'status'}
                                         value={this.props.storedBmpForm?.status}
                                         onChange={this.handleChange}

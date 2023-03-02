@@ -1,12 +1,22 @@
 import Rx from "rxjs";
 
-import {UPDATE_DATASET_TITLE, SV_DOWNLOAD_LAYER, updateDatasetTitleSuccess} from "./actionsSimpleView";
+import {
+    UPDATE_DATASET_TITLE,
+    SV_DOWNLOAD_LAYER,
+    SUBMIT_SV_ATTRIBUTE_FORM,
+    updateDatasetTitleSuccess,
+    submitSimpleViewAttributeFormSuccess
+} from "./actionsSimpleView";
+
 import {toggleEditMode, GRID_QUERY_RESULT} from "../../../../MapStore2/web/client/actions/featuregrid";
+
 import {
     download,
     selectNode
 } from "../../../../MapStore2/web/client/actions/layers";
+
 import axios from "../../../../MapStore2/web/client/libs/ajax";
+import {runAnugaScenarioSuccess, setAnugaScenarioMenu} from "@js/plugins/hydrata/Anuga/actionsAnuga";
 
 
 export const beginEditLayerEpic = (action$) =>
@@ -27,6 +37,28 @@ export const updateDatasetTitleEpic = (action$) =>
                 )
                 .concatMap(() => Rx.Observable.of(updateDatasetTitleSuccess()))
         );
+
+
+export const submitAttributeFormEpic = (action$, store) =>
+    action$
+        .ofType(SUBMIT_SV_ATTRIBUTE_FORM)
+        .switchMap((action) =>
+            Rx.Observable
+                .from(
+                    axios.post(
+                        `/${store.getState()?.simpleView?.config?.importer_config[store.getState()?.simpleView?.uploaderConfigKey]?.app_name}/api/${store.getState()?.simpleView?.config?.project_id}/${store.getState()?.simpleView?.uploaderConfigKey}/importer-execute/`,
+                        {
+                            form: action?.form,
+                            project_id: action?.projectId,
+                            importer_session_id: action?.simpleViewImporterSessionId
+                        }
+                    )
+                        .then(response => submitSimpleViewAttributeFormSuccess(response.data))
+                )
+        )
+        .concatMap(() => Rx.Observable.of(
+            setAnugaScenarioMenu(true)
+        ));
 
 
 export const svDownloadLayerEpic = (action$) =>

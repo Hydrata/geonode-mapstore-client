@@ -4,7 +4,8 @@ import simpleViewContainer from "./components/simpleViewContainer";
 import {
     beginEditLayerEpic,
     updateDatasetTitleEpic,
-    svDownloadLayerEpic
+    svDownloadLayerEpic,
+    submitAttributeFormEpic
 } from "./epicsSimpleView";
 
 export default createPlugin('SimpleView', {
@@ -15,6 +16,7 @@ export default createPlugin('SimpleView', {
     epics: {
         beginEditLayerEpic,
         updateDatasetTitleEpic,
-        svDownloadLayerEpic
+        svDownloadLayerEpic,
+        submitAttributeFormEpic
     }
 });

@@ -2,13 +2,17 @@ const SET_OPEN_MENU_GROUP_ID = 'SET_OPEN_MENU_GROUP_ID';
 const SET_VISIBLE_LEGEND_PANEL = 'SET_VISIBLE_LEGEND_PANEL';
 const SET_VISIBLE_INTRODUCTION = 'SET_VISIBLE_INTRODUCTION';
 const SET_VISIBLE_UPLOADER_PANEL = 'SET_VISIBLE_UPLOADER_PANEL';
+const SET_VISIBLE_SV_ATTRIBUTE_FORM = 'SET_VISIBLE_SV_ATTRIBUTE_FORM';
 const UPDATE_UPLOAD_STATUS = 'UPDATE_UPLOAD_STATUS';
 const SV_SELECT_LAYER = 'SV_SELECT_LAYER';
 const SV_DOWNLOAD_LAYER = 'SV_DOWNLOAD_LAYER';
 const UPDATE_DATASET_TITLE = 'UPDATE_DATASET_TITLE';
 const UPDATE_DATASET_TITLE_SUCCESS = 'UPDATE_DATASET_TITLE_SUCCESS';
 const SET_SV_CONFIG = 'SET_SV_CONFIG';
-const SET_SV_PROJECT_DATA = 'SET_SV_PROJECT_DATA';
+const UPDATE_SV_ATTRIBUTE_FORM = 'UPDATE_SV_ATTRIBUTE_FORM';
+const CREATE_SV_ATTRIBUTE_FORM = 'CREATE_SV_ATTRIBUTE_FORM';
+const SUBMIT_SV_ATTRIBUTE_FORM = 'SUBMIT_SV_ATTRIBUTE_FORM';
+const SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS = 'SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS';
 
 function setOpenMenuGroupId(openMenuGroupId) {
     return {
@@ -21,6 +25,20 @@ function setVisibleLegendPanel(visible) {
     return {
         type: SET_VISIBLE_LEGEND_PANEL,
         visible
+    };
+}
+
+function setVisibleSimpleViewAttributeForm(visible) {
+    return {
+        type: SET_VISIBLE_SV_ATTRIBUTE_FORM,
+        visible
+    };
+}
+function createSimpleViewAttributeForm(form, simpleViewImporterSessionId) {
+    return {
+        type: CREATE_SV_ATTRIBUTE_FORM,
+        form,
+        simpleViewImporterSessionId
     };
 }
 
@@ -39,12 +57,29 @@ function setVisibleUploaderPanel(visible, configKey) {
     };
 }
 
-function setSVProjectData(projectId) {
+const updateSimpleViewAttributeForm = (kv) => {
     return {
-        type: SET_SV_PROJECT_DATA,
-        projectId
+        type: UPDATE_SV_ATTRIBUTE_FORM,
+        kv: kv
     };
-}
+};
+
+const submitSimpleViewAttributeForm = (form, projectId, simpleViewImporterSessionId) => {
+    console.log('actions submitSimpleViewAttributeForm: ', form, projectId, simpleViewImporterSessionId);
+    return {
+        type: SUBMIT_SV_ATTRIBUTE_FORM,
+        form,
+        projectId,
+        simpleViewImporterSessionId
+    };
+};
+
+const submitSimpleViewAttributeFormSuccess = (data) => {
+    return {
+        type: SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS,
+        data: data
+    };
+};
 
 function updateUploadStatus(status) {
     return {
@@ -93,10 +128,15 @@ module.exports = {
     SET_VISIBLE_LEGEND_PANEL, setVisibleLegendPanel,
     SET_VISIBLE_INTRODUCTION, setVisibleIntroduction,
     SET_VISIBLE_UPLOADER_PANEL, setVisibleUploaderPanel,
+    SET_VISIBLE_SV_ATTRIBUTE_FORM, setVisibleSimpleViewAttributeForm,
     UPDATE_UPLOAD_STATUS, updateUploadStatus,
     UPDATE_DATASET_TITLE, updateDatasetTitle,
     UPDATE_DATASET_TITLE_SUCCESS, updateDatasetTitleSuccess,
     SV_SELECT_LAYER, svSelectLayer,
     SV_DOWNLOAD_LAYER, svDownloadLayer,
-    SET_SV_CONFIG, setSvConfig
+    SET_SV_CONFIG, setSvConfig,
+    UPDATE_SV_ATTRIBUTE_FORM, updateSimpleViewAttributeForm,
+    CREATE_SV_ATTRIBUTE_FORM, createSimpleViewAttributeForm,
+    SUBMIT_SV_ATTRIBUTE_FORM, submitSimpleViewAttributeForm,
+    SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS, submitSimpleViewAttributeFormSuccess
 };

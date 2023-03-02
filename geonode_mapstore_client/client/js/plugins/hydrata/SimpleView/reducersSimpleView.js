@@ -5,8 +5,12 @@ import {
     SV_SELECT_LAYER,
     SET_VISIBLE_UPLOADER_PANEL,
     UPDATE_UPLOAD_STATUS,
-    SET_SV_CONFIG
-} from "./actionsSimpleView";
+    SET_SV_CONFIG,
+    SET_VISIBLE_SV_ATTRIBUTE_FORM,
+    CREATE_SV_ATTRIBUTE_FORM,
+    UPDATE_SV_ATTRIBUTE_FORM,
+    SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS
+} from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 
 export default ( state = {}, action) => {
     switch (action.type) {
@@ -35,6 +39,47 @@ export default ( state = {}, action) => {
         return {
             ...state,
             visibleIntroduction: action.visible
+        };
+    case SET_VISIBLE_SV_ATTRIBUTE_FORM:
+        return {
+            ...state,
+            visibleSimpleViewAttributeForm: action.visible
+        };
+    case CREATE_SV_ATTRIBUTE_FORM:
+        return {
+            ...state,
+            simpleViewAttributeForm: action.form,
+            simpleViewImporterSessionId: action.simpleViewImporterSessionId
+        };
+    case UPDATE_SV_ATTRIBUTE_FORM:
+        console.log('UPDATE_SV_ATTRIBUTE_FORM action.kv', action.kv);
+        const override_used = action.kv.override_used;
+        delete action.kv.override_used;
+        const newKey = Object.keys(action.kv)[0];
+        const newValue = action.kv[newKey];
+        console.log('UPDATE_SV_ATTRIBUTE_FORM newKey', newKey);
+        console.log('UPDATE_SV_ATTRIBUTE_FORM newValue', newValue);
+        const existingAttributeValue = {...state.simpleViewAttributeForm[newKey]};
+        console.log('UPDATE_SV_ATTRIBUTE_FORM existingAttributeValue', existingAttributeValue);
+        const updatedFormValue = {
+            ...existingAttributeValue,
+            value: newValue,
+            override_used: override_used
+        };
+        console.log('UPDATE_SV_ATTRIBUTE_FORM updatedFormValue', updatedFormValue);
+        const updatedSimpleViewAttributeForm = {
+            ...state.simpleViewAttributeForm,
+            [newKey]: updatedFormValue
+        };
+        console.log('UPDATE_SV_ATTRIBUTE_FORM updatedSimpleViewAttributeForm', updatedSimpleViewAttributeForm);
+        return {
+            ...state,
+            simpleViewAttributeForm: updatedSimpleViewAttributeForm
+        };
+    case SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS:
+        return {
+            ...state,
+            simpleViewImporterSessionId: action?.data?.importer_session_id
         };
     case SET_VISIBLE_UPLOADER_PANEL:
         return {

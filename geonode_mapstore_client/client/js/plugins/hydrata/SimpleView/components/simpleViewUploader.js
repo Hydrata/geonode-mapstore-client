@@ -5,10 +5,13 @@ import { Glyphicon, Table, Button, ProgressBar, OverlayTrigger, Tooltip } from '
 import Dropzone from 'react-dropzone';
 import {
     setVisibleUploaderPanel,
-    updateUploadStatus
+    updateUploadStatus,
+    setVisibleSimpleViewAttributeForm,
+    createSimpleViewAttributeForm
 } from "../actionsSimpleView";
+
 import '../simpleView.css';
-import {Countdown} from "./simpleViewCountdown"
+import {Countdown} from "./simpleViewCountdown";
 import {DateFormat} from "../../../../../MapStore2/web/client/components/I18N/I18N";
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
 
@@ -28,7 +31,10 @@ class simpleViewUploaderPanel extends React.Component {
         suggestedFileType: PropTypes.string,
         uploadUrl: PropTypes.string,
         fileType: PropTypes.string,
-        config: PropTypes.object
+        config: PropTypes.object,
+        setVisibleSimpleViewAttributeForm: PropTypes.func,
+        createSimpleViewAttributeForm: PropTypes.func,
+        uploaderConfigKey: PropTypes.string
     };
 
     constructor(props) {
@@ -151,15 +157,9 @@ class simpleViewUploaderPanel extends React.Component {
                     });
                     return file;
                 });
-            console.log("files2: ", files);
-            const spliceIndex = files.findIndex(file => file.extension === "shp");
-            console.log("files3: ", files);
-            console.log("spliceIndex: ", spliceIndex);
-            const theBaseFile = files.splice(spliceIndex, 1)[0];
-            console.log("theBaseFile: ", theBaseFile);
-            console.log("files4: ", files);
+            const baseFileIndex = files.findIndex(file => file.extension === "shp");
+            const theBaseFile = files.splice(baseFileIndex, 1)[0];
             files.unshift(theBaseFile);
-            console.log("files5: ", files);
             return files;
         };
 
@@ -190,15 +190,15 @@ class simpleViewUploaderPanel extends React.Component {
             host = this.props.serverUrl;
         }
         axios
-            .put(`${host}${this.props?.config?.app_url}/api/${this.props.projectId}${this.props?.config.import_url}`, formData, this.uploadManager)
+            .put(`${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.uploaderConfigKey}/importer-config/`, formData, this.uploadManager)
             .then(response => {
                 this.setState(prevState => ({
                     itemList: prevState.uploaderFiles.map(
                         fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
                     )
                 }));
-                console.log('action here?');
-                console.log('response:', response);
+                this.props.setVisibleSimpleViewAttributeForm(true);
+                this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
             });
     };
     uploadManager = {
@@ -212,6 +212,7 @@ class simpleViewUploaderPanel extends React.Component {
 const mapStateToProps = (state) => {
     return {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
+        uploaderConfigKey: state?.simpleView?.uploaderConfigKey,
         config: state?.simpleView?.config?.importer_config?.[state?.simpleView?.uploaderConfigKey],
         serverUrl: state?.gnsettings?.geonodeUrl,
         projectId: state?.simpleView?.config?.project_id,
@@ -222,7 +223,9 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible)),
-        updateUploadStatus: (status) => dispatch(updateUploadStatus(status))
+        updateUploadStatus: (status) => dispatch(updateUploadStatus(status)),
+        setVisibleSimpleViewAttributeForm: (visible) => dispatch(setVisibleSimpleViewAttributeForm(visible)),
+        createSimpleViewAttributeForm: (form, simpleViewImporterSessionId) => dispatch(createSimpleViewAttributeForm(form, simpleViewImporterSessionId))
     };
 };
 
