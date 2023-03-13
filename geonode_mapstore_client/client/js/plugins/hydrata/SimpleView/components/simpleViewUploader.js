@@ -115,7 +115,8 @@ class simpleViewUploaderPanel extends React.Component {
                         rejectClassName="alert-danger"
                         className="alert alert-info"
                         onDrop={(files) => this.setState({
-                            uploaderFiles: this.prepareFiles(files)
+                            uploaderFiles: this.prepareFiles(files),
+                            newTitle: files?.[0]?.name.split('.').slice(0)[0]
                         })}
                         style={this.props.dropZoneStyle}
                         activeStyle={this.props.dropZoneActiveStyle}>
