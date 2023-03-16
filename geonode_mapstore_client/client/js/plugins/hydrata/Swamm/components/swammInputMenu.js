@@ -63,13 +63,13 @@ class SwammInputMenuClass extends React.Component {
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                             style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
                             onClick={() => {
-                                this.props.setVisibleUploaderPanel(true, "erosion");
+                                this.props.setVisibleUploaderPanel(true, "erosion", null);
                             }}
                         />
                     </div>
                     {
                         this.props.erosionLayers?.map(erosion => (
-                            <MenuRow layer={erosion}/>
+                            <MenuRow layer={erosion} importerTargetObjectId={123456789}/>
                         ))
                     }
                     {
@@ -89,7 +89,13 @@ class SwammInputMenuClass extends React.Component {
 const mapStateToProps = (state) => {
     return {
         projectData: state?.swamm?.projectData,
-        erosionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Erosion'),
+        erosionLayers: state?.layers?.flat
+            ?.map(layer => {
+                console.log('find 473 in this: ', layer);
+                layer.importerTargetObjectId = state?.swamm?.erosions?.filter(erosion => erosion?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
+                return layer;
+            })
+            ?.filter(layer => layer?.name.indexOf('erosion_') > -1),
         erosionModels: state?.swamm?.erosions,
         canEditSwammMap: canEditSwammMap(state)
     };
@@ -98,7 +104,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setSwammInputMenu: (visible) => dispatch(setSwammInputMenu(visible)),
-        setVisibleUploaderPanel: (visible, configKey) => dispatch(setVisibleUploaderPanel(visible, configKey))
+        setVisibleUploaderPanel: (visible, importerConfigKey, layerId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, layerId))
     };
 };
 

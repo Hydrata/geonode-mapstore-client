@@ -88,9 +88,10 @@ const mapStateToProps = (state) => {
         customMenus = ['Input Data', 'Results'];
         menuSpaces = 4;
     }
-    const menuGroups = state?.layers?.groups?.filter(group => !customMenus.includes(group.name));
+    const menuGroups = state?.layers?.groups?.filter(group => !(customMenus.includes(group.name) || customMenus.includes(group.title)));
     // console.log('groupBlacklist:', groupBlacklist);
     // console.log('numberOfCustomMenuSpaces:', numberOfCustomMenuSpaces);
+    // console.log('customMenus:', customMenus);
     // console.log('menuGroups:', menuGroups);
     // console.log('state?.layers?.groups:', state?.layers?.groups);
     return {

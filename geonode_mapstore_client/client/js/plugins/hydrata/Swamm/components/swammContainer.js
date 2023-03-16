@@ -26,7 +26,7 @@ import {SwammBmpChart} from "./swammBmpChart";
 import {SwammBmpFilters} from "./swammBmpFilters";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
-import {bmpByUniqueNameSelector, canEditSwammMap} from "../selectorsSwamm";
+import {bmpByUniqueNameSelector, canEditSwammMap, swammModelGroupIdSelector} from "../selectorsSwamm";
 import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import {drawStopped} from "../../../../../MapStore2/web/client/actions/draw";
 import {query, toggleSyncWms} from "../../../../../MapStore2/web/client/actions/wfsquery";
@@ -222,7 +222,7 @@ class SwammContainer extends React.Component {
                             <button
                                 key="swamm-input-button"
                                 className={'simple-view-menu-button'}
-                                style={{left: 520}}
+                                style={{left: 620}}
                                 onClick={() => {
                                     this.props.setSwammInputMenu(!this.props.showSwammInputMenu);
                                     this.props.setOpenMenuGroupId(null);
@@ -231,10 +231,9 @@ class SwammContainer extends React.Component {
                                 Swamm Model
                             </button> : null
                         }
-                        {
-                            this.props.showSwammInputMenu ?
-                                <SwammInputMenu/>
-                                : null
+                        {this.props.showSwammInputMenu ?
+                            <SwammInputMenu/>
+                            : null
                         }
                         {this.props.visibleTargetForm ?
                             <SwammTargetForm/>

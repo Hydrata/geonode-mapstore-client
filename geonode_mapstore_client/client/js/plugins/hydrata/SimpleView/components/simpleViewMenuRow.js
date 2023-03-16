@@ -11,7 +11,16 @@ import {
     removeLayer
 } from "../../../../../MapStore2/web/client/actions/layers";
 import '../simpleView.css';
-import {svSelectLayer, setOpenMenuGroupId, updateDatasetTitle, svDownloadLayer} from '../actionsSimpleView';
+import {
+    svSelectLayer,
+    setOpenMenuGroupId,
+    updateDatasetTitle,
+    svDownloadLayer,
+    setVisibleUploaderPanel
+} from '../actionsSimpleView';
+import {
+    getOpinionatedObjectIdFromLayerId
+} from '../selectorsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
 
@@ -36,8 +45,10 @@ class MenuRowClass extends React.Component {
         updateLayerTitle: PropTypes.func,
         refreshLayers: PropTypes.func,
         svDownloadLayer: PropTypes.func,
+        setVisibleUploaderPanel: PropTypes.func,
         selectNode: PropTypes.func,
-        lineThrough: PropTypes.bool
+        lineThrough: PropTypes.bool,
+        importerTargetObjectId: PropTypes.number
     };
 
     constructor(props) {
@@ -51,7 +62,7 @@ class MenuRowClass extends React.Component {
         if (!this.props.layer) {
             return (
                 <div className={"row menu-row"}>
-                    <div className={"inline pull-left .menu-row-button"}>
+                    <div className={"inline pull-left menu-row-button"}>
                         <div className="h5 menu-row-text">No datasets here yet...</div>
                     </div>
                 </div>
@@ -59,7 +70,7 @@ class MenuRowClass extends React.Component {
         }
         return (
             <div className={"row menu-row"}>
-                <span className={"pull-left .menu-row-button"}>
+                <span className={"pull-left menu-row-button"}>
                     <span
                         className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                         style={{"color": this.props.layer?.visibility ? "limegreen" : "red"}}
@@ -67,13 +78,22 @@ class MenuRowClass extends React.Component {
                     />
                     {
                         this.props.canEditMap && this.canExportLayer(this.props.layer) ?
-                            <span
-                                className={"btn glyphicon menu-row-glyph glyphicon-download"}
-                                style={{"color": "limegreen"}}
-                                onClick={() => {
-                                    this.props.svDownloadLayer(this.props.layer);
-                                }}
-                            />
+                            <React.Fragment>
+                                <span
+                                    className={"btn glyphicon menu-row-glyph glyphicon-download"}
+                                    style={{"color": "limegreen"}}
+                                    onClick={() => {
+                                        this.props.svDownloadLayer(this.props.layer);
+                                    }}
+                                />
+                                <span
+                                    className={"btn glyphicon menu-row-glyph glyphicon-upload"}
+                                    style={{"color": "limegreen"}}
+                                    onClick={() => {
+                                        this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
+                                    }}
+                                />
+                            </React.Fragment>
                             : null
                     }
                     {
@@ -116,7 +136,7 @@ class MenuRowClass extends React.Component {
                             : <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
                     }
                 </span>
-                <span className={"pull-right .menu-row-button"}>
+                <span className={"pull-right menu-row-button"}>
                     {
                         (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
                             <span
@@ -219,7 +239,8 @@ const mapDispatchToProps = ( dispatch ) => {
         removeLayer: (layerId) => dispatch(removeLayer(layerId)),
         updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
         refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
-        svDownloadLayer: (layer) => dispatch(svDownloadLayer(layer))
+        svDownloadLayer: (layer) => dispatch(svDownloadLayer(layer)),
+        setVisibleUploaderPanel: (visible, importerConfigKey, importerTargetObjectId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId))
     };
 };
 

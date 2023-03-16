@@ -85,7 +85,8 @@ export default ( state = {}, action) => {
         return {
             ...state,
             visibleUploaderPanel: action.visible,
-            uploaderConfigKey: action.configKey
+            importerConfigKey: action.importerConfigKey,
+            importerTargetObjectId: action.importerTargetObjectId
         };
     case UPDATE_UPLOAD_STATUS:
         return {

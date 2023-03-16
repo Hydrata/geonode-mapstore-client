@@ -49,11 +49,12 @@ function setVisibleIntroduction(visible) {
     };
 }
 
-function setVisibleUploaderPanel(visible, configKey) {
+function setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId) {
     return {
         type: SET_VISIBLE_UPLOADER_PANEL,
         visible,
-        configKey
+        importerConfigKey,
+        importerTargetObjectId
     };
 }
 

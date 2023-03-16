@@ -95,6 +95,8 @@ const SET_BMP_FILTER_MODE = 'SET_BMP_FILTER_MODE';
 const DOWNLOAD_BMP_REPORT = 'DOWNLOAD_BMP_REPORT';
 const SET_SWAMM_INPUT_MENU = 'SET_SWAMM_INPUT_MENU';
 
+const SET_SWAMM_EROSION_DATA = 'SET_SWAMM_EROSION_DATA';
+
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
 
@@ -947,6 +949,13 @@ function setAllBmpTypesVisibility(boolValue) {
     };
 }
 
+function setSwammErosionData(data) {
+    return {
+        type: SET_SWAMM_EROSION_DATA,
+        data
+    };
+}
+
 module.exports = {
     INIT_SWAMM, initSwamm,
     SET_SWAMM_PROJECT_DATA, setSwammProjectData,
@@ -1027,5 +1036,6 @@ module.exports = {
     DELETE_TARGET_SUCCESS, deleteTargetSuccess,
     DELETE_TARGET_ERROR, deleteTargetError,
     DOWNLOAD_BMP_REPORT, downloadBmpReport,
-    SET_SWAMM_INPUT_MENU, setSwammInputMenu
+    SET_SWAMM_INPUT_MENU, setSwammInputMenu,
+    SET_SWAMM_EROSION_DATA, setSwammErosionData
 };

@@ -38,7 +38,8 @@ import {
     fetchSwammBmpTypesSuccess,
     fetchGroupProfilesSuccess,
     fetchSwammBmpStatusesSuccess,
-    fetchSwammTargetsSuccess
+    fetchSwammTargetsSuccess,
+    setSwammErosionData
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
 
 import {
@@ -116,7 +117,9 @@ export const initSwammEpic = (action$, store) =>
                         Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/pollutant-loading-target/`))
                             .switchMap((response6) => Rx.Observable.of(fetchSwammTargetsSuccess(response6.data))),
                         Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/bmp-type/bmp_type_group_list/`))
-                            .switchMap((response7) => Rx.Observable.of(updateBmpTypeGroups(response7.data)))
+                            .switchMap((response7) => Rx.Observable.of(updateBmpTypeGroups(response7.data))),
+                        Rx.Observable.from(axios.get(`/swamm/api/${response1.data.projectId}/erosion/`))
+                            .switchMap((response8) => Rx.Observable.of(setSwammErosionData(response8.data)))
                     )
                 )
             )

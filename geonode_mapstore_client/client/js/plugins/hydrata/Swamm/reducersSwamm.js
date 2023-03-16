@@ -52,8 +52,10 @@ import {
     SHOW_TARGET_FORM,
     HIDE_TARGET_FORM,
     UPDATE_TARGET_FORM,
-    SET_SWAMM_INPUT_MENU
+    SET_SWAMM_INPUT_MENU,
+    SET_SWAMM_EROSION_DATA
 } from "./actionsSwamm";
+import {SET_ANUGA_INFLOW_DATA} from "@js/plugins/hydrata/Anuga/actionsAnuga";
 
 const initialState = {
     showOutlets: true,
@@ -513,6 +515,11 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             bmpTypeGroups: action.bmpTypeGroups
+        };
+    case SET_SWAMM_EROSION_DATA:
+        return {
+            ...state,
+            erosions: action.data
         };
     default:
         return state;

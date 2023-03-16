@@ -34,7 +34,8 @@ class simpleViewUploaderPanel extends React.Component {
         config: PropTypes.object,
         setVisibleSimpleViewAttributeForm: PropTypes.func,
         createSimpleViewAttributeForm: PropTypes.func,
-        uploaderConfigKey: PropTypes.string
+        importerConfigKey: PropTypes.string,
+        importerTargetObjectId: PropTypes.number
     };
 
     constructor(props) {
@@ -190,17 +191,31 @@ class simpleViewUploaderPanel extends React.Component {
         } else {
             host = this.props.serverUrl;
         }
-        axios
-            .put(`${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.uploaderConfigKey}/importer-config/`, formData, this.uploadManager)
-            .then(response => {
-                this.setState(prevState => ({
-                    itemList: prevState.uploaderFiles.map(
-                        fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
-                    )
-                }));
-                this.props.setVisibleSimpleViewAttributeForm(true);
-                this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
-            });
+        if (this.props.importerTargetObjectId) {
+            axios
+                .put(`${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/${this.props.importerTargetObjectId}/importer-config/`, formData, this.uploadManager)
+                .then(response => {
+                    this.setState(prevState => ({
+                        itemList: prevState.uploaderFiles.map(
+                            fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
+                        )
+                    }));
+                    this.props.setVisibleSimpleViewAttributeForm(true);
+                    this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
+                });
+        } else {
+            axios
+                .put(`${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/importer-create/`, formData, this.uploadManager)
+                .then(response => {
+                    this.setState(prevState => ({
+                        itemList: prevState.uploaderFiles.map(
+                            fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
+                        )
+                    }));
+                    this.props.setVisibleSimpleViewAttributeForm(true);
+                    this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
+                });
+        }
     };
     uploadManager = {
         onUploadProgress: (progressEvent) => {
@@ -213,17 +228,18 @@ class simpleViewUploaderPanel extends React.Component {
 const mapStateToProps = (state) => {
     return {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
-        uploaderConfigKey: state?.simpleView?.uploaderConfigKey,
-        config: state?.simpleView?.config?.importer_config?.[state?.simpleView?.uploaderConfigKey],
+        importerConfigKey: state?.simpleView?.importerConfigKey,
+        config: state?.simpleView?.config?.importer_config?.[state?.simpleView?.importerConfigKey],
         serverUrl: state?.gnsettings?.geonodeUrl,
         projectId: state?.simpleView?.config?.project_id,
-        uploadStatus: state?.simpleView?.uploadStatus || 0
+        uploadStatus: state?.simpleView?.uploadStatus || 0,
+        importerTargetObjectId: state?.simpleView?.importerTargetObjectId
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible)),
+        setVisibleUploaderPanel: (visible, importerConfigKey, importerTargetObjectId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId)),
         updateUploadStatus: (status) => dispatch(updateUploadStatus(status)),
         setVisibleSimpleViewAttributeForm: (visible) => dispatch(setVisibleSimpleViewAttributeForm(visible)),
         createSimpleViewAttributeForm: (form, simpleViewImporterSessionId) => dispatch(createSimpleViewAttributeForm(form, simpleViewImporterSessionId))

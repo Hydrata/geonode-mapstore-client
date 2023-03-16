@@ -46,7 +46,7 @@ export const submitAttributeFormEpic = (action$, store) =>
             Rx.Observable
                 .from(
                     axios.post(
-                        `/${store.getState()?.simpleView?.config?.importer_config[store.getState()?.simpleView?.uploaderConfigKey]?.app_name}/api/${store.getState()?.simpleView?.config?.project_id}/${store.getState()?.simpleView?.uploaderConfigKey}/importer-execute/`,
+                        `/${store.getState()?.simpleView?.config?.importer_config[store.getState()?.simpleView?.importerConfigKey]?.app_name}/api/${store.getState()?.simpleView?.config?.project_id}/${store.getState()?.simpleView?.importerConfigKey}/${store.getState()?.simpleView?.importerTargetObjectId}/importer-execute/`,
                         {
                             form: action?.form,
                             project_id: action?.projectId,
