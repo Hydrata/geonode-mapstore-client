@@ -5,10 +5,13 @@ import {
     SV_DOWNLOAD_LAYER,
     SUBMIT_SV_ATTRIBUTE_FORM,
     updateDatasetTitleSuccess,
-    submitSimpleViewAttributeFormSuccess
+    submitSimpleViewAttributeFormSuccess,
+    setVisibleSimpleViewAttributeForm,
+    setVisibleUploaderPanel
 } from "./actionsSimpleView";
 
 import {toggleEditMode, GRID_QUERY_RESULT} from "../../../../MapStore2/web/client/actions/featuregrid";
+import {show} from '../../../../MapStore2/web/client/actions/notifications';
 
 import {
     download,
@@ -16,7 +19,6 @@ import {
 } from "../../../../MapStore2/web/client/actions/layers";
 
 import axios from "../../../../MapStore2/web/client/libs/ajax";
-import {runAnugaScenarioSuccess, setAnugaScenarioMenu} from "@js/plugins/hydrata/Anuga/actionsAnuga";
 
 
 export const beginEditLayerEpic = (action$) =>
@@ -57,7 +59,14 @@ export const submitAttributeFormEpic = (action$, store) =>
                 )
         )
         .concatMap(() => Rx.Observable.of(
-            setAnugaScenarioMenu(true)
+            setVisibleSimpleViewAttributeForm(false),
+            setVisibleUploaderPanel(false),
+            show({
+                "message": "Import successful",
+                "title": "Features added",
+                "uid": 1000,
+                "position": "tc"
+            })
         ));
 
 

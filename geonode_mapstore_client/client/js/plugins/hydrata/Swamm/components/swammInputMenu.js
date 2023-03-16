@@ -91,7 +91,6 @@ const mapStateToProps = (state) => {
         projectData: state?.swamm?.projectData,
         erosionLayers: state?.layers?.flat
             ?.map(layer => {
-                console.log('find 473 in this: ', layer);
                 layer.importerTargetObjectId = state?.swamm?.erosions?.filter(erosion => erosion?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
                 return layer;
             })
