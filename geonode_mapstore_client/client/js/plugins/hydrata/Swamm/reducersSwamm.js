@@ -144,7 +144,7 @@ export default ( state = initialState, action) => {
                 if (bmpType.id === action.bmpType.id) {
                     return {
                         ...bmpType,
-                        visibility: !action.bmpType.visibility
+                        visibility: !action.bmpType?.visibility
                     };
                 }
                 return bmpType;
@@ -170,7 +170,7 @@ export default ( state = initialState, action) => {
                 if (priority.id === action.priority.id) {
                     return {
                         ...priority,
-                        visibility: !action.priority.visibility
+                        visibility: !action.priority?.visibility
                     };
                 }
                 return priority;
@@ -183,7 +183,7 @@ export default ( state = initialState, action) => {
                 if (groupProfile.id === action.groupProfile.id) {
                     return {
                         ...groupProfile,
-                        visibility: !action.groupProfile.visibility
+                        visibility: !action.groupProfile?.visibility
                     };
                 }
                 return groupProfile;
@@ -196,7 +196,7 @@ export default ( state = initialState, action) => {
                 if (status.id === action.status.id) {
                     return {
                         ...status,
-                        visibility: !action.status.visibility
+                        visibility: !action.status?.visibility
                     };
                 }
                 return status;

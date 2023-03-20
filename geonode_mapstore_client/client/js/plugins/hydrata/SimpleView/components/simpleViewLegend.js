@@ -78,7 +78,7 @@ class simpleViewLegend extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        visibleLayers: state?.layers?.flat.filter(layer => (layer.visibility === true && layer?.group !== 'background')),
+        visibleLayers: state?.layers?.flat.filter(layer => (layer?.visibility === true && layer?.group !== 'background')),
         visibleLegendPanel: state?.simpleView?.visibleLegendPanel,
         searchBarVisible: !!state?.localConfig?.plugins?.map_view?.find(x => x.name === "Search")
     };

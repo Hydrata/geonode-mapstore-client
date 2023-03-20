@@ -406,7 +406,7 @@ export const filterBmpEpic = (action$, store) =>
             let atLeastOneBmpTypeVisible = false;
             let atLeastOneBmpPriorityVisible = false;
             store.getState()?.swamm?.bmpTypes.map((bmpType) => {
-                if (bmpType.visibility) {
+                if (bmpType?.visibility) {
                     const filterField = createFilterField('type', bmpType.id);
                     newFilter.filterObj.filterFields.push(filterField);
                     atLeastOneBmpTypeVisible = true;
@@ -417,7 +417,7 @@ export const filterBmpEpic = (action$, store) =>
                 newFilter.filterObj.filterFields.push(filterField);
             }
             store.getState()?.swamm?.priorities.map((priority) => {
-                if (priority.visibility) {
+                if (priority?.visibility) {
                     const filterField = createFilterField('priority', priority.id);
                     newFilter.filterObj.filterFields.push(filterField);
                     atLeastOneBmpPriorityVisible = true;
@@ -428,14 +428,14 @@ export const filterBmpEpic = (action$, store) =>
                 newFilter.filterObj.filterFields.push(filterField);
             }
             store.getState()?.swamm?.groupProfiles.map((groupProfile) => {
-                if (groupProfile.visibility) {
+                if (groupProfile?.visibility) {
                     const filterField = createFilterField('group_profile', groupProfile.id);
                     newFilter.filterObj.filterFields.push(filterField);
                     // atLeastOnegroupProfileVisible = true;
                 }
             });
             store.getState()?.swamm?.statuses.map((status) => {
-                if (status.visibility) {
+                if (status?.visibility) {
                     const filterField = createFilterField('status', status?.name);
                     newFilter.filterObj.filterFields.push(filterField);
                     // atLeastOnegroupProfileVisible = true;
