@@ -192,8 +192,10 @@ class simpleViewUploaderPanel extends React.Component {
             host = this.props.serverUrl;
         }
         if (this.props.importerTargetObjectId) {
+            const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/${this.props.importerTargetObjectId}/importer-config/`;
+            console.log("put to extend: ", url);
             axios
-                .put(`${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/${this.props.importerTargetObjectId}/importer-config/`, formData, this.uploadManager)
+                .put(url, formData, this.uploadManager)
                 .then(response => {
                     this.setState(prevState => ({
                         itemList: prevState.uploaderFiles.map(
@@ -204,8 +206,10 @@ class simpleViewUploaderPanel extends React.Component {
                     this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
                 });
         } else {
+            const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/importer-create/`;
+            console.log("put to create: ", url);
             axios
-                .put(`${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/importer-create/`, formData, this.uploadManager)
+                .put(url, formData, this.uploadManager)
                 .then(response => {
                     this.setState(prevState => ({
                         itemList: prevState.uploaderFiles.map(
