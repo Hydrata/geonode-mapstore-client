@@ -69,7 +69,7 @@ class SwammInputMenuClass extends React.Component {
                     </div>
                     {
                         this.props.erosionLayers?.map(erosion => (
-                            <MenuRow layer={erosion} importerTargetObjectId={123456789}/>
+                            <MenuRow layer={erosion}/>
                         ))
                     }
                     {

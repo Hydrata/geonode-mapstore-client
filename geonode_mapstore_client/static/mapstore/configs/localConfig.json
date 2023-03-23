@@ -71,14 +71,10 @@
     {
       "name": "printEnabled",
       "path": "print.capabilities"
-    },
-    {
-      "name": "anugaProjectData",
-      "path": "anuga.projectData"
-    },
-    {
-      "name": "swammProjectData",
-      "path": "swamm.projectData"
+        },
+        {
+            "name": "anuga",
+            "path": "anuga.projectData"
     }
   ],
   "projectionDefs": [],
@@ -1373,15 +1369,29 @@
         "name": "ActionNavbar",
         "cfg": {
           "containerPosition": "header",
-          "disableTitle": false,
-          "titleItems": [],
-          "leftMenuItems": [
+                    "disableTitle": false,
+          "titleItems": [
             {
               "type": "plugin",
+              "name": "DetailViewerButton"
+            }
+          ],
+          "leftMenuItems": [
+            {
+              "labelId": "gnviewer.save",
               "showPendingChangesIcon": true,
-              "disableIf": "{(!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))) || state('swammProjectData.id') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
-              "name": "Save",
-              "labelId": "gnviewer.save"
+              "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}",
+              "type": "dropdown",
+              "items": [
+                {
+                  "type": "plugin",
+                  "name": "Save"
+                },
+                {
+                  "type": "plugin",
+                  "name": "SaveAs"
+                }
+              ]
             },
             {
               "labelId": "gnviewer.edit",
@@ -1402,7 +1412,7 @@
             {
               "labelId": "gnviewer.view",
               "type": "dropdown",
-              "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') || state('swammProjectData') && !context.resourceHasPermission(state('swammProjectData'), 'save_swamm_project')}",
+              "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
               "items": [
                 {
                   "type": "link",
@@ -1413,7 +1423,7 @@
             },
             {
                 "type": "plugin",
-                "disableIf": "{state('isNewResource') ||  state('anugaProjectData.id') && !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
+                "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
                 "name": "Share",
                 "labelId": "gnviewer.share"
             },
@@ -1442,7 +1452,7 @@
             {
               "type": "plugin",
               "name": "DatasetsCatalog",
-              "disableIf": "{state('swammProjectData.id') && !context.resourceHasPermission(state('swammProjectData'), 'add_data_to_project') || state('anugaProjectData.id') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+              "disableIf": "{state('anuga') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
               "label": "gnviewer.viewMetadata"
             }
           ],
@@ -1454,18 +1464,18 @@
           ]
         }
       },
-      {
-          "name": "Anuga"
-      },
-      {
-          "name": "Swamm"
-      },
-      {
-          "name": "SimpleView"
-      },
-      {
-          "name": "MapThumbnail"
-      },
+            {
+                "name": "Anuga"
+            },
+            {
+                "name": "Swamps"
+            },
+            {
+                "name": "SimpleView"
+            },
+            {
+                "name": "MapThumbnail"
+            },
       {
         "name": "DeleteResource"
       },

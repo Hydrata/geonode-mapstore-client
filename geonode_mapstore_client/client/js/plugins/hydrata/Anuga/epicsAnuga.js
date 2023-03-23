@@ -92,7 +92,7 @@ import {
     UPDATE_DATASET_TITLE,
     updateUploadStatus,
     UPDATE_DATASET_TITLE_SUCCESS,
-    SET_OPEN_MENU_GROUP_ID
+    SET_OPEN_MENU_GROUP_ID, setSvConfig
 } from "../SimpleView/actionsSimpleView";
 import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
@@ -136,6 +136,7 @@ export const initAnugaEpic = (action$, store) =>
                 .switchMap(response2 => Rx.Observable
                     .of(setAnugaProjectData(response2.data))
                     .concat(
+                        Rx.Observable.of(setSvConfig(response2.data?.simple_view_config)),
                         Rx.Observable
                             .from(axios.get(`/anuga/api/${response1.data.projectId}/scenario/`))
                             .switchMap((response3) => Rx.Observable.of(setAnugaScenarioData(response3.data))),
@@ -194,7 +195,7 @@ export const pollAnugaModelCreationEpic = (action$) =>
     action$
         .ofType(START_ANUGA_MODEL_CREATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 10000)
+            Rx.Observable.timer(0, 100000)
                 .takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable.concat(
@@ -215,7 +216,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_ELEVATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 6000)
+            Rx.Observable.timer(0, 60000)
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
@@ -270,7 +271,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
         .ofType(START_ANUGA_SCENARIO_POLLING)
         .switchMap(() =>
             Rx.Observable
-                .timer(0, 8000)
+                .timer(0, 80000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
                     Rx.Observable.from(
@@ -414,7 +415,7 @@ export const pollComparisonEpic = (action$, store) =>
         .ofType(SET_OPEN_MENU_GROUP_ID)
         .filter(action => action?.openMenuGroupId === 'Results')
         .switchMap(() =>
-            Rx.Observable.timer(0, 10000)
+            Rx.Observable.timer(0, 100000)
                 .takeUntil(action$.ofType(STOP_COMPARISON_POLLING))
                 .switchMap(() =>
                     Rx.Observable.concat(

@@ -148,7 +148,7 @@ class AnugaInputMenuClass extends React.Component {
                                 className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                                 style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
                                 onClick={() => {
-                                    this.props.setVisibleUploaderPanel(true);
+                                    this.props.setVisibleUploaderPanel(true, "elevation", null);
                                     this.props.startAnugaElevationPolling();
                                 }}
                             />
@@ -731,7 +731,7 @@ const mapDispatchToProps = ( dispatch ) => {
         stopAnugaElevationPolling: () => dispatch(stopAnugaElevationPolling()),
         startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
         stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
-        setVisibleUploaderPanel: (visible) => dispatch(setVisibleUploaderPanel(visible)),
+        setVisibleUploaderPanel: (visible, importerConfigKey, layerId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, layerId)),
         setCreatingAnugaLayer: (isCreatingAnugaLayer) => dispatch(setCreatingAnugaLayer(isCreatingAnugaLayer)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaInflow: (inflowTitle) => dispatch(createAnugaInflow(inflowTitle)),
