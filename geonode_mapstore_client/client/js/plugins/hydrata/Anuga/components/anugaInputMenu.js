@@ -125,7 +125,7 @@ class AnugaInputMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-input-menu'} className={'simple-view-panel'} style={{top: "70px", width: "480px"}}>
+            <div id={'anuga-input-menu'} className={'simple-view-panel'} style={{top: "70px", width: "560px"}}>
                 <div
                     className={'menu-rows-container'}
                     style={{
@@ -137,7 +137,7 @@ class AnugaInputMenuClass extends React.Component {
                     <div
                         className={"row menu-row menu-row-header"}
                         style={{
-                            width: "480px",
+                            width: "540px",
                             textAlign: "left",
                             border: "none"
                         }}
@@ -161,7 +161,7 @@ class AnugaInputMenuClass extends React.Component {
                     }
                     {
                         this.props.elevationLayers?.length === 0 ?
-                            <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                            <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
                                 No elevations available
                             </div>
                             : null
@@ -181,7 +181,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <div
                                     className={"row menu-row menu-row-header"}
                                     style={{
-                                        width: "480px",
+                                        width: "540px",
                                         textAlign: "left",
                                         border: "none"
                                     }}
@@ -229,7 +229,7 @@ class AnugaInputMenuClass extends React.Component {
                                 }
                                 {
                                     this.props.boundaryLayers?.length === 0 ?
-                                        <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                        <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
                                             None
                                         </div>
                                         : null
@@ -246,7 +246,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <div
                                     className={"row menu-row menu-row-header"}
                                     style={{
-                                        width: "480px",
+                                        width: "540px",
                                         textAlign: "left",
                                         border: "none"
                                     }}
@@ -298,7 +298,7 @@ class AnugaInputMenuClass extends React.Component {
                                 }
                                 {
                                     this.props.inflowLayers?.length === 0 ?
-                                        <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                        <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
                                             None
                                         </div>
                                         : null
@@ -315,7 +315,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <div
                                     className={"row menu-row menu-row-header"}
                                     style={{
-                                        width: "480px",
+                                        width: "540px",
                                         textAlign: "left",
                                         border: "none"
                                     }}
@@ -349,7 +349,7 @@ class AnugaInputMenuClass extends React.Component {
                                         <div
                                             className={"row menu-row menu-row-header"}
                                             style={{
-                                                width: "480px",
+                                                width: "540px",
                                                 textAlign: "left",
                                                 border: "none"
                                             }}
@@ -363,7 +363,7 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.fullMeshLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     Mesh will appear here when a Scenario is built.
                                                 </div>
                                                 : null
@@ -380,7 +380,7 @@ class AnugaInputMenuClass extends React.Component {
                                         <div
                                             className={"row menu-row menu-row-header"}
                                             style={{
-                                                width: "480px",
+                                                width: "540px",
                                                 textAlign: "left",
                                                 border: "none"
                                             }}
@@ -432,7 +432,7 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.meshRegionLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     None
                                                 </div>
                                                 : null
@@ -449,7 +449,7 @@ class AnugaInputMenuClass extends React.Component {
                                         <div
                                             className={"row menu-row menu-row-header"}
                                             style={{
-                                                width: "480px",
+                                                width: "540px",
                                                 textAlign: "left",
                                                 border: "none"
                                             }}
@@ -501,7 +501,7 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.frictionLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     None
                                                 </div>
                                                 : null
@@ -518,7 +518,7 @@ class AnugaInputMenuClass extends React.Component {
                                         <div
                                             className={"row menu-row menu-row-header"}
                                             style={{
-                                                width: "480px",
+                                                width: "540px",
                                                 textAlign: "left",
                                                 border: "none"
                                             }}
@@ -570,7 +570,7 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.structureLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     None
                                                 </div>
                                                 : null
@@ -587,7 +587,7 @@ class AnugaInputMenuClass extends React.Component {
                                         <div
                                             className={"row menu-row menu-row-header"}
                                             style={{
-                                                width: "480px",
+                                                width: "540px",
                                                 textAlign: "left",
                                                 border: "none"
                                             }}

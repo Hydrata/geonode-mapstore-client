@@ -13,6 +13,7 @@ import {
 import '../simpleView.css';
 import {Countdown} from "./simpleViewCountdown";
 import {DateFormat} from "../../../../../MapStore2/web/client/components/I18N/I18N";
+import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
 
 class simpleViewUploaderPanel extends React.Component {
@@ -34,6 +35,7 @@ class simpleViewUploaderPanel extends React.Component {
         config: PropTypes.object,
         setVisibleSimpleViewAttributeForm: PropTypes.func,
         createSimpleViewAttributeForm: PropTypes.func,
+        show: PropTypes.func,
         importerConfigKey: PropTypes.string,
         importerTargetObjectId: PropTypes.number
     };
@@ -159,7 +161,7 @@ class simpleViewUploaderPanel extends React.Component {
                     });
                     return file;
                 });
-            const baseFileIndex = files.findIndex(file => file.extension === "shp");
+            const baseFileIndex = files.findIndex(file => (file.extension === "shp" || file.extension === "tif"));
             const theBaseFile = files.splice(baseFileIndex, 1)[0];
             files.unshift(theBaseFile);
             return files;
@@ -207,7 +209,6 @@ class simpleViewUploaderPanel extends React.Component {
                 });
         } else {
             const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/importer-create/`;
-            console.log("put to create: ", url);
             axios
                 .put(url, formData, this.uploadManager)
                 .then(response => {
@@ -216,8 +217,17 @@ class simpleViewUploaderPanel extends React.Component {
                             fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
                         )
                     }));
-                    this.props.setVisibleSimpleViewAttributeForm(true);
-                    this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
+                    if (response?.form) {
+                        this.props.setVisibleSimpleViewAttributeForm(true);
+                        this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
+                    } else {
+                        this.props.show({
+                            "message": "Import processing - the layer will appear when it's ready.",
+                            "title": "Processing started",
+                            "uid": 1000,
+                            "position": "tc"
+                        });
+                    }
                 });
         }
     };
@@ -246,7 +256,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setVisibleUploaderPanel: (visible, importerConfigKey, importerTargetObjectId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId)),
         updateUploadStatus: (status) => dispatch(updateUploadStatus(status)),
         setVisibleSimpleViewAttributeForm: (visible) => dispatch(setVisibleSimpleViewAttributeForm(visible)),
-        createSimpleViewAttributeForm: (form, simpleViewImporterSessionId) => dispatch(createSimpleViewAttributeForm(form, simpleViewImporterSessionId))
+        createSimpleViewAttributeForm: (form, simpleViewImporterSessionId) => dispatch(createSimpleViewAttributeForm(form, simpleViewImporterSessionId)),
+        show: (object, level) => dispatch(show(object, level))
     };
 };
 

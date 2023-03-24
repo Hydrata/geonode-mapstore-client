@@ -228,7 +228,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     if (response.data?.length < 2) {
                         return Rx.Observable.empty();
                     }
-                    const numberOfInputDataGroups = store.getState()?.layers.groups.filter(group => group.id === "Input Data")?.[0]?.nodes?.length;
+                    const numberOfInputDataGroups = (store.getState()?.layers.groups.filter(group => group.id === "Input Data")?.[0]?.nodes?.length || 2) - 1;
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.of(() => {
