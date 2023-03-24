@@ -228,7 +228,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     if (response.data?.length < 2) {
                         return Rx.Observable.empty();
                     }
-                    const numberOfInputDataGroups = (store.getState()?.layers.groups.filter(group => group.id === "Input Data")?.[0]?.nodes?.length || 2) - 1;
+                    // const numberOfInputDataGroups = (store.getState()?.layers.groups.filter(group => group.id === "Input Data")?.[0]?.nodes?.length || 2) - 1;
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.of(() => {
@@ -249,8 +249,8 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         Rx.Observable.of(() => {
                             let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
                             return refreshLayers(wmsLayers);
-                        }),
-                        Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', numberOfInputDataGroups))
+                        })
+                        // Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', numberOfInputDataGroups))
                     );
                 })
         );
