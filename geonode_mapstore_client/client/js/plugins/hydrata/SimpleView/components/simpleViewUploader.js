@@ -217,7 +217,7 @@ class simpleViewUploaderPanel extends React.Component {
                             fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "complete" }) : fileToCheck)
                         )
                     }));
-                    if (response?.form) {
+                    if (response?.data?.form) {
                         this.props.setVisibleSimpleViewAttributeForm(true);
                         this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
                     } else {
