@@ -55,7 +55,6 @@ import {
     SET_SWAMM_INPUT_MENU,
     SET_SWAMM_EROSION_DATA
 } from "./actionsSwamm";
-import {SET_ANUGA_INFLOW_DATA} from "@js/plugins/hydrata/Anuga/actionsAnuga";
 
 const initialState = {
     showOutlets: true,
@@ -81,7 +80,7 @@ const initialState = {
 };
 
 export default ( state = initialState, action) => {
-    // console.log(action);
+    console.log('Action SWAMM:', action);
     switch (action.type) {
     case SET_SWAMM_PROJECT_DATA:
         return {

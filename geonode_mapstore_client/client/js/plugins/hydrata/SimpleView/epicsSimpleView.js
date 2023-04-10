@@ -4,10 +4,12 @@ import {
     UPDATE_DATASET_TITLE,
     SV_DOWNLOAD_LAYER,
     SUBMIT_SV_ATTRIBUTE_FORM,
+    SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS,
     updateDatasetTitleSuccess,
     submitSimpleViewAttributeFormSuccess,
     setVisibleSimpleViewAttributeForm,
-    setVisibleUploaderPanel
+    setVisibleUploaderPanel,
+    createSimpleViewAttributeForm
 } from "./actionsSimpleView";
 
 import {toggleEditMode, GRID_QUERY_RESULT} from "../../../../MapStore2/web/client/actions/featuregrid";
@@ -48,16 +50,26 @@ export const submitAttributeFormEpic = (action$, store) =>
             Rx.Observable
                 .from(
                     axios.post(
-                        `/${store.getState()?.simpleView?.config?.importer_config[store.getState()?.simpleView?.importerConfigKey]?.app_name}/api/${store.getState()?.simpleView?.config?.project_id}/${store.getState()?.simpleView?.importerConfigKey}/${store.getState()?.simpleView?.importerTargetObjectId}/importer-execute/`,
+                        store.getState()?.simpleView?.submitUrl,
                         {
                             form: action?.form,
                             project_id: action?.projectId,
                             importer_session_id: action?.simpleViewImporterSessionId
                         }
                     )
-                        .then(response => submitSimpleViewAttributeFormSuccess(response.data))
+                        .then(response => {
+                            console.log('SUBMIT_SV_ATTRIBUTE_FORM response:', response);
+                            if (response.data?.submitUrl) {
+                                return createSimpleViewAttributeForm(response.data);
+                            }
+                            return submitSimpleViewAttributeFormSuccess(response.data);
+                        })
                 )
-        )
+        );
+
+
+export const submitSimpleViewAttributeFormSuccessEpic = (action$) =>
+    action$.ofType(SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS)
         .concatMap(() => Rx.Observable.of(
             setVisibleSimpleViewAttributeForm(false),
             setVisibleUploaderPanel(false),

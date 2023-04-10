@@ -80,6 +80,67 @@ class SwammInputMenuClass extends React.Component {
                             : null
                     }
                 </div>
+                <div
+                    className={"row menu-row menu-row-header"}
+                    style={{
+                        width: "480px",
+                        textAlign: "left",
+                        border: "none"
+                    }}
+                >
+                    <span className="menu-row-text">BMPs</span>
+                </div>
+                <div
+                    className={"row menu-row menu-row-header"}
+                    style={{
+                        width: "480px",
+                        textAlign: "left",
+                        border: "none"
+                    }}
+                >
+                    <span className="menu-row-text">Outlets</span>
+                    <span
+                        className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
+                        style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
+                        onClick={() => {
+                            this.props.setVisibleUploaderPanel(true, "bmp-outlet", null);
+                        }}
+                    />
+                </div>
+                <div
+                    className={"row menu-row menu-row-header"}
+                    style={{
+                        width: "480px",
+                        textAlign: "left",
+                        border: "none"
+                    }}
+                >
+                    <span className="menu-row-text">Footprints</span>
+                    <span
+                        className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
+                        style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
+                        onClick={() => {
+                            this.props.setVisibleUploaderPanel(true, "bmp-footprint", null);
+                        }}
+                    />
+                </div>
+                <div
+                    className={"row menu-row menu-row-header"}
+                    style={{
+                        width: "480px",
+                        textAlign: "left",
+                        border: "none"
+                    }}
+                >
+                    <span className="menu-row-text">Watersheds</span>
+                    <span
+                        className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
+                        style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
+                        onClick={() => {
+                            this.props.setVisibleUploaderPanel(true, "bmp-watershed", null);
+                        }}
+                    />
+                </div>
                 <UploaderPanel />
             </div>
         );

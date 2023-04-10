@@ -34,11 +34,12 @@ function setVisibleSimpleViewAttributeForm(visible) {
         visible
     };
 }
-function createSimpleViewAttributeForm(form, simpleViewImporterSessionId) {
+function createSimpleViewAttributeForm(data) {
     return {
         type: CREATE_SV_ATTRIBUTE_FORM,
-        form,
-        simpleViewImporterSessionId
+        form: data?.form,
+        simpleViewImporterSessionId: data?.importer_session_id,
+        submitUrl: data?.submitUrl
     };
 }
 

@@ -182,6 +182,7 @@ class simpleViewUploaderPanel extends React.Component {
         });
         const baseFile = files[0];
         formData.append('title', this.state.newTitle);
+        formData.append('importerTargetObjectId', this.props?.importerTargetObjectId);
         this.setState(prevState => ({
             itemList: prevState.uploaderFiles.map(
                 fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "uploading" }) : fileToCheck)
@@ -205,7 +206,7 @@ class simpleViewUploaderPanel extends React.Component {
                         )
                     }));
                     this.props.setVisibleSimpleViewAttributeForm(true);
-                    this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
+                    this.props.createSimpleViewAttributeForm(response?.data);
                 });
         } else {
             const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/importer-create/`;
@@ -219,7 +220,7 @@ class simpleViewUploaderPanel extends React.Component {
                     }));
                     if (response?.data?.form) {
                         this.props.setVisibleSimpleViewAttributeForm(true);
-                        this.props.createSimpleViewAttributeForm(response?.data?.form, response?.data?.importer_session_id);
+                        this.props.createSimpleViewAttributeForm(response?.data);
                     } else {
                         this.props.show({
                             "message": "Import processing - the layer will appear when it's ready.",

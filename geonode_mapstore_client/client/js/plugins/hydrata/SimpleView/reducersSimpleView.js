@@ -49,7 +49,9 @@ export default ( state = {}, action) => {
         return {
             ...state,
             simpleViewAttributeForm: action.form,
-            simpleViewImporterSessionId: action.simpleViewImporterSessionId
+            simpleViewImporterSessionId: action.simpleViewImporterSessionId,
+            submitUrl: action.submitUrl,
+            visibleSimpleViewAttributeForm: true
         };
     case UPDATE_SV_ATTRIBUTE_FORM:
         console.log('UPDATE_SV_ATTRIBUTE_FORM action.kv', action.kv);

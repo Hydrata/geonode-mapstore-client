@@ -15,7 +15,8 @@ class SimpleViewAttributeFormClass extends React.Component {
         simpleViewAttributeForm: PropTypes.object,
         submitSimpleViewAttributeForm: PropTypes.func,
         projectId: PropTypes.number,
-        simpleViewImporterSessionId: PropTypes.number
+        simpleViewImporterSessionId: PropTypes.number,
+        headings: PropTypes.array
     };
 
     static defaultProps = {
@@ -25,6 +26,7 @@ class SimpleViewAttributeFormClass extends React.Component {
         super(props);
         this.handleChange = this.handleChange.bind(this);
         this.handleOverrideChange = this.handleOverrideChange.bind(this);
+        this.handleMultiSelectOverrideChange = this.handleMultiSelectOverrideChange.bind(this);
         this.state = {};
     }
 
@@ -64,6 +66,42 @@ class SimpleViewAttributeFormClass extends React.Component {
                     type={"number"}
                 />
             );
+        case 'text':
+            return (
+                <input
+                    style={{
+                        color: "white",
+                        borderRadius: "4px",
+                        textAlign: "right"
+                    }}
+                    name={key}
+                    value={this.props.simpleViewAttributeForm?.[key]?.value}
+                    onChange={this.handleOverrideChange}
+                    type={"text"}
+                />
+            );
+        case 'multi-select':
+            return (
+                <select
+                    style={{
+                        width: "250px",
+                        color: "#2b5994",
+                        borderRadius: "4px"
+                    }}
+                    multiple
+                    name={key}
+                    value={this.props.simpleViewAttributeForm?.[key]?.value}
+                    defaultValue={""}
+                    onChange={this.handleMultiSelectOverrideChange}
+                >
+                    <option value="---" selected>---</option>
+                    {
+                        this.props.simpleViewAttributeForm?.[key]?.options?.map(option =>
+                            <option value={option}>{option}</option>
+                        )
+                    }
+                </select>
+            );
         default:
             return <div>{overrideWidget} widget not found</div>;
         }
@@ -97,10 +135,10 @@ class SimpleViewAttributeFormClass extends React.Component {
                             display: "flex",
                             marginBottom: "5px"
                         }}>
-                            <h2 style={{width: "150px", textAlign: "center"}}>Type</h2>
-                            <h2 style={{width: "450px", textAlign: "center"}}>Target<br/>Attribute</h2>
-                            <h2 style={{width: "250px", textAlign: "center"}}>Uploaded<br/>Attribute</h2>
-                            <h2 style={{width: "450px", textAlign: "center"}}>Attribute<br/>Override</h2>
+                            <h2 style={{width: "150px", textAlign: "center"}}>{this.props.headings?.[0]}</h2>
+                            <h2 style={{width: "450px", textAlign: "center"}}>{this.props.headings?.[1]}</h2>
+                            <h2 style={{width: "250px", textAlign: "center"}}>{this.props.headings?.[2]}</h2>
+                            <h2 style={{width: "450px", textAlign: "center"}}>{this.props.headings?.[3]}</h2>
                         </div>
                         {
                             Object.keys(this.props.simpleViewAttributeForm).map(key => {
@@ -196,7 +234,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                         onClick={() => {
                             this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
                         }}>
-                        Import
+                        Next
                     </button>
                 </div>
             </div>
@@ -224,13 +262,25 @@ class SimpleViewAttributeFormClass extends React.Component {
         kv.override_used = true;
         this.props.updateSimpleViewAttributeForm(kv);
     }
+
+    handleMultiSelectOverrideChange(event) {
+        const fieldName = event.target?.name;
+        let fieldValue = event.target?.value;
+        let kv = {[fieldName]: fieldValue};
+        if (event.target?.type === 'number')  {
+            kv = {[fieldName]: parseFloat(fieldValue)};
+        }
+        kv.override_used = true;
+        this.props.updateSimpleViewAttributeForm(kv);
+    }
 }
 
 const mapStateToProps = (state) => {
     return {
         projectId: state?.simpleView?.config?.project_id,
         simpleViewAttributeForm: state?.simpleView?.simpleViewAttributeForm || {},
-        simpleViewImporterSessionId: state?.simpleView?.simpleViewImporterSessionId
+        simpleViewImporterSessionId: state?.simpleView?.simpleViewImporterSessionId,
+        headings: state?.simpleView?.simpleViewAttributeForm?.headings || ["Type", "Target Attribute", "Uploaded Attribute", "Attribute Override"]
     };
 };
 
