@@ -82,25 +82,26 @@ class SimpleViewAttributeFormClass extends React.Component {
             );
         case 'multi-select':
             return (
-                <select
-                    style={{
-                        width: "250px",
-                        color: "#2b5994",
-                        borderRadius: "4px"
-                    }}
-                    multiple
-                    name={key}
-                    value={this.props.simpleViewAttributeForm?.[key]?.value}
-                    defaultValue={""}
-                    onChange={this.handleMultiSelectOverrideChange}
-                >
-                    <option value="---" selected>---</option>
-                    {
-                        this.props.simpleViewAttributeForm?.[key]?.options?.map(option =>
-                            <option value={option}>{option}</option>
-                        )
-                    }
-                </select>
+                <div></div>
+                // <select
+                //     style={{
+                //         width: "250px",
+                //         color: "#2b5994",
+                //         borderRadius: "4px"
+                //     }}
+                //     multiple
+                //     name={key}
+                //     value={this.props.simpleViewAttributeForm?.[key]?.value}
+                //     defaultValue={""}
+                //     onChange={this.handleMultiSelectOverrideChange}
+                // >
+                //     <option value="---" selected>---</option>
+                //     {
+                //         this.props.simpleViewAttributeForm?.[key]?.options?.map(option =>
+                //             <option value={option}>{option}</option>
+                //         )
+                //     }
+                // </select>
             );
         default:
             return <div>{overrideWidget} widget not found</div>;
@@ -172,9 +173,10 @@ class SimpleViewAttributeFormClass extends React.Component {
                                                     borderRadius: "4px"
                                                 }}
                                                 name={key}
+                                                multiple={attribute?.override_widget === 'multi-select'}
                                                 value={this.props.simpleViewAttributeForm?.[key]?.value}
                                                 defaultValue={""}
-                                                onChange={this.handleChange}
+                                                onChange={attribute?.override_widget === 'multi-select' ? this.handleMultiSelectOverrideChange : this.handleChange}
                                             >
                                                 {
                                                     attribute?.override_allowed && attribute?.override_used ?
@@ -265,7 +267,7 @@ class SimpleViewAttributeFormClass extends React.Component {
 
     handleMultiSelectOverrideChange(event) {
         const fieldName = event.target?.name;
-        let fieldValue = event.target?.value;
+        let fieldValue = Array.from(event.target.selectedOptions, option => option.value);
         let kv = {[fieldName]: fieldValue};
         if (event.target?.type === 'number')  {
             kv = {[fieldName]: parseFloat(fieldValue)};
