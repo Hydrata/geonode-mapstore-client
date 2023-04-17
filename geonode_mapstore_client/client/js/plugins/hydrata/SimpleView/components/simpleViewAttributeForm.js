@@ -168,6 +168,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                                             </div>
                                             <select
                                                 style={{
+                                                    height: attribute?.override_widget === 'multi-select' ? "150px" : null,
                                                     width: "250px",
                                                     color: "#2b5994",
                                                     borderRadius: "4px"
@@ -278,11 +279,16 @@ class SimpleViewAttributeFormClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    let headings = null;
+    if (state?.simpleView?.simpleViewAttributeForm) {
+        headings = JSON.parse(JSON.stringify(state?.simpleView?.simpleViewAttributeForm))?.headings || ["Type", "Target Attribute", "Uploaded Attribute", "Attribute Override"];
+        delete state?.simpleView?.simpleViewAttributeForm?.headings;
+    }
     return {
         projectId: state?.simpleView?.config?.project_id,
         simpleViewAttributeForm: state?.simpleView?.simpleViewAttributeForm || {},
         simpleViewImporterSessionId: state?.simpleView?.simpleViewImporterSessionId,
-        headings: state?.simpleView?.simpleViewAttributeForm?.headings || ["Type", "Target Attribute", "Uploaded Attribute", "Attribute Override"]
+        headings: headings
     };
 };
 
