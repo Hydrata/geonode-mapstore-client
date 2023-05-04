@@ -1,7 +1,19 @@
 {% load static %}
-<header class="gn-main-header">
+
+{% block extra_head %}
+    <link href="{% static 'hydratabase/css/hydratabase_base.css' %}" rel="stylesheet"/>
+    <link href="{% static 'hydratabase/css/hydratabase_home.css' %}" rel="stylesheet"/>
+    <!--LinkedIn metadata:-->
+    <meta property="og:title" content="Hydrata"/>
+    <meta property="og:description" content="Online, Open Source Water Modelling"/>
+    <meta property="og:url" content="https://hydrata.com"/>
+    <meta property="og:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
+{% endblock extra_head %}
+
+<header class="gn-main-header  hydratabase-dummy-class-header_hydratabase">
     {% include './navbar_hydratabase.html'  with id='gn-brand-navbar' %}
 </header>
+
 <div class="gn-main-header-placeholder"></div>
 {% if show_hero %}
     {% include './hero_hydratabase.html' %}

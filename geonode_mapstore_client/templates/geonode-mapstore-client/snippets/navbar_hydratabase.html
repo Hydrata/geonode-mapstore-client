@@ -6,6 +6,10 @@
 {% block extra_style %}
 {% endblock %}
 
+{% block extra_head %}
+    <link href="{% static 'hydratabase/css/hydratabase_navbar.css' %}" rel="stylesheet"/>
+{% endblock extra_head %}
+
 <style>
     #{{ id|default:'' }}-bottom {
         display: none;
