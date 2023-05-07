@@ -416,6 +416,10 @@ export const plugins = {
         'FeaturedResourcesGrid',
         () => import(/* webpackChunkName: 'plugins/featured-resources-grid' */ '@js/plugins/FeaturedResourcesGrid')
     ),
+    AnugaResourcesGridPlugin: toModulePlugin(
+        'AnugaResourcesGrid',
+        () => import(/* webpackChunkName: 'plugins/featured-resources-grid' */ '@js/plugins/hydrata/AnugaResourcesGrid')
+    ),
     SimpleViewPlugin: toModulePlugin(
         'SimpleView',
         () => import(/* webpackChunkName: 'plugins/simpleview-plugin' */ '@js/plugins/hydrata/SimpleView/SimpleView')
