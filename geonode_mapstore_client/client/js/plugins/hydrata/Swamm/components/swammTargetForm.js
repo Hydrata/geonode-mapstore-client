@@ -111,7 +111,7 @@ class SwammTargetFormClass extends React.Component {
                                     type="number"
                                     step={1}
                                     name="target_percent_n_reduction"
-                                    value={this.props.targetForm?.target_percent_n_reduction * 100}
+                                    value={(this.props.targetForm?.target_percent_n_reduction * 100).toFixed(0)}
                                     onChange={this.handleChange}
                                 />
                                 <div
@@ -130,7 +130,7 @@ class SwammTargetFormClass extends React.Component {
                                     type="number"
                                     step={1}
                                     name="target_percent_p_reduction"
-                                    value={this.props.targetForm?.target_percent_p_reduction * 100}
+                                    value={(this.props.targetForm?.target_percent_p_reduction * 100).toFixed(0)}
                                     onChange={this.handleChange}
                                 />
                                 <div
@@ -149,7 +149,7 @@ class SwammTargetFormClass extends React.Component {
                                     type="number"
                                     step={1}
                                     name="target_percent_s_reduction"
-                                    value={this.props.targetForm?.target_percent_s_reduction * 100}
+                                    value={(this.props.targetForm?.target_percent_s_reduction * 100).toFixed(0)}
                                     onChange={this.handleChange}
                                 />
                                 <div
@@ -260,7 +260,7 @@ class SwammTargetFormClass extends React.Component {
         let fieldValue = event.target.value;
         let kv = {[fieldName]: fieldValue};
         if (event.target.type === 'number' && event.target.name.includes('target_percent_'))  {
-            kv = {[fieldName]: parseFloat(fieldValue) / 100};
+            kv = {[fieldName]: parseInt(fieldValue, 10) / 100};
         }
         this.props.updateTargetForm(kv);
     }
