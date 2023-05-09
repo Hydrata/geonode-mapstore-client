@@ -1,6 +1,12 @@
 {% load static %}
 {% load get_menu_json %}
 {% load catalogue_urls %}
+{% load get_menu_json %}
+{% get_base_left_topbar_menu as BASE_TOPBAR_MENU_LEFT %}
+{% get_menu_json 'TOPBAR_MENU' as TOPBAR_MENU %}
+{% get_menu_json 'TOPBAR_MENU_LEFT' as TOPBAR_MENU_LEFT %}
+{% get_base_right_topbar_menu as BASE_TOPBAR_MENU_RIGHT %}
+{% get_menu_json 'TOPBAR_MENU_RIGHT' as TOPBAR_MENU_RIGHT %}
 {% get_user_menu as USER_MENU %}
 
 {% block extra_style %}
@@ -32,12 +38,48 @@
         <div class="gn-menu-content">
             <div class="gn-menu-content-left">
                 {% block left_menu %}
+                <div class="dropdown">
+                    <button
+                        class="btn btn-primary dropdown-toggle"
+                        type="button"
+                        id="gn-topbar-small-menu"
+                        data-toggle="dropdown"
+                        aria-haspopup="true"
+                        aria-expanded="true"
+                    >
+                        <i class="fa fa-bars"> </i>
+                    </button>
+                    <ul
+                        class="dropdown-menu"
+                        aria-labelledby="gn-topbar-small-menu"
+                    >
+                        {% for menu_item in BASE_TOPBAR_MENU_LEFT %}
+                            {% include './menu_item_compact.html' with menu_item=menu_item %}
+                        {% endfor %}
+                        {% for menu_item in TOPBAR_MENU %}
+                            {% include './menu_item_compact.html' with menu_item=menu_item variant='primary' %}
+                        {% endfor %}
+                        {% for menu_item in TOPBAR_MENU_LEFT %}
+                            {% include './menu_item_compact.html' with menu_item=menu_item %}
+                        {% endfor %}
+
+                    </ul>
+                </div>
                 <ul class="gn-menu-list">
                     <li style="width: 70px">
                         <a href="/" style="color: white">
                             <img src="{% static 'img/logo-bg-lowres.png' %}">
                         </a>
                     </li>
+                    {% for menu_item in BASE_TOPBAR_MENU_LEFT %}
+                        {% include './menu_item.html' with menu_item=menu_item variant='primary' %}
+                    {% endfor %}
+                    {% for menu_item in TOPBAR_MENU %}
+                        {% include './menu_item.html' with menu_item=menu_item variant='primary' %}
+                    {% endfor %}
+                    {% for menu_item in TOPBAR_MENU_LEFT %}
+                        {% include './menu_item.html' with menu_item=menu_item variant='primary' %}
+                    {% endfor %}
 {#                    <li style="width: 70px; margin-left:70px">#}
 {#                        <a id='about' href="/about" class="nav-link" style="color: white">#}
 {#                            About#}
