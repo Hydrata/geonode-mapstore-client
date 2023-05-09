@@ -99,6 +99,9 @@
 }
 
 #swamm-bmp-chart-col-three {
+    color: #155481;
+    background-color: white;
+    margin: 10px;
     display: flex;
     flex-direction: column;
     max-width: 200px;
@@ -164,15 +167,18 @@
 }
 
 .swamm-bmp-chart-legend-row {
-    display: flex;
+    display: inline-flex;
+    justify-content: left;
     margin-top: 4px;
-    margin-left: 15px;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #swamm-bmp-chart-footer {
     border-top: solid 1px #3585b0;
     width: 100%;
-    padding: 10px;
+    padding: 6px;
     display: flex;
     flex-direction: row-reverse;
     position: absolute;

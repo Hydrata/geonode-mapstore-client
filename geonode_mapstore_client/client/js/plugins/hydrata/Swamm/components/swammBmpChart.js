@@ -293,29 +293,29 @@ class SwammBmpChartClass extends React.Component {
                             </Table>
                         </div>
                     </div>
-                    <div id={"smamm-bmp-chart-col-three"}>
-                        <div id={"swamm-bmp-chart-legend-container"}>
-                            <div className={"swamm-bmp-chart-heading"}>Legend</div>
-                            <div id={"swamm-bmp-chart-legend-rows"}>
-                                {
-                                    this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
-                                        return (
-                                            <div className={"swamm-bmp-chart-legend-row"}>
-                                                <svg width="15" height="15">
+                    <div id={"swamm-bmp-chart-col-three"}>
+                        <div className={"swamm-bmp-chart-heading"}>Legend</div>
+                        <div id={"swamm-bmp-chart-legend-rows"}>
+                            {
+                                this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
+                                    return (
+                                        <div className={"swamm-bmp-chart-legend-row"}>
+                                            <div>
+                                                <svg width="30px" height="15px">
                                                     <rect
-                                                        width="15"
-                                                        height="15"
+                                                        width="15px"
+                                                        height="15px"
                                                         fill={this.colours[index]}
                                                     />
                                                 </svg>
-                                                <div style={{marginLeft: "15px"}}>
-                                                    {bar?.label}
-                                                </div>
                                             </div>
-                                        );
-                                    })
-                                }
-                            </div>
+                                            <div>
+                                                {bar?.label}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            }
                         </div>
                     </div>
                 </div>
@@ -361,7 +361,9 @@ class SwammBmpChartClass extends React.Component {
         '#39CCCC', '#7FDBFF', '#0074D9', '#001f3f',
         '#FFDC00', '#01FF70', '#2ECC40', '#3D9970',
         '#DDDDDD', '#AAAAAA', '#B10DC9', '#F012BE',
-        '#85144b', '#FF4136', '#FF851B', '#FFFFFF'
+        '#85144b', '#FF4136', '#FF851B', '#FFFFFF',
+        '#0088FEAA', '#00C49FAA', '#FFBB28AA', '#FF8042AA',
+        '#39CCCCAA', '#7FDBFFAA', '#0074D9AA', '#001f3fAA'
     ];
 }
 
