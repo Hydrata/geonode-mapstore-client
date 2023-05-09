@@ -22,6 +22,32 @@ def _is_mobile_device(context):
     return False
 
 @register.simple_tag(takes_context=True)
+def get_hydrata_left_topbar_menu(context):
+
+    is_mobile = _is_mobile_device(context)
+
+    return [
+        {
+            "type": "link",
+            "href": "/about",
+            "label": "About",
+            "target": "_blank"
+        },
+        {
+            "type": "link",
+            "href": "/plans",
+            "label": "Plans",
+            "target": "_blank"
+        },
+        {
+            "type": "link",
+            "href": "https://docs.hydrata.com",
+            "label": "Docs",
+            "target": "_blank"
+        }
+    ]
+
+@register.simple_tag(takes_context=True)
 def get_base_left_topbar_menu(context):
 
     is_mobile = _is_mobile_device(context)
