@@ -263,9 +263,9 @@ class SwammBmpChartClass extends React.Component {
                                     </tr>
                                     <tr>
                                         <td>Selected target reduction percentage:</td>
-                                        <td>{this.props.selectedTarget?.speedDialData?.percentPhosphorusReductionTarget * 100}</td>
-                                        <td>{this.props.selectedTarget?.speedDialData?.percentNitrogenReductionTarget * 100}</td>
-                                        <td>{this.props.selectedTarget?.speedDialData?.percentSedimentReductionTarget * 100}</td>
+                                        <td>{(this.props.selectedTarget?.speedDialData?.percentPhosphorusReductionTarget * 100).toFixed(0)}</td>
+                                        <td>{(this.props.selectedTarget?.speedDialData?.percentNitrogenReductionTarget * 100).toFixed(0)}</td>
+                                        <td>{(this.props.selectedTarget?.speedDialData?.percentSedimentReductionTarget * 100).toFixed(0)}</td>
                                         <td className={"text-left"}>% of total</td>
                                     </tr>
                                     <tr>
