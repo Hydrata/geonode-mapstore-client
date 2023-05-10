@@ -14,14 +14,14 @@ import { createPlugin } from '@mapstore/framework/utils/PluginsUtils';
 import url from 'url';
 import { createSelector } from 'reselect';
 import { buildHrefByTemplate } from '@js/utils/MenuUtils';
-import { loadFeaturedResources } from '@js/actions/gnsearch';
 import AnugaProjectList from '@js/plugins/hydrata/Anuga/components/AnugaProjectList';
 import { hashLocationToHref } from '@js/utils/SearchUtils';
-import { getFeaturedResults } from '@js/selectors/search';
-import { featuredResourceDownload } from '@js/selectors/resourceservice';
 import gnsearch from '@js/reducers/gnsearch';
 import gnresource from '@js/reducers/gnresource';
 import resourceservice from '@js/reducers/resourceservice';
+import { updateAnugaResources } from './actionsAnuga';
+import anuga from './reducersAnuga';
+import { getAnugaResourcesEpic } from './epicsAnuga';
 
 import gnsearchEpics from '@js/epics/gnsearch';
 import gnsaveEpics from '@js/epics/gnsave';
@@ -29,12 +29,14 @@ import resourceServiceEpics from '@js/epics/resourceservice';
 
 const ConnectedAnugaResourcesGrid = connect(
     createSelector([
-        state => state?.gnsearch?.resources?.filter(resource => ['map', 'geostory'].includes(resource.resource_type))
+        state => {
+            return state?.anuga?.anugaHomePageResources?.maps;
+        }
     ], (resources) => ({
         resources
     })
     ), {
-        loadFeaturedResources
+        updateAnugaResources
     }
 )(AnugaProjectList);
 
@@ -49,7 +51,7 @@ function Portal({ targetSelector = '', children }) {
 function AnugaResourcesGrid({
     location,
     pagePath = '',
-    fetchFeaturedResources,
+    updateAnugaResourcesLocal,
     targetSelector,
     resource
 }) {
@@ -78,7 +80,7 @@ function AnugaResourcesGrid({
                         cardOptions={[]}
                         isCardActive={res => res.pk === resource?.pk}
                         buildHrefByTemplate={buildHrefByTemplate}
-                        onLoad={fetchFeaturedResources}
+                        onLoad={updateAnugaResourcesLocal}
                         containerStyle={{
                             minHeight: 'auto'
                         }}/>
@@ -89,15 +91,21 @@ function AnugaResourcesGrid({
     );
 }
 
+const mapDispatchToProps = (dispatch) => {
+    return {
+        updateAnugaResourcesLocal: (action, pageSize) => dispatch(updateAnugaResources(action, pageSize))
+    };
+};
+
 const AnugaResourcesGridPlugin = connect(
     createSelector([
         state => state?.router?.location,
-        state => state?.gnresource?.data || null
+        state => state?.anuga?.data || null
     ], (location, resource) => ({
         location,
         resource
     })),
-    { fetchFeaturedResources: loadFeaturedResources }
+    mapDispatchToProps
 )(AnugaResourcesGrid);
 
 export default createPlugin('AnugaResourcesGrid', {
@@ -106,11 +114,13 @@ export default createPlugin('AnugaResourcesGrid', {
     epics: {
         ...gnsearchEpics,
         ...gnsaveEpics,
-        ...resourceServiceEpics
+        ...resourceServiceEpics,
+        getAnugaResourcesEpic
     },
     reducers: {
         gnsearch,
         gnresource,
-        resourceservice
+        resourceservice,
+        anuga
     }
 });

@@ -35,7 +35,8 @@ import {
     pollAnugaModelCreationEpic,
     compareScenarioEpic,
     pollComparisonEpic,
-    addComparisonEpic
+    addComparisonEpic,
+    getAnugaResourcesEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -77,6 +78,7 @@ export default createPlugin('Anuga', {
         pollAnugaModelCreationEpic,
         compareScenarioEpic,
         pollComparisonEpic,
-        addComparisonEpic
+        addComparisonEpic,
+        getAnugaResourcesEpic
     }
 });

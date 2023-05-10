@@ -85,7 +85,9 @@ import {
     UPDATE_COMPUTE_INSTANCE,
     updateComputeInstanceSuccess,
     COMPARE_SCENARIOS,
-    compareScenariosSuccess
+    compareScenariosSuccess,
+    UPDATE_ANUGA_RESOURCES,
+    setAnugaResources
 } from "./actionsAnuga";
 
 import {
@@ -95,6 +97,8 @@ import {
     SET_OPEN_MENU_GROUP_ID, setSvConfig
 } from "../SimpleView/actionsSimpleView";
 import {getAnugaModels} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {resourceError} from "@js/actions/gnresource";
+import {parseDevHostname} from "@js/utils/APIUtils";
 
 const addAnugaLayerFromAvailableResponse = (response, store) => {
     if (response.data?.length === 0) {
@@ -801,3 +805,32 @@ export const updateAnugaModelTitle = (action$, store) =>
                 })
                 .switchMap(() => Rx.Observable.empty())
         );
+
+
+export const getAnugaResourcesEpic = (action$, {getState = () => {}}) =>
+    action$.ofType(UPDATE_ANUGA_RESOURCES)
+        .switchMap(({action}) => {
+            return Rx.Observable.defer(
+                () => axios
+                    .get(parseDevHostname('/api/v2/maps'), {
+                        params: {
+                            page_size: 100,
+                            page: 1
+                        }
+                    })
+                    .then(({data}) => data)
+            )
+                .switchMap((data) => {
+                    return Rx.Observable.of(setAnugaResources({
+                        ...data,
+                        isNextPageAvailable: !!data?.links?.next,
+                        isPreviousPageAvailable: !!data?.links.previous,
+                        loading: false
+                    }));
+                }).catch((error) => {
+                    return Rx.Observable.of(
+                        resourceError(error.data || error.message),
+                        setAnugaResources({loading: false})
+                    );
+                }).startWith(setAnugaResources({loading: true}));
+        });

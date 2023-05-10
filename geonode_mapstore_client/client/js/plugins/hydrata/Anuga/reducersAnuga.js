@@ -31,7 +31,8 @@ import {
     SET_CREATING_ANUGA_LAYER,
     SET_ANUGA_SCENARIO_IS_LOADED,
     UPDATE_COMPUTE_INSTANCE_SUCCESS,
-    TOGGLE_SCENARIO_SELECTED
+    TOGGLE_SCENARIO_SELECTED,
+    SET_ANUGA_RESOURCES
 } from "./actionsAnuga";
 
 import {
@@ -45,11 +46,18 @@ const initialState = {
 };
 
 export default ( state = initialState, action) => {
+    console.log('state ar: ', state);
+    console.log('action ar: ', action);
     switch (action.type) {
     case SET_CREATING_ANUGA_LAYER:
         return {
             ...state,
             isCreatingAnugaLayer: action.isCreatingAnugaLayer
+        };
+    case SET_ANUGA_RESOURCES:
+        return {
+            ...state,
+            anugaHomePageResources: action.data
         };
     case UPDATE_ANUGA_SCENARIO:
         return {
@@ -101,7 +109,6 @@ export default ( state = initialState, action) => {
                 newCopiedScenario
             ];
         }
-        console.log('scenarios', scenarios);
         return {
             ...state,
             scenarios: scenarios,
