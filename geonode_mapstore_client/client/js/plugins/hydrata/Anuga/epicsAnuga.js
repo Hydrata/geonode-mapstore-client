@@ -812,7 +812,7 @@ export const getAnugaResourcesEpic = (action$, {getState = () => {}}) =>
         .switchMap(({action}) => {
             return Rx.Observable.defer(
                 () => axios
-                    .get(parseDevHostname('/api/v2/maps'), {
+                    .get(parseDevHostname('/anuga/api/project'), {
                         params: {
                             page_size: 100,
                             page: 1
@@ -822,9 +822,9 @@ export const getAnugaResourcesEpic = (action$, {getState = () => {}}) =>
             )
                 .switchMap((data) => {
                     return Rx.Observable.of(setAnugaResources({
-                        ...data,
+                        projects: [...data],
                         isNextPageAvailable: !!data?.links?.next,
-                        isPreviousPageAvailable: !!data?.links.previous,
+                        isPreviousPageAvailable: !!data?.links?.previous,
                         loading: false
                     }));
                 }).catch((error) => {

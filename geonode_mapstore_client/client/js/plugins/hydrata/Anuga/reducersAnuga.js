@@ -55,9 +55,15 @@ export default ( state = initialState, action) => {
             isCreatingAnugaLayer: action.isCreatingAnugaLayer
         };
     case SET_ANUGA_RESOURCES:
+        console.log('** anugaHomePageResources', action.data);
         return {
             ...state,
-            anugaHomePageResources: action.data
+            anugaHomePageResources: {
+                ...action.data,
+                projects: action.data?.projects
+                    ?.map(project => project?.base_map_full)
+                    .filter(map => !map.featured)
+            }
         };
     case UPDATE_ANUGA_SCENARIO:
         return {
