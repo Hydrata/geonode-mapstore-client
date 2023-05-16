@@ -29,11 +29,11 @@ import resourceServiceEpics from '@js/epics/resourceservice';
 
 const ConnectedAnugaResourcesGrid = connect(
     createSelector([
-        state => {
-            return state?.anuga?.anugaHomePageResources?.projects;
-        }
-    ], (resources) => ({
-        resources
+        state => state?.anuga?.anugaHomePageResources?.projects,
+        state => state?.anuga?.anugaHomePageResources?.loading || false
+    ], (resources, loading) => ({
+        resources,
+        loading
     })
     ), {
         updateAnugaResources
@@ -100,10 +100,12 @@ const mapDispatchToProps = (dispatch) => {
 const AnugaResourcesGridPlugin = connect(
     createSelector([
         state => state?.router?.location,
-        state => state?.anuga?.data || null
-    ], (location, resource) => ({
+        state => state?.anuga?.data || null,
+        state => state?.anuga?.anugaHomePageResources?.loading || true
+    ], (location, resource, loading) => ({
         location,
-        resource
+        resource,
+        loading
     })),
     mapDispatchToProps
 )(AnugaResourcesGrid);

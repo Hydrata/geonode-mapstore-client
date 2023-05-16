@@ -812,7 +812,7 @@ export const getAnugaResourcesEpic = (action$, {getState = () => {}}) =>
         .switchMap(({action}) => {
             return Rx.Observable.defer(
                 () => axios
-                    .get(parseDevHostname('/anuga/api/project'), {
+                    .get(parseDevHostname('/anuga/api/project/'), {
                         params: {
                             page_size: 100,
                             page: 1

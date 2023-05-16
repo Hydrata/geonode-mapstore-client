@@ -44,7 +44,7 @@ const AnugaProjectList = withResizeDetector(({
     };
 
     return (
-        <div className="gn-card-grid" style={resources.length === 0 ? { display: 'none' } : {}}>
+        <div className="gn-card-grid">
             {header}
             <div style={{
                 display: 'flex', width: '100%'
@@ -52,6 +52,15 @@ const AnugaProjectList = withResizeDetector(({
                 <div style={{ flex: 1, width: '100%' }}>
                     <div className="gn-card-grid-container" style={containerStyle}>
                         <h3><HTML msgId={`Your Projects:`}/></h3>
+                        <div>
+                            { loading &&
+                                <div style={{"height": "270px", "paddingTop": "130px"}}>
+                                    <Spinner size="lg"  animation="border" role="status">
+                                        <span className="sr-only">Loading...</span>
+                                    </Spinner>
+                                </div>
+                            }
+                        </div>
                         <Cards
                             featured
                             resources={resources}
@@ -74,9 +83,6 @@ const AnugaProjectList = withResizeDetector(({
                             </Button>
 
                             <div>
-                                { loading && <Spinner size="sm"  animation="border" role="status">
-                                    <span className="sr-only">Loading...</span>
-                                </Spinner>}
                             </div>
                             <Button size="sm" onClick={() => loadFeaturedResources("next", count)} disabled={!isNextPageAvailable || loading}
                                 aria-hidden="true">
