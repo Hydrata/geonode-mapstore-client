@@ -40,11 +40,26 @@ def get_hydrata_left_topbar_menu(context):
             "target": "_blank"
         },
         {
-            "type": "link",
-            "href": "https://docs.hydrata.com",
             "label": "Docs",
-            "target": "_blank"
-        }
+            "type": "dropdown",
+            "items": [
+                {
+                    "type": "link",
+                    "href": "https://docs.hydrata.com",
+                    "label": "Docs - Getting Started",
+                    "target": "_blank"
+                },
+                {
+                    "type": "divider"
+                },
+                {
+                    "type": "link",
+                    "href": "https://youtu.be/MndBMn33PqI",
+                    "label": "Video - Managing Change",
+                    "target": "_blank"
+                } if not is_mobile else None
+            ]
+        },
     ]
 
 @register.simple_tag(takes_context=True)
