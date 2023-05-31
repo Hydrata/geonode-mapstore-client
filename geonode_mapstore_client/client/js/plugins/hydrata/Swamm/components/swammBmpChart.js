@@ -3,7 +3,7 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {Table} from "react-bootstrap";
 import {formatMoney} from "../../Utils/utils";
-import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm} from "../actionsSwamm";
+import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData} from "../actionsSwamm";
 const {Cell, BarChart, Bar, PieChart, Pie, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip} = require('recharts');
 import '../swamm.css';
 
@@ -21,7 +21,9 @@ class SwammBmpChartClass extends React.Component {
         defaultTargetId: PropTypes.number,
         selectedTarget: PropTypes.object,
         bmpFilterMode: PropTypes.string,
-        setBmpFilterMode: PropTypes.func
+        setBmpFilterMode: PropTypes.func,
+        downloadTargetData: PropTypes.func,
+        projectId: PropTypes.number
     };
 
     static defaultProps = {}
@@ -115,6 +117,17 @@ class SwammBmpChartClass extends React.Component {
                                 onClick={() => this.props.setBmpFilterMode('group_profile')}
                             >
                                 Organization
+                            </button>
+                        </div>
+                        <div id={"swamm-bmp-chart-download"}>
+                            <div className={"swamm-bmp-chart-heading"}>
+                                Download target data:
+                            </div>
+                            <button
+                                className={"swamm-button"}
+                                onClick={() => this.props.downloadTargetData(this.props.projectId, this.props.selectedTargetId)}
+                            >
+                                *.xlsx
                             </button>
                         </div>
                     </div>
@@ -409,7 +422,8 @@ const mapStateToProps = (state) => {
         selectedTarget: selectedTarget,
         rechartsBarData: rechartsBarData,
         bmpFilterMode: bmpFilterMode,
-        visibleTargetForm: state?.swamm.visibleTargetForm
+        visibleTargetForm: state?.swamm.visibleTargetForm,
+        projectId: state?.swamm?.projectData?.id
     };
 };
 
@@ -418,7 +432,8 @@ const mapDispatchToProps = ( dispatch ) => {
         hideSwammBmpChart: () => dispatch(hideSwammBmpChart()),
         selectSwammTargetId: (selectedTargetId) => dispatch(selectSwammTargetId(selectedTargetId)),
         setBmpFilterMode: (mode) => dispatch(setBmpFilterMode(mode)),
-        showTargetForm: (target) => dispatch(showTargetForm(target))
+        showTargetForm: (target) => dispatch(showTargetForm(target)),
+        downloadTargetData: (projectId, targetId) => dispatch(downloadTargetData(projectId, targetId))
     };
 };
 

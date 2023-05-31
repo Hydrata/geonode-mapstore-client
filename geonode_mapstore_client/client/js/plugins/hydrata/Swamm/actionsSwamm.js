@@ -28,6 +28,10 @@ const FETCH_SWAMM_TARGETS_ERROR = 'FETCH_SWAMM_TARGETS_ERROR';
 const FETCH_SWAMM_TARGETS_SUCCESS = 'FETCH_SWAMM_TARGETS_SUCCESS';
 const SELECT_SWAMM_TARGET_ID = 'SELECT_SWAMM_TARGET_ID';
 
+const DOWNLOAD_TARGET_DATA = 'DOWNLOAD_TARGET_DATA';
+const DOWNLOAD_TARGET_DATA_ERROR = 'DOWNLOAD_TARGET_DATA_ERROR';
+const DOWNLOAD_TARGET_DATA_SUCCESS = 'DOWNLOAD_TARGET_DATA_SUCCESS';
+
 const SHOW_SWAMM_BMP_CHART = 'SHOW_SWAMM_BMP_CHART';
 const HIDE_SWAMM_BMP_CHART = 'HIDE_SWAMM_BMP_CHART';
 
@@ -564,6 +568,65 @@ const fetchSwammTargets = (projectId) => {
     };
 };
 
+const downloadTargetDataSuccess = (data) => {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 5,
+            position: 'tc',
+            message: `Successfully created *.xlsx file`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({
+            type: DOWNLOAD_TARGET_DATA_SUCCESS
+        });
+    };
+};
+
+const downloadTargetDataError = (e) => {
+    console.log('*** error:', e);
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Failed to format *.xlsx data',
+            autoDismiss: 60,
+            position: 'tc',
+            message: `${e?.data}`,
+            uid: uuidv1(),
+            level: 'error'
+        });
+        dispatch({
+            type: DOWNLOAD_TARGET_DATA_ERROR,
+            error: e
+        });
+    };
+};
+
+const downloadTargetData = (projectId, targetId) => {
+    return (dispatch) => {
+        return axios.get(
+            `/swamm/api/${projectId}/pollutant-loading-target/${targetId}/download-xlsx/`,
+            {responseType: "blob"}
+        ).then(
+            response => {
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', response?.headers["content-disposition"]?.split('filename=')[1]);
+                document.body.appendChild(link);
+                link.click();
+                dispatch(downloadTargetDataSuccess(response.data));
+            }
+        ).catch(
+            e => {
+                dispatch(downloadTargetDataError(e));
+            }
+        );
+    };
+};
+
 const submitBmpFormSuccess = (bmp) => {
     return (dispatch) => {
         dispatch({
@@ -1037,5 +1100,8 @@ module.exports = {
     DELETE_TARGET_ERROR, deleteTargetError,
     DOWNLOAD_BMP_REPORT, downloadBmpReport,
     SET_SWAMM_INPUT_MENU, setSwammInputMenu,
-    SET_SWAMM_EROSION_DATA, setSwammErosionData
+    SET_SWAMM_EROSION_DATA, setSwammErosionData,
+    DOWNLOAD_TARGET_DATA, downloadTargetData,
+    DOWNLOAD_TARGET_DATA_SUCCESS, downloadTargetDataSuccess,
+    DOWNLOAD_TARGET_DATA_ERROR, downloadTargetDataError
 };
