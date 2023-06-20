@@ -1,0 +1,51 @@
+{% load static %}
+{% load bootstrap_tags %}
+{% load account socialaccount %}
+
+<div id="home-page-register-form">
+        <div class="row">
+          <p>Create a new account</p>
+          <form
+                  id="signup_form"
+                  method="post"
+                  action="{% url "account_signup" %}"
+                  autocapitalize="off"
+                  {% if form.is_multipart %} enctype="multipart/form-data"{% endif %}
+                  style="display: inline-block"
+          >
+              <fieldset>
+                  {% csrf_token %}
+                  {{ form }}
+                  {% if redirect_field_value %}
+                      <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                  {% endif %}
+                  <div class="form-actions">
+                      <button type="submit" class="btn btn-primary">Sign up</button>
+                  </div>
+              </fieldset>
+          </form>
+        </div>
+</div>
+
+{% block extra_script %}
+    <script type="text/javascript">
+        (function() {
+            function manageUrlChange() {
+                var signInElement = document.getElementById("sign-in");
+                if (signInElement){
+                    if (window.location.pathname === '/account/login/'){
+                        signInElement.setAttribute("href", window.location.href)
+                    }
+                    else {
+                        var href = signInElement.getAttribute("href").split("next=")[0];
+                        var url_parts = window.location.href.split(window.location.pathname);
+                        var path_name = encodeURIComponent(window.location.pathname + url_parts[url_parts.length-1]);
+                        signInElement.setAttribute("href", href.concat("next=".concat(path_name)));
+                    }
+                }
+            }
+            window.addEventListener('DOMContentLoaded', manageUrlChange);
+            window.addEventListener('hashchange', manageUrlChange, false);
+        })();
+    </script>
+{% endblock extra_script %}
