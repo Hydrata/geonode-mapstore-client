@@ -131,6 +131,7 @@ export const catchBmpFeatureClick = (action$, store) =>
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
             const possibleBmpFeatures = action?.data?.features?.map((feature) => {
+                console.log('feature:', feature);
                 if (
                     /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
                     /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
@@ -138,6 +139,8 @@ export const catchBmpFeatureClick = (action$, store) =>
                 ) { return feature;}
                 return null;
             });
+            console.log('possibleBmpFeatures:', possibleBmpFeatures);
+            return true;
             return !!possibleBmpFeatures[0];
         })
         .mergeMap((action) => {
@@ -151,7 +154,9 @@ export const catchBmpFeatureClick = (action$, store) =>
                 }
                 return null;
             });
+            console.log('possibleBmpFeature:', possibleBmpFeature);
             const projectId = store.getState()?.swamm?.projectData?.id;
+            return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/449/`));
             return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/${possibleBmpFeature[0]?.properties?.id}/`));
         })
         .mergeMap((response) => Rx.Observable.of(

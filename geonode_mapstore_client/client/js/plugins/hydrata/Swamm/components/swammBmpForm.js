@@ -366,14 +366,15 @@ class SwammBmpFormClass extends React.Component {
                                       BMP Priority
                                     </div>
                                     <select
-                                        id="priority-selectorr"
+                                        id="priority-selector"
                                         name="priority"
-                                        value={this.props.storedBmpForm?.priority?.id}
+                                        value={this.props.storedBmpForm?.priority}
                                         onChange={this.handleChange}
                                     >
                                         {this.props.priorities.map((priority) => {
                                             return (
                                                 <option
+                                                    id={priority.id}
                                                     key={priority.id}
                                                     value={priority?.value}
                                                 >

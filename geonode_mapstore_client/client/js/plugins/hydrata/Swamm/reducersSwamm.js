@@ -80,7 +80,7 @@ const initialState = {
 };
 
 export default ( state = initialState, action) => {
-    console.log('Action SWAMM:', action);
+    // console.log('Action SWAMM:', action);
     switch (action.type) {
     case SET_SWAMM_PROJECT_DATA:
         return {
