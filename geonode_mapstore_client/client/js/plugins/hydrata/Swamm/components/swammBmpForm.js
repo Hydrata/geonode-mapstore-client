@@ -392,7 +392,7 @@ class SwammBmpFormClass extends React.Component {
                                         type={"number"}
                                         step={1}
                                         name="override_n_surface_red_percent"
-                                        value={this.props.storedBmpForm?.override_n_surface_red_percent}
+                                        value={parseFloat(this.props.storedBmpForm?.override_n_surface_red_percent, 10).toFixed(0)}
                                         onChange={this.handleChange}
                                         placeholder="---"
                                     />
@@ -418,7 +418,7 @@ class SwammBmpFormClass extends React.Component {
                                         type={"number"}
                                         step={1}
                                         name="override_s_surface_red_percent"
-                                        value={this.props.storedBmpForm?.override_s_surface_red_percent}
+                                        value={parseFloat(this.props.storedBmpForm?.override_s_surface_red_percent, 10).toFixed(0)}
                                         onChange={this.handleChange}
                                         placeholder="---"
                                     />
@@ -431,7 +431,7 @@ class SwammBmpFormClass extends React.Component {
                                         type={"number"}
                                         step={1}
                                         name="override_n_tiled_red_percent"
-                                        value={this.props.storedBmpForm?.override_n_tiled_red_percent}
+                                        value={parseFloat(this.props.storedBmpForm?.override_n_tiled_red_percent, 10).toFixed(0)}
                                         onChange={this.handleChange}
                                         placeholder="---"
                                     />
@@ -444,20 +444,7 @@ class SwammBmpFormClass extends React.Component {
                                         type={"number"}
                                         step={1}
                                         name="override_p_tiled_red_percent"
-                                        value={this.props.storedBmpForm?.override_p_tiled_red_percent}
-                                        onChange={this.handleChange}
-                                        placeholder="---"
-                                    />
-                                </div>
-                                <div className={"simple-view-panel-item-row"} id="s_tiled_red_percent-selector-container">
-                                    <div>
-                                      Tiled Sediment Reduction Percentage
-                                    </div>
-                                    <input
-                                        type={"number"}
-                                        step={1}
-                                        name="override_s_tiled_red_percent"
-                                        value={this.props.storedBmpForm?.override_s_tiled_red_percent}
+                                        value={parseFloat(this.props.storedBmpForm?.override_p_tiled_red_percent, 10).toFixed(0)}
                                         onChange={this.handleChange}
                                         placeholder="---"
                                     />
@@ -470,7 +457,7 @@ class SwammBmpFormClass extends React.Component {
                                         type={"number"}
                                         step={1}
                                         name="override_n_erosion_red_percent"
-                                        value={this.props.storedBmpForm?.override_n_erosion_red_percent}
+                                        value={parseFloat(this.props.storedBmpForm?.override_n_erosion_red_percent, 10).toFixed(0)}
                                         onChange={this.handleChange}
                                         placeholder="---"
                                     />
@@ -483,7 +470,7 @@ class SwammBmpFormClass extends React.Component {
                                         type={"number"}
                                         step={1}
                                         name="override_p_erosion_red_percent"
-                                        value={this.props.storedBmpForm?.override_p_erosion_red_percent}
+                                        value={parseFloat(this.props.storedBmpForm?.override_p_erosion_red_percent, 10).toFixed(0)}
                                         onChange={this.handleChange}
                                         placeholder="---"
                                     />
@@ -495,8 +482,8 @@ class SwammBmpFormClass extends React.Component {
                                     <input
                                         type={"number"}
                                         step={1}
-                                        name="override_s_tiled_red_percent"
-                                        value={this.props.storedBmpForm?.override_s_erosion_red_percent}
+                                        name="override_s_erosion_red_percent"
+                                        value={parseFloat(this.props.storedBmpForm?.override_s_erosion_red_percent, 10).toFixed(0)}
                                         onChange={this.handleChange}
                                         placeholder="---"
                                     />
