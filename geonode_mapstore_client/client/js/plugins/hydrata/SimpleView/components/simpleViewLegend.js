@@ -13,7 +13,8 @@ class simpleViewLegend extends React.Component {
         visibleLegendPanel: PropTypes.bool,
         visibleLayers: PropTypes.array,
         searchBarVisible: PropTypes.bool,
-        changeActiveSearchTool: PropTypes.func
+        changeActiveSearchTool: PropTypes.func,
+        legendOverrides: PropTypes.array
     };
 
     constructor(props) {
@@ -37,7 +38,25 @@ class simpleViewLegend extends React.Component {
                         />
                     </div>
                     {this.props.visibleLayers.map((layer) => {
-                        return layer.type === 'wms' ?
+                        const legendOverride = this.props.legendOverrides?.filter(override => override?.layerName === layer.name)?.[0];
+                        if (layer.type !== 'wms') {
+                            return null;
+                        }
+                        return legendOverride ?
+                            (
+                                <div key={layer.id} className={"row legend-row"} >
+                                    <div className={"col-sm-7 legend-background"} >
+                                        <span className={"legend-image"}>
+                                            <img src={legendOverride?.staticImageFilePath}/>
+                                        </span>
+                                    </div>
+                                    <div className={"col-sm-5 legend-text-label"}>
+                                        <span className={"h5"}>
+                                            {layer.title}
+                                        </span>
+                                    </div>
+                                </div>
+                            ) :
                             (
                                 <div key={layer.id} className={"row legend-row"} >
                                     <div className={"col-sm-7 legend-background"} >
@@ -57,8 +76,8 @@ class simpleViewLegend extends React.Component {
                                             {layer.title}
                                         </span>
                                     </div>
-                                </div>)
-                            : null;
+                                </div>
+                            );
                     })}
                 </div>
             );
@@ -80,6 +99,7 @@ const mapStateToProps = (state) => {
     return {
         visibleLayers: state?.layers?.flat.filter(layer => (layer?.visibility === true && layer?.group !== 'background')),
         visibleLegendPanel: state?.simpleView?.visibleLegendPanel,
+        legendOverrides: state?.simpleView?.config?.legendOverrides || [],
         searchBarVisible: !!state?.localConfig?.plugins?.map_view?.find(x => x.name === "Search")
     };
 };
