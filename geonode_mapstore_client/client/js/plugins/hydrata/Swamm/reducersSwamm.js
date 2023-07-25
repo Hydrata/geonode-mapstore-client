@@ -220,7 +220,7 @@ export default ( state = initialState, action) => {
     case SET_SWAMM_INPUT_MENU:
         return {
             ...state,
-            showSwammInputMenu: action.showSwammInputMenu
+            showSwammInputMenu: action.visible
         };
     case SHOW_BMP_MANAGER:
         return {

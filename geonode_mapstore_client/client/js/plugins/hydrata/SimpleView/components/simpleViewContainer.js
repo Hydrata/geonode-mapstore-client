@@ -8,6 +8,7 @@ import LegendPanel from "./simpleViewLegend";
 import {MenuRows} from "./simpleViewMenuRows";
 import Introduction from "../components/simpleViewIntroduction";
 import {SimpleViewAttributeForm} from "../components/simpleViewAttributeForm";
+import {SimpleViewAttributeResult} from "../components/simpleViewAttributeResult";
 
 class SimpleViewContainer extends React.Component {
     static propTypes = {
@@ -17,6 +18,7 @@ class SimpleViewContainer extends React.Component {
         openMenuGroupId: PropTypes.string,
         visibleIntroduction: PropTypes.bool,
         visibleSimpleViewAttributeForm: PropTypes.bool,
+        visibleSimpleViewAttributeResult: PropTypes.bool,
         setVisibleIntroduction: PropTypes.func,
         menuSpaces: PropTypes.number
     };
@@ -76,6 +78,10 @@ class SimpleViewContainer extends React.Component {
                     <SimpleViewAttributeForm/>
                     : null
                 }
+                {this.props.visibleSimpleViewAttributeResult ?
+                    <SimpleViewAttributeResult/>
+                    : null
+                }
             </div>
         );
     }
@@ -100,7 +106,8 @@ const mapStateToProps = (state) => {
         baseMapMenuGroup: {id: 'basemaps', title: 'Base Maps', name: 'basemaps'},
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         visibleIntroduction: state?.simpleView?.visibleIntroduction,
-        visibleSimpleViewAttributeForm: state?.simpleView?.visibleSimpleViewAttributeForm
+        visibleSimpleViewAttributeForm: state?.simpleView?.visibleSimpleViewAttributeForm,
+        visibleSimpleViewAttributeResult: state?.simpleView?.visibleSimpleViewAttributeResult
     };
 };
 

@@ -121,7 +121,7 @@ function setSwammProjectData(projectData) {
 function setSwammInputMenu(visible) {
     return {
         type: SET_SWAMM_INPUT_MENU,
-        showSwammInputMenu: visible
+        visible
     };
 }
 

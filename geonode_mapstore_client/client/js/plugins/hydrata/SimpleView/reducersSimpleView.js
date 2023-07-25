@@ -7,13 +7,21 @@ import {
     UPDATE_UPLOAD_STATUS,
     SET_SV_CONFIG,
     SET_VISIBLE_SV_ATTRIBUTE_FORM,
+    SET_VISIBLE_SV_ATTRIBUTE_RESULT,
+    SET_SV_ATTRIBUTE_RESULT,
     CREATE_SV_ATTRIBUTE_FORM,
     UPDATE_SV_ATTRIBUTE_FORM,
-    SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS
+    SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS,
+    SET_PROCESSING_SV_ATTRIBUTE_FORM
 } from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 
 export default ( state = {}, action) => {
     switch (action.type) {
+    case SET_PROCESSING_SV_ATTRIBUTE_FORM:
+        return {
+            ...state,
+            processingSimpleViewAttributeForm: action.processing
+        };
     case SET_SV_CONFIG:
         return {
             ...state,
@@ -44,6 +52,16 @@ export default ( state = {}, action) => {
         return {
             ...state,
             visibleSimpleViewAttributeForm: action.visible
+        };
+    case SET_VISIBLE_SV_ATTRIBUTE_RESULT:
+        return {
+            ...state,
+            visibleSimpleViewAttributeResult: action.visible
+        };
+    case SET_SV_ATTRIBUTE_RESULT:
+        return {
+            ...state,
+            simpleViewAttributeResult: action.data
         };
     case CREATE_SV_ATTRIBUTE_FORM:
         return {

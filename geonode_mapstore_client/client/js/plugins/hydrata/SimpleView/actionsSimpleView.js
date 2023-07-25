@@ -13,6 +13,17 @@ const UPDATE_SV_ATTRIBUTE_FORM = 'UPDATE_SV_ATTRIBUTE_FORM';
 const CREATE_SV_ATTRIBUTE_FORM = 'CREATE_SV_ATTRIBUTE_FORM';
 const SUBMIT_SV_ATTRIBUTE_FORM = 'SUBMIT_SV_ATTRIBUTE_FORM';
 const SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS = 'SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS';
+const SET_VISIBLE_SV_ATTRIBUTE_RESULT = 'SET_VISIBLE_SV_ATTRIBUTE_RESULT';
+const SET_SV_ATTRIBUTE_RESULT = 'SET_SV_ATTRIBUTE_RESULT';
+const SET_PROCESSING_SV_ATTRIBUTE_FORM = 'SET_PROCESSING_SV_ATTRIBUTE_FORM';
+
+
+function setProcessingSimpleViewAttributeForm(processing) {
+    return {
+        type: SET_PROCESSING_SV_ATTRIBUTE_FORM,
+        processing
+    };
+}
 
 function setOpenMenuGroupId(openMenuGroupId) {
     return {
@@ -34,6 +45,21 @@ function setVisibleSimpleViewAttributeForm(visible) {
         visible
     };
 }
+
+function setVisibleSimpleViewAttributeResult(visible) {
+    return {
+        type: SET_VISIBLE_SV_ATTRIBUTE_RESULT,
+        visible
+    };
+}
+
+function setSimpleViewAttributeResult(data) {
+    return {
+        type: SET_SV_ATTRIBUTE_RESULT,
+        data
+    };
+}
+
 function createSimpleViewAttributeForm(data) {
     return {
         type: CREATE_SV_ATTRIBUTE_FORM,
@@ -140,5 +166,8 @@ module.exports = {
     UPDATE_SV_ATTRIBUTE_FORM, updateSimpleViewAttributeForm,
     CREATE_SV_ATTRIBUTE_FORM, createSimpleViewAttributeForm,
     SUBMIT_SV_ATTRIBUTE_FORM, submitSimpleViewAttributeForm,
-    SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS, submitSimpleViewAttributeFormSuccess
+    SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS, submitSimpleViewAttributeFormSuccess,
+    SET_PROCESSING_SV_ATTRIBUTE_FORM, setProcessingSimpleViewAttributeForm,
+    SET_VISIBLE_SV_ATTRIBUTE_RESULT, setVisibleSimpleViewAttributeResult,
+    SET_SV_ATTRIBUTE_RESULT, setSimpleViewAttributeResult
 };

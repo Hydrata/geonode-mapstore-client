@@ -1,9 +1,11 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
+const Spinner = require('react-spinkit');
 
 import {
     setVisibleSimpleViewAttributeForm,
+    setProcessingSimpleViewAttributeForm,
     updateSimpleViewAttributeForm,
     submitSimpleViewAttributeForm
 } from "../actionsSimpleView";
@@ -14,7 +16,10 @@ class SimpleViewAttributeFormClass extends React.Component {
         updateSimpleViewAttributeForm: PropTypes.func,
         simpleViewAttributeForm: PropTypes.object,
         submitSimpleViewAttributeForm: PropTypes.func,
+        setProcessingSimpleViewAttributeForm: PropTypes.func,
+        processingSimpleViewAttributeForm: PropTypes.bool,
         projectId: PropTypes.number,
+        submitUrl: PropTypes.string,
         simpleViewImporterSessionId: PropTypes.number,
         headings: PropTypes.array
     };
@@ -163,7 +168,10 @@ class SimpleViewAttributeFormClass extends React.Component {
                                             <div style={{width: "150px"}}>
                                                 {attribute?.datatype}
                                             </div>
-                                            <div style={{width: "450px"}}>
+                                            <div style={{
+                                                width: "450px",
+                                                color: key.toLowerCase() === "external_id" ? "red" : "white"
+                                            }}>
                                                 {key}
                                             </div>
                                             <select
@@ -230,15 +238,47 @@ class SimpleViewAttributeFormClass extends React.Component {
                         }}>
                         Cancel
                     </button>
-                    <button
-                        type={'button'}
-                        className={'swamm-button'}
-                        style={{backgroundColor: "darkgreen"}}
-                        onClick={() => {
-                            this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
-                        }}>
-                        Next
-                    </button>
+                    {
+                        this.props.submitUrl.includes('importer-execute') ?
+                            this.props.processingSimpleViewAttributeForm ?
+                                <button
+                                    type={'button'}
+                                    className={'swamm-button'}
+                                    style={{backgroundColor: "darkgreen"}}
+                                >
+                                    <span>
+                                        <Spinner
+                                            color="white"
+                                            style={{
+                                                display: "inline-block",
+                                                marginTop: "2px",
+                                                marginBottom: "2px"
+                                            }}
+                                            spinnerName="circle"
+                                            noFadeIn
+                                        />
+                                    </span>
+                                </button> :
+                                <button
+                                    type={'button'}
+                                    className={'swamm-button'}
+                                    style={{backgroundColor: "darkgreen"}}
+                                    onClick={() => {
+                                        this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
+                                        this.props.setProcessingSimpleViewAttributeForm(true);
+                                    }}>
+                                    Process
+                                </button> :
+                            <button
+                                type={'button'}
+                                className={'swamm-button'}
+                                style={{backgroundColor: "darkgreen"}}
+                                onClick={() => {
+                                    this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
+                                }}>
+                                Next
+                            </button>
+                    }
                 </div>
             </div>
         );
@@ -288,6 +328,8 @@ const mapStateToProps = (state) => {
         projectId: state?.simpleView?.config?.project_id,
         simpleViewAttributeForm: state?.simpleView?.simpleViewAttributeForm || {},
         simpleViewImporterSessionId: state?.simpleView?.simpleViewImporterSessionId,
+        processingSimpleViewAttributeForm: state?.simpleView?.processingSimpleViewAttributeForm,
+        submitUrl: state?.simpleView?.submitUrl || "",
         headings: headings
     };
 };
@@ -295,6 +337,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setVisibleSimpleViewAttributeForm: (visible) => dispatch(setVisibleSimpleViewAttributeForm(visible)),
+        setProcessingSimpleViewAttributeForm: (processing) => dispatch(setProcessingSimpleViewAttributeForm(processing)),
         updateSimpleViewAttributeForm: (kv) => dispatch(updateSimpleViewAttributeForm(kv)),
         submitSimpleViewAttributeForm: (form, projectId, simpleViewImporterSessionId) => dispatch(submitSimpleViewAttributeForm(form, projectId, simpleViewImporterSessionId))
     };

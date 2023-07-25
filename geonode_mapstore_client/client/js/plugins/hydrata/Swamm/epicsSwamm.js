@@ -39,10 +39,13 @@ import {
     fetchGroupProfilesSuccess,
     fetchSwammBmpStatusesSuccess,
     fetchSwammTargetsSuccess,
-    setSwammErosionData
+    setSwammErosionData,
+    setSwammInputMenu
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
 
 import {
+    SET_VISIBLE_UPLOADER_PANEL,
+    setVisibleUploaderPanel,
     setSvConfig
 } from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 

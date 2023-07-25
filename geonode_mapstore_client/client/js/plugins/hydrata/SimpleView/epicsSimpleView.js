@@ -9,6 +9,9 @@ import {
     submitSimpleViewAttributeFormSuccess,
     setVisibleSimpleViewAttributeForm,
     setVisibleUploaderPanel,
+    setProcessingSimpleViewAttributeForm,
+    setVisibleSimpleViewAttributeResult,
+    setSimpleViewAttributeResult,
     createSimpleViewAttributeForm
 } from "./actionsSimpleView";
 
@@ -70,9 +73,12 @@ export const submitAttributeFormEpic = (action$, store) =>
 
 export const submitSimpleViewAttributeFormSuccessEpic = (action$) =>
     action$.ofType(SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS)
-        .concatMap(() => Rx.Observable.of(
+        .concatMap((action) => Rx.Observable.of(
             setVisibleSimpleViewAttributeForm(false),
             setVisibleUploaderPanel(false),
+            setProcessingSimpleViewAttributeForm(false),
+            setVisibleSimpleViewAttributeResult(true),
+            setSimpleViewAttributeResult(action.data),
             show({
                 "message": "Import successful",
                 "title": "Features added",
