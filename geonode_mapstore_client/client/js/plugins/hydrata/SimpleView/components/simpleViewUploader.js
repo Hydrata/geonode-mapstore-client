@@ -145,7 +145,7 @@ class simpleViewUploaderPanel extends React.Component {
             null;
     }
 
-        isBaseFile = file => ["shp", "tif"].includes(file.extension);
+        isBaseFile = file => ["shp", "tif", "zip"].includes(file.extension);
 
         prepareFiles = (files) => {
             console.log("files1: ", files);

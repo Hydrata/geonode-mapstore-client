@@ -1,8 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 const PropTypes = require('prop-types');
-const Spinner = require('react-spinkit');
 import '../swamm.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -20,6 +18,10 @@ class SwammInputMenuClass extends React.Component {
     static propTypes = {
         projectData: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
+        swammEngines: PropTypes.array,
+        nitrogenLayers: PropTypes.array,
+        phosphorusLayers: PropTypes.array,
+        sedimentLayers: PropTypes.array,
         erosionLayers: PropTypes.array,
         setSwammInputMenu: PropTypes.func
     };
@@ -41,7 +43,7 @@ class SwammInputMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'swamm-input-menu'} className={'simple-view-panel'} style={{top: "70px", width: "480px"}}>
+            <div id={'swamm-input-menu'} className={'simple-view-panel'} style={{top: "70px", width: "530px"}}>
                 <div
                     className={'menu-rows-container'}
                     style={{
@@ -53,7 +55,7 @@ class SwammInputMenuClass extends React.Component {
                     <div
                         className={"row menu-row menu-row-header"}
                         style={{
-                            width: "480px",
+                            width: "510px",
                             textAlign: "left",
                             border: "none"
                         }}
@@ -74,7 +76,7 @@ class SwammInputMenuClass extends React.Component {
                     }
                     {
                         this.props.erosionLayers?.length === 0 ?
-                            <div className={"row menu-row menu-row"} style={{width: "480px", textAlign: "left", border: "none"}}>
+                            <div className={"row menu-row menu-row"} style={{width: "510px", textAlign: "left", border: "none"}}>
                                 No erosion layer available
                             </div>
                             : null
@@ -91,7 +93,45 @@ class SwammInputMenuClass extends React.Component {
                     <div
                         className={"row menu-row menu-row-header"}
                         style={{
-                            width: "480px",
+                            width: "510px",
+                            textAlign: "left",
+                            border: "none"
+                        }}
+                    >
+                        <span className="menu-row-text">SWAMM Models</span>
+                        <span
+                            className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
+                            style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
+                            onClick={() => {
+                                this.props.setVisibleUploaderPanel(true, "swamm-engine", null);
+                            }}
+                        />
+                    </div>
+                    {
+                        this.props.swammEngines?.map(swammEngine => (
+                            <MenuRow layer={swammEngine}/>
+                        ))
+                    }
+                    {
+                        this.props.swammEngines?.length === 0 ?
+                            <div className={"row menu-row menu-row"} style={{width: "510px", textAlign: "left", border: "none"}}>
+                                No SWAMM models available
+                            </div>
+                            : null
+                    }
+                </div>
+                <div
+                    className={'menu-rows-container'}
+                    style={{
+                        "border": "1px solid rgba(255, 255, 255, 1)",
+                        "borderRadius": "3px",
+                        "margin": "3px 0"
+                    }}
+                >
+                    <div
+                        className={"row menu-row menu-row-header"}
+                        style={{
+                            width: "510px",
                             textAlign: "left",
                             border: "none"
                         }}
@@ -101,7 +141,7 @@ class SwammInputMenuClass extends React.Component {
                     <div
                         className={"row menu-row menu-row-header"}
                         style={{
-                            width: "480px",
+                            width: "510px",
                             textAlign: "left",
                             border: "none"
                         }}
@@ -118,7 +158,7 @@ class SwammInputMenuClass extends React.Component {
                     <div
                         className={"row menu-row menu-row-header"}
                         style={{
-                            width: "480px",
+                            width: "510px",
                             textAlign: "left",
                             border: "none"
                         }}
@@ -135,7 +175,7 @@ class SwammInputMenuClass extends React.Component {
                     <div
                         className={"row menu-row menu-row-header"}
                         style={{
-                            width: "480px",
+                            width: "510px",
                             textAlign: "left",
                             border: "none"
                         }}
@@ -160,12 +200,31 @@ const mapStateToProps = (state) => {
     return {
         projectData: state?.swamm?.projectData,
         erosionLayers: state?.layers?.flat
+            ?.filter(layer => layer?.name.indexOf('erosion_') > -1)
             ?.map(layer => {
                 layer.importerTargetObjectId = state?.swamm?.erosions?.filter(erosion => erosion?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
                 return layer;
-            })
-            ?.filter(layer => layer?.name.indexOf('erosion_') > -1),
+            }),
+        nitrogenLayers: state?.layers?.flat
+            ?.filter(layer => layer?.name.indexOf('_n_surface_loading') > -1)
+            ?.map(layer => {
+                layer.importerTargetObjectId = state?.swamm?.nitrogen?.filter(nitrogen => nitrogen?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
+                return layer;
+            }),
+        phosphorusLayers: state?.layers?.flat
+            ?.filter(layer => layer?.name.indexOf('_p_surface_loading') > -1)
+            ?.map(layer => {
+                layer.importerTargetObjectId = state?.swamm?.phosphorus?.filter(phosphorus => phosphorus?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
+                return layer;
+            }),
+        sedimentLayers: state?.layers?.flat
+            ?.filter(layer => layer?.name.indexOf('_s_surface_loading') > -1)
+            ?.map(layer => {
+                layer.importerTargetObjectId = state?.swamm?.sediment?.filter(sediment => sediment?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
+                return layer;
+            }),
         erosionModels: state?.swamm?.erosions,
+        swammEngines: state?.swamm?.swammEngines,
         canEditSwammMap: canEditSwammMap(state)
     };
 };

@@ -100,6 +100,9 @@ const DOWNLOAD_BMP_REPORT = 'DOWNLOAD_BMP_REPORT';
 const SET_SWAMM_INPUT_MENU = 'SET_SWAMM_INPUT_MENU';
 
 const SET_SWAMM_EROSION_DATA = 'SET_SWAMM_EROSION_DATA';
+const SET_SWAMM_NITROGEN_DATA = 'SET_SWAMM_NITROGEN_DATA';
+const SET_SWAMM_PHOSPHORUS_DATA = 'SET_SWAMM_PHOSPHORUS_DATA';
+const SET_SWAMM_SEDIMENT_DATA = 'SET_SWAMM_SEDIMENT_DATA';
 
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
@@ -1019,6 +1022,27 @@ function setSwammErosionData(data) {
     };
 }
 
+function setSwammNitrogenData(data) {
+    return {
+        type: SET_SWAMM_NITROGEN_DATA,
+        data
+    };
+}
+
+function setSwammPhosphorusData(data) {
+    return {
+        type: SET_SWAMM_PHOSPHORUS_DATA,
+        data
+    };
+}
+
+function setSwammSedimentData(data) {
+    return {
+        type: SET_SWAMM_SEDIMENT_DATA,
+        data
+    };
+}
+
 module.exports = {
     INIT_SWAMM, initSwamm,
     SET_SWAMM_PROJECT_DATA, setSwammProjectData,
@@ -1101,6 +1125,9 @@ module.exports = {
     DOWNLOAD_BMP_REPORT, downloadBmpReport,
     SET_SWAMM_INPUT_MENU, setSwammInputMenu,
     SET_SWAMM_EROSION_DATA, setSwammErosionData,
+    SET_SWAMM_NITROGEN_DATA, setSwammNitrogenData,
+    SET_SWAMM_PHOSPHORUS_DATA, setSwammPhosphorusData,
+    SET_SWAMM_SEDIMENT_DATA, setSwammSedimentData,
     DOWNLOAD_TARGET_DATA, downloadTargetData,
     DOWNLOAD_TARGET_DATA_SUCCESS, downloadTargetDataSuccess,
     DOWNLOAD_TARGET_DATA_ERROR, downloadTargetDataError

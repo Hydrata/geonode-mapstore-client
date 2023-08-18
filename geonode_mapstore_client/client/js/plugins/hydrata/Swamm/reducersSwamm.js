@@ -53,7 +53,10 @@ import {
     HIDE_TARGET_FORM,
     UPDATE_TARGET_FORM,
     SET_SWAMM_INPUT_MENU,
-    SET_SWAMM_EROSION_DATA
+    SET_SWAMM_EROSION_DATA,
+    SET_SWAMM_NITROGEN_DATA,
+    SET_SWAMM_PHOSPHORUS_DATA,
+    SET_SWAMM_SEDIMENT_DATA
 } from "./actionsSwamm";
 
 const initialState = {
@@ -519,6 +522,21 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             erosions: action.data
+        };
+    case SET_SWAMM_NITROGEN_DATA:
+        return {
+            ...state,
+            nitrogen: action.data
+        };
+    case SET_SWAMM_PHOSPHORUS_DATA:
+        return {
+            ...state,
+            phosphorus: action.data
+        };
+    case SET_SWAMM_SEDIMENT_DATA:
+        return {
+            ...state,
+            sediment: action.data
         };
     default:
         return state;
