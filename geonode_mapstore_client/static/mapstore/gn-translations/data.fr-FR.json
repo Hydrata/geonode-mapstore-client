@@ -78,7 +78,6 @@
             "logOut": "Se déconnecter",
             "terms": "Terms",
             "privacy": "Privacy",
-            "extent": "Étendue",
             "enableFilterByExtent": "Activer le filtre par étendue",
             "advancedSearch": "Recherche vvancée",
             "apply": "Appliquer",
@@ -116,6 +115,10 @@
             "customFilterExample": "Filtre personnalisé (Global)",
             "copiedResourceUrl": "URL de la ressource copiée!",
             "copyResourceUrl": "Copier l'URL de la ressource",
+            "copiedDatasetOwsUrl": "URL des OGC Web Services copiée!",
+            "copyDatasetOwsUrl": "Copier l'URL des OGC Web Services",
+            "copiedCapabilitiesUrl": "URL des capacités WMS copiée!",
+            "copyCapabilitiesUrl": "Copier l'URL des fonctionnalités WMS",
             "open": "Ouvert",
             "share": "Partager",
             "update": "Mettre à jour",
@@ -131,7 +134,9 @@
             "search": "Chercher...",
             "permissionsMissing": "Vous n'êtes pas autorisé à afficher ou télécharger la ressource",
             "filter": "Filtre",
-            "noPreview": "Un aperçu n'est pas disponible pour cette ressource"
+            "noPreview": "Un aperçu n'est pas disponible pour cette ressource",
+            "na": "N/A",
+            "emptyAccordion": "Aucun élément à afficher"
         },
         "viewer": {
             "document": {
@@ -299,6 +304,10 @@
             "iso": "Métadonnées ISO",
             "dublinCore": "Métadonnées de Dublin Core",
             "owner": "Propriétaire",
+            "creation": "Création",
+            "publication": "Publication",
+            "revision": "Révision",
+            "date": "Date",
             "created": "Créé",
             "published": "Publié",
             "lastModified": "Dernière modification",
@@ -318,9 +327,16 @@
             "temporalExtent": "Etendue temporelle",
             "spatialRepresentationType": "Type de représentation spatiale",
             "supplementalInformation": "Informations supplémentaires",
+            "viewFullMetadata": "Afficher les métadonnées complètes",
             "abstract": "Résumé",
             "readMore": "En savoir plus",
-            "readLess": "Lire moins"
+            "readLess": "Lire moins",
+            "linkedResources": "Ressources liées",
+            "extent": "Étendue",
+            "dateFilter": {
+                "from": "Date de",
+                "to": "Date à"
+            }
         }
     }
 }

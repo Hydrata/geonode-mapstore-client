@@ -78,7 +78,6 @@
             "logOut": "Ausloggen",
             "terms": "Bedingungen",
             "privacy": "Datenschutz",
-            "extent": "Ausmaß",
             "enableFilterByExtent": "Filter nach Ausmaß aktivieren",
             "advancedSearch": "Erweiterte Suche",
             "apply": "Anwenden",
@@ -116,6 +115,10 @@
             "customFilterExample": "Benutzerdefinierter Filter (Global)",
             "copiedResourceUrl": "Ressourcen-URL kopiert!",
             "copyResourceUrl": "Ressourcen-URL kopieren",
+            "copiedDatasetOwsUrl": "OGC Web Services URL kopiert!",
+            "copyDatasetOwsUrl": "OGC Web Services URL Kopieren",
+            "copiedCapabilitiesUrl": "WMS Funktionen-URL kopiert!",
+            "copyCapabilitiesUrl": "WMS Funktionen-URL Kopieren",
             "open": "Öffnen",
             "share": "Teilen",
             "update": "Aktualisieren",
@@ -131,7 +134,9 @@
             "search": "Suchen...",
             "permissionsMissing": "Sie sind nicht berechtigt, diese Ressource anzuzeigen",
             "filter": "Filter",
-            "noPreview": "Für diese Ressource ist keine Vorschau verfügbar"
+            "noPreview": "Für diese Ressource ist keine Vorschau verfügbar",
+            "na": "n.a.",
+            "emptyAccordion": "Keine Elemente zum Anzeigen"
         },
         "viewer": {
             "document": {
@@ -299,6 +304,10 @@
             "iso": "ISO -Metadaten",
             "dublinCore": "Dublin Core Metadaten",
             "owner": "Eigentümer",
+            "creation": "Erstellungsdatum",
+            "publication": "Veröffentlichung",
+            "revision": "Überarbeitung",
+            "date": "Date",
             "created": "Erstellt",
             "published": "Veröffentlicht",
             "lastModified": "Zuletzt geändert",
@@ -318,9 +327,16 @@
             "temporalExtent": "Zeitliche Ausdehnung",
             "spatialRepresentationType": "Räumlicher darstellungstyp",
             "supplementalInformation": "Zusätzliche informationen",
+            "viewFullMetadata": "Vollständige Metadaten anzeigen",
             "abstract": "Zusammenfassung",
             "readMore": "Weiterlesen",
-            "readLess": "Weniger lesen"
+            "readLess": "Weniger lesen",
+            "linkedResources": "Verknüpfte Ressourcen",
+            "extent": "Ausmaß",
+            "dateFilter": {
+                "from": "Datum von",
+                "to": "Datum bis"
+            }
         }
     }
 }

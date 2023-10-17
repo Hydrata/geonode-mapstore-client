@@ -266,7 +266,7 @@ export const getResourceTypesInfo = () => ({
         })),
         formatDetailUrl: (resource) => resource?.detail_url && parseDevHostname(resource.detail_url),
         name: 'Dataset',
-        formatMetadataUrl: (resource) => (`/datasets/${resource.store}:${resource.alternate}/metadata`)
+        formatMetadataUrl: (resource) => (`/datasets/${resource.store ? resource.store + ":" : ''}${resource.alternate}/metadata`)
     },
     [ResourceTypes.MAP]: {
         icon: 'map',

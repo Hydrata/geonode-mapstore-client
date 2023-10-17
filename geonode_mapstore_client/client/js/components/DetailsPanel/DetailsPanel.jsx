@@ -43,9 +43,9 @@ const EditTitle = ({ title, onEdit, disabled }) => {
         </div>);
 };
 
-function formatResourceLinkUrl(resourceUrl = '') {
-    if (resourceUrl.indexOf('http') === 0) {
-        return resourceUrl;
+function formatResourceLinkUrl(resource) {
+    if (resource?.uuid) {
+        return window.location.href.replace(/#.+$/, `uuid/${resource.uuid}`);
     }
     return window.location.href;
 }
@@ -86,7 +86,10 @@ const DetailsPanelTools = ({
 }) => {
 
     const isMounted = useRef();
-    const [copiedResourceLink, setCopiedResourceLink] = useState(false);
+    const [copiedUrl, setCopiedUrl] = useState({
+        resource: false,
+        datasetowsurl: false
+    });
 
     useEffect(() => {
         isMounted.current = true;
@@ -95,11 +98,11 @@ const DetailsPanelTools = ({
         };
     }, []);
 
-    const handleCopyPermalink = () => {
-        setCopiedResourceLink(true);
+    const handleCopyPermalink = (type) => {
+        setCopiedUrl({...copiedUrl, [type]: true});
         setTimeout(() => {
             if (isMounted.current) {
-                setCopiedResourceLink(false);
+                setCopiedUrl({...copiedUrl, [type]: false});
             }
         }, 700);
     };
@@ -123,19 +126,34 @@ const DetailsPanelTools = ({
                 <FaIcon name="download" />
             </Button>}
 
-            {detailUrl && <CopyToClipboard
+            <CopyToClipboard
                 tooltipPosition="top"
                 tooltipId={
-                    copiedResourceLink
+                    copiedUrl.resource
                         ? 'gnhome.copiedResourceUrl'
                         : 'gnhome.copyResourceUrl'
                 }
-                text={formatResourceLinkUrl(detailUrl)}
+                text={formatResourceLinkUrl(resource)}
             >
                 <Button
                     variant="default"
-                    onClick={handleCopyPermalink}>
+                    onClick={()=> handleCopyPermalink('resource')}>
                     <FaIcon name="share-alt" />
+                </Button>
+            </CopyToClipboard>
+            {resource?.dataset_ows_url && <CopyToClipboard
+                tooltipPosition="top"
+                tooltipId={
+                    copiedUrl.capabilities
+                        ? 'gnhome.copiedDatasetOwsUrl'
+                        : 'gnhome.copyDatasetOwsUrl'
+                }
+                text={resource.dataset_ows_url}
+            >
+                <Button
+                    variant="default"
+                    onClick={()=> handleCopyPermalink('datasetowsurl')}>
+                    <FaIcon name="globe" />
                 </Button>
             </CopyToClipboard>}
             {detailUrl && !editThumbnail && <Button
@@ -280,7 +298,7 @@ function DetailsPanel({
                             : null}
                     </div>
                 </div>
-                <DetailsInfo tabs={tabs} formatHref={formatHref}/>
+                <DetailsInfo tabs={tabs} formatHref={formatHref} resourceTypesInfo={types}/>
             </section>
         </div>
     );

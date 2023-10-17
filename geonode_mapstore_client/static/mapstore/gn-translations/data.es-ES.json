@@ -78,7 +78,6 @@
             "logOut": "Salir",
             "terms": "Terms",
             "privacy": "Privacy",
-            "extent": "Extensión",
             "enableFilterByExtent": "Habilitar el filtro por extensión",
             "advancedSearch": "Búsqueda avanzada",
             "apply": "Aplicar",
@@ -116,6 +115,10 @@
             "customFilterExample": "Filtro personalizado (Global)",
             "copiedResourceUrl": "Se copió la URL del recurso",
             "copyResourceUrl": "Copiar URL del recurso",
+            "copiedDatasetOwsUrl": "¡Se copió la URL de OGC Web Services!",
+            "copyDatasetOwsUrl": "Copiar URL de OGC Web Services",
+            "copiedCapabilitiesUrl": "¡Se copió la URL de capacidades de WMS!",
+            "copyCapabilitiesUrl": "Copiar URL de capacidades de WMS",
             "open": "Abierto",
             "share": "Cuota",
             "update": "Actualizar",
@@ -131,7 +134,9 @@
             "search": "Buscar...",
             "permissionsMissing": "No tienes permiso para ver o descargar el recurso.",
             "filter": "Filtrar",
-            "noPreview": "Una vista previa no está disponible para este recurso"
+            "noPreview": "Una vista previa no está disponible para este recurso",
+            "na": "N/A",
+            "emptyAccordion": "No hay elementos para mostrar"
         },
         "viewer": {
             "document": {
@@ -298,6 +303,10 @@
             "iso": "Metadatos iso",
             "dublinCore": "Metadatos de Dublin Core",
             "owner": "Propietario",
+            "creation": "Creación",
+            "publication": "Publicación",
+            "revision": "Revisión",
+            "date": "Date",
             "created": "Creado",
             "published": "Publicado",
             "lastModified": "Última modificación",
@@ -317,9 +326,16 @@
             "temporalExtent": "Extensión temporal",
             "spatialRepresentationType": "Tipo de representación espacial",
             "supplementalInformation": "Información Suplementaria",
+            "viewFullMetadata": "Ver metadatos completos",
             "abstract": "Resumen",
             "readMore": "Leer más",
-            "readLess": "Leer menos"
+            "readLess": "Leer menos",
+            "linkedResources": "Recursos vinculados",
+            "extent": "Extensión",
+            "dateFilter": {
+                "from": "Fecha desde",
+                "to": "Fecha hasta"
+            }
         }
     }
 }

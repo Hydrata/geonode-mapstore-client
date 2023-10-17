@@ -16,7 +16,8 @@ import {
     SET_FEATURED_RESOURCES,
     REDUCE_TOTAL_COUNT,
     INCREASE_TOTAL_COUNT,
-    SET_SEARCH_CONFIG
+    SET_SEARCH_CONFIG,
+    SET_FACET_ITEMS
 } from '@js/actions/gnsearch';
 
 import { UPDATE_SINGLE_RESOURCE } from '@js/actions/gnresource';
@@ -122,6 +123,11 @@ function gnsearch(state = defaultState, action) {
             config: action.config
         };
     }
+    case SET_FACET_ITEMS:
+        return {
+            ...state,
+            facetItems: action.facetItems
+        };
     default:
         return state;
     }

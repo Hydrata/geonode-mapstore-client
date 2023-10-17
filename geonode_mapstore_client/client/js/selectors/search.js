@@ -40,3 +40,5 @@ export const getTotalResources = (state) => {
     const temporaryResourcesCount = resources.filter(resource => resource['@temporary']).length;
     return (state?.gnsearch?.total || 0) + temporaryResourcesCount;
 };
+
+export const getFacetsItems = state => state?.gnsearch?.facetItems;

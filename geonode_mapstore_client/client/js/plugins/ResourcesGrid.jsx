@@ -30,8 +30,8 @@ import {
 import { withResizeDetector } from 'react-resize-detector';
 import { userSelector } from '@mapstore/framework/selectors/security';
 import ConnectedCardGrid from '@js/plugins/resourcesgrid/ConnectedCardGrid';
-import { getTotalResources } from '@js/selectors/search';
-import { searchResources, setSearchConfig } from '@js/actions/gnsearch';
+import { getTotalResources, getFacetsItems } from '@js/selectors/search';
+import { searchResources, setSearchConfig, getFacetItems } from '@js/actions/gnsearch';
 
 import gnsearch from '@js/reducers/gnsearch';
 import gnresource from '@js/reducers/gnresource';
@@ -43,10 +43,10 @@ import resourceServiceEpics from '@js/epics/resourceservice';
 import favoriteEpics from '@js/epics/favorite';
 import DetailsPanel from '@js/components/DetailsPanel';
 import { processingDownload } from '@js/selectors/resourceservice';
-import { resourceHasPermission } from '@js/utils/ResourceUtils';
-import { downloadResource, setFavoriteResource } from '@js/actions/gnresource';
+import {resourceHasPermission} from '@js/utils/ResourceUtils';
+import {downloadResource, setFavoriteResource} from '@js/actions/gnresource';
 import FiltersForm from '@js/components/FiltersForm';
-import { getCategories, getRegions, getOwners, getKeywords } from '@js/api/geonode/v2';
+import {getCategories, getRegions, getOwners, getKeywords} from '@js/api/geonode/v2';
 import usePluginItems from '@js/hooks/usePluginItems';
 import { ProcessTypes } from '@js/utils/ResourceServiceUtils';
 import { replace } from 'connected-react-router';
@@ -54,6 +54,7 @@ import FaIcon from '@js/components/FaIcon';
 import Button from '@js/components/Button';
 import useLocalStorage from '@js/hooks/useLocalStorage';
 import MainLoader from '@js/components/MainLoader';
+import detailViewerEpics from '@js/epics/detailviewer';
 
 const suggestionsRequestTypes = {
     categories: {
@@ -124,6 +125,7 @@ function PaginationCustom({
     }, [activePage]);
     return (
         <Pagination
+            className="custom"
             prev={<FaIcon name="angle-left" />}
             next={<FaIcon name="angle-right" />}
             ellipsis
@@ -137,15 +139,12 @@ function PaginationCustom({
 }
 
 /**
-  * @name ResourcesGrid
-  * @memberof plugins
-  * ResourcesGrid Plugin. Renders a grid of resource cards, providing the ability to create pages to show a filtered / curated list of resources. For example, a landing page showing only geostories, one page per category or group with a title, some text, etc.
-  * @prop {object} location url utils of current location provided by Router.
-  * @prop {object} params url query parameters.
-  * @prop {function} onSearch an action to update state with search parameters.
-  * @prop {object} user user object. Will be set as null for anonymous users.
-  * @prop {number} totalResources total number of resources avaiable on server. If a filter is applied, this number represents the total number of such resources.
-  * @prop {boolean} loading loading state of page. This is true when resources are being queries and false when server response is received.
+* @module ResourcesGrid
+*/
+
+/**
+ * renders a grid of resource cards, providing the ability to create pages to show a filtered / curated list of resources. For example, a landing page showing only geostories, one page per category or group with a title, some text, etc.
+  * @name ResourcesGrid.
   * @prop {string} defaultQuery The pre-set filter to be applied by default
   * @prop {object} order an object defining sort options for resource grid.
   * @prop {object} extent the extent used in filters side menu to limit search within set bounds.
@@ -153,13 +152,7 @@ function PaginationCustom({
   * @prop {array} filtersFormItems Provides config for various filter metrics.
   * @prop {string} pagePath provided page url path.
   * @prop {number} pageSize number of resources per page. Used in pagination.
-  * @prop {object} resource Selected resource to be viewed in detail. Empty when no resource is selected
-  * @prop {number} width The width of a resource card.
-  * @prop {number} height The height of a resource card.
-  * @prop {array} items list of actions for each resource depending on perms
   * @prop {string} targetSelector selector for parent node of resource
-  * @prop {function} onInit Function to be executed when plugin is first loaded. It sets the state with search configurations.
-  * @prop {object} monitoredState Provides various properties for monitoring state of client and resources
   * @prop {string} headerNodeSelector selector for rendered header.
   * @prop {string} navbarNodeSelector selector for rendered navbar.
   * @prop {string} footerNodeSelector selector for rendered footer.
@@ -170,13 +163,9 @@ function PaginationCustom({
   * @prop {boolean} disableFilters Provides a config to enable/disable filtering of resources
   * @prop {string} filterPagePath sets path for filters page when filter button is clicked
   * @prop {array} resourceCardActionsOrder order in which `cfg.items` will be rendered
-  * @prop {function} onReplaceLocation replace function
-  * @prop {boolean} error error state in case of an error.
   * @prop {boolean} enableGeoNodeCardsMenuItems Provides a config to allow for card menu items to be enabled/disabled.
+  * @prop {array} detailsTabs array of tab object representing the structure of the displayed info properties (see tabs in {@link module:DetailViewer})
   * @example
-  *
-  * Typical configuration of the plugin
-  *
   * {
   *   "name": "ResourcesGrid",
   *    "cfg": {
@@ -195,7 +184,6 @@ function PaginationCustom({
   *    }
   * }
   */
-
 function ResourcesGrid({
     location,
     params,
@@ -312,6 +300,9 @@ function ResourcesGrid({
     ],
     filtersFormItems = [
         {
+            type: 'search'
+        },
+        {
             type: 'group',
             labelId: 'gnhome.customFiltersTitle',
             items: [
@@ -420,6 +411,20 @@ function ResourcesGrid({
             placeholderId: 'gnhome.ownersPlaceholder',
             type: 'select',
             suggestionsRequestKey: 'owners'
+        },
+        {
+            type: "accordion",
+            style: "facet",
+            facet: "thesaurus"
+        },
+        {
+            type: 'date-range',
+            filterKey: 'date',
+            labelId: 'gnviewer.dateFilter'
+        },
+        {
+            labelId: 'gnviewer.extent',
+            type: 'extent'
         }
     ],
     pagePath = '',
@@ -448,15 +453,16 @@ function ResourcesGrid({
     onReplaceLocation,
     error,
     enableGeoNodeCardsMenuItems,
-    detailsTabs = []
+    detailsTabs = [],
+    onGetFacets,
+    facets
 }, context) {
 
     const [cardLayoutStyle, setCardLayoutStyle] = useLocalStorage('layoutCardsStyle', 'grid');
+
     const isPaginated = pagination !== undefined
         ? pagination
-        : cardLayoutStyle === 'grid'
-            ? false
-            : true;
+        : cardLayoutStyle !== 'grid';
     const customCardsMenuItems = enableGeoNodeCardsMenuItems ? getConfigProp('geoNodeCardsMenuItems') || [] : [];
     const parsedConfig = parsePluginConfigExpressions(monitoredState, {
         menuItems: [...customCardsMenuItems, ...menuItems],
@@ -724,17 +730,19 @@ function ResourcesGrid({
                         ref={filterFormNode}
                         className="gn-resources-filter"
                     >
-                        <FiltersForm
+                        {showFilterForm && <FiltersForm
                             key="gn-filter-form"
                             id="gn-filter-form"
                             fields={parsedConfig.filtersFormItems}
+                            facets={facets}
                             extentProps={parsedConfig.extent}
                             suggestionsRequestTypes={suggestionsRequestTypes}
                             query={query}
                             onChange={handleUpdate}
                             onClose={handleShowFilterForm.bind(null, false)}
                             onClear={handleClear}
-                        />
+                            onGetFacets={onGetFacets}
+                        />}
                     </div>
                 </div>,
                 document.querySelector('body > div'))}
@@ -778,8 +786,9 @@ const ResourcesGridPlugin = connect(
         state => state?.router?.location,
         state => state?.gnresource?.data || null,
         state => getMonitoredState(state, getConfigProp('monitorState')),
-        state => state?.gnsearch?.error
-    ], (params, user, totalResources, loading, location, resource, monitoredState, error) => ({
+        state => state?.gnsearch?.error,
+        getFacetsItems
+    ], (params, user, totalResources, loading, location, resource, monitoredState, error, facets) => ({
         params,
         user,
         totalResources,
@@ -787,12 +796,14 @@ const ResourcesGridPlugin = connect(
         location,
         resource,
         monitoredState,
-        error
+        error,
+        facets
     })),
     {
         onSearch: searchResources,
         onInit: setSearchConfig,
-        onReplaceLocation: replace
+        onReplaceLocation: replace,
+        onGetFacets: getFacetItems
     }
 )(withResizeDetector(ResourcesGrid));
 
@@ -803,7 +814,8 @@ export default createPlugin('ResourcesGrid', {
         ...gnsearchEpics,
         ...gnsaveEpics,
         ...resourceServiceEpics,
-        ...favoriteEpics
+        ...favoriteEpics,
+        ...detailViewerEpics
     },
     reducers: {
         gnsearch,

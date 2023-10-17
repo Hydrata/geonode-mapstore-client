@@ -12,10 +12,10 @@ import isArray from 'lodash/isArray';
 import isNil from 'lodash/isNil';
 import {
     getResources,
-    getResourceByPk,
-    getDocumentByPk,
     getFeaturedResources,
-    getResourceByUuid
+    getResourceByUuid,
+    getResourceByTypeAndByPk,
+    getFacetItems
 } from '@js/api/geonode/v2';
 import {
     SEARCH_RESOURCES,
@@ -25,7 +25,9 @@ import {
     updateResourcesMetadata,
     setFeaturedResources,
     UPDATE_FEATURED_RESOURCES,
-    requestResource
+    requestResource,
+    GET_FACET_ITEMS,
+    setFacetItems
 } from '@js/actions/gnsearch';
 import {
     resourceLoading,
@@ -287,7 +289,7 @@ export const gnsSelectResourceEpic = (action$, store) =>
             const resources = state.gnsearch?.resources || [];
             const selectedResource = resources.find(({ pk, resource_type: resourceType}) =>
                 pk === action.pk && action.ctype === resourceType);
-            return Observable.defer(() => action.ctype !== 'document' ? getResourceByPk(action.pk) : getDocumentByPk(action.pk))
+            return Observable.defer(() => getResourceByTypeAndByPk(action.ctype, action.pk))
                 .switchMap((resource) => {
                     return Observable.of(setResource({
                         ...resource,
@@ -305,7 +307,7 @@ export const gnsSelectResourceEpic = (action$, store) =>
                             ...selectedResource,
                             /* store information related to detail */
                             '@ms-detail': true
-                        }) ]
+                        }, true) ]
                         : [ resourceLoading() ])
                 );
         });
@@ -350,11 +352,27 @@ export const gnWatchStopCopyProcessOnSearch = (action$, store) =>
                 });
         });
 
+/**
+ * Get facet filter items
+ */
+export const gnGetFacetItems = (action$) =>
+    action$.ofType(GET_FACET_ITEMS)
+        .switchMap(() =>
+            Observable.defer(() =>
+                getFacetItems()
+            ).switchMap((facetItems) =>
+                Observable.of(
+                    setFacetItems(facetItems)
+                )
+            )
+        );
+
 export default {
     gnsSearchResourcesEpic,
     gnsSearchResourcesOnLocationChangeEpic,
     gnsSelectResourceEpic,
     getFeaturedResourcesEpic,
     gnWatchStopCopyProcessOnSearch,
-    gnsRequestResourceOnLocationChange
+    gnsRequestResourceOnLocationChange,
+    gnGetFacetItems
 };

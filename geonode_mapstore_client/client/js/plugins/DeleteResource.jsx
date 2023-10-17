@@ -24,14 +24,39 @@ import { ProcessTypes } from '@js/utils/ResourceServiceUtils';
 import Loader from '@mapstore/framework/components/misc/Loader';
 import controls from '@mapstore/framework/reducers/controls';
 import { isLoggedIn } from '@mapstore/framework/selectors/security';
+import { hashLocationToHref } from '@js/utils/SearchUtils';
 
+const simulateAClick = (href) => {
+    const a = document.createElement('a');
+    a.setAttribute('href', href);
+    a.click();
+};
+
+/**
+* @module DeleteResource
+*/
+
+/**
+ * enable button or menu item to delete a specific resource
+ * @name DeleteResource
+ * @prop {string|boolean} redirectTo path to redirect after delete, if false will not redirect
+ * @example
+ * {
+ *  "name": "DeleteResource",
+ *  "cfg": {
+ *      "redirectTo": false
+ *  }
+ * }
+ */
 function DeleteResourcePlugin({
     enabled,
     resources = [],
     onClose = () => {},
     onDelete = () => {},
     redirectTo = '/',
-    loading
+    loading,
+    location,
+    selectedResource
 }) {
     return (
         <Portal>
@@ -50,7 +75,17 @@ function DeleteResourcePlugin({
                     {
                         text: <Message msgId="gnviewer.deleteResourceYes" msgParams={{ count: resources.length }} />,
                         bsStyle: 'danger',
-                        onClick: () => onDelete(resources, redirectTo)
+                        onClick: () => {
+                            const resourcesPk = resources.map(({ pk }) => pk);
+                            if (!redirectTo && selectedResource?.pk && resourcesPk.includes(selectedResource.pk)) {
+                                // this is needed to close the panel
+                                simulateAClick(hashLocationToHref({
+                                    location,
+                                    excludeQueryKeys: ['d']
+                                }));
+                            }
+                            onDelete(resources, redirectTo);
+                        }
                     }]
                 }
                 onClose={loading ? null : () => onClose()}
@@ -95,11 +130,15 @@ function DeleteResourcePlugin({
 const ConnectedDeleteResourcePlugin = connect(
     createSelector([
         state => state?.controls?.[ProcessTypes.DELETE_RESOURCE]?.value,
-        state => state?.controls?.[ProcessTypes.DELETE_RESOURCE]?.loading
-    ], (resources, loading) => ({
+        state => state?.controls?.[ProcessTypes.DELETE_RESOURCE]?.loading,
+        state => state?.router?.location,
+        getResourceData
+    ], (resources, loading, location, selectedResource) => ({
         resources,
         enabled: !!resources,
-        loading
+        loading,
+        location,
+        selectedResource
     })), {
         onClose: setControlProperty.bind(null, ProcessTypes.DELETE_RESOURCE, 'value', undefined),
         onDelete: processResources.bind(null, ProcessTypes.DELETE_RESOURCE)

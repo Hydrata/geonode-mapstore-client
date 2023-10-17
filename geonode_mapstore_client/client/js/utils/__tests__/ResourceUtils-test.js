@@ -23,7 +23,9 @@ import {
     processUploadResponse,
     parseUploadResponse,
     cleanUrl,
-    parseUploadFiles
+    parseUploadFiles,
+    getResourceTypesInfo,
+    ResourceTypes
 } from '../ResourceUtils';
 
 describe('Test Resource Utils', () => {
@@ -816,5 +818,100 @@ describe('Test Resource Utils', () => {
         const baseName = 'TestFile';
 
         expect(parsedFiles[baseName].addMissingFiles).toEqual(true);
+    });
+    describe('Test getResourceTypesInfo', () => {
+        it('test dataset of getResourceTypesInfo', () => {
+            const {
+                icon,
+                canPreviewed,
+                formatMetadataUrl,
+                name
+            } = getResourceTypesInfo()[ResourceTypes.DATASET];
+            let resource = {
+                perms: ['view_resourcebase'],
+                store: "workspace",
+                alternate: 'name:test'
+            };
+            expect(icon).toBe('database');
+            expect(canPreviewed(resource)).toBeTruthy();
+            expect(name).toBe('Dataset');
+
+            // Test with store
+            expect(formatMetadataUrl(resource)).toBe('/datasets/workspace:name:test/metadata');
+
+            // Test with no store
+            resource = {...resource, store: undefined};
+            expect(formatMetadataUrl(resource)).toBe('/datasets/name:test/metadata');
+
+        });
+        it('test map of getResourceTypesInfo', () => {
+            const {
+                icon,
+                canPreviewed,
+                formatMetadataUrl,
+                name
+            } = getResourceTypesInfo()[ResourceTypes.MAP];
+            let resource = {
+                perms: ['view_resourcebase'],
+                pk: "100"
+            };
+            expect(icon).toBe('map');
+            expect(canPreviewed(resource)).toBeTruthy();
+            expect(name).toBe('Map');
+            expect(formatMetadataUrl(resource)).toBe('/maps/100/metadata');
+        });
+        it('test document of getResourceTypesInfo', () => {
+            const {
+                icon,
+                canPreviewed,
+                hasPermission,
+                formatMetadataUrl,
+                metadataPreviewUrl,
+                name
+            } = getResourceTypesInfo()[ResourceTypes.DOCUMENT];
+            let resource = {
+                perms: ['download_resourcebase'],
+                pk: "100",
+                extension: "pdf"
+            };
+            expect(icon).toBe('file');
+            expect(canPreviewed(resource)).toBeTruthy();
+            expect(hasPermission(resource)).toBeTruthy();
+            expect(name).toBe('Document');
+            expect(formatMetadataUrl(resource)).toBe('/documents/100/metadata');
+            expect(metadataPreviewUrl(resource)).toBe('/documents/100/metadata_detail?preview');
+        });
+        it('test geostory of getResourceTypesInfo', () => {
+            const {
+                icon,
+                canPreviewed,
+                formatMetadataUrl,
+                name
+            } = getResourceTypesInfo()[ResourceTypes.GEOSTORY];
+            let resource = {
+                perms: ['view_resourcebase'],
+                pk: "100"
+            };
+            expect(icon).toBe('book');
+            expect(canPreviewed(resource)).toBeTruthy();
+            expect(name).toBe('GeoStory');
+            expect(formatMetadataUrl(resource)).toBe('/apps/100/metadata');
+        });
+        it('test dashboard of getResourceTypesInfo', () => {
+            const {
+                icon,
+                canPreviewed,
+                formatMetadataUrl,
+                name
+            } = getResourceTypesInfo()[ResourceTypes.DASHBOARD];
+            let resource = {
+                perms: ['view_resourcebase'],
+                pk: "100"
+            };
+            expect(icon).toBe('dashboard');
+            expect(canPreviewed(resource)).toBeTruthy();
+            expect(name).toBe('Dashboard');
+            expect(formatMetadataUrl(resource)).toBe('/apps/100/metadata');
+        });
     });
 });

@@ -186,6 +186,14 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        &.list {
+            white-space: unset;
+            max-height: 2.2rem;
+            &+.ellipsis {
+                position: absolute;
+                bottom: 0.625rem;
+            }
+        }
         .gn-spinner {
             margin-right: 0.4rem;
         }

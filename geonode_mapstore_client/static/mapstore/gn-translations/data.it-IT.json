@@ -80,7 +80,6 @@
             "logOut": "Esci",
             "terms": "Termini e condizioni",
             "privacy": "Privacy",
-            "extent": "Estensione",
             "enableFilterByExtent": "Abilita filtro per estensione",
             "advancedSearch": "Ricerca avanzata",
             "apply": "Applica",
@@ -116,12 +115,16 @@
             "createGroup": "Crea gruppo",
             "developers": "Sviluppatori",
             "customFilterExample": "Filtro personalizzato (Global)",
-            "copiedResourceUrl": "Url della risorsa copiato!",
-            "copyResourceUrl": "Copia url della risorsa",
+            "copiedResourceUrl": "URL della risorsa copiato!",
+            "copyResourceUrl": "Copia l'URL della risorsa",
+            "copiedDatasetOwsUrl": "URL Web Services OGC copiata!",
+            "copyDatasetOwsUrl": "Copia la URL dei Web Services OGC",
+            "copiedCapabilitiesUrl": "URL delle GetCapabilities WMS copiato!",
+            "copyCapabilitiesUrl": "Copia la URL delle GetCapabilities WMS",
             "open": "Apri",
             "share": "Condividi",
             "update": "Aggiorna",
-            "delete": "Cancella",
+            "delete": "Elimina",
             "customFiltersTitle": "Risorse",
             "myResources": "Le mie risorse",
             "pendingApproval": "Questa risorsa non è approvata",
@@ -133,7 +136,9 @@
             "search": "Cerca...",
             "permissionsMissing": "Non hai i permessi per visualizzare o scaricare la risorsa",
             "filter": "Filtra",
-            "noPreview": "Un'anteprima non è disponibile per questa risorsa"
+            "noPreview": "Un'anteprima non è disponibile per questa risorsa",
+            "na": "N/D",
+            "emptyAccordion": "Nessun elemento da visualizzare"
         },
         "viewer": {
             "document": {
@@ -301,9 +306,13 @@
             "iso": "Metadati ISO",
             "dublinCore": "Metadati di Dublin Core",
             "owner": "Proprietario",
-            "created": "Creata",
+            "date": "Data",
+            "creation": "Creazione",
+            "publication": "Pubblicazione",
+            "revision": "Revisione",
+            "created": "Aggiunta al catalogo",
             "published": "Pubblicata",
-            "lastModified": "Ultima modifica",
+            "lastModified": "Ultima modifica nel catalogo",
             "resourceType": "Tipo di risorsa",
             "category": "Categoria",
             "pointOfContact": "Punto di contatto",
@@ -320,9 +329,16 @@
             "temporalExtent": "Estensione temporale",
             "spatialRepresentationType": "Tipo di rappresentazione spaziale",
             "supplementalInformation": "Informazioni supplementari",
+            "viewFullMetadata": "Visualizza i metadati completi",
             "abstract": "Astratto",
             "readMore": "Leggi di più",
-            "readLess": "Leggi di meno"
+            "readLess": "Leggi di meno",
+            "linkedResources": "Risorse collegate",
+            "extent": "Estensione",
+            "dateFilter": {
+                "from": "Data da",
+                "to": "Data a"
+            }
         }
     }
 }

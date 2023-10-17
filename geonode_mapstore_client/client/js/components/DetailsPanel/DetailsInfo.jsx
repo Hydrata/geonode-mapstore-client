@@ -5,13 +5,16 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-
 import React, { useState } from 'react';
-import Message from '@mapstore/framework/components/I18N/Message';
-import moment from 'moment';
 import castArray from 'lodash/castArray';
-import Button from '@js/components/Button';
+import isEmpty from 'lodash/isEmpty';
+import moment from 'moment';
 import { Tabs, Tab } from "react-bootstrap";
+
+import Button from '@js/components/Button';
+import DetailsAttributeTable from '@js/components/DetailsPanel/DetailsAttributeTable';
+import DetailsLinkedResources from '@js/components/DetailsPanel/DetailsLinkedResources';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const replaceTemplateString = (properties, str) => {
     return Object.keys(properties).reduce((updatedStr, key) => {
@@ -26,20 +29,29 @@ const getDateRangeValue = (startValue, endValue, format) => {
     }
     return moment(startValue ? startValue : endValue).format(format);
 };
+const isEmptyValue = (value) => {
+    if (typeof value === 'object') {
+        return isEmpty(value) || (isEmpty(value.start) && isEmpty(value.end));
+    }
+    return value === 'None' || !value;
+};
+const isStyleLabel = (style) => style === "label";
+const isFieldLabelOnly = ({style, value}) => isEmptyValue(value) && isStyleLabel(style);
 
 const DetailInfoFieldLabel = ({ field }) => {
-    return (<>{field.labelId ? <Message msgId={field.labelId} /> : field.label}</>);
+    const label = field.labelId ? <Message msgId={field.labelId} /> : field.label;
+    return isStyleLabel(field.style) && field.href
+        ? (<a href={field.href} target={field.target}>{label}</a>)
+        : label;
 };
 
-function DetailsInfoField({
-    field,
-    children
-}) {
+function DetailsInfoField({ field, children }) {
     const values = castArray(field.value);
+    const isLinkLabel = isFieldLabelOnly(field);
     return (
-        <div className="gn-details-info-row">
-            <div className="gn-details-info-label"><DetailInfoFieldLabel field={field} /></div>
-            <div className="gn-details-info-value">{children(values)}</div>
+        <div className={`gn-details-info-row${isLinkLabel ? ' link' : ''}`}>
+            <div className={`gn-details-info-label`}><DetailInfoFieldLabel field={field} /></div>
+            {!isLinkLabel && <div className="gn-details-info-value">{children(values)}</div>}
         </div>
     );
 }
@@ -50,7 +62,7 @@ function DetailsHTML({ value, placeholder }) {
         return (
             <div className={`gn-details-info-html${expand ? '' : ' collapsed'}`}>
                 {expand
-                    ? <div className="gn-details-info-html-value" dangerouslySetInnerHTML={{ __html: value }}/>
+                    ? <div className="gn-details-info-html-value" dangerouslySetInnerHTML={{ __html: value }} />
                     : <div className="gn-details-info-html-value">{placeholder}</div>}
                 <Button onClick={() => setExpand(!expand)}>
                     <Message msgId={expand ? 'gnviewer.readLess' : 'gnviewer.readMore'} />
@@ -58,7 +70,7 @@ function DetailsHTML({ value, placeholder }) {
             </div>);
     }
     return (
-        <div dangerouslySetInnerHTML={{ __html: value }}/>
+        <div dangerouslySetInnerHTML={{ __html: value }} />
     );
 }
 
@@ -105,7 +117,7 @@ function DetailsInfoFields({ fields, formatHref }) {
                 return (
                     <DetailsInfoField key={filedIndex} field={field}>
                         {(values) => values.map((value, idx) => (
-                            <DetailsHTML key={idx} value={value} placeholder={field.placeholder}/>
+                            <DetailsHTML key={idx} value={value} placeholder={field.placeholder} />
                         ))}
                     </DetailsInfoField>
                 );
@@ -124,23 +136,32 @@ function DetailsInfoFields({ fields, formatHref }) {
     </div>);
 }
 
+const tabTypes = {
+    'attribute-table': DetailsAttributeTable,
+    'linked-resources': DetailsLinkedResources,
+    'tab': DetailsInfoFields
+};
+
 const parseTabItems = (items) => {
-    return (items || []).filter(({ value }) => {
-        if (value?.length === 0
-        || value === 'None'
-        || !value) {
-            return false;
-        }
-        return true;
+    return (items || []).filter(({value, style}) => {
+        return !(isEmptyValue(value) && !isStyleLabel(style));
     });
 };
+const isDefaultTabType = (type) => type === 'tab';
 
 function DetailsInfo({
     tabs = [],
-    formatHref
+    formatHref,
+    resourceTypesInfo
 }) {
     const filteredTabs = tabs
-        .map((tab) => ({ ...tab, items: parseTabItems(tab?.items) }))
+        .filter((tab) => !tab?.disableIf)
+        .map((tab) =>
+            ({
+                ...tab,
+                items: isDefaultTabType(tab.type) ? parseTabItems(tab?.items) : tab?.items,
+                Component: tabTypes[tab.type] || tabTypes.tab
+            }))
         .filter(tab => tab?.items?.length > 0);
     const selectedTabId = filteredTabs?.[0]?.id;
     return (
@@ -149,9 +170,12 @@ function DetailsInfo({
             bsStyle="pills"
             className="gn-details-info tabs-underline"
         >
-            {filteredTabs.map((tab, idx) => (
+            {filteredTabs.map(({Component, ...tab}, idx) => (
                 <Tab key={idx} eventKey={tab?.id} title={<DetailInfoFieldLabel field={tab} />}>
-                    <DetailsInfoFields fields={tab?.items} formatHref={formatHref} />
+                    <Component
+                        fields={tab?.items}
+                        formatHref={formatHref}
+                        resourceTypesInfo={resourceTypesInfo} />
                 </Tab>
             ))}
         </Tabs>
