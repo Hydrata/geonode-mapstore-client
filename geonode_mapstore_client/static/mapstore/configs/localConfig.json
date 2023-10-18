@@ -71,7 +71,15 @@
         {
             "name": "printEnabled",
             "path": "print.capabilities"
-        }
+        },
+        {
+          "name": "anugaProjectData",
+          "path": "anuga.projectData"
+        },
+        {
+          "name": "swammProjectData",
+          "path": "swamm.projectData"
+            }
     ],
     "projectionDefs": [],
     "supportedLocales": {
@@ -1159,9 +1167,6 @@
                 "name": "Notifications"
             },
             {
-                "name": "Locate"
-            },
-            {
                 "name": "FitBounds"
             },
             {
@@ -1451,7 +1456,7 @@
                         {
                             "labelId": "gnviewer.save",
                             "showPendingChangesIcon": true,
-                            "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}",
+                            "disableIf": "{(!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))) || state('swammProjectData.id') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
                             "type": "dropdown",
                             "items": [
                                 {
@@ -1483,7 +1488,7 @@
                         {
                             "labelId": "gnviewer.view",
                             "type": "dropdown",
-                            "disableIf": "{state('isNewResource')}",
+                            "disableIf": "{state('isNewResource') || context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') || state('swammProjectData') && !context.resourceHasPermission(state('swammProjectData'), 'save_swamm_project')}",
                             "items": [
                                 {
                                     "type": "link",
@@ -1494,7 +1499,9 @@
                         },
                         {
                             "type": "plugin",
-                            "name": "Share"
+                            "disableIf": "{state('isNewResource') ||  state('anugaProjectData.id') && !context.resourceHasPermission(state('anuga'), 'share_project_to_group')}",
+                            "name": "Share",
+                            "labelId": "gnviewer.share"
                         },
                         {
                             "type": "plugin",
@@ -1511,17 +1518,22 @@
                         },
                         {
                             "type": "plugin",
-                            "name": "Measure"
+                            "name": "Measure",
+                            "cfg": {
+                                "showAddAsAnnotation": false,
+                                "showAddAsLayer": false
+                            }
                         },
                         {
                             "type": "plugin",
                             "name": "Annotations",
-                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !state('isNewResource')}"
+              "disableIf": "{true || !state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}"
                         },
                         {
                             "type": "plugin",
                             "name": "DatasetsCatalog",
-                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !state('isNewResource')}"
+                            "disableIf": "{state('swammProjectData.id') && !context.resourceHasPermission(state('swammProjectData'), 'add_data_to_project') || state('anugaProjectData.id') && !context.resourceHasPermission(state('anuga'), 'add_data_to_project')}",
+                            "label": "gnviewer.viewMetadata"
                         }
                     ],
                     "rightMenuItems": [
@@ -1531,6 +1543,18 @@
                         }
                     ]
                 }
+            },
+            {
+              "name": "Anuga"
+            },
+            {
+              "name": "Swamm"
+            },
+            {
+              "name": "SimpleView"
+            },
+            {
+              "name": "MapThumbnail"
             },
             {
                 "name": "DeleteResource"
@@ -1661,9 +1685,6 @@
                         }
                     ]
                 }
-            },
-            {
-                "name": "BackgroundSelector"
             },
             {
                 "name": "Identify",
@@ -1939,7 +1960,66 @@
                 "name": "ScaleBox"
             },
             {
-                "name": "FeatureEditor"
+                "name": "FeatureEditor",
+                "cfg": {
+                    "snapTool": false,
+                    "customEditorsOptions": {
+                        "rules": [
+                            {
+                                "regex": {
+                                    "attribute": "boundary",
+                                    "typeName": "^geonode:bdy_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Dirichlet", "Transmissive", "Reflective"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Dirichlet",
+                                    "allowEmpty": false
+                                }
+                            },
+                            {
+                                "regex": {
+                                    "attribute": "location",
+                                    "typeName": "^geonode:bdy_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["External", "Internal"],
+                                    "forceSelection": true,
+                                    "defaultOption": "External",
+                                    "allowEmpty": false
+                                }
+                            },
+                            {
+                                "regex": {
+                                    "attribute": "type",
+                                    "typeName": "^geonode:inf_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Rainfall", "Surface"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Rainfall",
+                                    "allowEmpty": false
+                                }
+                            },
+                            {
+                                "regex": {
+                                    "attribute": "method",
+                                    "typeName": "^geonode:str_"
+                                },
+                                "editor": "DropDownEditor",
+                                "editorProps": {
+                                    "values": ["Holes", "Reflective", "Mannings"],
+                                    "forceSelection": true,
+                                    "defaultOption": "Mannings",
+                                    "allowEmpty": false
+                                }
+                            }
+                        ]
+                    }
+                }
             },
             {
                 "name": "QueryPanel",
@@ -1997,15 +2077,6 @@
                 }
             },
             {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
-                }
-            },
-            {
                 "name": "FullScreen",
                 "override": {
                     "Toolbar": {
@@ -2039,9 +2110,6 @@
             },
             {
                 "name": "Swipe"
-            },
-            {
-                "name": "Locate"
             },
             {
                 "name": "WidgetsBuilder",
@@ -3009,9 +3077,6 @@
                 "name": "FitBounds"
             },
             {
-                "name": "Locate"
-            },
-            {
                 "name": "BackgroundSelector",
                 "cfg": {
                     "bottom": 25,
@@ -3122,9 +3187,6 @@
             },
             {
                 "name": "FitBounds"
-            },
-            {
-                "name": "Locate"
             },
             {
                 "name": "BackgroundSelector",
