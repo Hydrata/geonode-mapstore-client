@@ -43,7 +43,8 @@ import {
     setSwammNitrogenData,
     setSwammPhosphorusData,
     setSwammSedimentData,
-    setSwammInputMenu
+    setSwammInputMenu,
+    TOGGLE_BMP_TYPE_GROUP
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
 
 import {
@@ -414,6 +415,7 @@ export const filterBmpEpic = (action$, store) =>
     action$.ofType(
         TOGGLE_BMP_TYPE_VISIBILITY,
         SET_ALL_BMP_TYPES_VISIBILITY,
+        TOGGLE_BMP_TYPE_GROUP,
         TOGGLE_BMP_PRIORITY_VISIBILITY,
         TOGGLE_BMP_STATUS_VISIBILITY,
         TOGGLE_BMP_GROUP_PROFILE_VISIBILITY
