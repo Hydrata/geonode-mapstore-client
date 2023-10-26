@@ -119,10 +119,12 @@ export default ( state = initialState, action) => {
             fetching: action.mapId
         };
     case FETCH_SWAMM_BMPTYPES_SUCCESS:
+        const bmpTypes = action.bmpTypes;
+        bmpTypes.sort((a, b) => a.name.localeCompare(b.name));
         return {
             ...state,
             fetching: false,
-            bmpTypes: action.bmpTypes
+            bmpTypes: bmpTypes
         };
     case FETCH_SWAMM_ALL_BMPS_SUCCESS:
         return {
