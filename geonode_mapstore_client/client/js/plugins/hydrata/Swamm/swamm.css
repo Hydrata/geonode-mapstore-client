@@ -310,6 +310,7 @@
     margin-right: 10px;
     border: solid 1px rgba(255, 255, 255, 0.65);
     background: #537ab1;
+    height: 22px;
 }
 
 .bmp-type-group-glyph:hover {
@@ -323,6 +324,78 @@
 .bmp-type-group-name {
     vertical-align: top;
     margin-top: 5px;
+}
+
+#swamm-bmp-filters {
+    max-height: 600px;
+    overflow-y: scroll;
+}
+
+#swamm-bmp-filters ::-webkit-scrollbar {
+    width: 1em;
+    margin-left: 1em;
+    margin-right: 1em;
+    padding-left: 1em;
+    padding-right: 1em;
+}
+
+#swamm-bmp-filters ::-webkit-scrollbar-thumb {
+    background-color: #5178af;
+    outline: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.bmp-filter-group-expanded-panel {
+    height: 100%;
+    width: 100%;
+    margin-top: 50px;
+    display: flex;
+    flex-direction: column;
+
+}
+
+.bmp-filter-group-selector-row {
+    margin-left: 30px;
+}
+
+.menu-row-bmp-filter {
+    height: 24px;
+    display: flex;
+    width: 470px;
+    text-align: left;
+}
+
+.bmp-filter-type-row {
+    display: flex;
+}
+
+.bmp-filter-type-heading-last-item {
+  margin-left: auto;
+}
+
+.bmp-filter-group-heading {
+    text-align: left;
+    margin-left: 35px;
+    margin-bottom: 3px;
+    display: flex;
+    flex-direction: column
+}
+
+.bmp-filter-group-glyph {
+    font-size: smaller;
+    vertical-align: bottom;
+    margin-left: 10px;
+    margin-bottom: 2px;
+    margin-right: 10px;
+    border: solid 1px rgba(255, 255, 255, 0.65);
+    background: #537ab1;
+    height: 20px;
+    background: none;
+    color: white;
+}
+
+.bmp-filter-group-glyph:hover {
+    background: #73a4e8;
 }
 
 .bmp-progress-button-danger {

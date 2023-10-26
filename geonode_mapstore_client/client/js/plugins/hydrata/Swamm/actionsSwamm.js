@@ -81,6 +81,7 @@ const CLEAR_BMP_FORM = 'CLEAR_BMP_FORM';
 const MAKE_DEFAULTS_BMP_FORM = 'MAKE_DEFAULTS_BMP_FORM';
 const MAKE_EXISTING_BMP_FORM = 'MAKE_EXISTING_BMP_FORM';
 const SET_UPDATING_BMP = 'SET_UPDATING_BMP';
+const TOGGLE_BMP_TYPE_GROUP = 'TOGGLE_BMP_TYPE_GROUP';
 const SET_EXPANDED_BMP_TYPE_GROUP_NAME = 'SET_EXPANDED_BMP_TYPE_GROUP_NAME';
 const GET_BMP_FORM_SUCCESS = 'GET_BMP_FORM_SUCCESS';
 const UPDATE_BMP_FORM = 'UPDATE_BMP_FORM';
@@ -140,7 +141,7 @@ const fetchSwammBmpTypesSuccess = (bmpTypes) => {
 };
 
 function fetchSwammBmpTypesError(e) {
-    console.log('fetchSwammBmpTypesError', e);
+    // console.log('fetchSwammBmpTypesError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch Swamm Bmp Types Error',
@@ -175,7 +176,7 @@ const fetchProjectManagerConfigSuccess = (config) => {
 };
 
 function fetchProjectManagerConfigError(e) {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return {
         type: FETCH_PROJECT_MANAGER_CONFIG_ERROR,
         error: e
@@ -212,7 +213,7 @@ const fetchGroupProfilesSuccess = (groupProfiles) => {
 };
 
 function fetchGroupProfilesError(e) {
-    console.log('fetchGroupProfilesError', e);
+    // console.log('fetchGroupProfilesError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch fetchGroupProfiles Error',
@@ -254,7 +255,7 @@ const fetchSwammAllBmpsSuccess = (allBmps) => {
 };
 
 function fetchSwammAllBmpsError(e) {
-    console.log('fetchSwammAllBmpsError', e);
+    // console.log('fetchSwammAllBmpsError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch Swamm All Bmps Error',
@@ -289,7 +290,7 @@ const fetchSwammBmpStatusesSuccess = (statuses) => {
 };
 
 function fetchSwammBmpStatusesError(e) {
-    console.log('fetchSwammBmpStatusesError', e);
+    // console.log('fetchSwammBmpStatusesError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch Swamm Bmp Statuses Error',
@@ -404,6 +405,14 @@ const setExpandedBmpTypeGroupName = (expandedBmpTypeGroupName) => {
     };
 };
 
+const toggleBmpTypeGroup = (bmpTypeGroup) => {
+    // console.log('actions read:', bmpTypeGroup);
+    return {
+        type: TOGGLE_BMP_TYPE_GROUP,
+        bmpTypeGroup
+    };
+};
+
 const showBmpManager = () => {
     return {
         type: SHOW_BMP_MANAGER
@@ -493,7 +502,7 @@ const startDrawingBmp = () => {
 };
 
 const setDrawingBmpLayerName = (layerName) => {
-    console.log('setDrawingBmpLayerName', layerName);
+    // console.log('setDrawingBmpLayerName', layerName);
     return {
         type: SET_DRAWING_BMP_LAYER_NAME,
         drawingBmpLayerName: layerName
@@ -507,7 +516,7 @@ const clearDrawingBmpLayerName = () => {
 };
 
 const setEditingBmpFeatureId = (featureId) => {
-    console.log('setEditingBmpFeatureId', featureId);
+    // console.log('setEditingBmpFeatureId', featureId);
     return {
         type: SET_EDITING_BMP_FEATURE_ID,
         editingBmpFeatureId: featureId
@@ -522,7 +531,7 @@ const registerMissingBmpFeatureId = (missingBmpFeatureId) => {
 };
 
 const clearEditingBmpFeatureId = () => {
-    console.log('clearEditingBmpFeatureId');
+    // console.log('clearEditingBmpFeatureId');
     return {
         type: CLEAR_EDITING_BMP_FEATURE_ID
     };
@@ -538,7 +547,7 @@ const fetchSwammTargetsSuccess = (data) => {
 };
 
 const fetchSwammTargetsError = (e) => {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -589,7 +598,7 @@ const downloadTargetDataSuccess = (data) => {
 };
 
 const downloadTargetDataError = (e) => {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -649,7 +658,7 @@ const submitBmpFormSuccess = (bmp) => {
 };
 
 function submitBmpFormError(e) {
-    console.log('submitBmpFormError', e);
+    // console.log('submitBmpFormError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Submit Bmp Form Error',
@@ -664,7 +673,7 @@ function submitBmpFormError(e) {
 const submitBmpForm = (newBmp, projectId) => {
     if (newBmp.id) {
         return (dispatch) => {
-            console.log('updating existing BMP: ', newBmp);
+            // console.log('updating existing BMP: ', newBmp);
             return axios.patch(`/swamm/api/${projectId}/bmps/${newBmp.id}/`, newBmp
             ).then(
                 response => {
@@ -681,7 +690,7 @@ const submitBmpForm = (newBmp, projectId) => {
         };
     }
     return (dispatch) => {
-        console.log('creating new BMP: ', newBmp);
+        // console.log('creating new BMP: ', newBmp);
         return axios.post(`/swamm/api/${projectId}/bmps/`, newBmp
         ).then(
             response => {
@@ -699,7 +708,7 @@ const submitBmpForm = (newBmp, projectId) => {
 };
 
 const getBmpFormSuccess = (bmp) => {
-    console.log('getBmpFormSuccess bmp:', bmp);
+    // console.log('getBmpFormSuccess bmp:', bmp);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -718,7 +727,7 @@ const getBmpFormSuccess = (bmp) => {
 };
 
 function getBmpFormError(e) {
-    console.log('getBmpFormError', e);
+    // console.log('getBmpFormError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Get Bmp Form Error',
@@ -749,7 +758,7 @@ const deleteBmpSuccess = (bmpId) => {
 };
 
 const deleteBmpError = (e) => {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -852,7 +861,7 @@ const submitTargetFormSuccess = (target) => {
 };
 
 function submitTargetFormError(e) {
-    console.log('submitTargetFormError', e);
+    // console.log('submitTargetFormError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Submit Target Form Error',
@@ -867,7 +876,7 @@ function submitTargetFormError(e) {
 const submitTargetForm = (target, projectId) => {
     if (target.id) {
         return (dispatch) => {
-            console.log('updating existing Target: ', target);
+            // console.log('updating existing Target: ', target);
             return axios.patch(`/swamm/api/${projectId}/pollutant-loading-target/${target.id}/`, target
             ).then(
                 response => {
@@ -884,7 +893,7 @@ const submitTargetForm = (target, projectId) => {
         };
     }
     return (dispatch) => {
-        console.log('creating new Target: ', target);
+        // console.log('creating new Target: ', target);
         return axios.post(`/swamm/api/${projectId}/pollutant-loading-target/`, target
         ).then(
             response => {
@@ -921,7 +930,7 @@ const deleteTargetSuccess = (targetId) => {
 };
 
 const deleteTargetError = (e) => {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -966,7 +975,7 @@ function setMenuGroup(menuGroup) {
 
 
 function updateBmpTypeGroups(bmpTypeGroups) {
-    console.log('****');
+    // console.log('****');
     return {
         type: UPDATE_BMP_TYPE_GROUPS,
         bmpTypeGroups
@@ -1096,6 +1105,7 @@ module.exports = {
     MAKE_EXISTING_BMP_FORM, makeExistingBmpForm,
     SET_UPDATING_BMP, setUpdatingBmp,
     SET_EXPANDED_BMP_TYPE_GROUP_NAME, setExpandedBmpTypeGroupName,
+    TOGGLE_BMP_TYPE_GROUP, toggleBmpTypeGroup,
     SET_CHANGING_BMP_TYPE, setChangingBmpType,
     SET_COMPLEX_BMP_FORM, setComplexBmpForm,
     SET_EXPANDED_FILTER, setExpandedFilter,

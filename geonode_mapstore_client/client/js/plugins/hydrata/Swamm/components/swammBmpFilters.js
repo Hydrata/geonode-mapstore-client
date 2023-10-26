@@ -1,7 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Col, Row} from "react-bootstrap";
 import {
     setExpandedFilter,
     toggleBmpTypeVisibility,
@@ -9,6 +8,7 @@ import {
     toggleBmpStatusVisibility,
     setAllBmpTypesVisibility,
     setExpandedBmpTypeGroupName,
+    toggleBmpTypeGroup,
     toggleBmpPriorityVisibility
 } from "../actionsSwamm";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
@@ -38,7 +38,9 @@ class SwammBmpFiltersClass extends React.Component {
         groupProfiles: PropTypes.object,
         bmpTypeGroups: PropTypes.array,
         expandedBmpTypeGroupName: PropTypes.string,
-        setExpandedBmpTypeGroupName: PropTypes.func
+        toggleBmpTypeGroup: PropTypes.func,
+        setExpandedBmpTypeGroupName: PropTypes.func,
+        setGroupBmpTypesVisibility: PropTypes.func
     };
 
     static defaultProps = {}
@@ -59,28 +61,22 @@ class SwammBmpFiltersClass extends React.Component {
             <React.Fragment>
                 <div id={'swamm-bmp-filters'} className={'simple-view-panel'} style={{top: "175px", width: "480px"}}>
                     <div className={'menu-rows-container'}>
-                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
+                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
-                                style={{color: "white", background: "none"}}
+                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('bmpType');}}
                             />
-                            <span className="inline h5 menu-row-text"><strong>Filter by BMP type</strong></span>
-                            { this.props.expandedFilter === "bmpType" ?
-                                <React.Fragment>
-                                    {this.props.bmpTypeGroups?.map((group) => {
-                                        return (
-                                            <div
-                                                key={`group-${group}`}
-                                                style={{
-                                                    textAlign: "left",
-                                                    marginLeft: 0,
-                                                    marginBottom: "3px",
-                                                    padding: "3px",
-                                                    border: "1px solid white",
-                                                    borderRadius: "3px"
-                                                }}
-                                            >
+                            <span className="menu-row-text"><div>Filter by BMP type</div></span>
+                        </div>
+                        { this.props.expandedFilter === "bmpType" ?
+                            <div className="bmp-filter-group-expanded-panel">
+                                {this.props.bmpTypeGroups?.map((group) => {
+                                    return (
+                                        <div
+                                            key={`group-${group}`}
+                                            className={"bmp-filter-group-heading"}
+                                        >
+                                            <div className={"bmp-filter-type-row"}>
                                                 <span
                                                     style={{marginLeft: "15px"}}
                                                     className={"btn glyphicon bmp-type-group-glyph" + (this.props.expandedBmpTypeGroupName === group[0] ? " glyphicon-chevron-down bmp-type-group-bottom-margin" : " glyphicon-chevron-right")}
@@ -94,173 +90,159 @@ class SwammBmpFiltersClass extends React.Component {
                                                     {group[1]}
                                                 </span>
                                                 <span
-                                                    className={"inline btn glyphicon menu-row-glyph glyphicon-unchecked"}
-                                                    style={{"color": "red", marginLeft: "30px"}}
+                                                    className={"btn glyphicon menu-row-glyph bmp-filter-type-heading-last-item" + (group?.[2] ? " glyphicon-ok" : " glyphicon-remove")}
+                                                    style={{"color": group?.[2] ? "limegreen" : "red"}}
                                                     onClick={() => {
-                                                        this.props.setGroupBmpTypesVisibility(expandedBmpTypeGroupName);
+                                                        this.props.toggleBmpTypeGroup(group);
                                                     }}
                                                 />
-                                                {
-                                                    this.props.expandedBmpTypeGroupName === group[0] ?
-                                                        this.props.bmpTypes
-                                                            .filter(bmpType => bmpType.group_name === group[0])
-                                                            .map(bmpType => {
-                                                                return (
-                                                                    <div
-                                                                        key={`bmpType-${bmpType?.name}`}
-                                                                        style={{
-                                                                            marginLeft: "30px"
-                                                                        }}
-                                                                    >
-                                                                        <input
-                                                                            id={`bmp-type-selector-box-${bmpType?.name}`}
-                                                                            // style={formControlStyle}
-                                                                            type={'radio'}
-                                                                            name={'bmpType'}
-                                                                            value={bmpType?.name}
-                                                                            onChange={this.handleBmpChange}
-                                                                        />
-                                                                        <label
-                                                                            htmlFor={`bmp-type-selector-box-${bmpType?.name}`}
-                                                                            style={{marginLeft: "6px", verticalAlign: "middle"}}
-                                                                        >
-                                                                            {bmpType?.name}
-                                                                        </label>
-                                                                    </div>
-                                                                );
-                                                            })
-                                                        : null
-                                                }
                                             </div>
-                                        );
-                                    })}
-                                </React.Fragment>
-                                : null
-                            }
-                            {/* {*/}
-                            {/*    this.props.expandedFilter === "bmpType" ?*/}
-                            {/*        <React.Fragment>*/}
-                            {/*            <span*/}
-                            {/*                className={"inline btn glyphicon menu-row-glyph glyphicon-check"}*/}
-                            {/*                style={{"color": "limegreen", marginLeft: "30px"}}*/}
-                            {/*                onClick={() => {*/}
-                            {/*                    this.props.setAllBmpTypesVisibility(true);*/}
-                            {/*                }}*/}
-                            {/*            />*/}
-                            {/*            <span className="inline h5 menu-row-text">Select All</span>*/}
-                            {/*            <span*/}
-                            {/*                className={"inline btn glyphicon menu-row-glyph glyphicon-unchecked"}*/}
-                            {/*                style={{"color": "red", marginLeft: "30px"}}*/}
-                            {/*                onClick={() => {*/}
-                            {/*                    this.props.setAllBmpTypesVisibility(false);*/}
-                            {/*                }}*/}
-                            {/*            />*/}
-                            {/*            <span className="inline h5 menu-row-text">Select None</span>*/}
-                            {/*            <hr style={{margin: "0"}}/>*/}
-                            {/*            <Row>*/}
-                            {/*                {*/}
-                            {/*                    this.props.bmpTypes.map((bmpType, index) => (*/}
-                            {/*                        <Col sm={6} className={"row menu-row filter-row " + (index % 2 ? "filter-row-odd" : '')}>*/}
-                            {/*                            <span*/}
-                            {/*                                className={"btn glyphicon menu-row-glyph " + (bmpType?.visibility ? "glyphicon-ok" : "glyphicon-remove")}*/}
-                            {/*                                style={{"color": bmpType?.visibility ? "limegreen" : "red"}}*/}
-                            {/*                                onClick={() => this.props.toggleBmpTypeVisibility(bmpType)}*/}
-                            {/*                            />*/}
-                            {/*                            <span className="menu-row-text">{bmpType?.name}</span>*/}
-                            {/*                        </Col>*/}
-                            {/*                    ))*/}
-                            {/*                }*/}
-                            {/*            </Row>*/}
-                            {/*        </React.Fragment>*/}
-                            {/*        : null*/}
-                            {/*}*/}
-                        </div>
-                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
+                                            {
+                                                this.props.expandedBmpTypeGroupName === group[0] ?
+                                                    this.props.bmpTypes
+                                                        .filter(bmpType => bmpType.group_name === group[0])
+                                                        .map(bmpType => {
+                                                            return (
+                                                                <div
+                                                                    key={`bmpType-${bmpType?.name}`}
+                                                                    className={"bmp-filter-group-selector-row"}
+                                                                >
+                                                                    <span
+                                                                        id={`bmp-type-toggle-box-${bmpType?.name}`}
+                                                                        className={"btn glyphicon menu-row-glyph " + (bmpType?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                                        style={{"color": bmpType?.visibility ? "limegreen" : "red"}}
+                                                                        onClick={() => {
+                                                                            this.props.toggleBmpTypeVisibility(bmpType);
+                                                                        }}
+                                                                    />
+                                                                    <label
+                                                                        htmlFor={`bmp-type-selector-box-${bmpType?.name}`}
+                                                                        style={{marginLeft: "6px", verticalAlign: "middle"}}
+                                                                    >
+                                                                        {bmpType?.name}
+                                                                    </label>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    : null
+                                            }
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            : null
+                        }
+                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "priority" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
-                                style={{color: "white", background: "none"}}
+                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "priority" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('priority');}}
                             />
-                            <span className="inline h5 menu-row-text"><strong>Filter by BMP priority</strong></span>
-                            {
-                                this.props.expandedFilter === "priority" ?
-                                    <React.Fragment>
-                                        <hr style={{margin: "0"}}/>
-                                        <Row>
-                                            {
-                                                this.props.priorities.map((priority, index) => (
-                                                    <Col sm={6} className={"row menu-row filter-row " + (index % 2 ? "filter-row-odd" : '')}>
-                                                        <span
-                                                            className={"btn glyphicon menu-row-glyph " + (priority?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                                                            style={{"color": priority?.visibility ? "limegreen" : "red"}}
-                                                            onClick={() => this.props.toggleBmpPriorityVisibility(priority)}
-                                                        />
-                                                        <span className="menu-row-text">{priority.label}</span>
-                                                    </Col>
-                                                ))
-                                            }
-                                        </Row>
-                                    </React.Fragment>
-                                    : null
-                            }
+                            <span className="menu-row-text"><div>Filter by BMP priority</div></span>
                         </div>
-                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
+                        { this.props.expandedFilter === "priority" ?
+                            <div className="bmp-filter-group-expanded-panel">
+                                {this.props.priorities?.map((priority, index) => {
+                                    return (
+                                        <div
+                                            key={`priority-${priority}`}
+                                            className={"bmp-filter-group-selector-row filter-row " + (index % 2 ? "filter-row-odd" : '')}
+                                        >
+                                            <span
+                                                id={`bmp-type-toggle-box-${priority}`}
+                                                className={"btn glyphicon menu-row-glyph " + (priority?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                style={{"color": priority?.visibility ? "limegreen" : "red"}}
+                                                onClick={() => {
+                                                    this.props.toggleBmpPriorityVisibility(priority);
+                                                }}
+                                            />
+                                            <label
+                                                htmlFor={`bmp-type-selector-box-${priority}`}
+                                                style={{marginLeft: "6px", verticalAlign: "middle"}}
+                                            >
+                                                {priority.label}
+                                            </label>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            : null
+                        }
+                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "status" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
-                                style={{color: "white", background: "none"}}
+                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "status" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('status');}}
                             />
-                            <span className="inline h5 menu-row-text"><strong>Filter by BMP status</strong></span>
-                            {
-                                this.props.expandedFilter === "status" ?
-                                    <React.Fragment>
-                                        <hr style={{margin: "0"}}/>
-                                        <Row>
-                                            {
-                                                this.props.statuses.map((status, index) => (
-                                                    <Col sm={6} className={"row menu-row filter-row " + (index % 2 ? "filter-row-odd" : '')}>
-                                                        <span
-                                                            className={"btn glyphicon menu-row-glyph " + (status?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                                                            style={{"color": status?.visibility ? "limegreen" : "red"}}
-                                                            onClick={() => this.props.toggleBmpStatusVisibility(status)}
-                                                        />
-                                                        <span className="menu-row-text">{status?.name}</span>
-                                                    </Col>
-                                                ))
-                                            }
-                                        </Row>
-                                    </React.Fragment>
-                                    : null
-                            }
+                            <span className="menu-row-text"><div>Filter by BMP status</div></span>
                         </div>
-                        <div className={"row menu-row pull-left"} style={{width: "480px", textAlign: "left"}}>
+                        {
+                            this.props.expandedFilter === "status" ?
+                                <div className="bmp-filter-group-expanded-panel">
+                                    {
+                                        this.props.statuses.map((status, index) => {
+                                            return (
+                                                <div
+                                                    key={`status-${status}`}
+                                                    className={"bmp-filter-group-selector-row filter-row " + (index % 2 ? "filter-row-odd" : '')}
+                                                >
+                                                    <span
+                                                        id={`bmp-type-toggle-box-${status}`}
+                                                        className={"btn glyphicon menu-row-glyph " + (status?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                        style={{"color": status?.visibility ? "limegreen" : "red"}}
+                                                        onClick={() => {
+                                                            this.props.toggleBmpStatusVisibility(status);
+                                                        }}
+                                                    />
+                                                    <label
+                                                        htmlFor={`bmp-type-selector-box-${status}`}
+                                                        style={{marginLeft: "6px", verticalAlign: "middle"}}
+                                                    >
+                                                        {status?.name}
+                                                    </label>
+                                                </div>
+                                            );
+                                        })
+                                    }
+                                </div>
+                                : null
+                        }
+                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon menu-row-glyph " + (this.props.expandedFilter === "groupProfile" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
-                                style={{color: "white", background: "none"}}
+                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "groupProfile" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('groupProfile');}}
                             />
-                            <span className="inline h5 menu-row-text"><strong>Filter by Organization</strong></span>
-                            {
-                                this.props.expandedFilter === "groupProfile" ?
-                                    <React.Fragment>
-                                        <Row>
-                                            {
-                                                this.props.groupProfiles.map((groupProfile, index) => (
-                                                    <Col sm={6} className={"row menu-row filter-row " + (index < ((this.props.groupProfiles?.length / 2) + 1) ? "filter-row-odd" : '')}>
-                                                        <span
-                                                            className={"btn glyphicon menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                                                            style={{"color": groupProfile?.visibility ? "limegreen" : "red"}}
-                                                            onClick={() => this.props.toggleBmpGroupProfileVisibility(groupProfile)}
-                                                        />
-                                                        <span className="menu-row-text">{groupProfile.title}</span>
-                                                    </Col>
-                                                ))
-                                            }
-                                        </Row>
-                                    </React.Fragment>
-                                    : null
-                            }
+                            <span className="menu-row-text"><div>Filter by Organization</div></span>
                         </div>
+                        {
+                            this.props.expandedFilter === "groupProfile" ?
+                                <div className="bmp-filter-group-expanded-panel">
+                                    {
+                                        this.props.groupProfiles.map((groupProfile, index) => {
+                                            return (
+                                                <div
+                                                    key={`groupProfile-${groupProfile}`}
+                                                    className={"bmp-filter-group-selector-row filter-row " + (index < ((this.props.groupProfiles?.length / 2) + 1) ? "filter-row-odd" : '')}>
+                                                >
+                                                    <span
+                                                        id={`bmp-type-toggle-box-${groupProfile}`}
+                                                        className={"btn glyphicon menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                        style={{"color": groupProfile?.visibility ? "limegreen" : "red"}}
+                                                        onClick={() => {
+                                                            this.props.toggleBmpGroupProfileVisibility(groupProfile);
+                                                        }}
+                                                    />
+                                                    <label
+                                                        htmlFor={`bmp-type-selector-box-${groupProfile}`}
+                                                        style={{marginLeft: "6px", verticalAlign: "middle"}}
+                                                    >
+                                                        {groupProfile?.title}
+                                                    </label>
+                                                </div>
+                                            );
+                                        })
+                                    }
+                                </div>
+                                : null
+                        }
                     </div>
                 </div>
             </React.Fragment>
@@ -308,7 +290,8 @@ const mapDispatchToProps = ( dispatch ) => {
         toggleBmpStatusVisibility: (status) => dispatch(toggleBmpStatusVisibility(status)),
         setAllBmpTypesVisibility: (boolValue) => dispatch(setAllBmpTypesVisibility(boolValue)),
         toggleBmpPriorityVisibility: (priority) => dispatch(toggleBmpPriorityVisibility(priority)),
-        setExpandedBmpTypeGroupName: (expandedBmpTypeGroupName) => dispatch(setExpandedBmpTypeGroupName(expandedBmpTypeGroupName))
+        setExpandedBmpTypeGroupName: (expandedBmpTypeGroupName) => dispatch(setExpandedBmpTypeGroupName(expandedBmpTypeGroupName)),
+        toggleBmpTypeGroup: (bmpTypeGroup) => dispatch(toggleBmpTypeGroup(bmpTypeGroup))
     };
 };
 

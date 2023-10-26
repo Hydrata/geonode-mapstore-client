@@ -19,6 +19,7 @@ import {
     SET_BMP_TYPE,
     SET_CHANGING_BMP_TYPE,
     SET_EXPANDED_BMP_TYPE_GROUP_NAME,
+    TOGGLE_BMP_TYPE_GROUP,
     SET_COMPLEX_BMP_FORM,
     SET_MENU_GROUP,
     SET_EXPANDED_FILTER,
@@ -147,6 +148,39 @@ export default ( state = initialState, action) => {
                     return {
                         ...bmpType,
                         visibility: !action.bmpType?.visibility
+                    };
+                }
+                return bmpType;
+            })
+        };
+    case TOGGLE_BMP_TYPE_GROUP:
+        // console.log('action.bmpTypeGroup:', action);
+        // console.log('state.bmpTypes:', state.bmpTypes);
+        // This is an awful way to toggle the bmpTypeGroups.
+        // TODO: change the bmpTypeGroups from an array of arrays to an array of objects (needs to be done on the django api I think)
+        return {
+            ...state,
+            bmpTypeGroups: state.bmpTypeGroups.map(bmpTypeGroup => {
+                // console.log(bmpTypeGroup, action.bmpTypeGroup);
+                if (bmpTypeGroup[0] === action.bmpTypeGroup?.[0]) {
+                    // console.log('found match:', bmpTypeGroup);
+                    if (bmpTypeGroup?.[2]) {
+                        bmpTypeGroup.splice(2);
+                        return bmpTypeGroup;
+                    }
+                    bmpTypeGroup.push(true);
+                    return bmpTypeGroup;
+                }
+                return bmpTypeGroup;
+            }),
+            bmpTypes: state.bmpTypes.map(bmpType => {
+                if (bmpType.group_name === action.bmpTypeGroup?.[0]) {
+                    // console.log('setting bmpType visibility:', bmpType);
+                    // console.log('action for bmpType visibility:', action);
+                    const visibility = action.bmpTypeGroup?.[2];
+                    return {
+                        ...bmpType,
+                        visibility: visibility
                     };
                 }
                 return bmpType;
@@ -364,7 +398,7 @@ export default ( state = initialState, action) => {
         };
     case SUBMIT_BMP_FORM_SUCCESS:
         const allBmpIds = state.allBmps?.map((bmp) => bmp.id);
-        console.log("allBmpIds:", allBmpIds);
+        // console.log("allBmpIds:", allBmpIds);
         if (allBmpIds.indexOf(action.bmp?.id) > -1) {
             return {
                 ...state,
@@ -386,7 +420,7 @@ export default ( state = initialState, action) => {
             showSubmitBmpFormError: true
         };
     case UPDATE_BMP_FORM:
-        console.log('heard UPDATE_BMP_FORM', action);
+        // console.log('heard UPDATE_BMP_FORM', action);
         if (action?.kv?.type_data?.id) {
             return {
                 ...state,
@@ -514,9 +548,17 @@ export default ( state = initialState, action) => {
             visibleTargetForm: action.visibleTargetForm
         };
     case UPDATE_BMP_TYPE_GROUPS:
+        const bmpTypeGroups = action.bmpTypeGroups;
+        bmpTypeGroups.map(bmpTypeGroup => {
+            if (bmpTypeGroup?.[2]) {
+                return bmpTypeGroup;
+            }
+            bmpTypeGroup.push(true);
+            return bmpTypeGroup;
+        });
         return {
             ...state,
-            bmpTypeGroups: action.bmpTypeGroups
+            bmpTypeGroups: bmpTypeGroups
         };
     case SET_SWAMM_EROSION_DATA:
         return {
