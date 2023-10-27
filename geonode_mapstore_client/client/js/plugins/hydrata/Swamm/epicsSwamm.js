@@ -43,13 +43,11 @@ import {
     setSwammNitrogenData,
     setSwammPhosphorusData,
     setSwammSedimentData,
-    setSwammInputMenu,
     TOGGLE_BMP_TYPE_GROUP
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
 
 import {
-    SET_VISIBLE_UPLOADER_PANEL,
-    setVisibleUploaderPanel,
+    SET_OPEN_MENU_GROUP_ID,
     setSvConfig
 } from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 
@@ -413,6 +411,7 @@ const wmsFilterTemplate = {
 
 export const filterBmpEpic = (action$, store) =>
     action$.ofType(
+        SET_OPEN_MENU_GROUP_ID,
         TOGGLE_BMP_TYPE_VISIBILITY,
         SET_ALL_BMP_TYPES_VISIBILITY,
         TOGGLE_BMP_TYPE_GROUP,
