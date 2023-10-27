@@ -148,7 +148,7 @@ class SwammBmpFiltersClass extends React.Component {
                                             className={"bmp-filter-group-selector-row filter-row " + (index % 2 ? "filter-row-odd" : '')}
                                         >
                                             <span
-                                                id={`bmp-type-toggle-box-${priority}`}
+                                                id={`bmp-type-toggle-box-${priority?.label}`}
                                                 className={"btn glyphicon menu-row-glyph " + (priority?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                 style={{"color": priority?.visibility ? "limegreen" : "red"}}
                                                 onClick={() => {
@@ -156,7 +156,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                 }}
                                             />
                                             <label
-                                                htmlFor={`bmp-type-selector-box-${priority}`}
+                                                htmlFor={`bmp-type-selector-box-${priority?.label}`}
                                                 style={{marginLeft: "6px", verticalAlign: "middle"}}
                                             >
                                                 {priority.label}
@@ -185,7 +185,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                     className={"bmp-filter-group-selector-row filter-row " + (index % 2 ? "filter-row-odd" : '')}
                                                 >
                                                     <span
-                                                        id={`bmp-type-toggle-box-${status}`}
+                                                        id={`bmp-type-toggle-box-${status?.name}`}
                                                         className={"btn glyphicon menu-row-glyph " + (status?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                         style={{"color": status?.visibility ? "limegreen" : "red"}}
                                                         onClick={() => {
@@ -193,7 +193,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                         }}
                                                     />
                                                     <label
-                                                        htmlFor={`bmp-type-selector-box-${status}`}
+                                                        htmlFor={`bmp-type-selector-box-${status?.name}`}
                                                         style={{marginLeft: "6px", verticalAlign: "middle"}}
                                                     >
                                                         {status?.name}
@@ -219,11 +219,11 @@ class SwammBmpFiltersClass extends React.Component {
                                         this.props.groupProfiles.map((groupProfile, index) => {
                                             return (
                                                 <div
-                                                    key={`groupProfile-${groupProfile}`}
-                                                    className={"bmp-filter-group-selector-row filter-row " + (index < ((this.props.groupProfiles?.length / 2) + 1) ? "filter-row-odd" : '')}>
+                                                    key={`groupProfile-${groupProfile?.title}`}
+                                                    className={"bmp-filter-group-selector-row filter-row " + (index < ((this.props.groupProfiles?.length / 2) + 1) ? "filter-row-odd" : '')}
                                                 >
                                                     <span
-                                                        id={`bmp-type-toggle-box-${groupProfile}`}
+                                                        id={`bmp-type-toggle-box-${groupProfile?.title}`}
                                                         className={"btn glyphicon menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                         style={{"color": groupProfile?.visibility ? "limegreen" : "red"}}
                                                         onClick={() => {

@@ -199,11 +199,11 @@ const fetchProjectManagerConfig = (dispatch) => {
 };
 
 const fetchGroupProfilesSuccess = (groupProfiles) => {
-    const cleanedGroupProfiles = groupProfiles.map((gp) => {
+    const cleanedGroupProfiles = groupProfiles.map((groupProfile) => {
         return {
-            ...gp,
-            id: gp?.pk,
-            visibility: true
+            ...groupProfile,
+            id: groupProfile?.pk,
+            visibility: groupProfile.title === "Watershed Management Plan" ? false : true
         };
     });
     return {
