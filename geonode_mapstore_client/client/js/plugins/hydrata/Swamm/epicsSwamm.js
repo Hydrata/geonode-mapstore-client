@@ -1,5 +1,6 @@
 import Rx from "rxjs";
 const axios = require('../../../../MapStore2/web/client/libs/ajax');
+import { isInt } from "../Utils/utils";
 import {
     QUERY_RESULT,
     query,
@@ -141,34 +142,47 @@ export const catchBmpFeatureClick = (action$, store) =>
     action$
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
-            const possibleBmpFeatures = action?.data?.features?.map((feature) => {
-                console.log('feature:', feature);
-                if (
-                    /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
-                    /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
-                    /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
-                ) { return feature;}
-                return null;
-            });
-            // console.log('possibleBmpFeatures:', possibleBmpFeatures);
+            let bmpFeatureId = null;
+            if (action?.data?.type === 'FeatureCollection') {
+                action?.data?.features?.map((feature) => {
+                    console.log('FeatureCollection feature:', feature);
+                    if (
+                        /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
+                        /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
+                        /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
+                    ) { bmpFeatureId = feature?.[0]?.properties?.id;}
+                });
+            } else {
+                const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
+                const featureIdFull = `${action.layer.name.split(':')[1]}.${featureIdNumber}`;
+                console.log('HTML string featureIdFull:', featureIdFull);
+                bmpFeatureId = featureIdNumber;
+            }
+            console.log('bmpFeatureId:', bmpFeatureId);
             // return true;
-            return !!possibleBmpFeatures[0];
+            return isInt(bmpFeatureId);
         })
         .mergeMap((action) => {
-            const possibleBmpFeature = action?.data?.features?.map((feature) => {
-                if (
-                    /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
-                    /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
-                    /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
-                ) {
-                    return feature;
-                }
-                return null;
-            });
-            // console.log('possibleBmpFeature:', possibleBmpFeature);
+            let bmpFeatureId = null;
+            if (action?.data?.type === 'FeatureCollection') {
+                action?.data?.features?.map((feature) => {
+                    console.log('FeatureCollection feature:', feature);
+                    if (
+                        /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
+                        /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
+                        /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
+                    ) { bmpFeatureId = feature?.[0]?.properties?.id;}
+                });
+            } else {
+                const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
+                const featureIdFull = `${action.layer.name.split(':')[1]}.${featureIdNumber}`;
+                console.log('HTML string featureIdFull:', featureIdFull);
+                bmpFeatureId = featureIdNumber;
+            }
+            console.log('bmpFeatureId:', bmpFeatureId);
             const projectId = store.getState()?.swamm?.projectData?.id;
             // return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/449/`));
-            return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/${possibleBmpFeature[0]?.properties?.id}/`));
+            return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/${bmpFeatureId}/`));
         })
         .mergeMap((response) => Rx.Observable.of(
             closeIdentify(),

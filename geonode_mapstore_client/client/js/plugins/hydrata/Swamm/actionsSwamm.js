@@ -867,7 +867,7 @@ function submitTargetFormError(e) {
         title: 'Submit Target Form Error',
         autoDismiss: 600,
         position: 'tc',
-        message: `Error saving Target: ${e?.data}`,
+        message: `Error saving Target: ${e?.data?.errors?.[0]}`,
         uid: uuidv1(),
         level: 'error'
     };
