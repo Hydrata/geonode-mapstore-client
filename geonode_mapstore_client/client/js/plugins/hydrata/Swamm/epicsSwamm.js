@@ -150,7 +150,7 @@ export const catchBmpFeatureClick = (action$, store) =>
                         /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
                         /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
                         /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
-                    ) { bmpFeatureId = feature?.[0]?.properties?.id;}
+                    ) { bmpFeatureId = feature?.properties?.id;}
                 });
             } else {
                 const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
@@ -171,7 +171,7 @@ export const catchBmpFeatureClick = (action$, store) =>
                         /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
                         /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
                         /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
-                    ) { bmpFeatureId = feature?.[0]?.properties?.id;}
+                    ) { bmpFeatureId = feature?.properties?.id;}
                 });
             } else {
                 const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
