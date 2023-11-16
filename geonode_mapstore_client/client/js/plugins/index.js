@@ -420,6 +420,10 @@ export const plugins = {
         'SimpleView',
         () => import(/* webpackChunkName: 'plugins/simpleview-plugin' */ '@js/plugins/hydrata/SimpleView/SimpleView')
     ),
+    PiwikProPlugin: toModulePlugin(
+        'PiwikPro',
+        () => import(/* webpackChunkName: 'plugins/simpleview-plugin' */ '@js/plugins/hydrata/PiwikPro/PiwikPro')
+    ),
     SwampsPlugin: toModulePlugin(
         'Swamps',
         () => import(/* webpackChunkName: 'plugins/swamps-plugin' */ '@js/plugins/hydrata/Swamps/Swamps')
