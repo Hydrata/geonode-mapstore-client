@@ -488,3 +488,20 @@
 .swamm-bmp-chart-bar-group-responsive > div > svg > path {
     fill: none;
 }
+
+/*Geostory Map Zoom buttons:*/
+
+.ol-zoom-in {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 10px;
+    border-radius: 3px;
+    font-size: xxx-large;
+}
+
+.ol-zoom-out {
+    width: 80px;
+    height: 80px;
+    border-radius: 3px;
+    font-size: xxx-large;
+}
