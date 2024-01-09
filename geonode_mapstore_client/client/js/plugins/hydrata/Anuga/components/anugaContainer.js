@@ -13,9 +13,8 @@ import {
     stopAnugaScenarioPolling
 } from '../actionsAnuga';
 import {canEditAnugaMap, canViewAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
-import {AnugaInputMenu} from './AnugaInputMenu';
-import {AnugaScenarioMenu} from './AnugaScenarioMenu';
-import {ReviewPanel} from './reviewPanel';
+import {AnugaInputMenu} from './anugaInputMenu';
+import {AnugaScenarioMenu} from './anugaScenarioMenu';
 import {PublicationPanel} from './publicationPanel';
 import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {NetworkMenu} from "./networkMenu";
