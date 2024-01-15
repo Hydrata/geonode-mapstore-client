@@ -18,8 +18,10 @@
 {% block header %}
     {% if job_name == 'hydratabase' %}
         {% include './geonode-mapstore-client/snippets/header_hydratabase.html' %}
+        {% include './geonode-mapstore-client/snippets/piwik_hydratabase.html' %}
     {% elif job_name == 'swamm' %}
         {% include './geonode-mapstore-client/snippets/header_swamm.html' %}
+        {% include './geonode-mapstore-client/snippets/piwik_swamm.html' %}
     {% else %}
         {% include './geonode-mapstore-client/snippets/header.html' %}
     {% endif %}
