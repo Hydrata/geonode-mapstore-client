@@ -113,9 +113,9 @@
         const siteName = '{{ SITE_NAME }}' || 'Geonode';
         const geoServerPublicLocation = '{{ GEOSERVER_PUBLIC_LOCATION }}' || '';
         const isMobile = '{{ request.user_agent.is_mobile }}' === 'True' ? true : false;
-        console.log('** geoNodeSettings:', geoNodeSettings);
-        console.log('** cardsMenuItems:', cardsMenuItems);
-        console.log('** customFilters:', customFilters);
+        {#console.log('** geoNodeSettings:', geoNodeSettings);#}
+        {#console.log('** cardsMenuItems:', cardsMenuItems);#}
+        {#console.log('** customFilters:', customFilters);#}
 
         window.__GEONODE_CONFIG__ = {
             languageCode: '{{ LANGUAGE_CODE }}',

@@ -47,7 +47,7 @@ const initialState = {
 
 export default ( state = initialState, action) => {
     // console.log('state ar: ', state);
-    console.log('Action for Anuga: ', action);
+    console.log('action for Anuga: ', action);
     switch (action.type) {
     case SET_CREATING_ANUGA_LAYER:
         return {
@@ -55,7 +55,7 @@ export default ( state = initialState, action) => {
             isCreatingAnugaLayer: action.isCreatingAnugaLayer
         };
     case SET_ANUGA_RESOURCES:
-        console.log('** anugaHomePageResources', action.data);
+        // console.log('** anugaHomePageResources', action.data);
         return {
             ...state,
             anugaHomePageResources: {

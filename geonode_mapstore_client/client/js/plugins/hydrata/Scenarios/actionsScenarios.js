@@ -31,7 +31,7 @@ const fetchScenariosConfigSuccess = (config) => {
 };
 
 function fetchScenariosConfigError(e) {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return {
         type: FETCH_SCENARIOS_CONFIG_ERROR,
         error: e
@@ -61,7 +61,7 @@ const fetchScenarioOverviewSuccess = (data) => {
 };
 
 function fetchScenarioOverviewError(e) {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return {
         type: FETCH_SCENARIO_OVERVIEW_ERROR,
         error: e
@@ -92,7 +92,7 @@ const saveScenarioSuccess = (data) => {
 };
 
 function saveScenarioError(e) {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return {
         type: SAVE_SCENARIO_ERROR,
         error: e
@@ -136,7 +136,7 @@ const runScenarioSuccess = (data) => {
 };
 
 function runScenarioError(e) {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return {
         type: RUN_SCENARIO_ERROR,
         error: e
@@ -167,7 +167,7 @@ const deleteScenarioSuccess = (scenario) => {
 };
 
 function deleteScenarioError(e) {
-    console.log('*** error:', e);
+    // console.log('*** error:', e);
     return {
         type: DELETE_SCENARIO_ERROR,
         error: e

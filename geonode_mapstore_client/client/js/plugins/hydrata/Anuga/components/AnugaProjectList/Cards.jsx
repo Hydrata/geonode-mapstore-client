@@ -61,7 +61,7 @@ const Cards = ({
             paddingLeft: ulPadding,
             paddingBottom: 0
         };
-    console.log('** Anuga resources Cards.jsx:', resources);
+    // console.log('** Anuga resources Cards.jsx:', resources);
     return (detectedWidth ?
         <ul
             style={containerStyle}
