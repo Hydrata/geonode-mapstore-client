@@ -35,6 +35,7 @@ import { setViewer } from '@mapstore/framework/utils/MapInfoUtils';
 // we need this configuration set for specific components that use recompose/rxjs streams
 import { setObservableConfig } from 'recompose';
 import rxjsConfig from 'recompose/rxjsObservableConfig';
+import PiwikPro from '@piwikpro/react-piwik-pro';
 setObservableConfig(rxjsConfig);
 
 let actionListeners = {};
@@ -64,6 +65,16 @@ export function getVersion() {
 }
 
 export function initializeApp() {
+    if (true) {
+        //swamm.com
+        console.log('initializing PP');
+        PiwikPro.initialize('abcdd6c8-5b23-4263-8616-04442c6c5f8f', 'https://hydrata.piwik.pro');
+        console.log('done PP');
+    }
+    // if (true) {
+    //     //hydrata.com
+    //     PiwikPro.initialize('039a9af7-d329-4e94-9de1-d194de99e103', 'https://hydrata.piwik.pro');
+    // }
 
     // Set X-CSRFToken in axios;
     axios.defaults.xsrfHeaderName = "X-CSRFToken";

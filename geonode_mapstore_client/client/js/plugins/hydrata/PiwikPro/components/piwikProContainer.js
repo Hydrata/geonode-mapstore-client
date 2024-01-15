@@ -6,8 +6,6 @@ const PropTypes = require('prop-types');
 
 import { } from "../actionsPiwikPro";
 
-
-PiwikPro.initialize('abcdd6c8-5b23-4263-8616-04442c6c5f8f', 'https://hydrata.piwik.pro');
 class PiwikProContainer extends React.Component {
     static propTypes = {};
 
