@@ -65,13 +65,13 @@ export function getVersion() {
 }
 
 export function initializeApp() {
-    if (window.location.href.contains("theswamm.com")) {
+    if (window.location.href.includes("theswamm.com")) {
         //swamm.com
         console.log('initializing PP');
         PiwikPro.initialize('abcdd6c8-5b23-4263-8616-04442c6c5f8f', 'https://hydrata.piwik.pro');
         console.log('done PP');
     }
-    if (window.location.href.contains("hydrata.com")) {
+    if (window.location.href.includes("hydrata.com")) {
         //swamm.com
         console.log('initializing PP');
         PiwikPro.initialize('039a9af7-d329-4e94-9de1-d194de99e103', 'https://hydrata.piwik.pro');
