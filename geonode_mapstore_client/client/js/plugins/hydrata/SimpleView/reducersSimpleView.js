@@ -14,6 +14,7 @@ import {
     SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS,
     SET_PROCESSING_SV_ATTRIBUTE_FORM
 } from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
+import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 export default ( state = {}, action) => {
     switch (action.type) {
@@ -28,6 +29,7 @@ export default ( state = {}, action) => {
             config: action.config
         };
     case SET_OPEN_MENU_GROUP_ID:
+        CustomEvent.trackEvent('setOpenMenuGroupId_reducer', `reducer_action_${action.type}`, `reducer_name_${action?.openMenuGroupId}`, `reducer_value_${state?.config?.project_id}`);
         if (state.openMenuGroupId === action.openMenuGroupId) {
             return {
                 ...state,
