@@ -29,7 +29,7 @@ export default ( state = {}, action) => {
             config: action.config
         };
     case SET_OPEN_MENU_GROUP_ID:
-        CustomEvent.trackEvent('setOpenMenuGroupId_reducer', `reducer_action_${action.type}`, `reducer_name_${action?.openMenuGroupId}`, `reducer_value_${state?.config?.project_id}`);
+        CustomEvent.trackEvent('setOpenMenuGroupId_reducer', `reducer_action_${action.type}`, `reducer_name_${action?.openMenuGroupId}`);
         if (state.openMenuGroupId === action.openMenuGroupId) {
             return {
                 ...state,
