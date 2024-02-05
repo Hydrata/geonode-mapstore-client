@@ -1,6 +1,11 @@
 import Rx from "rxjs";
 import axios from "../../../../MapStore2/web/client/libs/ajax";
-import {addLayer, removeLayer, refreshLayers, moveNode} from '../../../../MapStore2/web/client/actions/layers';
+import {
+    addLayer,
+    removeLayer,
+    refreshLayers,
+    moveNode
+} from '../../../../MapStore2/web/client/actions/layers';
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {zoomToExtent} from "../../../../MapStore2/web/client/actions/map";
 import {saveDirectContent} from "@js/actions/gnsave";
@@ -233,14 +238,16 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         return Rx.Observable.empty();
                     }
                     // const numberOfInputDataGroups = (store.getState()?.layers.groups.filter(group => group.id === "Input Data")?.[0]?.nodes?.length || 2) - 1;
+                    const elevationLayerData = response.data[0];
+                    const hillshadeLayerData = response.data?.[1];
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.of(() => {
                             let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
                             return refreshLayers(wmsLayers);
                         }),
-                        Rx.Observable.of(addLayer(response.data[0])),  // The elevation
-                        Rx.Observable.of(addLayer(response.data?.[1])),  // The hillshade
+                        Rx.Observable.of(addLayer(elevationLayerData)),  // The elevation
+                        Rx.Observable.of(addLayer(hillshadeLayerData)),  // The hillshade
                         Rx.Observable.of(zoomToExtent(
                             response.data[0]?.bbox?.bounds,
                             response.data[0]?.bbox?.crs,
@@ -334,15 +341,18 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name)
                                 ) {
                                     // console.log('turning on: scenariosToLoadResults', scenarioToLoadResults);
+                                    const depthVelocityLayer = scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max;
+                                    const depthLayer = scenarioToLoadResults.latest_run.gn_layer_depth_max;
+                                    const velocityLayer = scenarioToLoadResults.latest_run.gn_layer_velocity_max;
                                     return Rx.Observable
                                         .concat(
                                             Rx.Observable.of(removeLayer(existingResultLayers?.[0]?.id)),
                                             Rx.Observable.of(removeLayer(existingResultLayers?.[1]?.id)),
                                             Rx.Observable.of(removeLayer(existingResultLayers?.[2]?.id)),
                                             Rx.Observable.of(setAnugaPollingData(action.scenarios)),
-                                            Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max)),
-                                            Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_depth_max)),
-                                            Rx.Observable.of(addLayer(scenarioToLoadResults.latest_run.gn_layer_velocity_max)),
+                                            Rx.Observable.of(addLayer(depthVelocityLayer)),
+                                            Rx.Observable.of(addLayer(depthLayer)),
+                                            Rx.Observable.of(addLayer(velocityLayer)),
                                             Rx.Observable.of(setAnugaScenarioResultsLoaded(scenarioToLoadResults?.id, true)),
                                             Rx.Observable.of(refreshLayers(wmsLayers))
                                         );
