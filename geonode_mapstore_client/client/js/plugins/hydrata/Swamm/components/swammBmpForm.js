@@ -655,108 +655,108 @@ class SwammBmpFormClass extends React.Component {
                                         <tbody>
                                             <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Nitrogen load previous: </td>
-                                                <td>{this.props.storedBmpForm?.surface_previous_n_load?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_previous_n_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_previous_n_load?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_previous_n_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_n_load?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_previous_n_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_previous_n_load?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_previous_n_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_previous_n_load / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
                                                 <td>Nitrogen load reduction: </td>
-                                                <td>{this.props.storedBmpForm?.surface_n_load_reduction?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_n_load_reduction?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_n_load_reduction?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_n_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_n_load_reduction?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_n_load_reduction?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_n_load_reduction?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_n_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_n_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
                                                 <td>Nitrogen load new: </td>
-                                                <td>{this.props.storedBmpForm?.surface_new_n_load?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_new_n_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_new_n_load?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_new_n_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_new_n_load?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_new_n_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_new_n_load?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_new_n_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_new_n_load / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Phosphorus load previous: </td>
-                                                <td>{this.props.storedBmpForm?.surface_previous_p_load?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_previous_p_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_previous_p_load?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_previous_p_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_p_load?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_previous_p_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_previous_p_load?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_previous_p_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_previous_p_load / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
                                                 <td>Phosphorus load reduction: </td>
-                                                <td>{this.props.storedBmpForm?.surface_p_load_reduction?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_p_load_reduction?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_p_load_reduction?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_p_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_p_load_reduction?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_p_load_reduction?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_p_load_reduction?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_p_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_p_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
                                                 <td>Phosphorus load new: </td>
-                                                <td>{this.props.storedBmpForm?.surface_new_p_load?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_new_p_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_new_p_load?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_new_p_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_new_p_load?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_new_p_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_new_p_load?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_new_p_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_new_p_load / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Sediment load previous: </td>
-                                                <td>{this.props.storedBmpForm?.surface_previous_s_load?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_previous_s_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_previous_s_load?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_previous_s_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_s_load?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_previous_s_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_previous_s_load?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_previous_s_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_previous_s_load / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>tons/<wbr/>year</td>
                                             </tr>
                                             <tr>
                                                 <td>Sediment load reduction: </td>
-                                                <td>{this.props.storedBmpForm?.surface_s_load_reduction?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_s_load_reduction?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_s_load_reduction?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_s_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_s_load_reduction?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_s_load_reduction?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_s_load_reduction?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_s_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_s_load_reduction / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>tons/<wbr/>year</td>
                                             </tr>
                                             <tr style={{borderBottom: "solid 3px rgb(255, 255, 255, 1)"}}>
                                                 <td>Sediment load new: </td>
-                                                <td>{this.props.storedBmpForm?.surface_new_s_load?.toFixed(0)}</td>
-                                                <td>{this.props.storedBmpForm?.tiled_new_s_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.surface_new_s_load?.toPrecision(3))}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.tiled_new_s_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_new_s_load?.toPrecision(3))}</td>
-                                                <td>{this.props.storedBmpForm?.total_new_s_load?.toFixed(0)}</td>
+                                                <td>{parseFloat(this.props.storedBmpForm?.total_new_s_load?.toPrecision(3))}</td>
                                                 {this.props.watershedIsFootprint ?
-                                                    <td>{(this.props.storedBmpForm?.total_new_s_load / this.props.storedBmpForm?.calculated_footprint_area).toFixed(1)}</td>
+                                                    <td>{parseFloat((this.props.storedBmpForm?.total_new_s_load / this.props.storedBmpForm?.calculated_footprint_area).toPrecision(3))}</td>
                                                     : null
                                                 }
                                                 <td className={"text-left"}>tons/<wbr/>year</td>
