@@ -473,7 +473,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                             style={{margin: "2px", borderRadius: "2px"}}
                                                                             onClick={() => {
                                                                                 this.props.setAnugaScenarioMenu(false);
-                                                                                this.props.selectAnugaScenario(scenario.id);
+                                                                                this.props.selectAnugaScenario(scenario);
                                                                                 this.props.showAnugaRunMenu(true);
                                                                             }}
                                                                         >
@@ -512,7 +512,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 bsSize={'xsmall'}
                                                                 style={{margin: "2px", borderRadius: "2px"}}
                                                                 onClick={() => {
-                                                                    this.props.selectAnugaScenario(scenario.id);
+                                                                    this.props.selectAnugaScenario(scenario);
                                                                     this.props.showAnugaScenarioLog(scenario.id);
                                                                 }}
                                                             >
@@ -666,7 +666,7 @@ const mapDispatchToProps = ( dispatch ) => {
         runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario)),
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
-        selectAnugaScenario: (scenarioId) => dispatch(selectAnugaScenario(scenarioId)),
+        selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
         showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),

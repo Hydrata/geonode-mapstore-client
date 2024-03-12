@@ -659,10 +659,10 @@ function updateComputeInstanceSuccess(data) {
     };
 }
 
-const selectAnugaScenario = (scenarioId) => {
+const selectAnugaScenario = (scenario) => {
     return {
         type: SELECT_ANUGA_SCENARIO,
-        scenarioId
+        scenario
     };
 };
 
