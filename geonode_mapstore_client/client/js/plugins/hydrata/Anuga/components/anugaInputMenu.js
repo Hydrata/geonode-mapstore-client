@@ -6,7 +6,8 @@ const Spinner = require('react-spinkit');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
-    setVisibleUploaderPanel
+    setVisibleUploaderPanel,
+    setVisibleIntroduction
 } from "../../SimpleView/actionsSimpleView";
 import {
     addAnugaBoundary,
@@ -92,7 +93,9 @@ class AnugaInputMenuClass extends React.Component {
         catchmentModels: PropTypes.array,
         nodesModels: PropTypes.array,
         linksModels: PropTypes.array,
-        setAnugaInputMenu: PropTypes.func
+        setAnugaInputMenu: PropTypes.func,
+        visibleIntroduction: PropTypes.bool,
+        setVisibleIntroduction: PropTypes.func
     };
 
     static defaultProps = {}
@@ -100,6 +103,7 @@ class AnugaInputMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+            visibleIntroduction: true,
             showAdvanced: false,
             boundaryTitle: '',
             frictionTitle: '',
@@ -354,6 +358,32 @@ class AnugaInputMenuClass extends React.Component {
                                                 border: "none"
                                             }}
                                         >
+                                            <span
+                                                className={"btn glyphicon menu-row-glyph " + (this.props.visibleIntroduction ? "glyphicon-ok" : "glyphicon-remove")}
+                                                style={{"color": this.props.visibleIntroduction ? "limegreen" : "red"}}
+                                                onClick={() => {
+                                                    this.props.setVisibleIntroduction(!this.props.visibleIntroduction);
+                                                }}
+                                            />
+                                            <span className="menu-row-text">Introduction</span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        className={'menu-rows-container'}
+                                        style={{
+                                            "border": "1px solid rgba(255, 255, 255)",
+                                            "borderRadius": "3px",
+                                            "margin": "3px 0"
+                                        }}
+                                    >
+                                        <div
+                                            className={"row menu-row menu-row-header"}
+                                            style={{
+                                                width: "540px",
+                                                textAlign: "left",
+                                                border: "none"
+                                            }}
+                                        >
                                             <span className="pull-left menu-row-text">Full Mesh</span>
                                         </div>
                                         {
@@ -363,7 +393,8 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.fullMeshLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"}
+                                                     style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     Mesh will appear here when a Scenario is built.
                                                 </div>
                                                 : null
@@ -432,7 +463,8 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.meshRegionLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"}
+                                                     style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     None
                                                 </div>
                                                 : null
@@ -501,7 +533,8 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.frictionLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"}
+                                                     style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     None
                                                 </div>
                                                 : null
@@ -570,7 +603,8 @@ class AnugaInputMenuClass extends React.Component {
                                         }
                                         {
                                             this.props.structureLayers?.length === 0 ?
-                                                <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
+                                                <div className={"row menu-row menu-row"}
+                                                     style={{width: "540px", textAlign: "left", border: "none"}}>
                                                     None
                                                 </div>
                                                 : null
@@ -709,7 +743,8 @@ const mapStateToProps = (state) => {
         nodesModels: state?.anuga?.nodes,
         linksModels: state?.anuga?.links,
         isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer,
-        canEditAnugaMap: canEditAnugaMap(state)
+        canEditAnugaMap: canEditAnugaMap(state),
+        visibleIntroduction: state?.simpleView?.visibleIntroduction
     };
 };
 
@@ -738,7 +773,8 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
-        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle))
+        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle)),
+        setVisibleIntroduction: (visible) => dispatch(setVisibleIntroduction(visible))
         // createCatchment: (catchmentTitle) => dispatch(createCatchment(catchmentTitle)),
         // createNodes: (nodesTitle) => dispatch(createNodes(nodesTitle)),
         // createLinks: (linksTitle) => dispatch(createLinks(linksTitle))

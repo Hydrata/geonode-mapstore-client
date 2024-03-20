@@ -25,6 +25,7 @@ class SimpleViewContainer extends React.Component {
     };
 
     static defaultProps = {
+        visibleIntroduction: true
     };
 
     constructor(props) {
