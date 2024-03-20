@@ -42,14 +42,16 @@ const AnugaProjectList = withResizeDetector(({
         fontSize: '1rem',
         ...(!isPreviousPageAvailable || loading ? { color: 'grey', cursor: 'not-allowed' } : { cursor: 'pointer' })
     };
-
+    console.log('*** AnugaProjectList count:', count);
+    console.log('*** AnugaProjectList resources:', resources);
+    console.log('*** AnugaProjectList resources.length:', resources.length);
     return (
         <div className="gn-card-grid">
             {header}
             <div style={{
                 display: 'flex', width: '100%'
             }}>
-                <div style={{ flex: 1, width: '100%' }}>
+                <div style={{ flex: 1, width: '100%', display: resources.length > 0 ? "block" : "none"}}>
                     <div className="gn-card-grid-container" style={containerStyle}>
                         <h3><HTML msgId={`Your Projects:`}/></h3>
                         <div>

@@ -5,7 +5,8 @@
     <div class="jumbotron">
         <div class="gn-hero-description">
             <h1>Hydrata</h1>
-            <p>Online, open-source, surface water modelling</p>
+            <p>An online interface to the ANUGA open source hydraulic model.</p>
+            <p>Collaborative, transparent surface water modelling.</p>
         </div>
         <p class="gn-hero-tools">
         </p>
@@ -21,17 +22,17 @@
 
     <div id="new-project-form">
         <form action="/anuga/api/project/" method="post">
+            {% csrf_token %}
             <label for="name" id="project-create-text">Create New Project:</label>
             <input type="text" id="name" name="name" value="" placeholder="project name" class="project-create-text-input"/>
             <input type="submit" value="Create" class="btn btn-success"/>
-            {% csrf_token %}
         </form>
     </div>
 </div>
 {% else %}
+<div class="container">
     {% include './register_hydratabase.html' %}
-{% endif %}
-
+</div>
 <div class="container">
     <div class="row feature-circles">
         <div class="col-lg-4">
@@ -51,6 +52,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <div class="container text-center hero container-fluid">
     <div class="gn-container" style="text-shadow: none;">
@@ -64,7 +66,7 @@
             <div class="col-md-12 text-align right">
                 <span class="pull-right">
                     <a href="https://hydrata.com/" style="font-size:20px">
-                        &copy Hydrata 2023 <img src="{{ STATIC_URL }}img/logo-bg-lowres.png" height="30px">
+                        &copy Hydrata 2024 <img src="{{ STATIC_URL }}img/logo-bg-lowres.png" height="30px">
                     </a>
                 </span>
             </div>
