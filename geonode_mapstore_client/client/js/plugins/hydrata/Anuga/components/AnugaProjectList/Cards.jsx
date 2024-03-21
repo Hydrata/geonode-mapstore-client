@@ -21,7 +21,8 @@ const Cards = ({
     options,
     onResize,
     downloading,
-    getDetailHref
+    getDetailHref,
+    user
 }) => {
     const width = detectedWidth || containerWidth;
     const margin = 24;
@@ -68,27 +69,29 @@ const Cards = ({
         >
             {resources?.map((resource, idx) => {
                 const { isProcessing } = getResourceStatuses(resource);
-
-                return (
-                    <li
-                        key={resource?.pk}
-                        style={(gridLayoutSpace(idx))}
-                    >
-                        <ResourceCard
-                            active={isCardActive(resource)}
-                            data={resource}
-                            formatHref={formatHref}
-                            options={options}
-                            buildHrefByTemplate={buildHrefByTemplate}
-                            layoutCardsStyle="grid"
-                            loading={isProcessing}
-                            readOnly={isProcessing}
-                            featured
-                            downloading={downloading?.find((download) => download.pk === resource.pk) ? true : false}
-                            getDetailHref={getDetailHref}
-                        />
-                    </li>
-                );
+                if (resource?.owner?.pk === user?.pk || user?.is_superuser) {
+                    return (
+                        <li
+                            key={resource?.pk}
+                            style={(gridLayoutSpace(idx))}
+                        >
+                            <ResourceCard
+                                active={isCardActive(resource)}
+                                data={resource}
+                                formatHref={formatHref}
+                                options={options}
+                                buildHrefByTemplate={buildHrefByTemplate}
+                                layoutCardsStyle="grid"
+                                loading={isProcessing}
+                                readOnly={isProcessing}
+                                featured
+                                downloading={downloading?.find((download) => download.pk === resource.pk) ? true : false}
+                                getDetailHref={getDetailHref}
+                            />
+                        </li>
+                    );
+                }
+                return null;
             })}
         </ul> : <div />
     );

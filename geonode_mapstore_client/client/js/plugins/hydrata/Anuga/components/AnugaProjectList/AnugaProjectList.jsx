@@ -28,7 +28,8 @@ const AnugaProjectList = withResizeDetector(({
     onLoad,
     width,
     downloading,
-    getDetailHref
+    getDetailHref,
+    user
 }) => {
 
     const [count, setCount] = useState();
@@ -42,9 +43,6 @@ const AnugaProjectList = withResizeDetector(({
         fontSize: '1rem',
         ...(!isPreviousPageAvailable || loading ? { color: 'grey', cursor: 'not-allowed' } : { cursor: 'pointer' })
     };
-    console.log('*** AnugaProjectList count:', count);
-    console.log('*** AnugaProjectList resources:', resources);
-    console.log('*** AnugaProjectList resources.length:', resources.length);
     return (
         <div className="gn-card-grid">
             {header}
@@ -76,6 +74,7 @@ const AnugaProjectList = withResizeDetector(({
                             }}
                             downloading={downloading}
                             getDetailHref={getDetailHref}
+                            user={user}
                         />
                         <div className="gn-card-grid-pagination featured-list">
 
@@ -107,7 +106,8 @@ AnugaProjectList.defaultProps = {
     formatHref: () => '#',
     isCardActive: () => false,
     isPreviousPageAvailable: false,
-    onLoad: () => { }
+    onLoad: () => { },
+    user: null
 };
 
 export default AnugaProjectList;

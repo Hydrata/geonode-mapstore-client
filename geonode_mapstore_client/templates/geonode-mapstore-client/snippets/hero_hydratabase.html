@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load static %}
+{% load account socialaccount %}
 
 <div id="gn-hero" class="gn-hero hydrata-hero-background">
     <div class="jumbotron">
@@ -31,8 +32,119 @@
 </div>
 {% else %}
 <div class="container">
-    {% include './register_hydratabase.html' %}
+    <div id="home-page-forms">
+        <div id="home-page-register-form">
+            <p class="home-page-form-heading-text">Create Account</p>
+            <form method="post" id="signup_form" action="{% url 'gn_anuga:home' %}">
+                <div class="form-content">
+                    <div class="form-group">
+                        <label for="signup_email">Email:</label>
+                        <input type="text" id="signup_email" name="email" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.email.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.email.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label for="signup_password1">Password:</label>
+                        <div class="input-group">
+                            <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input"/>
+                            <span class="input-group-addon">
+                                <i id="signup-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleSignupPasswordVisibility()" style="cursor: pointer;"></i>
+                            </span>
+                            {% if form.password.errors %}
+                                <div class="home-page-form-error-messages">
+                                    {% for error in form.password.errors %}
+                                        <p class="error-message">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="signup_first_name">First name:</label>
+                      <input type="text" id="signup_first_name" name="first_name" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.first_name.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.first_name.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                      <label for="signup_last_name">Last name:</label>
+                      <input type="text" id="signup_last_name" name="last_name" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.last_name.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.last_name.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                      <label for="signup_organization">Organisation:</label>
+                      <input type="text" id="signup_organization" name="organization" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.organization.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.organization.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="form-footer">
+                    {% csrf_token %}
+                    {{ form.captcha }}
+                    {% if form.non_field_errors %}
+                      <div class="alert alert-danger" role="alert">
+                        {% for error in form.non_field_errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                    <input type="submit" value="Create Account" class="btn btn-success"/>
+                    {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+        <div id="home-page-signin-form">
+            <form method="post" id="signin_form" action="{% url 'account_login' %}" autocapitalize="off">
+                <div class="form-content">
+                    <p class="home-page-form-heading-text">Existing User</p>
+                    <div class="form-group">
+                      <label for="signin_email">Email:</label>
+                      <input type="text" id="signin_email" name="login" placeholder="email" class="home-page-register-text-input"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="signin_password">Password:</label>
+                        <div class="input-group">
+                            <input type="password" id="signin_password" name="password1" placeholder="required" class="form-control home-page-register-text-input"/>
+                            <span class="input-group-addon">
+                                <i id="signin-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleLoginPasswordVisibility()" style="cursor: pointer;"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-footer">
+                    {% csrf_token %}
+                    <input type="submit" value="Login" class="btn btn-success"/>
+                    {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+
 <div class="container">
     <div class="row feature-circles">
         <div class="col-lg-4">
@@ -73,3 +185,45 @@
         </div>
     </div>
 </footer>
+
+
+{% block scripts %}
+    <script>
+        function toggleSignupPasswordVisibility() {
+            let passwordInput = document.getElementById("signup_password1");
+            let toggleIcon = document.getElementById("signup-password-icon");
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                toggleIcon.classList.remove("glyphicon-eye-open");
+                toggleIcon.classList.add("glyphicon-eye-close");
+            } else {
+                passwordInput.type = "password";
+                toggleIcon.classList.remove("glyphicon-eye-close");
+                toggleIcon.classList.add("glyphicon-eye-open");
+            }
+        }
+        function toggleLoginPasswordVisibility() {
+            let passwordInput = document.getElementById("signin_password");
+            let toggleIcon = document.getElementById("signin-password-icon");
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                toggleIcon.classList.remove("glyphicon-eye-open");
+                toggleIcon.classList.add("glyphicon-eye-close");
+            } else {
+                passwordInput.type = "password";
+                toggleIcon.classList.remove("glyphicon-eye-close");
+                toggleIcon.classList.add("glyphicon-eye-open");
+            }
+        }
+
+        console.log('context')
+        let public_maps = "{{public_maps}}";
+        let publications = "{{publications}}";
+        let permitted_view_maps = "{{permitted_view_maps}}";
+        let no_permitted_view_maps = "{{no_permitted_view_maps}}";
+        console.log('public_maps', public_maps);
+        console.log('publications', publications);
+        console.log('permitted_view_maps', permitted_view_maps);
+        console.log('no_permitted_view_maps', no_permitted_view_maps);
+    </script>
+{% endblock scripts %}

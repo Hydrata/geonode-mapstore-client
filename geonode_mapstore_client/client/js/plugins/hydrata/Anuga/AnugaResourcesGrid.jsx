@@ -30,10 +30,12 @@ import resourceServiceEpics from '@js/epics/resourceservice';
 const ConnectedAnugaResourcesGrid = connect(
     createSelector([
         state => state?.anuga?.anugaHomePageResources?.projects,
-        state => state?.anuga?.anugaHomePageResources?.loading || false
-    ], (resources, loading) => ({
+        state => state?.anuga?.anugaHomePageResources?.loading || false,
+        state => state?.security?.user
+    ], (resources, loading, user) => ({
         resources,
-        loading
+        loading,
+        user
     })
     ), {
         updateAnugaResources
