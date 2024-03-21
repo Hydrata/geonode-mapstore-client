@@ -5,7 +5,7 @@
 <div id="home-page-forms">
     <div id="home-page-register-form">
         <p class="home-page-form-heading-text">Create Account</p>
-        <form method="post" id="signup_form" action="{% url 'gn_anuga:hydrata-signup' %}">
+        <form method="post" id="signup_form" action="{% url 'gn_anuga:home' %}">
             <div class="form-content">
                 <div class="form-group">
                     <label for="signup_email">Email:</label>
@@ -65,6 +65,7 @@
             </div>
             <div class="form-footer">
                 {% csrf_token %}
+                {{ form.captcha }}
                 {% if form.non_field_errors %}
                   <div class="alert alert-danger" role="alert">
                     {% for error in form.non_field_errors %}
