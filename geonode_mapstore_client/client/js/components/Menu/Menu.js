@@ -9,6 +9,7 @@
 import React, {forwardRef} from 'react';
 import PropTypes from 'prop-types';
 import MenuItem from './MenuItem';
+import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 /**
 * @module components/Menu
@@ -43,7 +44,9 @@ const Menu = forwardRef(({
             {items
                 .map((item, idx) => {
                     return (
-                        <li key={idx}>
+                        <li
+                            key={idx}
+                        >
                             <MenuItem
                                 variant={item.variant || variant}
                                 item={{ ...item, id: item.id || idx }}
@@ -55,6 +58,10 @@ const Menu = forwardRef(({
                                 }}
                                 classItem={childrenClass}
                                 resourceName={resourceName}
+                                onClick={() => {
+                                    console.log('tracking MenuItem item', item);
+                                    CustomEvent.trackEvent('button', `click`, `MenuItem-${item.id}`);
+                                }}
                             />
                         </li>
                     );

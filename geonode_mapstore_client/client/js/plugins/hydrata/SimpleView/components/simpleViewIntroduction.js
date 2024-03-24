@@ -5,6 +5,7 @@ const PropTypes = require('prop-types');
 import {setVisibleIntroduction} from "../actionsSimpleView";
 import Modal from "../../../../../MapStore2/web/client/components/misc/Modal";
 import Button from "../../../../../MapStore2/web/client/components/misc/Button";
+import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 class simpleViewIntroduction extends React.Component {
     static propTypes = {
@@ -24,7 +25,10 @@ class simpleViewIntroduction extends React.Component {
             <div className={'introduction-container'}>
                 <Modal
                     show
-                    onHide={() => this.props.setVisibleIntroduction(false)}
+                    onHide={() => {
+                        this.props.setVisibleIntroduction(false);
+                        CustomEvent.trackEvent('button', `click`, `close_introduction_cross`);
+                    }}
                 >
                     <Modal.Header closeButton>
                         <Modal.Title id="contained-modal-title-lg">
@@ -40,7 +44,12 @@ class simpleViewIntroduction extends React.Component {
                             software.
                         </p>
                         <Button
-                            onClick={() => this.props.setVisibleIntroduction(false)}
+                            onClick = {
+                                () => {
+                                    this.props.setVisibleIntroduction(false);
+                                    CustomEvent.trackEvent('button', `click`, `close_introduction_accept`);
+                                }
+                            }
                             bsStyle="primary"
                             style={{marginLeft: "45%"}}
                         >

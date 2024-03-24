@@ -9,13 +9,21 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import FaIcon from '@js/components/FaIcon';
 import NavLink from '@js/components/Menu/NavLink';
+import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 function BreadCrumb({ resource, titleItems }) {
 
     return (
         <div className="gn-action-navbar-title">
             <div>
-                <NavLink href="#" className="gn-action-navbar-breadcrumb-link">
+                <NavLink
+                    href="/"
+                    className="gn-action-navbar-breadcrumb-link"
+                    onClick={() => {
+                        console.log('tracking breadcrumb-home');
+                        CustomEvent.trackEvent('button', `click`, `breadcrumb-home`);
+                    }}
+                >
                     <FaIcon name="home" />
                 </NavLink>
                 <FaIcon

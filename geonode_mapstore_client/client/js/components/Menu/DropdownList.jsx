@@ -18,10 +18,19 @@ import FaIcon from '@js/components/FaIcon';
 import {
     isValidBadgeValue
 } from '@js/utils/MenuUtils';
+import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 const itemElement = ({ labelId, href, badge, target }) =>  (
     <>
-        <NavLink href={href} target={target}>{labelId && <Message msgId={labelId} />}
+        <NavLink
+            href={href}
+            target={target}
+            onClick={() => {
+                console.log('tracking itm Element labelId:', labelId);
+                CustomEvent.trackEvent('button', `click`, `dropdownItem-${labelId}`);
+            }}
+        >
+            {labelId && <Message msgId={labelId} />}
             { isValidBadgeValue(badge) && <Badge>{badge}</Badge>}
         </NavLink>
     </>);
@@ -31,7 +40,18 @@ const itemsList = (items) => (items && items.map((item) => {
     const { labelId, href, badge, target, type, Component, className } = item;
 
     if (type === 'plugin' && Component) {
-        return (<li><Component variant="default" className={className} showMessage /></li>);
+        return (
+            <li>
+                <Component
+                    variant="default"
+                    className={className}
+                    showMessage
+                    onClick={() => {
+                        console.log('tracking Component:', labelId);
+                        CustomEvent.trackEvent('button', `click`, `dropdownItem-${item?.labelId}`);
+                    }}
+                />
+            </li>);
     }
 
     return itemElement({ labelId, href, badge, target });
@@ -92,9 +112,19 @@ const DropdownList = ({
 
     const dropdownItems = items
         .map((itm, idx) => {
-
             if (itm.type === 'plugin' && itm.Component) {
-                return (<li><itm.Component variant="default" className={itm.className} showMessage /></li>);
+                return (
+                    <li>
+                        <itm.Component
+                            variant="default"
+                            className={itm.className}
+                            showMessage
+                            onClick={() => {
+                                console.log('tracking plugin itm:', itm?.name);
+                                CustomEvent.trackEvent('button', `click`, `dropdownItem-${itm?.name}`);
+                            }}
+                        />
+                    </li>);
             }
             if (itm.type === 'divider') {
                 return <Dropdown.Divider key={idx} />;
@@ -108,6 +138,10 @@ const DropdownList = ({
                         as={itm?.items ? 'span' : 'a' }
                         target={itm.target}
                         className={itm.className}
+                        onClick={() => {
+                            console.log('tracking Dropdown.Item itm:', itm?.labelId);
+                            CustomEvent.trackEvent('button', `click`, `dropdownItem-${itm?.labelId}`);
+                        }}
                     >
                         {itm.labelId && <Message msgId={itm.labelId} /> || itm.label}
                         {isValidBadgeValue(itm.badge) && <Badge>{itm.badge}</Badge>}
@@ -120,7 +154,7 @@ const DropdownList = ({
             );
         });
 
-    const DropdownToogle = (
+    const DropdownToggle = (
         <Dropdown.Toggle
             id={ `gn-toggle-dropdown-${id}`}
             bsStyle={variant}
@@ -128,6 +162,10 @@ const DropdownList = ({
             style={toogleStyle}
             bsSize={size}
             noCaret
+            onClick={() => {
+                console.log('tracking Dropdown.Toggle id:', labelId);
+                CustomEvent.trackEvent('button', `click`, `dropdownToggle-${labelId}`);
+            }}
         >
             {toogleImage
                 ? <img src={toogleImage} />
@@ -159,7 +197,7 @@ const DropdownList = ({
             className={`${dropdownClass}`}
             pullRight={alignRight}
         >
-            {DropdownToogle}
+            {DropdownToggle}
             {containerNode
                 ? createPortal(<Dropdown.Menu>
                     {dropdownItems}

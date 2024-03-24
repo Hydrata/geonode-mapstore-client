@@ -22,6 +22,7 @@ import FaIcon from '@js/components/FaIcon';
 import tooltip from '@mapstore/framework/components/misc/enhancers/tooltip';
 import { openQueryBuilder } from '@mapstore/framework/actions/layerFilter';
 import { getSelectedLayer } from '@mapstore/framework/selectors/layers';
+import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 // buttons override to use in ActionNavbar for plugin imported from mapstore
 
@@ -37,7 +38,11 @@ export const PrintActionButton = connect(
         <Button
             variant={variant}
             size={size}
-            onClick={() => onClick()}
+            onClick={() => {
+                onClick();
+                console.log('tracking PrintActionButton');
+                CustomEvent.trackEvent('button', `click`, `PrintActionButton`);
+            }}
         >
             <Message msgId="printbutton" />
         </Button>
@@ -58,7 +63,11 @@ export const CatalogActionButton = connect(
         <Button
             variant={variant}
             size={size}
-            onClick={() => onClick()}
+            onClick={() => {
+                onClick();
+                console.log('tracking CatalogActionButton');
+                CustomEvent.trackEvent('button', `click`, `CatalogActionButton`);
+            }}
         >
             <Message msgId="catalog.title" />
         </Button>
@@ -78,7 +87,11 @@ export const MeasureActionButton = connect(
         <Button
             variant={variant}
             size={size}
-            onClick={() => onClick()}
+            onClick={() => {
+                onClick();
+                console.log('tracking MeasureActionButton');
+                CustomEvent.trackEvent('button', `click`, `MeasureActionButton`);
+            }}
         >
             <Message msgId="measureComponent.Measure" />
         </Button>
@@ -105,7 +118,11 @@ export const FullScreenActionButton = connect(createSelector([
             tooltip={ enabled ?  <Message msgId="gnviewer.nativescreen"/> : <Message msgId="gnviewer.fullscreen"/>  }
             variant={variant}
             size={size}
-            onClick={() => onClick(!enabled)}
+            onClick={() => {
+                onClick(!enabled);
+                console.log('tracking FullScreenButton');
+                CustomEvent.trackEvent('button', `click`, `FullScreenButton`);
+            }}
         >
             <FaIcon name={enabled ? "expand" : "expand"} />
         </FullScreenButton>
@@ -124,7 +141,11 @@ export const LayerDownloadActionButton = connect(
         <Button
             variant={variant}
             size={size}
-            onClick={() => onClick()}
+            onClick={() => {
+                onClick();
+                console.log('tracking LayerDownloadActionButton');
+                CustomEvent.trackEvent('button', `click`, `LayerDownloadActionButton`);
+            }}
         >
             <Message msgId="gnhome.dataset" />
         </Button>
