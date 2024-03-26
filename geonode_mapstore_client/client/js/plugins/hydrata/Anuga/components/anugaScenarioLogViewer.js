@@ -6,6 +6,7 @@ import '../../SimpleView/simpleView.css';
 import {
     showAnugaScenarioLog
 } from "../actionsAnuga";
+import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 class AnugaScenarioLogViewerClass extends React.Component {
     static propTypes = {
@@ -29,7 +30,11 @@ class AnugaScenarioLogViewerClass extends React.Component {
                     Scenario: {this.props.selectedScenario?.name}
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
-                        onClick={() => this.props.showAnugaScenarioLog(false)}
+                        onClick={() => {
+                            this.props.showAnugaScenarioLog(false);
+                            console.log(`tracking anuga-scenario-log-close`);
+                            CustomEvent.trackEvent('button', `click`, `anuga-scenario-log-close`);
+                        }}
                     />
                 </h5>
                 <pre id={'anuga-scenario-log-viewer'} style={{color: "white", background: "black"}}>
