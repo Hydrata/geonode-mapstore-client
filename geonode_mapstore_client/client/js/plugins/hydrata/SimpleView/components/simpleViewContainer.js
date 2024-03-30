@@ -54,7 +54,7 @@ class SimpleViewContainer extends React.Component {
                                         style={{left: (index + this.props.menuSpaces + 1) * 100 + 20}}
                                         onClick={() => {
                                             this.props.setOpenMenuGroupId(menu?.id);
-                                            CustomEvent.trackEvent('component_setOpenMenuGroupId', `action_${menu?.id}`, `name_${menu?.id}`);
+                                            CustomEvent.trackEvent('component_setOpenMenuGroupId', `action_${menu?.title}`, `name_${menu?.title}`);
                                         }}>
                                         {menu?.title === 'Default' ? menu?.name : menu?.title}
                                     </button>
