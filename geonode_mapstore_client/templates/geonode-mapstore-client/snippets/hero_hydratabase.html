@@ -135,7 +135,10 @@
                 </div>
                 <div class="form-footer">
                     {% csrf_token %}
-                    <input type="submit" value="Login" class="btn btn-success"/>
+                    <div class="form-footer-row">
+                        <input type="submit" value="Login" class="btn btn-success" style="max-width: 100px"/>
+                        <a href="/account/password/reset/">Forgot Password?</a>
+                    </div>
                     {% if redirect_field_value %}
                         <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
                     {% endif %}
