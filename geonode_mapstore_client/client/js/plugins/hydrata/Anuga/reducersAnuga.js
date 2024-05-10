@@ -55,14 +55,24 @@ export default ( state = initialState, action) => {
             isCreatingAnugaLayer: action.isCreatingAnugaLayer
         };
     case SET_ANUGA_RESOURCES:
-        // console.log('** anugaHomePageResources', action.data);
+        console.log('** anugaHomePageResources', action.data);
+        let projects = action.data?.projects
+            ?.map(project => project?.base_map_full)
+            .filter(map => !map?.featured);
+        console.log('projects:', projects);
+        if (projects) {
+            projects.sort((a, b) => {
+                let dateA = a?.base_map_full ? new Date(a.base_map_full.last_updated) : new Date(0);
+                let dateB = b?.base_map_full ? new Date(b.base_map_full.last_updated) : new Date(0);
+                return dateB - dateA;
+            });
+        }
+        console.log('projects2:', projects);
         return {
             ...state,
             anugaHomePageResources: {
                 ...action.data,
-                projects: action.data?.projects
-                    ?.map(project => project?.base_map_full)
-                    .filter(map => !map.featured)
+                projects: projects
             }
         };
     case UPDATE_ANUGA_SCENARIO:

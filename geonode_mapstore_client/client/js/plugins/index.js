@@ -422,7 +422,7 @@ export const plugins = {
     ),
     PiwikProPlugin: toModulePlugin(
         'PiwikPro',
-        () => import(/* webpackChunkName: 'plugins/simpleview-plugin' */ '@js/plugins/hydrata/PiwikPro/PiwikPro')
+        () => import(/* webpackChunkName: 'plugins/piwik-pro-plugin' */ '@js/plugins/hydrata/PiwikPro/PiwikPro')
     ),
     SwampsPlugin: toModulePlugin(
         'Swamps',
@@ -431,6 +431,10 @@ export const plugins = {
     AnugaPlugin: toModulePlugin(
         'Anuga',
         () => import(/* webpackChunkName: 'plugins/anuga-plugin' */ '@js/plugins/hydrata/Anuga/Anuga')
+    ),
+    HydrologyPlugin: toModulePlugin(
+        'Hydrology',
+        () => import(/* webpackChunkName: 'plugins/hydrology-plugin' */ '@js/plugins/hydrata/Hydrology/Hydrology')
     ),
     AnugaResourcesGridPlugin: toModulePlugin(
         'AnugaResourcesGrid',

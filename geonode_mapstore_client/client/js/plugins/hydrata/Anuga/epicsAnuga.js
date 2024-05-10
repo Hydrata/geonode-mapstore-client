@@ -92,7 +92,7 @@ import {
     COMPARE_SCENARIOS,
     compareScenariosSuccess,
     UPDATE_ANUGA_RESOURCES,
-    setAnugaResources
+    setAnugaResources, fixAnugaGroups
 } from "./actionsAnuga";
 
 import {
@@ -118,8 +118,8 @@ const addAnugaLayerFromAvailableResponse = (response, store) => {
             actions.unshift(addLayer(model));
             actions.push(
                 show({
-                    "message": "New layers added... You should save your project.",
-                    "title": "Layers added",
+                    "message": "Adding new layers... You should save your project.",
+                    "title": "New layers found",
                     "uid": 1000,
                     "position": "tc"
                 })
@@ -128,77 +128,51 @@ const addAnugaLayerFromAvailableResponse = (response, store) => {
     });
     return Rx.Observable.from(actions);
 };
+const endpoints = [
+    {endpoint: 'scenario', action: setAnugaScenarioData},
+    {endpoint: 'boundary', action: setAnugaBoundaryData},
+    {endpoint: 'elevation', action: setAnugaElevationData},
+    {endpoint: 'inflow', action: setAnugaInflowData},
+    {endpoint: 'structure', action: setAnugaStructureData},
+    {endpoint: 'friction', action: setAnugaFrictionData},
+    {endpoint: 'full-mesh', action: setAnugaFullMeshData},
+    {endpoint: 'mesh-region', action: setAnugaMeshRegionData},
+    {endpoint: 'network', action: setNetworkData},
+    {endpoint: 'catchment', action: setCatchmentData},
+    {endpoint: 'nodes', action: setAnugaNodesData},
+    {endpoint: 'links', action: setAnugaLinksData},
+    {endpoint: 'comparison', action: setComparisonData},
+    {endpoint: 'publication', action: setPublicationData}
+];
+
+const axiosGet = (endpoint, projectId) => Rx.Observable
+    .from(axios.get(`/anuga/api/${projectId}/${endpoint}/`))
+    .catch((error) => { console.error(error); return Rx.Observable.of({data:{}}); })
+    .switchMap(response => Rx.Observable.of(response.data))
 
 export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA, UPDATE_DATASET_TITLE_SUCCESS)
-        .filter(() => store.getState()?.gnresource.id)
-        .switchMap(() => Rx.Observable
-            .from(
-                axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
-                    .catch((error) => {console.log('**', error); return 'error';})
-            )
-            .filter(response1 => response1?.status <= 400)
-            .filter(() => !!store.getState()?.security?.user)
-            .switchMap(response1 => Rx.Observable
-                .from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
-                .switchMap(response2 => Rx.Observable
-                    .of(setAnugaProjectData(response2.data))
-                    .concat(
-                        Rx.Observable.of(setSvConfig(response2.data?.simple_view_config)),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/scenario/`))
-                            .switchMap((response3) => Rx.Observable.of(setAnugaScenarioData(response3.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/boundary/`))
-                            .switchMap((response4) => Rx.Observable.of(setAnugaBoundaryData(response4.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/elevation/`))
-                            .switchMap((response5) => Rx.Observable.of(setAnugaElevationData(response5.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/inflow/`))
-                            .switchMap((response6) => Rx.Observable.of(setAnugaInflowData(response6.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/structure/`))
-                            .switchMap((response7) => Rx.Observable.of(setAnugaStructureData(response7.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/friction/`))
-                            .switchMap((response8) => Rx.Observable.of(setAnugaFrictionData(response8.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/full-mesh/`))
-                            .switchMap((response9) => Rx.Observable.of(setAnugaFullMeshData(response9.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/mesh-region/`))
-                            .switchMap((response10) => Rx.Observable.of(setAnugaMeshRegionData(response10.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/network/`))
-                            .switchMap((response11) => Rx.Observable.of(setNetworkData(response11.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/catchment/`))
-                            .switchMap((response12) => Rx.Observable.of(setCatchmentData(response12.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/nodes/`))
-                            .switchMap((response13) => Rx.Observable.of(setAnugaNodesData(response13.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/links/`))
-                            .switchMap((response14) => Rx.Observable.of(setAnugaLinksData(response14.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/comparison/`))
-                            .switchMap((response15) => Rx.Observable.of(setComparisonData(response15.data))),
-                        Rx.Observable
-                            .from(axios.get(`/anuga/api/${response1.data.projectId}/publication/`))
-                            .switchMap((response16) => Rx.Observable.of(setPublicationData(response16.data))),
-                        Rx.Observable.of(startAnugaScenarioPolling())
-                    )
-                )
-                .filter((setAnugaProjectDataAction) => {
-                    return setAnugaProjectDataAction;
-                })
-            )
+        .filter(() => store.getState().gnresource.id)
+        .switchMap(() =>
+            Rx.Observable.from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState().gnresource.id}))
+                .catch((error) => { console.log('**', error); return Rx.Observable.of('error'); })
         )
-        .filter((response1) => {
-            return response1;
-        });
+        .filter(response1 => response1?.status <= 400)
+        .filter(() => !!store.getState()?.security?.user)
+        .switchMap(response1 =>
+            Rx.Observable.from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
+                .catch((error) => { console.log('xx', error); return Rx.Observable.of('error');})
+                .switchMap(response2 => {
+                    const projectId = response1.data.projectId;
+                    const endpointsObservables = endpoints.map(({endpoint, action}) => axiosGet(endpoint, projectId).map(action));
+                    return Rx.Observable.of(
+                        setAnugaProjectData(response2.data),
+                        fixAnugaGroups(),
+                        setSvConfig(response2.data.simple_view_config)).concat(Rx.Observable.merge(...endpointsObservables),
+                        Rx.Observable.of(startAnugaScenarioPolling()));
+                })
+        );
 
 export const pollAnugaModelCreationEpic = (action$) =>
     action$

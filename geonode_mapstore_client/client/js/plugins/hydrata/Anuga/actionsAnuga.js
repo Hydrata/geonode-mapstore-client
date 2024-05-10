@@ -80,11 +80,18 @@ const COMPARE_SCENARIOS = 'COMPARE_SCENARIOS';
 const COMPARE_SCENARIOS_SUCCESS = 'COMPARE_SCENARIOS_SUCCESS';
 const UPDATE_ANUGA_RESOURCES = 'UPDATE_ANUGA_RESOURCES';
 const SET_ANUGA_RESOURCES = 'SET_ANUGA_RESOURCES';
+const FIX_ANUGA_GROUPS = 'FIX_ANUGA_GROUPS';
 
 
 function initAnuga() {
     return {
         type: INIT_ANUGA
+    };
+}
+
+function fixAnugaGroups() {
+    return {
+        type: FIX_ANUGA_GROUPS
     };
 }
 
@@ -778,5 +785,6 @@ module.exports = {
     COMPARE_SCENARIOS, compareScenarios,
     COMPARE_SCENARIOS_SUCCESS, compareScenariosSuccess,
     UPDATE_ANUGA_RESOURCES, updateAnugaResources,
-    SET_ANUGA_RESOURCES, setAnugaResources
+    SET_ANUGA_RESOURCES, setAnugaResources,
+    FIX_ANUGA_GROUPS, fixAnugaGroups
 };

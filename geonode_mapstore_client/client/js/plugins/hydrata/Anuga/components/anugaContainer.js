@@ -142,29 +142,6 @@ class AnugaContainer extends React.Component {
                             </button>
                             : null
                     }
-                    {/*{*/}
-                    {/*    this.props.canEditAnugaMap && this.props.hasEPSGset ?*/}
-                    {/*        <div id={"review-panel-container"}>*/}
-                    {/*            <button*/}
-                    {/*                key="review-panel-button"*/}
-                    {/*                className={'simple-view-menu-button'}*/}
-                    {/*                style={{left: 420, color: "#b9b8b8"}}*/}
-                    {/*                onClick={() => {*/}
-                    {/*                    this.props.setReviewPanel(!this.props.showReviewPanel);*/}
-                    {/*                    this.props.setOpenMenuGroupId(null);*/}
-                    {/*                }}*/}
-                    {/*            >*/}
-                    {/*                Review*/}
-                    {/*            </button>*/}
-                    {/*            {*/}
-                    {/*                this.props.showReviewPanel ?*/}
-                    {/*                    null*/}
-                    {/*                    // <ReviewPanel/>*/}
-                    {/*                    : null*/}
-                    {/*            }*/}
-                    {/*        </div>*/}
-                    {/*        : null*/}
-                    {/*}*/}
                     {
                         this.props.canEditAnugaMap && this.props.hasEPSGset ?
                             <div id={"publication-panel-container"}>
