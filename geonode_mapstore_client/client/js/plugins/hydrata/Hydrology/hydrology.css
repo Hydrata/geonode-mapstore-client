@@ -1,0 +1,9 @@
+#hydrology-container {
+    width:100%;
+    height:100%;
+    display: flex;
+    justify-content: center;
+    margin: 10px;
+    border: 1px solid #fff;
+    background-color: #ffffff;
+}
