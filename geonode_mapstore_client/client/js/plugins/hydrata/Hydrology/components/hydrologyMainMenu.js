@@ -5,8 +5,10 @@ import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import {
     setHydrologyMainMenu,
-    setActiveHydrologyPage
+    setActiveHydrologyPage,
+    setActiveHydrologyListItem
 } from "../actionsHydrology";
+import {HydrologyListDetailContainer} from "./hydrologyListDetailContainer";
 import {
     setOpenMenuGroupId
 } from "../../SimpleView/actionsSimpleView";
@@ -17,11 +19,15 @@ class HydrologyMainMenuClass extends React.Component {
     static propTypes = {
         activeHydrologyPage: PropTypes.string,
         setHydrologyMainMenu: PropTypes.func,
+        setActiveHydrologyListItem: PropTypes.func,
         setActiveHydrologyPage: PropTypes.func,
+
         setOpenMenuGroupId: PropTypes.func
     }
 
-    static defaultProps = {}
+    static defaultProps = {
+        activeHydrologyPage: "idf-tables"
+    }
 
     constructor(props) {
         super(props);
@@ -32,6 +38,7 @@ class HydrologyMainMenuClass extends React.Component {
             style={this.buttonStyle(pageName)}
             onClick={() => {
                 this.props.setActiveHydrologyPage(pageName);
+                this.props.setActiveHydrologyListItem(null);
                 this.props.setOpenMenuGroupId(null);
                 CustomEvent.trackEvent('button', `click`, `hydrology-active-menu-set-${pageName}`);
             }}
@@ -42,28 +49,34 @@ class HydrologyMainMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'hydrology-main-menu'} className={'simple-view-panel'} style={{top: "70px", position: "fixed", width: "95%", height: "85%"}}>
-                <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                        Hydrology
-                        <span id={"hydrology-page-button-group"}>
-                            {this.renderButton('idf-tables', 'IDF Tables')}
-                            {this.renderButton('temporal-patterns', 'Temporal Patterns')}
-                            {this.renderButton('time-series', 'Timeseries')}
-                        </span>
-                        <span
-                            className={"btn glyphicon glyphicon-remove legend-close"}
-                            onClick={
-                                () => {
-                                    this.props.setHydrologyMainMenu(false);
-                                    this.props.setActiveHydrologyPage(null);
-                                    console.log(`tracking anuga-scenario-menu-close`);
-                                    CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-close`);
-                                }
+            <div id={'hydrology-main-menu'} className={'simple-view-panel'} style={{
+                top: "70px",
+                position: "fixed",
+                width: "95%",
+                height: "85%",
+                backgroundColor: "rgba(0, 60, 136, 0.99)"
+            }}>
+                <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
+                    <span style={{top: "8px", position: "relative"}}>Hydrology</span>
+                    <span id={"hydrology-page-button-group"}>
+                        {this.renderButton('idf-tables', 'IDF Tables')}
+                        {this.renderButton('temporal-patterns', 'Temporal Patterns')}
+                        {this.renderButton('time-series', 'Timeseries')}
+                        {/*{this.renderButton('inflows', 'Inflows')}*/}
+                    </span>
+                    <span
+                        className={"btn glyphicon glyphicon-remove legend-close"}
+                        onClick={
+                            () => {
+                                this.props.setHydrologyMainMenu(false);
+                                this.props.setActiveHydrologyPage(null);
+                                console.log(`tracking anuga-scenario-menu-close`);
+                                CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-close`);
                             }
-                        />
-                    </div>
+                        }
+                    />
                 </div>
+                <HydrologyListDetailContainer/>
             </div>
         );
     }
@@ -72,6 +85,7 @@ class HydrologyMainMenuClass extends React.Component {
         width: "145px",
         margin: "2px 0 -17px 20px",
         borderRadius: "6px 6px 0 0",
+        borderBottom: 0,
         color: this.props.activeHydrologyPage === page ? "#3363a0" : 'white',
         backgroundColor: this.props.activeHydrologyPage === page ? "white" : '#6085b5'
     })
@@ -83,13 +97,14 @@ class HydrologyMainMenuClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        activeHydrologyPage: state?.hydrology?.mainMenu?.activeHydrologyPage
+        activeHydrologyPage: state?.hydrology?.activeHydrologyPage
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setActiveHydrologyPage: (pageName) => dispatch(setActiveHydrologyPage(pageName)),
+        setActiveHydrologyListItem: (item) => dispatch(setActiveHydrologyListItem(item)),
         setOpenMenuGroupId: (menuGroupId) => dispatch(setOpenMenuGroupId(menuGroupId)),
         setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible))
     };

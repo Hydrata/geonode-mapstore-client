@@ -12,6 +12,8 @@ const SET_HYDROLOGY_IDF_TABLE_DATA = 'SET_HYDROLOGY_IDF_TABLE_DATA';
 const ERROR_HYDROLOGY_IDF_TABLE_DATA = 'ERROR_HYDROLOGY_IDF_TABLE_DATA';
 const SET_HYDROLOGY_MAIN_MENU = 'SET_HYDROLOGY_MAIN_MENU';
 const SET_ACTIVE_HYDROLOGY_PAGE = 'SET_ACTIVE_HYDROLOGY_PAGE';
+const SET_ACTIVE_HYDROLOGY_LIST_ITEM = 'SET_ACTIVE_HYDROLOGY_LIST_ITEM';
+const UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM = 'UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM';
 
 
 const initHydrology = () => ({
@@ -80,6 +82,20 @@ const setActiveHydrologyPage = (pageName) => ({
     pageName
 });
 
+const setActiveHydrologyListItem = (item) => ({
+    type: SET_ACTIVE_HYDROLOGY_LIST_ITEM,
+    item
+});
+
+const updateActiveHydrologyListItem = (activeHydrologyPage, item, kv) => ({
+    type: UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM,
+    activeHydrologyPage,
+    item: {
+        ...item,
+        ...kv
+    }
+});
+
 
 module.exports = {
     INIT_HYDROLOGY, initHydrology,
@@ -95,5 +111,7 @@ module.exports = {
     SET_HYDROLOGY_IDF_TABLE_DATA, setHydrologyIdfTableData,
     ERROR_HYDROLOGY_IDF_TABLE_DATA, errorHydrologyIdfTableData,
     SET_HYDROLOGY_MAIN_MENU, setHydrologyMainMenu,
-    SET_ACTIVE_HYDROLOGY_PAGE, setActiveHydrologyPage
+    SET_ACTIVE_HYDROLOGY_PAGE, setActiveHydrologyPage,
+    SET_ACTIVE_HYDROLOGY_LIST_ITEM, setActiveHydrologyListItem,
+    UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM, updateActiveHydrologyListItem
 };
