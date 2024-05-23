@@ -6,7 +6,8 @@ import {
     fetchTimeSeriesEpic,
     fetchTemporalPatternEpic,
     fetchIdfTableEpic,
-    saveHydrologyItemEpic
+    saveHydrologyItemEpic,
+    deleteHydrologyItemEpic
 } from "./epicsHydrology";
 
 export default createPlugin('Hydrology', {
@@ -19,6 +20,7 @@ export default createPlugin('Hydrology', {
         fetchTimeSeriesEpic,
         fetchTemporalPatternEpic,
         fetchIdfTableEpic,
-        saveHydrologyItemEpic
+        saveHydrologyItemEpic,
+        deleteHydrologyItemEpic
     }
 });

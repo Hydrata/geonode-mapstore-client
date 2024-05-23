@@ -17,7 +17,12 @@ import {
     errorHydrologyIdfTableData,
     SAVE_HYDROLOGY_ITEM,
     saveHydrologyItemSuccess,
-    saveHydrologyItemFailure
+    saveHydrologyItemFailure,
+    createHydrologyItemSuccess,
+    createHydrologyItemFailure,
+    DELETE_HYDROLOGY_ITEM,
+    deleteHydrologyItemSuccess,
+    deleteHydrologyItemFailure
 } from "../Hydrology/actionsHydrology";
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 
@@ -122,17 +127,45 @@ export const saveHydrologyItemEpic = (action$, store) =>
         .ofType(SAVE_HYDROLOGY_ITEM)
         .mergeMap(action => {
             const projectId = store.getState()?.anuga?.projectData?.id;
+            if (action.item?.id) {
+                return Rx.Observable.from(
+                    axios.patch(
+                        `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`,
+                        action.item
+                    )
+                )
+                    .mergeMap(response =>
+                        Rx.Observable.from([
+                            saveHydrologyItemSuccess(action.activeHydrologyPage, response.data),
+                            show({
+                                "message": `Successfully saved ${response.data.name}`,
+                                "title": "Success",
+                                "uid": 1000,
+                                "position": "tc"
+                            })
+                        ])
+                    )
+                    .catch(error => Rx.Observable.from([
+                        saveHydrologyItemFailure(error.data),
+                        show({
+                            "message": `Error: ${error.data?.errors}`,
+                            "title": "Error",
+                            "uid": 6000,
+                            "position": "tc"
+                        }, 'error')
+                    ]));
+            }
             return Rx.Observable.from(
-                axios.patch(
-                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`,
+                axios.post(
+                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/`,
                     action.item
                 )
             )
                 .mergeMap(response =>
                     Rx.Observable.from([
-                        saveHydrologyItemSuccess(action.activeHydrologyPage, response.data),
+                        createHydrologyItemSuccess(action.activeHydrologyPage, response.data),
                         show({
-                            "message": `Successfully saved ${response.data.name}`,
+                            "message": `Successfully created ${response.data.name}`,
                             "title": "Success",
                             "uid": 1000,
                             "position": "tc"
@@ -140,7 +173,41 @@ export const saveHydrologyItemEpic = (action$, store) =>
                     ])
                 )
                 .catch(error => Rx.Observable.from([
-                    saveHydrologyItemFailure(error.data),
+                    createHydrologyItemFailure(error.data),
+                    show({
+                        "message": `Error: ${error.data?.errors}`,
+                        "title": "Error",
+                        "uid": 6000,
+                        "position": "tc"
+                    }, 'error')
+                ]));
+        });
+
+
+export const deleteHydrologyItemEpic = (action$, store) =>
+    action$
+        .ofType(DELETE_HYDROLOGY_ITEM)
+        .mergeMap(action => {
+            const projectId = store.getState()?.anuga?.projectData?.id;
+            return Rx.Observable.from(
+                axios.delete(
+                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`,
+                    action.item
+                )
+            )
+                .mergeMap(() =>
+                    Rx.Observable.from([
+                        deleteHydrologyItemSuccess(action.activeHydrologyPage, action.item),
+                        show({
+                            "message": `Successfully deleted ${action.item.name}`,
+                            "title": "Success",
+                            "uid": 1000,
+                            "position": "tc"
+                        })
+                    ])
+                )
+                .catch(error => Rx.Observable.from([
+                    deleteHydrologyItemFailure(error.data),
                     show({
                         "message": `Error: ${error.data?.errors}`,
                         "title": "Error",

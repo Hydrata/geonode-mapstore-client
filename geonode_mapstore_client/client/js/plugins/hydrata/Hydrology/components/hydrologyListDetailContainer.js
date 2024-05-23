@@ -8,7 +8,10 @@ import {HydrologyDetailTemporalPattern} from './hydrologyDetailTemporalPattern';
 import {HydrologyDetailTimeSeries} from './hydrologyDetailTimeSeries';
 import {
     setActiveHydrologyItem,
-    saveHydrologyItem, updateActiveHydrologyItem
+    saveHydrologyItem,
+    updateActiveHydrologyItem,
+    deleteHydrologyItem,
+    createHydrologyForm
 } from "../actionsHydrology";
 import {hydrologyKeyMap} from '../reducersHydrology';
 import {CustomEvent} from "@piwikpro/react-piwik-pro";
@@ -21,7 +24,8 @@ class HydrologyListDetailContainerClass extends React.Component {
         activeHydrologyItem: PropTypes.object,
         setActiveHydrologyItem: PropTypes.func,
         saveHydrologyItem: PropTypes.func,
-        updateActiveHydrologyItem: PropTypes.func
+        updateActiveHydrologyItem: PropTypes.func,
+        deleteHydrologyItem: PropTypes.func
     }
 
     static defaultProps = {}
@@ -59,19 +63,10 @@ class HydrologyListDetailContainerClass extends React.Component {
                                     className={"hydrology-button"}
                                     style={{marginTop: "10px"}}
                                     onClick={
-                                        () => window.alert('New Item box')
+                                        () => this.props.createHydrologyForm(this.props.activeHydrologyPage)
                                     }
                                 >
                                     New Item
-                                </button>
-                                <button
-                                    className={"hydrology-button"}
-                                    style={{marginTop: "10px", marginBottom: "10px"}}
-                                    onClick={
-                                        () => window.alert('Edit Item box')
-                                    }
-                                >
-                                    Edit Item
                                 </button>
                             </div>
                         </div>
@@ -122,6 +117,17 @@ class HydrologyListDetailContainerClass extends React.Component {
                 </div>
                 <div id={"hydrology-list-detail-footer"}>
                     <button
+                        className={"hydrology-button"}
+                        style={{backgroundColor: "darkred"}}
+                        onClick={() => {
+                            if (window.confirm('This action can not be undone. Are you sure?')) {
+                                this.props.deleteHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem);
+                            }
+                        }}
+                    >
+                        Delete
+                    </button>
+                    <button
                         className={this.props.activeHydrologyItem?.unsaved ? "hydrology-button" : "hydrology-button-disabled"}
                         style={{backgroundColor: this.props.activeHydrologyItem?.unsaved ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}
                         onClick={() => this.props.saveHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem)}
@@ -159,7 +165,9 @@ const mapDispatchToProps = (dispatch) => {
     return {
         setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
         updateActiveHydrologyItem: (activeHydrologyPage, item, kv) => dispatch(updateActiveHydrologyItem(activeHydrologyPage, item, kv)),
-        saveHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(saveHydrologyItem(activeHydrologyPage, activeHydrologyItem))
+        saveHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(saveHydrologyItem(activeHydrologyPage, activeHydrologyItem)),
+        createHydrologyForm: (activeHydrologyPage) => dispatch(createHydrologyForm(activeHydrologyPage)),
+        deleteHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(deleteHydrologyItem(activeHydrologyPage, activeHydrologyItem))
     };
 };
 

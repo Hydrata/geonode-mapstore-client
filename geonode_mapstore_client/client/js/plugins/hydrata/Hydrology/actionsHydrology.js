@@ -17,6 +17,14 @@ const UPDATE_ACTIVE_HYDROLOGY_ITEM = 'UPDATE_ACTIVE_HYDROLOGY_ITEM';
 const SAVE_HYDROLOGY_ITEM = 'SAVE_HYDROLOGY_ITEM';
 const SAVE_HYDROLOGY_ITEM_SUCCESS = 'SAVE_HYDROLOGY_ITEM_SUCCESS';
 const SAVE_HYDROLOGY_ITEM_FAILURE = 'SAVE_HYDROLOGY_ITEM_FAILURE';
+const CREATE_HYDROLOGY_FORM = 'CREATE_HYDROLOGY_FORM';
+const CREATE_HYDROLOGY_ITEM = 'CREATE_HYDROLOGY_ITEM';
+const CREATE_HYDROLOGY_ITEM_SUCCESS = 'CREATE_HYDROLOGY_ITEM_SUCCESS';
+const CREATE_HYDROLOGY_ITEM_FAILURE = 'CREATE_HYDROLOGY_ITEM_FAILURE';
+const DELETE_HYDROLOGY_ITEM = 'DELETE_HYDROLOGY_ITEM';
+const DELETE_HYDROLOGY_ITEM_SUCCESS = 'DELETE_HYDROLOGY_ITEM_SUCCESS';
+const DELETE_HYDROLOGY_ITEM_FAILURE = 'DELETE_HYDROLOGY_ITEM_FAILURE';
+
 
 
 const initHydrology = () => ({
@@ -117,6 +125,47 @@ const saveHydrologyItemFailure = (response) => ({
     error: true
 });
 
+const createHydrologyForm = (activeHydrologyPage) => ({
+    type: CREATE_HYDROLOGY_FORM,
+    activeHydrologyPage
+});
+
+const createHydrologyItem = (activeHydrologyPage, item) => ({
+    type: CREATE_HYDROLOGY_ITEM,
+    activeHydrologyPage,
+    item
+});
+
+const createHydrologyItemSuccess = (activeHydrologyPage, item) => ({
+    type: CREATE_HYDROLOGY_ITEM_SUCCESS,
+    activeHydrologyPage,
+    item
+});
+
+const createHydrologyItemFailure = (response) => ({
+    type: CREATE_HYDROLOGY_ITEM_FAILURE,
+    response,
+    error: true
+});
+
+const deleteHydrologyItem = (activeHydrologyPage, item) => ({
+    type: DELETE_HYDROLOGY_ITEM,
+    activeHydrologyPage,
+    item
+});
+
+const deleteHydrologyItemSuccess = (activeHydrologyPage, item) => ({
+    type: DELETE_HYDROLOGY_ITEM_SUCCESS,
+    activeHydrologyPage,
+    item
+});
+
+const deleteHydrologyItemFailure = (response) => ({
+    type: DELETE_HYDROLOGY_ITEM_FAILURE,
+    response,
+    error: true
+});
+
 
 module.exports = {
     INIT_HYDROLOGY, initHydrology,
@@ -137,5 +186,12 @@ module.exports = {
     UPDATE_ACTIVE_HYDROLOGY_ITEM, updateActiveHydrologyItem,
     SAVE_HYDROLOGY_ITEM, saveHydrologyItem,
     SAVE_HYDROLOGY_ITEM_SUCCESS, saveHydrologyItemSuccess,
-    SAVE_HYDROLOGY_ITEM_FAILURE, saveHydrologyItemFailure
+    SAVE_HYDROLOGY_ITEM_FAILURE, saveHydrologyItemFailure,
+    CREATE_HYDROLOGY_FORM, createHydrologyForm,
+    CREATE_HYDROLOGY_ITEM, createHydrologyItem,
+    CREATE_HYDROLOGY_ITEM_SUCCESS, createHydrologyItemSuccess,
+    CREATE_HYDROLOGY_ITEM_FAILURE, createHydrologyItemFailure,
+    DELETE_HYDROLOGY_ITEM, deleteHydrologyItem,
+    DELETE_HYDROLOGY_ITEM_SUCCESS, deleteHydrologyItemSuccess,
+    DELETE_HYDROLOGY_ITEM_FAILURE, deleteHydrologyItemFailure
 };

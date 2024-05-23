@@ -7,7 +7,10 @@ import {
     SET_ACTIVE_HYDROLOGY_PAGE,
     SET_ACTIVE_HYDROLOGY_ITEM,
     UPDATE_ACTIVE_HYDROLOGY_ITEM,
-    SAVE_HYDROLOGY_ITEM_SUCCESS
+    CREATE_HYDROLOGY_FORM,
+    SAVE_HYDROLOGY_ITEM_SUCCESS,
+    CREATE_HYDROLOGY_ITEM_SUCCESS,
+    DELETE_HYDROLOGY_ITEM_SUCCESS
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
 
@@ -86,6 +89,41 @@ export default ( state = initialState, action) => {
                 ...action.item,
                 unsaved: false
             }
+        };
+    }
+    case CREATE_HYDROLOGY_FORM: {
+        return {
+            ...state,
+            activeHydrologyItem: {
+                name: "New Item",
+                description: "",
+                unsaved: true
+            }
+        };
+    }
+    case CREATE_HYDROLOGY_ITEM_SUCCESS: {
+        const pageName = hydrologyKeyMap[action.activeHydrologyPage];
+        return {
+            ...state,
+            [pageName]: [
+                ...state[pageName],
+                {
+                    ...action.item,
+                    unsaved: false
+                }
+            ],
+            activeHydrologyItem: {
+                ...action.item,
+                unsaved: false
+            }
+        };
+    }
+    case DELETE_HYDROLOGY_ITEM_SUCCESS: {
+        const pageName = hydrologyKeyMap[action.activeHydrologyPage];
+        return {
+            ...state,
+            [pageName]: state[pageName].filter((item) => item.id !== action.item.id),
+            activeHydrologyItem: null
         };
     }
     default:
