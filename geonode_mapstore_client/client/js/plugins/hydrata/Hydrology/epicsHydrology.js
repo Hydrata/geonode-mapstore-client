@@ -19,7 +19,7 @@ import {
     saveHydrologyItemSuccess,
     saveHydrologyItemFailure
 } from "../Hydrology/actionsHydrology";
-
+import {show} from '../../../../MapStore2/web/client/actions/notifications';
 
 async function fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction) {
     try {
@@ -128,6 +128,24 @@ export const saveHydrologyItemEpic = (action$, store) =>
                     action.item
                 )
             )
-                .mergeMap(response => Rx.Observable.of(saveHydrologyItemSuccess(action.activeHydrologyPage, response.data)))
-                .catch(error => Rx.Observable.of(saveHydrologyItemFailure(error)));
+                .mergeMap(response =>
+                    Rx.Observable.from([
+                        saveHydrologyItemSuccess(action.activeHydrologyPage, response.data),
+                        show({
+                            "message": `Successfully saved ${response.data.name}`,
+                            "title": "Success",
+                            "uid": 1000,
+                            "position": "tc"
+                        })
+                    ])
+                )
+                .catch(error => Rx.Observable.from([
+                    saveHydrologyItemFailure(error.data),
+                    show({
+                        "message": `Error: ${error.data?.errors}`,
+                        "title": "Error",
+                        "uid": 6000,
+                        "position": "tc"
+                    }, 'error')
+                ]));
         });
