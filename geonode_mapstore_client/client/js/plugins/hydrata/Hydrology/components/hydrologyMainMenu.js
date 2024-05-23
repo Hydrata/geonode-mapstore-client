@@ -6,7 +6,7 @@ import '../../SimpleView/simpleView.css';
 import {
     setHydrologyMainMenu,
     setActiveHydrologyPage,
-    setActiveHydrologyListItem
+    setActiveHydrologyItem
 } from "../actionsHydrology";
 import {HydrologyListDetailContainer} from "./hydrologyListDetailContainer";
 import {
@@ -19,14 +19,14 @@ class HydrologyMainMenuClass extends React.Component {
     static propTypes = {
         activeHydrologyPage: PropTypes.string,
         setHydrologyMainMenu: PropTypes.func,
-        setActiveHydrologyListItem: PropTypes.func,
+        setActiveHydrologyItem: PropTypes.func,
         setActiveHydrologyPage: PropTypes.func,
 
         setOpenMenuGroupId: PropTypes.func
     }
 
     static defaultProps = {
-        activeHydrologyPage: "idf-tables"
+        activeHydrologyPage: "idf-table"
     }
 
     constructor(props) {
@@ -38,7 +38,7 @@ class HydrologyMainMenuClass extends React.Component {
             style={this.buttonStyle(pageName)}
             onClick={() => {
                 this.props.setActiveHydrologyPage(pageName);
-                this.props.setActiveHydrologyListItem(null);
+                this.props.setActiveHydrologyItem(null);
                 this.props.setOpenMenuGroupId(null);
                 CustomEvent.trackEvent('button', `click`, `hydrology-active-menu-set-${pageName}`);
             }}
@@ -59,8 +59,8 @@ class HydrologyMainMenuClass extends React.Component {
                 <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                     <span style={{top: "8px", position: "relative"}}>Hydrology</span>
                     <span id={"hydrology-page-button-group"}>
-                        {this.renderButton('idf-tables', 'IDF Tables')}
-                        {this.renderButton('temporal-patterns', 'Temporal Patterns')}
+                        {this.renderButton('idf-table', 'IDF Tables')}
+                        {this.renderButton('temporal-pattern', 'Temporal Patterns')}
                         {this.renderButton('time-series', 'Timeseries')}
                         {/*{this.renderButton('inflows', 'Inflows')}*/}
                     </span>
@@ -104,7 +104,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = ( dispatch ) => {
     return {
         setActiveHydrologyPage: (pageName) => dispatch(setActiveHydrologyPage(pageName)),
-        setActiveHydrologyListItem: (item) => dispatch(setActiveHydrologyListItem(item)),
+        setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
         setOpenMenuGroupId: (menuGroupId) => dispatch(setOpenMenuGroupId(menuGroupId)),
         setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible))
     };

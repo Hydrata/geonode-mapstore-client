@@ -1,6 +1,5 @@
 import React from "react";
 import {connect} from "react-redux";
-import {Button, Table} from "react-bootstrap";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import {HydrologyDetailDefault} from './hydrologyDetailDefault';
@@ -8,21 +7,21 @@ import {HydrologyDetailIdfTable} from './hydrologyDetailIdfTable';
 import {HydrologyDetailTemporalPattern} from './hydrologyDetailTemporalPattern';
 import {HydrologyDetailTimeSeries} from './hydrologyDetailTimeSeries';
 import {
-    setHydrologyMainMenu,
-    setActiveHydrologyPage,
-    setActiveHydrologyListItem
+    setActiveHydrologyItem,
+    saveHydrologyItem, updateActiveHydrologyItem
 } from "../actionsHydrology";
 import {hydrologyKeyMap} from '../reducersHydrology';
-import {
-    setOpenMenuGroupId
-} from "../../SimpleView/actionsSimpleView";
 import {CustomEvent} from "@piwikpro/react-piwik-pro";
 import PropTypes from "prop-types";
-import {Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
-import {formatMoney} from "@js/plugins/hydrata/Utils/utils";
 
 class HydrologyListDetailContainerClass extends React.Component {
     static propTypes = {
+        activeHydrologyPage: PropTypes.string,
+        activeHydrologyItems: PropTypes.array,
+        activeHydrologyItem: PropTypes.object,
+        setActiveHydrologyItem: PropTypes.func,
+        saveHydrologyItem: PropTypes.func,
+        updateActiveHydrologyItem: PropTypes.func
     }
 
     static defaultProps = {}
@@ -39,15 +38,15 @@ class HydrologyListDetailContainerClass extends React.Component {
                         <div id={"hydrology-list-detail-items"}>
                             <div id={"top buttons"}>
                                 <div className={"hydrology-list-detail-heading"}>Items</div>
-                                {this.props.activeHydrologyListItems?.map((item) => {
+                                {this.props.activeHydrologyItems?.map((item) => {
                                     return (
                                         <button
                                             className={"hydrology-button"}
                                             style={{
-                                                backgroundColor: item.id === this.props.activeHydrologyListItem?.id ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                                                backgroundColor: item.id === this.props.activeHydrologyItem?.id ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
                                             }}
                                             onClick={
-                                                () => this.props.setActiveHydrologyListItem(item)
+                                                () => this.props.setActiveHydrologyItem(item)
                                             }
                                         >
                                             {item?.name}
@@ -78,27 +77,66 @@ class HydrologyListDetailContainerClass extends React.Component {
                         </div>
                     </div>
                     <div id={"hydrology-list-detail-col-two"}>
-                        {
-                            (() => {
-                                switch (this.props.activeHydrologyPage) {
-                                    case 'idf-tables':
-                                        return <HydrologyDetailIdfTable/>;
-                                    case 'temporal-patterns':
-                                        return <HydrologyDetailTemporalPattern/>;
-                                    case 'time-series':
-                                        return <HydrologyDetailTimeSeries/>;
-                                    default:
-                                        return <HydrologyDetailDefault/>;
-                                }
-                            })()
-                        }
+                        <div id={"hydrology-detail-container"}>
+                            {
+                                this.props.activeHydrologyItem
+                                    ? <div style={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        height: "100vh"
+                                    }}>
+                                        <div style={{
+                                            display: "flex",
+                                            alignItems: "baseline",
+                                            padding: '10px',
+                                            boxSizing: 'border-box'
+                                        }}>
+                                            <p style={{marginRight: '5px'}}>Name:</p>
+                                            <input
+                                                id={'name'}
+                                                key={`name-${this.props.activeHydrologyItem.id}`}
+                                                type={"text"}
+                                                className={'hydrology-text-input'}
+                                                style={{textAlign: "left"}}
+                                                value={this.props.activeHydrologyItem.name}
+                                                onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
+                                            />
+                                        </div>
+                                        {(() => {
+                                            switch (this.props.activeHydrologyPage) {
+                                            case 'idf-table':
+                                                return <HydrologyDetailIdfTable/>;
+                                            case 'temporal-pattern':
+                                                return <HydrologyDetailTemporalPattern/>;
+                                            case 'time-series':
+                                                return <HydrologyDetailTimeSeries/>;
+                                            default:
+                                                return <HydrologyDetailDefault/>;
+                                            }
+                                        })()}
+                                    </div>
+                                    : <div>Select an item on the left.</div>
+                            }
+                        </div>
                     </div>
                 </div>
                 <div id={"hydrology-list-detail-footer"}>
+                    <button
+                        className={this.props.activeHydrologyItem?.unsaved ? "hydrology-button" : "hydrology-button-disabled"}
+                        style={{backgroundColor: this.props.activeHydrologyItem?.unsaved ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}
+                        onClick={() => this.props.saveHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem)}
+                    >
+                        Save
+                    </button>
                 </div>
             </div>
-        )
-            ;
+        );
+    }
+
+    handleTextChange = (e, item) => {
+        const kv = {};
+        kv[e.target.id] = e.target.value;
+        this.props.updateActiveHydrologyItem(this.props.activeHydrologyPage, item, kv);
     }
 
     trackEvent = (page) => {
@@ -106,21 +144,22 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
 
-
 }
 
 const mapStateToProps = (state) => {
     return {
         activeHydrologyPage: state?.hydrology?.activeHydrologyPage,
-        activeHydrologyListItems: state?.hydrology[hydrologyKeyMap[state.hydrology.activeHydrologyPage]],
-        activeHydrologyListItem: state?.hydrology?.activeHydrologyListItem
+        activeHydrologyItems: state?.hydrology[hydrologyKeyMap[state.hydrology.activeHydrologyPage]],
+        activeHydrologyItem: state?.hydrology?.activeHydrologyItem
 
     };
 };
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        setActiveHydrologyListItem: (item) => dispatch(setActiveHydrologyListItem(item))
+        setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
+        updateActiveHydrologyItem: (activeHydrologyPage, item, kv) => dispatch(updateActiveHydrologyItem(activeHydrologyPage, item, kv)),
+        saveHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(saveHydrologyItem(activeHydrologyPage, activeHydrologyItem))
     };
 };
 

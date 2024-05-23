@@ -6,7 +6,7 @@ import '../../SimpleView/simpleView.css';
 import {
     setHydrologyMainMenu,
     setActiveHydrologyPage,
-    setActiveHydrologyListItem
+    setActiveHydrologyItem
 } from "../actionsHydrology";
 import {
     setOpenMenuGroupId
@@ -29,7 +29,7 @@ class HydrologyDetailDefaultClass extends React.Component {
     render() {
         return (
             <div id={"hydrology-detail-container"}>
-                {JSON.stringify(this.props?.activeHydrologyListItem)}
+                {JSON.stringify(this.props?.activeHydrologyItem)}
             </div>
         )
             ;
@@ -42,14 +42,14 @@ class HydrologyDetailDefaultClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        activeHydrologyListItem: state?.hydrology?.activeHydrologyListItem
+        activeHydrologyItem: state?.hydrology?.activeHydrologyItem
 
     };
 };
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        setActiveHydrologyListItem: (item) => dispatch(setActiveHydrologyListItem(item))
+        setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item))
     };
 };
 

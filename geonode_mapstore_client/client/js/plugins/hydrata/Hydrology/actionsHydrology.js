@@ -12,8 +12,11 @@ const SET_HYDROLOGY_IDF_TABLE_DATA = 'SET_HYDROLOGY_IDF_TABLE_DATA';
 const ERROR_HYDROLOGY_IDF_TABLE_DATA = 'ERROR_HYDROLOGY_IDF_TABLE_DATA';
 const SET_HYDROLOGY_MAIN_MENU = 'SET_HYDROLOGY_MAIN_MENU';
 const SET_ACTIVE_HYDROLOGY_PAGE = 'SET_ACTIVE_HYDROLOGY_PAGE';
-const SET_ACTIVE_HYDROLOGY_LIST_ITEM = 'SET_ACTIVE_HYDROLOGY_LIST_ITEM';
-const UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM = 'UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM';
+const SET_ACTIVE_HYDROLOGY_ITEM = 'SET_ACTIVE_HYDROLOGY_ITEM';
+const UPDATE_ACTIVE_HYDROLOGY_ITEM = 'UPDATE_ACTIVE_HYDROLOGY_ITEM';
+const SAVE_HYDROLOGY_ITEM = 'SAVE_HYDROLOGY_ITEM';
+const SAVE_HYDROLOGY_ITEM_SUCCESS = 'SAVE_HYDROLOGY_ITEM_SUCCESS';
+const SAVE_HYDROLOGY_ITEM_FAILURE = 'SAVE_HYDROLOGY_ITEM_FAILURE';
 
 
 const initHydrology = () => ({
@@ -82,18 +85,36 @@ const setActiveHydrologyPage = (pageName) => ({
     pageName
 });
 
-const setActiveHydrologyListItem = (item) => ({
-    type: SET_ACTIVE_HYDROLOGY_LIST_ITEM,
+const setActiveHydrologyItem = (item) => ({
+    type: SET_ACTIVE_HYDROLOGY_ITEM,
     item
 });
 
-const updateActiveHydrologyListItem = (activeHydrologyPage, item, kv) => ({
-    type: UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM,
+const updateActiveHydrologyItem = (activeHydrologyPage, item, kv) => ({
+    type: UPDATE_ACTIVE_HYDROLOGY_ITEM,
     activeHydrologyPage,
     item: {
         ...item,
         ...kv
     }
+});
+
+const saveHydrologyItem = (activeHydrologyPage, item) => ({
+    type: SAVE_HYDROLOGY_ITEM,
+    activeHydrologyPage,
+    item
+});
+
+const saveHydrologyItemSuccess = (activeHydrologyPage, item) => ({
+    type: SAVE_HYDROLOGY_ITEM_SUCCESS,
+    activeHydrologyPage,
+    item
+});
+
+const saveHydrologyItemFailure = (response) => ({
+    type: SAVE_HYDROLOGY_ITEM_FAILURE,
+    response,
+    error: true
 });
 
 
@@ -112,6 +133,9 @@ module.exports = {
     ERROR_HYDROLOGY_IDF_TABLE_DATA, errorHydrologyIdfTableData,
     SET_HYDROLOGY_MAIN_MENU, setHydrologyMainMenu,
     SET_ACTIVE_HYDROLOGY_PAGE, setActiveHydrologyPage,
-    SET_ACTIVE_HYDROLOGY_LIST_ITEM, setActiveHydrologyListItem,
-    UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM, updateActiveHydrologyListItem
+    SET_ACTIVE_HYDROLOGY_ITEM, setActiveHydrologyItem,
+    UPDATE_ACTIVE_HYDROLOGY_ITEM, updateActiveHydrologyItem,
+    SAVE_HYDROLOGY_ITEM, saveHydrologyItem,
+    SAVE_HYDROLOGY_ITEM_SUCCESS, saveHydrologyItemSuccess,
+    SAVE_HYDROLOGY_ITEM_FAILURE, saveHydrologyItemFailure
 };

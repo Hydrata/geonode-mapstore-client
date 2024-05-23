@@ -6,7 +6,7 @@ import '../../SimpleView/simpleView.css';
 import {
     setHydrologyMainMenu,
     setActiveHydrologyPage,
-    setActiveHydrologyListItem
+    setActiveHydrologyItem
 } from "../actionsHydrology";
 import {
     setOpenMenuGroupId
@@ -30,7 +30,7 @@ class HydrologyDetailTemporalPatternClass extends React.Component {
         return (
             <div id={"hydrology-detail-container"}>
                 Temporal Pattern
-                {JSON.stringify(this.props?.activeHydrologyListItem)}
+                {JSON.stringify(this.props?.activeHydrologyItem)}
             </div>
         )
             ;
@@ -43,14 +43,14 @@ class HydrologyDetailTemporalPatternClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        activeHydrologyListItem: state?.hydrology?.activeHydrologyListItem
+        activeHydrologyItem: state?.hydrology?.activeHydrologyItem
 
     };
 };
 
 const mapDispatchToProps = (dispatch) => {
     return {
-        setActiveHydrologyListItem: (item) => dispatch(setActiveHydrologyListItem(item))
+        setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item))
     };
 };
 

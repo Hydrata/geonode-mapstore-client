@@ -14,7 +14,10 @@ import {
     FETCH_HYDROLOGY_IDF_TABLE_DATA,
     fetchHydrologyIdfTableData,
     setHydrologyIdfTableData,
-    errorHydrologyIdfTableData
+    errorHydrologyIdfTableData,
+    SAVE_HYDROLOGY_ITEM,
+    saveHydrologyItemSuccess,
+    saveHydrologyItemFailure
 } from "../Hydrology/actionsHydrology";
 
 
@@ -112,4 +115,19 @@ export const fetchIdfTableEpic = (action$, store) =>
                 response = Rx.Observable.empty();
             }
             return response;
+        });
+
+export const saveHydrologyItemEpic = (action$, store) =>
+    action$
+        .ofType(SAVE_HYDROLOGY_ITEM)
+        .mergeMap(action => {
+            const projectId = store.getState()?.anuga?.projectData?.id;
+            return Rx.Observable.from(
+                axios.patch(
+                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`,
+                    action.item
+                )
+            )
+                .mergeMap(response => Rx.Observable.of(saveHydrologyItemSuccess(action.activeHydrologyPage, response.data)))
+                .catch(error => Rx.Observable.of(saveHydrologyItemFailure(error)));
         });

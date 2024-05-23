@@ -5,24 +5,24 @@ import {
     SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
     SET_HYDROLOGY_IDF_TABLE_DATA,
     SET_ACTIVE_HYDROLOGY_PAGE,
-    SET_ACTIVE_HYDROLOGY_LIST_ITEM,
-    UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM
+    SET_ACTIVE_HYDROLOGY_ITEM,
+    UPDATE_ACTIVE_HYDROLOGY_ITEM,
+    SAVE_HYDROLOGY_ITEM_SUCCESS
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
-import {UPDATE_ANUGA_SCENARIO} from "@js/plugins/hydrata/Anuga/actionsAnuga";
 
 
 const initialState = {
     isHydrologyProject: false,
     showHydrologyMainMenu: false,
-    activeHydrologyPage: "idf-tables"
+    activeHydrologyPage: "idf-table"
 };
 
 export const hydrologyKeyMap = {
-    "idf-tables": "idfTables",
-    "temporal-patterns": "temporalPatterns",
+    "idf-table": "idfTables",
+    "temporal-pattern": "temporalPatterns",
     "time-series": "timeSeries",
     "inflows": "inflows"
-}
+};
 
 export default ( state = initialState, action) => {
     console.log('action for Hydrology: ', action);
@@ -57,26 +57,38 @@ export default ( state = initialState, action) => {
             ...state,
             activeHydrologyPage: action.pageName
         };
-    case SET_ACTIVE_HYDROLOGY_LIST_ITEM:
+    case SET_ACTIVE_HYDROLOGY_ITEM:
         return {
             ...state,
-            activeHydrologyListItem: action.item
+            activeHydrologyItem: action.item
         };
-    case UPDATE_ACTIVE_HYDROLOGY_LIST_ITEM: {
+    case UPDATE_ACTIVE_HYDROLOGY_ITEM: {
         const pageName = hydrologyKeyMap[action.activeHydrologyPage];
-        console.log('***', action);
         return {
             ...state,
             [pageName]: state[pageName].map((item) => item.id === action.item.id
                 ? { ...action.item, unsaved: true }
                 : item),
-            activeHydrologyListItem: {
+            activeHydrologyItem: {
                 ...action.item,
                 unsaved: true
             }
         };
     }
-default:
+    case SAVE_HYDROLOGY_ITEM_SUCCESS: {
+        const pageName = hydrologyKeyMap[action.activeHydrologyPage];
+        return {
+            ...state,
+            [pageName]: state[pageName].map((item) => item.id === action.item.id
+                ? { ...action.item, unsaved: false }
+                : item),
+            activeHydrologyItem: {
+                ...action.item,
+                unsaved: false
+            }
+        };
+    }
+    default:
         return state;
     }
 };
