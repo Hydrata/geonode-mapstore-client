@@ -105,3 +105,10 @@
     cursor: not-allowed;
     opacity: 0.5;
 }
+
+.hyrdology-textarea {
+    color: white;
+    border: solid 1px rgba(53, 133, 176);
+    border-radius: 4px;
+    background: #5178af;
+}

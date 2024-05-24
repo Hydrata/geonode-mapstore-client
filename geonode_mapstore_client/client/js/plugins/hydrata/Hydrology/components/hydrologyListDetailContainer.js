@@ -25,7 +25,8 @@ class HydrologyListDetailContainerClass extends React.Component {
         setActiveHydrologyItem: PropTypes.func,
         saveHydrologyItem: PropTypes.func,
         updateActiveHydrologyItem: PropTypes.func,
-        deleteHydrologyItem: PropTypes.func
+        deleteHydrologyItem: PropTypes.func,
+        createHydrologyForm: PropTypes.func
     }
 
     static defaultProps = {}
@@ -40,7 +41,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                 <div id={"hydrology-list-detail-body"}>
                     <div id={"hydrology-list-detail-col-one"}>
                         <div id={"hydrology-list-detail-items"}>
-                            <div id={"top buttons"}>
+                            <div id={"top-buttons"} style={{display: "flex", flexDirection: "column"}}>
                                 <div className={"hydrology-list-detail-heading"}>Items</div>
                                 {this.props.activeHydrologyItems?.map((item) => {
                                     return (
@@ -58,7 +59,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                     );
                                 })}
                             </div>
-                            <div id={"bottom buttons"}>
+                            <div id={"bottom-buttons"}>
                                 <button
                                     className={"hydrology-button"}
                                     style={{marginTop: "10px"}}
@@ -78,15 +79,16 @@ class HydrologyListDetailContainerClass extends React.Component {
                                     ? <div style={{
                                         display: "flex",
                                         flexDirection: "column",
-                                        height: "100vh"
+                                        height: "100vh",
+                                        padding: "2px"
                                     }}>
                                         <div style={{
                                             display: "flex",
                                             alignItems: "baseline",
-                                            padding: '10px',
-                                            boxSizing: 'border-box'
+                                            boxSizing: 'border-box',
+                                            paddingTop: "5px"
                                         }}>
-                                            <p style={{marginRight: '5px'}}>Name:</p>
+                                            <p style={{marginRight: '5px', width: "100px"}}>Name:</p>
                                             <input
                                                 id={'name'}
                                                 key={`name-${this.props.activeHydrologyItem.id}`}
@@ -94,6 +96,38 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 className={'hydrology-text-input'}
                                                 style={{textAlign: "left"}}
                                                 value={this.props.activeHydrologyItem.name}
+                                                onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
+                                            />
+                                        </div>
+                                        <div style={{
+                                            display: "flex",
+                                            alignItems: "baseline",
+                                            boxSizing: 'border-box'
+                                        }}>
+                                            <p style={{marginRight: '5px', width: "100px"}}>Source:</p>
+                                            <input
+                                                id={'source'}
+                                                key={`source-${this.props.activeHydrologyItem.id}`}
+                                                type={"text"}
+                                                className={'hydrology-text-input'}
+                                                style={{textAlign: "left"}}
+                                                value={this.props.activeHydrologyItem.source}
+                                                onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
+                                            />
+                                        </div>
+                                        <div style={{
+                                            display: "flex",
+                                            alignItems: "baseline",
+                                            boxSizing: 'border-box'
+                                        }}>
+                                            <p style={{marginRight: '5px', width: "100px"}}>Description:</p>
+                                            <textarea
+                                                id={'description'}
+                                                key={`description-${this.props.activeHydrologyItem.id}`}
+                                                className={'hydrology-text-input hyrdology-textarea'}
+                                                rows={1}
+                                                style={{textAlign: "left", resize: "vertical", width: "80%"}}
+                                                value={this.props.activeHydrologyItem.description}
                                                 onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
                                             />
                                         </div>
