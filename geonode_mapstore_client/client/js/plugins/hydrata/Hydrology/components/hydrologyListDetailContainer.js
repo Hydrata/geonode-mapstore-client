@@ -2,8 +2,7 @@ import React from "react";
 import {connect} from "react-redux";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
-import {HydrologyDetailDefault} from './hydrologyDetailDefault';
-import {HydrologyDetailIdfTable} from './hydrologyDetailIdfTable';
+import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
 import {HydrologyDetailTemporalPattern} from './hydrologyDetailTemporalPattern';
 import {HydrologyDetailTimeSeries} from './hydrologyDetailTimeSeries';
 import {
@@ -126,7 +125,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 key={`description-${this.props.activeHydrologyItem.id}`}
                                                 className={'hydrology-text-input hyrdology-textarea'}
                                                 rows={1}
-                                                style={{textAlign: "left", resize: "vertical", width: "80%"}}
+                                                style={{textAlign: "left", resize: "vertical", width: "685px"}}
                                                 value={this.props.activeHydrologyItem.description}
                                                 onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
                                             />
@@ -140,7 +139,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             case 'time-series':
                                                 return <HydrologyDetailTimeSeries/>;
                                             default:
-                                                return <HydrologyDetailDefault/>;
+                                                return <div/>;
                                             }
                                         })()}
                                     </div>

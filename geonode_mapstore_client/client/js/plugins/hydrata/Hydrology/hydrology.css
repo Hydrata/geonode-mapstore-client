@@ -112,3 +112,27 @@
     border-radius: 4px;
     background: #5178af;
 }
+
+.ag-theme-blue {
+    height: 100%!important;
+    width: 100%!important;
+    font-family: 'Montserrat', sans-serif!important;
+    font-size: small!important;
+    background-color: transparent!important;
+}
+
+.ag-root-wrapper {
+    border-radius: 5px!important;
+    border: 1px solid transparent!important;
+}
+
+.ag-theme-blue .ag-header {
+    color: white!important;
+    background-color: #6186b6 !important;
+}
+
+.ag-theme-blue .ag-header-cell-label .ag-header-cell-text {
+    justify-content: center!important;
+    overflow: visible!important;
+    white-space: normal !important;
+}

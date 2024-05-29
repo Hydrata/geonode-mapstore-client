@@ -65,7 +65,6 @@ class HydrologyContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('state for Hydrology:', state);
     return {
         isAnugaProject: !!state?.anuga?.projectData?.id,
         anugaProjectId: state?.anuga?.projectData?.id,

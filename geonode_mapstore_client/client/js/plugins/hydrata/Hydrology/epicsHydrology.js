@@ -126,12 +126,13 @@ export const saveHydrologyItemEpic = (action$, store) =>
     action$
         .ofType(SAVE_HYDROLOGY_ITEM)
         .mergeMap(action => {
+            const postData = { ...action.item, data: action.item.data };
             const projectId = store.getState()?.anuga?.projectData?.id;
-            if (action.item?.id) {
+            if (typeof action.item?.id === 'number' || typeof action.item?.id === 'string' && !isNaN(Number(action.item?.id))) {
                 return Rx.Observable.from(
                     axios.patch(
                         `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`,
-                        action.item
+                        postData
                     )
                 )
                     .mergeMap(response =>
@@ -158,7 +159,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
             return Rx.Observable.from(
                 axios.post(
                     `/anuga/api/${projectId}/${action.activeHydrologyPage}/`,
-                    action.item
+                    postData
                 )
             )
                 .mergeMap(response =>
@@ -191,8 +192,7 @@ export const deleteHydrologyItemEpic = (action$, store) =>
             const projectId = store.getState()?.anuga?.projectData?.id;
             return Rx.Observable.from(
                 axios.delete(
-                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`,
-                    action.item
+                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`
                 )
             )
                 .mergeMap(() =>

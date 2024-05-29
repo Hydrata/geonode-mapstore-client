@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import {
     INIT_HYDROLOGY_FULFILLED,
     SET_HYDROLOGY_MAIN_MENU,
@@ -10,9 +11,11 @@ import {
     CREATE_HYDROLOGY_FORM,
     SAVE_HYDROLOGY_ITEM_SUCCESS,
     CREATE_HYDROLOGY_ITEM_SUCCESS,
-    DELETE_HYDROLOGY_ITEM_SUCCESS
+    DELETE_HYDROLOGY_ITEM_SUCCESS,
+    UPDATE_IDF_ROW_DATA
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
+import {IdfTable} from "./classesHydrology";
 
 const initialState = {
     isHydrologyProject: false,
@@ -27,8 +30,20 @@ export const hydrologyKeyMap = {
     "inflows": "inflows"
 };
 
+const createIdfTableFromJson = (idfTableJson) => {
+    const idfTableInstance = new IdfTable();
+    idfTableInstance.id = idfTableJson?.id;
+    idfTableInstance.project = idfTableJson?.project;
+    idfTableInstance.name = idfTableJson?.name;
+    idfTableInstance.description = idfTableJson?.description;
+    idfTableInstance.source = idfTableJson?.source;
+    idfTableInstance.owner = idfTableJson?.owner;
+    idfTableInstance.data = idfTableJson?.data || [];
+    return idfTableInstance;
+};
+
+
 export default ( state = initialState, action) => {
-    console.log('action for Hydrology: ', action);
     switch (action.type) {
     case INIT_HYDROLOGY_FULFILLED:
         return {
@@ -46,9 +61,10 @@ export default ( state = initialState, action) => {
             temporalPatterns: action.payload
         };
     case SET_HYDROLOGY_IDF_TABLE_DATA:
+        const idfTables = action.payload.map(idfTableJson => createIdfTableFromJson(idfTableJson));
         return {
             ...state,
-            idfTables: action.payload
+            idfTables: idfTables
         };
     case SET_HYDROLOGY_MAIN_MENU:
         return {
@@ -67,55 +83,74 @@ export default ( state = initialState, action) => {
         };
     case UPDATE_ACTIVE_HYDROLOGY_ITEM: {
         const pageName = hydrologyKeyMap[action.activeHydrologyPage];
+        let updatedActiveHydrologyItem;
         return {
             ...state,
-            [pageName]: state[pageName].map((item) => item.id === action.item.id
-                ? { ...action.item, unsaved: true }
-                : item),
-            activeHydrologyItem: {
-                ...action.item,
-                unsaved: true
-            }
-        };
-    }
-    case SAVE_HYDROLOGY_ITEM_SUCCESS: {
-        const pageName = hydrologyKeyMap[action.activeHydrologyPage];
-        return {
-            ...state,
-            [pageName]: state[pageName].map((item) => item.id === action.item.id
-                ? { ...action.item, unsaved: false }
-                : item),
-            activeHydrologyItem: {
-                ...action.item,
-                unsaved: false
-            }
+            [pageName]: state[pageName].map((item) => {
+                if (item.id === action.item.id) {
+                    item.updateProperties(action.kv);
+                    item.unsaved = true;
+                    updatedActiveHydrologyItem = item;
+                }
+                return item;
+            }),
+            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
         };
     }
     case CREATE_HYDROLOGY_FORM: {
+        const pageName = hydrologyKeyMap[action.activeHydrologyPage];
+        if (action.activeHydrologyPage === 'idf-table') {
+            let newHydrologyItem = new IdfTable();
+            newHydrologyItem.unsaved = true;
+            console.log('newHydrologyItem:', newHydrologyItem);
+            return {
+                ...state,
+                [pageName]: [...state[pageName], newHydrologyItem],
+                activeHydrologyItem: newHydrologyItem
+            };
+        } else if (action.activeHydrologyPage === 'temporal-pattern') {
+            return {
+                ...state,
+                activeHydrologyItem: null
+            };
+        } else if (action.activeHydrologyPage === 'time-series') {
+            return {
+                ...state,
+                activeHydrologyItem: null
+            };
+        }
+        return state;
+    }
+    case SAVE_HYDROLOGY_ITEM_SUCCESS: {
+        const pageName = hydrologyKeyMap[action.activeHydrologyPage];
+        let updatedActiveHydrologyItem;
         return {
             ...state,
-            activeHydrologyItem: {
-                name: "New Item",
-                description: "",
-                unsaved: true
-            }
+            [pageName]: state[pageName].map((item) => {
+                if (item.id === action.item.id) {
+                    updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
+                    updatedActiveHydrologyItem.unsaved = false;
+                    return updatedActiveHydrologyItem;
+                }
+                return item;
+            }),
+            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
         };
     }
     case CREATE_HYDROLOGY_ITEM_SUCCESS: {
         const pageName = hydrologyKeyMap[action.activeHydrologyPage];
+        let updatedActiveHydrologyItem;
         return {
             ...state,
-            [pageName]: [
-                ...state[pageName],
-                {
-                    ...action.item,
-                    unsaved: false
+            [pageName]: state[pageName].map((item) => {
+                if (typeof item.id === 'string' && item.id.includes('temp') && item.name === action.item.name) {
+                    updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
+                    updatedActiveHydrologyItem.unsaved = false;
+                    return updatedActiveHydrologyItem;
                 }
-            ],
-            activeHydrologyItem: {
-                ...action.item,
-                unsaved: false
-            }
+                return item;
+            }),
+            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
         };
     }
     case DELETE_HYDROLOGY_ITEM_SUCCESS: {
@@ -124,6 +159,21 @@ export default ( state = initialState, action) => {
             ...state,
             [pageName]: state[pageName].filter((item) => item.id !== action.item.id),
             activeHydrologyItem: null
+        };
+    }
+    case UPDATE_IDF_ROW_DATA: {
+        let updatedActiveHydrologyItem;
+        return {
+            ...state,
+            idfTables: state.idfTables.map((idfTable) => {
+                if (idfTable.id === action.idfTableId) {
+                    idfTable.updateIntensityValues(action.rowData);
+                    idfTable.unsaved = true;
+                    updatedActiveHydrologyItem = idfTable;
+                }
+                return idfTable;
+            }),
+            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
         };
     }
     default:

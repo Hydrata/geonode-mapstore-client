@@ -24,6 +24,7 @@ const CREATE_HYDROLOGY_ITEM_FAILURE = 'CREATE_HYDROLOGY_ITEM_FAILURE';
 const DELETE_HYDROLOGY_ITEM = 'DELETE_HYDROLOGY_ITEM';
 const DELETE_HYDROLOGY_ITEM_SUCCESS = 'DELETE_HYDROLOGY_ITEM_SUCCESS';
 const DELETE_HYDROLOGY_ITEM_FAILURE = 'DELETE_HYDROLOGY_ITEM_FAILURE';
+const UPDATE_IDF_ROW_DATA = 'UPDATE_IDF_ROW_DATA';
 
 
 
@@ -101,10 +102,8 @@ const setActiveHydrologyItem = (item) => ({
 const updateActiveHydrologyItem = (activeHydrologyPage, item, kv) => ({
     type: UPDATE_ACTIVE_HYDROLOGY_ITEM,
     activeHydrologyPage,
-    item: {
-        ...item,
-        ...kv
-    }
+    item,
+    kv
 });
 
 const saveHydrologyItem = (activeHydrologyPage, item) => ({
@@ -166,6 +165,12 @@ const deleteHydrologyItemFailure = (response) => ({
     error: true
 });
 
+const updateIdfRowData = (idfTableId, rowData) => ({
+    type: UPDATE_IDF_ROW_DATA,
+    idfTableId,
+    rowData
+});
+
 
 module.exports = {
     INIT_HYDROLOGY, initHydrology,
@@ -193,5 +198,6 @@ module.exports = {
     CREATE_HYDROLOGY_ITEM_FAILURE, createHydrologyItemFailure,
     DELETE_HYDROLOGY_ITEM, deleteHydrologyItem,
     DELETE_HYDROLOGY_ITEM_SUCCESS, deleteHydrologyItemSuccess,
-    DELETE_HYDROLOGY_ITEM_FAILURE, deleteHydrologyItemFailure
+    DELETE_HYDROLOGY_ITEM_FAILURE, deleteHydrologyItemFailure,
+    UPDATE_IDF_ROW_DATA, updateIdfRowData
 };

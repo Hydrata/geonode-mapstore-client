@@ -256,7 +256,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
         .ofType(START_ANUGA_SCENARIO_POLLING)
         .switchMap(() =>
             Rx.Observable
-                .timer(0, 8000)
+                .timer(0, 800000)
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
                     Rx.Observable.from(
