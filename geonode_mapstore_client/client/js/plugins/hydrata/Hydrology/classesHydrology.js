@@ -401,3 +401,89 @@ export class IdfTable {
         return lines;
     }
 }
+
+export class TemporalPattern {
+    constructor() {
+        this.id = `temp-${uuidv4()}`;
+        this.name = "New TemporalPattern";
+        this.description = "Enter description";
+        this.source = "Enter source";
+        this.columnDefs = [
+            {
+                headerName: 'Percentage',
+                field: 'percentage',
+                pinned: 'left',
+                editable: true,
+                width: 100,
+                valueParser: params => Number(params.newValue)
+            }
+        ];
+        this.rowData = [
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            },
+            {
+                "percentage": 10
+            }
+        ];
+    }
+
+    get data() {
+        return {
+            columnDefs: this.columnDefs,
+            rowData: this.rowData
+        };
+    }
+
+    set data(value) {
+        if (typeof value !== 'object') {
+            throw new TypeError("'data' expects an object");
+        }
+
+        if ('columnDefs' in value) {
+            this.columnDefs = value.columnDefs;
+        }
+
+        if ('rowData' in value) {
+            this.rowData = value.rowData;
+        }
+    }
+
+    updateProperties(kv) {
+        Object.keys(kv).forEach(key => {
+            this[key] = kv[key];
+        });
+    }
+
+    updatePercentageValues(rowData) {
+        return 'something';
+    }
+
+    getChartData() {
+        return this.rowData;
+    }
+}

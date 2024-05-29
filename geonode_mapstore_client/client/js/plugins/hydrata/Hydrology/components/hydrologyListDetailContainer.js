@@ -3,7 +3,7 @@ import {connect} from "react-redux";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
-import {HydrologyDetailTemporalPattern} from './hydrologyDetailTemporalPattern';
+import HydrologyDetailTemporalPattern from './hydrologyDetailTemporalPattern';
 import {HydrologyDetailTimeSeries} from './hydrologyDetailTimeSeries';
 import {
     setActiveHydrologyItem,
@@ -78,7 +78,6 @@ class HydrologyListDetailContainerClass extends React.Component {
                                     ? <div style={{
                                         display: "flex",
                                         flexDirection: "column",
-                                        height: "100vh",
                                         padding: "2px"
                                     }}>
                                         <div style={{
