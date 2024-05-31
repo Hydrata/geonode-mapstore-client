@@ -85,69 +85,72 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
                 </div>
             </div>
             <div style={{
-                padding: '10px',
                 minWidth: '600px',
                 maxWidth: '800px',
                 marginTop: '60px',
-                background: 'white',
-                borderRadius: '3px'
+                padding: '10px'
             }}>
-                <ResponsiveContainer
-                    width="100%"
-                    height={600}
-                >
-                    <ScatterChart
-                        width={800}
-                        height={500}
-                        margin={{
-                            top: 20,
-                            right: 20,
-                            bottom: 20,
-                            left: 20
-                        }}
+                <div style={{
+                    width: '100%',
+                    height: '100%',
+                    background: 'white',
+                    borderRadius: '3px'
+                }}>
+                    <ResponsiveContainer
+                        width="100%"
+                        height={600}
                     >
-                        <CartesianGrid />
-                        <XAxis
-                            type="number"
-                            dataKey="duration"
-                            name="Duration"
-                            unit="min"
-                            scale="log"
-                            domain={['auto', 'auto']}
-                            label={{
-                                value: "Duration in min",
-                                position: "insideBottomRight",
-                                offset: 0
+                        <ScatterChart
+                            margin={{
+                                top: 20,
+                                right: 20,
+                                bottom: 20,
+                                left: 20
                             }}
-                        />
-                        <YAxis
-                            type="number"
-                            dataKey="intensity"
-                            name="Intensity"
-                            unit="mm/hr"
-                            scale="log"
-                            domain={['auto', 'auto']}
-                            label={{
-                                value: "Intensity in mm/hr",
-                                angle: -90,
-                                position: "insideLeft"
-                            }}
-                        />
-                        <ZAxis type="number" range={[100]} />
-                        <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                        <Legend />
-                        {Object.keys(chartData).map((frequency, index) => {
-                            return (
-                                <Scatter
-                                    name={frequency}
-                                    data={chartData[frequency]}
-                                    fill={colors[index]}
-                                    line
-                                />
-                            );
-                        })}
-                    </ScatterChart>
-                </ResponsiveContainer>
+                        >
+                            <CartesianGrid />
+                            <XAxis
+                                type="number"
+                                dataKey="duration"
+                                name="Duration"
+                                unit="min"
+                                scale="log"
+                                domain={['auto', 'auto']}
+                                label={{
+                                    value: "Duration in min",
+                                    position: "insideBottomRight",
+                                    offset: 0
+                                }}
+                            />
+                            <YAxis
+                                type="number"
+                                dataKey="intensity"
+                                name="Intensity"
+                                unit="mm/hr"
+                                scale="log"
+                                domain={['auto', 'auto']}
+                                label={{
+                                    value: "Intensity in mm/hr",
+                                    angle: -90,
+                                    position: "insideLeft"
+                                }}
+                            />
+                            <ZAxis type="number" range={[100]} />
+                            <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+                            <Legend />
+                            {Object.keys(chartData).map((frequency, index) => {
+                                return (
+                                    <Scatter
+                                        name={frequency}
+                                        data={chartData[frequency]}
+                                        fill={colors[index]}
+                                        line
+                                    />
+                                );
+                            })}
+                        </ScatterChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
         </div>
     );

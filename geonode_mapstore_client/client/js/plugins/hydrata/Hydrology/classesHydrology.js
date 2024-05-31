@@ -355,20 +355,20 @@ export class IdfTable {
         });
     }
 
-    updateIntensityValues(rowData) {
-        let updatedRowDuration = parseInt(rowData.duration, 10);
-        for (const existingRowData of this.rowData) {
-            for (const durationToCheck in existingRowData.duration) {
-                if (parseInt(durationToCheck, 10) === updatedRowDuration) {
-                    for (const frequency in rowData) {
-                        if (frequency !== "duration" && existingRowData.field === frequency) {
-                            existingRowData.durations[durationToCheck] = rowData[frequency] === "-" ? 0 : parseInt(rowData[frequency], 10);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // updateIntensityValues(rowData) {
+    //     let updatedRowDuration = parseInt(rowData.duration, 10);
+    //     for (const existingRowData of this.rowData) {
+    //         for (const durationToCheck in existingRowData.duration) {
+    //             if (parseInt(durationToCheck, 10) === updatedRowDuration) {
+    //                 for (const frequency in rowData) {
+    //                     if (frequency !== "duration" && existingRowData.field === frequency) {
+    //                         existingRowData.durations[durationToCheck] = rowData[frequency] === "-" ? 0 : parseInt(rowData[frequency], 10);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
     addDuration(minutes)  {
         return null;
     }
@@ -479,11 +479,97 @@ export class TemporalPattern {
         });
     }
 
-    updatePercentageValues(rowData) {
-        return 'something';
-    }
+    // updatePercentageValues(rowData) {
+    //     console.log('updatePercentageValues rowData', rowData);
+    //     console.log(this.rowData);
+    //     return 'something';
+    // }
 
     getChartData() {
         return this.rowData;
     }
 }
+
+export class TimeSeries {
+    constructor() {
+        this.id = `temp-${uuidv4()}`;
+        this.name = "New Time Series";
+        this.description = "Enter description";
+        this.source = "Enter source";
+        this.columnDefs = [
+            {
+                headerName: 'TimeStamp',
+                field: 'timestamp',
+                pinned: 'left',
+                editable: true,
+                width: 250,
+                // valueFormatter: params => {
+                //     const date = new Date(params.value);
+                //     return date.toLocaleString();
+                // }
+                cellDataType: 'dateString'
+            },
+            {
+                headerName: "Value",
+                field: "value",
+                editable: true,
+                width: 100,
+                valueParser: params => Number(params.newValue)
+            }
+        ];
+        this.rowData = [
+            {
+                "timestamp": new Date("2000-01-01T00:00:00").toISOString(),
+                "value": 0
+            },
+            {
+                "timestamp": new Date("2000-01-01T01:00:00").toISOString(),
+                "value": 10
+            },
+            {
+                "timestamp": new Date("2000-01-01T02:00:00").toISOString(),
+                "value": 30
+            },
+            {
+                "timestamp": new Date("2000-01-01T03:00:00").toISOString(),
+                "value": 0
+            }
+        ];
+    }
+
+    get data() {
+        return {
+            columnDefs: this.columnDefs,
+            rowData: this.rowData
+        };
+    }
+
+    set data(value) {
+        if (typeof value !== 'object') {
+            throw new TypeError("'data' expects an object");
+        }
+
+        if ('columnDefs' in value) {
+            this.columnDefs = value.columnDefs;
+        }
+
+        if ('rowData' in value) {
+            this.rowData = value.rowData;
+        }
+    }
+
+    updateProperties(kv) {
+        Object.keys(kv).forEach(key => {
+            this[key] = kv[key];
+        });
+    }
+
+    // updateTimestampValues(rowData) {
+    //     return 'something';
+    // }
+
+    getChartData() {
+        return this.rowData;
+    }
+}
+

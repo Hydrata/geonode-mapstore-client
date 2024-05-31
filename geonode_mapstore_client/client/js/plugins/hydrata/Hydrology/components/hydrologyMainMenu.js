@@ -62,7 +62,7 @@ class HydrologyMainMenuClass extends React.Component {
                         {this.renderButton('idf-table', 'IDF Tables')}
                         {this.renderButton('temporal-pattern', 'Temporal Patterns')}
                         {this.renderButton('time-series', 'Timeseries')}
-                        {/*{this.renderButton('inflows', 'Inflows')}*/}
+                        {this.renderButton('inflow', 'Inflows')}
                     </span>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}

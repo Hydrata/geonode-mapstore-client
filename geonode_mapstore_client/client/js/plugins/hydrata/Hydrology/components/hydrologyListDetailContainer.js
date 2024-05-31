@@ -4,7 +4,8 @@ import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
 import HydrologyDetailTemporalPattern from './hydrologyDetailTemporalPattern';
-import {HydrologyDetailTimeSeries} from './hydrologyDetailTimeSeries';
+import HydrologyDetailTimeSeries from './hydrologyDetailTimeSeries';
+import HydrologyDetailInflow from './hydrologyDetailInflow';
 import {
     setActiveHydrologyItem,
     saveHydrologyItem,
@@ -137,6 +138,8 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 return <HydrologyDetailTemporalPattern/>;
                                             case 'time-series':
                                                 return <HydrologyDetailTimeSeries/>;
+                                            case 'inflow':
+                                                return <HydrologyDetailInflow/>;
                                             default:
                                                 return <div/>;
                                             }

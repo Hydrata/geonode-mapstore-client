@@ -58,7 +58,7 @@ const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRo
             }}>
                 <div style={{
                     padding: '10px',
-                    height: '500px',
+                    height: '520px',
                     width: '200px',
                     borderRadius: '3px'
                 }}>
@@ -76,43 +76,46 @@ const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRo
                     </div>
                 </div>
                 <div style={{
-                    padding: '10px',
-                    height: '500px',
-                    width: '95%',
-                    background: 'white',
-                    borderRadius: '3px'
+                    minWidth: '600px',
+                    maxWidth: '800px',
+                    padding: '10px'
                 }}>
-                    <ResponsiveContainer
-                        width="100%"
-                        height={500}
-                    >
-                        <BarChart
-                            width={500}
+                    <div style={{
+                        width: '100%',
+                        height: '100%',
+                        background: 'white',
+                        borderRadius: '3px'
+                    }}>
+                        <ResponsiveContainer
+                            width="100%"
                             height={500}
-                            data={chartData}
-                            margin={{
-                                top: 5,
-                                right: 30,
-                                left: 20,
-                                bottom: 5
-                            }}
                         >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis
-                                domain={[0, 50]}
-                                ticks={[0, 10, 20, 30, 40, 50]}
-                            />
-                            <Tooltip />
-                            <Legend />
-                            <Bar
-                                dataKey="percentage"
-                                fill="#5178af"
-                                isAnimationActive={false}
-                                activeBar={<Rectangle fill="#5178af" stroke="#3585b0" />}
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
+                            <BarChart
+                                data={chartData}
+                                margin={{
+                                    top: 5,
+                                    right: 30,
+                                    left: 20,
+                                    bottom: 5
+                                }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3"/>
+                                <XAxis dataKey="name"/>
+                                <YAxis
+                                    domain={[0, 50]}
+                                    ticks={[0, 10, 20, 30, 40, 50]}
+                                />
+                                <Tooltip/>
+                                <Legend/>
+                                <Bar
+                                    dataKey="percentage"
+                                    fill="#5178af"
+                                    isAnimationActive={false}
+                                    activeBar={<Rectangle fill="#5178af" stroke="#3585b0"/>}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
         </React.Fragment>

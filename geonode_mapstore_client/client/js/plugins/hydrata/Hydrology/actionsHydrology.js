@@ -26,6 +26,7 @@ const DELETE_HYDROLOGY_ITEM_SUCCESS = 'DELETE_HYDROLOGY_ITEM_SUCCESS';
 const DELETE_HYDROLOGY_ITEM_FAILURE = 'DELETE_HYDROLOGY_ITEM_FAILURE';
 const UPDATE_IDF_ROW_DATA = 'UPDATE_IDF_ROW_DATA';
 const UPDATE_TEMPORAL_PATTERN_ROW_DATA = 'UPDATE_TEMPORAL_PATTERN_ROW_DATA';
+const UPDATE_TIME_SERIES_ROW_DATA = 'UPDATE_TIME_SERIES_ROW_DATA';
 
 
 const initHydrology = () => ({
@@ -177,6 +178,12 @@ const updateTemporalPatternRowData = (temporalPatternId, rowData) => ({
     rowData
 });
 
+const updateTimeSeriesRowData = (timeSeriesId, rowData) => ({
+    type: UPDATE_TIME_SERIES_ROW_DATA,
+    timeSeriesId,
+    rowData
+});
+
 module.exports = {
     INIT_HYDROLOGY, initHydrology,
     INIT_HYDROLOGY_FULFILLED, initHydrologyFulfilled,
@@ -205,5 +212,6 @@ module.exports = {
     DELETE_HYDROLOGY_ITEM_SUCCESS, deleteHydrologyItemSuccess,
     DELETE_HYDROLOGY_ITEM_FAILURE, deleteHydrologyItemFailure,
     UPDATE_IDF_ROW_DATA, updateIdfRowData,
-    UPDATE_TEMPORAL_PATTERN_ROW_DATA, updateTemporalPatternRowData
+    UPDATE_TEMPORAL_PATTERN_ROW_DATA, updateTemporalPatternRowData,
+    UPDATE_TIME_SERIES_ROW_DATA, updateTimeSeriesRowData
 };

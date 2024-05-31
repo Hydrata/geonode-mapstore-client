@@ -16,7 +16,7 @@ import '../../SimpleView/simpleView.css';
 import moment from "moment";
 
 
-const HydrologyTimeSeries = ({ activeHydrologyItem, updateTimeSeriesRowData }) => {
+const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData }) => {
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
     const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
@@ -51,7 +51,7 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, updateTimeSeriesRowData }) =
     console.log("*** rowData", rowData);
     return (
         <React.Fragment>
-            <h3 style={{marginTop: 0}}>TimeSeries</h3>
+            <h3 style={{marginTop: 0}}>HydrologyInflow</h3>
             <div style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -126,7 +126,7 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, updateTimeSeriesRowData }) =
     );
 };
 
-HydrologyTimeSeries.propTypes = {
+HydrologyDetailInflow.propTypes = {
     activeHydrologyItem: PropTypes.object,
     setActiveHydrologyItem: PropTypes.func,
     activeHydrologyPage: PropTypes.string
@@ -146,4 +146,4 @@ const mapDispatchToProps = (dispatch) => {
     };
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(HydrologyTimeSeries);
+export default connect(mapStateToProps, mapDispatchToProps)(HydrologyDetailInflow);

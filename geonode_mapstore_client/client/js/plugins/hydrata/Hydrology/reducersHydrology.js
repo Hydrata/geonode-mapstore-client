@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import {
     INIT_HYDROLOGY_FULFILLED,
     SET_HYDROLOGY_MAIN_MENU,
@@ -13,10 +12,11 @@ import {
     CREATE_HYDROLOGY_ITEM_SUCCESS,
     DELETE_HYDROLOGY_ITEM_SUCCESS,
     UPDATE_IDF_ROW_DATA,
-    UPDATE_TEMPORAL_PATTERN_ROW_DATA
+    UPDATE_TEMPORAL_PATTERN_ROW_DATA,
+    UPDATE_TIME_SERIES_ROW_DATA
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
-import {IdfTable, TemporalPattern} from "./classesHydrology";
+import {IdfTable, TemporalPattern, TimeSeries} from "./classesHydrology";
 
 const initialState = {
     isHydrologyProject: false,
@@ -27,8 +27,8 @@ const initialState = {
 export const hydrologyKeyMap = {
     "idf-table": "idfTables",
     "temporal-pattern": "temporalPatterns",
-    "time-series": "timeSeries",
-    "inflows": "inflows"
+    "time-series": "timeSeriess",
+    "inflow": "inflows"
 };
 
 const createIdfTableFromJson = (idfTableJson) => {
@@ -55,6 +55,18 @@ const createTemporalPatternFromJson = (temporalPatternJson) => {
     return temporalPatternInstance;
 };
 
+const createTimeSeriesFromJson = (timeSeriesJson) => {
+    const timeSeriesInstance = new TimeSeries();
+    timeSeriesInstance.id = timeSeriesJson?.id;
+    timeSeriesInstance.project = timeSeriesJson?.project;
+    timeSeriesInstance.name = timeSeriesJson?.name;
+    timeSeriesInstance.description = timeSeriesJson?.description;
+    timeSeriesInstance.source = timeSeriesJson?.source;
+    timeSeriesInstance.owner = timeSeriesJson?.owner;
+    timeSeriesInstance.data = timeSeriesJson?.data;
+    return timeSeriesInstance;
+};
+
 
 export default ( state = initialState, action) => {
     switch (action.type) {
@@ -63,10 +75,11 @@ export default ( state = initialState, action) => {
             ...state,
             projectId: action.projectId
         };
-    case SET_HYDROLOGY_TIME_SERIES_DATA:
+    case SET_HYDROLOGY_IDF_TABLE_DATA:
+        const idfTables = action.payload.map(idfTableJson => createIdfTableFromJson(idfTableJson));
         return {
             ...state,
-            timeSeries: action.payload
+            idfTables: idfTables
         };
     case SET_HYDROLOGY_TEMPORAL_PATTERN_DATA:
         const temporalPatterns = action.payload.map(temporalPatternJson => createTemporalPatternFromJson(temporalPatternJson));
@@ -74,11 +87,11 @@ export default ( state = initialState, action) => {
             ...state,
             temporalPatterns: temporalPatterns
         };
-    case SET_HYDROLOGY_IDF_TABLE_DATA:
-        const idfTables = action.payload.map(idfTableJson => createIdfTableFromJson(idfTableJson));
+    case SET_HYDROLOGY_TIME_SERIES_DATA:
+        const timeSeriess = action.payload.map(timeSeriesJson => createTimeSeriesFromJson(timeSeriesJson));
         return {
             ...state,
-            idfTables: idfTables
+            timeSeriess: timeSeriess
         };
     case SET_HYDROLOGY_MAIN_MENU:
         return {
@@ -119,7 +132,7 @@ export default ( state = initialState, action) => {
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             newHydrologyItem = new TemporalPattern();
         } else if (action.activeHydrologyPage === 'time-series') {
-            newHydrologyItem = new IdfTable();
+            newHydrologyItem = new TimeSeries();
         }
         newHydrologyItem.unsaved = true;
         return {
@@ -136,7 +149,7 @@ export default ( state = initialState, action) => {
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             updatedActiveHydrologyItem = createTemporalPatternFromJson(action.item);
         } else if (action.activeHydrologyPage === 'time-series') {
-            updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
+            updatedActiveHydrologyItem = createTimeSeriesFromJson(action.item);
         }
         return {
             ...state,
@@ -158,7 +171,7 @@ export default ( state = initialState, action) => {
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             updatedActiveHydrologyItem = createTemporalPatternFromJson(action.item);
         } else if (action.activeHydrologyPage === 'time-series') {
-            updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
+            updatedActiveHydrologyItem = createTimeSeriesFromJson(action.item);
         }
         return {
             ...state,
@@ -186,7 +199,7 @@ export default ( state = initialState, action) => {
             ...state,
             idfTables: state.idfTables.map((idfTable) => {
                 if (idfTable.id === action.idfTableId) {
-                    idfTable.updateIntensityValues(action.rowData);
+                    // idfTable.updateIntensityValues(action.rowData);
                     idfTable.unsaved = true;
                     updatedActiveHydrologyItem = idfTable;
                 }
@@ -201,11 +214,26 @@ export default ( state = initialState, action) => {
             ...state,
             temporalPatterns: state.temporalPatterns.map((temporalPattern) => {
                 if (temporalPattern.id === action.temporalPatternId) {
-                    temporalPattern.updatePercentageValues(action.rowData);
+                    // temporalPattern.updatePercentageValues(action.rowData);
                     temporalPattern.unsaved = true;
                     updatedActiveHydrologyItem = temporalPattern;
                 }
                 return temporalPattern;
+            }),
+            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
+        };
+    }
+    case UPDATE_TIME_SERIES_ROW_DATA: {
+        let updatedActiveHydrologyItem;
+        return {
+            ...state,
+            timeSeriess: state.timeSeriess.map((timeSeries) => {
+                if (timeSeries.id === action.timeSeriesId) {
+                    // timeSeries.updatePercentageValues(action.rowData);
+                    timeSeries.unsaved = true;
+                    updatedActiveHydrologyItem = timeSeries;
+                }
+                return timeSeries;
             }),
             activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
         };
