@@ -564,12 +564,16 @@ export class TimeSeries {
         });
     }
 
-    // updateTimestampValues(rowData) {
-    //     return 'something';
-    // }
+    setUnsavedStatus(newStatus) {
+        this.saved = newStatus;
+    }
+
+    setRowData(rowData) {
+        this.rowData = rowData;
+    }
 
     getChartData() {
-        return this.rowData;
+        return this.rowData.map(datapoint => ({ ...datapoint, timestamp: new Date(datapoint.timestamp).getTime()}));
     }
 }
 

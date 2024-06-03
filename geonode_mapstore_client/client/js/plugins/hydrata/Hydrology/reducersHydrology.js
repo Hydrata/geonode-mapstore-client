@@ -224,18 +224,22 @@ export default ( state = initialState, action) => {
         };
     }
     case UPDATE_TIME_SERIES_ROW_DATA: {
-        let updatedActiveHydrologyItem;
+        let updatedTimeSeries;
+
+        let updatedTimeSeriess = state.timeSeriess.map((timeSeries) => {
+            if (timeSeries.id === action.timeSeriesId) {
+                timeSeries.setRowData(action.rowData);
+                timeSeries.setUnsavedStatus(true);
+                updatedTimeSeries = timeSeries;
+                return updatedTimeSeries;
+            }
+            return timeSeries;
+        });
+
         return {
             ...state,
-            timeSeriess: state.timeSeriess.map((timeSeries) => {
-                if (timeSeries.id === action.timeSeriesId) {
-                    // timeSeries.updatePercentageValues(action.rowData);
-                    timeSeries.unsaved = true;
-                    updatedActiveHydrologyItem = timeSeries;
-                }
-                return timeSeries;
-            }),
-            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
+            timeSeriess: updatedTimeSeriess,
+            activeHydrologyItem: updatedTimeSeries || state.activeHydrologyItem
         };
     }
     default:
