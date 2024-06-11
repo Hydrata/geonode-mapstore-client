@@ -15,6 +15,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import moment from 'moment';
 import { getConfigProp } from '@mapstore/framework/utils/ConfigUtils';
 import { getUploadErrorMessageFromCode } from '@js/utils/ErrorUtils';
+import { getCataloguePath } from '@js/utils/ResourceUtils';
 
 function ErrorMessage(props) {
     return (
@@ -87,7 +88,7 @@ function UploadCard({
                             {...(!detailUrl && {onClick: () => {
                                 onRemove();
                             }})}
-                            href={detailUrl || (importUrl.length === 1 ? importUrl[0] : '/catalogue/#/search/?f=dataset')}
+                            href={detailUrl || (importUrl.length === 1 ? importUrl[0] : getCataloguePath('/catalogue/#/search/?f=dataset'))}
                             target="_blank"
                             rel="noopener noreferrer"
                         >

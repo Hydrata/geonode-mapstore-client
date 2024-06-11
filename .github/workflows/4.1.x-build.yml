@@ -11,6 +11,7 @@ on:
   push:
     branches: [ 4.1.x ]
     paths: 
+      - "VERSION"
       - "geonode_mapstore_client/client/**"
       - "!geonode_mapstore_client/client/version.txt"
 

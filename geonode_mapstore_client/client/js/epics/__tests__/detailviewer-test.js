@@ -42,8 +42,9 @@ describe('gnresource epics', () => {
         const testState = {
             gnresource: {data: {}}
         };
+        const linkedTo = [{pk: 2, title: "Title"}];
         mockAxios.onGet(new RegExp(`resources/${pk}/linked_resources`))
-            .reply(() => [200, { resources: [{pk: 2, title: "Title"}] }]);
+            .reply(() => [200, { linked_to: linkedTo }]);
 
         testEpic(
             gnGetLinkedResources,
@@ -55,6 +56,42 @@ describe('gnresource epics', () => {
                         .toEqual([
                             UPDATE_RESOURCE_PROPERTIES
                         ]);
+                    expect(actions[0].properties.linkedResources)
+                        .toEqual({linkedTo, linkedBy: []});
+                } catch (e) {
+                    done(e);
+                }
+                done();
+            },
+            testState
+        );
+    });
+    it('gnGetLinkedResources on empty resources', (done) => {
+        const NUM_ACTIONS = 1;
+        const pk = 1;
+        const resource = {
+            pk,
+            'title': 'Map',
+            'thumbnail_url': 'thumbnail.jpeg'
+        };
+        const testState = {
+            gnresource: {data: {}}
+        };
+        mockAxios.onGet(new RegExp(`resources/${pk}/linked_resources`))
+            .reply(() => [200, { linked_to: [] }]);
+
+        testEpic(
+            gnGetLinkedResources,
+            NUM_ACTIONS,
+            setResource(resource),
+            (actions) => {
+                try {
+                    expect(actions.map(({ type }) => type))
+                        .toEqual([
+                            UPDATE_RESOURCE_PROPERTIES
+                        ]);
+                    expect(actions[0].properties.linkedResources)
+                        .toEqual({});
                 } catch (e) {
                     done(e);
                 }

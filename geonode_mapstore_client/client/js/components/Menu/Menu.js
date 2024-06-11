@@ -50,7 +50,7 @@ const Menu = forwardRef(({
                             <MenuItem
                                 variant={item.variant || variant}
                                 item={{ ...item, id: item.id || idx }}
-                                size={size}
+                                size={item.size || size}
                                 alignRight={alignRight}
                                 menuItemsProps={{
                                     query,

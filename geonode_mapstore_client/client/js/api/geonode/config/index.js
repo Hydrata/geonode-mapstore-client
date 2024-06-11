@@ -7,6 +7,8 @@
  */
 
 import axios from '@mapstore/framework/libs/ajax';
+import getPluginsConfig from '@mapstore/framework/observables/config/getPluginsConfig';
+import { getGeoNodeLocalConfig } from '@js/utils/APIUtils';
 
 let cache = {};
 
@@ -45,8 +47,21 @@ export const getStyleTemplates = (styleTemplatesUrl = '/static/mapstore/configs/
         });
 };
 
+export const getDefaultPluginsConfig = () => {
+    return cache?.pluginsConfig
+        ? Promise.resolve(cache.pluginsConfig)
+        : getPluginsConfig(
+            getGeoNodeLocalConfig('geoNodeSettings.staticPath', '/static/') + 'mapstore/configs/pluginsConfig.json'
+        )
+            .then((pluginsConfig) => {
+                cache.pluginsConfig = pluginsConfig;
+                return pluginsConfig;
+            });
+};
+
 export default {
     getNewMapConfiguration,
     getNewGeoStoryConfig,
-    getStyleTemplates
+    getStyleTemplates,
+    getDefaultPluginsConfig
 };

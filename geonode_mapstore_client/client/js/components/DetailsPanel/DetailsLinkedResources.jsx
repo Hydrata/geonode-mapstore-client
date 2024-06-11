@@ -7,27 +7,58 @@
  */
 import React from 'react';
 import PropTypes from 'prop-types';
+import isEmpty from 'lodash/isEmpty';
 
 import FaIcon from '@js/components/FaIcon';
+import Message from '@mapstore/framework/components/I18N/Message';
 
-const DetailsLinkedResources = ({
-    fields,
-    resourceTypesInfo
-}) => {
-    return (
-        fields.map((field, key) => {
-            const {icon} = resourceTypesInfo[field.resource_type] ?? {};
-            return (
-                <div key={key} className="gn-details-info-fields">
+const DetailLinkedResource = ({resources, type}) => {
+    return !isEmpty(resources) && (
+        <>
+            <Message msgId={`gnviewer.linkedResources.${type}`} />
+            {resources.map((field, key) => {
+                return (<div key={key} className="gn-details-info-fields">
                     <div className="gn-details-info-row linked-resources">
-                        <FaIcon name={icon}/>
+                        {field.icon && <FaIcon name={field.icon} />}
                         <a key={field.pk} href={field.detail_url}>
                             {field.title}
                         </a>
                     </div>
-                </div>
-            );
-        })
+                </div>);
+            })}
+        </>
+    );
+};
+
+const DetailsLinkedResources = ({ fields, resourceTypesInfo }) => {
+    const linkedToFields = fields?.linkedTo?.map(resource=> ({...resource, icon: resourceTypesInfo[resource.resource_type]?.icon}));
+    const linkedByFields = fields?.linkedBy?.map(resource=> ({...resource, icon: resourceTypesInfo[resource.resource_type]?.icon}));
+
+    const linkedResources = [
+        {
+            resources: linkedToFields?.filter(resource => !resource.internal) ?? [],
+            type: 'linkedTo'
+        },
+        {
+            resources: linkedByFields?.filter(resource => !resource.internal) ?? [],
+            type: 'linkedBy'
+        },
+        {
+            resources: linkedToFields.filter(resource => resource.internal) ?? [],
+            type: 'uses'
+        },
+        {
+            resources: linkedByFields.filter(resource => resource.internal) ?? [],
+            type: 'usedBy'
+        }
+    ];
+
+    return (
+        <div className="linked-resources">
+            {
+                linkedResources.map(({resources, type})=> <DetailLinkedResource resources={resources} type={type}/>)
+            }
+        </div>
     );
 };
 

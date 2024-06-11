@@ -49,12 +49,10 @@ describe('FilterItems component', () => {
             {
                 "labelId": "gnhome.resourceTypes",
                 "placeholderId": "gnhome.resourceTypesPlaceholder",
-                "type": "select",
-                "suggestionsRequestKey": "resourceTypes"
+                "type": "select"
             }
         ];
-        const suggestionsRequestTypes = { resourceTypes: { loadOptions: () => new Promise(resolve => resolve([])) }};
-        ReactDOM.render( <FilterItems items={items} suggestionsRequestTypes={suggestionsRequestTypes}/>, document.getElementById("container"));
+        ReactDOM.render( <FilterItems items={items}/>, document.getElementById("container"));
         const filterItemsSelectNode = document.querySelector('.Select');
         expect(filterItemsSelectNode).toBeTruthy();
     });
@@ -102,17 +100,36 @@ describe('FilterItems component', () => {
             }
         ];
         ReactDOM.render( <FilterItems items={items}/>, document.getElementById("container"));
-        const filterItemsGroupNode = document.querySelector('.gn-filter-form-group-title');
+        const filterItemsGroupNode = document.querySelector('.group-title-label');
+        expect(filterItemsGroupNode).toBeTruthy();
+    });
+    it('should render field of type group with facet items', () => {
+        const items = [
+            {
+                "type": "group",
+                "labelId": "gnhome.customFiltersTitle",
+                "items": [
+                    {
+                        "type": "filter",
+                        "style": "facet",
+                        "labelId": "gnhome.layers"
+                    }
+                ]
+            }
+        ];
+        ReactDOM.render( <FilterItems items={items}/>, document.getElementById("container"));
+        const filterItemsGroupNode = document.querySelector('.facet');
         expect(filterItemsGroupNode).toBeTruthy();
     });
     describe('test accordion field', () => {
-        const isExpanded = () => window.localStorage.getItem("accordionsExpanded")?.includes('test-accordion');
+        const isExpanded = () => window.localStorage.getItem("accordionsExpanded")?.includes('accordion-1');
         it('should render field of type accordion of items filter with default style', () => {
             const items = [
                 {
                     "type": "accordion",
-                    "id": "accordion",
+                    "id": "accordion-1",
                     "labelId": "gnhome.accordion",
+                    "loadItems": () => Promise.resolve(),
                     "items": [
                         {
                             "type": "filter",
@@ -139,8 +156,9 @@ describe('FilterItems component', () => {
             const items = [
                 {
                     "type": "accordion",
-                    "id": "accordion",
+                    "id": "accordion-1",
                     "labelId": "gnhome.accordion",
+                    "loadItems": () => Promise.resolve(),
                     "items": [
                         {
                             "type": "filter",

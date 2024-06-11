@@ -15,7 +15,7 @@ import {
 } from '@js/epics/gnsearch';
 import {
     getFacetItems,
-    SET_FACET_ITEMS
+    GET_FACET_FILTERS
 } from '@js/actions/gnsearch';
 
 let mockAxios;
@@ -47,7 +47,7 @@ describe('gnsearch epics', () => {
                 try {
                     expect(actions.map(({ type }) => type))
                         .toEqual([
-                            SET_FACET_ITEMS
+                            GET_FACET_FILTERS
                         ]);
                 } catch (e) {
                     done(e);

@@ -35,7 +35,7 @@ import { setViewer } from '@mapstore/framework/utils/MapInfoUtils';
 // we need this configuration set for specific components that use recompose/rxjs streams
 import { setObservableConfig } from 'recompose';
 import rxjsConfig from 'recompose/rxjsObservableConfig';
-import PiwikPro from '@piwikpro/react-piwik-pro';
+import { getGeoNodeConfig, getGeoNodeLocalConfig } from "@js/utils/APIUtils";
 setObservableConfig(rxjsConfig);
 
 let actionListeners = {};
@@ -53,7 +53,7 @@ const getTargetUrl = () => {
         return '';
     }
     const { host, protocol } = url.parse(geonodeUrl);
-    targetURL = `${protocol}//${host}`;
+    targetURL = `${protocol}//${host}/`;
     return targetURL;
 };
 
@@ -65,17 +65,6 @@ export function getVersion() {
 }
 
 export function initializeApp() {
-    if (window.location.href.includes("theswamm.com")) {
-        console.log('initializing PiwikPro swamm');
-        PiwikPro.initialize('abcdd6c8-5b23-4263-8616-04442c6c5f8f', 'https://hydrata.piwik.pro');
-        console.log('done PiwikPro');
-    } else if (window.location.href.includes("hydrata.com")) {
-        console.log('initializing PiwikPro hydrata');
-        PiwikPro.initialize('039a9af7-d329-4e94-9de1-d194de99e103', 'https://hydrata.piwik.pro');
-        console.log('done PiwikPro');
-    } else {
-        console.log('no PiwikPro found');
-    }
 
     // Set X-CSRFToken in axios;
     axios.defaults.xsrfHeaderName = "X-CSRFToken";
@@ -102,12 +91,16 @@ export function initializeApp() {
             if (tUrl && config.url?.match(tUrl)?.[0]) {
                 return {
                     ...config,
-                    url: config.url.replace(tUrl, '')
+                    url: `/${config.url.replace(tUrl, '')}`
                 };
             }
             return config;
         }
     );
+    // Set proxy and authentication from geonode config
+    ['proxyUrl', 'useAuthenticationRules', 'authenticationRules'].forEach(key=> {
+        setConfigProp(key, getGeoNodeLocalConfig(key));
+    });
 }
 
 export function getPluginsConfiguration(pluginsConfig, key) {
@@ -188,7 +181,7 @@ export function setupConfiguration({
         supportedLocales: defaultSupportedLocales,
         ...config
     } = localConfig;
-    const geoNodePageConfig = window.__GEONODE_CONFIG__ || {};
+    const geoNodePageConfig = getGeoNodeConfig();
     Object.keys(config).forEach((key) => {
         setConfigProp(key, config[key]);
     });

@@ -51,6 +51,9 @@
 @gn-jumbotron-bg: #0c3756;
 
 @gn-focus-color: rgba(#397AAB, 0.4);
+@gn-selected-color: #0075ff;
+@gn-selected-bg: rgba(@ms-focus-color, 0.4); 
+@gn-selected-hover-bg: rgba(@ms-focus-color, 0.1);
 
 @gn-footer-color: @gn-main-color;
 @gn-footer-bg: @gn-main-bg;
@@ -63,6 +66,8 @@
 @gn-tray-bg: @gn-main-bg;
 @gn-tray-color: lighten(@gn-main-color, 10%);
 @gn-tray-border: lighten(@gn-primary, 10%);
+
+@gn-mask-bg: #00000088;
 
 @gn-font-family-serif: Georgia, 'Times New Roman', Times, serif;
 @gn-font-family-monospace: Menlo, Monaco, Consolas, 'Courier New', monospace;
@@ -302,6 +307,10 @@
 
         focus-color: --gn-focus-color, @gn-focus-color;
 
+        selected-color: --gn-selected-color, @gn-selected-color;
+        selected-bg: --gn-selected-bg, @gn-selected-bg;
+        selected-hover-bg: --gn-selected-hover-bg, @gn-selected-hover-bg;
+
         footer-color: --gn-footer-color, @gn-footer-color;
         footer-bg: --gn-footer-bg, @gn-footer-bg;
         footer-link-color: --gn-footer-link-color, @gn-footer-link-color;
@@ -335,6 +344,8 @@
         timeline-histogram-border-color: --gn-timeline-histogram-color, darken(@gn-primary, 10%);
         timeline-range-bg: --gn-timeline-range-bg, rgba(@gn-main-color, 0.2);
         timeline-playback-range-bg: --gn-timeline-playback-range-bg, rgba(lighten(@gn-success, 10%), 0.2);
+
+        mask-bg: --gn-mask-bg, @gn-mask-bg;
 
     }
 }

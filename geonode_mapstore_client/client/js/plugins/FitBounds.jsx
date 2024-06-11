@@ -30,15 +30,17 @@ function FitBoundsPlugin({ mapProjection, ...props }) {
         return geometry;
     }
     const geometry = useMemo(() => validateGeometry(props.geometry, mapProjection), [props.geometry, mapProjection]);
-    return <FitBounds active { ...props } geometry={geometry}/>;
+    return <FitBounds active { ...props } duration={props.duration} geometry={geometry}/>;
 }
 
 const ConnectedFitBoundsPlugin = connect(
     createSelector([
         state => state?.controls?.fitBounds?.geometry,
+        state => state?.controls?.fitBounds?.duration,
         projectionSelector
-    ], (geometry, mapProjection) => ({
+    ], (geometry, duration, mapProjection) => ({
         geometry,
+        duration,
         mapProjection
     }))
 )(FitBoundsPlugin);

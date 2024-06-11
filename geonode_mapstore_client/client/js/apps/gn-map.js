@@ -34,14 +34,16 @@ import mapPopups from '@mapstore/framework/reducers/mapPopups';
 import catalog from '@mapstore/framework/reducers/catalog';
 import searchconfig from '@mapstore/framework/reducers/searchconfig';
 import widgets from '@mapstore/framework/reducers/widgets';
+import context from '@mapstore/framework/reducers/context';
 // end
 
 import ViewerRoute from '@js/routes/Viewer';
+import MapViewerRoute from '@js/routes/MapViewer';
 
 import gnresource from '@js/reducers/gnresource';
 import gnsettings from '@js/reducers/gnsettings';
 
-import { getConfiguration, getAccountInfo } from '@js/api/geonode/v2';
+import { getConfiguration, getAccountInfo, getEndpoints } from '@js/api/geonode/v2';
 
 import {
     setupConfiguration,
@@ -81,7 +83,8 @@ const ConnectedRouter = connect((state) => ({
 }))(Router);
 
 const viewer = {
-    [appRouteComponentTypes.VIEWER]: ViewerRoute
+    [appRouteComponentTypes.VIEWER]: ViewerRoute,
+    [appRouteComponentTypes.MAP_VIEWER]: MapViewerRoute
 };
 
 const routes = MAP_ROUTES.map(({component, ...config}) => ({...config, component: viewer[component]}));
@@ -89,112 +92,112 @@ const routes = MAP_ROUTES.map(({component, ...config}) => ({...config, component
 initializeApp();
 
 document.addEventListener('DOMContentLoaded', function() {
-    Promise.all([
-        getConfiguration(),
-        getAccountInfo()
-    ])
-        .then(([localConfig, user]) => {
-            setupConfiguration({
-                localConfig,
-                user
-            })
-                .then(({
-                    securityState,
-                    geoNodeConfiguration,
-                    pluginsConfigKey,
-                    geoNodePageConfig,
-                    query,
-                    configEpics,
-                    mapType = 'openlayers',
-                    onStoreInit,
-                    targetId = 'ms-container',
-                    settings
-                }) => {
+    getEndpoints()
+        .then(()=>Promise.all([
+            getConfiguration(),
+            getAccountInfo()
+        ])
+            .then(([localConfig, user]) => {
+                setupConfiguration({
+                    localConfig,
+                    user
+                })
+                    .then(({
+                        securityState,
+                        geoNodeConfiguration,
+                        pluginsConfigKey,
+                        geoNodePageConfig,
+                        query,
+                        configEpics,
+                        mapType = 'openlayers',
+                        onStoreInit,
+                        targetId = 'ms-container',
+                        settings
+                    }) => {
                     // get the correct map layout
-                    const mapLayout = getConfigProp('mapLayout') || {};
-                    setConfigProp('mapLayout', mapLayout[query.theme] || mapLayout.viewer);
+                        const mapLayout = getConfigProp('mapLayout') || {};
+                        setConfigProp('mapLayout', mapLayout[query.theme] || mapLayout.viewer);
 
-                    const resourceId = geoNodePageConfig.resourceId;
+                        const resourceId = geoNodePageConfig.resourceId;
 
-                    const appEpics = {
-                        ...standardEpics,
-                        ...configEpics,
-                        updateMapLayoutEpic,
-                        gnCheckSelectedDatasetPermissions,
-                        gnSetDatasetsPermissions,
-                        ...gnresourceEpics,
-                        ...pluginsDefinition.epics,
-                        // needed to initialize the correct time range
-                        ...timelineEpics
-                    };
+                        const appEpics = {
+                            ...standardEpics,
+                            ...configEpics,
+                            updateMapLayoutEpic,
+                            gnCheckSelectedDatasetPermissions,
+                            gnSetDatasetsPermissions,
+                            ...gnresourceEpics,
+                            ...pluginsDefinition.epics,
+                            // needed to initialize the correct time range
+                            ...timelineEpics
+                        };
 
-                    storeEpicsNamesToExclude(appEpics);
+                        storeEpicsNamesToExclude(appEpics);
 
-                    // register custom arcgis layer
-                    import('@js/map/' + mapType + '/plugins/ArcGisMapServer')
-                        .then(() => {
-                            main({
-                                targetId,
-                                enableExtensions: true,
-                                appComponent: withRoutes(routes)(ConnectedRouter),
-                                loaderComponent: MainLoader,
-                                initialState: {
-                                    defaultState: {
-                                        ...securityState,
-                                        maptype: {
-                                            mapType
+                        // register custom arcgis layer
+                        import('@js/map/' + mapType + '/plugins/ArcGisMapServer')
+                            .then(() => {
+                                main({
+                                    targetId,
+                                    enableExtensions: true,
+                                    appComponent: withRoutes(routes)(ConnectedRouter),
+                                    loaderComponent: MainLoader,
+                                    initialState: {
+                                        defaultState: {
+                                            ...securityState
                                         }
-                                    }
-                                },
-                                themeCfg: null,
-                                pluginsConfig: getPluginsConfigOverride(getPluginsConfiguration(localConfig.plugins, pluginsConfigKey)),
-                                pluginsDef: {
-                                    plugins: {
-                                        ...pluginsDefinition.plugins
                                     },
-                                    requires: {
-                                        ...requires,
-                                        ...pluginsDefinition.requires
-                                    }
-                                },
-                                printEnabled: true,
-                                rootReducerFunc: standardRootReducerFunc,
-                                onStoreInit,
-                                appReducers: {
-                                    ...standardReducers,
-                                    gnresource,
-                                    gnsettings,
-                                    security,
-                                    maptype,
-                                    print,
-                                    maplayout,
-                                    controls,
-                                    timeline,
-                                    dimension,
-                                    playback,
-                                    mapPopups,
-                                    catalog,
-                                    searchconfig,
-                                    widgets,
-                                    ...pluginsDefinition.reducers
-                                },
-                                appEpics,
-                                geoNodeConfiguration,
-                                initialActions: [
+                                    themeCfg: null,
+                                    pluginsConfig: getPluginsConfigOverride(getPluginsConfiguration(localConfig.plugins, pluginsConfigKey)),
+                                    pluginsDef: {
+                                        plugins: {
+                                            ...pluginsDefinition.plugins
+                                        },
+                                        requires: {
+                                            ...requires,
+                                            ...pluginsDefinition.requires
+                                        }
+                                    },
+                                    printEnabled: true,
+                                    rootReducerFunc: standardRootReducerFunc,
+                                    onStoreInit,
+                                    appReducers: {
+                                        ...standardReducers,
+                                        gnresource,
+                                        gnsettings,
+                                        security,
+                                        maptype,
+                                        print,
+                                        maplayout,
+                                        controls,
+                                        timeline,
+                                        dimension,
+                                        playback,
+                                        mapPopups,
+                                        catalog,
+                                        searchconfig,
+                                        widgets,
+                                        context,
+                                        ...pluginsDefinition.reducers
+                                    },
+                                    appEpics,
+                                    geoNodeConfiguration,
+                                    initialActions: [
                                     // add some settings in the global state to make them accessible in the monitor state
                                     // later we could use expression in localConfig
-                                    updateGeoNodeSettings.bind(null, settings),
-                                    loadPrintCapabilities.bind(null, getConfigProp('printUrl')),
-                                    setControlProperty.bind(null, 'toolbar', 'expanded', false),
-                                    ...(resourceId !== undefined
-                                        ? [ requestResourceConfig.bind(null, geoNodePageConfig.resourceType || ResourceTypes.MAP, resourceId) ]
-                                        : []),
-                                    changeMapInfoFormat.bind(null, 'application/json')
-                                ]
-                            },
-                            withExtensions(StandardApp));
-                        });
-                });
+                                        updateGeoNodeSettings.bind(null, settings),
+                                        loadPrintCapabilities.bind(null, getConfigProp('printUrl')),
+                                        setControlProperty.bind(null, 'toolbar', 'expanded', false),
+                                        ...(resourceId !== undefined
+                                            ? [ requestResourceConfig.bind(null, geoNodePageConfig.resourceType || ResourceTypes.MAP, resourceId) ]
+                                            : []),
+                                        changeMapInfoFormat.bind(null, 'application/json')
+                                    ]
+                                },
+                                withExtensions(StandardApp));
+                            });
+                    });
 
-        });
+            })
+        );
 });

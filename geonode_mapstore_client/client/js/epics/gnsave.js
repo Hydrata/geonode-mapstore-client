@@ -8,7 +8,8 @@
 
 import axios from '@mapstore/framework/libs/ajax';
 import { Observable } from 'rxjs';
-import { mapInfoSelector, mapSelector } from '@mapstore/framework/selectors/map';
+import get from 'lodash/get';
+import { mapInfoSelector } from '@mapstore/framework/selectors/map';
 import { userSelector } from '@mapstore/framework/selectors/security';
 import {
     error as errorNotification,
@@ -32,7 +33,8 @@ import {
     updateResourceProperties,
     loadingResourceConfig,
     enableMapThumbnailViewer,
-    updateResource
+    updateResource,
+    manageLinkedResource
 } from '@js/actions/gnresource';
 import {
     getResourceByPk,
@@ -55,7 +57,8 @@ import {
     getResourceData,
     getResourceId,
     getDataPayload,
-    getCompactPermissions
+    getCompactPermissions,
+    getExtentPayload
 } from '@js/selectors/resource';
 
 import {
@@ -75,10 +78,9 @@ import {
     ProcessTypes,
     ProcessStatus
 } from '@js/utils/ResourceServiceUtils';
-import { setControlProperty } from '@mapstore/framework/actions/controls';
 
-function parseMapBody(body, map) {
-    const geoNodeMap = toGeoNodeMapConfig(body.data, map);
+function parseMapBody(body) {
+    const geoNodeMap = toGeoNodeMapConfig(body.data);
     return {
         ...body,
         ...geoNodeMap
@@ -87,10 +89,9 @@ function parseMapBody(body, map) {
 
 const SaveAPI = {
     [ResourceTypes.MAP]: (state, id, body) => {
-        const map =  mapSelector(state) || {};
         return id
-            ? updateMap(id, { ...parseMapBody(body, map), id })
-            : createMap(parseMapBody(body, map));
+            ? updateMap(id, { ...parseMapBody(body), id })
+            : createMap(parseMapBody(body));
     },
     [ResourceTypes.GEOSTORY]: (state, id, body) => {
         const user = userSelector(state);
@@ -119,6 +120,18 @@ const SaveAPI = {
     },
     [ResourceTypes.DATASET]: (state, id, body) => {
         return id ? updateDataset(id, body) : false;
+    },
+    [ResourceTypes.VIEWER]: (state, id, body) => {
+        const user = userSelector(state);
+        return id
+            ? updateGeoApp(id, body)
+            : createGeoApp({
+                'name': body.title + ' ' + uuid(),
+                'owner': user.name,
+                'resource_type': ResourceTypes.VIEWER,
+                'advertised': false,
+                ...body
+            });
     }
 };
 
@@ -128,22 +141,26 @@ export const gnSaveContent = (action$, store) =>
             const state = store.getState();
             const contentType = state.gnresource?.type || 'map';
             const data = getDataPayload(state, contentType);
+            const extent = getExtentPayload(state, contentType);
             const body = {
                 'title': action.metadata.name,
                 ...(action.metadata.description && { 'abstract': action.metadata.description }),
-                ...(data && { 'data': JSON.parse(JSON.stringify(data)) })
+                ...(data && { 'data': JSON.parse(JSON.stringify(data)) }),
+                ...(extent && { extent })
             };
             const currentResource = getResourceData(state);
             return Observable.defer(() => SaveAPI[contentType](state, action.id, body, action.reload))
                 .switchMap((resource) => {
                     if (action.reload) {
+                        if (contentType === ResourceTypes.VIEWER) {
+                            const sourcepk = get(state, 'router.location.pathname', '').split('/').pop();
+                            return Observable.of(manageLinkedResource({resourceType: contentType, source: sourcepk, target: resource.pk, processType: ProcessTypes.LINK_RESOURCE}));
+                        }
                         window.location.href = parseDevHostname(resource?.detail_url);
                         window.location.reload();
                         return Observable.empty();
                     }
                     return Observable.of(
-                        // reset all pending changes from localStore
-                        setControlProperty('pendingChanges', 'value', null),
                         saveSuccess(resource),
                         setResource({
                             ...currentResource,

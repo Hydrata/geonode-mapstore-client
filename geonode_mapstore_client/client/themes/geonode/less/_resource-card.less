@@ -46,6 +46,9 @@
             .color-var(@theme-vars[primary]);
         }
     }
+    .gn-unadvertised {
+        .color-var(@theme-vars[warning])
+    }
 }
 
 // **************
@@ -322,4 +325,9 @@ button.btn.btn-default.gn-resource-status.gn-status-button {
             }
         }
     }
+}
+
+.gn-unadvertised {
+    cursor: pointer;
+    pointer-events: auto;
 }

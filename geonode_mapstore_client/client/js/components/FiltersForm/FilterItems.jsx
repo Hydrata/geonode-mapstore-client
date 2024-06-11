@@ -14,13 +14,15 @@ import { FormGroup, Checkbox, FormControl as FormControlRB } from 'react-bootstr
 import ReactSelect from 'react-select';
 
 import Accordion from "@js/components/Accordion";
+import Tabs from "@js/components/Tabs";
 import SelectInfiniteScroll from '@js/components/SelectInfiniteScroll';
-import { getFilterLabelById, getFilterById } from '@js/utils/SearchUtils';
 import localizedProps from '@mapstore/framework/components/misc/enhancers/localizedProps';
 import withDebounceOnCallback from '@mapstore/framework/components/misc/enhancers/withDebounceOnCallback';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import FilterByExtent from './FilterByExtent';
 import DateRangeFilter from './DateRangeFilter';
+import FaIcon from '../FaIcon';
+import Group from '@js/components/Group/Group';
 
 const FormControl = localizedProps('placeholder')(FormControlRB);
 function InputControl({ onChange, value, debounceTime, ...props }) {
@@ -30,10 +32,24 @@ const InputControlWithDebounce = withDebounceOnCallback('onChange', 'value')(Inp
 
 const SelectSync = localizedProps('placeholder')(ReactSelect);
 
+function Label({item} = {}, { messages }) {
+    return (
+        <div className="gn-label">
+            <span className="prefix">
+                {item.icon ? <FaIcon name={item.icon}/> : item.image ? <img src={item.image}/> : null}
+                {item.labelId ? getMessageById(messages, item.labelId) : <span>{item.label}</span>}
+            </span>
+            {!isNil(item.count) && <span className="facet-count">{`(${item.count})`}</span>}
+        </div>
+    );
+}
+Label.contextTypes = {
+    messages: PropTypes.object
+};
+
 function Facet({
     item,
     active,
-    label,
     onChange
 }) {
     const filterValue = item.filterValue || item.id;
@@ -47,8 +63,7 @@ function Facet({
                 onKeyDown={(event) => event.key === 'Enter' ? onChange() : null}
                 style={{ display: 'block', width: 0, height: 0, overflow: 'hidden', opacity: 0, padding: 0, margin: 0 }}
             />
-            {label}
-            {!isNil(item.count) && <span className="facet-count">{`(${item.count})`}</span>}
+            <Label item={item}/>
         </div>
     );
 }
@@ -80,12 +95,13 @@ function ExtentFilterWithDebounce({
 }
 function FilterItem({
     id,
-    suggestionsRequestTypes,
     values,
     onChange,
     extentProps,
     timeDebounce,
-    field
+    field,
+    filters,
+    setFilters
 }, { messages }) {
 
 
@@ -124,7 +140,17 @@ function FilterItem({
     }
     if (field.type === 'select' && field.loadItems) {
         const filterKey = field.key;
-        const currentValues = castArray(values[filterKey] || []);
+        const isFacet = field.style === 'facet';
+        const getFilterById = (value) => {
+            const filterValue = filters?.[filterKey + value];
+            if (isFacet && filterValue?.facetName) {
+                return field.name === filterValue.facetName ? filterValue : null;
+            }
+            return filterValue;
+        };
+        const filterValues = castArray(values[filterKey] || []);
+        const currentValues = filterValues.filter(v => getFilterById(v));
+        const otherValues = filterValues.filter(v => !getFilterById(v));
         const getLabelValue = (item) => item.labelId
             ? `${getMessageById(messages, item.labelId)} (${item.count})`
             : `${item.label || ''} (${item.count})`;
@@ -135,7 +161,7 @@ function FilterItem({
                 <label><strong>{field.labelId ? getMessageById(messages, field.labelId) : field.label}</strong></label>
                 <SelectInfiniteScroll
                     value={currentValues.map((value) => {
-                        const selectedFilter = getFilterById(filterKey, value);
+                        const selectedFilter = getFilterById(value);
                         return {
                             value,
                             label: selectedFilter ? getLabelValue(selectedFilter) : value
@@ -144,12 +170,15 @@ function FilterItem({
                     multi
                     placeholder={field.placeholderId}
                     onChange={(selected) => {
+                        let _selected = selected.map(({ value }) => value);
+                        _selected = isFacet ? _selected.concat(otherValues) : _selected;
                         onChange({
-                            [filterKey]: selected.map(({ value }) => value)
+                            [filterKey]: _selected
                         });
                     }}
                     loadOptions={({ q, ...params }) => field.loadItems({
                         ...params,
+                        ...values, // filter queries
                         ...(q && { topic_contains: q }),
                         page: params.page - 1
                     })
@@ -176,29 +205,22 @@ function FilterItem({
             label,
             placeholderId,
             description,
-            options,
-            suggestionsRequestKey
+            options
         } = field;
-        const key = `${id}-${formId || suggestionsRequestKey}`;
-        const filterKey = suggestionsRequestKey
-            ? suggestionsRequestTypes[suggestionsRequestKey]?.filterKey
-            : `filter{${formId}.in}`;
+        const key = `${id}-${formId}`;
+        const filterKey = `filter{${formId}.in}`;
 
-        const currentValues = castArray(suggestionsRequestKey
-            ? values[suggestionsRequestTypes[suggestionsRequestKey]?.filterKey] || []
-            : values[filterKey] || []);
+        const currentValues = values[filterKey] || [];
 
-        const optionsProp = suggestionsRequestKey
-            ? { loadOptions: suggestionsRequestTypes[suggestionsRequestKey]?.loadOptions }
-            : { options: options.map(option => ({ value: option, label: option })) };
-        const Select = suggestionsRequestKey ? SelectInfiniteScroll : SelectSync;
+        const optionsProp = { options: options?.map(option => ({ value: option, label: option })) };
+        const getFilterLabelById = (value) => filters?.[filterKey + value]?.selectOption?.label || filters?.[filterKey + value]?.label;
         return (
             <FormGroup
                 controlId={key}
             >
                 <label><strong>{labelId ? getMessageById(messages, labelId) : label}</strong></label>
-                <Select
-                    value={currentValues.map((value) => ({ value, label: getFilterLabelById(filterKey, value) || value }))}
+                <SelectSync
+                    value={currentValues.map((value) => ({ value, label: getFilterLabelById(value) || value }))}
                     multi
                     placeholder={placeholderId}
                     onChange={(selected) => {
@@ -216,18 +238,22 @@ function FilterItem({
         );
     }
     if (field.type === 'group') {
-        return (<>
-            <div className="gn-filter-form-group-title">
-                <strong>{getMessageById(messages, field.labelId)} </strong>
-            </div>
-            <FilterItems
-                id={id}
-                items={field.items}
-                suggestionsRequestTypes={suggestionsRequestTypes}
-                values={values}
-                onChange={onChange}
-            />
-        </>);
+        return (<Group
+            query={values}
+            title={field.labelId ? getMessageById(messages, field.labelId) : field.label}
+            {...field.loadItems && {loadItems: (params) => field.loadItems({...params, ...values})}}
+            items={field.items}
+            content={(groupItems) => (
+                <FilterItems
+                    id={id}
+                    items={groupItems}
+                    values={values}
+                    onChange={onChange}
+                    filters={filters}
+                    setFilters={setFilters}
+                />)
+            }
+        />);
     }
     if (field.type === 'divider') {
         return <div className="gn-filter-form-divider"></div>;
@@ -243,7 +269,7 @@ function FilterItem({
         const renderFacet = ({item, active, onChangeFacet, renderChild}) => {
             return (
                 <div className="gn-facet-wrapper">
-                    <Facet label={item.labelId ? getMessageById(messages, item.labelId) : <span>{item.label}</span>} item={item} active={active} onChange={onChangeFacet}/>
+                    <Facet item={item} active={active} onChange={onChangeFacet}/>
                     {item.items && renderChild && <div className="facet-children">{renderChild()}</div>}
                 </div>
             );
@@ -269,7 +295,7 @@ function FilterItem({
                                 value={getFilterValue(item)}
                                 onChange={onChangeFilter}
                             >
-                                {item.labelId ? getMessageById(messages, item.labelId) : item.label}
+                                <Label item={item}/>
                             </Checkbox>
                         }
                     </div>
@@ -303,29 +329,52 @@ function FilterItem({
                         checked={!!active}
                         value={getFilterValue(field)}
                         onChange={onChangeFilterParent}>
-                        {field.labelId ? getMessageById(messages, field.labelId) : field.label}
+                        <Label item={field}/>
                         {filterChild()}
                     </Checkbox>
                 </FormGroup>
             );
     }
     if (field.type === 'accordion' && !field.facet && field.id) {
-        const key = `${id}-${field.id}`;
         return (<Accordion
+            query={values}
             title={field.labelId ? getMessageById(messages, field.labelId) : field.label}
-            identifier={key}
-            loadItems={field.loadItems}
+            identifier={field.id}
+            loadItems={(params) => field.loadItems({...params, ...values})}
             items={field.items}
             content={(accordionItems) => (
                 <FilterItems
                     id={id}
                     items={accordionItems}
-                    suggestionsRequestTypes={suggestionsRequestTypes}
                     values={values}
                     onChange={onChange}
+                    filters={filters}
+                    setFilters={setFilters}
                 />)
             }
         />);
+    }
+    if (field.type === 'tabs') {
+        const key = `${id}-${field.id}`;
+        return (
+            <Tabs
+                identifier={key}
+                persistSelection={field.persistSelection}
+                tabs={(field?.items || [])?.map((item) => ({
+                    title: item.labelId ? getMessageById(messages, item.labelId) : item.label,
+                    component: <FilterItems
+                        {...item}
+                        extentProps={extentProps}
+                        timeDebounce={timeDebounce}
+                        items={item.items}
+                        values={values}
+                        filters={filters}
+                        setFilters={setFilters}
+                        onChange={onChange}
+                    />
+                }))}
+            />
+        );
     }
     return null;
 }
@@ -336,21 +385,26 @@ FilterItem.contextTypes = {
 
 function FilterItems({ items, ...props }) {
     return items.map((field, idx) =>
-        <FilterItem key={field.uuid || `${field.id || ''}-${idx}`} {...props} field={field} />
+        <FilterItem
+            key={field.uuid || `${field.id || ''}-${idx}`}
+            {...props}
+            field={{
+                ...field,
+                ...(field.loadItems && {loadItems: (...args) => field.loadItems(...args, props.filters, props.setFilters)})
+            }}
+        />
     );
 }
 
 FilterItems.defaultProps = {
     id: PropTypes.string,
     items: PropTypes.array,
-    suggestionsRequestTypes: PropTypes.object,
     values: PropTypes.object,
     onChange: PropTypes.func
 };
 
 FilterItems.defaultProps = {
     items: [],
-    suggestionsRequestTypes: {},
     values: {},
     onChange: () => {}
 };

@@ -19,6 +19,8 @@ export const INCREASE_TOTAL_COUNT = 'GEONODE_INCREASE_TOTAL_COUNT';
 export const SET_SEARCH_CONFIG = 'GEONODE_SET_SEARCH_CONFIG';
 export const GET_FACET_ITEMS = 'GEONODE:GET_FACET_ITEMS';
 export const SET_FACET_ITEMS = 'GEONODE:SET_FACET_ITEMS';
+export const GET_FACET_FILTERS = 'GEONODE:GET_FACET_FILTERS';
+export const SET_FILTERS = "SET_FILTERS";
 
 /**
 * Actions for GeoNode resource featured items
@@ -112,15 +114,28 @@ export function setSearchConfig(config) {
 }
 
 
-export function getFacetItems() {
+export function getFacetItems(query) {
     return {
-        type: GET_FACET_ITEMS
+        type: GET_FACET_ITEMS,
+        query
     };
 }
 export function setFacetItems(facetItems) {
     return {
         type: SET_FACET_ITEMS,
         facetItems
+    };
+}
+export function getFacetFilters(facets) {
+    return {
+        type: GET_FACET_FILTERS,
+        facets
+    };
+}
+
+export function setFilters(filters) {
+    return {type: SET_FILTERS,
+        filters
     };
 }
 

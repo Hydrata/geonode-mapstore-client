@@ -6,13 +6,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useRef, useEffect } from 'react';
-import PropTypes from 'prop-types';
+import React from 'react';
 import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
 import { createPlugin } from '@mapstore/framework/utils/PluginsUtils';
 import Message from '@mapstore/framework/components/I18N/Message';
-import { Glyphicon } from 'react-bootstrap';
 import { mapInfoSelector } from '@mapstore/framework/selectors/map';
 import Loader from '@mapstore/framework/components/misc/Loader';
 import Button from '@js/components/Button';
@@ -30,8 +28,7 @@ import {
 } from '@js/selectors/resource';
 import { getCurrentResourcePermissionsLoading } from '@js/selectors/resourceservice';
 import { withRouter } from 'react-router';
-import { setControlProperty } from '@mapstore/framework/actions/controls';
-import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+import withPrompt from '@js/plugins/save/withPrompt';
 
 function Save(props) {
     return props.saving ? (<div
@@ -52,45 +49,15 @@ const SavePlugin = connect(
 )(Save);
 
 function SaveButton({
-    enabled,
     onClick,
     variant,
     size,
     loading,
     className,
-    dirtyState: dirtyStateProp,
-    location,
-    history,
-    onStorePendingChanges
-}, { messages }) {
-
-    const dirtyState = useRef();
-    dirtyState.current = dirtyStateProp;
-    useEffect(() => {
-        let prevPathname = history?.location?.pathname;
-        function onBeforeUnload(event) {
-            if (dirtyState.current) {
-                (event || window.event).returnValue = null;
-            }
-        }
-        // window.addEventListener('beforeunload', onBeforeUnload);
-        return () => {
-            // window.removeEventListener('beforeunload', onBeforeUnload);
-            const isLocationChanged = prevPathname !== history?.location?.pathname;
-            if (isLocationChanged && dirtyState.current) {
-                const confirmed = window.confirm(getMessageById(messages, 'gnviewer.prompPendingChanges')); // eslint-disable-line no-alert
-                if (!confirmed) {
-                    onStorePendingChanges(dirtyState.current);
-                    history.replace(location);
-                } else {
-                    onStorePendingChanges(null);
-                }
-            }
-        };
-    }, []);
-
-    return enabled
-        ? <Button
+    dirtyState: dirtyStateProp
+}) {
+    return (
+        <Button
             variant={dirtyStateProp ? 'warning' : (variant || "primary")}
             size={size}
             onClick={() => onClick()}
@@ -99,13 +66,8 @@ function SaveButton({
         >
             <Message msgId="save"/>{' '}{loading && <Spinner />}
         </Button>
-        : null
-    ;
+    );
 }
-
-SaveButton.contextTypes = {
-    messages: PropTypes.object
-};
 
 const ConnectedSaveButton = connect(
     createSelector(
@@ -124,32 +86,13 @@ const ConnectedSaveButton = connect(
         })
     ),
     {
-        onClick: saveDirectContent,
-        onStorePendingChanges: setControlProperty.bind(null, 'pendingChanges', 'value')
+        onClick: saveDirectContent
     }
-)((withRouter(SaveButton)));
+)((withRouter(withPrompt(SaveButton))));
 
 export default createPlugin('Save', {
     component: SavePlugin,
     containers: {
-        BurgerMenu: {
-            name: 'save',
-            position: 30,
-            text: <Message msgId="save"/>,
-            icon: <Glyphicon glyph="floppy-open"/>,
-            action: saveDirectContent,
-            selector: createSelector(
-                isLoggedIn,
-                isNewResource,
-                canEditResource,
-                mapInfoSelector,
-                (loggedIn, isNew, canEdit, mapInfo) => ({
-                    // we should add permList to map pages too
-                    // currently the canEdit is located inside the map info
-                    style: loggedIn && !isNew && (canEdit || mapInfo?.canEdit) ? {} : { display: 'none' }
-                })
-            )
-        },
         ActionNavbar: {
             name: 'Save',
             Component: ConnectedSaveButton

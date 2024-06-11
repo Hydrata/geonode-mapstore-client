@@ -7,7 +7,7 @@
  */
 
 import axios from '@mapstore/framework/libs/ajax';
-import { getConfigProp } from '@mapstore/framework/utils/ConfigUtils';
+import { getGeoNodeLocalConfig, parseDevHostname } from "@js/utils/APIUtils";
 
 /**
 * Api for GeoNode user
@@ -15,8 +15,8 @@ import { getConfigProp } from '@mapstore/framework/utils/ConfigUtils';
 */
 
 export const getUserInfo = (apikey) => {
-    const { endpointV1 = '/api' } = getConfigProp('geoNodeApi') || {};
-    return axios.get(`${endpointV1}/o/v4/userinfo`, {
+    const endpointV1 = getGeoNodeLocalConfig('geoNodeApi.endpointV1', '/api');
+    return axios.get(`${parseDevHostname(endpointV1)}/o/v4/userinfo`, {
         params: {
             ...(apikey && { apikey })
         }

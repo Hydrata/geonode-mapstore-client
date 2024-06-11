@@ -15,6 +15,12 @@
                 "emptyList": "No results for this request. Try to change filter or select a different service from the input in the top right corner."
             }
         },
+        "plugins": {
+            "VisualStyleEditor": {
+                "description": "Dataset's style editor",
+                "title": "Visual Style Editor"
+            }
+        },
         "gnhome": {
             "description": "<h1>GeoNode</h1><p>sharing geospatial data and maps.</p>",
             "orderBy": "Order by",
@@ -30,12 +36,14 @@
             "documents": "Documents",
             "remoteServices": "Remote services",
             "map": "Map",
+            "mapviewers": "MapViewers",
             "geostory": "GeoStory",
             "geostories": "GeoStories",
             "createGeostory": "Create geostory",
             "createDashboard": "Create dashboard",
             "createNew": "Create new",
             "addResource": "Add Resource",
+            "new": "New",
             "maps": "Maps",
             "about": "About",
             "people": "People",
@@ -49,6 +57,7 @@
             "viewImage": "View image",
             "viewVideo": "View video",
             "viewDashboard": "View dashboard",
+            "viewMapViewer": "View map viewer",
             "viewMetadata": "View metadata",
             "author": "Author",
             "publication": "Publication",
@@ -134,7 +143,8 @@
             "filter": "Filter",
             "noPreview": "A preview is not available for this resource",
             "na": "N/A",
-            "emptyAccordion": "No items to display"
+            "emptyFilterItems": "No items to display",
+            "loadingItems": "Loading items..."
         },
         "viewer": {
             "document": {
@@ -153,6 +163,7 @@
             "editData": "Edit Data",
             "view": "View",
             "viewMetadata": "View Metadata",
+            "viewInfo": "View information",
             "viewData": "View Data",
             "backToDataset": "< Go back to the dataset",
             "goBackTo": "< Go back to { resourceName }",
@@ -264,6 +275,9 @@
             "invalidUploadMessageErrorTooltip": "The upload process failed. Please check the validity of the file and try to upload it again",
             "completeUpload": "Complete upload",
             "selectFiles": "Select files...",
+            "addUrl": "Add URL...",
+            "duplicateUrl": "This URL is already present in the list of uploads",
+            "unsupportedUrlExtension": "Extension is not supported",
             "supportedFiles": "Supported file extensions",
             "unsupportedFiles": "Files not supported for the upload",
             "upload": "Upload",
@@ -300,11 +314,65 @@
             "abstract": "Abstract",
             "readMore": "Read more",
             "readLess": "Read less",
-            "linkedResources": "Linked Resources",
+            "linkedResources": {
+                "label": "Linked Resources",
+                "linkedBy": "Linked By",
+                "linkedTo": "Linked To",
+                "uses": "Uses",
+                "usedBy": "Used By"
+            },
             "extent": "Extent",
             "dateFilter": {
                 "from": "Date from",
                 "to": "Date to"
+            },
+            "sourceType": "Source",
+            "locations": "Location",
+            "boundingBox": "Bounding Box (WGS84)",
+            "center": "Center (WGS84)",
+            "minLat": "Min Lat",
+            "minLon": "Min Lon",
+            "maxLat": "Max Lat",
+            "maxLon": "Max Lon",
+            "centerLat": "Lat",
+            "centerLon": "Lon",
+            "mapExtentHelpText": "<b>You can edit the extent and position of this resource</b>. Shift-click and drag to draw a new extent, click on the marker and then click and drag to set its position",
+            "addWidget": "Add widget",
+            "backToMap": "Back to map",
+            "copyConfigurationFrom": "Copy configuration from",
+            "copyConfigurationFromTitle": "Copy map viewer configuration",
+            "selectLinkedMapViewer": "Select map viewer",
+            "mapViewersCatalogFilterPlaceholder": "Filter map viewer resources...",
+            "mapViewersCatalogEntriesNoResults": "No results match your search",
+            "linkToViewer": "Link to viewer",
+            "createNewViewer": "Create new viewer",
+            "addViewerConfiguration": "Add viewer",
+            "editViewerConfiguration": "Edit viewer",
+            "removeViewerConfiguration": "Remove viewer",
+            "previewCustomViewer": "Preview custom viewer",
+            "editMapConfiguration": "Edit map configuration",
+            "resource": "Resource",
+            "deleteResourceWarning": {
+                "mapviewer": "This viewer could be used by some maps. You can view the list of maps inside the Linked Resources tab of this map viewer"
+            },
+            "unadvertised": "Resource is not advertised. It is hidden from the catalog and search results",
+            "linkedResource": {
+                "deleteTitle": "Do you also want to delete the viewer?",
+                "deleteAndUnlinkWarning": {
+                    "mapviewer": "The viewer is only used by this map. With this action you can unlink the map from the viewer and also delete it, choosing 'no' will only unlink the viewer"
+                },
+                "remove": "Remove linked resource",
+                "title": "Linked resource",
+                "message": {
+                    "success": {
+                        "removeLinkedResource": "Removed linked resource successfully",
+                        "linkResource": "Saved linked resource successfully"
+                    },
+                    "failure": {
+                        "removeLinkedResource": "Failed to remove linked resource",
+                        "linkResource": "Failed to save linked resource"
+                    }
+                }
             }
         }
     }

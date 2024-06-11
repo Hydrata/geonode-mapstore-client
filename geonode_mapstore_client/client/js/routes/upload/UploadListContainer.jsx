@@ -85,7 +85,7 @@ function UploadListContainer({
                                                         name={name}
                                                         state={state}
                                                         detailUrl={detailUrl}
-                                                        importUrl={outputParams.detail_url}
+                                                        importUrl={outputParams.detail_url ?? (outputParams.resources ?? [])?.map(res=> res.detail_url)}
                                                         progress={progress}
                                                         createDate={createDate || created}
                                                         resumeUrl={resumeUrl}

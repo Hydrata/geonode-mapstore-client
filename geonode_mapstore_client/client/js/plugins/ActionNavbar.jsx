@@ -41,9 +41,7 @@ function ActionNavbarPlugin(
         resourcePerms,
         resource,
         isDirtyState,
-        selectedLayerPermissions,
-        titleItems,
-        disableTitle
+        selectedLayerPermissions
     },
     context
 ) {
@@ -79,26 +77,12 @@ function ActionNavbarPlugin(
         }
     );
 
-    const titleItemsPlugins = reduceArrayRecursive(titleItems, (item) => {
-        configuredItems.find((plugin) => {
-            if (item.type === 'plugin' && plugin.name === item.name) {
-                item.Component = plugin?.Component;
-            }
-        });
-        return item;
-    });
-
     const leftItems = reduceArrayRecursive(leftMenuItemsPlugins, (menuItem) =>
         checkResourcePerms(menuItem, resourcePerms)
     );
 
     const rightItems = reduceArrayRecursive(rightMenuItemsPlugins, (menuItem) =>
         checkResourcePerms(menuItem, resourcePerms)
-    );
-
-    const titleNavbarItems = reduceArrayRecursive(
-        titleItemsPlugins,
-        (menuItem) => checkResourcePerms(menuItem, resourcePerms)
     );
 
     return (
@@ -108,8 +92,6 @@ function ActionNavbarPlugin(
             variant="primary"
             size="sm"
             resource={resource}
-            titleItems={titleNavbarItems}
-            disableTitle={disableTitle}
         />
     );
 }
@@ -117,15 +99,13 @@ function ActionNavbarPlugin(
 ActionNavbarPlugin.propTypes = {
     items: PropTypes.array,
     leftMenuItems: PropTypes.array,
-    rightMenuItems: PropTypes.array,
-    titleItems: PropTypes.array
+    rightMenuItems: PropTypes.array
 };
 
 ActionNavbarPlugin.defaultProps = {
     items: [],
     leftMenuItems: [],
-    rightMenuItems: [],
-    titleItems: []
+    rightMenuItems: []
 };
 
 const ConnectedActionNavbarPlugin = connect(

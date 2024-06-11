@@ -9,7 +9,7 @@
 import { Observable } from 'rxjs';
 import uuidv1 from 'uuid/v1';
 import { updateNode, updateSettingsParams } from '@mapstore/framework/actions/layers';
-import { updateStatus, UPDATE_STYLE_CODE } from '@mapstore/framework/actions/styleeditor';
+import { updateStatus, UPDATE_STYLE_CODE, initStyleService } from '@mapstore/framework/actions/styleeditor';
 import { setControlProperty, SET_CONTROL_PROPERTY } from '@mapstore/framework/actions/controls';
 import { updateAdditionalLayer } from '@mapstore/framework/actions/additionallayers';
 import { STYLE_OWNER_NAME } from '@mapstore/framework/utils/StyleEditorUtils';
@@ -23,7 +23,7 @@ import tinycolor from 'tinycolor2';
 import { parseStyleName } from '@js/utils/ResourceUtils';
 import { getStyleProperties } from '@js/api/geonode/style';
 import { updateMapLayout, UPDATE_MAP_LAYOUT } from '@mapstore/framework/actions/maplayout';
-import { mapLayoutSelector } from '@mapstore/framework/selectors/maplayout';
+import { mapLayoutSelector, boundingSidebarRectSelector } from '@mapstore/framework/selectors/maplayout';
 import { getConfigProp } from "@mapstore/framework/utils/ConfigUtils";
 import { LayoutSections } from "@js/utils/LayoutUtils";
 
@@ -130,7 +130,13 @@ export const gnRequestDatasetAvailableStyles = (action$, store) =>
             const state = store.getState();
             const styleService = action?.options?.styleService || styleServiceSelector(state);
             return Observable.concat(
-                Observable.of(setControlProperty('visualStyleEditor', 'enabled', true)),
+                Observable.of(
+                    setControlProperty('visualStyleEditor', 'enabled', true),
+                    initStyleService(styleService, {
+                        editingAllowedRoles: ['ALL'],
+                        editingAllowedGroups: []
+                    })
+                ),
                 Observable.defer(() => getGeoNodeStyles({ layer: action.layer, styleService }))
                     .switchMap(([styles]) => {
                         const style = action?.options?.style || styles?.[0]?.name;
@@ -171,6 +177,7 @@ export const gnUpdateVisualStyleEditorMapLayout = (action$, store) =>
         })
         .map(({ layout }) => {
             const mapLayout = getConfigProp('mapLayout') || { left: { sm: 300, md: 500, lg: 600 }, right: { md: 658 }, bottom: { sm: 30 } };
+            const boundingSidebarRect = boundingSidebarRectSelector(store.getState());
             const action = updateMapLayout({
                 ...mapLayoutSelector(store.getState()),
                 ...layout,
@@ -178,6 +185,10 @@ export const gnUpdateVisualStyleEditorMapLayout = (action$, store) =>
                 boundingMapRect: {
                     ...(layout?.boundingMapRect || {}),
                     left: mapLayout.left.md
+                },
+                boundingSidebarRect: {
+                    ...boundingSidebarRect,
+                    ...layout.boundingSidebarRect
                 }
             });
             return { ...action, source: LayoutSections.PANEL }; // add an argument to avoid infinite loop.

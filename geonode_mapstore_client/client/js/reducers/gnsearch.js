@@ -17,7 +17,8 @@ import {
     REDUCE_TOTAL_COUNT,
     INCREASE_TOTAL_COUNT,
     SET_SEARCH_CONFIG,
-    SET_FACET_ITEMS
+    SET_FACET_ITEMS,
+    SET_FILTERS
 } from '@js/actions/gnsearch';
 
 import { UPDATE_SINGLE_RESOURCE } from '@js/actions/gnresource';
@@ -127,6 +128,11 @@ function gnsearch(state = defaultState, action) {
         return {
             ...state,
             facetItems: action.facetItems
+        };
+    case SET_FILTERS:
+        return {
+            ...state,
+            filters: {...state.filters, ...action.filters}
         };
     default:
         return state;

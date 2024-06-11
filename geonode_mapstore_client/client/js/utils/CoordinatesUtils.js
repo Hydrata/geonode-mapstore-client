@@ -9,6 +9,7 @@
 
 import isNil from 'lodash/isNil';
 import join from 'lodash/join';
+import isEmpty from 'lodash/isEmpty';
 import { reprojectBbox, getViewportGeometry } from '@mapstore/framework/utils/CoordinatesUtils';
 import turfBbox from '@turf/bbox';
 
@@ -101,24 +102,20 @@ export const boundsToExtentString = (bounds, fromCrs) => {
     return join(reprojectedExtents.map(ext => join(ext.map((val) => val.toFixed(4)), ',')), ',');
 };
 
-
-export function bboxToPolygon(bbox, crs) {
+export function bboxToExtent(bbox, crs) {
+    if (isEmpty(bbox)) {
+        return {};
+    }
     const { minx, miny, maxx, maxy } = bbox.bounds;
     const extent = [minx, miny, maxx, maxy];
-    const llExtent = bbox.crs === crs
+    const _extent = bbox.crs === crs
         ? extent
         : reprojectBbox(extent, bbox.crs, crs);
-    const [minxLL, minyLL, maxxLL, maxyLL] = llExtent;
     return {
-        type: 'Polygon',
-        // coordinates direction counter-clockwise
-        coordinates: [[
-            [minxLL, minyLL],
-            [maxxLL, minyLL],
-            [maxxLL, maxyLL],
-            [minxLL, maxyLL],
-            [minxLL, minyLL]
-        ]]
+        bbox: {
+            srid: crs,
+            coords: _extent
+        }
     };
 }
 
@@ -144,4 +141,26 @@ export const getExtent = ({
         return [minx, miny, maxx, maxy];
     }
     return null;
+};
+
+/**
+ * Get adjusted extent.
+ * When max extent [-180, -90, 180, 90] of EPSG:4326 is reprojected to EPSG:3857
+ * the result is [0,0,0,0], hence adjusting by minor fraction
+ * will give us correct extent when reprojected
+ * @param {Array} bounds
+ * @param {String} source projection
+ * @param {String} destination projection
+ * @returns {Array} adjusted extent with projections
+ */
+export const getAdjustedExtent = (bounds, source = "EPSG:4326", dest = "EPSG:3857") => {
+    let adjustedExtent = bounds;
+    if (!isEmpty(bounds) && source === "EPSG:4326" && dest === "EPSG:3857") {
+        let extent = bounds.map(e => Number(e));
+        const fractionCorrection = 0.000001;
+        if (extent[0] <= -180 && extent[1] <= -90 && extent[2] >= 180 && extent[3] >= 90) {
+            adjustedExtent = [extent[0], extent[1] + fractionCorrection, extent[2], extent[3] - fractionCorrection];
+        }
+    }
+    return adjustedExtent;
 };

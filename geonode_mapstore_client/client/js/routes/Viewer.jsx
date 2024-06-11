@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
@@ -68,29 +68,47 @@ function ViewerRoute({
     siteName,
     resourceType,
     loadingConfig,
-    configError
+    configError,
+    loaderStyle
 }) {
 
     const { pk } = match.params || {};
     const pluginsConfig = getPluginsConfiguration(name, propPluginsConfig);
+    const pluginsCfgLength = pluginsConfig?.length;
 
     const { plugins: loadedPlugins, pending } = useModulePlugins({
         pluginsEntries: getPlugins(plugins, 'module'),
         pluginsConfig
     });
+
+    const viewer = useRef({ resourceLoaded: false, prevPluginsLength: null });
+    const { resourceLoaded, prevPluginsLength } = viewer.current ?? {};
     useEffect(() => {
-        if (!pending && pk !== undefined) {
+        if (!prevPluginsLength || pluginsCfgLength === 0) {
+            // to ensure and prevent loading and requesting of resource configurations
+            // post initialization when user plugin is employed
+            viewer.current.prevPluginsLength = pluginsCfgLength;
+        }
+    }, [pluginsCfgLength]);
+
+    const pluginLoading = prevPluginsLength !== null && prevPluginsLength !== pluginsCfgLength ? false : pending;
+    useEffect(() => {
+        if (!pluginLoading && !resourceLoaded && pk !== undefined) {
+            viewer.current.resourceLoaded = true;
             if (pk === 'new') {
-                onCreate(resourceType);
+                onCreate(resourceType, {
+                    params: match.params
+                });
             } else {
                 onUpdate(resourceType, pk, {
-                    page: name
+                    page: name,
+                    params: match.params
                 });
             }
         }
-    }, [pending, pk]);
+    }, [pluginLoading, pk]);
 
-    const loading = loadingConfig || pending;
+    const loading = loadingConfig || pluginLoading;
     const parsedPlugins = useMemo(() => ({ ...loadedPlugins, ...getPlugins(plugins) }), [loadedPlugins]);
     const Loader = loaderComponent;
     const className = `page-${resourceType}-viewer`;
@@ -130,7 +148,7 @@ function ViewerRoute({
                 contentURL={resource?.detail_url}
                 content={resource?.abstract}
             />}
-            {!loading && <ConnectedPluginsContainer
+            <ConnectedPluginsContainer
                 key={className}
                 id={className}
                 className={className}
@@ -139,8 +157,8 @@ function ViewerRoute({
                 plugins={parsedPlugins}
                 allPlugins={plugins}
                 params={params}
-            />}
-            {loading && Loader && <Loader />}
+            />
+            {loading && Loader && <Loader style={loaderStyle}/>}
             {configError && <MainEventView msgId={configError}/>}
         </>
     );

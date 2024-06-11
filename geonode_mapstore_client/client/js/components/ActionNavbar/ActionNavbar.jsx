@@ -11,7 +11,6 @@ import PropTypes from 'prop-types';
 import Menu from '@js/components/Menu';
 import BurgerMenu from '@js/components/Menu/BurgerMenu';
 import useResizeElement from '@js/hooks/useResizeElement';
-import BreadCrumb from '@js/components/BreadCrumb';
 
 const LeftContentMenu = ({ items, formatHref, query, variant, size, resourceName }) => {
     const navbarContentLeft = useRef();
@@ -79,9 +78,7 @@ const ActionNavbar = forwardRef(
             formatHref,
             variant,
             size,
-            resource,
-            titleItems,
-            disableTitle
+            resource
         },
         ref
     ) => {
@@ -89,10 +86,6 @@ const ActionNavbar = forwardRef(
             <nav ref={ref} className={`gn-menu gn-${variant}`} style={style}>
                 <div className="gn-menu-container">
                     <div className="gn-menu-content">
-                        {!disableTitle && <BreadCrumb
-                            resource={resource}
-                            titleItems={titleItems}
-                        />}
                         {leftItems.length > 0 && (
                             <LeftContentMenu
                                 items={leftItems}
@@ -125,18 +118,15 @@ ActionNavbar.propTypes = {
     rightItems: PropTypes.array,
     query: PropTypes.object,
     formatHref: PropTypes.func,
-    variant: PropTypes.string,
-    disableTitle: PropTypes.bool
+    variant: PropTypes.string
 };
 
 ActionNavbar.defaultProps = {
     leftItems: [],
     rightItems: [],
-    titleItems: [],
     query: {},
     formatHref: () => '#',
-    variant: 'primary',
-    disableTitle: false
+    variant: 'primary'
 };
 
 export default ActionNavbar;

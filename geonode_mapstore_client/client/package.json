@@ -26,23 +26,16 @@
   "author": "GeoSolutions",
   "license": "BSD-2-Clause",
   "devDependencies": {
-    "@mapstore/project": "1.0.25",
+    "@mapstore/project": "1.0.27",
     "dotenv": "10.0.0",
     "jsdoc": "4.0.0"
   },
   "dependencies": {
     "@jsdoc/salty": "0.2.1",
-    "@piwikpro/react-piwik-pro": "^1.2.1",
-    "@react-three/drei": "8.20.2",
-    "@react-three/fiber": "6.0.0",
-    "@tanstack/react-table": "^8.17.3",
     "dompurify": "2.2.6",
-    "font-awesome": "4.7.0",
     "mapstore": "file:MapStore2",
     "react-helmet": "6.1.0",
-    "react-intl": "2.3.0",
-    "three": "0.138.3",
-    "three-stdlib": "2.8.9"
+    "react-intl": "2.3.0"
   },
   "mapstore": {
     "output": "dist",

@@ -71,7 +71,8 @@ export const gnMonitorAsyncProcesses = (action$, store) => {
 
 const processAPI = {
     [ProcessTypes.DELETE_RESOURCE]: deleteResource,
-    [ProcessTypes.COPY_RESOURCE]: copyResource
+    [ProcessTypes.COPY_RESOURCE]: copyResource,
+    [ProcessTypes.REMOVE_LINKED_RESOURCE]: deleteResource
 };
 
 export const gnProcessResources = (action$) =>

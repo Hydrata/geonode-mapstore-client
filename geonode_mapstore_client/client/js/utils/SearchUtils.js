@@ -11,14 +11,6 @@ import castArray from 'lodash/castArray';
 import omit from 'lodash/omit';
 import uuid from 'uuid/v1';
 
-let filters = {};
-
-export const setFilterById = (id, value) => {
-    filters[id] = value;
-};
-export const getFilterLabelById = (filterKey = '', id) => filters?.[filterKey + id]?.selectOption?.label || filters?.[filterKey + id]?.label;
-export const getFilterById = (filterKey = '', id) => filters?.[filterKey + id];
-
 export const hashLocationToHref = ({
     location,
     pathname,
@@ -85,25 +77,28 @@ export const filterFormItemsContainFacet = (formItems) => {
     return formItems.some(formItem => formItem.items ? filterFormItemsContainFacet(formItem.items) : !!formItem.facet);
 };
 
-export const updateFilterFormItemsWithFacet = (formItems, facetItems) => {
+export const updateFilterFormItemsWithFacet = ({formItems, facetItems}) => {
     return formItems.reduce((acc, formItem) => {
         if (!!formItem.facet) {
             const filteredFacetItems = (facetItems || [])
                 .filter(f => f.type === formItem.facet)
+                .filter(f => formItem.include ? formItem.include?.includes(f.name) : formItem.exclude ? !formItem.exclude?.includes(f.name) : true)
                 .sort((a, b) => a.order - b.order);
             return [
                 ...acc,
                 ...filteredFacetItems
-                    .map(({ name, key, label, is_localized: isLocalized, loadItems } = {}) => {
+                    .map(({ name, config, filter: filterKey, label, is_localized: isLocalized, loadItems } = {}) => {
+                        const style = config.style || formItem.style;
+                        const type = config.type || formItem.type;
                         return {
                             uuid: uuid(),
                             name,
-                            key,
+                            key: filterKey,
                             id: name,
-                            type: formItem.type,
-                            style: formItem.style,
+                            type,
+                            style,
                             ...(isLocalized ? { labelId: label } : { label }),
-                            loadItems: (params) => loadItems({ name, style: formItem.style, filterKey: key }, params)
+                            loadItems: (params, filters, setFilters) => loadItems({ name, style, filterKey, filters, setFilters }, params)
                         };
                     })
             ];
@@ -114,7 +109,7 @@ export const updateFilterFormItemsWithFacet = (formItems, facetItems) => {
                 {
                     ...formItem,
                     uuid: formItem.uuid || uuid(),
-                    items: updateFilterFormItemsWithFacet(formItem.items, facetItems)
+                    items: updateFilterFormItemsWithFacet({formItems: formItem.items, facetItems})
                 }
             ];
         }
@@ -128,11 +123,29 @@ export const updateFilterFormItemsWithFacet = (formItems, facetItems) => {
     }, []);
 };
 
+/**
+ * Parse icon name from item.
+ * Skip font awesome prefix from prop `fa-${icon}` and pick only icon name
+ * @param {Object} item filter items
+ * @returns {string} icon name
+ */
+//
+export const parseIcon = (item) => {
+    let value;
+    if (typeof item === 'object') {
+        value = item.icon ?? item?.fa_class;
+    } else {
+        value = item;
+    }
+    return value?.replace("fa-", "");
+};
+
 export default {
     hashLocationToHref,
     getUserName,
     clearQueryParams,
     getQueryFilters,
     filterFormItemsContainFacet,
-    updateFilterFormItemsWithFacet
+    updateFilterFormItemsWithFacet,
+    parseIcon
 };

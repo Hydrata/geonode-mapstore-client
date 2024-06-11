@@ -16,6 +16,7 @@ import ResourceStatus from '@js/components/ResourceStatus';
 import ALink from '@js/components/ALink';
 import AuthorInfo from '@js/components/AuthorInfo/AuthorInfo';
 import ActionButtons from '@js/components/ActionButtons';
+import Unadvertised from '@js/components/Unadvertised';
 
 
 const ResourceCard = forwardRef(({
@@ -112,7 +113,7 @@ const ResourceCard = forwardRef(({
                                             readOnly={readOnly}
                                             href={formatHref({
                                                 query: {
-                                                    'filter{resource_type.in}':
+                                                    'f':
                                                     res.resource_type
                                                 }
                                             })}
@@ -136,6 +137,9 @@ const ResourceCard = forwardRef(({
                             </div>
                             <div>
                                 <ResourceStatus resource={res} />
+                            </div>
+                            <div>
+                                <Unadvertised resource={res}/>
                             </div>
                         </div>
                         <p ref={abstractRef} className={`card-text gn-card-description ${layoutCardsStyle}`}>

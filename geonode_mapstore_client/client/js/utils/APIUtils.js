@@ -9,6 +9,38 @@
 import url from 'url';
 import queryString from "query-string";
 import isEmpty from "lodash/isEmpty";
+import get from "lodash/get";
+import omit from 'lodash/omit';
+
+/**
+ * Get geonode config
+ * @param {string} path
+ * @param {any} defaultValue
+ * @return {any} value resolved
+ * @module utils/APIUtils
+ */
+export const getGeoNodeConfig = (path = '', defaultValue = undefined) => {
+    const geoNodeConfig =  window.__GEONODE_CONFIG__ || {};
+    if (!isEmpty(path)) {
+        return get(geoNodeConfig, path, defaultValue);
+    }
+    return geoNodeConfig;
+};
+
+/**
+ * Get geonode local configuration by path
+ * @param {string} path
+ * @param {any} defaultValue
+ * @return {any} value resolved
+ * @module utils/APIUtils
+ */
+export const getGeoNodeLocalConfig = (path = '', defaultValue = undefined) => {
+    const localConfig = getGeoNodeConfig('localConfig', {});
+    if (!isEmpty(path)) {
+        return get(localConfig, path, defaultValue);
+    }
+    return localConfig;
+};
 
 /**
 * Utilities for api requests
@@ -21,7 +53,7 @@ const getGeoNodeTargetHostname = () => {
     if (geoNodeTargetHostname) {
         return geoNodeTargetHostname;
     }
-    const endpointV2 = window?.__GEONODE_CONFIG__?.localConfig?.geoNodeApi?.endpointV2;
+    const endpointV2 = getGeoNodeLocalConfig('geoNodeApi.endpointV2');
     if (endpointV2) {
         const { hostname } = url.parse(endpointV2);
         if (hostname) {
@@ -53,12 +85,12 @@ export const parseDevHostname = (requestUrl) => {
                 port: null,
                 href: null,
                 slashes: null,
-                query: requestUrl.includes('/api/')
+                query: omit(requestUrl.includes('/api/')
                     ? parsedUrl?.query
                     : {
                         ...query,
                         ...parsedUrl?.query
-                    }
+                    }, ['debug'])
             });
         }
     }
@@ -72,7 +104,7 @@ export const getApiToken = () => {
     will always raise an error due the missing auth. In this way if the
     main call provide an apikey, we can proceed with the login
     */
-    const geoNodePageConfig = window.__GEONODE_CONFIG__ || {};
+    const geoNodePageConfig = getGeoNodeConfig();
     return geoNodePageConfig.apikey || null;
 };
 
@@ -82,16 +114,33 @@ export const getApiToken = () => {
  * @param {Object} params
  * @returns {Object} updated params
  */
-export const paramsSerializer = (params) => {
-    const {include, exclude, sort, ...rest} = params ?? {}; // Update bracket params (if any)
-    let queryParams = '';
-    if (!isEmpty(include) || !isEmpty(exclude) || !isEmpty(sort)) {
-        queryParams = queryString.stringify({include, exclude, sort}, { arrayFormat: 'bracket'});
-    }
-    if (!isEmpty(rest)) {
-        queryParams = (isEmpty(queryParams) ? '' : `${queryParams}&`) + queryString.stringify(rest);
-    }
-    return queryParams;
+export const paramsSerializer = () => {
+    return {
+        paramsSerializer: {
+            serialize: params => {
+                const {include, exclude, sort, ...rest} = params ?? {}; // Update bracket params (if any)
+                let queryParams = '';
+                if (!isEmpty(include) || !isEmpty(exclude) || !isEmpty(sort)) {
+                    queryParams = queryString.stringify({include, exclude, sort}, { arrayFormat: 'bracket'});
+                }
+                if (!isEmpty(rest)) {
+                    queryParams = (isEmpty(queryParams) ? '' : `${queryParams}&`) + queryString.stringify(rest);
+                }
+                return queryParams;
+            }
+        }
+    };
+};
+
+export const API_PRESET = {
+    CATALOGS: 'catalog_list',
+    DATASETS: 'dataset_list',
+    DOCUMENTS: 'document_list',
+    MAPS: 'map_list',
+    VIEWER_COMMON: 'viewer_common',
+    DATASET: 'dataset_viewer',
+    DOCUMENT: 'document_viewer',
+    MAP: 'map_viewer'
 };
 
 export default {

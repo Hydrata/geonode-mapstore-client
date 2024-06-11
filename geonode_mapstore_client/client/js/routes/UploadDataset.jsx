@@ -13,7 +13,6 @@ import merge from 'lodash/merge';
 import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
 import {
-    getPendingUploads,
     getProcessedUploadsById,
     getProcessedUploadsByImportId,
     uploadDataset,
@@ -233,8 +232,7 @@ function ProcessingUploadList({
     updatePending.current = () => {
         if (!loading) {
             setLoading(true);
-            axios.all([getPendingUploads(), getPendingExecutionRequests()])
-                .then(incomingUploads => [...incomingUploads[0], ...incomingUploads[1]])
+            getPendingExecutionRequests()
                 .then((newPendingUploads) => {
                     if (isMounted.current) {
                         const failedPendingUploads = pendingUploads.filter(({ state }) => state === 'INVALID');

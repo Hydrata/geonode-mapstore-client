@@ -69,7 +69,6 @@
             "featureTypeError": "无法加载图层属性",
             "featureTypeErrorInvalidJSON": "Cannot load layer attributes. Response is not valid",
             "elevation": "海拔",
-            "titleTranslations": "标题 translations",
             "groupProperties": "组属性",
             "featureInfo": "特征信息",
             "featureInfoFormatLbl": "确定响应格式",
@@ -364,11 +363,6 @@
                 }
             }
         },
-        "floatinglegend": {
-            "showTOC": "Show layers",
-            "showLegend": "Show legend",
-            "hideLegend": "Hide legend"
-        },
         "toc": {
             "toggleLayerVisibility": "切换图层可见性",
             "displayLegendAndTools": "显示图例和工具",
@@ -445,7 +439,7 @@
                 "configuration": "Configuration",
                 "apply": "Apply classification",
                 "restore": "Reset customizations",
-                "go_to_cfg": "Configure...",
+                "goToCfg": "Configure...",
                 "go_to_thema": "Use this configuration",
                 "cfgError": "Error in configuration JSON",
                 "classify": "Classify",
@@ -544,7 +538,25 @@
             "showLabel": "Show measurement label",
             "addAsAnnotation": "Add as annotation",
             "newMeasure": "New annotation",
-            "selectTool": "Select a measurement tool"
+            "selectTool": "Select a measurement tool",
+            "polylineDistance3DMeasure": "Measure distance in 3D space",
+            "area3DMeasure": "Measure area in 3D space",
+            "pointCoordinatesMeasure": "Measure point coordinates",
+            "heightFromTerrainMeasure": "Measure height from terrain",
+            "angle3DMeasure": "Measure angle in 3D space",
+            "slopeMeasure": "Measure slope",
+            "tooltipPolylineDistance3DStart": "Click to start measurement",
+            "tooltipPolylineDistance3DEnd": "Single click to add a segment\nor double click to end",
+            "tooltipArea3DStart": "Click to start measurement",
+            "tooltipArea3DMissingVertex": "Area needs at least 3 vertices, \nsingle click to add a vertex",
+            "tooltipArea3DEnd": "Single click to add a vertex\nor double click to end",
+            "tooltipPointCoordinatesStart": "Click to add an altitude point measurement",
+            "tooltipHeightFromTerrainStart": "Click to add the distance value from terrain surface",
+            "tooltipAngle3DStart": "Single click to draw 3 points that represent the angle vertices",
+            "tooltipSlopeStart": "Single click to draw 3 points that represent a triangle surface.\nThe slope value is computed based on the drawn triangle surface",
+            "altitude": "Altitude",
+            "latitude": "Latitude",
+            "longitude": "Longitude"
         },
         "search":{
             "decimal": "十进制",

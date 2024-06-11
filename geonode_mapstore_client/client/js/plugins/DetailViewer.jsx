@@ -21,7 +21,7 @@ import {
     setMapThumbnail,
     setResourceThumbnail,
     enableMapThumbnailViewer,
-    downloadResource
+    setResourceExtent
 } from '@js/actions/gnresource';
 import { processingDownload } from '@js/selectors/resourceservice';
 import FaIcon from '@js/components/FaIcon/FaIcon';
@@ -33,7 +33,8 @@ import {
     isNewResource,
     getResourceId,
     isThumbnailChanged,
-    updatingThumbnailResource
+    updatingThumbnailResource,
+    getViewedResourceType
 } from '@js/selectors/resource';
 import Button from '@js/components/Button';
 import useDetectClickOut from '@js/hooks/useDetectClickOut';
@@ -43,9 +44,10 @@ import { hashLocationToHref } from '@js/utils/SearchUtils';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { layersSelector } from '@mapstore/framework/selectors/layers';
 import { mapSelector } from '@mapstore/framework/selectors/map';
-import { resourceHasPermission } from '@js/utils/ResourceUtils';
 import { parsePluginConfigExpressions } from '@js/utils/MenuUtils';
 import detailViewerEpics from '@js/epics/detailviewer';
+import usePluginItems from '@js/hooks/usePluginItems';
+import { getResourceTypesInfo } from '@js/utils/ResourceUtils';
 
 const ConnectedDetailsPanel = connect(
     createSelector([
@@ -70,7 +72,6 @@ const ConnectedDetailsPanel = connect(
         initialBbox: mapData?.bbox,
         enableMapViewer: showMapThumbnail,
         downloading,
-        canDownload: resourceHasPermission(resource, 'download_resourcebase'),
         resourceId: resource.pk
     })),
     {
@@ -79,29 +80,30 @@ const ConnectedDetailsPanel = connect(
         onMapThumbnail: setMapThumbnail,
         onResourceThumbnail: setResourceThumbnail,
         onClose: enableMapThumbnailViewer,
-        onAction: downloadResource
+        onSetExtent: setResourceExtent
     }
 )(DetailsPanel);
 
-const ButtonViewer = ({ onClick, hide, variant, size, showMessage }) => {
+const ButtonViewer = ({ onClick, hide, variant, size, showMessage, resourceType }) => {
     const handleClickButton = () => {
         onClick();
     };
-
+    const { icon = 'info-circle' } = getResourceTypesInfo()[resourceType] || {};
     return !hide ? (
         <Button
             variant={variant}
             size={size}
             onClick={handleClickButton}
         >
-            {!showMessage ? <FaIcon name="info-circle" /> : <Message msgId="gnviewer.editInfo"/>}
+            {!showMessage ? <FaIcon name={icon} /> : <Message msgId="gnviewer.viewInfo"/>}
         </Button>
     ) : null;
 };
 
 const ConnectedButton = connect(
-    createSelector([isNewResource, getResourceId], (isNew, resourcePk) => ({
-        hide: isNew || !resourcePk
+    createSelector([isNewResource, getResourceId, getViewedResourceType], (isNew, resourcePk, resourceType) => ({
+        hide: isNew || !resourcePk,
+        resourceType
     })),
     {
         onClick: setControlProperty.bind(
@@ -169,21 +171,21 @@ const ConnectedButton = connect(
  *  }
  * }
  */
-function DetailViewer({
+function DetailViewerPanel({
     location,
     enabled,
     onEditResource,
     onEditAbstractResource,
     onEditThumbnail,
     canEdit,
-    hide,
     user,
     onClose,
     monitoredState,
     queryPathname = '/',
-    tabs = []
-}) {
-
+    tabs = [],
+    items,
+    resourceId
+}, context) {
     const parsedConfig = parsePluginConfigExpressions(monitoredState, { tabs });
 
     const handleTitleValue = (val) => {
@@ -211,9 +213,9 @@ function DetailViewer({
         });
     };
 
-    if (hide) {
-        return null;
-    }
+    const { loadedPlugins } = context;
+    const configuredItems = usePluginItems({ items, loadedPlugins }, [resourceId]);
+    const toolbarItems = configuredItems.filter(item => item.target === "toolbar");
 
     return (
         <OverlayContainer
@@ -230,10 +232,13 @@ function DetailViewer({
                 formatHref={handleFormatHref}
                 tabs={parsedConfig.tabs}
                 pathname={queryPathname}
+                toolbarItems={toolbarItems}
             />
         </OverlayContainer>
     );
 }
+
+const DetailViewer = ({hide, ...props}) => hide ? null : <DetailViewerPanel {...props}/>;
 
 const DetailViewerPlugin = connect(
     createSelector(
@@ -244,14 +249,16 @@ const DetailViewerPlugin = connect(
             isNewResource,
             getResourceId,
             userSelector,
-            state => getMonitoredState(state, getConfigProp('monitorState'))
+            state => getMonitoredState(state, getConfigProp('monitorState')),
+            state => state?.gnresource?.data || null
         ],
-        (enabled, canEdit, isNew, resourcePk, user, monitoredState) => ({
+        (enabled, canEdit, isNew, resourcePk, user, monitoredState, resource) => ({
             enabled,
             canEdit,
             hide: isNew || !resourcePk,
             user,
-            monitoredState
+            monitoredState,
+            resourceId: resource?.pk
         })
     ),
     {

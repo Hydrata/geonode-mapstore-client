@@ -10,10 +10,11 @@ import React from 'react';
 
 function MainLoader({
     text,
-    className = ''
+    className = '',
+    style
 }) {
     return (
-        <div className={`gn-main-event-container${className ? ` ${className}` : ''}`}>
+        <div className={`gn-main-event-container${className ? ` ${className}` : ''}`} style={style}>
             <div className="gn-main-event-content">
                 <div className="gn-main-loader"></div>
                 <div className="gn-main-event-text">{text}</div>

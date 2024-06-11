@@ -80,7 +80,6 @@
             "featureTypeError": "Nepodarilo sa načítať vlastnosti vrstvy",
             "featureTypeErrorInvalidJSON": "Nie je možné načítať atribúty vrstvy. Odpoveď je neplatná.",
             "elevation": "Výškopis",
-            "titleTranslations": "Preklady názvov",
             "groupProperties": "Nastavenia skupiny",
             "featureInfo": "Podrobnosti prvku",
             "featureInfoFormatLbl": "Identify response format",
@@ -494,11 +493,6 @@
                 }
             }
         },
-        "floatinglegend": {
-            "showTOC": "Ukázať vrstvy",
-            "showLegend": "Ukázať legendu",
-            "hideLegend": "Schovať legendu"
-        },
         "addgroup": {
             "addbtn": "Pridať",
             "groupName": "Meno skupiny"
@@ -622,7 +616,7 @@
                 "configuration": "Konfigurácia",
                 "apply": "Použiť konfiguráciu",
                 "restore": "Obnoviť prispôsobenie",
-                "go_to_cfg": "Konfigurujem...",
+                "goToCfg": "Konfigurujem...",
                 "go_to_thema": "Použiť túto konfiguráciu",
                 "cfgError": "Chyba v konfigurácii JSON",
                 "classify": "Klasifikovať",
@@ -737,7 +731,25 @@
             "selectTool": "Vyberte nástroj na meranie",
             "exportToGeoJSON": "Exportovať ako GeoJSON",
             "resetTooltip": "Obnoviť merania",
-            "addAsLayer": "Pridať ako vrstvu"
+            "addAsLayer": "Pridať ako vrstvu",
+            "polylineDistance3DMeasure": "Measure distance in 3D space",
+            "area3DMeasure": "Measure area in 3D space",
+            "pointCoordinatesMeasure": "Measure point coordinates",
+            "heightFromTerrainMeasure": "Measure height from terrain",
+            "angle3DMeasure": "Measure angle in 3D space",
+            "slopeMeasure": "Measure slope",
+            "tooltipPolylineDistance3DStart": "Click to start measurement",
+            "tooltipPolylineDistance3DEnd": "Single click to add a segment\nor double click to end",
+            "tooltipArea3DStart": "Click to start measurement",
+            "tooltipArea3DMissingVertex": "Area needs at least 3 vertices, \nsingle click to add a vertex",
+            "tooltipArea3DEnd": "Single click to add a vertex\nor double click to end",
+            "tooltipPointCoordinatesStart": "Click to add an altitude point measurement",
+            "tooltipHeightFromTerrainStart": "Click to add the distance value from terrain surface",
+            "tooltipAngle3DStart": "Single click to draw 3 points that represent the angle vertices",
+            "tooltipSlopeStart": "Single click to draw 3 points that represent a triangle surface.\nThe slope value is computed based on the drawn triangle surface",
+            "altitude": "Altitude",
+            "latitude": "Latitude",
+            "longitude": "Longitude"
         },
         "search":{
             "layerMustBeVisible": "Cieľová vrstva je neaktívna",
@@ -1440,7 +1452,8 @@
             },
             "format": {
                 "noOption": "Žiadna možnosť",
-                "loading": "Načítanie..."
+                "loading": "Načítanie...",
+                "refresh": "Načítať podporovaný formát"
             }
         },
         "uploader": {
@@ -2580,7 +2593,8 @@
             "close": "Zatvoriť",
             "cancel": "Zrušiť",
             "saveSuccessTitle": "Úspech",
-            "saveSuccessMessage": "Úspešne uložené"
+            "saveSuccessMessage": "Úspešne uložené",
+            "unadvertised": "Neinzerované"
         },
         "mapEditor": {
             "modalTitle": "Mapový editor",

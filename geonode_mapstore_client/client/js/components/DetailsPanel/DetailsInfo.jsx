@@ -9,12 +9,13 @@ import React, { useState } from 'react';
 import castArray from 'lodash/castArray';
 import isEmpty from 'lodash/isEmpty';
 import moment from 'moment';
-import { Tabs, Tab } from "react-bootstrap";
 
 import Button from '@js/components/Button';
+import Tabs from '@js/components/Tabs';
 import DetailsAttributeTable from '@js/components/DetailsPanel/DetailsAttributeTable';
 import DetailsLinkedResources from '@js/components/DetailsPanel/DetailsLinkedResources';
 import Message from '@mapstore/framework/components/I18N/Message';
+import DetailsLocations from '@js/components/DetailsPanel/DetailsLocations';
 
 const replaceTemplateString = (properties, str) => {
     return Object.keys(properties).reduce((updatedStr, key) => {
@@ -30,6 +31,9 @@ const getDateRangeValue = (startValue, endValue, format) => {
     return moment(startValue ? startValue : endValue).format(format);
 };
 const isEmptyValue = (value) => {
+    if (Array.isArray(value)) {
+        return isEmpty(value);
+    }
     if (typeof value === 'object') {
         return isEmpty(value) || (isEmpty(value.start) && isEmpty(value.end));
     }
@@ -80,9 +84,11 @@ function DetailsInfoFields({ fields, formatHref }) {
             if (field.type === 'link') {
                 return (
                     <DetailsInfoField key={filedIndex} field={field}>
-                        {(values) => values.map((value, idx) => (
-                            <a key={idx} href={field.href} target={field.target}>{value}</a>
-                        ))}
+                        {(values) => values.map((value, idx) => {
+                            return field.href
+                                ? <a key={idx} href={field.href}>{value}</a>
+                                : <a key={idx} href={value.href}>{value.value}</a>;
+                        })}
                     </DetailsInfoField>
                 );
             }
@@ -139,6 +145,7 @@ function DetailsInfoFields({ fields, formatHref }) {
 const tabTypes = {
     'attribute-table': DetailsAttributeTable,
     'linked-resources': DetailsLinkedResources,
+    'locations': DetailsLocations,
     'tab': DetailsInfoFields
 };
 
@@ -151,8 +158,7 @@ const isDefaultTabType = (type) => type === 'tab';
 
 function DetailsInfo({
     tabs = [],
-    formatHref,
-    resourceTypesInfo
+    ...props
 }) {
     const filteredTabs = tabs
         .filter((tab) => !tab?.disableIf)
@@ -162,23 +168,19 @@ function DetailsInfo({
                 items: isDefaultTabType(tab.type) ? parseTabItems(tab?.items) : tab?.items,
                 Component: tabTypes[tab.type] || tabTypes.tab
             }))
-        .filter(tab => tab?.items?.length > 0);
-    const selectedTabId = filteredTabs?.[0]?.id;
+        .filter(tab => !isEmpty(tab?.items));
+    const [selectedTabId, onSelect] = useState(filteredTabs?.[0]?.id);
     return (
         <Tabs
-            defaultActiveKey={selectedTabId}
-            bsStyle="pills"
             className="gn-details-info tabs-underline"
-        >
-            {filteredTabs.map(({Component, ...tab}, idx) => (
-                <Tab key={idx} eventKey={tab?.id} title={<DetailInfoFieldLabel field={tab} />}>
-                    <Component
-                        fields={tab?.items}
-                        formatHref={formatHref}
-                        resourceTypesInfo={resourceTypesInfo} />
-                </Tab>
-            ))}
-        </Tabs>
+            selectedTabId={selectedTabId}
+            onSelect={onSelect}
+            tabs={filteredTabs.map(({Component, ...tab} = {}) => ({
+                title: <DetailInfoFieldLabel field={tab} />,
+                eventKey: tab?.id,
+                component: <Component fields={tab?.items} {...props} />
+            }))}
+        />
     );
 }
 

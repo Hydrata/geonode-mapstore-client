@@ -58,10 +58,10 @@ function ViewerLayout({
                 <div className="gn-viewer-right-column">
                     {rightColumn}
                 </div>
-            </div>
-            <div
-                className="gn-viewer-right-overlay shadow-far">
-                {rightOverlay}
+                <div
+                    className="gn-viewer-right-overlay shadow-far">
+                    {rightOverlay}
+                </div>
             </div>
             <footer>
                 {footer}

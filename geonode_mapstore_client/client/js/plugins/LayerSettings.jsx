@@ -13,13 +13,13 @@ import { createSelector } from 'reselect';
 import isEmpty from 'lodash/isEmpty';
 import { Glyphicon } from 'react-bootstrap';
 import GNButton from '@js/components/Button';
-import { updateNode, hideSettings } from '@mapstore/framework/actions/layers';
+import { updateNode, hideSettings, showSettings } from '@mapstore/framework/actions/layers';
 import { groupsSelector, elementSelector } from '@mapstore/framework/selectors/layers';
 import { mapSelector } from '@mapstore/framework/selectors/map';
 import { currentLocaleSelector, currentLocaleLanguageSelector } from '@mapstore/framework/selectors/locale';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { mapLayoutValuesSelector } from '@mapstore/framework/selectors/maplayout';
-import { getTitle } from '@mapstore/framework/utils/TOCUtils';
+import { getTitle } from '@mapstore/framework/utils/LayersUtils';
 import GroupSettings from '@js/plugins/layersettings/GroupSettings';
 import BaseLayerSettings from '@js/plugins/layersettings/BaseLayerSettings';
 import WMSLayerSettings from '@js/plugins/layersettings/WMSLayerSettings';
@@ -27,6 +27,7 @@ import GeoNodeStyleSelector from '@js/plugins/layersettings/GeoNodeStyleSelector
 import usePluginItems from '@js/hooks/usePluginItems';
 import layersettingsEpics from '@js/epics/layersettings';
 import tooltip from '@mapstore/framework/components/misc/enhancers/tooltip';
+import { isAnnotationLayer } from '@mapstore/framework/plugins/Annotations/utils/AnnotationsUtils';
 
 const Button = tooltip(GNButton);
 
@@ -130,26 +131,36 @@ const ConnectedLayerSettings = connect(
 
 function LayerSettingsButton({
     status,
-    onToolsActions,
-    selectedLayers,
-    selectedGroups
+    statusTypes,
+    nodeTypes,
+    selectedNodes,
+    onSettings = () =>  {},
+    onHideSettings = () => {}
 }) {
-    if (!(status === 'LAYER' || status === 'GROUP')) {
+
+    const { node } = selectedNodes?.[0] || {};
+
+    if (!(status === statusTypes.LAYER || status === statusTypes.GROUP)
+    // hide default settings for annotation layer
+    || (status === statusTypes.LAYER && isAnnotationLayer(node))) {
         return null;
     }
 
     function handleClick() {
-        if (status === 'LAYER' || status === 'LAYER_LOAD_ERROR') {
-            onToolsActions.onSettings( selectedLayers[0].id, 'layers', { opacity: parseFloat(selectedLayers[0].opacity !== undefined ? selectedLayers[0].opacity : 1) });
-        } else if (status === 'GROUP') {
-            onToolsActions.onSettings(selectedGroups[selectedGroups.length - 1].id, 'groups', {});
+
+        if (status === statusTypes.LAYER) {
+            return onSettings(node.id, nodeTypes.LAYER, { opacity: parseFloat(node.opacity !== undefined ? node.opacity : 1) });
         }
+        if (status === statusTypes.GROUP) {
+            return onSettings(node.id, nodeTypes.GROUP, {});
+        }
+        return onHideSettings();
     }
 
     return (
         <Button
             variant="primary"
-            className="square-button-md"
+            className="toc-toolbar-button"
             onClick={handleClick}
             tooltipId={<Message msgId={`toc.toolLayerSettingsTooltip`} />}
         >
@@ -159,7 +170,11 @@ function LayerSettingsButton({
 }
 
 const ConnectedLayerSettingsButton = connect(
-    createSelector([], () => ({}))
+    createSelector([], () => ({})),
+    {
+        onSettings: showSettings,
+        onHideSettings: hideSettings
+    }
 )(LayerSettingsButton);
 
 
@@ -168,7 +183,8 @@ export default createPlugin('LayerSettings', {
     containers: {
         TOC: {
             target: 'toolbar',
-            Component: ConnectedLayerSettingsButton
+            Component: ConnectedLayerSettingsButton,
+            position: 5
         }
     },
     epics: {

@@ -11,12 +11,14 @@ import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
 import url from 'url';
 import isArray from 'lodash/isArray';
+import isEmpty from 'lodash/isEmpty';
 import { getMonitoredState } from '@mapstore/framework/utils/PluginsUtils';
 import { getConfigProp } from '@mapstore/framework/utils/ConfigUtils';
 import PluginsContainer from '@mapstore/framework/components/plugins/PluginsContainer';
 import { createShallowSelector } from '@mapstore/framework/utils/ReselectUtils';
 import useModulePlugins from '@mapstore/framework/hooks/useModulePlugins';
 import { getPlugins } from '@mapstore/framework/utils/ModulePluginsUtils';
+import { getGeoNodeLocalConfig } from '@js/utils/APIUtils';
 
 const urlQuery = url.parse(window.location.href, true).query;
 
@@ -48,6 +50,23 @@ function getPluginsConfiguration(name, pluginsConfig) {
     }
     return pluginsConfig[name] || DEFAULT_PLUGINS_CONFIG;
 }
+
+const withRedirect = (Component) => {
+    return (props) => {
+        const { pathname, search } = props.location ?? {};
+        const catalogHomeRedirectsTo = getGeoNodeLocalConfig('geoNodeSettings.catalogHomeRedirectsTo');
+        const defaultCatalogPage = getGeoNodeLocalConfig('geoNodeSettings.defaultCatalogPage');
+        if (!isEmpty(catalogHomeRedirectsTo)) {
+            window.location.href = `${catalogHomeRedirectsTo}#/${!isEmpty(defaultCatalogPage) ? defaultCatalogPage : search ? search : ""}`;
+            return null;
+        }
+        if (!isEmpty(defaultCatalogPage) && pathname === '/' && isEmpty(search)) {
+            window.location.href = `#/${defaultCatalogPage ? defaultCatalogPage : ""}`;
+            return null;
+        }
+        return <Component {...props}/>;
+    };
+};
 
 function CatalogueRoute({
     name,
@@ -90,4 +109,4 @@ const ConnectedCatalogueRoute = connect(
 
 ConnectedCatalogueRoute.displayName = 'ConnectedCatalogueRoute';
 
-export default ConnectedCatalogueRoute;
+export default withRedirect(ConnectedCatalogueRoute);

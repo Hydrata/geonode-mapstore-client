@@ -30,6 +30,7 @@
         "expand": "Expand",
         "Links": "Links",
         "Forbidden": "Forbidden",
+        "height": "Height",
         "layerNameChangeError": {
             "title": "Name change error",
             "message": "The layer failed to reload with a changed name"
@@ -57,8 +58,8 @@
             "404": "Translation file not found"
         },
         "details": {
-            "title": "About this map",
-            "tooltip": "About this map"
+            "title": "About this content",
+            "tooltip": "About this content"
         },
         "showEmptyMessageGFI": "Show empty results message in GetFeatureInfo panel",
         "remove": "Delete",
@@ -87,10 +88,11 @@
             "featureTypeError": "Cannot load layer attributes",
             "featureTypeErrorInvalidJSON": "Cannot load layer attributes. Response is not valid",
             "elevation": "Elevation",
-            "titleTranslations": "Title translations",
             "groupProperties": "Group properties",
             "featureInfo": "Feature Info",
             "featureInfoFormatLbl": "Identify response format",
+            "guideText": "In the URL of the image you can use placeholders like $\\{properties.YOUR_ATTRIBUTE\\} to make the URL parametric, depending by the feature attributes. It supports both URLs or \"Data URIs\" encoded in base64",
+            "imageNotFound": "This image may need a feature info request to be rendered correctly",
             "legenderror": "Legend is not available",
             "editCustomFormat": "Edit custom format",
             "exampleOfResponse": "Example",
@@ -113,6 +115,30 @@
             "templateError": "There was an error applying the template to the information returned by the server, please check the template",
             "templatePreview": "Template preview",
             "heightOffset": "Height offset (m)",
+            "wmsLayerTileSize": "Tile size (WMS)",
+            "serverType": "Server Type",
+            "formatError": "It was not possible to fetch format and information sheet format from the service configured. Probably you are using a No Vendor service and this is not supported (e.g. GeoNetwork)",
+            "serverTypeOption": {
+                "noVendor": "No Vendor",
+                "geoserver": "GeoServer"
+            },
+            "availableTileGrids": "Available Tile Grids",
+            "crsId": "Id",
+            "projection": "Projection",
+            "tileSize": "Tile size",
+            "tileGridInUse": "The tile grid '{id}' matches the current map projection and the tile size selected for this layer",
+            "useStandardTileGridStrategy": "Use standard tile grid",
+            "useCustomTileGridStrategy": "Use remote custom tile grids",
+            "updateTileGrids": "Update available tile grids",
+            "noTileGridMatchesConfiguration": "There is not a tile grid that matches the current map projection and the tile size selected. The table above highlights the tile grids available compatible with the current map projection. You can click the refresh button to update the list of available tile grids",
+            "noConfiguredGridSets": "It is not possible to fetch custom tile grids. This layer do not have any grid set compatible with the available projections. Please review the configuration server side and retry",
+            "notPossibleToConnectToWMTSService": "It was not possible to fetch the tile grids from the server. The request sent to {requestUrl} is throwing an error",
+            "notSupportedSelectedFormatCache": "The selected format is not supported by the cache.",
+            "customParamsCacheWarning": "This layer has localized style enabled. Please verify the configuration server side and ensure it supports the custom ENV parameter",
+            "supportedFormats": "Supported formats",
+            "checkAvailableTileGridsInfo": "Check available tile grids information",
+            "tileGridInfoChecksTitle": "Tile grids information",
+            "tileGridInfoChecks": "The following checklist shows some possible compatibility issues between the current gridset and the remote information. It is still possible that the tile grid does not hit the cache even if all the checks listed are successful",
             "visibilityLimits": {
                 "title": "Visibility limits",
                 "serverValuesUpdateUndefined": "The server did not provided scale visibility limits for this layer",
@@ -131,6 +157,31 @@
                 "type": "Limits type",
                 "scale": "Scale",
                 "resolution": "Resolution"
+            },
+            "3dTiles": {
+                "format": "Format",
+                "3dModel": "3D Model",
+                "pointCloud": "Point Cloud",
+                "pointCloudShading": {
+                    "title": "Visualization options",
+                    "attenuationInfo": "Perform point attenuation based on the distance from the current view point",
+                    "attenuation": "Enable attenuation",
+                    "maximumAttenuation": "Maximum attenuation",
+                    "eyeDomeLightingInfo": "This enable an eye dome lighting to improve visualization of the point cloud. This does not represent the real sun lighting",
+                    "eyeDomeLighting": "Enable lighting",
+                    "eyeDomeLightingStrength": "Lighting strength",
+                    "eyeDomeLightingRadius": "Lighting radius"
+                }
+            },
+            "modelLayer": {
+                "modelCenterLat": "Center's Latitude (DD)",
+                "modelCenterLng": "Center's Longitude (DD)",
+                "height": "Height (m)",
+                "heading": "Heading (DD)",
+                "warnings": {
+                    "projectedCrsNotSupported": "The model is placed on the center of the current view because: the model has a CRS projection {modelProjection} but it is not supported.",
+                    "projectedCrsNotProvided": "The model is placed on the center of the current view because: the model has no defined CRS projection."
+                }
             },
             "tooltip": {
                 "label": "Tooltip",
@@ -158,7 +209,9 @@
             },
             "format": {
                 "title": "Format",
-                "refresh": "Fetch supported format",
+                "tile": "Tile",
+                "information": "Information sheet",
+                "refresh": "Fetch supported formats",
                 "loading": "Loading...",
                 "noOption": "No option",
                 "error": {
@@ -166,7 +219,24 @@
                     "message": "Failed to fetch format"
                 }
             },
-            "forceProxy": "Force proxy"
+            "forceProxy": "Force proxy",
+            "fields": {
+              "refresh": "Reload fields from the data source",
+              "title": "Fields",
+              "tooltip": "Fields",
+              "name": "Name",
+              "alias": "Alias",
+              "type": "Type",
+              "clearCustomization": "Clear customization",
+              "clearCustomizationConfirm": "Are you sure you want to remove all customizations?",
+              "error": "It was not possible to automatically load the fields"
+            },
+          "disableFeaturesEditing": "Disable editing on Attribute table"
+        },
+        "localizedInput": {
+          "localize": "Localize this text...",
+          "title": "Localize text",
+          "default": "Default"
         },
         "longitude": "Lon",
         "latitude": "Lat",
@@ -174,13 +244,15 @@
             "update": "Update",
             "warning": "Warning",
             "success": "Success",
+            "error": "Error",
             "backgroundLayerNotSupported": "The previously selected background is not supported for this type of map. The first one available is then used.",
             "noBackgroundLayerSupported": "There are no supported background layers for this type of map.",
             "updateOldMap": "This is an old map, thus not all the functionalities can be enabled. Click on upgrade button in order to upgrade the map or simply dismiss this notification if you don't want to upgrade it.",
             "warningSaveUpdatedMap": "Some layers haven't been updated correctly.",
             "saveUpdatedMap": "All the layers have been successfully updated.",
             "incompatibleBackgroundAndProjection":"The Projection you selected is not compatible with background. Switch to a compatible -or an empty- background, then select this projection.",
-            "incompatibleDataAndProjection":"The current layer(s) and map projection are not completely compatible. Parts or all of the data might not appear in the map."
+            "incompatibleDataAndProjection":"The current layer(s) and map projection are not completely compatible. Parts or all of the data might not appear in the map.",
+            "errorLoadingGF":"Error loading GF Geom"
         },
         "dock": {
             "row": "{rowsSelected} row selected",
@@ -291,7 +363,7 @@
         },
         "home":{
             "open": "Open",
-            "shortDescription": "Modern webmapping with OpenLayers, Leaflet and ReactJS.<br/> <small>Visit the <a href=\"https://mapstore.readthedocs.io/en/latest/\">documentation</a> page</small>",
+            "shortDescription": "Modern webmapping with OpenLayers, Leaflet and ReactJS.<br/> <small>Visit the <a href=\"https://docs.mapstore.geosolutionsgroup.com/\">documentation</a> page</small>",
             "forkMeOnGitHub": "Fork me on GitHub",
             "description": "MapStore has been developed to create, save and share in a simple and intuitive way maps and mashups created selecting contents coming from well-known sources like OpenStreetMap, Google Maps or from services provided by organizations using open protocols like OGC WMS, WFS, WMTS or TMS and so on...<br/>Visit the <a href=\"https://mapstore.readthedocs.io/en/latest/\">home page</a> for more details.",
             "Applications": "Applications",
@@ -485,11 +557,6 @@
                 }
             }
         },
-        "floatinglegend": {
-            "showTOC": "Show layers",
-            "showLegend": "Show legend",
-            "hideLegend": "Hide legend"
-        },
         "addgroup": {
             "addbtn": "Add",
             "groupName": "Group name"
@@ -516,6 +583,7 @@
             "layerFilterTooltip": "Filter layer",
             "toolDownloadTooltip": "Export layer data",
             "noFilteredResults": "No results",
+            "emptyLayerTree": "Layers tree is empty. Please add a new layer from the catalog",
             "filterPlaceholder": "Filter layers",
             "clearFilter": "Clear filter",
             "toolReloadLayerTooltip": "Force reload of selected layer",
@@ -530,6 +598,7 @@
             "browseData": "Open Attribute Table",
             "removeLayer": "Remove layer",
             "loadingerror": "The layer has not been loaded correctly or not available.",
+            "sourceCRSNotCompatible": "The layer's source data projection definition {sourceCRS} is not available in the application for reprojecting the data in the current map",
             "measure": "Measure",
             "layers": "Layers",
             "drawerButton": "Layers",
@@ -551,6 +620,23 @@
             "notVisibleZoomIn": "The layer is not visible because it is outside the resolution limits. Zoom in to show the layer",
             "notVisibleZoomOut": "The layer is not visible because it is outside the resolution limits. Zoom out to show the layer",
             "notVisibleSwitchTo3D": "Switch to 3D map mode in order to see this layer",
+            "notVisibleSwitchTo2D": "Switch to 2D map mode in order to see this layer",
+            "toolGroupShowAllChildren": "Show all child nodes",
+            "toolGroupHideAllChildren": "Hide all child nodes",
+            "activateToolGroupMutuallyExclusive": "Activate mutually exclusive visibility of child nodes",
+            "deactivateToolGroupMutuallyExclusive": "Deactivate mutually exclusive visibility of children nodes",
+            "toolGroupCollapseAllChildren": "Collapse all child nodes",
+            "toolGroupExpandAllChildren": "Expand all child nodes",
+            "closeOnMapInitialization": "Keep closed on map initialization",
+            "openOnMapInitialization": "Open on map initialization",
+            "defaultTheme": "Default theme",
+            "legendTheme": "Legend theme",
+            "showFullTitle": "Show full title",
+            "hideFullTitle": "Title on a single line",
+            "showOpacitySlider": "Show opacity slider",
+            "hideOpacitySlider": "Hide opacity slider",
+            "showOpacityTooltip": "Show opacity tooltip",
+            "hideOpacityTooltip": "Hide opacity tooltip",
             "refreshOptions": {
                 "bbox": "Update BBOX",
                 "search": "Update search options",
@@ -616,7 +702,7 @@
                 "configuration": "Configuration",
                 "apply": "Apply classification",
                 "restore": "Reset customizations",
-                "go_to_cfg": "Configure...",
+                "goToCfg": "Configure...",
                 "go_to_thema": "Use this configuration",
                 "cfgError": "Error in configuration JSON",
                 "classify": "Classify",
@@ -656,11 +742,14 @@
             },
             "legend": {
                 "font": "Labels Config:",
-                "forceLabels": "Force Labels:",
-                "antiAliasing": "Font Anti Aliasing:",
-                "iconsSize": "Icons size:",
+                "forceLabels": "Force Labels",
+                "antiAliasing": "Font Anti Aliasing",
+                "forceIconsSize": "Override icons size",
+                "iconsWidth": "Icons width:",
+                "iconsHeight": "Icons height:",
                 "dpi": "Dpi:"
             },
+            "rotation": "Rotation",
             "layoutWarning": "Not allowed layout",
             "scale": "Scale",
             "includeScale": "Include in print",
@@ -741,7 +830,26 @@
             "selectTool": "Select a measurement tool",
             "exportToGeoJSON": "Export to GeoJSON",
             "resetTooltip": "Clear measures",
-            "addAsLayer": "Add as layer"
+            "addAsLayer": "Add as layer",
+            "lengthMeasure": "Measure geodesic distance in 3D space which is calculated on the ellipsoid, but rendered where you click",
+            "polylineDistance3DMeasure": "Measure distance in 3D space",
+            "area3DMeasure": "Measure area in 3D space",
+            "pointCoordinatesMeasure": "Measure point coordinates",
+            "heightFromTerrainMeasure": "Measure height from terrain",
+            "angle3DMeasure": "Measure angle in 3D space",
+            "slopeMeasure": "Measure slope",
+            "tooltipPolylineDistance3DStart": "Click to start measurement",
+            "tooltipPolylineDistance3DEnd": "Single click to add a segment\nor double click to end",
+            "tooltipArea3DStart": "Click to start measurement",
+            "tooltipArea3DMissingVertex": "Area needs at least 3 vertices, \nsingle click to add a vertex",
+            "tooltipArea3DEnd": "Single click to add a vertex\nor double click to end",
+            "tooltipPointCoordinatesStart": "Click to add an altitude point measurement",
+            "tooltipHeightFromTerrainStart": "Click to add the distance value from terrain surface",
+            "tooltipAngle3DStart": "Single click to draw 3 points that represent the angle vertices",
+            "tooltipSlopeStart": "Single click to draw 3 points that represent a triangle surface.\nThe slope value is computed based on the drawn triangle surface",
+            "altitude": "Altitude",
+            "latitude": "Latitude",
+            "longitude": "Longitude"
         },
         "search":{
             "layerMustBeVisible": "The target layer is inactive",
@@ -1035,7 +1143,18 @@
                     "wrong_range": "Lower boundary must be lower than the upper boundary"
                 },
                 "datefield": {
-                    "wrong_date_range": "Start date must be earlier than end date"
+                    "wrong_date_range": "Start date must be earlier than end date",
+                    "placeholder": "Insert date",
+                    "tooltip": "Insert date in {format} format",
+                    "quickSelectors": {
+                        "today": "Today",
+                        "now": "Now",
+                        "tomorrow": "Tomorrow",
+                        "yesterday": "Yesterday",
+                        "thisWeek": "This week",
+                        "thisMonth": "This month",
+                        "nDaysFrom": "{n} days from {todayNow}"
+                    }
                 },
                 "autocomplete": {
                     "emptyList": "No results",
@@ -1118,7 +1237,7 @@
             "empty": "No annotations yet, click on [+] to add annotations",
             "add": "New",
             "filter": "Filter annotations...",
-            "undo": "Are you sure you want to abandon the annotation editing session?",
+            "undo": "Are you sure you want to abandon the annotation editing session? Invalid features will be removed after closing",
             "titleUndoGeom": "The geometry has changed",
             "undoGeom": "Are you sure to exit without saving? (You will lose any changes)",
             "confirmGeom": "Confirm",
@@ -1188,7 +1307,10 @@
             },
             "geometryError": "Geometry configuration is invalid",
             "annotationSaveGeometryError": "Saving is disabled due to invalid geometry, please fix it to save the annotation",
-            "resolveAllErrors": "Please fix any validation errors before editing other geometries"
+            "resolveAllErrors": "Please fix any validation errors before editing other geometries",
+            "selectAnnotationFeature": "Select an annotation feature on the left panel to edit coordinates and styles",
+            "properties": "Properties",
+            "deactivatedMapInteraction": "The annotation drawing interactions has been deactivated because the '{pluginName}' plugin has been activated. Please close the '{pluginName}' plugin to activate the annotations drawing interactions"
         },
         "user":{
             "login": "Login",
@@ -1324,6 +1446,38 @@
                 "height": "height"
             }
         },
+        "permalink": {
+            "title": "Permalink",
+            "shareLinkTitle": "Permalink generated",
+            "accessible": "Public",
+            "success": "Permalink is saved successfully",
+            "createCategorySuccess": "\"PERMALINK\" category was missing, so it has been created",
+            "descriptionLabel": "Description",
+            "titleLabel": "Title",
+            "titlePlaceholder": "Enter a title",
+            "descriptionPlaceholder": "Enter a description",
+            "generate": "Generate permalink",
+            "create": "Create a new permalink",
+            "loadingSpinner": "Loading Permalink",
+            "subtitle": "Share the resource using the generated address",
+            "errors": {
+                "loading": {
+                    "unknownError": "There was an error loading the permalink",
+                    "permalinkNotAccessible": "You don't have permission to access this permalink. Please contact the resource owner",
+                    "permalinkDoesNotExist": "The permalink you are trying to access doesn't exist",
+                    "title": "Error loading peramlink",
+                    "pleaseLogin": "This permalink is not public. Please try to login",
+                    "notFound": "Permalink not found",
+                    "notAccessible": "Permalink not accessible"
+                },
+                "save": {
+                    "title": "Permalink generation failed",
+                    "generic": "Error when saving permalink",
+                    "categoryErrorAdmin": "Creating missing category \"{categoryName}\" failed",
+                    "categoryErrorNonAdmin": "Missing category \"{categoryName}\", please contact administrator to create the category"
+                }
+            }
+        },
         "snapshot": {
             "title": "Snapshot Preview",
             "save": "Save",
@@ -1403,6 +1557,10 @@
             "title": "Catalog",
             "tooltip": "Add layers to the map",
             "autoload": "Search on service selection",
+            "fetchMetadata": {
+                "label": "Download file metadata on save",
+                "tooltip": "This option will fetch metadata to support the zoom to layer. It may slow down the search operation if the images are too big or too many."
+            },
             "clearValueText": "Clear selection",
             "noResultsText": "No Result",
             "addToMap": "Add To Map",
@@ -1440,6 +1598,10 @@
               "forceDefaultTileGrid": "Force default tile grid",
               "forceDefaultTileGridDescription": "Use the global projection's tile grid instead of the origin and resolutions provided by the server. This is useful for some TMS services that advertise wrong origin or resolutions."
             },
+            "urls": "URL(s)",
+            "cog": {
+                "urlTemplateHint": "Multiple urls can be added by comma separation. Each url will be treated as an individual layer"
+            },
             "tileprovider": {
               "tooltip": "x,y,z are tile position, s is the sub-domain (default)"
             },
@@ -1468,7 +1630,8 @@
             },
             "format": {
                 "noOption": "No option",
-                "loading": "Loading..."
+                "loading": "Loading...",
+                "refresh": "Fetch supported formats"
             },
             "filter": {
                 "static": {
@@ -1478,7 +1641,7 @@
                 "dynamic": {
                     "label": "Dynamic Filter",
                     "info": "Filter is used when search text is present and is applied in 'AND' with static filter",
-                    "helpText": "Use template with ${searchText} placeholder to capture search string"
+                    "helpText": "Use template with $\\{searchText\\} placeholder to capture search string"
                 },
                 "error": "Invalid xml syntax"
             },
@@ -1486,6 +1649,9 @@
                 "label": "Set Visibility Limit",
                 "tooltip": "Automatically applies the visibility limits suggested by the server"
            },
+           "singleTile": {
+                "tooltip": "The layer is rendered as a single tile image when added to the map with this option enabled"
+            },
            "allowUnsecureLayers": {
                 "label": "Allow not secure layers",
                 "tooltip": "Adding layer to map with this option enabled, forces the application to apply proxy"
@@ -1495,6 +1661,11 @@
             "helpTooltip": "This option is used to split content across multiple subdomains",
             "addAliasTooltip": "Add alias",
             "removeAliasTooltip": "Remove alias"
+          },
+          "sortBy": {
+            "label": "Sort By",
+            "tooltip": "Add namespace prefix to name property. i.e. ${namespace}:${name}",
+            "placeholder": "Enter a name"
           }
         },
         "uploader": {
@@ -1664,12 +1835,14 @@
                     "default": "Search...",
                     "string": "Type text to filter...",
                     "date": "Type date to filter...",
+                    "time": "Type time to filter...",
                     "number": "Type number or expression..."
                 },
                 "tooltips": {
                     "editMode": "Quick search is not available in edit mode",
                     "default": "Search...",
                     "string": "Type text to filter...",
+                    "time": "Type time to filter...",
                     "number": "Type a number or an expression. Examples: 10, > 2, < 10",
                     "date": "Type a date or an expression. Use {format} for the date.",
                     "geometry": {
@@ -1677,6 +1850,33 @@
                         "enabled": "Click on map to select a feature / Alt + mouse drag to draw a box filter. Hold ctrl and click to select multiple features",
                         "applied": "Clean the selection"
                     }
+                }
+            },
+            "attributeFilter": {
+                "placeholders": {
+                    "default": "Search...",
+                    "string": "Type text to filter...",
+                    "time": "Type time to filter...",
+                    "date": "Type date to filter...",
+                    "number": "Type number to filter...",
+                    "range": "Please Enter ..."
+                },
+                "tooltips": {
+                    "editMode": "Quick search is not available in edit mode",
+                    "default": "Search...",
+                    "string": "Type text to filter...",
+                    "time": "Type time to filter...",
+                    "number": "Type a number ...",
+                    "date": "Type a date. Use {format} for the date.",
+                    "geometry": {
+                        "disabled": "Filter clicking on map / Alt + mouse drag to draw a box filter. Hold also ctrl to add more features to the current filter",
+                        "enabled": "Click on map to select a feature / Alt + mouse drag to draw a box filter. Hold ctrl and click to select multiple features",
+                        "applied": "Clean the selection"
+                    }
+                },
+                "rangeTab": {
+                    "start": "Start",
+                    "end": "End"
                 }
             },
             "toolbar": {
@@ -1712,7 +1912,9 @@
                   "edge": "Edge",
                   "pixelTolerance": "Tolerance (pixel)",
                   "loadingStrategy": "Loading strategy"
-                }
+                },
+                "disableViewportFilter": "Do not filter data by the current viewport",
+                "enableViewportFilter": "Filter data by the current viewport"
             }
         },
         "layerdownload": {
@@ -1783,7 +1985,8 @@
             },
             "selectWidgetType": "Select the widget type",
             "selectChartType": {
-                "title": "Select the Chart type"
+                "title": "Chart type",
+                "noResults": "No chart found"
             },
             "selectMap": {
                 "TOC": {
@@ -1817,17 +2020,25 @@
                 "wizard": {
                     "backToTypeSelection": "Back to chart type selection",
                     "backToWidgetTypeSelection": "Back to widget type selection",
+                    "backToChartOptionConfiguration": "Back to chart option configuration",
                     "backToFeatureGrid": "Back to the feature grid",
                     "backToLayerSelection": "Back to layer selection",
                     "backToMapSelection": "Back to map selection",
                     "backToPreview": "Back to Preview",
                     "backToChartOptions": "Back to chart options",
                     "selectALayer": "Select a layer",
+                    "selectLayers": "Select one or more layers",
                     "selectAMap": "Select one or more maps",
                     "configureChartOptions": "Configure chart options",
                     "configureWidgetOptions": "Configure widget options",
+                    "errorChart": "One or more chart(s) is invalid",
                     "backToTableOptions": "Back to table options",
                     "configureTableOptions": "Configure table options",
+                    "attributeEditorColumns": {
+                      "name": "Name",
+                      "title": "Title",
+                      "tooltip": "Tooltip"
+                    },
                     "resetColumnsSizes": "Reset all changes to the column sizes",
                     "updateWidget": "Update the widget",
                     "addTheWidget": "Add the widget",
@@ -1845,6 +2056,7 @@
                     "connectToTheMap": "Connect to the map",
                     "selectMapToConnect": "Select the widget to connect",
                     "clearConnection": "Clear connection",
+                    "disableConnectToMap": "Operation unavailable",
                     "classAttributes": {
                         "classColor": "Class Color",
                         "classLabel": "Class Label",
@@ -1866,7 +2078,8 @@
                         "editCustomColors": "Edit Custom Colors",
                         "maxValue": "Max Value",
                         "minValue": "Min Value",
-                        "title": "Custom Colors Settings"
+                        "title": "Custom Colors Settings",
+                        "removeCustomColors": "Remove custom classes"
                     }
                 },
                 "errors": {
@@ -1874,11 +2087,24 @@
                     "noAttributesDescription": "The selected layer has no attributes to show. Please select another widget type or layer",
                     "noWidgetsAvailableTitle": "Can not create the widget for the selected layer",
                     "noWidgetsAvailableDescription": "<p><strong>Please try to select another layer or widget type</strong></p><p>The server doesn't provide the needed services for the layer and the widget type selected</p><p>Possible causes are: <ul><li>The selected layer is a raster layer</li><li>WFS service is not available</li><li>The WPS process <code>gs:aggregate</code> is not available</li></ul></p>",
+                    "attributesNotMatchingDescription": "<p><strong>Please try to select another layer</strong></p><p>The attributes of the selected layer(s) doesn't match the parent dependant widget</p>",
                     "checkAtLeastOneAttribute": "You must select at least one column",
                     "noMapAvailableForLegend": "No map available",
                     "noMapAvailableForLegendDescription": "You need at least one map widget to create the legend"
                 },
-                "setupFilter": "Configure a filter for the widget data"
+                "setupFilter": "Configure a filter for the widget data",
+                "addNewLayers": "Add new layer(s)",
+                "deleteChart": "Delete current chart",
+                "editTraceTitle": "Edit trace title",
+                "addNewTrace": "Add new trace",
+                "deleteTrace": "Delete current trace",
+                "selectLayer": "Select layer",
+                "filterLayer": "Filter current layer",
+                "editChartTitle": "Edit chart title",
+                "addNewCharts": "Add new chart(s)",
+                "editAxisTitle": "Edit axis title",
+                "addNewAxis": "Add new axis",
+                "removeAxis": "Remove current axis"
             },
             "widget": {
                 "menu": {
@@ -1904,6 +2130,13 @@
                 "placeholder": "Enter map name",
                 "selectLabel": "Select a map",
                 "infoOnHide": "Expand widget to see map switcher",
+                "subTitle": "<p>For multi-selection,<br>on windows use CTRL + click <br> and on Mac use control + click</p>"
+            },
+            "chartSwitcher": {
+                "noResults": "No layer found",
+                "placeholder": "Enter chart name",
+                "selectLabel": "Chart",
+                "infoOnHide": "Expand widget to see chart switcher",
                 "subTitle": "<p>For multi-selection,<br>on windows use CTRL + click <br> and on Mac use control + click</p>"
             },
             "chartType": {
@@ -1984,16 +2217,19 @@
             },
             "mapSync": "Live Filter by viewport",
             "displayLegend": {
+                "default": "Display Legend",
                 "line": "Display Legend",
                 "pie": "Display Legend",
                 "bar": "Display Legend",
                 "gauge": "Display labels"
             },
             "advanced": {
+              "font": "Font",
               "displayCartesian": "Hide Grid",
               "xAxis": "X axis",
               "xAxisAngle": "Label rotation",
               "hideLabels": "Hide labels",
+              "includeLegendPercent": "Include percentages in legend",
               "format": "Format",
               "prefix": "Prefix",
               "suffix": "Suffix",
@@ -2012,6 +2248,28 @@
               "barChartType": "Bar Chart Type",
               "groupedBarChart": "Grouped",
               "stackedBarChart": "Stacked",
+              "valueFormatting": "Trace value formatting",
+              "traceAxes": "Trace axes",
+              "traceData": "Trace data",
+              "traceLegendOptions": "Trace legend options",
+              "traces": "Traces",
+              "axes": "Axes",
+              "traceStyle": "Trace style",
+              "mode": "Mode",
+              "lineColor": "Line color",
+              "lineWidth": "Line width",
+              "markerColor": "Marker color",
+              "markerSize": "Marker size",
+              "layout": "Layout",
+              "left": "Left",
+              "right": "Right",
+              "free": "Free",
+              "top": "Top",
+              "bottom": "Bottom",
+              "side": "Side",
+              "anchor": "Anchor",
+              "sortBy": "Sort by",
+              "reverseRampColor": "Reverse ramp color",
               "axisTypes": {
                 "auto": "Auto",
                 "linear": "Linear",
@@ -2089,9 +2347,9 @@
                 "loading": {
                     "title": "Error loading context",
                     "pleaseLogin": "Some resource may not be public. Please try to login",
-                    "unknownError": "There was an error loading the map or the context. Please contact the administrator",
+                    "unknownError": "<p><small>One of the following reason could be the cause:</small> <ul><li>you don't have permission to access the context and/or map</li> <li>you are trying to access a context and/or map that doesn't exist</li> <li>the context and/or map has been removed</li> <li>the projection of the map is not configured</li></ul> <p>",
                     "notFound": "Resource not found",
-	                  "notAccessible": "Resource not accessible"
+                    "notAccessible": "Resource not accessible"
                 },
                 "context": {
                     "pleaseLogin": "This context is not public. Please try to login",
@@ -2215,7 +2473,7 @@
             "shape": "Shape",
             "fill": "Fill color",
             "clampToGround": "Clamp to ground",
-            "clampOutlineToGround": "Clamp outline to ground",
+            "clampOutlineToGround": "Clamp to ground",
             "msBringToFront": "Bring to front",
             "heightReferenceFromGround": "Height reference from ground",
             "height": "Height",
@@ -2225,8 +2483,8 @@
             "strokeWidth": "Stroke width",
             "radius": "Radius",
             "rotation": "Rotation",
-            "classificationtype": "Polygon type",
-            "3dTile": "3D",
+            "classificationtype": "Clamp to ground reference",
+            "3dTile": "3D Tiles",
             "terrain": "Terrain",
             "both": "Both",
             "relative": "Relative",
@@ -2278,8 +2536,8 @@
             "fontStyleItalic": "Italic",
             "fontWeightNormal": "Normal",
             "fontWeightBold": "Bold",
-            "boolTrue": "True",
-            "boolFalse": "False",
+            "boolTrue": "Active",
+            "boolFalse": "Inactive",
 
             "colorMapType": {
                 "label": "Color map type",
@@ -2347,6 +2605,8 @@
             "alertForceTranslate": "You will lose all the changes added in the text mode by switching to visual editor. Are you sure to switch to visual style editor mode?",
             "stayInTextareaEditor": "No, continue with text editor",
             "useLatestValidStyle": "Yes, switch to visual editor",
+            "alertCustomParamsNotValid": "You will lose all the changes added in the text mode by closing the custom params editor. Are you sure to close the editor?",
+            "closeCustomParamsEditor": "Yes, close the editor",
             "validationError": "Validation error",
             "incorrectPropertyInputError": "This is probably due to missing or invalid value in the property inputs of the style editor.",
 
@@ -2359,6 +2619,7 @@
             "redChannel": "Red channel",
             "greenChannel": "Green channel",
             "blueChannel": "Blue channel",
+            "alphaChannel": "Alpha channel",
             "grayChannel": "Channel",
             "ruleClassification": "Classification",
             "ruleRaster": "Raster",
@@ -2373,12 +2634,79 @@
             "warningTextOrderTitle": "Warning",
             "warningTextOrder": "The order of rule containing text style could not match the rendering order on map. This behaviour is related to some rendering engine that draw label on top of other rules",
             "invalidProperty": "The { key } property type is invalid",
-            "notSupportedVariable": "The variable { key } is not supported by the tileset"
+            "notSupportedVariable": "The variable { key } is not supported by the tileset",
+            "addModelRule": "Add 3D model rule",
+            "model": "3D Model",
+            "placeholderEnterModelUrl": "Enter a .glb file url",
+            "invalidModelUrl": "The provided url is invalid",
+            "scale": "Scale",
+            "heading": "Z axis rotation",
+            "pitch": "X axis rotation",
+            "roll": "Y axis rotation",
+            "color": "Color",
+            "pointHeight": "Point height",
+            "leaderLineColor": "Leader line color",
+            "leaderLineWidth": "Leader line width",
+            "geometryTransformation": "Geometry transformation",
+            "center": "Center",
+            "startPoint": "Start point",
+            "endPoint": "End point",
+            "line": "Line",
+            "geodesicLine": "Geodesic line",
+            "geodesic": "Geodesic",
+            "outlineStyle": "Outline style",
+            "strokeStyle": "Stroke style",
+            "anchor": "Anchor point",
+            "addCircleRule": "Add circle rule",
+            "left": "Left",
+            "right": "Right",
+            "topLeft": "Top left",
+            "top": "Top",
+            "topRight": "Top right",
+            "bottomLeft": "Bottom left",
+            "bottom": "Bottom",
+            "bottomRight": "Bottom right",
+            "glyph": "Glyph",
+            "marker": "Marker",
+            "filterByName": "Filter by name...",
+            "fillOpacity": "Fill opacity",
+            "outlineColorOpacity": "Outline opacity",
+            "strokeColorOpacity": "Stroke opacity",
+            "selectProperty": "Select property",
+            "leaderLineColorOpacity": "Leader line opacity",
+            "colorOpacity": "Opacity",
+            "offset": "Offset",
+            "propertyValue": "Property value",
+            "colorPropertyInfoMessage": "The color property value must be an hexadecimal string. Example: \"#ffffff\"",
+            "pointCloudSizeInfo": "The point cloud radius is applied only when the attenuation options is disabled. The attenuation option takes precedence over this property.",
+            "msTranslateX": "Translate x",
+            "msTranslateY": "Translate y",
+            "geometryHeight": "Geometry height",
+            "msExtrusionRelativeToGeometry": "Extrusion relative to geometry",
+            "msExtrudedHeight": "Extruded height",
+            "msExtrusionColor": "Extrusion color",
+            "msExtrusionType": "Extrusion type",
+            "wall": "Wall",
+            "enableBanding": "Band styling",
+            "selectChannel": "Select a band",
+            "minLabel": "Min",
+            "maxLabel": "Max",
+            "minSourceValue": "Minimum source data value",
+            "maxSourceValue": "Maximum source data value",
+            "customParams": "Custom Parameters",
+            "wrongFormatMsg": "The entered configuration is in wrong format !!"
         },
         "playback": {
             "settings": {
                 "tooltip": "Settings",
-                "title": "Playback Settings",
+                "tab": {
+                  "playback": "Playback",
+                  "layers": "Layers"
+                },
+                "layer": {
+                  "enabled": "Display or hide layer from the timeline",
+                  "disabled": "Guide layer cannot be hidden"
+                },
                 "frameDuration": "Frame Duration",
                 "range": {
                     "title": "Animation Range",
@@ -2437,6 +2765,11 @@
             "disablePlayBack": "Disable playback controls",
             "expand" : "Expand time slider",
             "collapse" : "Collapse time slider",
+            "reset" : {
+              "range": "Set range to include all data",
+              "singleNow": "Set time to now",
+              "singleNearest": "Set time to nearest value to now"
+            },
             "collapsed": {
                 "title": "Timeline has been collapsed",
                 "tooltip": "Click here to expand it again"
@@ -2465,7 +2798,8 @@
                 "access": "Type to search Access",
                 "ip": "###.###.###.###/##",
                 "priority": "Select Priority",
-                "filter": "Filter styles..."
+                "filter": "Filter styles...",
+                "filterAny": "ANY"
             },
             "menutitle": "Manage Access Rules",
             "tooltip": {
@@ -2476,7 +2810,9 @@
                 "deleteT": "Remove selected rules",
                 "cacheT": "Clear cache",
                 "save": "Save current rule",
-                "close": "Exit from create rule"
+                "close": "Exit from create rule",
+                "showAllRules": "Show all eligible rules",
+                "filterRuleList": "Filter list using selected value"
             },
             "navItems": {
                 "main": "General Rule",
@@ -2731,18 +3067,23 @@
         "saveDialog": {
             "title": "Edit properties",
             "name": "Name",
+            "titleInput": "Title",
             "description": "Description",
             "createdAt": "Created",
             "modifiedAt": "Modified",
             "namePlaceholder": "Type a name...",
             "descriptionPlaceholder": "Type a description...",
+            "titlePlaceholder": "Type a title...",
             "confirmCloseText": "There are pending changes, are you sure that you want to close without saving?",
             "close": "Close",
             "cancel": "Cancel",
             "saveSuccessTitle": "Success",
             "saveSuccessMessage": "Saved successfully",
             "saveTooltip": "Save",
-            "saveAsTooltip": "Save As"
+            "saveAsTooltip": "Save As",
+            "unadvertised": "Unadvertised",
+            "creator": "Created by",
+            "editor": "Last modified by"
         },
         "mapEditor": {
             "modalTitle": "Map Editor",
@@ -2821,7 +3162,7 @@
             "title": "Title",
             "titlePlaceholder": "Enter displayed name",
             "add": "Add",
-            "thumbnailMessage": "Size of images should be a square of 98px x 98px or 128px x 128px, max 500kb",
+            "thumbnailMessage": "Size of images should be a square of 128px x 128px, max 500kb",
             "imageUploadMessage": "Click, or drag and drop to add an image",
             "additionalParameters": "Additional Parameters",
             "addAdditionalParameterTooltip": "Add parameter",
@@ -2897,6 +3238,10 @@
             "description": "Allows to add a filter to a layer",
             "title": "Filter Layer"
           },
+          "GeoProcessing": {
+            "description": "Allows to geo process layers to generate a new one, using wps processes buffer and intersection",
+            "title": "GeoProcessing"
+          },
           "HelpLink": {
             "description": "A button to access to MapStore documentation",
             "title": "Documentation Link"
@@ -2916,6 +3261,10 @@
           "Login": {
             "description": "Login tool",
             "title": "Login"
+          },
+          "LongitudinalProfileTool": {
+            "description": "Allows user to generate a longitudinal profile given a linestring and a layer with elevation attribute. Needs configuration",
+            "title": "Longitudinal Profile tool"
           },
           "MapCatalog": {
             "description": "Allows browsing, editing, deleting and loading of maps that are available on the server",
@@ -2972,6 +3321,10 @@
           "Share": {
             "description": "Allows to share the map in various ways (link, QR-Code, embed, social networks...)",
             "title": "Share Tool"
+          },
+          "Permalink": {
+            "description": "Allows to create a permalink of the current resource in view",
+            "title": "Permalink"
           },
           "StreetView": {
             "title": "Street View",
@@ -3037,6 +3390,10 @@
           "ZoomOut": {
             "description": "Button that decrease zoom level of the map",
             "title": "Zoom Out"
+          },
+          "MapViews": {
+            "description": "This plugin allows to add a sequence of different views inside a map",
+            "title": "MapViews"
           }
         },
         "contextCreator": {
@@ -3168,7 +3525,25 @@
                 "unknownError": "Unexpected error occurred"
             },
             "undo": "Are you sure you want to abandon the context editing session?",
-            "showTutorial": "Show Tutorial"
+            "showTutorial": "Show Tutorial",
+            "errors":{
+                "loading": {
+                    "title": "Error loading context",
+                    "import": "Failed to import context",
+                    "export": "Failed to export context"
+                }
+            },
+            "import": "Import",
+            "importTooltip": "To import a context, go to Step 1",
+            "export": "Export",
+            "importDialog": {
+                "selectFiles": "Select a file",
+                "heading": "Drop a previously exported context.json file",
+                "note": "The data in the imported file will replace the data in the current context"
+            },
+            "exportDialog": {
+                "heading": "Export this context as a file"
+            }
         },
         "contextManager": {
             "title": "Manage Contexts",
@@ -3244,6 +3619,68 @@
                 "message": "An unexpected error occurred during layers syncing. There is probably a bug in MapStore"
             },
             "layerType": "type: {type}"
+        },
+        "mapViews": {
+            "description": "Description",
+            "position": "Position",
+            "animation": "Animation",
+            "mask": "Mask",
+            "globeTranslucency": "Globe Transluncency",
+            "layersOptions": "Layers Options",
+            "cameraPosition": "Camera position",
+            "longitude": "Longitude",
+            "latitude": "Latitude",
+            "height": "Height (m)",
+            "centerPosition": "Center position",
+            "captureThisViewPositions": "Capture this view positions",
+            "durationLabel": "Duration (s)",
+            "flyToLabel": "Animation transition during navigation",
+            "maskEnable": "Enable mask",
+            "maskLayer": "Layer",
+            "maskInverse": "Inverse",
+            "maskInverseOffset": "Inverse offset (m)",
+            "globeTranslucencyEnable": "Enable translucency",
+            "globeTranslucencyOpacity": "Opacity",
+            "globeTranslucencyFadeByDistance": "Fade translucency by distance",
+            "globeTranslucencyNearDistance": "Minimum distance (m)",
+            "globeTranslucencyFarDistance": "Maximum distance (m)",
+            "showClippingLayersGeometries": "Show clipping layers geometries",
+            "terrain": "Terrain",
+            "clippingSourceLayer": "Clipping layer source",
+            "clippingFeature": "Clipping feature",
+            "clippingInverse": "Inverse clipping",
+            "layerOpacity": "Opacity",
+            "showViewsGeometries": "Show views positions",
+            "addInitialView": "Click on the plus button to add a new view",
+            "removeView": "Remove view",
+            "resetLayerOverrides": "Reset changes to align layer to default value",
+            "hideLayer": "Hide layer",
+            "showLayer": "Show layer",
+            "undoChanges": "Undo changes",
+            "redoChanges": "Redo changes",
+            "addNewView": "Add new view",
+            "addNewViewBelowSelected": "Add a new view below the selected one",
+            "hideDescription": "Hide description",
+            "showDescription": "Show description",
+            "copyCurrentView": "Copy current view",
+            "edit": "Edit",
+            "stopEdit": "Stop editing",
+            "showViewsList": "Show views list",
+            "hideViewsList": "Hide views list",
+            "gotToFirstView": "Go to first view",
+            "gotToPreviousView": "Go to previous view",
+            "play": "Start navigation",
+            "pause": "Pause navigation",
+            "gotToNextView": "Go to next view",
+            "gotToLastView": "Go to last view",
+            "maskWithGlobeTranslucencyWarning": "Enabling mask and globe translucency at the same time could cause artifact in the visualization. Please use one only of these two options per view",
+            "deactivateMapViews": "Disable map views",
+            "activateMapViews": "Activate map views",
+            "maskOtherVisibleLayerWarning": "There are other vector layers visible, all polygonal features visible in map will be applied to all the visible 3D tiles",
+            "resourceLayerRequestError": "It was not possible to complete the request to the selected layer. Please verify if the layer is still available",
+            "maskLayerPolygonError": "The layer selected does not contain polygonal features so the mask could not have effect",
+            "clipPolygonFeaturesNotAvailable": "The selected layer does not contain polygonal features, please select another layer",
+            "addNewLayerToTheMap": "The map is empty. Please add new layers inside the map to make them available in the view list"
         },
         "tutorial": {
             "title": "Tutorial",
@@ -3545,10 +3982,174 @@
           "messages": {
             "noDataForPosition": "no street-view data for this position",
             "unknownError": "unknown error, see console"
+          },
+          "loadingAPI": "Loading API...",
+          "cyclomedia": {
+            "initializing": "Initializing Street Smart API...",
+            "loadingAPI": "Loading Street Smart API...",
+            "changeCredentials": "Change Street Smart credentials",
+            "insertCredentials": "Insert your Street Smart credentials",
+            "emptyDescription": "Click on one of the blue points on the map to start browsing the images of street view",
+            "username": "Username",
+            "password": "Password",
+            "submit": "Submit",
+            "zoomIn": "Please zoom in the map to see the street view coverage",
+            "errorOccurred": "Error occurred: ",
+            "errors": {
+              "invalidCredentials": "Invalid credentials",
+              "projectionNotAvailable": "The projection {srs} configured is not available. Please contact the administrator."
+            },
+            "reloadAPI": "Reload API"
           }
         },
         "sidebarMenu": {
           "showMoreItems": "Show more items"
+        },
+        "longitudinalProfile": {
+          "open": "Open Longitudinal Profile",
+          "close": "Close Longitudinal Profile",
+          "title": "Longitudinal profile",
+          "draw": "Draw line",
+          "import": "Load file",
+          "select": "Selection to profile",
+          "parameters": "Parameters",
+          "elevation": "Elevation (m)",
+          "crsSelector": "Specify a projection for the DXF file",
+          "distance": "Distance (m)",
+          "chart": "Chart",
+          "infos": "Information",
+          "preferences": "Preferences",
+          "CRS": "CRS",
+          "uom": "Units",
+          "fileSelected": "File selected: ",
+          "uomMeters": "meters",
+          "source": "Source",
+          "export": "Export",
+          "downloadGeoJSON": "GeoJSON",
+          "downloadDXF": "DXF",
+          "downloadCSV": "CSV",
+          "downloadPNG": "PNG",
+          "downloadPDF": "PDF",
+          "info": {
+            "points": " points",
+            "totalPoints": "Number of points processed:",
+            "layer":"Layer:",
+            "line":"Distance:",
+            "up":"Cumulative elevation gain:",
+            "down":"Cumulative elevation loss:",
+            "noInfos": "No info available"
+          },
+          "help": {
+            "draw": "Click on the map to draw the line. Click one more time on end point to finish.",
+            "select": "Please select layer in TOC and click on the line feature to generate profile.<br/>Selected layer: {layerName}",
+            "noLayer": "No layer selected",
+            "notSupportedLayer": "not supported. Please select WMS, WFS or vector layer."
+          },
+          "warnings": {
+            "noLayerSelected": "Please select layer first.",
+            "layerNotSupported": "Selected layer is not supported. Please select WMS, WFS or vector layer.",
+            "noFeatureInPoint": "Line feature was not found at selected point.",
+            "noLineFeatureFound": "Line feature was not found in imported file.",
+            "fallbackToProjection": "Projection of default referential \"{defaultReferential}\" is not supported. Falling back to referential \"{referential}\" with \"{projection}\" projection."
+          },
+          "errors": {
+            "outsideCoverage": "The provided line is outside the profile coverage",
+            "loadingError": "Error loading data for longitudinal profile",
+            "unableToSetupPlugin": "Unable to setup longitudinal profile extension",
+            "defaultReferentialNotFound": "Default referential is configured but cannot be found in referentials list. Please update extension configuration.",
+            "projectionNotSupported": "Referential with projection supported by map cannot be found. Please update extension configuration or add desired projection into app configuration.",
+            "cannotDownloadPDF": "It is not possible to print the current map as it contains references to external domain, please remove them save the map, refresh the page and try again.",
+            "cannotDownloadPNG": "Cannot download the chart as image."
+          },
+          "settings": {
+            "chartTitle": "Chart Title",
+            "referential": "Profile layer",
+            "distance": "Distance (m)"
+          },
+          "dropZone": {
+            "heading": "<p><h4>Drop your file here</h4><small>or</small></p>",
+            "selectFiles": "Select file...",
+            "infoSupported": "<p><small>Supported file types: GeoJSON, DXF, Shapefiles</small></p>",
+            "dxfGeometryNotSupported": "Only LWPOLYLINE  is supported"
+          }
+        },
+        "GeoProcessing": {
+          "title": "GeoProcessing",
+          "emptyTitle": "These WPS processes must be installed in Geoserver in order to use this process:",
+          "emptyDescription": "<ul><li>geo:buffer</li><li>gs:IntersectionFeatureCollection</li><li>gs:CollectGeometries</li></ul>",
+          "sourceLayer": "Source Layer",
+          "sourceFeature": "Source Feature",
+          "tool": "Select a process to use",
+          "highlight": "Highlight features",
+          "bufferTool": "Buffer",
+          "distance": "Distance",
+          "distanceUom": "Units of measure",
+          "km": "km",
+          "m": "m",
+          "run": "Run",
+          "intersectionTool": "Intersection",
+          "noMatchedLayer": "No layer matches the current filter",
+          "noMatchedFeature": "No feature matches the current filter",
+          "intersectionLayer": "Intersection Layer",
+          "intersectionFeature": "Intersection Feature",
+          "advancedSettings": "Advanced Settings",
+          "quadrantSegments": "Quadrant segments",
+          "quadrantSegmentsTooltip": "Number of segments",
+          "capStyle": "Cap style",
+          "capStyleTooltip": "Style for the buffer end caps",
+          "round": "Round",
+          "flat": "Flat",
+          "square": "Square",
+          "firstAttributeToRetain": "First attribute to retain",
+          "secondAttributeToRetain": "Second attribute to retain",
+          "intersectionMode": "Intersection mode",
+          "percentagesEnabled": "Percentages enabled",
+          "areasEnabled": "Areas enabled",
+          "firstAttributeToRetainTooltip": "First feature collection attribute to include",
+          "secondAttributeToRetainTooltip": "Second feature collection attribute to include",
+          "intersectionModeTooltip": "Specifies geometry computed for intersecting features",
+          "percentagesEnabledTooltip": "Indicates whether to output feature area percentages",
+          "areasEnabledTooltip": "Indicates whether to output feature areas",
+          "noMatchedMode": "No mode matches the current filter",
+          "INTERSECTION": "INTERSECTION",
+          "FIRST": "FIRST",
+          "SECOND": "SECOND",
+          "true": "true",
+          "false": "false",
+          "notifications": {
+            "errorMissingUrl": "A geoserver wps url must be provided to collect geometries for these layers {layerName}. You can configure wpsUrl property in GeoProcessing plugin",
+            "errorIntersectGFI": "There was an error intersecting the features. It was not possible to create the intersection layer.",
+            "errorGFI": "There was an error loading the feature",
+            "errorGetFeature": "There was an error loading the feature in order to obtain its geometry",
+            "layerNotSupported": "Selected layer is not supported. Please select WMS, WFS or vector layer.",
+            "noFeatureInPoint": "No feature was found at selected point.",
+            "featureFound": "A feature was found at selected point.",
+            "noLayerSelected": "Please select layer first.",
+            "successfulIntersection": "The intersection operation was successful and a new layer has ben created and added to the TOC",
+            "successfulBuffer": "The Buffer operation was successful and a new layer has ben created and added to the TOC",
+            "errorBuffer": "The Buffer operation has failed",
+            "emptyIntersection": "There is no intersection between the given datasets.",
+            "errorGettingFC": "It was not possible to collect the geometry from the layer {layerName}",
+            "errorGettingFeaturesList": "It was not possible to fetch the list of features from the layer {layerName}"
+          },
+          "warningTitle": "Warning",
+          "warningBody": "You have not selected a feature and this may slow down performances in geoserver. Do you want to continue?",
+          "warningConfirmText": "Yes",
+          "warningCancel": "Cancel",
+          "tooltip": {
+            "clickToSelectFeature": "Click to select feature",
+            "invalidLayers": "One of the layers you have selected cannot be used within this process",
+            "fillRequiredDataIntersection": "Please select at least the source layer and the intersection layer",
+            "fillRequiredDataBuffer": "Please select at least the source layer",
+            "pointAndPolygon": "You can select a point layer only for the intersection layer",
+            "siderBarBtn": "GeoProcessing",
+            "selectFeature": "Please select a feature",
+            "validFeature": "This feature is valid",
+            "invalidFeature": "This feature is not valid",
+            "selectLayer": "Please select a layer",
+            "validLayer": "This layer is valid and can be used in this process",
+            "invalidLayer": "This layer does not support the needed wps processes \ngeo:buffer\ngs:IntersectionFeatureCollection\ngs:CollectGeometries\n\nor it is a Raster layer"
+          }
         }
     }
 }

@@ -6,107 +6,27 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useRef, useState, useEffect } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import { createPlugin } from '@mapstore/framework/utils/PluginsUtils';
 import { connect } from 'react-redux';
-import { FormControl as FormControlRB, Glyphicon } from 'react-bootstrap';
 import { createSelector } from 'reselect';
 import Message from '@mapstore/framework/components/I18N/Message';
 import Button from '@js/components/Button';
-import ResourceCard from '@js/components/ResourceCard';
-import useInfiniteScroll from '@js/hooks/useInfiniteScroll';
 import { getDatasets } from '@js/api/geonode/v2';
-import FaIcon from '@js/components/FaIcon/FaIcon';
-import Spinner from '@js/components/Spinner';
 import { resourceToLayerConfig } from '@js/utils/ResourceUtils';
 import { addLayer } from '@mapstore/framework/actions/layers';
 import { zoomToExtent } from '@mapstore/framework/actions/map';
 import { setControlProperty } from '@mapstore/framework/actions/controls';
-import Loader from '@mapstore/framework/components/misc/Loader';
 import datasetscatalogEpics from '@js/epics/datasetscatalog';
-import withDebounceOnCallback from '@mapstore/framework/components/misc/enhancers/withDebounceOnCallback';
 import { mapLayoutValuesSelector } from '@mapstore/framework/selectors/maplayout';
-import localizedProps from '@mapstore/framework/components/misc/enhancers/localizedProps';
-const FormControl = localizedProps('placeholder')(FormControlRB);
+import ResourcesCompactCatalog from '@js/components/ResourcesCompactCatalog';
 
-function InputControl({ onChange, value, ...props }) {
-    return <FormControl {...props} value={value} onChange={event => onChange(event.target.value)} />;
-}
-
-const InputControlWithDebounce = withDebounceOnCallback('onChange', 'value')(InputControl);
 function DatasetsCatalog({
-    request,
-    responseToEntries,
-    pageSize,
-    style,
-    placeholderId,
     onAdd,
-    onClose,
-    onZoomTo
+    onZoomTo,
+    ...props
 }) {
-
-    const scrollContainer = useRef();
-    const [entries, setEntries] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [page, setPage] = useState(1);
-    const [isNextPageAvailable, setIsNextPageAvailable] = useState(false);
-    const [q, setQ] = useState('');
-    const isMounted = useRef();
-
-    useInfiniteScroll({
-        scrollContainer: scrollContainer.current,
-        shouldScroll: () => !loading && isNextPageAvailable,
-        onLoad: () => {
-            setPage(page + 1);
-        }
-    });
-    const updateRequest = useRef();
-    updateRequest.current = (options) => {
-        if (!loading && request) {
-            if (scrollContainer.current && options.reset) {
-                scrollContainer.current.scrollTop = 0;
-            }
-
-            setLoading(true);
-            request({
-                q,
-                page: options.page,
-                pageSize
-            })
-                .then((response) => {
-                    if (isMounted.current) {
-                        const newEntries = responseToEntries(response);
-                        setIsNextPageAvailable(response.isNextPageAvailable);
-                        setEntries(options.page === 1 ? newEntries : [...entries, ...newEntries]);
-                        setLoading(false);
-                    }
-                })
-                .catch(() => {
-                    if (isMounted.current) {
-                        setLoading(false);
-                    }
-                });
-        }
-    };
-
-    useEffect(() => {
-        isMounted.current = true;
-        return () => {
-            isMounted.current = false;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (page > 1) {
-            updateRequest.current({ page });
-        }
-    }, [page]);
-
-    useEffect(() => {
-        setPage(1);
-        updateRequest.current({ page: 1, reset: true });
-    }, [q]);
 
     function handleSelectResource(entry) {
         const layer = resourceToLayerConfig(entry);
@@ -118,71 +38,10 @@ function DatasetsCatalog({
         }
     }
 
-    return (<div
-        className="gn-datasets-catalog"
-        style={style}
-    >
-        <div className="gn-datasets-catalog-head">
-            <div className="gn-datasets-catalog-title"><Message msgId="gnviewer.datasetsCatalogTitle" /></div>
-            <Button className="square-button" onClick={() => onClose()}>
-                <Glyphicon glyph="1-close" />
-            </Button>
-        </div>
-        <div className="gn-datasets-catalog-filter">
-            <InputControlWithDebounce
-                placeholder={placeholderId}
-                value={q}
-                debounceTime={300}
-                onChange={(value) => setQ(value)}
-            />
-            {(q && !loading) && <Button onClick={() => setQ('')}>
-                <FaIcon name="times" />
-            </Button>}
-            {loading && <Spinner />}
-        </div>
-        <div
-            ref={scrollContainer}
-            className="gn-datasets-catalog-body"
-        >
-            <ul className="gn-datasets-catalog-list" >
-                {entries.map((entry) => {
-                    return (
-                        <li key={entry.pk}>
-                            <ResourceCard
-                                data={entry}
-                                readOnly
-                                layoutCardsStyle="list"
-                                onClick={() => handleSelectResource(entry)}
-                            />
-                        </li>
-                    );
-                })}
-                {(entries.length === 0 && !loading) &&
-                    <div className="gn-datasets-catalog-alert">
-                        <Message msgId="gnviewer.datasetsCatalogEntriesNoResults" />
-                    </div>
-                }
-            </ul>
-
-        </div>
-        {(loading && entries.length === 0) && <div
-            style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                zIndex: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-            }}
-        >
-            <Loader size={70} />
-        </div>}
-
-    </div>);
+    return (<ResourcesCompactCatalog
+        {...props}
+        onSelect={handleSelectResource}
+    />);
 }
 
 DatasetsCatalog.propTypes = {
@@ -201,6 +60,8 @@ DatasetsCatalog.defaultProps = {
     pageSize: 10,
     onAdd: () => { },
     placeholderId: 'gnviewer.datasetsCatalogFilterPlaceholder',
+    titleId: 'gnviewer.datasetsCatalogTitle',
+    noResultId: 'gnviewer.datasetsCatalogEntriesNoResults',
     onZoomTo: () => { },
     onClose: () => { }
 };

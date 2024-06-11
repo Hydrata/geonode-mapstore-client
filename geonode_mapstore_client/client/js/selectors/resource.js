@@ -24,7 +24,7 @@ import isEqual from 'lodash/isEqual';
 import pick from 'lodash/pick';
 import isEmpty from 'lodash/isEmpty';
 import get from 'lodash/get';
-
+import { generateContextResource } from '@mapstore/framework/selectors/contextcreator';
 /**
 * @module selectors/resource
 */
@@ -117,9 +117,18 @@ export const canEditPermissions = (state) => {
     return ['owner', 'manage'].includes(permissions) || inheritsPerms(user, groups) || inheritsPerms(user, organizations);
 };
 
+export const canManageResourcePermissions = (state) => {
+    const perms = getResourcePerms(state);
+    return perms.includes('change_resourcebase_permissions');
+};
+
 export const getSelectedLayerPermissions = (state) => {
     const selectedLayerPermissions = state?.gnresource?.selectedLayerPermissions;
     return selectedLayerPermissions;
+};
+
+export const getResourceExtent = (state) => {
+    return state?.gnresource?.data?.extent || {};
 };
 
 export const getDataPayload = (state, resourceType) => {
@@ -135,9 +144,22 @@ export const getDataPayload = (state, resourceType) => {
     case ResourceTypes.DASHBOARD: {
         return widgetsConfig(state);
     }
+    case ResourceTypes.VIEWER: {
+        const { data } = generateContextResource(state) || {};
+        const { mapConfig, ...mapViewerConfig } = data || {};
+        return mapViewerConfig || {};
+    }
     default:
         return null;
     }
+};
+
+export const getExtentPayload = (state, resourceType) => {
+    const type = resourceType || state?.gnresource?.type;
+    if (![ResourceTypes.DATASET, ResourceTypes.MAP].includes(type)) {
+        return getResourceExtent(state);
+    }
+    return null;
 };
 
 function removeProperty(value, paths) {
@@ -220,12 +242,27 @@ function isResourceDataEqual(state, initialData = {}, currentData = {}) {
             removeProperty(newCurrentData, currentListItemsToRemove)
         ) && !isWidgetMapCenterChanged;
     }
+    case ResourceTypes.VIEWER: {
+        return isEqual(
+            removeProperty(initialData, ['mapConfig']),
+            removeProperty(currentData, ['mapConfig'])
+        );
+    }
     default:
         return true;
     }
 }
 
+export const isNewMapViewerResource = (state) => {
+    const isNew = state?.gnresource?.params?.pk === "new";
+    const isMapViewer = state?.gnresource?.type === ResourceTypes.VIEWER;
+    return isNew && isMapViewer;
+};
+
 export const getResourceDirtyState = (state) => {
+    if (isNewMapViewerResource(state)) {
+        return true;
+    }
     const canEdit = canEditPermissions(state);
     const isDeleting = getCurrentResourceDeleteLoading(state);
     const isCopying = getCurrentResourceCopyLoading(state);
@@ -233,7 +270,7 @@ export const getResourceDirtyState = (state) => {
         return null;
     }
     const resourceType = state?.gnresource?.type;
-    const metadataKeys = ['title', 'abstract', 'data'];
+    const metadataKeys = ['title', 'abstract', 'data', 'extent'];
     const { data: initialData = {}, ...resource } = pick(state?.gnresource?.initialResource || {}, metadataKeys);
     const { compactPermissions, geoLimits } = getPermissionsPayload(state);
     const currentData = JSON.parse(JSON.stringify(getDataPayload(state) || {})); // JSON stringify is needed to remove undefined values
@@ -294,3 +331,8 @@ export const getGeoNodeResourceFromDashboard = (state) => get(originalDataSelect
         }
         return acc;
     }, { maps: [] });
+
+
+export const defaultViewerPluginsSelector = (state) => {
+    return state?.gnresource?.defaultViewerPlugins ?? [];
+};

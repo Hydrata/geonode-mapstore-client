@@ -18,7 +18,8 @@ import {
     setResourcePermissions,
     editThumbnailResource,
     setResourceThumbnail,
-    enableMapThumbnailViewer
+    enableMapThumbnailViewer,
+    setMapViewerLinkedResource
 } from '@js/actions/gnresource';
 
 describe('gnresource reducer', () => {
@@ -124,6 +125,13 @@ describe('gnresource reducer', () => {
 
         expect(state).toEqual({
             showMapThumbnail: true
+        });
+    });
+    it('test setViewerLinkedResource', () => {
+        const state = gnresource({}, setMapViewerLinkedResource({id: "test"}));
+
+        expect(state).toEqual({
+            viewerLinkedResource: {id: "test"}
         });
     });
 });

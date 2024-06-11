@@ -6,13 +6,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import turfBbox from '@turf/bbox';
 import uuid from 'uuid';
 import url from 'url';
+import isEmpty from 'lodash/isEmpty';
+import omit from 'lodash/omit';
 import { getConfigProp, convertFromLegacy, normalizeConfig } from '@mapstore/framework/utils/ConfigUtils';
-import { parseDevHostname } from '@js/utils/APIUtils';
+import { getGeoNodeLocalConfig, parseDevHostname } from '@js/utils/APIUtils';
 import { ProcessTypes, ProcessStatus } from '@js/utils/ResourceServiceUtils';
-import { bboxToPolygon } from '@js/utils/CoordinatesUtils';
 import { uniqBy, orderBy, isString, isObject, pick, difference } from 'lodash';
 import { excludeGoogleBackground, extractTileMatrixFromSources } from '@mapstore/framework/utils/LayersUtils';
 import { determineResourceType } from '@js/utils/FileUtils';
@@ -21,16 +21,11 @@ import { determineResourceType } from '@js/utils/FileUtils';
 * @module utils/ResourceUtils
 */
 
-function getExtentFromResource({ ll_bbox_polygon: llBboxPolygon }) {
-    if (!llBboxPolygon) {
+function getExtentFromResource({ extent }) {
+    if (isEmpty(extent?.coords)) {
         return null;
     }
-    const extent = turfBbox({
-        type: 'Feature',
-        properties: {},
-        geometry: llBboxPolygon
-    });
-    const [minx, miny, maxx, maxy] = extent;
+    const [minx, miny, maxx, maxy] = extent.coords;
 
     // if the extent is greater than the max extent of the WGS84 return null
     const WGS84_MAX_EXTENT = [-180, -90, 180, 90];
@@ -54,6 +49,24 @@ export const GXP_PTYPES = {
     'REST_IMG': 'gxp_arcrestsource',
     'HGL': 'gxp_hglsource',
     'GN_WMS': 'gxp_geonodecataloguesource'
+};
+
+export const FEATURE_INFO_FORMAT = 'TEMPLATE';
+
+const datasetAttributeSetToFields = ({ attribute_set: attributeSet = [] }) => {
+    return attributeSet
+        .filter(({ attribute_type: type }) => !type.includes('gml:'))
+        .map(({
+            attribute,
+            attribute_label: alias,
+            attribute_type: type
+        }) => {
+            return {
+                name: attribute,
+                alias: alias,
+                type: type
+            };
+        });
 };
 
 /**
@@ -128,6 +141,7 @@ export const resourceToLayerConfig = (resource) => {
             defaultLayerFormat = 'image/png',
             defaultTileSize = 512
         } = getConfigProp('geoNodeSettings') || {};
+        const fields = datasetAttributeSetToFields(resource);
         return {
             perms,
             id: uuid(),
@@ -145,7 +159,7 @@ export const resourceToLayerConfig = (resource) => {
             ...(bbox ? { bbox } : { bboxError: true }),
             ...(template && {
                 featureInfo: {
-                    format: 'TEMPLATE',
+                    format: FEATURE_INFO_FORMAT,
                     template
                 }
             }),
@@ -155,7 +169,8 @@ export const resourceToLayerConfig = (resource) => {
             visibility: true,
             ...(params && { params }),
             ...(dimensions.length > 0 && ({ dimensions })),
-            extendedParams
+            extendedParams,
+            ...(fields && { fields })
         };
     }
 };
@@ -254,7 +269,12 @@ export const ResourceTypes = {
     MAP: 'map',
     DOCUMENT: 'document',
     GEOSTORY: 'geostory',
-    DASHBOARD: 'dashboard'
+    DASHBOARD: 'dashboard',
+    VIEWER: 'mapviewer'
+};
+
+export const isDocumentExternalSource = (resource) => {
+    return resource && resource.resource_type === ResourceTypes.DOCUMENT && resource.sourcetype === 'REMOTE';
 };
 
 export const getResourceTypesInfo = () => ({
@@ -266,7 +286,8 @@ export const getResourceTypesInfo = () => ({
         })),
         formatDetailUrl: (resource) => resource?.detail_url && parseDevHostname(resource.detail_url),
         name: 'Dataset',
-        formatMetadataUrl: (resource) => (`/datasets/${resource.store ? resource.store + ":" : ''}${resource.alternate}/metadata`)
+        formatMetadataUrl: (resource) => (`/datasets/${resource.store ? resource.store + ":" : ''}${resource.alternate}/metadata`),
+        catalogPageUrl: '/datasets'
     },
     [ResourceTypes.MAP]: {
         icon: 'map',
@@ -276,17 +297,19 @@ export const getResourceTypesInfo = () => ({
             config: 'map_preview'
         })),
         formatDetailUrl: (resource) => resource?.detail_url && parseDevHostname(resource.detail_url),
-        formatMetadataUrl: (resource) => (`/maps/${resource.pk}/metadata`)
+        formatMetadataUrl: (resource) => (`/maps/${resource.pk}/metadata`),
+        catalogPageUrl: '/maps'
     },
     [ResourceTypes.DOCUMENT]: {
         icon: 'file',
         name: 'Document',
         canPreviewed: (resource) => resourceHasPermission(resource, 'download_resourcebase') && !!(determineResourceType(resource.extension) !== 'unsupported'),
         hasPermission: (resource) => resourceHasPermission(resource, 'download_resourcebase'),
-        formatEmbedUrl: (resource) => resource?.embed_url && parseDevHostname(resource.embed_url),
+        formatEmbedUrl: (resource) => isDocumentExternalSource(resource) ? undefined : resource?.embed_url && parseDevHostname(resource.embed_url),
         formatDetailUrl: (resource) => resource?.detail_url && parseDevHostname(resource.detail_url),
         formatMetadataUrl: (resource) => (`/documents/${resource.pk}/metadata`),
-        metadataPreviewUrl: (resource) => (`/documents/${resource.pk}/metadata_detail?preview`)
+        metadataPreviewUrl: (resource) => (`/documents/${resource.pk}/metadata_detail?preview`),
+        catalogPageUrl: '/documents'
     },
     [ResourceTypes.GEOSTORY]: {
         icon: 'book',
@@ -294,7 +317,8 @@ export const getResourceTypesInfo = () => ({
         canPreviewed: (resource) => resourceHasPermission(resource, 'view_resourcebase'),
         formatEmbedUrl: (resource) => resource?.embed_url && parseDevHostname(resource.embed_url),
         formatDetailUrl: (resource) => resource?.detail_url && parseDevHostname(resource.detail_url),
-        formatMetadataUrl: (resource) => (`/apps/${resource.pk}/metadata`)
+        formatMetadataUrl: (resource) => (`/apps/${resource.pk}/metadata`),
+        catalogPageUrl: '/geostories'
     },
     [ResourceTypes.DASHBOARD]: {
         icon: 'dashboard',
@@ -302,7 +326,17 @@ export const getResourceTypesInfo = () => ({
         canPreviewed: (resource) => resourceHasPermission(resource, 'view_resourcebase'),
         formatEmbedUrl: (resource) => resource?.embed_url && parseDevHostname(resource.embed_url),
         formatDetailUrl: (resource) => resource?.detail_url && parseDevHostname(resource.detail_url),
-        formatMetadataUrl: (resource) => (`/apps/${resource.pk}/metadata`)
+        formatMetadataUrl: (resource) => (`/apps/${resource.pk}/metadata`),
+        catalogPageUrl: '/dashboards'
+    },
+    [ResourceTypes.VIEWER]: {
+        icon: 'cogs',
+        name: 'MapViewer',
+        canPreviewed: (resource) => resourceHasPermission(resource, 'view_resourcebase'),
+        formatEmbedUrl: () => false,
+        formatDetailUrl: (resource) => resource?.detail_url && parseDevHostname(resource.detail_url),
+        formatMetadataUrl: (resource) => (`/apps/${resource.pk}/metadata`),
+        catalogPageUrl: '/all'
     }
 });
 
@@ -408,7 +442,7 @@ export function cleanStyles(styles = [], excluded = []) {
 export function getGeoNodeMapLayers(data) {
     return (data?.map?.layers || [])
         .filter(layer => layer?.extendedParams?.mapLayer)
-        .map((layer) => {
+        .map((layer, index) => {
             return {
                 ...(layer?.extendedParams?.mapLayer && {
                     pk: layer.extendedParams.mapLayer.pk
@@ -419,26 +453,21 @@ export function getGeoNodeMapLayers(data) {
                         .map(({ canEdit, metadata, ...style }) => ({ ...style }))
                 },
                 current_style: layer.style || '',
-                name: layer.name
+                name: layer.name,
+                order: index,
+                opacity: layer.opacity ?? 1,
+                visibility: layer.visibility
             };
         });
 }
 
-export function toGeoNodeMapConfig(data, mapState) {
+export function toGeoNodeMapConfig(data) {
     if (!data) {
         return {};
     }
     const maplayers = getGeoNodeMapLayers(data);
-    const { projection } = data?.map || {};
-    const { bbox } = mapState || {};
-    const llBboxPolygon = bboxToPolygon(bbox, 'EPSG:4326');
-    const bboxPolygon = bboxToPolygon(bbox, projection);
     return {
-        maplayers,
-        ll_bbox_polygon: llBboxPolygon,
-        srid: projection,
-        // following properties are using the srid definition
-        bbox_polygon: bboxPolygon
+        maplayers
     };
 }
 
@@ -473,13 +502,15 @@ export function toMapStoreMapConfig(resource, baseConfig) {
                     ...(mapLayer?.dataset?.defaul_style ? [mapLayer.dataset.defaul_style] : []),
                     ...(mapLayer?.dataset?.styles || [])
                 ]).map(({ name }) => name);
+                const template = mapLayer?.dataset?.featureinfo_custom_template || '';
                 return {
                     ...layer,
                     style: mapLayer.current_style || layer.style || '',
                     availableStyles: cleanStyles(mapLayer?.extra_params?.styles || [], mapLayerDatasetStyles),
                     featureInfo: {
                         ...layer?.featureInfo,
-                        template: mapLayer?.dataset?.featureinfo_custom_template || ''
+                        format: layer?.featureInfo?.format ?? (template ? FEATURE_INFO_FORMAT : undefined),
+                        template
                     },
                     extendedParams: {
                         ...layer.extendedParams,
@@ -698,4 +729,51 @@ export const parseUploadFiles = (data) => {
 
 export const getResourceImageSource = (image) => {
     return image ? image : 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADICAIAAABZHvsFAAAACXBIWXMAAC4jAAAuIwF4pT92AAABiklEQVR42u3SAQ0AAAjDMMC/5+MAAaSVsKyTFHwxEmBoMDQYGgyNocHQYGgwNBgaQ4OhwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDI2hwdBgaDA0GBpDg6HB0GBoMDSGBkODocHQYGgMDYYGQ4OhwdAYGgwNhgZDg6ExNBgaDA2GBkNjaDA0GBoMDYbG0GBoMDQYGkODocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgwNhsbQYGgwNBgaQ4OhwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2GxtBgaDA0GBoMjaHB0GBoMDSGBkODocHQYGgMDYYGQ4OhwdAYGgwNhgZDg6ExNBgaDA2GBkNjaDA0GBoMDYbG0GBoMDQYGgyNocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkPDbQH4OQSN0W8qegAAAABJRU5ErkJggg==';
+};
+
+export const getDownloadUrlInfo = (resource) => {
+    const hrefUrl = { url: resource?.href, ajaxSafe: false };
+    if (isDocumentExternalSource(resource)) {
+        return hrefUrl;
+    }
+    if (!isEmpty(resource?.download_urls)) {
+        const downloadData = resource.download_urls.length === 1
+            ? resource.download_urls[0]
+            : resource.download_urls.find((d) => d.default);
+        if (!isEmpty(downloadData)) {
+            return { url: downloadData.url, ajaxSafe: downloadData.ajax_safe };
+        }
+    }
+    return hrefUrl;
+};
+
+export const getCataloguePath = (path = '') => {
+    const catalogPagePath = getGeoNodeLocalConfig('geoNodeSettings.catalogPagePath');
+    if (!isEmpty(catalogPagePath)) {
+        return path.replace('/catalogue/', catalogPagePath);
+    }
+    return path;
+};
+
+export const getResourceWithLinkedResources = (resource = {}) => {
+    let linkedResources = resource.linked_resources ?? {};
+    if (!isEmpty(linkedResources)) {
+        const linkedTo = linkedResources.linked_to ?? [];
+        const linkedBy = linkedResources.linked_by ?? [];
+        linkedResources = isEmpty(linkedTo) && isEmpty(linkedBy) ? {} : ({ linkedTo, linkedBy });
+        return { ...omit(resource, 'linked_resources'), linkedResources };
+    }
+    return resource;
+};
+
+export const onDeleteRedirectTo = (resources = []) => {
+    let redirectUrl = '/';
+    if (!isEmpty(resources) && resources?.length === 1) {
+        const types = getResourceTypesInfo();
+        const { catalogPageUrl } = types[resources[0].resource_type] ?? {};
+        if (catalogPageUrl) {
+            redirectUrl = catalogPageUrl;
+        }
+    }
+    return redirectUrl;
 };

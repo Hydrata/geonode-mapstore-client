@@ -41,7 +41,7 @@ function ActionButtons({
                     {options.map((opt) => {
                         if (opt.type === 'plugin') {
                             const { Component } = opt;
-                            return <Component key={opt.action} resource={resource}/>;
+                            return <Component key={opt.action} resource={resource} renderType="menuItem"/>;
                         }
                         return (
                             <Dropdown.Item

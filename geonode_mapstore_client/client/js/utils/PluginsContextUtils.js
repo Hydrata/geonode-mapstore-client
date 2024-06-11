@@ -10,9 +10,31 @@ import {
     getMetadataUrl,
     getMetadataDetailUrl,
     resourceHasPermission,
-    canCopyResource
+    canCopyResource,
+    isDocumentExternalSource,
+    getCataloguePath
 } from '@js/utils/ResourceUtils';
 import get from 'lodash/get';
+
+function getUserResourceName(user) {
+    return user?.first_name !== '' && user?.last_name !== ''
+        ? `${user?.first_name} ${user?.last_name}`
+        : user?.username;
+}
+
+function getUserResourceNames(users = []) {
+    if (!users) {
+        return [];
+    }
+
+    const userArray = !Array.isArray(users) ? [users] : users;
+    return userArray.map((user) => {
+        return {
+            href: '/messages/create/' + user.pk,
+            value: getUserResourceName(user)
+        };
+    });
+}
 
 export const getPluginsContext = () => ({
     get,
@@ -21,5 +43,8 @@ export const getPluginsContext = () => ({
     resourceHasPermission,
     canCopyResource,
     userHasPermission: (user, perm) => user?.perms?.includes(perm),
-    getUserResourceName: (user) => (user?.first_name !== '' && user?.last_name !== '' ) ? (`${user?.first_name} ${user?.last_name}`) : user?.username
+    getUserResourceName,
+    getUserResourceNames,
+    isDocumentExternalSource,
+    getCataloguePath
 });

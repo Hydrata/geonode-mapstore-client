@@ -61,80 +61,80 @@ const routes = GEOSTORY_ROUTES.map(({component, ...config}) => ({...config, comp
 initializeApp();
 
 document.addEventListener('DOMContentLoaded', function() {
-    Promise.all([
-        getConfiguration(),
-        getAccountInfo(),
-        getEndpoints()
-    ])
-        .then(([localConfig, user]) => {
-            setupConfiguration({ localConfig, user })
-                .then(({
-                    securityState,
-                    geoNodeConfiguration,
-                    pluginsConfigKey,
-                    geoNodePageConfig,
-                    configEpics,
-                    mapType = 'openlayers',
-                    onStoreInit,
-                    targetId = 'ms-container',
-                    settings
-                }) => {
+    getEndpoints()
+        .then(()=>Promise.all([
+            getConfiguration(),
+            getAccountInfo()
+        ])
+            .then(([localConfig, user]) => {
+                setupConfiguration({ localConfig, user })
+                    .then(({
+                        securityState,
+                        geoNodeConfiguration,
+                        pluginsConfigKey,
+                        geoNodePageConfig,
+                        configEpics,
+                        mapType = 'openlayers',
+                        onStoreInit,
+                        targetId = 'ms-container',
+                        settings
+                    }) => {
 
-                    const appEpics = {
-                        ...configEpics,
-                        ...gnresourceEpics
-                    };
+                        const appEpics = {
+                            ...configEpics,
+                            ...gnresourceEpics
+                        };
 
-                    storeEpicsNamesToExclude(appEpics);
+                        storeEpicsNamesToExclude(appEpics);
 
-                    // register custom arcgis layer
-                    import('@js/map/' + mapType + '/plugins/ArcGisMapServer')
-                        .then(() => {
-                            main({
-                                targetId,
-                                appComponent: withRoutes(routes)(ConnectedRouter),
-                                pluginsConfig: getPluginsConfigOverride(getPluginsConfiguration(localConfig.plugins, pluginsConfigKey)),
-                                loaderComponent: MainLoader,
-                                pluginsDef: {
-                                    plugins: {
-                                        ...pluginsDefinition.plugins
-                                    },
-                                    requires: {
-                                        ...requires,
-                                        ...pluginsDefinition.requires
-                                    }
-                                },
-                                initialState: {
-                                    defaultState: {
-                                        maptype: {
-                                            mapType: 'openlayers'
+                        // register custom arcgis layer
+                        import('@js/map/' + mapType + '/plugins/ArcGisMapServer')
+                            .then(() => {
+                                main({
+                                    targetId,
+                                    appComponent: withRoutes(routes)(ConnectedRouter),
+                                    pluginsConfig: getPluginsConfigOverride(getPluginsConfiguration(localConfig.plugins, pluginsConfigKey)),
+                                    loaderComponent: MainLoader,
+                                    pluginsDef: {
+                                        plugins: {
+                                            ...pluginsDefinition.plugins
                                         },
-                                        ...securityState
-                                    }
-                                },
-                                themeCfg: null,
-                                appReducers: {
-                                    geostory,
-                                    gnresource,
-                                    gnsettings,
-                                    security,
-                                    maptype
-                                },
-                                appEpics,
-                                onStoreInit,
-                                geoNodeConfiguration,
-                                initialActions: [
+                                        requires: {
+                                            ...requires,
+                                            ...pluginsDefinition.requires
+                                        }
+                                    },
+                                    initialState: {
+                                        defaultState: {
+                                            maptype: {
+                                                mapType: 'openlayers'
+                                            },
+                                            ...securityState
+                                        }
+                                    },
+                                    themeCfg: null,
+                                    appReducers: {
+                                        geostory,
+                                        gnresource,
+                                        gnsettings,
+                                        security,
+                                        maptype
+                                    },
+                                    appEpics,
+                                    onStoreInit,
+                                    geoNodeConfiguration,
+                                    initialActions: [
                                     // add some settings in the global state to make them accessible in the monitor state
                                     // later we could use expression in localConfig
-                                    updateGeoNodeSettings.bind(null, settings),
-                                    ...(geoNodePageConfig.resourceId !== undefined
-                                        ? [ requestResourceConfig.bind(null, ResourceTypes.GEOSTORY, geoNodePageConfig.resourceId) ]
-                                        : [])
-                                ]
+                                        updateGeoNodeSettings.bind(null, settings),
+                                        ...(geoNodePageConfig.resourceId !== undefined
+                                            ? [ requestResourceConfig.bind(null, ResourceTypes.GEOSTORY, geoNodePageConfig.resourceId) ]
+                                            : [])
+                                    ]
+                                });
                             });
-                        });
-                });
+                    });
 
-        });
-
+            })
+        );
 });

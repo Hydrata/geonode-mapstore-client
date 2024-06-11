@@ -30,6 +30,7 @@ const FiltersMenu = forwardRef(({
     totalResources,
     totalFilters,
     loading,
+    hideCardLayoutButton,
     cardLayoutStyle,
     setCardLayoutStyle
 }, ref) => {
@@ -75,13 +76,13 @@ const FiltersMenu = forwardRef(({
                         size="md"
                         alignRight
                     />
-                    <Button
+                    {!hideCardLayoutButton && <Button
                         variant="default"
                         onClick={handleToggleCardLayoutStyle}
                         size="sm"
                     >
                         <FaIcon name={cardLayoutStyle === 'grid' ? 'list' : 'th'} />
-                    </Button>
+                    </Button>}
                     {orderOptions.length > 0 &&
                     <Dropdown pullRight id="sort-dropdown">
                         <Dropdown.Toggle

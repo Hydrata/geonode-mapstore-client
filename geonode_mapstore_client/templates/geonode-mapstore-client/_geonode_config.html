@@ -2,12 +2,15 @@
 {% load base_tags %}
 {% load get_menu_json %}
 {% load apikey %}
+{% load get_search_services %}
+{% load static %}
 {% comment %}
     app and map configuration need to be normalized
 {% endcomment %}
 
 {% comment %} setting.py variables {% endcomment %}
 {{GEONODE_SETTINGS|json_script:"GEONODE_SETTINGS" }}
+{% get_services_dict as SEARCH_SERVICES_PAYLOAD %}
 
 {% comment %} menu items {% endcomment %}
 
@@ -39,30 +42,34 @@
 
         const cardsMenuItems = getJSONScriptVariable('menu-CARDS_MENU', []);
         const geoNodeSettings = getJSONScriptVariable('GEONODE_SETTINGS', {});
-        const baseLayers = geoNodeSettings.MAP_BASELAYERS || [];
-        const baseLayersSources = geoNodeSettings.MAP_BASELAYERS_SOURCES || {};
-        const defaultMapCRS = geoNodeSettings.DEFAULT_MAP_CRS || 'EPSG:3857';
-        const defaultMapCenterX = geoNodeSettings.DEFAULT_MAP_CENTER_X || 0;
-        const defaultMapCenterY = geoNodeSettings.DEFAULT_MAP_CENTER_Y || 0;
-        const defaultMapZoom = geoNodeSettings.DEFAULT_MAP_ZOOM || 0;
-        const defaultTileSize = geoNodeSettings.DEFAULT_TILE_SIZE || 512;
-        const defaultThumbnailSize = geoNodeSettings.DEFAULT_THUMBNAIL_SIZE || {'width': 500, 'height': 200};
-        const datasetMaxUploadSize = geoNodeSettings.DATASET_MAX_UPLOAD_SIZE;
-        const documentMaxUploadSize = geoNodeSettings.DOCUMENT_MAX_UPLOAD_SIZE;
-        const maxParallelUploads = geoNodeSettings.MAX_PARALLEL_UPLOADS
-        const defaultLayerFormat = geoNodeSettings.DEFAULT_LAYER_FORMAT || 'image/png';
-        const catalogueServices = geoNodeSettings.CATALOGUE_SERVICES || {};
-        const catalogueSelectedService = geoNodeSettings.CATALOGUE_SELECTED_SERVICE || '';
-        const createLayer = geoNodeSettings.CREATE_LAYER || false
-        const timeEnabled = geoNodeSettings.TIME_ENABLED || false;
-        const allowedDocumentTypes = geoNodeSettings.ALLOWED_DOCUMENT_TYPES || [];
-        const languages = geoNodeSettings.LANGUAGES;
-        const projectionDefs = geoNodeSettings.PROJECTION_DEFS || [];
-        const pluginsConfigPatchRules  = geoNodeSettings.PLUGINS_CONFIG_PATCH_RULES || [];
-        const translationsPath = geoNodeSettings.TRANSLATIONS_PATH;
-        const extensionsFolder = geoNodeSettings.EXTENSIONS_FOLDER_PATH;
-        const supportedDatasetFileTypes = geoNodeSettings.SUPPORTED_DATASET_FILE_TYPES;
-        const customFilters = geoNodeSettings.CUSTOM_FILTERS || {
+
+        let baseLayers = geoNodeSettings.MAP_BASELAYERS || [];
+        let baseLayersSources = geoNodeSettings.MAP_BASELAYERS_SOURCES || {};
+        let defaultMapCRS = geoNodeSettings.DEFAULT_MAP_CRS || 'EPSG:3857';
+        let defaultMapCenterX = geoNodeSettings.DEFAULT_MAP_CENTER_X || 0;
+        let defaultMapCenterY = geoNodeSettings.DEFAULT_MAP_CENTER_Y || 0;
+        let defaultMapZoom = geoNodeSettings.DEFAULT_MAP_ZOOM || 0;
+        let defaultTileSize = geoNodeSettings.DEFAULT_TILE_SIZE || 512;
+        let defaultThumbnailSize = geoNodeSettings.DEFAULT_THUMBNAIL_SIZE || {'width': 500, 'height': 200};
+        let datasetMaxUploadSize = geoNodeSettings.DATASET_MAX_UPLOAD_SIZE;
+        let documentMaxUploadSize = geoNodeSettings.DOCUMENT_MAX_UPLOAD_SIZE;
+        let maxParallelUploads = geoNodeSettings.MAX_PARALLEL_UPLOADS
+        let defaultLayerFormat = geoNodeSettings.DEFAULT_LAYER_FORMAT || 'image/png';
+        let catalogueServices = geoNodeSettings.CATALOGUE_SERVICES || {};
+        let catalogueSelectedService = geoNodeSettings.CATALOGUE_SELECTED_SERVICE || '';
+        let createLayer = geoNodeSettings.CREATE_LAYER || false
+        let timeEnabled = geoNodeSettings.TIME_ENABLED || false;
+        let allowedDocumentTypes = geoNodeSettings.ALLOWED_DOCUMENT_TYPES || [];
+        let languages = geoNodeSettings.LANGUAGES;
+        let projectionDefs = geoNodeSettings.PROJECTION_DEFS || [];
+        let pluginsConfigPatchRules  = geoNodeSettings.PLUGINS_CONFIG_PATCH_RULES || [];
+        let translationsPath = geoNodeSettings.TRANSLATIONS_PATH;
+        let extensionsFolder = geoNodeSettings.EXTENSIONS_FOLDER_PATH;
+        let supportedDatasetFileTypes = geoNodeSettings.SUPPORTED_DATASET_FILE_TYPES;
+        let catalogHomeRedirectsTo = geoNodeSettings.CATALOG_HOME_REDIRECTS_TO;
+        let defaultCatalogPage = geoNodeSettings.DEFAULT_CATALOG_PAGE || "all";
+        let catalogPagePath = geoNodeSettings.CATALOG_PAGE_PATH;
+        let customFilters = geoNodeSettings.CUSTOM_FILTERS || {
             "my-resources": {
                 "filter{owner.pk}": "{state('user') && state('user').pk}"
             },
@@ -104,19 +111,30 @@
             },
             "dashboard": {
                 "filter{resource_type.in}": "dashboard"
+            },
+            "mapviewer": {
+                "filter{resource_type.in}": "mapviewer"
             }
         };
 
-        const isEmbed = checkBoolean('{{ is_embed }}') || false;
-        const pluginsConfigKey = '{{ plugins_config_key }}';
-        const siteUrl = '{{ SITEURL }}' || '';
-        const siteName = '{{ SITE_NAME }}' || 'Geonode';
-        const geoServerPublicLocation = '{{ GEOSERVER_PUBLIC_LOCATION }}' || '';
-        const isMobile = '{{ request.user_agent.is_mobile }}' === 'True' ? true : false;
-        {#console.log('** geoNodeSettings:', geoNodeSettings);#}
-        {#console.log('** cardsMenuItems:', cardsMenuItems);#}
-        {#console.log('** customFilters:', customFilters);#}
+        let isEmbed = checkBoolean('{{ is_embed }}') || false;
+        let pluginsConfigKey = '{{ plugins_config_key }}';
+        let siteUrl = '{{ SITEURL }}' || '';
+        let siteName = '{{ SITE_NAME }}' || 'Geonode';
+        let geoServerPublicLocation = '{{ GEOSERVER_PUBLIC_LOCATION }}' || '';
+        let isMobile = '{{ request.user_agent.is_mobile }}' === 'True' ? true : false;
 
+        const searchServicesPayload =  {{SEARCH_SERVICES_PAYLOAD|safe}};
+        let searchServicesPatchRules = searchServicesPayload.length ? ['map_viewer', 'dataset_viewr', 'map_viewer_mobile', 'dataset_viewer_mobile'].map(
+            (v, i) => ({
+                "op": "replace",
+                "jsonpath": `$.${v}..[?(@.name == 'Search')].cfg`,
+                "value": {"searchOptions": {"services": searchServicesPayload}}
+            })
+        ) : [];
+
+        {% block override_settings %}
+        {% endblock %}
         window.__GEONODE_CONFIG__ = {
             languageCode: '{{ LANGUAGE_CODE }}',
             languages: languages,
@@ -125,7 +143,7 @@
             resourceType: '{{ resource.resource_type|default:"" }}',
             isEmbed: isEmbed,
             pluginsConfigKey: pluginsConfigKey,
-            pluginsConfigPatchRules: pluginsConfigPatchRules,
+            pluginsConfigPatchRules: [...searchServicesPatchRules, ...pluginsConfigPatchRules],
             apikey: '{%if user_apikey %}{{user_apikey}}{% else %}{% endif %}',
             localConfig: {
                 proxyUrl: {
@@ -155,7 +173,7 @@
                 mapboxAccessToken: '{{ MAPBOX_ACCESS_TOKEN }}',
                 geoNodeApi: {
                     endpointV1: siteUrl + 'api',
-                    endpointV2: siteUrl + 'api/v2'
+                    endpointV2: siteUrl + 'api/v2/'
                 },
                 projectionDefs: projectionDefs,
                 geoNodeCustomFilters: customFilters,
@@ -178,11 +196,15 @@
                     documentMaxUploadSize: documentMaxUploadSize,
                     maxParallelUploads: maxParallelUploads,
                     defaultThumbnailSize: defaultThumbnailSize,
-                    upload: { 
+                    upload: {
                         supportedDatasetFileTypes: supportedDatasetFileTypes
-                    }
+                    },
+                    staticPath: "{% static '' %}",
+                    catalogHomeRedirectsTo: catalogHomeRedirectsTo,
+                    defaultCatalogPage: defaultCatalogPage,
+                    catalogPagePath: catalogPagePath
                 }
-            }, 
+            },
         };
 
         // override maps configuration with properties from setting.py

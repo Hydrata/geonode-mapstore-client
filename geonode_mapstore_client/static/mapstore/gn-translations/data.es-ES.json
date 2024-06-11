@@ -15,6 +15,12 @@
                 "emptyList": "No hay resultados para esta solicitud. Intente cambiar el filtro o seleccione un servicio diferente de la entrada en la esquina superior derecha."
             }
         },
+        "plugins": {
+            "VisualStyleEditor": {
+                "description": "Editor de estilo del conjunto de datos",
+                "title": "Editor de estilo visual"
+            }
+        },
         "gnhome": {
             "description": "<h1>GeoNode</h1><p>compartir datos y mapas geoespaciales.</p>",
             "orderBy": "Ordenar por",
@@ -31,12 +37,14 @@
             "remoteServices": "Servicios remotos",
             "maps": "Mapas",
             "map": "Mapa",
+            "mapviewers": "Visores de mapas",
             "geostory": "GeoStory",
             "geostories": "GeoStories",
             "createGeostory": "Crear geostory",
             "createDashboard": "Crear dashboard",
             "createNew": "Crear nuevo",
             "addResource": "Agregar recurso",
+            "new": "Nuevo",
             "about": "Acerca de",
             "people": "Personas",
             "groups": "Grupos",
@@ -50,6 +58,7 @@
             "viewImage": "Ver imágenes",
             "viewVideo": "Ver video",
             "viewDashboard": "Ver dashboard",
+            "viewMapViewer": "View map viewer",
             "viewMetadata": "Ver detalles",
             "author": "Autor",
             "publication": "Publicación",
@@ -136,7 +145,8 @@
             "filter": "Filtrar",
             "noPreview": "Una vista previa no está disponible para este recurso",
             "na": "N/A",
-            "emptyAccordion": "No hay elementos para mostrar"
+            "emptyFilterItems": "No hay elementos para mostrar",
+            "loadingItems": "Cargando artículos..."
         },
         "viewer": {
             "document": {
@@ -151,12 +161,13 @@
             "export": "Exportar",
             "editInfo": "Editar información",
             "editMetadata": "Editar Metadatos",
-            "editStyle": "Editar Estilo",            
+            "editStyle": "Editar Estilo",
             "editLayerStyle": "Editar estilo de conjunto de datos",
             "editData": "Editar Datos",
             "view": "Ver",
             "viewMetadata": "Ver metadatos",
             "viewData":  "Ver datos",
+            "viewInfo": "Ver información",
             "backToDataset": "< Regrese al conjunto de datos",
             "goBackTo": "< Volver a { resourceName }",
             "uploadImage": "Haz clic para subir una imagen",
@@ -271,6 +282,9 @@
             "invalidUploadMessageErrorTooltip": "El proceso de carga falló. Verifique la validez del archivo e intente cargarlo nuevamente",
             "completeUpload": "Completa la carga",
             "selectFiles": "Seleccionar archivos...",
+            "addUrl": "Agregar URL...",
+            "duplicateUrl": "Esta URL ya está presente en la lista de subidas",
+            "unsupportedUrlExtension": "La extensión no es compatible",
             "supportedFiles": "Extensiones de archivo admitidas",
             "unsupportedFiles": "Archivos no admitidos para la carga",
             "upload": "Subir",
@@ -330,11 +344,65 @@
             "abstract": "Resumen",
             "readMore": "Leer más",
             "readLess": "Leer menos",
-            "linkedResources": "Recursos vinculados",
+            "linkedResources": {
+                "label": "Recursos vinculados",
+                "linkedBy": "Vinculado por",
+                "linkedTo": "Vinculado a",
+                "uses": "Usos",
+                "usedBy": "Usado por"
+            },
             "extent": "Extensión",
             "dateFilter": {
                 "from": "Fecha desde",
                 "to": "Fecha hasta"
+            },
+            "sourceType": "Fuente",
+            "locations": "Ubicacion",
+            "boundingBox": "Cuadro delimitador (WGS84)",
+            "center": "Centro (WGS84)",
+            "minLat": "Min Lat",
+            "minLon": "Min Lon",
+            "maxLat": "Max Lat",
+            "maxLon": "Max Lon",
+            "centerLat": "Lat",
+            "centerLon": "Lon",
+            "mapExtentHelpText": "<b>Puedes editar la extensión y posición de este recurso</b>. Shift-clic y arrastre para dibujar una nueva extensión, haga clic en el marcador y luego haga clic y arrastre para establecer su posición",
+            "addWidget": "Agregar widget",
+            "backToMap": "Volver al mapa",
+            "copyConfigurationFrom": "Copiar configuración de",
+            "copyConfigurationFromTitle": "Copiar configuración del visor de mapas",
+            "selectLinkedMapViewer": "Seleccionar visor de mapas",
+            "mapViewersCatalogFilterPlaceholder": "Filtrar recursos del visor de mapas...",
+            "mapViewersCatalogEntriesNoResults": "Ningún resultado coincide con su búsqueda",
+            "linkToViewer": "Enlace al visor",
+            "createNewViewer": "Crear nuevo visor",
+            "addViewerConfiguration": "Agregar espectador",
+            "editViewerConfiguration": "Editar visor",
+            "removeViewerConfiguration": "Eliminar espectador",
+            "previewCustomViewer": "Vista previa del visor personalizado",
+            "editMapConfiguration": "Editar configuración del mapa",
+            "resource": "Recurso",
+            "deleteResourceWarning": {
+                "mapviewer": "Este visor podría ser utilizado por algunos mapas. Puede ver la lista de mapas dentro de la pestaña Recursos vinculados de este visor de mapas."
+            },
+            "unadvertised": "El recurso no se anuncia. Está oculto en el catálogo y en los resultados de búsqueda.",
+            "linkedResource": {
+                "deleteTitle": "¿También quieres eliminar el visor?",
+                "deleteAndUnlinkWarning": {
+                    "mapviewer": "El visor sólo lo utiliza este mapa. Con esta acción puedes desvincular el mapa del visor y también eliminarlo, al elegir 'no' solo se desvinculará el visor"
+                },
+                "remove": "Eliminar recurso vinculado",
+                "title": "Recurso vinculado",
+                "message": {
+                    "success": {
+                        "removeLinkedResource": "Se eliminó el recurso vinculado con éxito",
+                        "linkResource": "Recurso vinculado guardado correctamente"
+                    },
+                    "failure": {
+                        "removeLinkedResource": "No se pudo eliminar el recurso vinculado",
+                        "linkResource": "No se pudo guardar el recurso vinculado"
+                    }
+                }
             }
         }
     }

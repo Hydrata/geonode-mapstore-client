@@ -454,11 +454,6 @@
             "tools": "Bảng công cụ",
             "yesButton": "Có"
         },
-        "floatinglegend": {
-            "hideLegend": "Ẩn chú giải",
-            "showLegend": "Hiện thị chú giải",
-            "showTOC": "Hiển thị các lớp"
-        },
         "fullscreen": {
             "tooltipActivate": "Chuyển sang toàn màn hình",
             "tooltipDeactivate": "Thoát toàn màn hình",
@@ -688,7 +683,6 @@
             "textFormatDescription": "Hiển thị kết quả thông tin tính năng dưới dạng văn bản thuần túy",
             "textFormatTitle": "VĂN BẢN",
             "title": "Tiêu đề",
-            "titleTranslations": "Bản dịch tiêu đề",
             "heightOffset": "Height offset (m)",
             "tooltip": {
                 "both": "Tiêu đề và mô tả",
@@ -868,7 +862,25 @@
             "selectTool": "Chọn một công cụ đo lường",
             "showLabel": "Hiển thị nhãn đo lường",
             "title": "Đo",
-            "tooltip": "Đo chiều dài và diện tích"
+            "tooltip": "Đo chiều dài và diện tích",
+            "polylineDistance3DMeasure": "Measure distance in 3D space",
+            "area3DMeasure": "Measure area in 3D space",
+            "pointCoordinatesMeasure": "Measure point coordinates",
+            "heightFromTerrainMeasure": "Measure height from terrain",
+            "angle3DMeasure": "Measure angle in 3D space",
+            "slopeMeasure": "Measure slope",
+            "tooltipPolylineDistance3DStart": "Click to start measurement",
+            "tooltipPolylineDistance3DEnd": "Single click to add a segment\nor double click to end",
+            "tooltipArea3DStart": "Click to start measurement",
+            "tooltipArea3DMissingVertex": "Area needs at least 3 vertices, \nsingle click to add a vertex",
+            "tooltipArea3DEnd": "Single click to add a vertex\nor double click to end",
+            "tooltipPointCoordinatesStart": "Click to add an altitude point measurement",
+            "tooltipHeightFromTerrainStart": "Click to add the distance value from terrain surface",
+            "tooltipAngle3DStart": "Single click to draw 3 points that represent the angle vertices",
+            "tooltipSlopeStart": "Single click to draw 3 points that represent a triangle surface.\nThe slope value is computed based on the drawn triangle surface",
+            "altitude": "Altitude",
+            "latitude": "Latitude",
+            "longitude": "Longitude"
         },
         "measureSupport": {
             "continueLine": "Nhấn vào đây để tiếp tục vẽ đường",
@@ -1487,7 +1499,7 @@
                 "configuration": "Cấu hình",
                 "data_panel": "Dữ liệu",
                 "fields_error": "Lỗi khi tải danh sách các trường: {message}",
-                "go_to_cfg": "Cấu hình",
+                "goToCfg": "Cấu hình",
                 "go_to_thema": "Sử dụng cấu hình này",
                 "interval_limit": "Các khoảng nên là một số trong khoảng từ {min} đến {max}",
                 "invalid_classes": "Tối đa phải lớn hơn tối thiểu trong mỗi lớp",

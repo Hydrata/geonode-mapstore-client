@@ -83,7 +83,6 @@
             "featureTypeError": "Kan inte ladda lagerattribut",
             "featureTypeErrorInvalidJSON": "Kan inte ladda lagerattribut. Svaret är ogiltigt",
             "elevation": "Höjd",
-            "titleTranslations": "Titelöversättningar",
             "groupProperties": "Gruppegenskaper",
             "featureInfo": "Objektinformation",
             "featureInfoFormatLbl": "Identifiera svarsformat",
@@ -464,11 +463,6 @@
                 }
             }
         },
-        "floatinglegend": {
-            "showTOC": "Visa lager",
-            "showLegend": "Visa legend",
-            "hideLegend": "Dölj legend"
-        },
         "addgroup": {
             "addbtn": "Lägg till",
             "groupName": "Gruppnamn"
@@ -592,7 +586,7 @@
                 "configuration": "Konfiguration",
                 "apply": "Tillämpa klassificering",
                 "restore": "Återställ anpassningar",
-                "go_to_cfg": "Konfigurera ...",
+                "goToCfg": "Konfigurera ...",
                 "go_to_thema": "Använd den här konfigurationen",
                 "cfgError": "Fel i konfigurationen JSON",
                 "classify": "Klassificera",
@@ -708,7 +702,25 @@
             "selectTool": "Välj ett mätverktyg",
             "exportToGeoJSON": "Exportera till GeoJSON",
             "resetTooltip": "Rensa åtgärder",
-            "addAsLayer": "Lägg till som lager"
+            "addAsLayer": "Lägg till som lager",
+            "polylineDistance3DMeasure": "Measure distance in 3D space",
+            "area3DMeasure": "Measure area in 3D space",
+            "pointCoordinatesMeasure": "Measure point coordinates",
+            "heightFromTerrainMeasure": "Measure height from terrain",
+            "angle3DMeasure": "Measure angle in 3D space",
+            "slopeMeasure": "Measure slope",
+            "tooltipPolylineDistance3DStart": "Click to start measurement",
+            "tooltipPolylineDistance3DEnd": "Single click to add a segment\nor double click to end",
+            "tooltipArea3DStart": "Click to start measurement",
+            "tooltipArea3DMissingVertex": "Area needs at least 3 vertices, \nsingle click to add a vertex",
+            "tooltipArea3DEnd": "Single click to add a vertex\nor double click to end",
+            "tooltipPointCoordinatesStart": "Click to add an altitude point measurement",
+            "tooltipHeightFromTerrainStart": "Click to add the distance value from terrain surface",
+            "tooltipAngle3DStart": "Single click to draw 3 points that represent the angle vertices",
+            "tooltipSlopeStart": "Single click to draw 3 points that represent a triangle surface.\nThe slope value is computed based on the drawn triangle surface",
+            "altitude": "Altitude",
+            "latitude": "Latitude",
+            "longitude": "Longitude"
         },
         "search":{
             "layerMustBeVisible": "Målskiktet är inaktivt",
@@ -1419,7 +1431,8 @@
             },
             "format": {
                 "noOption": "Inget alternativ",
-                "loading": "Läser in ..."
+                "loading": "Läser in ...",
+                "refresh": "Hämta format som stöds"
             }
         },
         "uploader": {
@@ -2592,7 +2605,8 @@
             "saveSuccessTitle": "Framgång",
             "saveSuccessMessage": "Sparad framgångsrikt",
             "saveTooltip": "Spara",
-            "saveAsTooltip": "Spara som"
+            "saveAsTooltip": "Spara som",
+            "unadvertised": "Oannonserad"
         },
         "mapEditor": {
             "modalTitle": "Kartredigerare",

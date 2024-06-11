@@ -11,7 +11,9 @@ import flatten from 'lodash/flatten';
 export const ProcessTypes = {
     DELETE_RESOURCE: 'deleteResource',
     COPY_RESOURCE: 'copyResource',
-    PERMISSIONS_RESOURCE: 'permissionsResource'
+    PERMISSIONS_RESOURCE: 'permissionsResource',
+    REMOVE_LINKED_RESOURCE: "removeLinkedResource",
+    LINK_RESOURCE: "linkResource"
 };
 
 export const ProcessStatus = {

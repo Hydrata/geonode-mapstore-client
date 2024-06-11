@@ -8,6 +8,8 @@
  */
 
 import expect from 'expect';
+import get from 'lodash/get';
+import set from 'lodash/set';
 import {
     resourceToLayerConfig,
     getResourcePermissions,
@@ -25,7 +27,12 @@ import {
     cleanUrl,
     parseUploadFiles,
     getResourceTypesInfo,
-    ResourceTypes
+    ResourceTypes,
+    FEATURE_INFO_FORMAT,
+    isDocumentExternalSource,
+    getDownloadUrlInfo,
+    getCataloguePath,
+    getResourceWithLinkedResources
 } from '../ResourceUtils';
 
 describe('Test Resource Utils', () => {
@@ -115,7 +122,9 @@ describe('Test Resource Utils', () => {
                             mapLayer: {
                                 pk: 10
                             }
-                        }
+                        },
+                        opacity: 0.5,
+                        visibility: false
                     }
                 ]
             }
@@ -129,7 +138,10 @@ describe('Test Resource Utils', () => {
                 styles: [{ name: 'custom:style', title: 'My Style', format: 'css' }]
             },
             current_style: 'geonode:style',
-            name: 'geonode:layer'
+            name: 'geonode:layer',
+            opacity: 0.5,
+            visibility: false,
+            order: 0
         });
     });
     it('should convert data blob to geonode map properties', () => {
@@ -163,9 +175,6 @@ describe('Test Resource Utils', () => {
         };
         const geoNodeMapConfig = toGeoNodeMapConfig(data, mapState);
         expect(geoNodeMapConfig.maplayers.length).toBe(1);
-        expect(geoNodeMapConfig.srid).toBe('EPSG:3857');
-        expect(geoNodeMapConfig.bbox_polygon).toBeTruthy();
-        expect(geoNodeMapConfig.ll_bbox_polygon).toBeTruthy();
     });
     it('should be able to compare background layers with different ids', () => {
         expect(compareBackgroundLayers({ type: 'osm', source: 'osm', id: '11' }, { type: 'osm', source: 'osm' })).toBe(true);
@@ -239,7 +248,7 @@ describe('Test Resource Utils', () => {
                                 }
                             },
                             availableStyles: [],
-                            featureInfo: { template: '' }
+                            featureInfo: { template: '', format: undefined }
                         }
                     ]
                 }
@@ -275,6 +284,9 @@ describe('Test Resource Utils', () => {
                                 mapLayer: {
                                     pk: 10
                                 }
+                            },
+                            featureInfo: {
+                                format: FEATURE_INFO_FORMAT
                             }
                         }
                     ]
@@ -315,7 +327,7 @@ describe('Test Resource Utils', () => {
                                 }
                             },
                             availableStyles: [],
-                            featureInfo: { template: '' }
+                            featureInfo: { template: '', format: FEATURE_INFO_FORMAT }
                         }
                     ]
                 }
@@ -405,12 +417,64 @@ describe('Test Resource Utils', () => {
                                 }
                             },
                             availableStyles: [],
-                            featureInfo: { template: '' }
+                            featureInfo: { template: '', format: undefined }
                         }
                     ]
                 }
             }
         );
+    });
+
+    it('transform a resource to a mapstore map config with featureinfo template', () => {
+        const template = '<div>Test</div>';
+        const resource = {
+            maplayers: [
+                {
+                    pk: 10,
+                    current_style: 'geonode:style01',
+                    extra_params: {
+                        msId: '03'
+                    },
+                    dataset: {
+                        pk: 1,
+                        featureinfo_custom_template: template
+                    }
+                }
+            ],
+            data: {
+                map: {
+                    layers: [
+                        {
+                            id: '03',
+                            type: 'wms',
+                            name: 'geonode:layer',
+                            url: 'geoserver/wms',
+                            style: 'geonode:style',
+                            extendedParams: {
+                                mapLayer: {
+                                    pk: 10
+                                }
+                            },
+                            featureInfo: {
+                                template: ""
+                            }
+                        }
+                    ]
+                }
+            }
+        };
+        const baseConfig = {
+            map: {
+                layers: [
+                    { type: 'osm', source: 'osm', group: 'background', visibility: true }
+                ]
+            }
+        };
+        const mapStoreMapConfig = toMapStoreMapConfig(resource, baseConfig);
+        expect(mapStoreMapConfig).toBeTruthy();
+        const layers = mapStoreMapConfig.map.layers;
+        expect(layers.length).toBe(2);
+        expect(layers[1].featureInfo).toEqual({ template, format: FEATURE_INFO_FORMAT });
     });
 
     it('should parse style name into accepted format', () => {
@@ -913,5 +977,75 @@ describe('Test Resource Utils', () => {
             expect(name).toBe('Dashboard');
             expect(formatMetadataUrl(resource)).toBe('/apps/100/metadata');
         });
+    });
+    it('test isDocumentExternalSource', () => {
+        let resource = { resource_type: "document", sourcetype: "REMOTE" };
+        expect(isDocumentExternalSource(resource)).toBeTruthy();
+
+        // LOCAL
+        resource = {...resource, sourcetype: "LOCAL"};
+        expect(isDocumentExternalSource(resource)).toBeFalsy();
+
+        // NOT DOCUMENT
+        resource = {...resource, resource_type: "dataset"};
+        expect(isDocumentExternalSource(resource)).toBeFalsy();
+    });
+    it('test getDownloadUrlInfo', () => {
+        const downloadData = {url: "/someurl", ajax_safe: true };
+
+        // EXTERNAL SOURCE
+        let resource = { download_urls: [downloadData], href: "/somehref", resource_type: "document", sourcetype: "REMOTE"};
+        let downloadInfo = getDownloadUrlInfo(resource);
+        expect(downloadInfo.url).toBe("/somehref");
+        expect(downloadInfo.ajaxSafe).toBeFalsy();
+
+        // AJAX SAFE
+        resource = { download_urls: [downloadData]};
+        downloadInfo = getDownloadUrlInfo(resource);
+        expect(downloadInfo.url).toBe(downloadData.url);
+        expect(downloadInfo.ajaxSafe).toBeTruthy();
+
+        // HREF
+        resource = {href: "/someurl"};
+        downloadInfo = getDownloadUrlInfo(resource);
+        expect(downloadInfo.url).toBe(resource.href);
+        expect(downloadInfo.ajaxSafe).toBeFalsy();
+
+        // NOT AJAX SAFE
+        resource = {download_urls: [{...downloadData, ajax_safe: false}]};
+        downloadInfo = getDownloadUrlInfo(resource);
+        expect(downloadInfo.url).toBe(downloadData.url);
+        expect(downloadInfo.ajaxSafe).toBeFalsy();
+    });
+    it('test getCataloguePath', () => {
+
+        // default
+        expect(getCataloguePath()).toBe('');
+
+        // valid path and catalogPath not configured
+        let path = '/catalogue/#/search/filter';
+        expect(getCataloguePath(path)).toBe(path);
+
+        const cPath = 'localConfig.geoNodeSettings.catalogPagePath';
+        if (!window.__GEONODE_CONFIG__) window.__GEONODE_CONFIG__ = {};
+        const prevValue = get(window.__GEONODE_CONFIG__, cPath);
+        set(window.__GEONODE_CONFIG__, cPath, "/catalog/");
+
+        // valid path and catalogPath configured
+        expect(getCataloguePath(path)).toBe('/catalog/#/search/filter');
+
+        // not catalogue path and catalogPath configured
+        expect(getCataloguePath('/some/#/search/filter')).toBe('/some/#/search/filter');
+
+        // reset value
+        set(window.__GEONODE_CONFIG__, cPath, prevValue);
+    });
+    it("getResourceWithLinkedResources", () => {
+        expect(getResourceWithLinkedResources({})).toEqual({});
+        expect(getResourceWithLinkedResources()).toEqual({});
+        expect(getResourceWithLinkedResources({pk: 1, linked_resources: {linked_to: ["1"], linked_by: ["1"]}}))
+            .toEqual({pk: 1, linkedResources: {linkedBy: ["1"], linkedTo: ["1"]}});
+        expect(getResourceWithLinkedResources({linked_resources: {linked_to: ["1"], linked_by: ["1"]}}))
+            .toEqual({linkedResources: {linkedBy: ["1"], linkedTo: ["1"]}});
     });
 });

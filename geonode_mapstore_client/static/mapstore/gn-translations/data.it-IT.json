@@ -15,6 +15,12 @@
                 "emptyList": "Nessun risultato per questa richiesta. Prova a cambiare il filtro o selezionare un altro servizio nel selettore in alto a destra."
             }
         },
+        "plugins": {
+            "VisualStyleEditor": {
+                "description": "Editor di stile del set di dati",
+                "title": "Editor dello stile visivo"
+            }
+        },
         "gnhome": {
             "description": "<h1>GeoNode</h1><p>condivisione di dati geospaziali e mappe.</p>",
             "orderBy": "Ordinato da",
@@ -31,17 +37,19 @@
             "remoteServices": "Servizi remoti",
             "maps": "Mappe",
             "map": "Mappa",
+            "mapviewers": "Visualizzatori di mappe",
             "geostory": "Geostory",
             "geostories": "GeoStories",
             "createGeostory": "Crea geostory",
             "createDashboard": "Crea dashboard",
             "createNew": "Crea nuova",
             "addResource": "Aggiungi risorsa",
+            "new": "Nuovo",
             "about": "A proposito",
             "people": "Utenti",
             "groups": "Gruppi",
             "groupsCategories": "Categorie gruppo",
-            "view": "View",
+            "view": "Visualizza",
             "viewDataset": "Visualizza dataset",
             "viewDatasets": "Visualizzare i set di dati",
             "viewMap": "Visualizza mappa",
@@ -50,6 +58,7 @@
             "viewImage": "Visualizza immagine",
             "viewVideo": "Visualizza video",
             "viewDashboard": "Visualizza dashboard",
+            "viewMapViewer": "View map viewer",
             "viewMetadata": "Visualizza dettagli",
             "author": "Autore",
             "publication": "Pubblicazione",
@@ -138,7 +147,8 @@
             "filter": "Filtra",
             "noPreview": "Un'anteprima non è disponibile per questa risorsa",
             "na": "N/D",
-            "emptyAccordion": "Nessun elemento da visualizzare"
+            "emptyFilterItems": "Nessun elemento da visualizzare",
+            "loadingItems": "Caricamento elementi..."
         },
         "viewer": {
             "document": {
@@ -155,6 +165,7 @@
             "view": "Visualizza",
             "viewMetadata": "Visualizza i metadati",
             "viewData": "Visualizza i dati",
+            "viewInfo": "Visualizza informazioni",
             "editInfo": "Modifica informazioni",
             "editStyle": "Modifica Stile",
             "editLayerStyle": "Modifica lo stile del dataset",
@@ -274,7 +285,10 @@
             "invalidUploadMessageErrorTooltip": "Il processo di caricamento non è riuscito. Controlla la validità del file e prova a caricarlo di nuovo",
             "completeUpload": "Completa il caricamento",
             "selectFiles": "Seleziona file...",
-            "supportedFiles": "Estensioni di file supportate",
+            "addUrl": "Aggiungi URL...",
+            "duplicateUrl": "Questo URL è già presente nell'elenco dei caricamenti",
+            "unsupportedUrlExtension": "L'estensione non è supportata",
+            "supportedFiles": "Estensioni supportate",
             "unsupportedFiles": "File non supportati per il caricamento",
             "upload": "Carica",
 
@@ -333,11 +347,65 @@
             "abstract": "Astratto",
             "readMore": "Leggi di più",
             "readLess": "Leggi di meno",
-            "linkedResources": "Risorse collegate",
+            "linkedResources": {
+                "label": "Risorse collegate",
+                "linkedBy": "Collegato da",
+                "linkedTo": "Collegato a",
+                "uses": "Usi",
+                "usedBy": "Usato da"
+            },
             "extent": "Estensione",
             "dateFilter": {
                 "from": "Data da",
                 "to": "Data a"
+            },
+            "sourceType": "Fonte",
+            "locations": "Posizione geografica",
+            "boundingBox": "Rettangolo di selezione (WGS84)",
+            "center": "Centro (WGS84)",
+            "minLat": "Min Lat",
+            "minLon": "Min Lon",
+            "maxLat": "Max Lat",
+            "maxLon": "Max Lon",
+            "centerLat": "Lat",
+            "centerLon": "Lon",
+            "mapExtentHelpText": "<b>Puoi modificare l'estensione e la posizione di questa risorsa</b>. Shift-clic e trascina per disegnare una nuova estensione, fare clic sul marcatore, quindi fare clic e trascinare per impostarne la posizione",
+            "addWidget": "Aggiungi widget",
+            "backToMap": "Torna alla mappa",
+            "copyConfigurationFrom": "Copia configurazione da",
+            "copyConfigurationFromTitle": "Copia la configurazione del visualizzatore di mappa",
+            "selectLinkedMapViewer": "Seleziona il visualizzatoredi  mappa",
+            "mapViewersCatalogFilterPlaceholder": "Filtra i visualizzatore di mappa...",
+            "mapViewersCatalogEntriesNoResults": "Nessun risultato corrisponde alla tua ricerca",
+            "linkToViewer": "Collega ad un visualizzatore",
+            "createNewViewer": "Crea un nuovo visualizzatore",
+            "addViewerConfiguration": "Aggiungi visualizzatore",
+            "editViewerConfiguration": "Modifica visualizzatore",
+            "removeViewerConfiguration": "Rimuovi visualizzatore",
+            "previewCustomViewer": "Anteprima del visualizzatore personalizzato",
+            "editMapConfiguration": "Modifica configurazione della mappa",
+            "resource": "Risorsa",
+            "deleteResourceWarning": {
+                "mapviewer": "Questo visualizzatore potrebbe essere utilizzato da alcune mappe. Puoi visualizzare l'elenco delle mappe nella scheda Risorse collegate di questo visualizzatore di mappe"
+            },
+            "unadvertised": "La risorsa non è pubblicizzata. E' nascosta dal catalogo e dai risultati della ricerca",
+            "linkedResource": {
+                "deleteTitle": "Vuoi eliminare anche il visualizzatore?",
+                "deleteAndUnlinkWarning": {
+                    "mapviewer": "Il visualizzatore viene utilizzato solo da questa mappa. Con questa azione puoi scollegare la mappa dal visualizzatore e anche eliminarla, scegliendo 'no' scollegherai solo il visualizzatore"
+                },
+                "remove": "Rimuovi la risorsa collegata",
+                "title": "Risorsa collegata",
+                "message": {
+                    "success": {
+                        "removeLinkedResource": "Risorsa collegata rimossa correttamente",
+                        "linkResource": "Risorsa collegata salvata correttamente"
+                    },
+                    "failure": {
+                        "removeLinkedResource": "Impossibile rimuovere la risorsa collegata",
+                        "linkResource": "Impossibile salvare la risorsa collegata"
+                    }
+                }
             }
         }
     }

@@ -42,7 +42,7 @@ import {
 const MenuItem = ({ item, menuItemsProps, containerNode, tabIndex, classItem = '', size, alignRight, variant, resourceName }) => {
 
     const { formatHref, query } = menuItemsProps;
-    const { id, type, label, labelId = '', items = [], href, style, badge = '', image, Component, target, className } = item;
+    const { id, type, label, labelId = '', items = [], href, style, badge = '', image, Component, target, className, responsive, noCaret } = item;
     const btnClassName = `btn${variant && ` btn-${variant}` || ''}${size && ` btn-${size}` || ''}${className ? ` ${className}` : ''}`;
 
     const badgeValue = badge;
@@ -61,7 +61,8 @@ const MenuItem = ({ item, menuItemsProps, containerNode, tabIndex, classItem = '
             size={size}
             alignRight={alignRight}
             variant={variant}
-            responsive={item.responsive}
+            responsive={responsive}
+            noCaret={noCaret}
         />);
     }
 

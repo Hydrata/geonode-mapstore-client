@@ -15,6 +15,12 @@
                 "emptyList": "Keine Ergebnisse für diese Anfrage. Versuchen Sie, den Filter zu wechseln oder einen anderen Dienst aus der Eingabe in der oberen rechten Ecke auszuwählen."
             }
         },
+        "plugins": {
+            "VisualStyleEditor": {
+                "description": "Der Stileditor des Datensatzes",
+                "title": "Visueller Stil-Editor"
+            }
+        },
         "gnhome": {
             "description": "<h1>GeoNode</h1><p>Austausch von Geodaten und Karten.</p>",
             "orderBy": "Sortieren nach",
@@ -31,12 +37,14 @@
             "remoteServices": "Remote-Dienste",
             "maps": "Karten",
             "map": "Karte",
+            "mapviewers": "Kartenbetrachter",
             "geostory": "GeoStory",
             "geostories": "GeoStories",
             "createGeostory": "GeoStory erstellen",
             "createDashboard": "Dashboard erstellen",
             "createNew": "Erstellen",
             "addResource": "Ressource hinzufügen",
+            "new": "Neu",
             "about": "Über",
             "people": "Benutzer",
             "groups": "Gruppen",
@@ -50,6 +58,7 @@
             "viewImage": "Bild ansehen",
             "viewVideo": "Video ansehen",
             "viewDashboard": "Dashboard ansehen",
+            "viewMapViewer": "View map viewer",
             "viewMetadata": "Details anzeigen",
             "author": "Autor",
             "publication": "Veröffentlichung",
@@ -136,7 +145,8 @@
             "filter": "Filter",
             "noPreview": "Für diese Ressource ist keine Vorschau verfügbar",
             "na": "n.a.",
-            "emptyAccordion": "Keine Elemente zum Anzeigen"
+            "emptyFilterItems": "Keine Elemente zum Anzeigen",
+            "loadingItems": "Artikel werden geladen..."
         },
         "viewer": {
             "document": {
@@ -157,6 +167,7 @@
             "view": "Anzeigen",
             "viewMetadata": "Metadaten anzeigen",
             "viewData":  "Daten anzeigen",
+            "viewInfo": "Informationen anzeigen",
             "backToDataset": "< Zurück zum Datensatz",
             "goBackTo": "< Geh zurück zu { resourceName }",
             "uploadImage": "Klicken Sie hier, um ein Bild hochzuladen",
@@ -272,6 +283,9 @@
             "invalidUploadMessageErrorTooltip": "Der Upload-Vorgang ist fehlgeschlagen. Bitte überprüfen Sie die Gültigkeit der Datei und versuchen Sie erneut, sie hochzuladen",
             "completeUpload": "Schließen Sie den Upload ab",
             "selectFiles": "Dateien auswählen...",
+            "addUrl": "URL hinzufügen...",
+            "duplicateUrl": "Diese URL ist bereits in der Liste der Uploads vorhanden",
+            "unsupportedUrlExtension": "Erweiterung wird nicht unterstützt",
             "supportedFiles": "Unterstützte Dateierweiterungen",
             "unsupportedFiles": "Für den Upload nicht unterstützte Dateien",
             "upload": "Hochladen",
@@ -331,11 +345,65 @@
             "abstract": "Zusammenfassung",
             "readMore": "Weiterlesen",
             "readLess": "Weniger lesen",
-            "linkedResources": "Verknüpfte Ressourcen",
+            "linkedResources": {
+                "label": "Verknüpfte Ressourcen",
+                "linkedBy": "Verbunden von",
+                "linkedTo": "Verbunden mit",
+                "uses": "Verwendet",
+                "usedBy": "Benutzt von"
+            },
             "extent": "Ausmaß",
             "dateFilter": {
                 "from": "Datum von",
                 "to": "Datum bis"
+            },
+            "sourceType": "Quelle",
+            "locations": "Ort",
+            "boundingBox": "Begrenzungsrahmen (WGS84)",
+            "center": "Center (WGS84)",
+            "minLat": "Min Lat",
+            "minLon": "Min Lon",
+            "maxLat": "Max Lat",
+            "maxLon": "Max Lon",
+            "centerLat": "Lat",
+            "centerLon": "Lon",
+            "mapExtentHelpText": "<b>Sie können die Ausdehnung und Position dieser Ressource bearbeiten</b>. Shift-Klick und ziehen Sie, um eine neue Ausdehnung zu zeichnen, klicken Sie auf die Markierung und klicken und ziehen Sie dann, um ihre Position festzulegen",
+            "addWidget": "Widget hinzufügen",
+            "backToMap": "Zurück zur Karte",
+            "copyConfigurationFrom": "Konfiguration kopieren von",
+            "copyConfigurationFromTitle": "Map-Viewer-Konfiguration kopieren",
+            "selectLinkedMapViewer": "Kartenviewer auswählen",
+            "mapViewersCatalogFilterPlaceholder": "Maps-Viewer-Ressourcen filtern…",
+            "mapViewersCatalogEntriesNoResults": "Keine Ergebnisse entsprechen Ihrer Suche",
+            "linkToViewer": "Link zum Viewer",
+            "createNewViewer": "Neuen Viewer erstellen",
+            "addViewerConfiguration": "Betrachter hinzufügen",
+            "editViewerConfiguration": "Betrachter bearbeiten",
+            "removeViewerConfiguration": "Betrachter entfernen",
+            "previewCustomViewer": "Vorschau des benutzerdefinierten Viewers",
+            "editMapConfiguration": "Kartenkonfiguration bearbeiten",
+            "resource": "Ressource",
+            "deleteResourceWarning": {
+                "mapviewer": "Dieser Viewer könnte von einigen Karten verwendet werden. Sie können die Liste der Karten auf der Registerkarte „Verknüpfte Ressourcen“ dieses Kartenviewers anzeigen"
+            },
+            "unadvertised": "Ressource wird nicht beworben. Es ist im Katalog und in den Suchergebnissen ausgeblendet",
+            "linkedResource": {
+                "deleteTitle": "Möchten Sie den Viewer auch löschen?",
+                "deleteAndUnlinkWarning": {
+                    "mapviewer": "Der Viewer wird nur von dieser Karte verwendet. Mit dieser Aktion können Sie die Verknüpfung der Karte mit dem Viewer aufheben und sie auch löschen. Wenn Sie „Nein“ wählen, wird nur die Verknüpfung mit dem Viewer aufgehoben"
+                },
+                "remove": "Verlinkte Ressource entfernen",
+                "title": "Verlinkte Ressource",
+                "message": {
+                    "success": {
+                        "removeLinkedResource": "Die verknüpfte Ressource wurde erfolgreich entfernt",
+                        "linkResource": "Die verknüpfte Ressource wurde erfolgreich gespeichert"
+                    },
+                    "failure": {
+                        "removeLinkedResource": "Die verknüpfte Ressource konnte nicht entfernt werden",
+                        "linkResource": "Die verknüpfte Ressource konnte nicht gespeichert werden"
+                    }
+                }
             }
         }
     }

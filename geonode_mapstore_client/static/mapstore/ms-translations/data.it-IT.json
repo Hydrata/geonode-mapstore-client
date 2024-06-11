@@ -30,6 +30,7 @@
         "expand": "Espandi",
         "Links": "Collegamenti",
         "Forbidden": "Vietato",
+        "height": "Altezza",
         "layerNameChangeError": {
             "title": "Errore di modifica del nome",
             "message": "Il livello non è stato ricaricato con un nome modificato"
@@ -57,8 +58,8 @@
             "404": "File di traduzione non trovato"
         },
         "details": {
-            "title": "Info su questa mappa",
-            "tooltip": "Info su questa mappa"
+            "title": "Info su questo contenuto",
+            "tooltip": "Info su questo contenuto"
         },
         "showEmptyMessageGFI": "Mostra il messaggio: Nessuna feature per gli altri layer",
         "remove": "Rimuovi",
@@ -87,10 +88,11 @@
             "featureTypeError": "Impossibile caricare gli attributi del layer",
             "featureTypeErrorInvalidJSON": "Impossibile caricare gli attributi del layer. La risposta non è valida",
             "elevation": "Elevazione",
-            "titleTranslations": "Traduzioni di titoli",
             "groupProperties": "Proprietà del gruppo",
             "featureInfo": "Feature Info",
             "featureInfoFormatLbl": "Formato risposta interrogazioni su mappa",
+            "guideText": "Nell'URL dell'immagine puoi utilizzare variabili come $\\{properties.YOUR_ATTRIBUTE\\}  per rendere parametrico l'URL a seconda degli attributi della feature. Supporta sia URL che \"Data URI\" codificati in base64",
+            "imageNotFound": "Questa immagine può necessitare di una richiesta informazioni sulle feature per essere renderizzata correttamente",
             "legenderror": "Legenda non disponibile",
             "editCustomFormat": "Edita formato",
             "exampleOfResponse": "Esempio",
@@ -113,6 +115,30 @@
             "templateError": "Si è verificato un errore durante l'applicazione del template alle informazioni restituite dal server, controllare il template.",
             "templatePreview": "Anteprima template",
             "heightOffset": "Spostamento in altezza (m)",
+            "wmsLayerTileSize": "Dimensione tile (WMS)",
+            "serverType": "Tipo di Server",
+            "formatError": "Non è stato possibile recuperare le informazioni sui formati dal servizio configurato. Probabilmente stai usando un servizio \"No Vendor\" e questo non è supportato (es. GeoNetwork)",
+            "serverTypeOption": {
+                "noVendor": "No Vendor",
+                "geoserver": "GeoServer"
+            },
+            "availableTileGrids": "Tile grids disponibili",
+            "crsId": "Id",
+            "projection": "Proiezione",
+            "tileSize": "Dimensione tile",
+            "tileGridInUse": "La tile grid '{id}' corrisponde alla proiezione della mappa corrente e alla dimensione delle tile selezionata per questo layer",
+            "useStandardTileGridStrategy": "Usa tile grid standard",
+            "useCustomTileGridStrategy": "Usa tile grid personalizzate remote",
+            "updateTileGrids": "Aggiorna le tile grids disponibili",
+            "noTileGridMatchesConfiguration": "Non esiste una tile grid che corrisponda alla proiezione della mappa corrente e alla dimensione di tile selezionata. La tabella sopra evidenzia le tile grids disponibili compatibili con la proiezione della mappa corrente. Puoi fare clic sul pulsante Aggiorna per aggiornare l'elenco delle tile grids",
+            "noConfiguredGridSets": "Non è possibile recuperare tile grids personalizzate. Questo layer non ha alcun tile grid compatibile con le proiezioni disponibili. Per favore controlla la configurazione lato server e riprova",
+            "notPossibleToConnectToWMTSService": "Non è stato possibile recuperare le tile grids dal server. La richiesta inviata a {requestUrl} sta generando un errore",
+            "notSupportedSelectedFormatCache": "Il formato selezionato non è supportato dalla cache.",
+            "customParamsCacheWarning": "Questo livello ha lo stile localizzato abilitato. Verificare la configurazione lato server ed assicurarsi che supporti il parametro ENV personalizzato",
+            "supportedFormats": "Formati supportati",
+            "checkAvailableTileGridsInfo": "Controlla le informazioni sulle tile grids disponibili",
+            "tileGridInfoChecksTitle": "Informationi sulle tile grids",
+            "tileGridInfoChecks": "La seguente lista di controllo mostra alcuni possibili problemi di compatibilità tra il gridset corrente e le informazioni remote. È ancora possibile che il tile grid non raggiunga la cache anche se tutti i controlli elencati hanno esito positivo",
             "visibilityLimits": {
                 "title": "Limiti di visibilità",
                 "serverValuesUpdateUndefined": "Il server non ha fornito limiti di visibilità di scala per questo livello",
@@ -131,6 +157,31 @@
                 "type": "Tipo di limite",
                 "scale": "Scala",
                 "resolution": "Risoluzione"
+            },
+            "3dTiles": {
+                "format": "Formato",
+                "3dModel": "Modello 3D",
+                "pointCloud": "Nuvola di punti",
+                "pointCloudShading": {
+                    "title": "Opzioni di visualizzazione",
+                    "attenuationInfo": "Applica una attenuazione della nuvola di punti basata sul punto di vista corrente",
+                    "attenuation": "Abilita attenuazione",
+                    "maximumAttenuation": "Massima attenuazione",
+                    "eyeDomeLightingInfo": "Abilita l'illuminazione di tipo eye dome per migliorare la visualizzazione della nuvola di punti. Questa non rappresenta l'attuale illuminazione del sole",
+                    "eyeDomeLighting": "Abilita illuminazione",
+                    "eyeDomeLightingStrength": "Intensità luminosa",
+                    "eyeDomeLightingRadius": "Raggio di illuminazione"
+                }
+            },
+            "modelLayer": {
+                "modelCenterLat": "Latitudine del centro (DD)",
+                "modelCenterLng": "Longitudine del centro (DD)",
+                "height": "Altezza (m)",
+                "heading": "Angolo di rotta (DD)",
+                "warnings": {
+                    "projectedCrsNotSupported": "Il modello è posizionato al centro della vista corrente perché: il modello ha una proiezione CRS {modelProjection}, ma non è supportata.",
+                    "projectedCrsNotProvided": "Il modello è posizionato al centro della vista corrente perché: il modello non ha una proiezione CRS definita."
+                }
             },
             "tooltip": {
                 "label": "Tooltip",
@@ -158,7 +209,9 @@
             },
             "format": {
                 "title": "Formato",
-                "refresh": "Recupera il formato supportato",
+                "tile": "Tile",
+                "information": "Risposte interrogazioni su mappa",
+                "refresh": "Recupera i formati supportati",
                 "loading": "Caricamento in corso...",
                 "noOption": "Nessuna opzione",
                 "error": {
@@ -166,7 +219,24 @@
                     "message": "Impossibile recuperare il formato"
                 }
             },
-            "forceProxy": "Forza proxy"
+            "forceProxy": "Forza proxy",
+            "fields": {
+              "refresh": "Recupera i campi dalla sorgente dati",
+              "title": "Campi",
+              "tooltip": "Campi",
+              "name": "Nome",
+              "alias": "Alias",
+              "type": "Tipo",
+              "clearCustomization": "Rimuovi modifiche",
+              "clearCustomizationConfirm": "Sei sicuro di voler rimuovere tutte le modifiche effettuate ai campi?",
+              "error": "Non è stato possibile recuperare i campi dalla sorgente dati"
+            },
+            "disableFeaturesEditing": "Disabilita la modifica sulla tabella degli attributi"
+        },
+        "localizedInput": {
+          "localize": "Traduci questo testo...",
+          "title": "Traduci testo",
+          "default": "Predefinito"
         },
         "longitude": "Lon",
         "latitude": "Lat",
@@ -174,13 +244,15 @@
             "update": "Aggiorna",
             "warning": "Attenzione",
             "success": "Aggiornamento completo",
+            "error": "Errore",
             "backgroundLayerNotSupported": "Lo sfondo precedentemente caricato non è supportato per questo tipo di mappa. E' stato pertanto selezionato il primo disponibile.",
             "noBackgroundLayerSupported": "Non ci sono sfondi supportati per questo tipo di mappa.",
             "updateOldMap": "Questa è una vecchia mappa perciò non tutte le funzionalità sono abilitate. Clicca su Aggiorna per aggiornare la mappa o semplicemnte chiudi la notifica se non desideri aggiornarla",
             "warningSaveUpdatedMap": "Alcuni layer non sono stati aggiornati correttamente",
             "saveUpdatedMap": "Tutti i layer sono stati aggiornati con successo",
             "incompatibleBackgroundAndProjection":"The Projection you selected is not compatible with background, switch to a compatible -or an empty- background, then select this projection!",
-            "incompatibleDataAndProjection":"Uno o più livelli non sono completamente compatibili con la proiezione selezionata. I dati potrebbero essere (tutti o in parte) non visibili in mappa"
+            "incompatibleDataAndProjection":"Uno o più livelli non sono completamente compatibili con la proiezione selezionata. I dati potrebbero essere (tutti o in parte) non visibili in mappa",
+            "errorLoadingGF":"Errore di caricamento della geometria"
         },
         "dock": {
             "row": "{rowsSelected} riga selezionata",
@@ -291,7 +363,7 @@
         },
         "home":{
             "open": "Apri",
-            "shortDescription": "Modern webmapping con OpenLayers, Leaflet e React<br/><small>visita la pagina di <a href=\"https://mapstore.readthedocs.io/en/latest/\">documentazione</a></small>",
+            "shortDescription": "Modern webmapping con OpenLayers, Leaflet e React<br/><small>visita la pagina di <a href=\"https://docs.mapstore.geosolutionsgroup.com/\">documentazione</a></small>",
             "forkMeOnGitHub": "Fork me on GitHub",
             "description": "MapStore è sviluppato per creare, salvare e condividere in modo semplice ed intuitivo mappe e mashup creati selezionando contenuti da server come Google Maps, OpenStreetMap, MapQuest o da server specifici forniti dalla propria organizzazione o da terzi. <br/> Visita la <a href=\"https://mapstore.readthedocs.io/en/latest/\">home page</a> per maggiori dettagli.",
             "Applications": "Applicazioni",
@@ -485,11 +557,6 @@
                 }
             }
         },
-        "floatinglegend": {
-            "showTOC": "Mostra layers",
-            "showLegend": "Mostra legenda",
-            "hideLegend": "Nascondi legenda"
-        },
         "addgroup": {
             "addbtn": "Aggiungi",
             "groupName": "Nome del gruppo"
@@ -516,6 +583,7 @@
             "layerFilterTooltip": "Filtra il layer",
             "toolDownloadTooltip": "Esporta i dati del livello",
             "noFilteredResults": "Nessun risultato",
+            "emptyLayerTree": "La lista dei layer è vuota. Aggiungi un nuovo layer dal catalogo",
             "filterPlaceholder": "Filtra layers",
             "clearFilter": "Pulisci filtro",
             "toolReloadLayerTooltip": "Forza caricamento del livello selezionato",
@@ -530,6 +598,7 @@
             "browseData": "Apri tabella degli attributi",
             "removeLayer": "Rimuovi livello",
             "loadingerror": "Il livello non è stato caricato correttamente o non disponible.",
+            "sourceCRSNotCompatible": "La definizione di proiezione dei dati di origine del layer {sourceCRS} non è disponibile nell'applicazione per riproiettare i dati nella mappa corrente",
             "measure": "Misure",
             "layers": "Livelli",
             "drawerButton": "Livelli",
@@ -551,6 +620,23 @@
             "notVisibleZoomIn": "Il layer non è visibile perchè al di fuori dei limiti di risoluzione. Zoom in per mostrare il layer",
             "notVisibleZoomOut": "Il layer non è visibile perchè al di fuori dei limiti di risoluzione. Zoom out per mostrare il layer",
             "notVisibleSwitchTo3D": "Passa alla modalità mappa 3D per vedere questo layer",
+            "notVisibleSwitchTo2D": "Passa alla modalità mappa 2D per vedere questo layer",
+            "toolGroupShowAllChildren": "Mostra di tutti i nodi secondari",
+            "toolGroupHideAllChildren": "Nascondi di tutti i nodi secondari",
+            "activateToolGroupMutuallyExclusive": "Attiva la visibilità mutuamente esclusiva dei nodi secondari",
+            "deactivateToolGroupMutuallyExclusive": "Disattiva la visibilità mutuamente esclusiva dei nodi secondari",
+            "toolGroupCollapseAllChildren": "Comprimi tutti i nodi secondari",
+            "toolGroupExpandAllChildren": "Espandi tutti i nodi secondari",
+            "closeOnMapInitialization": "Mantieni chiuso all'inizializzazione della mappa",
+            "openOnMapInitialization": "Apri all'inizializzazione della mappa",
+            "defaultTheme": "Tema predefinito",
+            "legendTheme": "Tema legenda",
+            "showFullTitle": "Mostra titolo completo",
+            "hideFullTitle": "Titolo su una sola riga",
+            "showOpacitySlider": "Mostra strumento opacità",
+            "hideOpacitySlider": "Nascondi strumento opacità",
+            "showOpacityTooltip": "Mostra valore dell'opacità",
+            "hideOpacityTooltip": "Nascondi valore dell'opacità",
             "refreshOptions": {
                 "bbox": "Aggiorna area di zoom",
                 "search": "Aggiorna opzioni di ricerca",
@@ -616,7 +702,7 @@
                 "configuration": "Configurazione",
                 "apply": "Applicare la classificazione",
                 "restore": "Annulla le personalizzazioni",
-                "go_to_cfg": "Configura ...",
+                "goToCfg": "Configura ...",
                 "go_to_thema": "Usa questa configurazione",
                 "cfgError": "Errore nella configurazione JSON",
                 "classify": "Classificazione",
@@ -657,10 +743,13 @@
             "legend": {
                 "font": "Config. Etichette:",
                 "forceLabels": "Forza etichette:",
-                "antiAliasing": "Font Anti Aliasing:",
-                "iconsSize": "Dimensione icone:",
+                "antiAliasing": "Font Anti Aliasing",
+                "forceIconsSize": "Sostituisci la dimensione delle icone",
+                "iconsWidth": "Larghezza delle icone:",
+                "iconsHeight": "Altezza delle icone:",
                 "dpi": "Dpi:"
             },
+            "rotation": "Rotation",
             "layoutWarning": "Layout non consentito",
             "scale": "Scala",
             "includeScale": "Includi nella stampa",
@@ -741,7 +830,26 @@
             "exportToGeoJSON": "Esporta in GeoJSON",
             "saveMeasure": "Salva le misure nell'annotazione",
             "resetTooltip": "Rimuovi Misurazioni",
-            "addAsLayer": "Aggiungi come livello"
+            "addAsLayer": "Aggiungi come livello",
+            "lengthMeasure": "Misura la distanza geodesica nello spazio 3D calcolata sull'ellissoide, ma renderizzata nel punto in cui fai click",
+            "polylineDistance3DMeasure": "Misurare la distanza nello spazio 3D",
+            "area3DMeasure": "Misurare l'area nello spazio 3D",
+            "pointCoordinatesMeasure": "Misurare le coordinate di un punto",
+            "heightFromTerrainMeasure": "Misurare altezza dal terreno",
+            "angle3DMeasure": "Misurare l'angolo nello spazio 3D",
+            "slopeMeasure": "Misurare la pendenza",
+            "tooltipPolylineDistance3DStart": "Click singolo per avviare la misurazione",
+            "tooltipPolylineDistance3DEnd": "Click singolo per aggiungere un segmento\no doppio click per terminare",
+            "tooltipArea3DStart": "Click singolo per avviare la misurazione",
+            "tooltipArea3DMissingVertex": "L'area necessita di almeno 3 vertici, \nclick singolo per aggiungere un vertice",
+            "tooltipArea3DEnd": "Click singolo per aggiungere un segmento\no doppio click per terminare",
+            "tooltipPointCoordinatesStart": "Click singolo per aggiungere una misurazione del punto di altitudine",
+            "tooltipHeightFromTerrainStart": "Click per aggiungere il valore della distanza dalla superficie del terreno",
+            "tooltipAngle3DStart": "Click singolo per disegnare 3 punti che rappresentano i vertici dell'angolo",
+            "tooltipSlopeStart": "Click singolo per disegnare 3 punti che rappresentano una superficie triangolare.\nIl valore della pendenza viene calcolato in base alla superficie triangolare disegnata",
+            "altitude": "Altitudine",
+            "latitude": "Latitudine",
+            "longitude": "Longitudine"
         },
         "search": {
             "layerMustBeVisible": "Il livello di destinazione è inattivo",
@@ -1035,7 +1143,18 @@
                     "wrong_range": "Il limite inferiore deve essere minore del limite superiore"
                 },
                 "datefield": {
-                    "wrong_date_range": "La data di inizio deve essere inferiore a quella di fine"
+                    "wrong_date_range": "La data di inizio deve essere inferiore a quella di fine",
+                    "placeholder": "Inserisci la data",
+                    "tooltip": "Inserisci la data nel formato {format}",
+                    "quickSelectors": {
+                        "today": "Oggi",
+                        "now": "Ora",
+                        "tomorrow": "Domani",
+                        "yesterday": "Ieri",
+                        "thisWeek": "Questa settimana",
+                        "thisMonth": "Questo mese",
+                        "nDaysFrom": "{n} giorni da {todayNow}"
+                    }
                 },
                 "autocomplete": {
                     "emptyList": "Nessun risultato",
@@ -1188,7 +1307,10 @@
             },
             "geometryError": "La configurazione della geometria non è valida",
             "annotationSaveGeometryError": "Il salvataggio è disabilitato a causa di una geometria non valida, correggilo per salvare l'annotazione",
-            "resolveAllErrors": "Si prega di correggere gli errori prima di modificare altre geometrie"
+            "resolveAllErrors": "Si prega di correggere gli errori prima di modificare altre geometrie",
+            "selectAnnotationFeature": "Selezionare una geometria annotation nel pannello di sinistra per editare coordinate e stili",
+            "properties": "Proprietà",
+            "deactivatedMapInteraction": "Le interazioni di disegno delle annotazioni sono state disattivate perchè il '{pluginName}' plugin è stato attivato. Chiudere il '{pluginName}' plugin per attivare le interazioni di disegno delle annotazioni"
         },
         "user":{
             "login": "Login",
@@ -1324,6 +1446,38 @@
                 "height": "altezza"
             }
         },
+        "permalink": {
+            "title": "Permalink",
+            "shareLinkTitle": "Permalink generato",
+            "accessible": "Pubblico",
+            "success": "Il permalink è stato salvato con successo",
+            "createCategorySuccess": "La categoria \"PERMALINK\" mancava, quindi è stata creata",
+            "descriptionLabel": "Descrizione",
+            "titleLabel": "Titolo",
+            "titlePlaceholder": "Inserisci un titolo",
+            "descriptionPlaceholder": "Inserisci una descrizione",
+            "generate": "Genera permalink",
+            "create": "Crea un nuovo permalink",
+            "loadingSpinner": "Permalink in caricamento",
+            "subtitle": "Condividi la risorsa utilizzando l'indirizzo generato",
+            "errors": {
+                "loading": {
+                    "unknownError": "Si è verificato un errore durante il caricamento del permalink",
+                    "permalinkNotAccessible": "Non sei autorizzato ad accedere a questo permalink. Contatta il proprietario della risorsa",
+                    "permalinkDoesNotExist": "Il permalink a cui stai tentando di accedere non esiste",
+                    "title": "Errore durante il caricamento di peramlink",
+                    "pleaseLogin": "Questo permalink non è pubblico. Si prega di provare ad accedere",
+                    "notFound": "Permalink non trovato",
+                    "notAccessible": "Permalink non accessibile"
+                },
+                "save": {
+                    "title": "Generazione del permalink non riuscita",
+                    "generic": "Errore durante il salvataggio del permalink",
+                    "categoryErrorAdmin": "Creazione della categoria mancante \"{categoryName}\" non riuscita",
+                    "categoryErrorNonAdmin": "Categoria mancante \"{categoryName}\", contattare l'amministratore per creare la categoria"
+                }
+            }
+        },
         "snapshot": {
             "title": "Istantanea",
             "save": "Salva",
@@ -1402,6 +1556,10 @@
             "notAvailable": "Non disponibile",
             "title": "Catalogo",
             "autoload": "Ricerca alla selezione del servizio",
+            "fetchMetadata": {
+                "label": "Scarica i metadati del file al salvataggio",
+                "tooltip": "Questa opzione recupererà i metadati per supportare lo zoom a livello. Potrebbe rallentare l'operazione di ricerca se le immagini sono troppo grandi o troppe."
+            },
             "clearValueText": "Cancella selezione",
             "noResultsText": "Nessun risultato trovato",
             "tooltip": "Sfoglia Catalogo",
@@ -1443,6 +1601,10 @@
             "tileprovider": {
               "tooltip": "x, y, z sono la posizione della tile, s è il sottodominio (impostazione predefinita)"
             },
+            "urls": "URL(s)",
+            "cog": {
+                "urlTemplateHint": "È possibile aggiungere più URL separandoli con virgole. Ogni URL verrà trattato come un livello individuale"
+            },
             "missingReference": "Metadati di riferimento OGC mancanti",
             "showDescription": "Mostra descrizione completa",
             "hideDescription": "Nascondi descrizione completa",
@@ -1468,7 +1630,8 @@
             },
             "format": {
                 "noOption": "Nessuna opzione",
-                "loading": "Caricamento in corso..."
+                "loading": "Caricamento in corso...",
+                "refresh": "Recupera i formati supportati"
             },
             "filter": {
                 "static": {
@@ -1478,13 +1641,16 @@
                 "dynamic": {
                     "label": "Filtro dinamico",
                     "info": "Il filtro viene utilizzato quando è presente il testo di ricerca e viene applicato in 'AND' con filtro statico",
-                    "helpText": "Usa il segnaposto ${searchText} nel modello per inserire la stringa di ricerca"
+                    "helpText": "Usa il segnaposto $\\{searchText\\} nel modello per inserire la stringa di ricerca"
                 },
                 "error": "Sintassi xml non valida"
             },
             "autoSetVisibilityLimits": {
                 "label": "Imposta limite di visibilità",
                 "tooltip": "Applica automaticamente i limiti di visibilità suggeriti dal server"
+            },
+            "singleTile": {
+                "tooltip": "Il layer viene renderizzato come immagine a singola tile quando aggiunto alla mappa con questa opzione abilitata"
             },
             "domainAliases": {
               "title": "Alias di dominio",
@@ -1495,7 +1661,12 @@
             "allowUnsecureLayers": {
               "label": "Consenti livelli non sicuri",
               "tooltip": "L'aggiunta di un livello da mappare con questa opzione abilitata, costringe l'applicazione ad applicare il proxy"
-            }
+            },
+            "sortBy": {
+                "label": "Ordina per",
+                "tooltip": "Aggiungi il prefisso dello spazio dei nomi alla proprietà del nome. cioè ${namespace}:${name}",
+                "placeholder": "Inserisci un nome"
+              }
         },
         "uploader": {
             "filename": "File Name",
@@ -1663,6 +1834,7 @@
                 "placeholders": {
                     "default": "Cerca...",
                     "string": "Digita testo da cercare...",
+                    "time": "Digita l'ora da cercare...",
                     "date": "Digita data da cercare...",
                     "number": "Digita numero o espressione..."
                 },
@@ -1670,6 +1842,7 @@
                     "editMode": "La ricerca veloce non è disponibile in modalità editing",
                     "default": "Cerca...",
                     "string": "Digita il testo da cercare...",
+                    "time": "Digita l'ora da cercare...",
                     "number": "Digita un numero o una espressione. Esempi: 10, > 2, < 10",
                     "date":"Digita una data o un'espressione. Utilizza {format} per la data",
                     "geometry": {
@@ -1677,6 +1850,33 @@
                       "enabled": "Clicca per selezionare le features / Alt + trascinamento per disegnare un filtro rettangolare. Tieni premuto anche ctrl per aggiungere features alla selezione corrente",
                       "applied": "Pulisci la selezione"
                     }
+                }
+            },
+            "attributeFilter": {
+                "placeholders": {
+                    "default": "Cerca...",
+                    "string": "Digita testo da cercare...",
+                    "time": "Digita l'ora da cercare...",
+                    "date": "Digita data da cercare...",
+                    "number": "Digita numero...",
+                    "range": "Prego entra ..."
+                },
+                "tooltips": {
+                    "editMode": "La ricerca veloce non è disponibile in modalità editing",
+                    "default": "Cerca...",
+                    "string": "Digita il testo da cercare...",
+                    "time": "Digita l'ora da cercare...",
+                    "number": "Digita un numero...",
+                    "date":"Digita una data. Utilizza {format} per la data",
+                    "geometry": {
+                      "disabled": "Filtra facendo click sulla mappa / Alt + trascinamento per disegnare un filtro rettangolare. Tieni premuto anche ctrl per aggiungere features alla selezione corrente",
+                      "enabled": "Clicca per selezionare le features / Alt + trascinamento per disegnare un filtro rettangolare. Tieni premuto anche ctrl per aggiungere features alla selezione corrente",
+                      "applied": "Pulisci la selezione"
+                    }
+                },
+                "rangeTab": {
+                    "start": "Inizio",
+                    "end": "Fine"
                 }
             },
             "toolbar": {
@@ -1712,7 +1912,9 @@
                     "edge": "Bordo",
                     "pixelTolerance": "Tolleranza (pixel)",
                     "loadingStrategy": "Strategia di caricamento"
-                  }
+                  },
+                "disableViewportFilter": "Non filtrare i dati in base alla vista corrente",
+                "enableViewportFilter": "Filtra i dati in base alla vista corrente"
             }
         },
         "layerdownload": {
@@ -1783,7 +1985,8 @@
             },
             "selectWidgetType": "Seleziona il tipo di widget",
             "selectChartType": {
-                "title": "Seleziona il tipo di widget"
+                "title": "Tipo di grafico",
+                "noResults": "Nessun grafico trovato"
             },
             "selectMap": {
                 "TOC": {
@@ -1816,17 +2019,25 @@
                 "wizard": {
                     "backToTypeSelection": "Torna alla selezione del tipo di grafico",
                     "backToWidgetTypeSelection": "Torna alla selezione del tipo di widget",
+                    "backToChartOptionConfiguration": "Torna alla configurazione delle opzioni del grafico",
                     "backToFeatureGrid": "Torna alla tabella degli attributi",
                     "backToLayerSelection": "Torna alla selezione del livello",
                     "backToMapSelection": "Torna alla selezione della mappa",
                     "backToPreview": "Torna all'anteprima",
                     "backToChartOptions": "Torna alle opzioni del grafico",
                     "selectALayer": "Seleziona un livello",
+                    "selectLayers": "Seleziona uno o più livelli",
                     "selectAMap": "Seleziona una o più mappe",
                     "configureChartOptions": "Configura le opzioni del grafico",
                     "configureWidgetOptions": "Configura le opzioni del widget",
-                     "backToTableOptions": "Torna alle opzioni della tabella",
+                    "errorChart": "Uno o più grafici non sono validi",
+                    "backToTableOptions": "Torna alle opzioni della tabella",
                     "configureTableOptions": "Configura le opzioni della tabella",
+                    "attributeEditorColumns": {
+                      "name": "Nome",
+                      "title": "Titolo",
+                      "tooltip": "Tooltip"
+                    },
                     "resetColumnsSizes": "Reimposta larghezza automatica delle colonne",
                     "updateWidget": "Aggiorna il widget",
                     "addTheWidget": "Aggiungi il widget",
@@ -1844,6 +2055,7 @@
                     "connectToTheMap": "Collegati alla mappa",
                     "selectMapToConnect": "Seleziona il widget da connettere",
                     "clearConnection": "Disconnetti",
+                    "disableConnectToMap": "Operazione non disponibile",
                     "classAttributes": {
                         "classColor": "Colore della Classe",
                         "classLabel": "Etichetta della Classe",
@@ -1867,7 +2079,8 @@
                         "editCustomColors": "Modifica Colori Personalizzati",
                         "maxValue": "Valore Massimo",
                         "minValue": "Valore Minimo",
-                        "title": "Impostazioni dei Colori Personalizzati"
+                        "title": "Impostazioni dei Colori Personalizzati",
+                        "removeCustomColors": "Rimuovere classi personalizzate"
                     }
                 },
                 "errors": {
@@ -1875,11 +2088,24 @@
                     "noAttributesDescription": "Il layer selezonato non ha atrributi da mostrare. Selezionare un altro layer o un altro tipo di widget.",
                     "noWidgetsAvailableTitle": "Impossibile creare il widget per il livello selezionato",
                     "noWidgetsAvailableDescription": "<p><strong> Prova a selezionare un altro livello o tipo di widget </strong> </p><p>Il server non fornisce i servizi necessari per il livello e il tipo di widget selezionato </p> <p> Le possibili cause sono: <ul> <li> Il livello selezionato è un livello raster </li> <li> Il servizio WFS non è disponibile </li><li> Il processo WPS <code>gs:aggregate</code> non è disponibile </li> </ul></p>",
+                    "attributesNotMatchingDescription": "<p><strong>Prova a selezionare un altro livello</strong></p><p>Gli attributi dei livelli selezionati non corrispondono al widget dipendente dal genitore</p>",
                     "checkAtLeastOneAttribute": "seleziona almeno un attributo",
                     "noMapAvailableForLegend": "Nessuna mappa disponibile",
                     "noMapAvailableForLegendDescription": "C'è bisogno almeno di una mappa per creare una lagenda"
                 },
-                "setupFilter": "Configura un filtro per il livello selezionato"
+                "setupFilter": "Configura un filtro per il livello selezionato",
+                "addNewLayers": "Aggiungi nuovi livelli",
+                "deleteChart": "Elimina il grafico corrente",
+                "editTraceTitle": "Modifica titolo della traccia",
+                "addNewTrace": "Aggiungi nuova traccia",
+                "deleteTrace": "Elimina la traccia corrente",
+                "selectLayer": "Seleziona layer",
+                "filterLayer": "Filtra il layer corrente",
+                "editChartTitle": "Modifica titolo del grafico",
+                "addNewCharts": "Aggiungi nuovo grafico",
+                "editAxisTitle": "Modifica titolo asse",
+                "addNewAxis": "Aggiungi nuovo asse",
+                "removeAxis": "Rimouvi asse corrente"
             },
             "widget": {
                 "menu": {
@@ -1905,6 +2131,13 @@
                 "placeholder": "Inserisci il nome della mappa",
                 "selectLabel": "Seleziona una mappa",
                 "infoOnHide": "Espandi il widget per vedere il selettore della mappa",
+                "subTitle": "<p>Per la selezione multipla,<br>su Windows usa CTRL + clic su <br> e su Mac usa control + clic</p>"
+            },
+            "chartSwitcher": {
+                "noResults": "Nessun livello trovato",
+                "placeholder": "Inserisci il nome del grafico",
+                "selectLabel": "Grafico",
+                "infoOnHide": "Espandi il widget per vedere il selettore del grafico",
                 "subTitle": "<p>Per la selezione multipla,<br>su Windows usa CTRL + clic su <br> e su Mac usa control + clic</p>"
             },
             "chartType": {
@@ -1985,16 +2218,19 @@
             },
             "mapSync": "Filtra dati sull'area visibile",
             "displayLegend": {
+                "default": "Mostra legenda",
                 "line": "Mostra legenda",
                 "pie": "Mostra legenda",
                 "bar": "Mostra legenda",
                 "gauge": "Mostra etichette"
             },
             "advanced": {
+              "font": "Font",
               "displayCartesian": "Nascondi griglia",
               "xAxis": "Asse X",
               "xAxisAngle": "Rotazione etichetta",
               "hideLabels": "Nascondi etichette",
+              "includeLegendPercent": "Includi percentuali nella legenda",
               "format": "Formato",
               "prefix": "Prefisso",
               "suffix": "Suffisso",
@@ -2013,6 +2249,28 @@
               "barChartType": "Tipo di Grafico a Barre",
               "groupedBarChart": "Raggruppato",
               "stackedBarChart": "Impilato",
+              "valueFormatting": "Formattazione valore della traccia",
+              "traceAxes": "Assi traccia",
+              "traceData": "Dati traccia",
+              "traceLegendOptions": "Opzioni di legenda della traccia",
+              "traces": "Tracce",
+              "axes": "Assi",
+              "traceStyle": "Stile traccia",
+              "mode": "Modalità",
+              "lineColor": "Colore linea",
+              "lineWidth": "Spessore linea",
+              "markerColor": "Colore punto",
+              "markerSize": "Dimensione punto",
+              "layout": "Layout",
+              "left": "Sinistra",
+              "right": "Destra",
+              "free": "Libero",
+              "top": "Sopra",
+              "bottom": "Sotto",
+              "side": "Posizione",
+              "anchor": "Ancoraggio",
+              "sortBy": "Ordina per",
+              "reverseRampColor": "Inverti rampa colori",
               "axisTypes": {
                 "auto": "Auto",
                 "linear": "Lineare",
@@ -2091,7 +2349,7 @@
                     "title": "Errore di caricamento del contesto",
                     "notAccessible": "Risorsa non accessibile",
                     "pleaseLogin": "Alcune risorse potrebbero non essere pubbliche. Si prega di provare ad effettuare il login",
-                    "unknownError": "Si è verificato un errore durante il caricamento della mappa o del contesto. Si prega di contattare l'amministratore",
+                    "unknownError": "<p><small>La causa potrebbe essere una delle seguenti ragioni:</small> <ul><li>non hai i permessi per accedere al contesto e/o alla mappa</li> <li>stai tentando di accedere a un contesto e/o mappa che non esiste</li> <li>il contesto e/o mappa è stato rimosso</li> <li>la proiezione della mappa non è configurata</li></ul> <p>",
                     "notFound": "Risorsa non trovata"
                 },
                 "context": {
@@ -2215,8 +2473,8 @@
             "addMarkRule": "Aggiungi regola marker",
             "shape": "Forma",
             "fill": "Colore riempimento",
-            "clampToGround": "Adattarsi al terreno",
-            "clampOutlineToGround": "Adattare il contorno al terreno",
+            "clampToGround": "Adattare alla superficie",
+            "clampOutlineToGround": "Adattare alla superficie",
             "msBringToFront": "Portare in primo piano",
             "heightReferenceFromGround": "Riferimento di altezza da terra",
             "height": "Altezza",
@@ -2226,12 +2484,12 @@
             "strokeWidth": "Spessore linea",
             "radius": "Raggio",
             "rotation": "Rotazione",
-            "classificationtype": "Tipo di poligono",
-            "3dTile": "3D",
+            "classificationtype": "Superficie di riferimento",
+            "3dTile": "3D Tiles",
             "terrain": "Terreno",
             "both": "Ambedue",
-            "relative": "Parente",
-            "clamp": "Morsetto",
+            "relative": "Relativo",
+            "clamp": "A terra",
             "addIconSymbolizer": "Aggiungi stile icona",
             "addIconRule": "Aggiungi regola icona",
             "image": "Image",
@@ -2277,8 +2535,8 @@
             "fontStyleItalic": "Corsivo",
             "fontWeightNormal": "Normale",
             "fontWeightBold": "Grassetto",
-            "boolTrue": "Si",
-            "boolFalse": "No",
+            "boolTrue": "Attivo",
+            "boolFalse": "Non attivo",
             "colorMapType": {
               "label": "Tipo di mappa dei colori",
               "ramp": "Rampa",
@@ -2304,7 +2562,7 @@
             "openArrow": "Freccia aperta",
             "closedArrow": "Freccia chiusa",
             "band": "Bande",
-            "none": "None",
+            "none": "Nessuno",
             "normalize": "Normalizza",
             "histogram": "Istogramma",
             "contrastEnhancement": "Miglioramento del contrasto",
@@ -2339,6 +2597,8 @@
             "alertForceTranslate": "Passando all'editor visuale perderai tutte le modifiche applicate con l'editor testuale. Sei sicuro di passare alla modalità editor visuale?",
             "stayInTextareaEditor": "No, continua con l'editor testuale",
             "useLatestValidStyle": "Sì, passa all'editor visuale",
+            "alertCustomParamsNotValid": "Perderai tutte le modifiche aggiunte nella modalità di testo chiudendo l'editor parametri personalizzati. Sei sicuro di chiudere l'editor?",
+            "closeCustomParamsEditor": "Sì, chiudi l'editore",
             "validationError": "Errore di validazione",
             "incorrectPropertyInputError": "Questo è probabilmente dovuto ad un valore mancante o non valido negli input delle proprietà dell'editor di stile.",
             "emptyRuleEditorTitle": "Aggiungi nuove regole",
@@ -2350,6 +2610,7 @@
             "redChannel": "Canale rosso",
             "greenChannel": "Canale verde",
             "blueChannel": "Canale blue",
+            "alphaChannel": "Canale alfa",
             "grayChannel": "Canale",
             "ruleClassification": "Classificazione",
             "ruleRaster": "Raster",
@@ -2364,12 +2625,79 @@
             "warningTextOrderTitle": "Attenzione",
             "warningTextOrder": "L'ordine delle regole che contengono etichette potrebbe non corrispondere all'ordine di disegno sulla mappa. Questo comportamento è correlato ad alcuni motori di rendering che disegnano etichette sopra alle altre regole",
             "invalidProperty": "Il tipo della proprietà { key } non è valido",
-            "notSupportedVariable": "La variabile { key } non è supportata dal tileset"
+            "notSupportedVariable": "La variabile { key } non è supportata dal tileset",
+            "addModelRule": "Aggiungi regola modello 3D",
+            "model": "Modello 3D",
+            "placeholderEnterModelUrl": "Inserisci l'URL di un file .glb",
+            "invalidModelUrl": "L'URL fornito non è valido",
+            "scale": "Scala",
+            "heading": "Rotazione asse Z",
+            "pitch": "Rotazione asse X",
+            "roll": "Rotazione asse Y",
+            "color": "Colore",
+            "pointHeight": "Altezza punto",
+            "leaderLineColor": "Colore linea guida",
+            "leaderLineWidth": "Spessore linea guida",
+            "geometryTransformation": "Trasformazione della geometria",
+            "center": "Centro",
+            "startPoint": "Punto iniziale",
+            "endPoint": "Punto finale",
+            "line": "Linea",
+            "geodesicLine": "Linea geodesica",
+            "geodesic": "Geodesico",
+            "outlineStyle": "Stile contorno",
+            "strokeStyle": "Stile del tratto",
+            "anchor": "Punto di ancoraggio",
+            "addCircleRule": "Aggiungi regola cerchio",
+            "left": "Sinistra",
+            "right": "Destra",
+            "topLeft": "In alto a sinistra",
+            "top": "In alto",
+            "topRight": "In alto a destra",
+            "bottomLeft": "In basso a sinistra",
+            "bottom": "In basso",
+            "bottomRight": "In basso a destra",
+            "glyph": "Glifo",
+            "marker": "Marker",
+            "filterByName": "Filtra per nome...",
+            "fillOpacity": "Opacità di riempimento",
+            "outlineColorOpacity": "Opacità del contorno",
+            "strokeColorOpacity": "Opacità del tratto",
+            "selectProperty": "Seleziona proprietà",
+            "leaderLineColorOpacity": "Opacità linea guida",
+            "colorOpacity": "Opacità",
+            "offset": "Offset",
+            "propertyValue": "Valore della proprietà",
+            "colorPropertyInfoMessage": "Il valore della proprietà colore deve essere una stringa esadecimale. Esempio: \"#ffffff\"",
+            "pointCloudSizeInfo": "Il raggio della nuvola di punti viene applicato solo quando le opzioni di attenuazione sono disabilitate. L'opzione di attenuazione ha la precedenza su questa proprietà.",
+            "msTranslateX": "Offset x",
+            "msTranslateY": "Offset y",
+            "geometryHeight": "Altezza della geometria",
+            "msExtrusionRelativeToGeometry": "Estrusione relativa alla geometria",
+            "msExtrudedHeight": "Altezza estrusa",
+            "msExtrusionColor": "Colore estrusione",
+            "msExtrusionType": "Tipo estrusione",
+            "wall": "Muro",
+            "enableBanding": "Stile a fascia",
+            "selectChannel": "Seleziona una banda",
+            "minLabel": "Min",
+            "maxLabel": "Max",
+            "minSourceValue": "Valore minimo dei dati di origine",
+            "maxSourceValue": "Valore massimo dei dati di origine",
+            "customParams": "Parametri personalizzati",
+            "wrongFormatMsg": "La configurazione immessa è in formato sbagliato !!"
         },
         "playback": {
             "settings": {
                 "tooltip": "Impostazioni",
-                "title": "Impostazioni Riproduzione",
+                "tab": {
+                    "playback": "Riproduzione",
+                    "layers": "Livelli"
+                },
+                "layer": {
+                    "enabled": "Mostra o nascondi il livello dalla timeline",
+                    "disabled": "Il livello guida non può essere nascosto"
+                },
                 "frameDuration": "Durata Fotogramma",
                 "range": {
                     "title": "Intervallo di animazione",
@@ -2428,6 +2756,11 @@
             "disablePlayBack": "Disabilita i controlli di riproduzione",
             "expand" : "Espandi",
             "collapse" : "Riduci",
+            "reset" : {
+                "range": "Imposta l'intervallo per includere tutti i dati",
+                "singleNow": "Imposta l'ora su adesso",
+                "singleNearest": "Imposta l'ora sul valore più vicino a adesso"
+            },
             "collapsed": {
                 "title": "La timeline è stata collassata",
                 "tooltip": "Clicca qui per espanderla di nuovo"
@@ -2456,7 +2789,8 @@
                 "layer": "Cerca Layers",
                 "access": "Cerca Permesso",
                 "ip": "###.###.###.###/##",
-                "priority": "Seleziona Priorità"
+                "priority": "Seleziona Priorità",
+                "filterAny": "Qualsiasi"
             },
             "menutitle": "Configura Regole di Accesso",
             "tooltip": {
@@ -2467,7 +2801,9 @@
                 "deleteT": "Rimuovi regole selezionate",
                 "cacheT": "Pulisci la cache",
                 "save": "Salva regola corrente",
-                "close": "Esci da modifica regola"
+                "close": "Esci da modifica regola",
+                "showAllRules": "Mostra tutte le regole applicabili",
+                "filterRuleList": "Filtra la lista usando il valore selezionato"
             },
             "navItems": {
                 "main": "Regola Generica",
@@ -2722,17 +3058,22 @@
             "title": "Modifica proprietà",
             "name": "Nome",
             "description": "Descrizione",
+            "titleInput": "Titolo",
             "createdAt": "Creata",
             "modifiedAt": "Modificata",
             "namePlaceholder": "Inserisci un nome..",
             "descriptionPlaceholder": "Inserisci una descrizione...",
+            "titlePlaceholder": "Digita un titolo...",
             "confirmCloseText": "Ci sono modifiche non salvate, sei sicuro di voler chiudere senza salvare?",
             "close": "Chiudi",
             "cancel": "Annulla",
             "saveSuccessTitle": "Successo",
             "saveSuccessMessage": "Salvata con successo",
             "saveTooltip": "Salva",
-            "saveAsTooltip": "Salva con nome"
+            "saveAsTooltip": "Salva con nome",
+            "unadvertised": "Non pubblicizzato",
+            "creator": "Creato da",
+            "editor": "Ultima modifica di"
         },
         "mapEditor": {
             "modalTitle": "Editor di Mappa",
@@ -2811,7 +3152,7 @@
             "title": "Titolo",
             "titlePlaceholder": "Inserisci il nome visualizzato",
             "add": "Inserisci",
-            "thumbnailMessage": "Le dimensioni delle immagini devono essere quadrate di 98 px x 98 px o 128 px x 128 px, max 500kb",
+            "thumbnailMessage": "Carica immagine quadrata di 128px x 128px, max 500kb",
             "imageUploadMessage": "Fare clic o trascinare e rilasciare per aggiungere un'immagine",
             "additionalParameters": "Parametri aggiuntivi",
             "addAdditionalParameterTooltip": "Aggiungi parametro",
@@ -2887,6 +3228,10 @@
             "description": "Consente di aggiungere un filtro a un livello",
             "title": "Filtra Livello"
           },
+          "GeoProcessing": {
+            "description": "Consente di geo processare i livelli utilizzando il buffer e l'intersezione dei processi wps",
+            "title": "Processi di Geoelaborazione"
+          },
           "HelpLink": {
             "description": "Un pulsante per accedere alla documentazione di MapStore",
             "title": "Link alla documentazione"
@@ -2906,6 +3251,10 @@
           "Login": {
             "description": "Login Tool",
             "title": "Login"
+          },
+          "LongitudinalProfileTool": {
+            "description": "Consente all'utente di generare un profilo longitudinale data una geomtria lineare e un layer con attributo di elevazione. Necessita di configurazione",
+            "title": "Profilo Longitudinale"
           },
           "MapCatalog": {
             "description": "Consente la navigazione, la modifica, l'eliminazione e il caricamento di mappe disponibili sul server",
@@ -2962,6 +3311,10 @@
           "Share": {
             "description": "Permette di condividere la mappa in diversi modi (link, QR-Code, embed, social network ...)",
             "title": "Strumento di condivisione"
+          },
+          "Permalink": {
+            "description": "Permette di creare un permalink della risorsa attualmente in vista",
+            "title": "Permalink"
           },
           "StreetView": {
             "title": "Street View",
@@ -3027,6 +3380,10 @@
           "ZoomOut": {
             "description": "Pulsante che diminuisce il livello di zoom della mappa",
             "title": "Zoom Out"
+          },
+          "MapViews": {
+            "description": "Questo plugin permette di aggiungere una sequenza di viste differenti all'interno di una mappa",
+            "title": "MapViews"
           }
         },
         "contextCreator": {
@@ -3158,7 +3515,25 @@
                 "unknownError": "Si è verificato un errore imprevisto"
             },
             "undo": "Sei sicuro di voler abbandonare la sessione di modifica del contesto?",
-            "showTutorial": "Mostra tutorial"
+            "showTutorial": "Mostra tutorial",
+            "errors":{
+                "loading": {
+                    "title": "Errore durante il caricamento del contesto",
+                    "import": "Impossibile importare il contesto",
+                    "export": "Impossibile esportare il contesto"
+                }
+            },
+            "import": "Importare",
+            "importTooltip": "Per importare un contesto, vai al passaggio 1",
+            "export": "Esportare",
+            "importDialog": {
+                "selectFiles": "Seleziona un file",
+                "heading": "Rilascia un file context.json esportato in precedenza",
+                "note": "I dati nel file importato sostituiranno i dati nel contesto corrente"
+            },
+            "exportDialog": {
+                "heading": "Esporta questo contesto come file"
+            }
         },
         "contextManager": {
             "title": "Gestisci contesti",
@@ -3234,6 +3609,68 @@
                 "message": "Si è verificato un errore imprevisto durante la sincronizzazione dei livelli. Probabilmente c'è un bug in MapStore"
             },
             "layerType": "tipo: {type}"
+        },
+        "mapViews": {
+            "description": "Descrizione",
+            "position": "Posizione",
+            "animation": "Animazione",
+            "mask": "Maschera",
+            "globeTranslucency": "Traslucenza Globo",
+            "layersOptions": "Opzioni layers",
+            "cameraPosition": "Posizione camera",
+            "longitude": "Longitudine",
+            "latitude": "Latitudine",
+            "height": "Altezza (m)",
+            "centerPosition": "Posizione centro",
+            "captureThisViewPositions": "Cattura le posizioni di questa vista",
+            "durationLabel": "Durata (s)",
+            "flyToLabel": "Transizione animazione durante la navigazione",
+            "maskEnable": "Abilita maschera",
+            "maskLayer": "Layer",
+            "maskInverse": "Inverti",
+            "maskInverseOffset": "Offset (m)",
+            "globeTranslucencyEnable": "Abilita traslucenza",
+            "globeTranslucencyOpacity": "Opacità",
+            "globeTranslucencyFadeByDistance": "Dissolvenza traslucenza in base alla distanza",
+            "globeTranslucencyNearDistance": "Distanza minima (m)",
+            "globeTranslucencyFarDistance": "Distanza massima (m)",
+            "showClippingLayersGeometries": "Mostra le geometrie dei livelli di ritaglio",
+            "terrain": "Terreno",
+            "clippingSourceLayer": "Sorgente layer di ritaglio",
+            "clippingFeature": "Features di ritaglio",
+            "clippingInverse": "Ritaglio inverso",
+            "layerOpacity": "Opacità",
+            "showViewsGeometries": "Mostra le posizioni delle viste",
+            "addInitialView": "Fai clic sul pulsante più per aggiungere una nuova vista",
+            "removeView": "Rimuovi vista",
+            "resetLayerOverrides": "Ripristina le modifiche per allineare il livello al valore predefinito",
+            "hideLayer": "Nascondi layer",
+            "showLayer": "Mostra layer",
+            "undoChanges": "Annulla modifiche",
+            "redoChanges": "Ripeti modifiche",
+            "addNewView": "Aggiungi nuova vista",
+            "addNewViewBelowSelected": "Aggiungi una nuova vista sotto quella selezionata",
+            "hideDescription": "Nascondi descrizione",
+            "showDescription": "Mostra descrizione",
+            "copyCurrentView": "Copia vista corrente",
+            "edit": "Modifica",
+            "stopEdit": "Chiudi modifica",
+            "showViewsList": "Mostra elenco viste",
+            "hideViewsList": "Nascondi elenco viste",
+            "gotToFirstView": "Vai alla prima vista",
+            "gotToPreviousView": "Vai alla vista precedente",
+            "play": "Avvia navigazione",
+            "pause": "Pausa navigazione",
+            "gotToNextView": "Vai alla vista successiva",
+            "gotToLastView": "Vai all'ultima vista",
+            "maskWithGlobeTranslucencyWarning": "L'abilitazione simultanea della maschera e della traslucenza del globo potrebbe causare artefatti nella visualizzazione. Utilizzare solo una di queste due opzioni per vista",
+            "deactivateMapViews": "Disabilita viste",
+            "activateMapViews": "Attiva viste",
+            "maskOtherVisibleLayerWarning": "Sono visibili altri layer vettoriali, tutte le features poligonali visibili nella mappa verranno applicate a tutte le 3D tiles visibili",
+            "resourceLayerRequestError": "Non è stato possibile completare la richiesta al layer selezionato. Verifica se il layer è ancora disponibile",
+            "maskLayerPolygonError": "Il livello selezionato non contiene elementi poligonali quindi la maschera potrebbe non avere effetto",
+            "clipPolygonFeaturesNotAvailable": "Il livello selezionato non contiene elementi poligonali, seleziona un altro livello",
+            "addNewLayerToTheMap": "La mappa è vuota. Aggiungi nuovi layer all'interno della mappa per renderli disponibili nell'elenco della vista"
         },
         "tutorial": {
             "title": "Tutorial",
@@ -3534,10 +3971,174 @@
           "messages": {
             "noDataForPosition": "Non ci sono dati Street View per questa posizione",
             "unknownError": "Errore sconosciuto"
-          }
+          },
+            "loadingAPI": "Caricamento API...",
+            "cyclomedia": {
+              "initializing": "Inizializzazione Street Smart API...",
+              "loadingAPI": "Caricamento Street Smart API...",
+              "changeCredentials": "Cambia credenziali Street Smart",
+              "insertCredentials": "Inserisci le tue credenziali Street Smart",
+              "emptyDescription": "Clicca su uno dei punti blu sulla mappa per visualizzare le immagini",
+              "username": "Nome utente",
+              "password": "Password",
+              "submit": "Invia",
+              "zoomIn": "Effettua un ulteriore zoom sulla mappa per visualizzare dove sono disponibili le immagini",
+              "errorOccurred": "Si è verificato un errore: ",
+              "errors": {
+                "invalidCredentials": "Credenziali non valide",
+                "projectionNotAvailable": "La proiezione {srs} configurata non è disponibile. Contattare l'amministratore."
+              },
+              "reloadAPI": "Ricarica API"
+            }
         },
         "sidebarMenu": {
           "showMoreItems": "Mostra più elementi"
+        },
+        "longitudinalProfile": {
+          "open": "Apri profilo longitudinale",
+          "close": "Chiudi profilo longitudinale",
+          "title": "Profilo longitudinale",
+          "draw": "Disegna profilo",
+          "import": "Carica file",
+          "select": "Profilo da livello",
+          "parameters": "Parametri",
+          "elevation": "Altitudine (m)",
+          "crsSelector": "Specifica una proiezione per il file DXF",
+          "distance": "Distanza (m)",
+          "chart": "Grafico",
+          "infos": "Informazione",
+          "preferences": "Preferenze",
+          "CRS": "CRS",
+          "uom": "Unità",
+          "fileSelected": "File selezionato: ",
+          "uomMeters": "metri",
+          "source": "Sorgente",
+          "export": "Esporta",
+          "downloadGeoJSON": "GeoJSON",
+          "downloadDXF": "DXF",
+          "downloadCSV": "CSV",
+          "downloadPNG": "PNG",
+          "downloadPDF": "PDF",
+          "info": {
+            "points": " punti",
+            "totalPoints": "Numero di punti processati:",
+            "layer":"Livello:",
+            "line":"Distanza:",
+            "up":"Dislivello Positivo:",
+            "down":"Dislivello Negativo:",
+            "noInfos": "Nessuna informazione disponibile"
+          },
+          "help": {
+            "draw": "Clicca per disegnare una linea in mappa. Clicca ancora una volta per concludere l'interazione.",
+            "select": "Per favore seleziona un livello nella TOC e clicca una linea in mappa per generare il profilo<br/>Livello selezionato: {layerName}",
+            "noLayer": "Nessun livello selezionato",
+            "notSupportedLayer": "Non supportato. Per favore seleziona WMS, WFS o un livello vettoriale."
+          },
+          "warnings": {
+            "noLayerSelected": "Per favore seleziona prima un livello",
+            "layerNotSupported": "Il livello selezionato non è supportato. Per favore WMS, WFS o un livello vettoriale",
+            "noFeatureInPoint": "Non è stata trovata una linea nel punto cliccato.",
+            "noLineFeatureFound": "Non è stata trovata una linea nelfile importato.",
+            "fallbackToProjection": "La proiezione del livello di riferimento \"{defaultReferential}\" non è supportata. Viene pertanto usato questo  livello di riferimento \"{referential}\" con questa proiezione \"{projection}\"."
+          },
+          "errors": {
+            "outsideCoverage": "La linea fornita si trova al di fuori del bbox del livello",
+            "loadingError": "Errore durante il caricamento di dati per il profilo longitudinale",
+            "unableToSetupPlugin": "Impossibile inizializzare il profilo longitudinale",
+            "defaultReferentialNotFound": "Il livello di riferimento di default è configurato ma non è stato trovato nella lista. Per favore aggiorna il problema della configurazione dello strumento.",
+            "projectionNotSupported": "Il livello di riferimento con la proiezione supportata dalla mappa non è stato trovato. Per favore aggiorna la configurazione dello strumento o aggiungi la proiezione non supportata.",
+            "cannotDownloadPDF": "Non è stato possibile scaricare il PDF contente la mappa attuale perchè contiene riferimenti esterni a questo dominio, rimuovili, salva la mappa e ricarica la pagina per riprovare.",
+            "cannotDownloadPNG": "Non è stato possibile scaricare il grafico in PNG."
+          },
+          "settings": {
+            "chartTitle": "Titolo del grafico",
+            "referential": "Livello del profilo",
+            "distance": "Distanza (m)"
+          },
+          "dropZone": {
+            "heading": "<p><h4>Carica il file qui</h4><small>o</small></p>",
+            "selectFiles": "Seleziona il file...",
+            "infoSupported": "<p><small>Formati supportati: GeoJSON, DXF, Shapefiles</small></p>",
+            "dxfGeometryNotSupported": "Solo LWPOLYLINE è supportata nel DXF"
+          }
+        },
+        "GeoProcessing": {
+          "title": "Processi di Geoelaborazione",
+          "emptyTitle": "Questi processi WPS devono essere installati in geoserver per poter usare questo processo:",
+          "emptyDescription": "<ul><li>geo:buffer</li><li>gs:IntersectionFeatureCollection</li><li>gs:CollectGeometries</li></ul>",
+          "sourceLayer": "Livello sorgente",
+          "sourceFeature": "Feature sorgente",
+          "tool": "Seleziona un processo",
+          "highlight": "Evidenzia le feature in mappa",
+          "bufferTool": "Buffer",
+          "distance": "Distanza",
+          "distanceUom": "Unita di misura",
+          "km": "km",
+          "m": "m",
+          "run": "Esegui",
+          "intersectionTool": "Intersezione",
+          "noMatchedLayer": "Nessun layer corrisponde al filtro inserito",
+          "noMatchedFeature": "Nessuna Feature corrisponde al filtro inserito",
+          "intersectionLayer": "Livello intersezione",
+          "intersectionFeature": "Feature intersezione",
+          "advancedSettings": "Opzioni avanzate",
+          "quadrantSegments": "Segmenti del quadrante",
+          "quadrantSegmentsTooltip": "Numero di segmenti",
+          "capStyle": "Stile",
+          "capStyleTooltip": "Style da usare",
+          "round": "Rotondo",
+          "flat": "Piatto",
+          "square": "Squadrato",
+          "firstAttributeToRetain": "Primo attributo da includere",
+          "secondAttributeToRetain": "Secondo attributo da includere",
+          "intersectionMode": "Modalità di intersezione",
+          "percentagesEnabled": "Percentuiali abilitate",
+          "areasEnabled": "Aree abilitate",
+          "firstAttributeToRetainTooltip": "Primo attributo della collezione di feature",
+          "secondAttributeToRetainTooltip": "Secondo attributo della collezione di feature",
+          "intersectionModeTooltip": "Specifica la geometria calcolata dalle features",
+          "percentagesEnabledTooltip": "Indica se emettere le percentuali dell'area feature",
+          "areasEnabledTooltip": "Indica se emettere aree features",
+          "noMatchedMode": "Nessuna modalità corrisponde al filtro corrente",
+          "INTERSECTION": "INTERSEZIONE",
+          "FIRST": "PRIMO",
+          "SECOND": "SECONDO",
+          "true": "vero",
+          "false": "falso",
+          "notifications": {
+            "errorMissingUrl": "È necessario fornire un URL wps del geoserver per esegurie il processo per i livelli {layerName}. È possibile configurare la proprietà wpsUrl nel plugin GeoProcessing",
+            "errorIntersectGFI": "Si è verificato un errore durante l'intersezione delle geometrie. Non è stato possibile creare il livello di intersezione.",
+            "errorGFI": "Si è verificato un errore durante il caricamento della feature",
+            "errorGetFeature": "Si è verificato un errore durante il caricamento della feature per ottenerne la geometria",
+            "layerNotSupported": "Il layer selezionato non è supportato. Seleziona WMS, WFS o layer vettoriale.",
+            "noFeatureInPoint": "Nessuna feature è stata trovata nel punto cliccato.",
+            "featureFound": "È stata trovata una feature nel punto cliccato.",
+            "noLayerSelected": "Seleziona prima il livello.",
+            "successfulIntersection": "L'operazione di intersezione è andata a buon fine e un nuovo livello è stato creato e aggiunto alla tabella dei contenuti",
+            "successfulBuffer": "L'operazione Buffer è andata a buon fine e un nuovo livello è stato creato e aggiunto alla tabella dei contenuti",
+            "errorBuffer": "L'operazione Buffer è fallita",
+            "emptyIntersection": "Non c'è una interesezione tra i dati utilizzati.",
+            "errorGettingFC": "Non è stato possibile ottenere la collezione di geometrie dal layer {layerName}",
+            "errorGettingFeaturesList": "Non è stato possibile ottenere la lista di features dal layer {layerName}"
+          },
+          "warningTitle": "Attenzione",
+          "warningBody": "Non hai selezionato una funzione e questo potrebbe rallentare le prestazioni del geoserver. Vuoi continuare?",
+          "warningConfirmText": "Sì",
+          "warningCancel": "Annulla",
+          "tooltip": {
+            "clickToSelectFeature": "Fai click per selezionare una feature",
+             "invalidLayers": "Uno dei livelli che hai selezionato non può essere utilizzato all'interno di questo processo",
+             "fillRequiredDataIntersection": "Seleziona almeno il livello di origine e il livello di intersezione",
+             "fillRequiredDataBuffer": "Seleziona almeno il livello di origine",
+             "pointAndPolygon": "Puoi selezionare un livello puntuale solo per il livello di intersezione",
+             "siderBarBtn": "Strumenti di geoelaborazione",
+             "selectFeature": "Seleziona una funzione",
+             "validFeature": "Questa feature è valida",
+             "invalidFeature": "Questa feature non è valida",
+             "selectLayer": "Seleziona un livello",
+             "validLayer": "Questo livello è valido e può essere utilizzato in questo processo",
+             "invalidLayer": "Questo livello non supporta i processi wps necessari \ngeo:buffer\ngs:IntersectionFeatureCollection\ngs:CollectGeometries\n\no è un livello raster"
+          }
         }
     }
 }

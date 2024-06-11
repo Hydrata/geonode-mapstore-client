@@ -20,7 +20,8 @@ describe('Test App Routes Utils', () => {
             CATALOGUE: 'CatalogueRoute',
             DATASET_UPLOAD: 'UploadDatasetRoute',
             DOCUMENT_UPLOAD: 'UploadDocumentRoute',
-            COMPONENTS: 'ComponentsRoute'
+            COMPONENTS: 'ComponentsRoute',
+            MAP_VIEWER: 'MapViewerRoute'
         });
     });
 
@@ -55,41 +56,61 @@ describe('Test App Routes Utils', () => {
     });
 
     it('test catalogue routes', () => {
-        const catalogueRoutes = routeUtils.CATALOGUE_ROUTES;
-        expect(catalogueRoutes[0].path).toEqual(['/dataset/:pk']);
-        expect(catalogueRoutes[0].name).toEqual('dataset_viewer');
-        expect(catalogueRoutes[0].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[1].path).toEqual(['/dataset/:pk/edit/data']);
-        expect(catalogueRoutes[1].name).toEqual('dataset_edit_data_viewer');
-        expect(catalogueRoutes[1].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[2].path).toEqual(['/dataset/:pk/edit/style']);
-        expect(catalogueRoutes[2].name).toEqual('dataset_edit_style_viewer');
-        expect(catalogueRoutes[2].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[3].path).toEqual([ '/map/:pk' ]);
-        expect(catalogueRoutes[3].name).toEqual('map_viewer');
-        expect(catalogueRoutes[3].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[4].path).toEqual(['/geostory/:pk']);
-        expect(catalogueRoutes[4].name).toEqual('geostory_viewer');
-        expect(catalogueRoutes[4].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[5].path).toEqual(['/document/:pk']);
-        expect(catalogueRoutes[5].name).toEqual('document_viewer');
-        expect(catalogueRoutes[5].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[6].path).toEqual(['/dashboard/:pk']);
-        expect(catalogueRoutes[6].name).toEqual('dashboard_viewer');
-        expect(catalogueRoutes[6].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[7].path).toEqual([
+        const [
+            datasetRoute,
+            datasetEditDataRoute,
+            datasetEditStyleRoute,
+            mapRoute,
+            geoStoryRoute,
+            documentRoute,
+            dashboardRoute,
+            mapViewerMapRoute,
+            mapViewerRoute,
+            catalogueRoute,
+            uploadDatasetRoute,
+            uploadDocumentRoute
+        ] = routeUtils.CATALOGUE_ROUTES;
+        expect(datasetRoute.path).toEqual(['/dataset/:pk']);
+        expect(datasetRoute.name).toEqual('dataset_viewer');
+        expect(datasetRoute.shouldNotRequestResources).toEqual(true);
+        expect(datasetEditDataRoute.path).toEqual(['/dataset/:pk/edit/data']);
+        expect(datasetEditDataRoute.name).toEqual('dataset_edit_data_viewer');
+        expect(datasetEditDataRoute.shouldNotRequestResources).toEqual(true);
+        expect(datasetEditStyleRoute.path).toEqual(['/dataset/:pk/edit/style']);
+        expect(datasetEditStyleRoute.name).toEqual('dataset_edit_style_viewer');
+        expect(datasetEditStyleRoute.shouldNotRequestResources).toEqual(true);
+        expect(mapRoute.path).toEqual([ '/map/:pk' ]);
+        expect(mapRoute.name).toEqual('map_viewer');
+        expect(mapRoute.shouldNotRequestResources).toEqual(true);
+        expect(geoStoryRoute.path).toEqual(['/geostory/:pk']);
+        expect(geoStoryRoute.name).toEqual('geostory_viewer');
+        expect(geoStoryRoute.shouldNotRequestResources).toEqual(true);
+        expect(documentRoute.path).toEqual(['/document/:pk']);
+        expect(documentRoute.name).toEqual('document_viewer');
+        expect(documentRoute.shouldNotRequestResources).toEqual(true);
+        expect(dashboardRoute.path).toEqual(['/dashboard/:pk']);
+        expect(dashboardRoute.name).toEqual('dashboard_viewer');
+        expect(dashboardRoute.shouldNotRequestResources).toEqual(true);
+        expect(mapViewerMapRoute.path).toEqual(['/viewer/:pk/map/:mapPk']);
+        expect(mapViewerMapRoute.name).toEqual('viewer');
+        expect(mapViewerMapRoute.shouldNotRequestResources).toEqual(true);
+        expect(mapViewerRoute.path).toEqual(['/viewer/:pk']);
+        expect(mapViewerRoute.name).toEqual('viewer');
+        expect(mapViewerRoute.shouldNotRequestResources).toEqual(true);
+        expect(catalogueRoute.path).toEqual([
             '/',
             '/search/',
             '/search/filter',
             '/detail/:pk',
-            '/detail/:ctype/:pk'
+            '/detail/:ctype/:pk',
+            '/:page'
         ]);
-        expect(catalogueRoutes[7].name).toEqual('catalogue');
-        expect(catalogueRoutes[8].path).toEqual(['/upload/dataset']);
-        expect(catalogueRoutes[8].name).toEqual('upload_dataset');
-        expect(catalogueRoutes[8].shouldNotRequestResources).toEqual(true);
-        expect(catalogueRoutes[9].path).toEqual(['/upload/document']);
-        expect(catalogueRoutes[9].name).toEqual('upload_document');
-        expect(catalogueRoutes[9].shouldNotRequestResources).toEqual(true);
+        expect(catalogueRoute.name).toEqual('catalogue');
+        expect(uploadDatasetRoute.path).toEqual(['/upload/dataset']);
+        expect(uploadDatasetRoute.name).toEqual('upload_dataset');
+        expect(uploadDatasetRoute.shouldNotRequestResources).toEqual(true);
+        expect(uploadDocumentRoute.path).toEqual(['/upload/document']);
+        expect(uploadDocumentRoute.name).toEqual('upload_document');
+        expect(uploadDocumentRoute.shouldNotRequestResources).toEqual(true);
     });
 });

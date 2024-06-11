@@ -39,6 +39,10 @@
         .background-color-var(@theme-vars[success]);
         .color-var(@theme-vars[success-contrast]);
     }
+    .gn-resource-delete-warning {
+        .border-bottom-color-var(@theme-vars[main-border-color]);
+        .color-var(@theme-vars[warning]);
+    }
 }
 
 // **************
@@ -139,4 +143,12 @@ p.gn-resource-status-text {
     padding: 0;
     text-transform: uppercase;
     font-size: 1rem;
+}
+
+.gn-resource-delete-warning {
+    font-size: @font-size-sm;
+    display: flex;
+    align-items: baseline;
+    padding: 10px;
+    border-bottom: 1px solid;
 }

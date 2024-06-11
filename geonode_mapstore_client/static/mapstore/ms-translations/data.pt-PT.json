@@ -70,7 +70,6 @@
             "featureTypeError": "Não foi possível ler os atributos do tema",
             "featureTypeErrorInvalidJSON": "Não é possível ler os atributos do tema. Resposta não é válida.",
             "elevation": "Elevação",
-            "titleTranslations": "Título Traduções",
             "groupProperties": "Propriedade do Grupo",
             "featureInfo": "Informação do Tema",
             "featureInfoFormatLbl": "Identificar formato da resposta",
@@ -385,11 +384,6 @@
                 }
             }
         },
-        "floatinglegend": {
-            "showTOC": "Mostrar temas",
-            "showLegend": "Mostrar legenda",
-            "hideLegend": "Ocultar legenda"
-        },
         "toc": {
             "toggleLayerVisibility": "Activar visibilidade do tema",
             "displayLegendAndTools": "Visualizar legenda",
@@ -466,7 +460,7 @@
                 "configuration": "Configuração",
                 "apply": "Aplicar classificação",
                 "restore": "Reverter costumizações",
-                "go_to_cfg": "Configurar...",
+                "goToCfg": "Configurar...",
                 "go_to_thema": "Utilizar esta configuração",
                 "cfgError": "Erro na configuração JSON",
                 "classify": "Classificar",
@@ -565,7 +559,25 @@
             "showLabel": "Mostrar etiqueta de distância",
             "addAsAnnotation": "Add as annotation",
             "newMeasure": "New annotation",
-            "selectTool": "Select a measurement tool"
+            "selectTool": "Select a measurement tool",
+            "polylineDistance3DMeasure": "Measure distance in 3D space",
+            "area3DMeasure": "Measure area in 3D space",
+            "pointCoordinatesMeasure": "Measure point coordinates",
+            "heightFromTerrainMeasure": "Measure height from terrain",
+            "angle3DMeasure": "Measure angle in 3D space",
+            "slopeMeasure": "Measure slope",
+            "tooltipPolylineDistance3DStart": "Click to start measurement",
+            "tooltipPolylineDistance3DEnd": "Single click to add a segment\nor double click to end",
+            "tooltipArea3DStart": "Click to start measurement",
+            "tooltipArea3DMissingVertex": "Area needs at least 3 vertices, \nsingle click to add a vertex",
+            "tooltipArea3DEnd": "Single click to add a vertex\nor double click to end",
+            "tooltipPointCoordinatesStart": "Click to add an altitude point measurement",
+            "tooltipHeightFromTerrainStart": "Click to add the distance value from terrain surface",
+            "tooltipAngle3DStart": "Single click to draw 3 points that represent the angle vertices",
+            "tooltipSlopeStart": "Single click to draw 3 points that represent a triangle surface.\nThe slope value is computed based on the drawn triangle surface",
+            "altitude": "Altitude",
+            "latitude": "Latitude",
+            "longitude": "Longitude"
         },
         "search":{
             "decimal": "Decimal",
@@ -1582,7 +1594,8 @@
                 "close": "Close",
                 "cancel": "Cancel",
                 "saveSuccessTitle": "Success",
-                "saveSuccessMessage": "Dashboard saved successfully"
+                "saveSuccessMessage": "Dashboard saved successfully",
+                "unadvertised": "Não anunciado"
             },
             "errors":{
                 "loading": {
