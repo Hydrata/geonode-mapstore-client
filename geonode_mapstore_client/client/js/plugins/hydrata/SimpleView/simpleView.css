@@ -1,3 +1,7 @@
+#mapstore-sidebar-menu-container{
+    z-index: 1;
+}
+
 .simple-view-menu-button {
     position: absolute;
     z-index: 1021;

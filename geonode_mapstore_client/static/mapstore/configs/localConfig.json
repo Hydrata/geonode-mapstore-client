@@ -87,6 +87,14 @@
         {
             "name": "isSelectedLayerDataset",
             "path": "gnresource.selectedLayerIsDataset"
+        },
+        {
+          "name": "anugaProjectData",
+          "path": "anuga.projectData"
+        },
+        {
+          "name": "swammProjectData",
+          "path": "swamm.projectData"
         }
     ],
     "projectionDefs": [],
@@ -2197,6 +2205,18 @@
                 "cfg": {
                     "wrap": true
                 }
+            },
+            {
+              "name": "Anuga"
+            },
+            {
+            "name": "Hydrology"
+            },
+            {
+              "name": "Swamm"
+            },
+            {
+              "name": "SimpleView"
             }
         ],
         "geostory_viewer": [

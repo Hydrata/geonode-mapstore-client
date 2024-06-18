@@ -28,6 +28,46 @@ def _is_mobile_device(context):
         return req.user_agent.is_mobile
     return False
 
+@register.simple_tag(takes_context=True)
+def get_hydrata_left_topbar_menu(context):
+
+    is_mobile = _is_mobile_device(context)
+
+    return [
+        {
+            "type": "link",
+            "href": "/about",
+            "label": "About",
+            "target": "_blank"
+        },
+        {
+            "type": "link",
+            "href": "/plans",
+            "label": "Plans",
+            "target": "_blank"
+        },
+        {
+            "label": "Docs",
+            "type": "dropdown",
+            "items": [
+                {
+                    "type": "link",
+                    "href": "https://docs.hydrata.com",
+                    "label": "Docs - Getting Started",
+                    "target": "_blank"
+                },
+                {
+                    "type": "divider"
+                },
+                {
+                    "type": "link",
+                    "href": "https://youtu.be/MndBMn33PqI",
+                    "label": "Video - Managing Change",
+                    "target": "_blank"
+                } if not is_mobile else None
+            ]
+        },
+    ]
 
 @register.simple_tag
 def get_base_left_topbar_menu():
@@ -116,10 +156,16 @@ def get_user_menu(context):
 
     if not user or (user and not user.is_authenticated):
         return [
-            {"label": "Register", "type": "link", "href": "/account/signup/?next=/"}
-            if settings.ACCOUNT_OPEN_SIGNUP and not Configuration.load().read_only
-            else None,
-            {"label": "Sign in", "type": "link", "href": "/account/login/?next=/"},
+            {
+                "label": "Register",
+                "type": "link",
+                "href": "/account/signup/?next=/"
+            } if settings.ACCOUNT_OPEN_SIGNUP and not Configuration.load().read_only else None,
+            {
+                "label": "Sign in",
+                "type": "link",
+                "href": "/account/login/?next=/"
+            },
         ]
 
     devider = {"type": "divider"}

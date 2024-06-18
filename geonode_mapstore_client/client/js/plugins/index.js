@@ -439,6 +439,34 @@ export const plugins = {
     SettingsPlugin: toModulePlugin(
         'Settings',
         () => import(/* webpackChunkName: 'plugins/settings' */ '@mapstore/framework/plugins/Settings')
+    ),
+    SimpleViewPlugin: toModulePlugin(
+        'SimpleView',
+        () => import(/* webpackChunkName: 'plugins/simpleview-plugin' */ '@js/plugins/hydrata/SimpleView/SimpleView')
+    ),
+    PiwikProPlugin: toModulePlugin(
+        'PiwikPro',
+        () => import(/* webpackChunkName: 'plugins/piwik-pro-plugin' */ '@js/plugins/hydrata/PiwikPro/PiwikPro')
+    ),
+    SwampsPlugin: toModulePlugin(
+        'Swamps',
+        () => import(/* webpackChunkName: 'plugins/swamps-plugin' */ '@js/plugins/hydrata/Swamps/Swamps')
+    ),
+    AnugaPlugin: toModulePlugin(
+        'Anuga',
+        () => import(/* webpackChunkName: 'plugins/anuga-plugin' */ '@js/plugins/hydrata/Anuga/Anuga')
+    ),
+    HydrologyPlugin: toModulePlugin(
+        'Hydrology',
+        () => import(/* webpackChunkName: 'plugins/hydrology-plugin' */ '@js/plugins/hydrata/Hydrology/Hydrology')
+    ),
+    AnugaResourcesGridPlugin: toModulePlugin(
+        'AnugaResourcesGrid',
+        () => import(/* webpackChunkName: 'plugins/anuga-grid-resources-plugin' */ '@js/plugins/hydrata/Anuga/AnugaResourcesGrid')
+    ),
+    SwammPlugin: toModulePlugin(
+        'Swamm',
+        () => import(/* webpackChunkName: 'plugins/swamm-plugin' */ '@js/plugins/hydrata/Swamm/Swamm')
     )
 };
 

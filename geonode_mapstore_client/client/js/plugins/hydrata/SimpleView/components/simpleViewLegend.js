@@ -4,7 +4,7 @@ const PropTypes = require('prop-types');
 
 import {changeActiveSearchTool} from "../../../../../MapStore2/web/client/actions/search";
 
-import Legend from "../../../../../MapStore2/web/client/components/TOC/fragments/legend/Legend";
+// import Legend from "../../../../../MapStore2/web/client/components/TOC/fragments/legend/Legend";
 import {setVisibleLegendPanel} from "../actionsSimpleView";
 
 class simpleViewLegend extends React.Component {
@@ -61,14 +61,15 @@ class simpleViewLegend extends React.Component {
                                 <div key={layer.id} className={"row legend-row"} >
                                     <div className={"col-sm-7 legend-background"} >
                                         <span className={"legend-image"}>
-                                            <Legend
-                                                layer={layer}
-                                                legendHeight={12}
-                                                legendWidth={12}
-                                                legendOptions={"dpi:150; countMatched:true; hideEmptyRules:true"}
-                                                scales={[100000]}
-                                                scaleDependent
-                                            />
+                                            Legend Here
+                                            {/*<Legend*/}
+                                            {/*    layer={layer}*/}
+                                            {/*    legendHeight={12}*/}
+                                            {/*    legendWidth={12}*/}
+                                            {/*    legendOptions={"dpi:150; countMatched:true; hideEmptyRules:true"}*/}
+                                            {/*    scales={[100000]}*/}
+                                            {/*    scaleDependent*/}
+                                            {/*/>*/}
                                         </span>
                                     </div>
                                     <div className={"col-sm-5 legend-text-label"}>
