@@ -166,10 +166,12 @@ const deleteHydrologyItemFailure = (response) => ({
     error: true
 });
 
-const updateIdfRowData = (idfTableId, rowData) => ({
+const updateIdfRowData = (idfTableId, rowIndex, columnId, value) => ({
     type: UPDATE_IDF_ROW_DATA,
     idfTableId,
-    rowData
+    rowIndex,
+    columnId,
+    value
 });
 
 const updateTemporalPatternRowData = (temporalPatternId, rowData) => ({

@@ -305,7 +305,7 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.title
                                 ];
                                 let existingResultLayers = store.getState()?.layers?.flat?.filter(layer => newResultLayerTitles.includes(layer?.title));
-                                console.log('remove these existingResultLayers:', existingResultLayers);
+                                // console.log('remove these existingResultLayers:', existingResultLayers);
                                 if (scenarioToLoadResults &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_integrated_velocity_max?.catalogURL &&
                                     scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.catalogURL &&

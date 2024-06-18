@@ -113,26 +113,29 @@
     background: #5178af;
 }
 
-.ag-theme-blue {
-    height: 100%!important;
-    width: 100%!important;
-    font-family: 'Montserrat', sans-serif!important;
-    font-size: small!important;
-    background-color: transparent!important;
+.idf-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 3px;
+    table-layout: fixed;
 }
 
-.ag-root-wrapper {
-    border-radius: 5px!important;
-    border: 1px solid transparent!important;
+.idf-table thead th {
+    background-color: #5178af;
+    color: white;
+    text-align: center;
+    padding: 2px;
 }
 
-.ag-theme-blue .ag-header {
-    color: white!important;
-    background-color: #6186b6 !important;
+.idf-table tbody td {
+    padding: 2px;
+    vertical-align: top;
+    border: solid 1px rgba(53, 133, 176);
 }
 
-.ag-theme-blue .ag-header-cell-label .ag-header-cell-text {
-    justify-content: center!important;
-    overflow: visible!important;
-    white-space: normal !important;
+.idf-table input {
+    background-color: #013c87;
+    color: white;
+    text-align: center;
+    width: 100%;
 }

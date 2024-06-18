@@ -199,7 +199,7 @@ export default ( state = initialState, action) => {
             ...state,
             idfTables: state.idfTables.map((idfTable) => {
                 if (idfTable.id === action.idfTableId) {
-                    // idfTable.updateIntensityValues(action.rowData);
+                    idfTable.updateIntensityValues(action.rowIndex, action.columnId, action.value);
                     idfTable.unsaved = true;
                     updatedActiveHydrologyItem = idfTable;
                 }
