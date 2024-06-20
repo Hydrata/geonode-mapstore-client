@@ -425,7 +425,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                         bsStyle={'success'}
                                                                         bsSize={'xsmall'}
                                                                         style={{margin: "2px", borderRadius: "2px"}}
-                                                                        className={scenario.unsaved ? null : 'disabled'}
+                                                                        className={(scenario.unsaved && this.validateScenario(scenario)) ? null : 'disabled'}
                                                                         onClick={() => {
                                                                             this.props.saveAnugaScenario(scenario);
                                                                             this.props.setOpenMenuGroupId(null);
@@ -473,7 +473,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 bsStyle={'success'}
                                                                 bsSize={'xsmall'}
                                                                 style={{margin: "2px", borderRadius: "2px"}}
-                                                                className={scenario.unsaved ? null : 'disabled'}
+                                                                className={(scenario.unsaved && this.validateScenario(scenario)) ? null : 'disabled'}
                                                                 onClick={() => {
                                                                     this.props.saveAnugaScenario(scenario);
                                                                     this.props.setOpenMenuGroupId(null);
@@ -560,7 +560,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 bsSize={'xsmall'}
                                                                 style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
                                                                 onClick={
-                                                                    this.findScenarioStatus(scenario).includes('%') ?
+                                                                    this.findScenarioStatus(scenario)?.includes('%') ?
                                                                         () => {
                                                                             console.log(`tracking anuga-scenario-menu-cancel-run`);
                                                                             CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-cancel-run`);
@@ -684,6 +684,38 @@ class AnugaScenarioMenuClass extends React.Component {
         delete kv.tempTimeString;
         this.props.updateAnugaScenario(scenario, kv);
     };
+
+    validateScenario = (scenario) => {
+        console.log('validateScenario', scenario);
+        if (!scenario || typeof scenario !== 'object') {
+            return false;
+        }
+        if (!scenario?.name.length > 0) {
+            return false;
+        }
+        console.log('validateScenario scenario?.name.length', scenario?.name.length);
+        if (!scenario?.elevation) {
+            return false;
+        }
+        console.log('validateScenario scenario?.elevation', scenario?.elevation);
+        if (!scenario?.inflow) {
+            return false;
+        }
+        console.log('validateScenario scenario?.inflow', scenario?.inflow);
+        if (!scenario?.resolution > 0) {
+            return false;
+        }
+        console.log('validateScenario scenario?.resolution > 0', scenario?.resolution > 0);
+        if (!scenario?.duration > 0) {
+            return false;
+        }
+        console.log('validateScenario scenario?.duration > 0', scenario?.duration > 0);
+        if (!scenario?.boundary) {
+            return false;
+        }
+        console.log('validateScenario', scenario);
+        return true;
+    }
 }
 
 const mapStateToProps = (state) => {
