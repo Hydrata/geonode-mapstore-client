@@ -126,7 +126,13 @@ export const saveHydrologyItemEpic = (action$, store) =>
     action$
         .ofType(SAVE_HYDROLOGY_ITEM)
         .mergeMap(action => {
-            const postData = { ...action.item, data: action.item.data };
+            const postData = {
+                headers: {
+                    'Accept': 'application/json'
+                },
+                ...action.item,
+                data: action.item.data
+            };
             const projectId = store.getState()?.anuga?.projectData?.id;
             if (typeof action.item?.id === 'number' || typeof action.item?.id === 'string' && !isNaN(Number(action.item?.id))) {
                 return Rx.Observable.from(

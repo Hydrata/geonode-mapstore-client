@@ -13,7 +13,7 @@ import {
     DELETE_HYDROLOGY_ITEM_SUCCESS,
     UPDATE_IDF_ROW_DATA,
     UPDATE_TEMPORAL_PATTERN_ROW_DATA,
-    UPDATE_TIME_SERIES_ROW_DATA
+    UPDATE_TIME_SERIES_ROW_DATA, REPLACE_TIME_SERIES_ROW_DATA
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
 import {IdfTable, TemporalPattern, TimeSeries} from "./classesHydrology";
@@ -214,7 +214,7 @@ export default ( state = initialState, action) => {
             ...state,
             temporalPatterns: state.temporalPatterns.map((temporalPattern) => {
                 if (temporalPattern.id === action.temporalPatternId) {
-                    // temporalPattern.updatePercentageValues(action.rowData);
+                    temporalPattern.updatePercentageValues(action.rowIndex, action.columnId, action.value);
                     temporalPattern.unsaved = true;
                     updatedActiveHydrologyItem = temporalPattern;
                 }
@@ -228,10 +228,27 @@ export default ( state = initialState, action) => {
 
         let updatedTimeSeriess = state.timeSeriess.map((timeSeries) => {
             if (timeSeries.id === action.timeSeriesId) {
-                timeSeries.setRowData(action.rowData);
-                timeSeries.setUnsavedStatus(true);
+                timeSeries.updateRowValues(action.rowIndex, action.columnId, action.value);
+                timeSeries.unsaved = true;
                 updatedTimeSeries = timeSeries;
-                return updatedTimeSeries;
+            }
+            return timeSeries;
+        });
+
+        return {
+            ...state,
+            timeSeriess: updatedTimeSeriess,
+            activeHydrologyItem: updatedTimeSeries || state.activeHydrologyItem
+        };
+    }
+    case REPLACE_TIME_SERIES_ROW_DATA: {
+        let updatedTimeSeries;
+
+        let updatedTimeSeriess = state.timeSeriess.map((timeSeries) => {
+            if (timeSeries.id === action.timeSeriesId) {
+                timeSeries.setRowData(action.newRowData);
+                timeSeries.unsaved = true;
+                updatedTimeSeries = timeSeries;
             }
             return timeSeries;
         });

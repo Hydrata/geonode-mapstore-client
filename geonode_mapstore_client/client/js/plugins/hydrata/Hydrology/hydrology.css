@@ -118,6 +118,8 @@
     border-collapse: collapse;
     border-radius: 3px;
     table-layout: fixed;
+    background: white;
+    color: black;
 }
 
 .idf-table thead th {
@@ -134,8 +136,73 @@
 }
 
 .idf-table input {
-    background-color: #013c87;
-    color: white;
+    background-color: white;
+    color: black;
     text-align: center;
     width: 100%;
+    padding-left: 18px
 }
+
+.temporal-pattern-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 3px;
+    table-layout: fixed;
+    background: white;
+    color: black;
+}
+
+.temporal-pattern-table thead th {
+    background-color: #5178af;
+    color: white;
+    text-align: center;
+    padding: 2px;
+}
+
+.temporal-pattern-table tbody td {
+    padding: 2px;
+    vertical-align: top;
+    border: solid 1px rgba(53, 133, 176);
+}
+
+.temporal-pattern-table input {
+    background-color: white;
+    color: black;
+    text-align: center;
+    width: 100%;
+    padding-left: 18px
+}
+
+
+.time-series-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 3px;
+    overflow: hidden;
+    table-layout: fixed;
+    background: white;
+    color: black;
+}
+
+.time-series-table thead th {
+    background-color: #5178af;
+    color: white;
+    text-align: center;
+    padding: 2px;
+    min-width: 150px;
+}
+
+.time-series-table tbody td {
+    padding: 2px;
+    vertical-align: top;
+    border: solid 1px rgba(53, 133, 176);
+}
+
+.time-series-table input {
+    background-color: white;
+    color: black;
+    text-align: center;
+    width: 100%;
+    padding-left: 18px
+}
+

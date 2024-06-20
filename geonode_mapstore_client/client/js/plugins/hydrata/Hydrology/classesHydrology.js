@@ -10,99 +10,52 @@ export class IdfTable {
             {
                 id: 'Duration (min)',
                 header: 'Duration (min)',
-                accessorKey: 'duration',
-                pinned: 'left',
-                width: 100
+                accessorKey: 'duration'
             },
             {
                 id: "0.5yr ARI",
                 header: "0.5yr ARI",
-                accessorKey: "0-5yrARI",
-                stakeholderLabel: "2 EY",
-                ari: 0.5,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "0-5yrARI"
             },
             {
                 id: "1yr ARI",
                 header: "1yr ARI",
-                accessorKey: "1yrARI",
-                stakeholderLabel: "1 EY",
-                ari: 1,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "1yrARI"
             },
             {
                 id: "2yr ARI",
                 header: "2yr ARI",
-                accessorKey: "2yrARI",
-                stakeholderLabel: "40% AEP",
-                ari: 2,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "2yrARI"
             },
             {
                 id: "5yr ARI",
                 header: "5yr ARI",
-                accessorKey: "5yrARI",
-                stakeholderLabel: "40% AEP",
-                ari: 5,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "5yrARI"
             },
             {
                 id: "10yr ARI",
                 header: "10yr ARI",
-                accessorKey: "10yrARI",
-                stakeholderLabel: "40% AEP",
-                ari: 10,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "10yrARI"
             },
             {
                 id: "20yr ARI",
                 header: "20yr ARI",
-                accessorKey: "20yrARI",
-                stakeholderLabel: "5% AEP",
-                ari: 20,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "20yrARI"
             },
             {
                 id: "50yr ARI",
                 header: "50yr ARI",
-                accessorKey: "50yrARI",
-                stakeholderLabel: "2% AEP",
-                ari: 50,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "50yrARI"
             },
             {
                 id: "100yr ARI",
                 header: "100yr ARI",
-                accessorKey: "100yrARI",
-                stakeholderLabel: "1% AEP",
-                ari: 100,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "100yrARI"
             },
             {
                 id: "500yr ARI",
                 header: "500yr ARI",
-                accessorKey: "500yrARI",
-                stakeholderLabel: "0.2% AEP",
-                ari: 500,
-                editable: true,
-                width: 60,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "500yrARI"
             }
         ];
         this.rowData = [
@@ -426,11 +379,7 @@ export class TemporalPattern {
         this.columnDefs = [
             {
                 header: 'Percentage',
-                accessorKey: 'percentage',
-                pinned: 'left',
-                editable: true,
-                width: 100,
-                valueParser: params => Number(params.newValue)
+                accessorKey: 'percentage'
             }
         ];
         this.rowData = [
@@ -463,6 +412,21 @@ export class TemporalPattern {
             },
             {
                 "percentage": 10
+            },
+            {
+                "percentage": 0
+            },
+            {
+                "percentage": 0
+            },
+            {
+                "percentage": 0
+            },
+            {
+                "percentage": 0
+            },
+            {
+                "percentage": 0
             }
         ];
     }
@@ -494,11 +458,11 @@ export class TemporalPattern {
         });
     }
 
-    // updatePercentageValues(rowData) {
-    //     console.log('updatePercentageValues rowData', rowData);
-    //     console.log(this.rowData);
-    //     return 'something';
-    // }
+    updatePercentageValues(rowIndex, columnId, value) {
+        let newRowData = [...this.rowData];
+        newRowData[rowIndex] = {...newRowData[rowIndex], [columnId]: parseFloat(value)};
+        this.rowData = newRowData;
+    }
 
     getChartData() {
         return this.rowData;
@@ -514,39 +478,28 @@ export class TimeSeries {
         this.columnDefs = [
             {
                 header: 'TimeStamp',
-                accessorKey: 'timestamp',
-                pinned: 'left',
-                editable: true,
-                width: 250,
-                // valueFormatter: params => {
-                //     const date = new Date(params.value);
-                //     return date.toLocaleString();
-                // }
-                cellDataType: 'dateString'
+                accessorKey: 'timestamp'
             },
             {
                 header: "Value",
-                accessorKey: "value",
-                editable: true,
-                width: 100,
-                valueParser: params => Number(params.newValue)
+                accessorKey: "value"
             }
         ];
         this.rowData = [
             {
-                "timestamp": new Date("2000-01-01T00:00:00").toISOString(),
+                "timestamp": new Date("2000-01-01T00:00:00").toISOString().slice(0, -1),
                 "value": 0
             },
             {
-                "timestamp": new Date("2000-01-01T01:00:00").toISOString(),
+                "timestamp": new Date("2000-01-01T01:00:00").toISOString().slice(0, -1),
                 "value": 10
             },
             {
-                "timestamp": new Date("2000-01-01T02:00:00").toISOString(),
+                "timestamp": new Date("2000-01-01T02:00:00").toISOString().slice(0, -1),
                 "value": 30
             },
             {
-                "timestamp": new Date("2000-01-01T03:00:00").toISOString(),
+                "timestamp": new Date("2000-01-01T03:00:00").toISOString().slice(0, -1),
                 "value": 0
             }
         ];
@@ -577,6 +530,16 @@ export class TimeSeries {
         Object.keys(kv).forEach(key => {
             this[key] = kv[key];
         });
+    }
+
+    updateRowValues(rowIndex, columnId, value) {
+        let newRowData = [...this.rowData];
+        if (newRowData[rowIndex] && columnId in newRowData[rowIndex]) {
+            newRowData[rowIndex] = { ...newRowData[rowIndex], [columnId]: value };
+        } else {
+            console.warn(`Invalid rowIndex or keyId: rowIndex = ${rowIndex}, columnId = ${columnId}`);
+        }
+        this.rowData = newRowData;
     }
 
     setUnsavedStatus(newStatus) {

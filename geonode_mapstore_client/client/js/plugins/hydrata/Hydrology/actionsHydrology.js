@@ -27,6 +27,7 @@ const DELETE_HYDROLOGY_ITEM_FAILURE = 'DELETE_HYDROLOGY_ITEM_FAILURE';
 const UPDATE_IDF_ROW_DATA = 'UPDATE_IDF_ROW_DATA';
 const UPDATE_TEMPORAL_PATTERN_ROW_DATA = 'UPDATE_TEMPORAL_PATTERN_ROW_DATA';
 const UPDATE_TIME_SERIES_ROW_DATA = 'UPDATE_TIME_SERIES_ROW_DATA';
+const REPLACE_TIME_SERIES_ROW_DATA = 'REPLACE_TIME_SERIES_ROW_DATA';
 
 
 const initHydrology = () => ({
@@ -174,16 +175,26 @@ const updateIdfRowData = (idfTableId, rowIndex, columnId, value) => ({
     value
 });
 
-const updateTemporalPatternRowData = (temporalPatternId, rowData) => ({
+const updateTemporalPatternRowData = (temporalPatternId, rowIndex, columnId, value) => ({
     type: UPDATE_TEMPORAL_PATTERN_ROW_DATA,
     temporalPatternId,
-    rowData
+    rowIndex,
+    columnId,
+    value
 });
 
-const updateTimeSeriesRowData = (timeSeriesId, rowData) => ({
+const updateTimeSeriesRowData = (timeSeriesId, rowIndex, columnId, value) => ({
     type: UPDATE_TIME_SERIES_ROW_DATA,
     timeSeriesId,
-    rowData
+    rowIndex,
+    columnId,
+    value
+});
+
+const replaceTimeSeriesRowData = (timeSeriesId, newRowData) => ({
+    type: REPLACE_TIME_SERIES_ROW_DATA,
+    timeSeriesId,
+    newRowData
 });
 
 module.exports = {
@@ -215,5 +226,6 @@ module.exports = {
     DELETE_HYDROLOGY_ITEM_FAILURE, deleteHydrologyItemFailure,
     UPDATE_IDF_ROW_DATA, updateIdfRowData,
     UPDATE_TEMPORAL_PATTERN_ROW_DATA, updateTemporalPatternRowData,
-    UPDATE_TIME_SERIES_ROW_DATA, updateTimeSeriesRowData
+    UPDATE_TIME_SERIES_ROW_DATA, updateTimeSeriesRowData,
+    REPLACE_TIME_SERIES_ROW_DATA, replaceTimeSeriesRowData
 };

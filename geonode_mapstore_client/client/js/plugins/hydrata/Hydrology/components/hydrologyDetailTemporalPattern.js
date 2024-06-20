@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { AgGridReact } from 'ag-grid-react';
-import '../../../../../../client/node_modules/ag-grid-community/dist/styles/ag-grid.css';
-import '../../../../../../client/node_modules/ag-grid-community/dist/styles/ag-theme-blue.css';
 import {BarChart, Bar, XAxis, YAxis, Rectangle, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from 'recharts';
 import {
     setActiveHydrologyItem,
@@ -13,25 +10,46 @@ import {
 import { CustomEvent } from "@piwikpro/react-piwik-pro";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    useReactTable
+} from '@tanstack/react-table';
 
+const TableCell = ({getValue, row, column, table}) => {
+    const initialValue = getValue();
+    const [value, setValue] = useState(initialValue);
+    useEffect(() => {
+        setValue(initialValue);
+    }, [initialValue]);
+    const onBlur = () => {
+        table.options.meta?.updateData(row.index, column.id, value);
+    };
+    return (
+        <input
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onBlur={onBlur}
+            type={column.columnDef.meta?.type || "text"}
+        />
+    );
+};
+
+const columnHelper = createColumnHelper();
+
+const columns = [
+    columnHelper.accessor('percentage', {
+        cell: TableCell,
+        header: () => <span>Percentage</span>,
+        meta: {
+            type: "number"
+        }
+    })
+];
+console.log('columns:', columns);
 
 const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRowData }) => {
-    const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
-    const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
-    const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
-    const [gridOptions, setGridOptions] = useState({
-        headerAutoHeight: true,
-        headerHeight: 50
-    });
-    useEffect(() => {
-        setColumnDefs(activeHydrologyItem?.columnDefs);
-        setRowData(activeHydrologyItem?.rowData);
-        setChartData(activeHydrologyItem?.getChartData());
-        console.log('columnDefs:', columnDefs);
-        console.log('rowData:', rowData);
-        console.log('chartData:', chartData);
-    }, [activeHydrologyItem]);
-
     const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
     const handleWindowResize = () => {
         setWindowWidth(window.innerWidth);
@@ -46,79 +64,113 @@ const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRo
         CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
     };
 
-    console.log("*** columnDefs", columnDefs);
-    console.log("*** rowData", rowData);
+    // Table
+    const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
+    const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
+    const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
+    useEffect(() => {
+        setColumnDefs(activeHydrologyItem?.columnDefs);
+        setRowData(activeHydrologyItem?.rowData);
+        setChartData(activeHydrologyItem?.getChartData());
+    }, [activeHydrologyItem]);
+
+    const table = useReactTable({
+        columns: columns,
+        data: rowData,
+        getCoreRowModel: getCoreRowModel(),
+        meta: {
+            updateData: (rowIndex, columnId, value) => {
+                updateTemporalPatternRowData(activeHydrologyItem.id, rowIndex, columnId, value);
+                setChartData(activeHydrologyItem?.getChartData());
+            }
+        }
+    });
+
     return (
-        <React.Fragment>
-            <h3 style={{marginTop: 0}}>Temporal Patterns</h3>
+        <div style={{display: 'flex', flexDirection: 'row', boxSizing: 'border-box'}}>
             <div style={{
-                display: 'flex',
-                flexDirection: 'row',
-                boxSizing: 'border-box'
+                padding: '10px',
+                height: '600px',
+                width: '200px',
+                marginBottom: '60px',
+                marginRight: '50px'
             }}>
-                <div style={{
-                    padding: '10px',
-                    height: '520px',
-                    width: '200px',
-                    borderRadius: '3px'
-                }}>
-                    <div
-                        className="ag-theme-blue"
-                    >
-                        <AgGridReact
-                            rowData={rowData}
-                            columnDefs={columnDefs}
-                            onCellValueChanged={event => {
-                                updateTemporalPatternRowData(activeHydrologyItem.id, event.data);
-                            }}
-                            gridOptions={gridOptions}
-                        />
-                    </div>
-                </div>
-                <div style={{
-                    minWidth: '600px',
-                    maxWidth: '800px',
-                    padding: '10px'
-                }}>
-                    <div style={{
-                        width: '100%',
-                        height: '100%',
-                        background: 'white',
-                        borderRadius: '3px'
-                    }}>
-                        <ResponsiveContainer
-                            width="100%"
-                            height={500}
-                        >
-                            <BarChart
-                                data={chartData}
-                                margin={{
-                                    top: 5,
-                                    right: 30,
-                                    left: 20,
-                                    bottom: 5
-                                }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3"/>
-                                <XAxis dataKey="name"/>
-                                <YAxis
-                                    domain={[0, 50]}
-                                    ticks={[0, 10, 20, 30, 40, 50]}
-                                />
-                                <Tooltip/>
-                                <Legend/>
-                                <Bar
-                                    dataKey="percentage"
-                                    fill="#5178af"
-                                    isAnimationActive={false}
-                                    activeBar={<Rectangle fill="#5178af" stroke="#3585b0"/>}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                <h3 style={{marginTop: 0}}>Intensity (mm/hr)</h3>
+                <div className="">
+                    <table className={'temporal-pattern-table'}>
+                        <thead>
+                            {table.getHeaderGroups().map(headerGroup => (
+                                <tr key={headerGroup.id}>
+                                    {headerGroup.headers.map(header => (
+                                        <th key={header.id}>
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                    header.column.columnDef.header,
+                                                    header.getContext()
+                                                )}
+                                        </th>
+                                    ))}
+                                </tr>
+                            ))}
+                        </thead>
+                        <tbody>
+                            {table.getRowModel().rows.map(row => (
+                                <tr key={row.id}>
+                                    {row.getVisibleCells().map(cell => (
+                                        <td key={cell.id}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </React.Fragment>
+            <div style={{
+                width: '100%',
+                padding: '10px'
+            }}>
+                <h3 style={{marginTop: 0}}>Temporal Pattern</h3>
+                <div style={{
+                    width: '100%',
+                    height: '600px',
+                    background: 'white',
+                    borderRadius: '3px'
+                }}>
+                    <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                    >
+                        <BarChart
+                            data={chartData}
+                            margin={{
+                                top: 5,
+                                right: 30,
+                                left: 20,
+                                bottom: 5
+                            }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3"/>
+                            <XAxis dataKey="name"/>
+                            <YAxis
+                                domain={[0, 50]}
+                                ticks={[0, 10, 20, 30, 40, 50]}
+                            />
+                            <Tooltip/>
+                            <Legend/>
+                            <Bar
+                                dataKey="percentage"
+                                fill="#5178af"
+                                isAnimationActive={false}
+                                activeBar={<Rectangle fill="#5178af" stroke="#3585b0"/>}
+                            />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
     );
 };
 
@@ -138,7 +190,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = (dispatch) => {
     return {
         setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
-        updateTemporalPatternRowData: (temporalPatternId, rowData) => dispatch(updateTemporalPatternRowData(temporalPatternId, rowData))
+        updateTemporalPatternRowData: (temporalPatternId, rowIndex, columnId, value) => dispatch(updateTemporalPatternRowData(temporalPatternId, rowIndex, columnId, value))
     };
 };
 

@@ -1,69 +1,96 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { AgGridReact } from 'ag-grid-react';
-import '../../../../../../client/node_modules/ag-grid-community/dist/styles/ag-grid.css';
-import '../../../../../../client/node_modules/ag-grid-community/dist/styles/ag-theme-blue.css';
 import {
     BarChart,
     Bar,
     XAxis,
     YAxis,
-    Rectangle,
     CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-    ScatterChart,
-    Scatter
+    ResponsiveContainer
 } from 'recharts';
 import {
     setActiveHydrologyItem,
-    updateTimeSeriesRowData
+    updateTimeSeriesRowData,
+    replaceTimeSeriesRowData
 } from "../actionsHydrology";
 
 import { CustomEvent } from "@piwikpro/react-piwik-pro";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    useReactTable
+} from '@tanstack/react-table';
 import moment from "moment";
 
+const TableCell = ({getValue, row, column, table}) => {
+    const initialValue = getValue();
+    const [value, setValue] = useState(initialValue);
 
-const HydrologyTimeSeries = ({ activeHydrologyItem, updateTimeSeriesRowData }) => {
+    useEffect(() => {
+        setValue(initialValue);
+    }, [initialValue]);
+
+    const onBlur = () => {
+        table.options.meta?.updateData(row.index, column.id, value);
+    };
+    let inputType = column.columnDef.meta?.type || "text";
+    let displayValue = value;
+
+    if (inputType === "datetime") {
+        displayValue = moment(value).format('YYYY-MM-DD HH:mm:ss');
+    }
+
+    return (
+        <input
+            value={displayValue}
+            onChange={e => setValue(e.target.value)}
+            onBlur={onBlur}
+            type={inputType}
+        />
+    );
+};
+
+const columnHelper = createColumnHelper();
+
+const columns = [
+    columnHelper.accessor('timestamp', {
+        cell: TableCell,
+        header: () => <span>TimeStamp</span>,
+        meta: {
+            type: "datetime-local"
+        }
+    }),
+    columnHelper.accessor('value', {
+        cell: TableCell,
+        header: () => <span>Flow (m3/s) or<br/>Rainfall (mm/hr)</span>,
+        meta: {
+            type: "number"
+        }
+    })
+];
+console.log('columns:', columns);
+
+
+const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, updateTimeSeriesRowData }) => {
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
     const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
-    const [gridApi, setGridApi] = useState(null);
-    const [gridOptions, setGridOptions] = useState({
-        headerAutoHeight: true,
-        headerHeight: 50,
-        enableRangeSelection: true
-    });
-    useEffect(() => {
-        setColumnDefs(activeHydrologyItem?.columnDefs);
-        setRowData(activeHydrologyItem?.rowData);
-        setChartData(activeHydrologyItem?.getChartData());
-    }, [activeHydrologyItem, rowData, columnDefs]);
 
-    const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
-    const handleWindowResize = () => {
-        setWindowWidth(window.innerWidth);
-    };
-    useEffect(() => {
-        window.addEventListener('resize', handleWindowResize);
-        return () => {
-            window.removeEventListener('resize', handleWindowResize);
-        };
-    }, []);
     const trackEvent = (page) => {
         CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
     };
 
     const parsePastedData = (pastedData) => {
+        console.log('parsePastedData', pastedData);
         return pastedData.split('\n')
             .filter(row => row.trim() !== '')
             .map((row) => {
                 const [timestampStr, valueStr] = row.split('\t');
-                const isoTimestampStr = moment(timestampStr, "YYYY-MM-DD HH:mm").toISOString();
+                const isoTimestampStr = moment(timestampStr, "YYYY-MM-DD HH:mm").toISOString().slice(0, -1);
                 const value = parseFloat(valueStr);
                 return { timestamp: isoTimestampStr, value: value };
             });
@@ -76,9 +103,11 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, updateTimeSeriesRowData }) =
             let paste = event.clipboardData || window.clipboardData;
             if (paste) {
                 let pastedData = paste.getData('text');
-                let parsedData = parsePastedData(pastedData);
-                // setRowData(parsedData);
-                updateTimeSeriesRowData(activeHydrologyItem.id, parsedData);
+                let newRowData = parsePastedData(pastedData);
+                console.log('send replaceTimeSeriesRowData', activeHydrologyItem.id, newRowData);
+                replaceTimeSeriesRowData(activeHydrologyItem.id, newRowData);
+                setChartData(activeHydrologyItem?.getChartData());
+                setRowData(newRowData);
             }
         };
 
@@ -88,7 +117,6 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, updateTimeSeriesRowData }) =
             pasteDiv.addEventListener('paste', handlePaste);
         }
 
-        // Always return a cleanup function
         return () => {
             if (pasteDiv) {
                 pasteDiv.removeEventListener('paste', handlePaste);
@@ -96,125 +124,149 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, updateTimeSeriesRowData }) =
         };
     }, [activeHydrologyItem]);
 
-    console.log("*** columnDefs", columnDefs);
-    console.log("*** rowData", rowData);
-    console.log("*** chartData", chartData);
+    useEffect(() => {
+        setColumnDefs(activeHydrologyItem?.columnDefs);
+        setRowData(activeHydrologyItem?.rowData);
+        setChartData(activeHydrologyItem?.getChartData());
+    }, [activeHydrologyItem, rowData, columnDefs]);
 
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="custom-tooltip">
-                    <p className="label">{`Date : ${new Date(label).toLocaleDateString()}`}</p>
-                    <p className="intro">{`Value : ${payload[0].value}`}</p>
-                </div>
-            );
+    const table = useReactTable({
+        columns: columns,
+        data: rowData,
+        getCoreRowModel: getCoreRowModel(),
+        meta: {
+            updateData: (rowIndex, columnId, value) => {
+                updateTimeSeriesRowData(activeHydrologyItem.id, rowIndex, columnId, value);
+                setChartData(activeHydrologyItem?.getChartData());
+            }
         }
-
-        return null;
-    };
+    });
 
     return (
         <React.Fragment>
-            <h3 style={{marginTop: 0}}>TimeSeries</h3>
-            <div
-                id={'pasteDiv'}
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    boxSizing: 'border-box'
-                }}
-                ref={pasteDivRef}
-            >
+            <div style={{
+                display: "flex",
+                alignItems: "baseline",
+                boxSizing: 'border-box',
+                paddingTop: "5px"
+            }}>
+                <p style={{marginRight: '5px', width: "100px"}}>Paste Data:</p>
+                <input
+                    ref={pasteDivRef}
+                    id={'name'}
+                    key={`name-paste`}
+                    type={"text"}
+                    className={'hydrology-text-input'}
+                    style={{textAlign: "left"}}
+                    value={''}
+                />
+            </div>
+            <div style={{display: 'flex', flexDirection: 'row', boxSizing: 'border-box'}}>
                 <div style={{
                     padding: '10px',
-                    height: '300px',
+                    height: '600px',
                     width: '600px',
-                    borderRadius: '3px'
+                    marginBottom: '60px',
+                    marginRight: '50px'
                 }}>
-                    <div
-                        className="ag-theme-blue"
-                    >
-                        <AgGridReact
-                            rowData={rowData}
-                            columnDefs={columnDefs}
-                            onCellValueChanged={event => {
-                                updateTimeSeriesRowData(activeHydrologyItem.id, event.data);
-                            }}
-                            gridOptions={gridOptions}
-                            onGridReady={ params => {setGridApi(params.api);}}
-                        />
+                    <div className="">
+                        <h3 style={{marginTop: 0}}>Time Series</h3>
+                        <table className={'time-series-table'}>
+                            <thead>
+                                {table.getHeaderGroups().map(headerGroup => (
+                                    <tr key={headerGroup.id}>
+                                        {headerGroup.headers.map(header => (
+                                            <th key={header.id}>
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext()
+                                                    )}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </thead>
+                            <tbody>
+                                {table.getRowModel().rows.map(row => (
+                                    <tr key={row.id}>
+                                        {row.getVisibleCells().map(cell => (
+                                            <td key={cell.id}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div style={{
-                    minWidth: '600px',
-                    marginTop: '20px',
-                    padding: '10px'
-                }}>
+                <div>
                     <div style={{
-                        width: '100%',
-                        height: '100%',
-                        background: 'white',
-                        borderRadius: '3px'
+                        minWidth: '600px',
+                        marginTop: '20px',
+                        padding: '10px'
                     }}>
-                        <ResponsiveContainer
-                            width="100%"
-                            height={400}
-                        >
-                            <ScatterChart
-                                width={500}
-                                height={300}
-                                margin={{
-                                    top: 5,
-                                    right: 30,
-                                    left: 20,
-                                    bottom: 5
-                                }}
+                        <h3 style={{marginTop: 0}}>Time Series</h3>
+                        <div style={{
+                            width: '100%',
+                            height: '100%',
+                            background: 'white',
+                            borderRadius: '3px'
+                        }}>
+                            <ResponsiveContainer
+                                width="100%"
+                                height={400}
                             >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis
-                                    dataKey={'timestamp'}
-                                    name={'timestamp'}
-                                    domain={['auto', 'auto']}
-                                    tickFormatter={(unixTime) => new Date(unixTime).toLocaleDateString()}
-                                    type="number"
-                                    label={{ value: 'Timestamp', position: 'insideBottom' }} // Added label here
-                                />
-                                <YAxis dataKey={'value'} name={'value'}/>
-                                <Tooltip content={<CustomTooltip />} />
-                                <Legend />
-                                <Scatter name={'Values'} data={chartData} fill={'#8884d8'}/>
-                            </ScatterChart>
-                        </ResponsiveContainer>
-                        <ResponsiveContainer
-                            width="100%"
-                            height={400}
-                        >
-                            <BarChart
-                                width={500}
-                                height={300}
-                                data={chartData}
-                                margin={{
-                                    top: 5,
-                                    right: 30,
-                                    left: 20,
-                                    bottom: 5
-                                }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis
-                                    dataKey="timestamp"
-                                    type="number"
-                                    domain={['auto', 'auto']}
-                                    tickFormatter={(unixTime) => new Date(unixTime).toLocaleDateString()}
-                                    label={{ value: 'Timestamp', position: 'insideBottom' }}
+                                <BarChart
+                                    width={500}
+                                    height={300}
+                                    data={chartData}
+                                    margin={{
+                                        top: 30,
+                                        right: 30,
+                                        left: 50,
+                                        bottom: 120
+                                    }}
                                 >
-                                </XAxis>
-                                <YAxis />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Legend />
-                                <Bar dataKey="value" fill="#8884d8" />
-                            </BarChart>
-                        </ResponsiveContainer>
+                                    <CartesianGrid strokeDasharray="3 3"/>
+                                    <XAxis
+                                        dataKey="timestamp"
+                                        type="number"
+                                        domain={['auto', 'auto']}
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tickFormatter={(unixTime) => {
+                                            const endDate = new Date(Math.max(...chartData.map(d => d.timestamp)));
+                                            const startDate = new Date(Math.min(...chartData.map(d => d.timestamp)));
+                                            const deltaDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                                            const dateObj = new Date(unixTime);
+                                            if (deltaDays < 7) {
+                                                return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString()}`;
+                                            }
+                                            return dateObj.toLocaleDateString();
+                                        }}
+                                    >
+                                    </XAxis>
+                                    <YAxis
+                                        name="Rate"
+                                        label={{
+                                            value: "Flow (m3/s) or Rainfall (mm/hr)",
+                                            angle: -90,
+                                            position: "insideLeft",
+                                            offset: 20,
+                                            dy: 100
+                                        }}
+                                    />
+                                    <Bar
+                                        dataKey="value"
+                                        fill="#8884d8"
+                                    />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -238,7 +290,8 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = (dispatch) => {
     return {
         setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
-        updateTimeSeriesRowData: (timeSeriesId, rowData) => dispatch(updateTimeSeriesRowData(timeSeriesId, rowData))
+        updateTimeSeriesRowData: (timeSeriesId, rowIndex, columnId, value) => dispatch(updateTimeSeriesRowData(timeSeriesId, rowIndex, columnId, value)),
+        replaceTimeSeriesRowData: (timeSeriesId, newRowData) => dispatch(replaceTimeSeriesRowData(timeSeriesId, newRowData))
     };
 };
 
