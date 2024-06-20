@@ -1484,11 +1484,6 @@
                     "containerPosition": "header",
                     "leftMenuItems": [
                         {
-                            "type": "plugin",
-                            "size": "md",
-                            "name": "DetailViewerButton"
-                        },
-                        {
                             "labelId": "gnviewer.resource",
                             "showPendingChangesIcon": true,
                             "type": "dropdown",
@@ -1499,84 +1494,14 @@
                                     "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}"
                                 },
                                 {
-                                    "type": "plugin",
-                                    "name": "SaveAs",
-                                    "disableIf": "{!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user'))}"
-                                },
-                                {
                                     "type": "divider",
                                     "disableIf": "{state('isNewResource') || (!state('isNewResource') && !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !context.canCopyResource(state('gnResourceData'), state('user')))}"
                                 },
                                 {
                                     "type": "plugin",
                                     "name": "Share"
-                                },
-                                {
-                                    "type": "divider",
-                                    "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('gnResourceData'), 'delete_resourcebase')}"
-                                },
-                                {
-                                    "type": "plugin",
-                                    "name": "DeleteResource",
-                                    "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'delete_resourcebase')}"
                                 }
                             ]
-                        },
-                        {
-                            "labelId": "gnviewer.view",
-                            "type": "dropdown",
-                            "disableIf": "{state('isNewResource')}",
-                            "items": [
-                                {
-                                    "type": "plugin",
-                                    "name": "DetailViewerButton"
-                                },
-                                {
-                                    "type": "link",
-                                    "href": "{context.getMetadataDetailUrl(state('gnResourceData'))}",
-                                    "labelId": "gnviewer.viewMetadata"
-                                }
-                            ]
-                        },
-                        {
-                            "labelId": "gnviewer.edit",
-                            "type": "dropdown",
-                            "disableIf": "{state('isNewResource') || !context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase')}",
-                            "items": [
-                                {
-                                    "type": "link",
-                                    "href": "{context.getMetadataUrl(state('gnResourceData'))}",
-                                    "labelId": "gnviewer.editMetadata"
-                                },
-                                {
-                                    "type": "divider",
-                                    "disableIf": "{state('resourceParams')?.appPk}"
-                                },
-                                {
-                                    "type": "link",
-                                    "disableIf": "{state('resourceParams')?.appPk}",
-                                    "href": "{'#/viewer/' + 'new/map/' + state('gnResourceData')?.pk}",
-                                    "labelId": "gnviewer.addViewerConfiguration"
-                                },
-                                {
-                                    "type": "divider",
-                                    "disableIf": "{!state('resourceParams')?.appPk || !context.resourceHasPermission(state('gnResourceLinkedViewer'), 'change_resourcebase')}"
-                                },
-                                {
-                                    "type": "plugin",
-                                    "disableIf": "{!state('resourceParams')?.appPk || !context.resourceHasPermission(state('gnResourceLinkedViewer'), 'change_resourcebase')}",
-                                    "name": "EditMapViewer"
-                                },
-                                {
-                                    "type": "plugin",
-                                    "disableIf": "{!state('resourceParams')?.appPk || !context.resourceHasPermission(state('gnResourceData'), 'delete_resourcebase') || !context.resourceHasPermission(state('gnResourceLinkedViewer'), 'delete_resourcebase')}",
-                                    "name": "RemoveMapViewer"
-                                }
-                            ]
-                        },
-                        {
-                            "type": "divider",
-                            "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'change_resourcebase') && !state('isNewResource')}"
                         },
                         {
                             "type": "plugin",
@@ -2077,15 +2002,6 @@
                 }
             },
             {
-                "name": "Search",
-                "cfg": {
-                    "withToggle": [
-                        "max-width: 768px",
-                        "min-width: 768px"
-                    ]
-                }
-            },
-            {
                 "name": "SearchServicesConfig"
             },
             {
@@ -2135,9 +2051,6 @@
             },
             {
                 "name": "Swipe"
-            },
-            {
-                "name": "Locate"
             },
             {
                 "name": "WidgetsBuilder",
@@ -2198,25 +2111,22 @@
                 }
             },
             {
-                "name": "SidebarMenu"
-            },
-            {
                 "name": "MetadataExplorer",
                 "cfg": {
                     "wrap": true
                 }
             },
             {
-              "name": "Anuga"
+                "name": "Anuga"
             },
             {
-            "name": "Hydrology"
+                "name": "Hydrology"
             },
             {
-              "name": "Swamm"
+                "name": "Swamm"
             },
             {
-              "name": "SimpleView"
+                "name": "SimpleView"
             }
         ],
         "geostory_viewer": [
