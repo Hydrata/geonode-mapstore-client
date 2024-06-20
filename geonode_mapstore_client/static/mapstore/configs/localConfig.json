@@ -573,7 +573,7 @@
                                     "type": "plugin",
                                     "name": "DeleteResource",
                                     "disableIf": "{!context.resourceHasPermission(state('gnResourceData'), 'delete_resourcebase')}"
-                                    
+
                                 }
                             ]
                         },
