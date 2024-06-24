@@ -690,10 +690,10 @@ class AnugaScenarioMenuClass extends React.Component {
         if (!scenario || typeof scenario !== 'object') {
             return false;
         }
-        if (!scenario?.name.length > 0) {
+        if (!scenario?.name?.length > 0) {
             return false;
         }
-        console.log('validateScenario scenario?.name.length', scenario?.name.length);
+        console.log('validateScenario scenario?.name.length', scenario?.name?.length);
         if (!scenario?.elevation) {
             return false;
         }
