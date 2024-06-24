@@ -166,6 +166,7 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
                     padding: '10px',
                     height: '600px',
                     width: '600px',
+                    minWidth: '400px',
                     marginBottom: '60px',
                     marginRight: '50px'
                 }}>
