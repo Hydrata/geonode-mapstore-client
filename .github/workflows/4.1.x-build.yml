@@ -1,15 +1,15 @@
 # This is a basic workflow to help you get started with Actions
 
-name: GeoNode Client 4.1.x CI (build)
+name: GeoNode Client CI 4.3.x (build)
 
 concurrency: 
-  group: "client_build_4.1.x"
+  group: "client_build"
   cancel-in-progress: true
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push events but only for the 4.1.x branch
+  # Triggers the workflow on push events but only for the 4.3.x branch
   push:
-    branches: [ 4.1.x ]
+    branches: [ 4.3.x ]
     paths: 
       - "VERSION"
       - "geonode_mapstore_client/client/**"
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Checking out"
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Checkout submodules
         run: git submodule update --init --recursive
 
@@ -34,15 +34,15 @@ jobs:
       # SET UP 
       #########
       - name: "Setting up npm"
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-            node-version: '12.x'
+            node-version: 20
 
       ############
       # CACHING
       ##########
       - name: "Cache node modules"
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         env:
           cache-name: cache-node-modules
         with:
@@ -52,6 +52,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
+
       ###############
       # NPM BUILD
       #############
@@ -80,7 +81,6 @@ jobs:
         uses: peter-evans/create-pull-request@v3
         with:
           token: ${{ steps.generate-token.outputs.token }}
-          base: "4.1.x"
-          title: "[4.1.x] new client build"
-          body: "Automated client build from GeoNode Client 4.1.x CI"
-          branch: "4.1.x-create-pull-request/patch"
+          base: "4.3.x"
+          title: "new client build"
+          body: "Automated client build from GeoNode Client CI"
