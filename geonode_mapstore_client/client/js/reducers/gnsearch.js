@@ -34,8 +34,6 @@ const defaultState = {
 };
 
 function gnsearch(state = defaultState, action) {
-    // console.log('state for gnsearch:', state);
-    // console.log('action for gnsearch:', action);
     switch (action.type) {
     case SEARCH_RESOURCES: {
         return {

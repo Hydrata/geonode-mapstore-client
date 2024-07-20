@@ -1,5 +1,5 @@
 #mapstore-sidebar-menu-container{
-    z-index: 1;
+    /*z-index: 1;*/
 }
 
 .simple-view-menu-button {
@@ -110,7 +110,7 @@
 }
 
 .legend-button {
-    right: 12px;
+    right: 60px;
 }
 
 .legend-panel {
