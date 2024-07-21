@@ -505,3 +505,8 @@
     border-radius: 3px;
     font-size: xxx-large;
 }
+
+.legend-button {
+    top: 52px;
+    right: 49px;
+}
