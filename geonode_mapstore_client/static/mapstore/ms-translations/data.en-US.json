@@ -860,7 +860,7 @@
             "decimal": "Decimal",
             "aeronautical": "Aeronautical",
             "changeSearchInputField": "Change the search tool",
-            "addressSearch": "Search by location name",
+            "addressSearch": "Search by BMP id",
             "searchOnAllServices": "Search on all services below",
             "coordinatesSearch": "Search by coordinates",
             "currentMapCRS": "Current Map CRS",
