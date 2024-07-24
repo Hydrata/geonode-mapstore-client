@@ -507,6 +507,10 @@
 }
 
 .legend-button {
-    top: 52px;
-    right: 49px;
+    top: 11px;
+    left: 720px;
+}
+
+#search-bar-container {
+    left: 20px !important;
 }
