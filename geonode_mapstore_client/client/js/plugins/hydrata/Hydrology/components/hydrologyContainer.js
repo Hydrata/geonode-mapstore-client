@@ -43,7 +43,7 @@ class HydrologyContainer extends React.Component {
                     <button
                         key="hydrology-main-menu-button"
                         className={'simple-view-menu-button'}
-                        style={{left: 620}}
+                        style={{left: 520}}
                         onClick={() => {
                             this.props.setHydrologyMainMenu(!this.props.showHydrologyMainMenu);
                             this.props.setOpenMenuGroupId(null);
