@@ -425,12 +425,16 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                         bsStyle={'success'}
                                                                         bsSize={'xsmall'}
                                                                         style={{margin: "2px", borderRadius: "2px"}}
-                                                                        className={(scenario.unsaved && this.validateScenario(scenario)) ? null : 'disabled'}
+                                                                        className={(scenario.unsaved) ? null : 'disabled'}
                                                                         onClick={() => {
-                                                                            this.props.saveAnugaScenario(scenario);
-                                                                            this.props.setOpenMenuGroupId(null);
-                                                                            console.log(`tracking anuga-scenario-menu-build`);
-                                                                            CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-build`);
+                                                                            this.validateScenario(scenario) ?
+                                                                                (() => {
+                                                                                    this.props.saveAnugaScenario(scenario);
+                                                                                    this.props.setOpenMenuGroupId(null);
+                                                                                    console.log(`tracking anuga-scenario-menu-build`);
+                                                                                    CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-build`);
+                                                                                })()
+                                                                                : window.alert("Scenario is not valid");
                                                                         }}
                                                                     >
                                                                         Build
@@ -473,12 +477,16 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 bsStyle={'success'}
                                                                 bsSize={'xsmall'}
                                                                 style={{margin: "2px", borderRadius: "2px"}}
-                                                                className={(scenario.unsaved && this.validateScenario(scenario)) ? null : 'disabled'}
+                                                                className={(scenario.unsaved) ? null : 'disabled'}
                                                                 onClick={() => {
-                                                                    this.props.saveAnugaScenario(scenario);
-                                                                    this.props.setOpenMenuGroupId(null);
-                                                                    console.log(`tracking anuga-scenario-menu-build`);
-                                                                    CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-build`);
+                                                                    this.validateScenario(scenario) ?
+                                                                        (() => {
+                                                                            this.props.saveAnugaScenario(scenario);
+                                                                            this.props.setOpenMenuGroupId(null);
+                                                                            console.log(`tracking anuga-scenario-menu-build`);
+                                                                            CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-build`);
+                                                                        })()
+                                                                        : window.alert("Scenario is not valid");
                                                                 }}
                                                             >
                                                                 Build
