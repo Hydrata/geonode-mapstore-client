@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# Run tests before push
+cd geonode_mapstore_client/client
+
+echo "Running tests before push..."
+
+# Find Chrome/Chromium binary
+if [ -x "/usr/bin/chromium-browser" ]; then
+    export CHROME_BIN="/usr/bin/chromium-browser"
+elif [ -x "/usr/bin/chromium" ]; then
+    export CHROME_BIN="/usr/bin/chromium"
+elif [ -x "/usr/bin/google-chrome" ]; then
+    export CHROME_BIN="/usr/bin/google-chrome"
+else
+    echo "Warning: No Chrome/Chromium found, skipping tests"
+    exit 0
+fi
+
+npm test
+
+if [ $? -ne 0 ]; then
+    echo "Tests failed. Push aborted."
+    exit 1
+fi
+
+echo "All tests passed!"

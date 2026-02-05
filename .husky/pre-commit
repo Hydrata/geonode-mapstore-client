@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Run lint-staged on staged JS/JSX files
+cd geonode_mapstore_client/client
+
+# Check if there are staged JS/JSX files in client directory
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|jsx)$' | grep '^geonode_mapstore_client/client/' || true)
+
+if [ -n "$STAGED_FILES" ]; then
+    echo "Running ESLint on staged files..."
+    npx lint-staged
+fi
