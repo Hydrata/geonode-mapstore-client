@@ -4,7 +4,17 @@
 </header>
 <div class="gn-main-header-placeholder"></div>
 {% if show_hero %}
-    {% include './hero.html' %}
+    {% if job_name == 'hydratabase' %}
+        {% include './hero_hydratabase.html' %}
+    {% elif job_name == 'swamm' %}
+        {% include './hero_swamm.html' %}
+    {% elif job_name == 'sararaportal' %}
+        {% include './hero_sararaportal.html' %}
+    {% elif job_name == 'nicp' %}
+        {% include './hero_nicp.html' %}
+    {% else %}
+        {% include './hero.html' %}
+    {% endif %}
 {% endif %}
 
 {% include './topbar.html' with id='gn-topbar' %}

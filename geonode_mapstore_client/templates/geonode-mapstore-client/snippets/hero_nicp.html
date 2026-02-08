@@ -1,0 +1,45 @@
+{% load i18n %}
+{% load static %}
+
+<div id="gn-hero" class="gn-hero" style="background-color: #2c5e87">
+    <div class="jumbotron">
+        <div class="gn-hero-description">
+            <h1>Nicaragua Hydro Portal</h1>
+            <p>A web portal for Nicaragua's hydrogeological data and knowledge.</p>
+        </div>
+        <p class="gn-hero-tools">
+        </p>
+    </div>
+</div>
+
+{% block extra_head %}
+    <link href="{% static 'nicp/css/nicp_base.css' %}" rel="stylesheet"/>
+    <link href="{% static 'nicp/css/nicp_home.css' %}" rel="stylesheet"/>
+    <meta property="og:title" content="Nicaragua Hydro Portal" />
+    <meta property="og:description" content="A web portal for Nicaragua's hydrogeological data and knowledge" />
+    <meta property="og:url" content="https://nicaraguahydroportal.com" />
+{% endblock extra_head %}
+
+<div>
+    <div class="container-fluid water-background">
+        <div class="container text-center hero">
+            <div class="row" style="margin-bottom: 20px;">
+                <img class="hydrologica-title-logo" src="{% static 'nicp/img/HydroLOGICA-Logo-RGB-1800x900px.png' %}" style="max-height: 80px; margin: 10px;">
+                <img class="northwater-title-logo" src="{% static 'nicp/img/northwater_international_logo.png' %}" style="max-height: 80px; margin: 10px;">
+            </div>
+            <h3>Use the portal. Put your water well in the right location. Enjoy more sustainable water.</h3>
+            <p style="margin: 20px 0;">
+                <a class="btn btn-lg btn-success" href="/catalogue/#/search/?f=map" role="button">Open the Portal</a>
+            </p>
+            <p class="lead" style="max-width: 800px; margin: 0 auto; text-align: left;">
+                This portal is an open platform developed by HydroLOGICA, Northwater International and Hydrata to
+                support government, academia, NGOs, and the private sector with regards to planning, development, and management
+                of groundwater resources.<br><br>
+                It responds to the need for easier access to and enhanced utility of existing maps and spatial datasets. We hope
+                to grow and develop this system to archive historical data as it is uncovered or becomes available, and retain
+                knowledge and data from current and future activities.<br><br>
+                As we build and develop this portal, we rely on your feedback, comments and user cases.
+            </p>
+        </div>
+    </div>
+</div>
