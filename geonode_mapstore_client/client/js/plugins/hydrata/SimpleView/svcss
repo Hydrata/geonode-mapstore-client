@@ -1,0 +1,63 @@
+
+const panelStyle = {
+    position: "absolute",
+    zIndex: 1021,
+    top: "85px",
+    left: "20px",
+    minWidth: "400px",
+    backgroundColor: "rgba(0,60,136,0.6)",
+    borderColor: "rgb(255 255 255 / 70%)",
+    borderWidth: "2px",
+    padding: "5px 10px",
+    fontSize: "12px",
+    lineHeight: "1.5",
+    borderRadius: "4px",
+    color: "white",
+    textAlign: "center"
+};
+
+const buttonStyle = {
+    position: "absolute",
+    zIndex: 1021,
+    top: 11,
+    width: "85px",
+    height: "60px",
+    backgroundColor: "rgba(0,60,136,0.5)",
+    borderColor: "rgb(255 255 255 / 70%)",
+    borderWidth: "2px",
+    padding: "3px 5px",
+    fontSize: "12px",
+    lineHeight: "1.3",
+    borderRadius: "4px",
+    color: "white",
+    textAlign: "center"
+};
+
+const rowStyle = {
+    borderBottom: "1px solid #ffffffad",
+    paddingLeft: "5px",
+    margin: 0
+};
+
+const btnGroupStyle = {
+    display: "inline-block",
+    verticalAlign: "middle"
+};
+
+const glyphStyle = {
+    background: "#ffffff",
+    borderRadius: "3px",
+    margin: "5px",
+    marginRight: "20px",
+    color: "limegreen",
+    fontSize: "10px"
+};
+
+const textStyle = {
+    whiteSpace: "nowrap",
+    paddingLeft: "3px"
+};
+
+const rowsStyle = {
+    borderTop: "1px solid #ffffffad"
+};

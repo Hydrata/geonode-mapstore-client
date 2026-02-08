@@ -1,6 +1,5 @@
 
 
-<div class="gn-footer-placeholder"></div>
 <footer class="gn-footer">
     <ul>
         <li>
@@ -20,18 +19,3 @@
         </li>
     </ul>
 </footer>
-
-<script>
-    (function () {
-        const footer = document.querySelector('.gn-footer');
-        const footerPlaceholder = document.querySelector('.gn-footer-placeholder');
-        function resize() {
-            if (footerPlaceholder && footer) {
-                footerPlaceholder.style.height = footer.clientHeight + 'px';
-            }
-        }
-        window.addEventListener('resize', resize);
-        window.addEventListener('DOMContentLoaded', resize);
-        resize();
-    })();
-</script>

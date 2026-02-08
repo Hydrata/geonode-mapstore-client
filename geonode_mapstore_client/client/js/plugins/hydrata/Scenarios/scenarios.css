@@ -1,0 +1,36 @@
+.scenario-button {
+    text-align: center;
+    display: table-cell;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.scenario-table {
+    text-align: center;
+    display: table;
+    border: 1px solid white;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.scenario-table-header-group {
+    text-align: center;
+    display: table-header-group;
+    border: 1px solid white;
+    border-collapse: collapse;
+}
+
+.scenario-table-row {
+    text-align: center;
+    display: table-row;
+    border: 1px solid white;
+    border-collapse: collapse;
+}
+
+.scenario-table-cell {
+    text-align: center;
+    display: table-cell;
+    border: 1px solid #ffffff60;
+    border-collapse: collapse;
+    padding: 3px;
+}

@@ -1,0 +1,41 @@
+{% load static %}
+
+{% block extra_head %}
+    <link href="{% static 'hydratabase/css/hydratabase_base.css' %}" rel="stylesheet"/>
+    <link href="{% static 'hydratabase/css/hydratabase_home.css' %}" rel="stylesheet"/>
+    <!--LinkedIn metadata:-->
+    <meta property="og:title" content="Hydrata"/>
+    <meta property="og:description" content="Online, Open Source Water Modelling"/>
+    <meta property="og:url" content="https://hydrata.com"/>
+    <meta property="og:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
+{% endblock extra_head %}
+
+<header class="gn-main-header  hydratabase-dummy-class-header_hydratabase">
+    {% include './navbar_hydratabase.html'  with id='gn-brand-navbar' %}
+</header>
+
+<div class="gn-main-header-placeholder"></div>
+{% if show_hero %}
+    {% include './hero_hydratabase.html' %}
+{% endif %}
+
+{#{% include './topbar.html' with id='gn-topbar' %}#}
+
+<script>
+    (function () {
+        const mainHeader = document.querySelector('.gn-main-header');
+        const mainHeaderPlaceholder = document.querySelector('.gn-main-header-placeholder');
+        const topbar = document.querySelector('#gn-topbar');
+        function resize() {
+            if (mainHeaderPlaceholder && mainHeader) {
+                mainHeaderPlaceholder.style.height = mainHeader.clientHeight + 'px';
+            }
+            if (topbar && mainHeader) {
+                topbar.style.top = mainHeader.clientHeight + 'px';
+            }
+        }
+        window.addEventListener('resize', resize);
+        window.addEventListener('DOMContentLoaded', resize);
+        resize();
+    })();
+</script>

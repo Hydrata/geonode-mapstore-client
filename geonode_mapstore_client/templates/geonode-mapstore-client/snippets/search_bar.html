@@ -15,7 +15,7 @@
             style="outline: none; box-shadow: none;"
         >
         <div class="input-group-append">
-            <div id="{{ search_bar_id }}-loading" class="ms-spinner" style="visibility: hidden;"><div></div></div>
+            <div id="{{ search_bar_id }}-loading" class="gn-spinner" style="visibility: hidden;"><div></div></div>
         </div>
     </div>
     <div class="gn-suggestions" style="display: none;">
@@ -108,39 +108,12 @@
                 }
 
                 const newQueryHash = newParams.join('&');
-                const pathname = splitHash[0].replace('#', '');
-                const gnCatalogueNode = document.getElementById('#gn-catalogue');
-                const catalogPagePath = window.__GEONODE_CONFIG__
-                    && window.__GEONODE_CONFIG__.localConfig
-                    && window.__GEONODE_CONFIG__.localConfig.geoNodeSettings
-                    && window.__GEONODE_CONFIG__.localConfig.geoNodeSettings.catalogPagePath;
-                const defaultCatalogPath = '/catalogue/';
-                const baseCatalogPath = catalogPagePath ? catalogPagePath : defaultCatalogPath;
-                const isCatalogPage = window.location.pathname === baseCatalogPath
+                const catalogPagePath = window.__GEONODE_CONFIG__.localConfig.geoNodeSettings.catalogPagePath;
+                const searchPath = '/catalogue/#/search';
+                const baseCatalogPath = catalogPagePath ? searchPath.replace('/catalogue/', catalogPagePath) : searchPath;
+                
                 {% block searchbar_search_href %}
-                    if (queryHash !== newQueryHash) {
-                        // if MapStoreAPI are available we are in the catalog
-                        if (isCatalogPage && window.MapStoreAPI && window.MapStoreAPI.triggerAction) {
-                            // the location change will modify the internal mapstore routing after the #
-                            // without changing the browser path
-                            window.MapStoreAPI.triggerAction({
-                                type: '@@router/LOCATION_CHANGE',
-                                payload: {
-                                    location: {
-                                        pathname: !!gnCatalogueNode ? pathname : '/',
-                                        search: '?' + newQueryHash,
-                                        hash: ''
-                                    },
-                                    action: 'PUSH',
-                                    isFirstRendering: false
-                                }
-                            })
-                        } else {
-                            // we need to redirect to catalog page
-                            // if we are in a page different from catalog
-                            location.href = baseCatalogPath + '#/' + (newQueryHash ? '?' + newQueryHash : '');
-                        }
-                    }
+                location.href = baseCatalogPath + (newQueryHash ? '?' + newQueryHash : '');
                 {% endblock %}
 
                 clearRequest();
