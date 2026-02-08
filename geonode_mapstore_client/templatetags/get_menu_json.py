@@ -70,3 +70,23 @@ def get_user_menu(context):
             menu_items.append({"type": "link", "href": "/account/signup/", "label": "Register"})
 
     return menu_items
+
+@register.simple_tag
+def get_base_left_topbar_menu():
+    """
+    Returns the base left topbar menu items.
+    These are the core navigation links shown in the left side of the topbar.
+    """
+    return [
+        {"type": "link", "href": "/catalogue/", "label": "Explore"},
+        {"type": "link", "href": "/catalogue/#/search/?f=dataset", "label": "Datasets"},
+        {"type": "link", "href": "/catalogue/#/search/?f=document", "label": "Documents"},
+        {"type": "link", "href": "/catalogue/#/search/?f=map", "label": "Maps"},
+    ]
+
+@register.simple_tag(takes_context=True)
+def get_base_right_topbar_menu(context):
+    """
+    Returns the base right topbar menu items (user menu).
+    """
+    return get_user_menu(context)
