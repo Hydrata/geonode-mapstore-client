@@ -1,20 +1,15 @@
 {% load static %}
+{% if job_name == 'hydratabase' %}
+    {% include './header_hydratabase.html' %}
+{% elif job_name == 'swamm' %}
+    {% include './header_swamm.html' %}
+{% else %}
 <header class="gn-main-header">
     {% include './brand_navbar.html'  with id='gn-brand-navbar' %}
 </header>
 <div class="gn-main-header-placeholder"></div>
 {% if show_hero %}
-    {% if job_name == 'hydratabase' %}
-        {% include './hero_hydratabase.html' %}
-    {% elif job_name == 'swamm' %}
-        {% include './hero_swamm.html' %}
-    {% elif job_name == 'sararaportal' %}
-        {% include './hero_sararaportal.html' %}
-    {% elif job_name == 'nicp' %}
-        {% include './hero_nicp.html' %}
-    {% else %}
-        {% include './hero.html' %}
-    {% endif %}
+    {% include './hero.html' %}
 {% endif %}
 
 {% include './topbar.html' with id='gn-topbar' %}
@@ -37,3 +32,4 @@
         resize();
     })();
 </script>
+{% endif %}
