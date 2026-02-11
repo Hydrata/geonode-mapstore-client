@@ -1,22 +1,23 @@
 {% load static %}
-{% if job_name == 'hydratabase' %}
-    {% include './header_hydratabase.html' %}
-{% elif job_name == 'swamm' %}
-    {% include './header_swamm.html' %}
-{% elif job_name == 'nicp' %}
-    {% include './header_nicp.html' %}
-{% elif job_name == 'sararaportal' %}
-    {% include './header_sararaportal.html' %}
-{% else %}
-<header class="gn-main-header">
-    {% include './brand_navbar.html'  with id='gn-brand-navbar' %}
+
+{% block extra_head %}
+    <link href="{% static 'sararaportal/css/sararaportal_base.css' %}" rel="stylesheet"/>
+    <link href="{% static 'sararaportal/css/sararaportal_home.css' %}" rel="stylesheet"/>
+    <meta property="og:title" content="SararaPortal - Haiti Geology and Hydrogeology" />
+    <meta property="og:description" content="Library and Map Collection for Haiti's geological and hydrogeological resources" />
+    <meta property="og:url" content="https://sararaportal.com" />
+{% endblock extra_head %}
+
+<header class="gn-main-header sararaportal-dummy-class-header_sararaportal">
+    {% include './navbar_sararaportal.html'  with id='gn-brand-navbar' %}
 </header>
+
 <div class="gn-main-header-placeholder"></div>
 {% if show_hero %}
-    {% include './hero.html' %}
+    {% include './hero_sararaportal.html' %}
 {% endif %}
 
-{% include './topbar.html' with id='gn-topbar' %}
+{#{% include './topbar.html' with id='gn-topbar' %}#}
 
 <script>
     (function () {
@@ -36,4 +37,3 @@
         resize();
     })();
 </script>
-{% endif %}
