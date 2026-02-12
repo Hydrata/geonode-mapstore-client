@@ -6,7 +6,7 @@ import '../../SimpleView/simpleView.css';
 import {
     showAnugaScenarioLog
 } from "../actionsAnuga";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 
 class AnugaScenarioLogViewerClass extends React.Component {
     static propTypes = {
@@ -33,7 +33,7 @@ class AnugaScenarioLogViewerClass extends React.Component {
                         onClick={() => {
                             this.props.showAnugaScenarioLog(false);
                             console.log(`tracking anuga-scenario-log-close`);
-                            CustomEvent.trackEvent('button', `click`, `anuga-scenario-log-close`);
+                            trackEvent('button', `click`, `anuga-scenario-log-close`);
                         }}
                     />
                 </h5>

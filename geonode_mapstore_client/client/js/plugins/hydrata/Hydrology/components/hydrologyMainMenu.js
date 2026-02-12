@@ -12,7 +12,7 @@ import {HydrologyListDetailContainer} from "./hydrologyListDetailContainer";
 import {
     setOpenMenuGroupId
 } from "../../SimpleView/actionsSimpleView";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
 
 class HydrologyMainMenuClass extends React.Component {
@@ -40,7 +40,7 @@ class HydrologyMainMenuClass extends React.Component {
                 this.props.setActiveHydrologyPage(pageName);
                 this.props.setActiveHydrologyItem(null);
                 this.props.setOpenMenuGroupId(null);
-                CustomEvent.trackEvent('button', `click`, `hydrology-active-menu-set-${pageName}`);
+                trackEvent('button', `click`, `hydrology-active-menu-set-${pageName}`);
             }}
         >
             {label}
@@ -71,7 +71,7 @@ class HydrologyMainMenuClass extends React.Component {
                                 this.props.setHydrologyMainMenu(false);
                                 this.props.setActiveHydrologyPage(null);
                                 console.log(`tracking anuga-scenario-menu-close`);
-                                CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-close`);
+                                trackEvent('button', `click`, `anuga-scenario-menu-close`);
                             }
                         }
                     />
@@ -91,7 +91,7 @@ class HydrologyMainMenuClass extends React.Component {
     })
 
     trackEvent = (page) => {
-        CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
+        trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
     }
 }
 

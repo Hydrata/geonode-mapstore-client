@@ -14,7 +14,6 @@ import {
     SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS,
     SET_PROCESSING_SV_ATTRIBUTE_FORM
 } from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
 
 export default ( state = {}, action) => {
     switch (action.type) {

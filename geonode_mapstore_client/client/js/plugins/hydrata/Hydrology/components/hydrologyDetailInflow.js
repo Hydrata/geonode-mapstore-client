@@ -10,7 +10,6 @@ import {
     updateTimeSeriesRowData
 } from "../actionsHydrology";
 
-import { CustomEvent } from "@piwikpro/react-piwik-pro";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import moment from "moment";
@@ -43,10 +42,6 @@ const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData })
             window.removeEventListener('resize', handleWindowResize);
         };
     }, []);
-    const trackEvent = (page) => {
-        CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
-    };
-
     console.log("*** columnDefs", columnDefs);
     console.log("*** rowData", rowData);
     return (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
-import { CustomEvent } from '@piwikpro/react-piwik-pro';
+import {trackEvent} from "@js/utils/analytics";
 
 import {setOpenMenuGroupId, setVisibleIntroduction} from "../actionsSimpleView";
 import "../simpleView.css";
@@ -54,7 +54,7 @@ class SimpleViewContainer extends React.Component {
                                         style={{left: (index + this.props.menuSpaces + 1) * 100 + 20}}
                                         onClick={() => {
                                             this.props.setOpenMenuGroupId(menu?.id);
-                                            CustomEvent.trackEvent('component_setOpenMenuGroupId', `action_${menu?.title}`, `name_${menu?.title}`);
+                                            trackEvent('component_setOpenMenuGroupId', `action_${menu?.title}`, `name_${menu?.title}`);
                                         }}>
                                         {menu?.title === 'Default' ? menu?.name : menu?.title}
                                     </button>

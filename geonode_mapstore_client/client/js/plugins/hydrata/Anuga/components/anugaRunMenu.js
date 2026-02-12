@@ -14,7 +14,7 @@ import {
 } from "../actionsAnuga";
 import {Table, Button} from "react-bootstrap";
 import {formatMoney} from "@js/plugins/hydrata/Utils/utils";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 
 class AnugaRunMenuClass extends React.Component {
     static propTypes = {
@@ -52,7 +52,7 @@ class AnugaRunMenuClass extends React.Component {
                                 this.props.showAnugaRunMenu(false);
                                 this.props.setAnugaScenarioMenu(true);
                                 console.log('tracking anuga-run-menu-close');
-                                CustomEvent.trackEvent('button', `click`, `anuga-run-menu-close`);
+                                trackEvent('button', `click`, `anuga-run-menu-close`);
                             }}
                         />
                         <div>
@@ -80,7 +80,7 @@ class AnugaRunMenuClass extends React.Component {
                                                     this.props.showAnugaScenarioLog(this.props.selectedScenario.id);
                                                     this.props.setAnugaScenarioMenu(true);
                                                     console.log(`tracking anuga-run-menu-run-${this.props.selectedScenario.name}`);
-                                                    CustomEvent.trackEvent('button', `click`, `anuga-run-menu-run-${this.props.selectedScenario.name}`);
+                                                    trackEvent('button', `click`, `anuga-run-menu-run-${this.props.selectedScenario.name}`);
                                                 }}
                                             >
                                                 Run
@@ -95,7 +95,7 @@ class AnugaRunMenuClass extends React.Component {
                                                 style={{margin: "2px", borderRadius: "2px"}}
                                                 onClick={() => {
                                                     console.log(`tracking anuga-run-menu-download-${this.props.selectedScenario.name}`);
-                                                    CustomEvent.trackEvent('button', `click`, `anuga-run-menu-download-${this.props.selectedScenario.name}`);
+                                                    trackEvent('button', `click`, `anuga-run-menu-download-${this.props.selectedScenario.name}`);
                                                 }}
                                             >
                                                 <span className="glyphicon glyphicon-download" aria-hidden="true" />
@@ -115,7 +115,7 @@ class AnugaRunMenuClass extends React.Component {
                         this.props.showManageAccount(true);
                         this.props.showAnugaRunMenu(false);
                         console.log(`tracking anuga-run-menu-manage-account-open`);
-                        CustomEvent.trackEvent('button', `click`, `anuga-run-menu-manage-account-open`);
+                        trackEvent('button', `click`, `anuga-run-menu-manage-account-open`);
                     }}
                 >
                     Manage Account

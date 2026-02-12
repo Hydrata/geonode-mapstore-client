@@ -15,7 +15,7 @@ import {Countdown} from "./simpleViewCountdown";
 import {DateFormat} from "../../../../../MapStore2/web/client/components/I18N/I18N";
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 
 class simpleViewUploaderPanel extends React.Component {
     static propTypes = {
@@ -61,7 +61,7 @@ class simpleViewUploaderPanel extends React.Component {
                         onClick={() => {
                             this.props.setVisibleUploaderPanel(false);
                             console.log('tracking simpleview-uploader-close');
-                            CustomEvent.trackEvent('button', `click`, `simpleview-uploader-close`);
+                            trackEvent('button', `click`, `simpleview-uploader-close`);
                         }}
                     />
                 </div>
@@ -102,7 +102,7 @@ class simpleViewUploaderPanel extends React.Component {
                                                         onClick={() => {
                                                             this.uploadFile(this.state.uploaderFiles, this.props.fileType || 'file');
                                                             console.log('tracking simpleview-uploader-begin');
-                                                            CustomEvent.trackEvent('button', `click`, `simpleview-uploader-begin`);
+                                                            trackEvent('button', `click`, `simpleview-uploader-begin`);
                                                         }}
                                                         style={{'borderRadius': '3px'}}
                                                         bsSize={'small'}
@@ -224,7 +224,7 @@ class simpleViewUploaderPanel extends React.Component {
                     this.props.setVisibleSimpleViewAttributeForm(true);
                     this.props.createSimpleViewAttributeForm(response?.data);
                     console.log('tracking simpleview-uploader-complete');
-                    CustomEvent.trackEvent('process', `complete`, `simpleview-uploader-complete`);
+                    trackEvent('process', `complete`, `simpleview-uploader-complete`);
                 });
         } else {
             const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/importer-create/`;
@@ -240,7 +240,7 @@ class simpleViewUploaderPanel extends React.Component {
                         this.props.setVisibleSimpleViewAttributeForm(true);
                         this.props.createSimpleViewAttributeForm(response?.data);
                         console.log('tracking simpleview-uploader-complete');
-                        CustomEvent.trackEvent('process', `complete`, `simpleview-uploader-complete`);
+                        trackEvent('process', `complete`, `simpleview-uploader-complete`);
                     } else {
                         this.props.show({
                             "message": "Import processing - the layer will appear when it's ready.",

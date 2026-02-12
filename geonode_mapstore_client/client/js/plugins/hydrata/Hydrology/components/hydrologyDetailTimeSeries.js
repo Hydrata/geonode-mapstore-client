@@ -15,7 +15,6 @@ import {
     replaceTimeSeriesRowData
 } from "../actionsHydrology";
 
-import { CustomEvent } from "@piwikpro/react-piwik-pro";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -79,10 +78,6 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
     const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
-
-    const trackEvent = (page) => {
-        CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
-    };
 
     const parsePastedData = (pastedData) => {
         console.log('parsePastedData', pastedData);

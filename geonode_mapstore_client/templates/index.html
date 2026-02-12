@@ -15,6 +15,7 @@
 
         {% block extra_head %}
         {% endblock %}
+        {% include './geonode-mapstore-client/snippets/umami_tracking.html' %}
     </head>
     <body class="msgapi ms2" data-ms2-container="ms2">
         <div class="gn-page-wrapper {% if request.user_agent.is_mobile %}gn-mobile{% else %}gn-desktop{% endif %}">

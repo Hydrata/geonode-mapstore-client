@@ -10,7 +10,7 @@ import React, { useEffect } from 'react';
 import ResourceCard from '@js/components/ResourceCard';
 import { withResizeDetector } from 'react-resize-detector';
 import { getResourceStatuses } from '@js/utils/ResourceUtils';
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 
 const Cards = ({
     resources,
@@ -90,7 +90,7 @@ const Cards = ({
                                 getDetailHref={getDetailHref}
                                 onClick={() => {
                                     console.log('tracking ResourceCard', resource);
-                                    CustomEvent.trackEvent('button', `click`, `ResourceCard-${resource?.title}`);
+                                    trackEvent('button', `click`, `ResourceCard-${resource?.title}`);
                                 }}
                             />
                         </li>

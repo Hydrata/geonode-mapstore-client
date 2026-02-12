@@ -7,7 +7,6 @@ import {
     updateTemporalPatternRowData
 } from "../actionsHydrology";
 
-import { CustomEvent } from "@piwikpro/react-piwik-pro";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -60,10 +59,6 @@ const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRo
             window.removeEventListener('resize', handleWindowResize);
         };
     }, []);
-    const trackEvent = (page) => {
-        CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
-    };
-
     // Table
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);

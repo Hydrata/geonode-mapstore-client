@@ -14,7 +14,7 @@ import {
     createHydrologyForm
 } from "../actionsHydrology";
 import {hydrologyKeyMap} from '../reducersHydrology';
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
 
 class HydrologyListDetailContainerClass extends React.Component {
@@ -181,7 +181,7 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
     trackEvent = (page) => {
-        CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
+        trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
     }
 
 

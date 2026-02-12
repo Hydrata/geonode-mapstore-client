@@ -7,7 +7,6 @@ import {
     updateIdfRowData
 } from "../actionsHydrology";
 
-import { CustomEvent } from "@piwikpro/react-piwik-pro";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -124,10 +123,6 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
         };
     }, []);
     const flexDirection = windowWidth < 1800 ? 'column' : 'row';
-    const trackEvent = (page) => {
-        CustomEvent.trackEvent('button', `click`, `tracking hydrology-page-${page}-button`);
-    };
-
     // Table
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);

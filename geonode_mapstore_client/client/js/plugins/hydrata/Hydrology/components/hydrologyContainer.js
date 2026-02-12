@@ -8,7 +8,7 @@ import {
 import {HydrologyMainMenu} from './hydrologyMainMenu';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 import {setHydrologyMainMenu} from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 import {setOpenMenuGroupId} from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 import PropTypes from "prop-types";
@@ -48,7 +48,7 @@ class HydrologyContainer extends React.Component {
                             this.props.setHydrologyMainMenu(!this.props.showHydrologyMainMenu);
                             this.props.setOpenMenuGroupId(null);
                             console.log('tracking hydrology-main-menu-toggle');
-                            CustomEvent.trackEvent('button', `click`, `hydrology-main-menu-toggle`);
+                            trackEvent('button', `click`, `hydrology-main-menu-toggle`);
                         }}
                     >
                         Hydrology

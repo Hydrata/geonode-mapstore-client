@@ -9,7 +9,7 @@ import {
     createFigure,
     setPublicationPanel
 } from "../actionsAnuga";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 
 class PublicationPanelClass extends React.Component {
     static propTypes = {
@@ -41,7 +41,7 @@ class PublicationPanelClass extends React.Component {
                                 () => {
                                     this.props.setPublicationPanel(false);
                                     console.log(`tracking anuga-publication-menu-close`);
-                                    CustomEvent.trackEvent('button', `click`, `anuga-publication-menu-close`);
+                                    trackEvent('button', `click`, `anuga-publication-menu-close`);
                                 }
                             }
                         />
@@ -57,7 +57,7 @@ class PublicationPanelClass extends React.Component {
                                     onClick={() => {
                                         window.open(publication?.geostory?.detail_url, '_blank');
                                         console.log(`tracking anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
-                                        CustomEvent.trackEvent('button', `click`, `anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
+                                        trackEvent('button', `click`, `anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
                                     }}
                                 >
                                     Edit Publication
@@ -74,7 +74,7 @@ class PublicationPanelClass extends React.Component {
                                             onClick={() => {
                                                 window.open(figure?.detail_url, '_blank');
                                                 console.log(`tracking anuga-publication-menu-open-figure-${figure?.title}`);
-                                                CustomEvent.trackEvent('button', `click`, `anuga-publication-menu-open-figure-${figure?.title}`);
+                                                trackEvent('button', `click`, `anuga-publication-menu-open-figure-${figure?.title}`);
                                             }}
                                         >
                                             {figure?.title}
@@ -99,7 +99,7 @@ class PublicationPanelClass extends React.Component {
                                             this.props.createFigure(this.state.figureTitle, publication.id);
                                             this.setState({figureTitle: ''});
                                             console.log(`tracking anuga-publication-menu-create-figure => ${this.state.figureTitle}`);
-                                            CustomEvent.trackEvent('button', `click`, `anuga-publication-menu-create-figure => ${this.state.figureTitle}`);
+                                            trackEvent('button', `click`, `anuga-publication-menu-create-figure => ${this.state.figureTitle}`);
                                         }}
                                     >
                                         Create Figure

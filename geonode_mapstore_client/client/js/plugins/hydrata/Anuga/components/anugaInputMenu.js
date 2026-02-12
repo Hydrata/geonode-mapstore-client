@@ -41,7 +41,7 @@ import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
 import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
@@ -156,7 +156,7 @@ class AnugaInputMenuClass extends React.Component {
                                     this.props.setVisibleUploaderPanel(true, "elevation", null);
                                     this.props.startAnugaElevationPolling();
                                     console.log('tracking anuga-input-menu-show-elevation-uploader');
-                                    CustomEvent.trackEvent('button', `click`, `anuga-input-menu-show-elevation-uploader`);
+                                    trackEvent('button', `click`, `anuga-input-menu-show-elevation-uploader`);
                                 }}
                             />
                         </OverlayTrigger>
@@ -210,7 +210,7 @@ class AnugaInputMenuClass extends React.Component {
                                                     this.props.createAnugaBoundary(this.state.boundaryTitle);
                                                     this.setState({boundaryTitle: ''});
                                                     console.log('tracking anuga-input-menu-create-new-boundary');
-                                                    CustomEvent.trackEvent('button', `click`, `anuga-input-menu-create-new-boundary`);
+                                                    trackEvent('button', `click`, `anuga-input-menu-create-new-boundary`);
                                                 }}
                                             />
                                             {
@@ -277,7 +277,7 @@ class AnugaInputMenuClass extends React.Component {
                                                     this.props.createAnugaInflow(this.state.inflowTitle);
                                                     this.setState({inflowTitle: ''});
                                                     console.log('tracking anuga-input-menu-create-new-inflow');
-                                                    CustomEvent.trackEvent('button', `click`, `anuga-input-menu-create-new-inflow`);
+                                                    trackEvent('button', `click`, `anuga-input-menu-create-new-inflow`);
                                                 }}
                                             />
                                             {
@@ -344,7 +344,7 @@ class AnugaInputMenuClass extends React.Component {
                                         onClick={() => {
                                             this.setState(prevState => ({showAdvanced: !prevState.showAdvanced}));
                                             console.log('tracking anuga-input-menu-show-advanced');
-                                            CustomEvent.trackEvent('button', `click`, `anuga-input-menu-show-advanced`);
+                                            trackEvent('button', `click`, `anuga-input-menu-show-advanced`);
                                         }}
                                     />
                                 </div>
@@ -373,7 +373,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 onClick={() => {
                                                     this.props.setVisibleIntroduction(!this.props.visibleIntroduction);
                                                     console.log('tracking anuga-input-menu-show-introduction');
-                                                    CustomEvent.trackEvent('button', `click`, `anuga-input-menu-show-introduction`);
+                                                    trackEvent('button', `click`, `anuga-input-menu-show-introduction`);
                                                 }}
                                             />
                                             <span className="menu-row-text">Introduction</span>
@@ -443,7 +443,7 @@ class AnugaInputMenuClass extends React.Component {
                                                             this.props.createAnugaMeshRegion(this.state.meshRegionTitle);
                                                             this.setState({meshRegionTitle: ''});
                                                             console.log('tracking anuga-input-menu-create-mesh-region');
-                                                            CustomEvent.trackEvent('button', `click`, `anuga-input-menu-create-mesh-region`);
+                                                            trackEvent('button', `click`, `anuga-input-menu-create-mesh-region`);
                                                         }}
                                                     />
                                                     {
@@ -514,7 +514,7 @@ class AnugaInputMenuClass extends React.Component {
                                                             this.props.createAnugaFriction(this.state.frictionTitle);
                                                             this.setState({frictionTitle: ''});
                                                             console.log('tracking anuga-input-menu-create-friction');
-                                                            CustomEvent.trackEvent('button', `click`, `anuga-input-menu-create-friction`);
+                                                            trackEvent('button', `click`, `anuga-input-menu-create-friction`);
                                                         }}
                                                     />
                                                     {
@@ -586,7 +586,7 @@ class AnugaInputMenuClass extends React.Component {
                                                             this.props.createAnugaStructure(this.state.structureTitle);
                                                             this.setState({structureTitle: ''});
                                                             console.log('tracking anuga-input-menu-create-structure');
-                                                            CustomEvent.trackEvent('button', `click`, `anuga-input-menu-create-structure`);
+                                                            trackEvent('button', `click`, `anuga-input-menu-create-structure`);
                                                         }}
                                                     />
                                                     {
@@ -654,7 +654,7 @@ class AnugaInputMenuClass extends React.Component {
                                                     this.props.setNetworkMenu(true);
                                                     this.props.setAnugaInputMenu(false);
                                                     console.log('tracking anuga-input-menu-show-network');
-                                                    CustomEvent.trackEvent('button', `click`, `anuga-input-menu-show-network`);
+                                                    trackEvent('button', `click`, `anuga-input-menu-show-network`);
                                                 }}
                                             />
                                             {this.props.canEditAnugaMap ?
@@ -673,7 +673,7 @@ class AnugaInputMenuClass extends React.Component {
                                                             this.props.createNetwork(this.state.networkTitle);
                                                             this.setState({networkTitle: ''});
                                                             console.log('tracking anuga-input-menu-create-network');
-                                                            CustomEvent.trackEvent('button', `click`, `anuga-input-menu-create-network`);
+                                                            trackEvent('button', `click`, `anuga-input-menu-create-network`);
                                                         }}
                                                     />
                                                     {

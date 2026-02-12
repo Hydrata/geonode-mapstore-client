@@ -22,7 +22,7 @@ import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {AnugaRunMenu} from "@js/plugins/hydrata/Anuga/components/anugaRunMenu";
-import {CustomEvent} from "@piwikpro/react-piwik-pro";
+import {trackEvent} from "@js/utils/analytics";
 
 class AnugaContainer extends React.Component {
     static propTypes = {
@@ -89,7 +89,7 @@ class AnugaContainer extends React.Component {
                                 this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
                                 this.props.setOpenMenuGroupId(null);
                                 console.log('tracking anuga-input-menu-toggle');
-                                CustomEvent.trackEvent('button', `click`, `anuga-input-menu-toggle`);
+                                trackEvent('button', `click`, `anuga-input-menu-toggle`);
                             }}
                         >
                             Inputs
@@ -112,7 +112,7 @@ class AnugaContainer extends React.Component {
                                         this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
                                         this.props.setOpenMenuGroupId(null);
                                         console.log('tracking anuga-scenario-menu-toggle');
-                                        CustomEvent.trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
+                                        trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
                                     }}
                                 >
                                     Scenarios
@@ -135,7 +135,7 @@ class AnugaContainer extends React.Component {
                                 onClick={() => {
                                     this.props.setOpenMenuGroupId('Results');
                                     console.log('tracking anuga-results-menu-toggle');
-                                    CustomEvent.trackEvent('button', `click`, `anuga-results-menu-toggle`);
+                                    trackEvent('button', `click`, `anuga-results-menu-toggle`);
                                 }}
                             >
                                 Results
@@ -153,7 +153,7 @@ class AnugaContainer extends React.Component {
                                         this.props.setPublicationPanel(!this.props.showPublicationPanel);
                                         this.props.setOpenMenuGroupId(null);
                                         console.log('tracking anuga-publication-menu-toggle');
-                                        CustomEvent.trackEvent('button', `click`, `anuga-publication-menu-toggle`);
+                                        trackEvent('button', `click`, `anuga-publication-menu-toggle`);
                                     }}
                                 >
                                     Publish
