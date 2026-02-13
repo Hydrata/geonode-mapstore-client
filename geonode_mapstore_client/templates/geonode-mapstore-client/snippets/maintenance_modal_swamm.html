@@ -1,0 +1,71 @@
+<div class="modal fade" id="maintenanceModal" tabindex="-1" role="dialog" aria-labelledby="maintenanceModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content" style="border-radius: 8px; overflow: hidden;">
+            <div class="modal-header" style="background-color: #2a7886; color: white; border-bottom: none; padding: 20px 25px;">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: white; opacity: 0.8; font-size: 24px;">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="maintenanceModalLabel" style="font-weight: 600;">
+                    <span class="glyphicon glyphicon-wrench" style="margin-right: 8px;"></span>
+                    Scheduled Maintenance
+                </h4>
+            </div>
+            <div class="modal-body" style="padding: 25px;">
+                <p style="font-size: 16px; margin-bottom: 15px;">
+                    <strong>The SWAMM</strong> will be undergoing scheduled maintenance to upgrade our infrastructure.
+                </p>
+                <div style="background-color: #f5f5f5; border-left: 4px solid #2a7886; padding: 15px; margin-bottom: 15px; border-radius: 0 4px 4px 0;">
+                    <p style="margin: 0 0 5px 0; font-size: 15px;">
+                        <strong>Date:</strong> Sunday 15th February 2026
+                    </p>
+                    <p style="margin: 0 0 5px 0; font-size: 15px;">
+                        <strong>Time:</strong> 9:00 PM &ndash; 7:00 AM Monday (CST)
+                    </p>
+                    <p style="margin: 0; font-size: 15px;">
+                        <strong>Duration:</strong> Up to 10 hours
+                    </p>
+                </div>
+                <p style="color: #666; font-size: 14px; margin-bottom: 0;">
+                    During this window the site may be intermittently unavailable. We apologise for any inconvenience and appreciate your patience.
+                </p>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #eee; padding: 15px 25px;">
+                <button type="button" class="btn btn-primary" id="maintenanceAcknowledge"
+                        data-dismiss="modal"
+                        data-umami-event="maintenance-modal-acknowledge"
+                        data-umami-event-user="{{ user.username }}"
+                        style="padding: 8px 24px;">
+                    Got it, thanks
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        var STORAGE_KEY = 'swamm_maintenance_dismissed_2026-02-15';
+
+        if (localStorage.getItem(STORAGE_KEY)) {
+            return;
+        }
+
+        function showModal() {
+            $('#maintenanceModal').modal('show');
+        }
+
+        // Track dismissal via close button or backdrop click too
+        $('#maintenanceModal').on('hidden.bs.modal', function () {
+            localStorage.setItem(STORAGE_KEY, new Date().toISOString());
+        });
+
+        // Show after a short delay to let the page settle
+        if (document.readyState === 'complete') {
+            setTimeout(showModal, 500);
+        } else {
+            window.addEventListener('load', function() {
+                setTimeout(showModal, 500);
+            });
+        }
+    })();
+</script>

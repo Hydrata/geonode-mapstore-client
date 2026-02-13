@@ -113,6 +113,10 @@
                         $('.dropdown-toggle').dropdown();
                     </script>
                 {% endblock %}
+
+                {% if job_name == 'swamm' and request.user.is_authenticated %}
+                    {% include './geonode-mapstore-client/snippets/maintenance_modal_swamm.html' %}
+                {% endif %}
             </div>
         </div>
     </body>
