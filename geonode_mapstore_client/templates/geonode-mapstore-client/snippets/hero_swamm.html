@@ -94,6 +94,15 @@
     <meta property="og:description" content="Spatial Watershed Assessment and Management Model"/>
     <meta property="og:url" content="https://theswamm.com"/>
     <meta property="og:image" content="https://theswamm.com/static/img/swamm_map.png"/>
+    <script>
+    // Default homepage catalogue to maps-only view
+    (function() {
+        var h = window.location.hash;
+        if (h === '' || h === '#' || h === '#/' || h === '#/?') {
+            window.location.replace('#/?f=map');
+        }
+    })();
+    </script>
 {% endblock extra_head %}
 
 <div>
@@ -105,12 +114,6 @@
                 SWAMM allows you to understand where the pollution is coming from, and how best to mitigate it.</br></br>
                 It encourages unified, efficient and fair management solutions.<br>
             </h3>
-            {% if user.is_authenticated %}
-                <h3>{{ user }}'s available projects:</h3>
-                <div class="gn-container" style="text-shadow: none;">
-                    <div id="gn-home-featured-resources-grid"></div>
-                </div>
-            {% endif %}
             <hr>
 
             <div class="signup-form" style="text-align: center">
