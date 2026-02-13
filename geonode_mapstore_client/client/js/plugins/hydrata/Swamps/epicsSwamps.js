@@ -28,7 +28,6 @@ export const refreshSwampsEpic = (action$) =>
             );
         })
         .mergeMap((response) => {
-            console.log('refreshSwampsEpic Exhaust', response);
             if (response) {
                 return Rx.Observable.of(
                     window.location.reload(false)
@@ -58,12 +57,9 @@ export const queryLayerAttributesToStoreStep1 = (action$, store) =>
     action$
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
-            console.log('LOAD_FEATURE_INFO unfiltered:', action);
             if (action?.layer?.id?.includes('bluemountains_thpss')) {
-                console.log('queryLayerAttributesToStoreStep1', action);
                 return action;
             }
-            console.log('LOAD_FEATURE_INFO returning null');
             return null;
         })
         .mergeMap((action) => Rx.Observable.merge(
@@ -80,7 +76,6 @@ export const queryLayerAttributesToStoreStep2 = (action$, store) =>
         .ofType(FEATURE_TYPE_LOADED, FEATURE_TYPE_SELECTED)
         .filter((action) => {
             if (action?.typeName?.includes('bluemountains_thpss')) {
-                console.log('queryLayerAttributesToStoreStep2', action);
                 return action;
             }
             return null;
@@ -108,15 +103,10 @@ export const queryLayerAttributesToStoreStep3 = (action$, store) =>
         .ofType(QUERY_RESULT)
         .filter((action) => action?.reason === 'swamps: get bluemountains_thpss data')
         .mergeMap((action) => {
-            console.log('queryLayerAttributesToStoreStep3', action);
             const selectedSwampId = store.getState().swamps?.selectedSwampId;
-            console.log('selectedSwampId', selectedSwampId);
             const selectedSwampIdInt = parseInt(selectedSwampId.split('.')[1], 10);
-            console.log('selectedSwampIdInt', selectedSwampIdInt);
             const selectedSwampData = action.result.features.filter((feature) => feature.id === selectedSwampId)[0];
-            console.log('selectedSwampData', selectedSwampData);
             selectedSwampData.sites = store.getState().swamps?.surveySites?.filter((site) => site?.swamp === selectedSwampIdInt);
-            console.log('selectedSwampData', selectedSwampData);
             return Rx.Observable.of(
                 saveSwampQueryToStore(selectedSwampData)
             );

@@ -39,7 +39,7 @@ class SwammDataGridClass extends React.Component {
         return (
             <Modal
                 show
-                onHide={() => console.log('onHide')}
+                onHide={() => {}}
                 style={{
                     marginTop: "50px",
                     width: "100%"
@@ -76,7 +76,6 @@ class SwammDataGridClass extends React.Component {
         );
     }
     handleChange(event) {
-        console.log('handleChange', event);
     }
 
     columnDefaults = {

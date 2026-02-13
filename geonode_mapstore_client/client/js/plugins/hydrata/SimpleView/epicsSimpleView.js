@@ -61,7 +61,6 @@ export const submitAttributeFormEpic = (action$, store) =>
                         }
                     )
                         .then(response => {
-                            console.log('SUBMIT_SV_ATTRIBUTE_FORM response:', response);
                             if (response.data?.submitUrl) {
                                 return createSimpleViewAttributeForm(response.data);
                             }

@@ -147,7 +147,7 @@ const endpoints = [
 
 const axiosGet = (endpoint, projectId) => Rx.Observable
     .from(axios.get(`/anuga/api/${projectId}/${endpoint}/`))
-    .catch((error) => { console.error(error); return Rx.Observable.of({data:{}}); })
+    .catch(() => Rx.Observable.of({data:{}}))
     .switchMap(response => Rx.Observable.of(response.data))
 
 export const initAnugaEpic = (action$, store) =>
@@ -156,13 +156,13 @@ export const initAnugaEpic = (action$, store) =>
         .filter(() => store.getState().gnresource.id)
         .switchMap(() =>
             Rx.Observable.from(axios.post(`/anuga/api/project/get_project_from_map_id/`, {"mapId": store.getState().gnresource.id}))
-                .catch((error) => { console.log('**', error); return Rx.Observable.of('error'); })
+                .catch(() => Rx.Observable.of('error'))
         )
         .filter(response1 => response1?.status <= 400)
         .filter(() => !!store.getState()?.security?.user)
         .switchMap(response1 =>
             Rx.Observable.from(axios.get(`/anuga/api/project/${response1.data.projectId}/`))
-                .catch((error) => { console.log('xx', error); return Rx.Observable.of('error');})
+                .catch(() => Rx.Observable.of('error'))
                 .switchMap(response2 => {
                     const projectId = response1.data.projectId;
                     const endpointsObservables = endpoints.map(({endpoint, action}) => axiosGet(endpoint, projectId).map(action));
@@ -664,7 +664,6 @@ export const createFigureEpic = (action$, store) =>
         )
         .filter(response1 => response1?.status <= 400)
         .switchMap((response1) => {
-            console.log('response1:', response1);
             window.open(response1?.data?.detail_url, '_blank').focus();
             return Rx.Observable.of(initAnuga());
         });

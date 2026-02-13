@@ -51,7 +51,6 @@ class AnugaRunMenuClass extends React.Component {
                             onClick={() => {
                                 this.props.showAnugaRunMenu(false);
                                 this.props.setAnugaScenarioMenu(true);
-                                console.log('tracking anuga-run-menu-close');
                                 trackEvent('button', `click`, `anuga-run-menu-close`);
                             }}
                         />
@@ -79,7 +78,6 @@ class AnugaRunMenuClass extends React.Component {
                                                     this.props.showAnugaRunMenu(false);
                                                     this.props.showAnugaScenarioLog(this.props.selectedScenario.id);
                                                     this.props.setAnugaScenarioMenu(true);
-                                                    console.log(`tracking anuga-run-menu-run-${this.props.selectedScenario.name}`);
                                                     trackEvent('button', `click`, `anuga-run-menu-run-${this.props.selectedScenario.name}`);
                                                 }}
                                             >
@@ -94,7 +92,6 @@ class AnugaRunMenuClass extends React.Component {
                                                 bsSize={'xsmall'}
                                                 style={{margin: "2px", borderRadius: "2px"}}
                                                 onClick={() => {
-                                                    console.log(`tracking anuga-run-menu-download-${this.props.selectedScenario.name}`);
                                                     trackEvent('button', `click`, `anuga-run-menu-download-${this.props.selectedScenario.name}`);
                                                 }}
                                             >
@@ -114,7 +111,6 @@ class AnugaRunMenuClass extends React.Component {
                     onClick={() => {
                         this.props.showManageAccount(true);
                         this.props.showAnugaRunMenu(false);
-                        console.log(`tracking anuga-run-menu-manage-account-open`);
                         trackEvent('button', `click`, `anuga-run-menu-manage-account-open`);
                     }}
                 >

@@ -70,7 +70,6 @@ class HydrologyMainMenuClass extends React.Component {
                             () => {
                                 this.props.setHydrologyMainMenu(false);
                                 this.props.setActiveHydrologyPage(null);
-                                console.log(`tracking anuga-scenario-menu-close`);
                                 trackEvent('button', `click`, `anuga-scenario-menu-close`);
                             }
                         }

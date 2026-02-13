@@ -27,9 +27,6 @@ const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData })
         setColumnDefs(activeHydrologyItem?.columnDefs);
         setRowData(activeHydrologyItem?.rowData);
         setChartData(activeHydrologyItem?.getChartData());
-        console.log('columnDefs:', columnDefs);
-        console.log('rowData:', rowData);
-        console.log('chartData:', chartData);
     }, [activeHydrologyItem]);
 
     const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
@@ -42,8 +39,6 @@ const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData })
             window.removeEventListener('resize', handleWindowResize);
         };
     }, []);
-    console.log("*** columnDefs", columnDefs);
-    console.log("*** rowData", rowData);
     return (
         <React.Fragment>
             <h3 style={{marginTop: 0}}>HydrologyInflow</h3>

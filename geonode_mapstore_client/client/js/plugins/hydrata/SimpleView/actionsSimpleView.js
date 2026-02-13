@@ -93,7 +93,6 @@ const updateSimpleViewAttributeForm = (kv) => {
 };
 
 const submitSimpleViewAttributeForm = (form, projectId, simpleViewImporterSessionId) => {
-    console.log('actions submitSimpleViewAttributeForm: ', form, projectId, simpleViewImporterSessionId);
     return {
         type: SUBMIT_SV_ATTRIBUTE_FORM,
         form,

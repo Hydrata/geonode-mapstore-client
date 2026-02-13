@@ -71,7 +71,6 @@ const columns = [
         }
     })
 ];
-console.log('columns:', columns);
 
 
 const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, updateTimeSeriesRowData }) => {
@@ -80,7 +79,6 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
     const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
 
     const parsePastedData = (pastedData) => {
-        console.log('parsePastedData', pastedData);
         return pastedData.split('\n')
             .filter(row => row.trim() !== '')
             .map((row) => {
@@ -99,7 +97,6 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
             if (paste) {
                 let pastedData = paste.getData('text');
                 let newRowData = parsePastedData(pastedData);
-                console.log('send replaceTimeSeriesRowData', activeHydrologyItem.id, newRowData);
                 replaceTimeSeriesRowData(activeHydrologyItem.id, newRowData);
                 setChartData(activeHydrologyItem?.getChartData());
                 setRowData(newRowData);
@@ -108,7 +105,6 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
 
         const pasteDiv = pasteDivRef.current;
         if (pasteDiv) {
-            console.log('*** added');
             pasteDiv.addEventListener('paste', handlePaste);
         }
 

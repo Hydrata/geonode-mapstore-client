@@ -60,25 +60,20 @@ class Node extends React.Component {
         node: PropTypes.object
     }
     componentDidMount() {
-        console.log('ReactDOM.findDOMNode(this):', ReactDOM.findDOMNode(this));
         this.d3Node = d3
             .select(ReactDOM.findDOMNode(this))
             .data(this.props.node)
             .select('circle')
             .attr("r", (d) => d?.size)
             .attr("transform", (d) => {
-                console.log('Dag3 d', d);
                 return "translate(" + Math.random() * 100 + ", " + Math.random() * 100 + ")";
             });
             // .call(enterNode);
     }
     componentDidUpdate() {
-        console.log('this.d3Node:', this.d3Node);
-        console.log('this.props.node:', this.props.node);
         this.d3Node
             // .data(this.props.node)
             .attr("transform", (d) => {
-                console.log('Node d', d);
                 return "translate(" + d?.x + "," + d?.y + ")";
             }
             );
@@ -133,13 +128,10 @@ export default class Dag3 extends React.Component {
         // after force calculation starts, call updateGraph
         // which uses d3 to manipulate the attributes,
         // and React doesn't have to go through lifecycle on each tick
-        console.log('TICKING this.d3Graph: ', this.d3Graph);
-        console.log('this.d3Graph.selectAll(.node)', this.d3Graph.selectAll('.node'));
         this.d3Graph
             .selectAll('.node')
             .merge(this.d3Graph)
             .attr("transform", (d) => {
-                console.log('Dag3 d', d);
                 return "translate(" + Math.random() * width + ", " + Math.random() * height + ")";
             })
             .selectAll('.link')

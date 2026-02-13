@@ -109,7 +109,6 @@ const columns = [
         }
     })
 ];
-console.log('columns:', columns);
 
 const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
     const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
@@ -145,10 +144,6 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
         }
     });
 
-    // console.log("*** columnDefs", columnDefs);
-    // console.log("*** rowData", rowData);
-    // console.log("*** table", table);
-    // console.log("*** table.getCoreRowModel()", table.getCoreRowModel());
     const colours = ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6dcd59", "#b8de29", "#fde725"];
     return (
         <div style={{display: 'flex', flexDirection: flexDirection, boxSizing: 'border-box'}}>

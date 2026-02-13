@@ -365,7 +365,6 @@ export class IdfTable {
                 return data;
             });
         });
-        console.log("getChartData", lines);
         return lines;
     }
 }

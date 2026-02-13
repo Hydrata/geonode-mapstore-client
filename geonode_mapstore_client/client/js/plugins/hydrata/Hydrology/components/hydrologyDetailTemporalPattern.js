@@ -46,7 +46,6 @@ const columns = [
         }
     })
 ];
-console.log('columns:', columns);
 
 const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRowData }) => {
     const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);

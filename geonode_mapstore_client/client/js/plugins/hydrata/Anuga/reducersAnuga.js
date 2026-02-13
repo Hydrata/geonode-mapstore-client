@@ -46,8 +46,6 @@ const initialState = {
 };
 
 export default ( state = initialState, action) => {
-    // console.log('state ar: ', state);
-    console.log('action for Anuga: ', action);
     switch (action.type) {
     case SET_CREATING_ANUGA_LAYER:
         return {
@@ -55,11 +53,9 @@ export default ( state = initialState, action) => {
             isCreatingAnugaLayer: action.isCreatingAnugaLayer
         };
     case SET_ANUGA_RESOURCES:
-        console.log('** anugaHomePageResources', action.data);
         let projects = action.data?.projects
             ?.map(project => project?.base_map_full)
             .filter(map => !map?.featured);
-        console.log('projects:', projects);
         if (projects) {
             projects.sort((a, b) => {
                 let dateA = a?.base_map_full ? new Date(a.base_map_full.last_updated) : new Date(0);
@@ -67,7 +63,6 @@ export default ( state = initialState, action) => {
                 return dateB - dateA;
             });
         }
-        console.log('projects2:', projects);
         return {
             ...state,
             anugaHomePageResources: {

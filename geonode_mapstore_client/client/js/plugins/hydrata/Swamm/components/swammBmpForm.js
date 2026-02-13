@@ -964,21 +964,14 @@ class SwammBmpFormClass extends React.Component {
         this.props.makeDefaultsBmpForm(selectedBmpType);
     }
     drawBmpStep1(layerName, featureId) {
-        console.log('this.props.bmpOutletLayer?.id', this.props.bmpOutletLayer?.id);
-        console.log('this.props.bmpFootprintLayer?.id', this.props.bmpFootprintLayer?.id);
-        console.log('this.props.bmpWatershedLayer?.id', this.props.bmpWatershedLayer?.id);
         this.refreshBmpLayers();
         this.props.hideBmpForm();
         const targetLayer = this.props.layers.flat.filter(layer => layer?.name.includes(layerName))[0];
-        console.log('drawBmpStep1 targetLayer', targetLayer);
-        console.log('drawBmpStep1 layerName', layerName);
-        console.log('drawBmpStep1 featureId', featureId);
         this.props.setDrawingBmpLayerName(targetLayer?.name);
         featureId ? this.props.setEditingBmpFeatureId(featureId) : this.props.clearEditingBmpFeatureId();
         this.props.toggleLayer(targetLayer.id, true);
         this.props.setLayer(targetLayer?.id);
         this.props.featureTypeSelected('http://localhost:8080/geoserver/wfs', targetLayer?.name);
-        console.log('drawBmpStep1 finished');
     }
     refreshBmpLayers() {
         this.props.refreshLayerVersion(this.props.bmpOutletLayer?.id);

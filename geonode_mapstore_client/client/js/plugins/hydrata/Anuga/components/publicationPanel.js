@@ -40,7 +40,6 @@ class PublicationPanelClass extends React.Component {
                             onClick={
                                 () => {
                                     this.props.setPublicationPanel(false);
-                                    console.log(`tracking anuga-publication-menu-close`);
                                     trackEvent('button', `click`, `anuga-publication-menu-close`);
                                 }
                             }
@@ -56,7 +55,6 @@ class PublicationPanelClass extends React.Component {
                                     style={{marginTop: "4px", borderRadius: "2px", "float": "right", display: "inlineBlock"}}
                                     onClick={() => {
                                         window.open(publication?.geostory?.detail_url, '_blank');
-                                        console.log(`tracking anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
                                         trackEvent('button', `click`, `anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
                                     }}
                                 >
@@ -73,7 +71,6 @@ class PublicationPanelClass extends React.Component {
                                             style={{borderRadius: "2px", marginTop: "5px", display: "block", width: "375px", textAlign: "left"}}
                                             onClick={() => {
                                                 window.open(figure?.detail_url, '_blank');
-                                                console.log(`tracking anuga-publication-menu-open-figure-${figure?.title}`);
                                                 trackEvent('button', `click`, `anuga-publication-menu-open-figure-${figure?.title}`);
                                             }}
                                         >
@@ -98,8 +95,7 @@ class PublicationPanelClass extends React.Component {
                                         onClick={() => {
                                             this.props.createFigure(this.state.figureTitle, publication.id);
                                             this.setState({figureTitle: ''});
-                                            console.log(`tracking anuga-publication-menu-create-figure => ${this.state.figureTitle}`);
-                                            trackEvent('button', `click`, `anuga-publication-menu-create-figure => ${this.state.figureTitle}`);
+                                            trackEvent('button', `click`, `anuga-publication-menu-create-figure`);
                                         }}
                                     >
                                         Create Figure

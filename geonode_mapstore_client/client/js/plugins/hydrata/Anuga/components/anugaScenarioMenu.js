@@ -68,23 +68,18 @@ class AnugaScenarioMenuClass extends React.Component {
     }
 
     getSecondsFromHHMM = (userInputValue) => {
-        console.log('userInputValue', userInputValue);
         const [hours, minutes] = userInputValue.split(":");
 
         const hoursNumber = Number(hours);
         const minutesNumber = Number(minutes);
-        console.log('hoursNumber', hoursNumber);
-        console.log('minutesNumber', minutesNumber);
 
         if (!isNaN(hoursNumber) && isNaN(minutesNumber)) {
             // case where just minutes were entered - hoursNumber is actually the required minutes
-            console.log('returning:', hoursNumber * 60);
             return hoursNumber * 60;
         }
 
         if (!isNaN(hoursNumber) && !isNaN(minutesNumber)) {
             // case where user entered both hours and minutes hh:mm
-            console.log('returning:', (hoursNumber * 60 + minutesNumber) * 60);
             return (hoursNumber * 60 + minutesNumber) * 60;
         }
 
@@ -117,7 +112,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                             this.setState(prevState => ({
                                                 scenarioTableTabs: [...prevState.scenarioTableTabs, 'manage']
                                             }));
-                                        console.log(`tracking anuga-scenario-menu-manage-tab-toggle`);
                                         trackEvent('button', `click`, `anuga-scenario-menu-manage-tab-toggle`);
                                     }
                                 }
@@ -141,7 +135,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                             this.setState(prevState => ({
                                                 scenarioTableTabs: [...prevState.scenarioTableTabs, 'advanced']
                                             }));
-                                        console.log(`tracking anuga-scenario-menu-advanced-tab-toggle`);
                                         trackEvent('button', `click`, `anuga-scenario-menu-advanced-tab-toggle`);
                                     }
                                 }
@@ -165,7 +158,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                             this.setState(prevState => ({
                                                 scenarioTableTabs: [...prevState.scenarioTableTabs, 'compare']
                                             }));
-                                        console.log(`tracking anuga-scenario-menu-compare-tab-toggle`);
                                         trackEvent('button', `click`, `anuga-scenario-menu-compare-tab-toggle`);
                                     }
                                 }
@@ -180,7 +172,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                 style={{margin: "2px", borderRadius: "2px"}}
                                 onClick={() => {
                                     this.props.addAnugaScenario();
-                                    console.log(`tracking anuga-scenario-menu-new-scenario`);
                                     trackEvent('button', `click`, `anuga-scenario-menu-new-scenario`);
                                 }}
                             >
@@ -193,7 +184,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                 () => {
                                     this.props.setAnugaScenarioMenu(false);
                                     this.props.stopAnugaScenarioPolling();
-                                    console.log(`tracking anuga-scenario-menu-close`);
                                     trackEvent('button', `click`, `anuga-scenario-menu-close`);
                                 }
                             }
@@ -249,7 +239,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                         style={{margin: "2px", borderRadius: "2px"}}
                                                         onClick={() => {
                                                             this.props.compareScenarios(this.props.selectedScenarios);
-                                                            console.log(`tracking anuga-scenario-menu-compare`);
                                                             trackEvent('button', `click`, `anuga-scenario-menu-compare-execute`);
                                                         }}
                                                     >
@@ -431,7 +420,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                                 (() => {
                                                                                     this.props.saveAnugaScenario(scenario);
                                                                                     this.props.setOpenMenuGroupId(null);
-                                                                                    console.log(`tracking anuga-scenario-menu-build`);
                                                                                     trackEvent('button', `click`, `anuga-scenario-menu-build`);
                                                                                 })()
                                                                                 : window.alert("Scenario is not valid");
@@ -483,7 +471,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                         (() => {
                                                                             this.props.saveAnugaScenario(scenario);
                                                                             this.props.setOpenMenuGroupId(null);
-                                                                            console.log(`tracking anuga-scenario-menu-build`);
                                                                             trackEvent('button', `click`, `anuga-scenario-menu-build`);
                                                                         })()
                                                                         : window.alert("Scenario is not valid");
@@ -506,7 +493,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                                 this.props.setAnugaScenarioMenu(false);
                                                                                 this.props.selectAnugaScenario(scenario);
                                                                                 this.props.showAnugaRunMenu(true);
-                                                                                console.log(`tracking anuga-scenario-menu-run`);
                                                                                 trackEvent('button', `click`, `anuga-scenario-menu-run`);
                                                                             }}
                                                                         >
@@ -522,7 +508,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                             bsSize={'xsmall'}
                                                                             style={{margin: "2px", borderRadius: "2px"}}
                                                                             onClick={() => {
-                                                                                console.log(`tracking anuga-scenario-menu-download`);
                                                                                 trackEvent('button', `click`, `anuga-scenario-menu-download`);
                                                                             }}
                                                                         >
@@ -537,7 +522,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                             className={'disabled'}
                                                                             style={{margin: "2px", borderRadius: "2px"}}
                                                                             onClick={() => {
-                                                                                console.log(`tracking anuga-scenario-menu-run`);
                                                                                 trackEvent('button', `click`, `anuga-scenario-menu-run`);
                                                                             }}
                                                                         >
@@ -555,7 +539,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 onClick={() => {
                                                                     this.props.selectAnugaScenario(scenario);
                                                                     this.props.showAnugaScenarioLog(scenario.id);
-                                                                    console.log(`tracking anuga-scenario-menu-view-log`);
                                                                     trackEvent('button', `click`, `anuga-scenario-menu-view-log`);
                                                                 }}
                                                             >
@@ -570,20 +553,16 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 onClick={
                                                                     this.findScenarioStatus(scenario)?.includes('%') ?
                                                                         () => {
-                                                                            console.log(`tracking anuga-scenario-menu-cancel-run`);
                                                                             trackEvent('button', `click`, `anuga-scenario-menu-cancel-run`);
                                                                             if (confirm('Cancel Run?')) {
-                                                                                console.log(`tracking anuga-scenario-menu-cancel-run-confirm`);
                                                                                 trackEvent('button', `click`, `anuga-scenario-menu-cancel-run-confirm`);
                                                                                 this.props.cancelAnugaRun(scenario);
                                                                             }
                                                                         } :
                                                                         () => {
-                                                                            console.log(`tracking anuga-scenario-menu-delete-scenario`);
                                                                             trackEvent('button', `click`, `anuga-scenario-menu-delete-scenario`);
                                                                             if (confirm('Delete Scenario?')) {
                                                                                 this.props.deleteAnugaScenario(scenario);
-                                                                                console.log(`tracking anuga-scenario-menu-delete-scenario-confirm`);
                                                                                 trackEvent('button', `click`, `anuga-scenario-menu-delete-scenario-confirm`);
                                                                             }
                                                                         }
@@ -606,7 +585,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                 }}
                                                                 onClick={() => {
                                                                     this.props.toggleScenarioSelected(scenario);
-                                                                    console.log(`tracking anuga-scenario-menu-select-scenario-${scenario?.name}`);
                                                                     trackEvent('button', `click`, `anuga-scenario-menu-select-scenario-${scenario?.name}`);
                                                                 }}
                                                             />
@@ -684,9 +662,7 @@ class AnugaScenarioMenuClass extends React.Component {
 
     handleTimeBlur = (event, scenario) => {
         const targetValue = event.target.value;
-        console.log('targetValue', targetValue);
         const seconds = Math.max(0, this.getSecondsFromHHMM(targetValue));
-        console.log('seconds', seconds);
         const kv = {};
         kv[event.target.id] = seconds;
         delete kv.tempTimeString;
@@ -694,34 +670,27 @@ class AnugaScenarioMenuClass extends React.Component {
     };
 
     validateScenario = (scenario) => {
-        console.log('validateScenario', scenario);
         if (!scenario || typeof scenario !== 'object') {
             return false;
         }
         if (!scenario?.name?.length > 0) {
             return false;
         }
-        console.log('validateScenario scenario?.name.length', scenario?.name?.length);
         if (!scenario?.elevation) {
             return false;
         }
-        console.log('validateScenario scenario?.elevation', scenario?.elevation);
         if (!scenario?.inflow) {
             return false;
         }
-        console.log('validateScenario scenario?.inflow', scenario?.inflow);
         if (!scenario?.resolution > 0) {
             return false;
         }
-        console.log('validateScenario scenario?.resolution > 0', scenario?.resolution > 0);
         if (!scenario?.duration > 0) {
             return false;
         }
-        console.log('validateScenario scenario?.duration > 0', scenario?.duration > 0);
         if (!scenario?.boundary) {
             return false;
         }
-        console.log('validateScenario', scenario);
         return true;
     }
 }

@@ -69,7 +69,6 @@ function fetchScenarioOverviewError(e) {
 }
 
 const fetchScenarioOverview = (mapId, scenarioSlug) => {
-    console.log('fetchScenarioOverview', mapId, scenarioSlug);
     return (dispatch) => {
         return axios.get(`/scenarios/api/${mapId}/${scenarioSlug}/`
         ).then(

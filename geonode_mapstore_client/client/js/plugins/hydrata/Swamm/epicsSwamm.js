@@ -86,8 +86,6 @@ const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
             })
         );
     }
-    console.log('layerToAdd:', layerToAdd);
-    console.log('actions:', actions);
     return Rx.Observable.from(actions);
 };
 
@@ -101,8 +99,7 @@ export const initSwammEpic = (action$, store) =>
         .switchMap(() => Rx.Observable
             .from(
                 axios.post(`/swamm/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
-                    .catch((error) => {
-                        console.log('** swamm get_project_from_map_id', error); return 'error';
+                    .catch(() => { return 'error';
                     })
             )
             .filter(response1 => response1?.status <= 400)
@@ -145,7 +142,6 @@ export const catchBmpFeatureClick = (action$, store) =>
             let bmpFeatureId = null;
             if (action?.data?.type === 'FeatureCollection') {
                 action?.data?.features?.map((feature) => {
-                    console.log('FeatureCollection feature:', feature);
                     if (
                         /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
                         /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
@@ -154,11 +150,8 @@ export const catchBmpFeatureClick = (action$, store) =>
                 });
             } else {
                 const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
-                const featureIdFull = `${action.layer.name.split(':')[1]}.${featureIdNumber}`;
-                console.log('HTML string featureIdFull:', featureIdFull);
                 bmpFeatureId = featureIdNumber;
             }
-            console.log('bmpFeatureId:', bmpFeatureId);
             // return true;
             return isInt(bmpFeatureId);
         })
@@ -166,7 +159,6 @@ export const catchBmpFeatureClick = (action$, store) =>
             let bmpFeatureId = null;
             if (action?.data?.type === 'FeatureCollection') {
                 action?.data?.features?.map((feature) => {
-                    console.log('FeatureCollection feature:', feature);
                     if (
                         /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
                         /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
@@ -175,11 +167,8 @@ export const catchBmpFeatureClick = (action$, store) =>
                 });
             } else {
                 const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
-                const featureIdFull = `${action.layer.name.split(':')[1]}.${featureIdNumber}`;
-                console.log('HTML string featureIdFull:', featureIdFull);
                 bmpFeatureId = featureIdNumber;
             }
-            console.log('bmpFeatureId:', bmpFeatureId);
             const projectId = store.getState()?.swamm?.projectData?.id;
             // return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/449/`));
             return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/${bmpFeatureId}/`));
@@ -196,8 +185,6 @@ export const setCreateBmpDrawingLayerEpic = (action$, store) =>
     action$
         .ofType(FEATURE_TYPE_LOADED)
         .filter((action) => {
-            console.log('action?.typeName', action?.typeName);
-            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.swamm?.drawingBmpLayerName));
             return action?.typeName?.includes(store.getState()?.swamm?.drawingBmpLayerName);
         })
         .flatMap((action) => Rx.Observable.of(
@@ -217,7 +204,6 @@ export const setEditBmpDrawingLayerEpic = (action$, store) =>
     action$
         .ofType(FEATURE_TYPE_SELECTED)
         .filter((action) => {
-            console.log('setBmpDrawingLayerEpic1', action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_'));
             return action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_');
         })
         .flatMap((action) => Rx.Observable.of(
@@ -236,15 +222,12 @@ export const setEditBmpDrawingLayerEpic = (action$, store) =>
 export const startBmpCreateFeatureEpic = (action$, store) =>
     action$.ofType(QUERY_RESULT)
         .filter(() => {
-            console.log('startBmpCreateFeatureEpic1', !store.getState()?.swamm?.editingBmpFeatureId);
             return !store.getState()?.swamm?.editingBmpFeatureId;
         })
         .filter((action) => {
-            console.log('startBmpCreateFeatureEpic2', action?.filterObj?.featureTypeName.includes(store.getState()?.swamm?.drawingBmpLayerName));
             return action?.filterObj?.featureTypeName.includes(store.getState()?.swamm?.drawingBmpLayerName);
         })
         .filter(action => {
-            console.log('startBmpCreateFeatureEpic3', action?.reason === 'querySetNewBmpLayer');
             return action?.reason === 'querySetNewBmpLayer';
         })
         .flatMap(() => Rx.Observable.of(
@@ -258,11 +241,9 @@ export const startBmpCreateFeatureEpic = (action$, store) =>
 export const startBmpEditFeatureEpic = (action$, store) =>
     action$.ofType(QUERY_RESULT)
         .filter(() => {
-            console.log('startBmpEditFeatureEpic1', store.getState()?.swamm?.editingBmpFeatureId);
             return store.getState()?.swamm?.editingBmpFeatureId;
         })
         .filter(action => {
-            console.log('startBmpEditFeatureEpic2', action?.reason === 'querySetNewBmpLayer');
             return action?.reason === 'querySetNewBmpLayer';
         })
         .flatMap(() => Rx.Observable.of(
@@ -275,11 +256,9 @@ export const startBmpEditFeatureEpic = (action$, store) =>
 export const saveBmpCreateFeatureEpic = (action$, store) =>
     action$.ofType(SAVE_SUCCESS)
         .filter(() => {
-            console.log('saveBmpCreateFeatureEpic1', store.getState()?.swamm?.drawingBmpLayerName);
             return store.getState()?.swamm?.drawingBmpLayerName;
         })
         .filter(() => {
-            console.log('WARNING: saveBmpCreateFeatureEpic2', !store.getState()?.swamm?.editingBmpFeatureId);
             return !store.getState()?.swamm?.editingBmpFeatureId;
         })
         .flatMap(() => Rx.Observable.of(
@@ -289,11 +268,9 @@ export const saveBmpCreateFeatureEpic = (action$, store) =>
 export const finishBmpCreateFeatureEpic = (action$, store) =>
     action$.ofType(QUERY_RESULT)
         .filter(() => {
-            console.log('finishBmpCreateFeatureEpic1', !store.getState()?.swamm?.editingBmpFeatureId);
             return !store.getState()?.swamm?.editingBmpFeatureId;
         })
         .filter(() => {
-            console.log('finishBmpCreateFeatureEpic2', store.getState()?.swamm?.missingBmpFeatureId);
             return store.getState()?.swamm?.missingBmpFeatureId;
         })
         .mergeMap(() => {
@@ -318,7 +295,6 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
 export const saveBmpEditFeatureEpic = (action$, store) =>
     action$.ofType(SAVE_SUCCESS)
         .filter(() => {
-            console.log('saveBmpEditFeatureEpic', store.getState()?.swamm?.editingBmpFeatureId);
             return store.getState()?.swamm?.editingBmpFeatureId;
         })
         .flatMap(() => Rx.Observable.of(
@@ -482,9 +458,6 @@ export const filterBmpEpic = (action$, store) =>
             outletFilter.filterObj.featureTypeName = bmpOutletLayer?.name;
             footprintFilter.filterObj.featureTypeName = bmpFootprintLayer?.name;
             watershedFilter.filterObj.featureTypeName = bmpWatershedLayer?.name;
-            console.log('outletFilter: ', outletFilter);
-            console.log('footprintFilter: ', footprintFilter);
-            console.log('watershedFilter: ', watershedFilter);
             return Rx.Observable.of(
                 changeLayerProperties(bmpOutletLayer?.id, outletFilter),
                 changeLayerProperties(bmpFootprintLayer?.id, footprintFilter),

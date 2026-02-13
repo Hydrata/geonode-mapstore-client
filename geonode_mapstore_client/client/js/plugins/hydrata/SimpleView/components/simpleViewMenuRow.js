@@ -77,7 +77,6 @@ class MenuRowClass extends React.Component {
                         style={{"color": this.props.layer?.visibility ? "limegreen" : "red"}}
                         onClick={() => {
                             this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
-                            console.log(`tracking simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
                             trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
                         }}
                     />
@@ -89,7 +88,6 @@ class MenuRowClass extends React.Component {
                                     style={{"color": "limegreen"}}
                                     onClick={() => {
                                         this.props.svDownloadLayer(this.props.layer);
-                                        console.log(`tracking simpleview-menu-row-download-${this.props.layer.title}`);
                                         trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
                                     }}
                                 />
@@ -98,7 +96,6 @@ class MenuRowClass extends React.Component {
                                     style={{"color": "limegreen"}}
                                     onClick={() => {
                                         this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
-                                        console.log(`tracking simpleview-menu-row-upload-${this.props.layer.title}`);
                                         trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
                                     }}
                                 />
@@ -118,7 +115,6 @@ class MenuRowClass extends React.Component {
                                         this.props.setPermission({canEdit: true});
                                         this.props.svSelectLayer(this.props.layer);
                                         this.props.browseData(this.props.layer);
-                                        console.log(`tracking simpleview-menu-row-edit-${this.props.layer.title}`);
                                         trackEvent('button', `click`, `simpleview-menu-row-edit-${this.props.layer.title}`);
                                     }}
                                 />
@@ -139,7 +135,6 @@ class MenuRowClass extends React.Component {
                                             () => {
                                                 this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);
                                                 this.props.updateLayerTitle(this.props.layer.id, this.state.newTitle);
-                                                console.log(`tracking simpleview-menu-row-update-title-${this.props.layer.name} -> ${this.state.newTitle}`);
                                                 trackEvent('button', `click`, `tracking simpleview-menu-row-update-title-${this.props.layer.name} -> ${this.state.newTitle}`);
                                             }
                                         }
@@ -159,7 +154,6 @@ class MenuRowClass extends React.Component {
                                     this.props.removeNode(this.props.layer.id, 'layers');
                                     this.props.removeLayer(this.props.layer.id);
                                     this.props.refreshlayerVersion(this.props.layer.id);
-                                    console.log(`tracking simpleview-menu-row-delete-${this.props.layer.title}`);
                                     trackEvent('button', `click`, `simpleview-menu-row-delete-${this.props.layer.title}`);
                                 }}
                             /> : null
@@ -207,7 +201,6 @@ class MenuRowClass extends React.Component {
                                     }}
                                     onChange={(values) => {
                                         this.props.setOpacity(this.props.layer?.id, values);
-                                        console.log(`tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
                                         trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
                                     }}
                                 />

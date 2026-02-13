@@ -51,7 +51,6 @@ class simpleViewUploaderPanel extends React.Component {
     }
 
     render() {
-        console.log('simpleViewUploader state: ', this.state);
         return this.props.visibleUploaderPanel ?
             <div className={'simple-view-panel uploader-panel'}>
                 <div className={"row h4 legend-heading"}>
@@ -60,7 +59,6 @@ class simpleViewUploaderPanel extends React.Component {
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => {
                             this.props.setVisibleUploaderPanel(false);
-                            console.log('tracking simpleview-uploader-close');
                             trackEvent('button', `click`, `simpleview-uploader-close`);
                         }}
                     />
@@ -101,7 +99,6 @@ class simpleViewUploaderPanel extends React.Component {
                                                     <Button
                                                         onClick={() => {
                                                             this.uploadFile(this.state.uploaderFiles, this.props.fileType || 'file');
-                                                            console.log('tracking simpleview-uploader-begin');
                                                             trackEvent('button', `click`, `simpleview-uploader-begin`);
                                                         }}
                                                         style={{'borderRadius': '3px'}}
@@ -164,7 +161,6 @@ class simpleViewUploaderPanel extends React.Component {
         isBaseFile = file => ["shp", "tif", "zip"].includes(file.extension);
 
         prepareFiles = (files) => {
-            console.log("files1: ", files);
             files
                 .map((file) => {
                     Object.defineProperty(file, 'status', {
@@ -212,7 +208,6 @@ class simpleViewUploaderPanel extends React.Component {
         }
         if (this.props.importerTargetObjectId) {
             const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/${this.props.importerTargetObjectId}/importer-config/`;
-            console.log("put to extend: ", url);
             axios
                 .put(url, formData, this.uploadManager)
                 .then(response => {
@@ -223,7 +218,6 @@ class simpleViewUploaderPanel extends React.Component {
                     }));
                     this.props.setVisibleSimpleViewAttributeForm(true);
                     this.props.createSimpleViewAttributeForm(response?.data);
-                    console.log('tracking simpleview-uploader-complete');
                     trackEvent('process', `complete`, `simpleview-uploader-complete`);
                 });
         } else {
@@ -239,7 +233,6 @@ class simpleViewUploaderPanel extends React.Component {
                     if (response?.data?.form) {
                         this.props.setVisibleSimpleViewAttributeForm(true);
                         this.props.createSimpleViewAttributeForm(response?.data);
-                        console.log('tracking simpleview-uploader-complete');
                         trackEvent('process', `complete`, `simpleview-uploader-complete`);
                     } else {
                         this.props.show({

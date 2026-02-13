@@ -47,7 +47,6 @@ class HydrologyContainer extends React.Component {
                         onClick={() => {
                             this.props.setHydrologyMainMenu(!this.props.showHydrologyMainMenu);
                             this.props.setOpenMenuGroupId(null);
-                            console.log('tracking hydrology-main-menu-toggle');
                             trackEvent('button', `click`, `hydrology-main-menu-toggle`);
                         }}
                     >

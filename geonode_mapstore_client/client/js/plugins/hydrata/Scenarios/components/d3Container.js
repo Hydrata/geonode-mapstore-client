@@ -27,7 +27,6 @@ class DagContainerClass extends React.PureComponent {
     }
 
     onClick = () => {
-        console.log('clicked graph');
     };
 
     render() {
@@ -59,7 +58,6 @@ class DagContainerClass extends React.PureComponent {
                     //     return new THREE.CSS2DObject(nodeEl);
                     // }}
                     onNodeClick={node => {
-                        console.log('node:', node);
                     }}
                     // nodeThreeObjectExtend
                     linkColor={'red'}
@@ -76,7 +74,6 @@ class DagContainerClass extends React.PureComponent {
     }
 
     handleChange = (e) => {
-        console.log('handleChange', e);
     }
 }
 
@@ -84,8 +81,6 @@ const mapStateToProps = (state) => {
     let data = {"nodes": [], "links": []};
     const latestResult = state?.scenarios?.selectedScenario?.latest_result || {};
     let nodesList = latestResult[Object.keys(latestResult)?.[0]] || ["asx_200", "vegetation_structure", "radiation"];
-    console.log('latestResult:', latestResult);
-    console.log('nodesList:', nodesList);
     // case for SKAI API:
     if (typeof(nodesList?.[0]) === 'string') {
         data.nodes = nodesList?.map((d, index) => {
@@ -107,7 +102,6 @@ const mapStateToProps = (state) => {
     if (Array.isArray(latestResult?.nodes) && Array.isArray(latestResult?.links)) {
         data = latestResult;
         if (!data.nodes[0]?.id) {
-            console.log('Array.isArray data:', data);
             data.nodes.map((node, index) => {
                 data.links.map((link) => {
                     if (link.source === node.name) {
@@ -121,7 +115,6 @@ const mapStateToProps = (state) => {
             });
         }
     }
-    console.log('data:', data);
     return {
         mapId: state?.projectManager?.data?.base_map,
         projectId: state?.projectManager?.data?.id,

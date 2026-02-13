@@ -89,7 +89,6 @@ const Cards = ({
                                 downloading={downloading?.find((download) => download.pk === resource.pk) ? true : false}
                                 getDetailHref={getDetailHref}
                                 onClick={() => {
-                                    console.log('tracking ResourceCard', resource);
                                     trackEvent('button', `click`, `ResourceCard-${resource?.title}`);
                                 }}
                             />

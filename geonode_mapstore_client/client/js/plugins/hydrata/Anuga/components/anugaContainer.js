@@ -71,7 +71,6 @@ class AnugaContainer extends React.Component {
 
     componentDidUpdate() {
         if (this.props.gnResourceLoaded && !this.props.isAnugaProject) {
-            console.log('componentDidUpdate initing Anuga');
             this.props.initAnuga();
         }
     }
@@ -88,7 +87,6 @@ class AnugaContainer extends React.Component {
                             onClick={() => {
                                 this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
                                 this.props.setOpenMenuGroupId(null);
-                                console.log('tracking anuga-input-menu-toggle');
                                 trackEvent('button', `click`, `anuga-input-menu-toggle`);
                             }}
                         >
@@ -111,7 +109,6 @@ class AnugaContainer extends React.Component {
                                         this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
                                         this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
                                         this.props.setOpenMenuGroupId(null);
-                                        console.log('tracking anuga-scenario-menu-toggle');
                                         trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
                                     }}
                                 >
@@ -134,7 +131,6 @@ class AnugaContainer extends React.Component {
                                 style={{left: 320}}
                                 onClick={() => {
                                     this.props.setOpenMenuGroupId('Results');
-                                    console.log('tracking anuga-results-menu-toggle');
                                     trackEvent('button', `click`, `anuga-results-menu-toggle`);
                                 }}
                             >
@@ -152,7 +148,6 @@ class AnugaContainer extends React.Component {
                                     onClick={() => {
                                         this.props.setPublicationPanel(!this.props.showPublicationPanel);
                                         this.props.setOpenMenuGroupId(null);
-                                        console.log('tracking anuga-publication-menu-toggle');
                                         trackEvent('button', `click`, `anuga-publication-menu-toggle`);
                                     }}
                                 >
@@ -188,7 +183,6 @@ class AnugaContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    console.log('state for Anuga:', state);
     const latestRunIsValid = state?.anuga?.selectedScenario?.latest_run_is_valid;
     const logText = latestRunIsValid ?
         state?.anuga?.selectedScenario?.latest_run?.log || '-' :

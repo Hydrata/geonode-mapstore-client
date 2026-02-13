@@ -32,7 +32,6 @@ class AnugaScenarioLogViewerClass extends React.Component {
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => {
                             this.props.showAnugaScenarioLog(false);
-                            console.log(`tracking anuga-scenario-log-close`);
                             trackEvent('button', `click`, `anuga-scenario-log-close`);
                         }}
                     />

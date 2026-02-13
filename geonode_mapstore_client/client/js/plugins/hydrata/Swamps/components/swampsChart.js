@@ -219,7 +219,6 @@ const mapStateToProps = (state) => {
     let excludedFields = ['status', 'location', 'entry_date', 'survey_date_time', 'fields', 'id'];
     let excludedSurveyTypes = ['template'];
     let selectedPhotosCheck = state?.swamps?.selectedActivities?.reduce((previousValue, currentValue) => {
-        console.log('currentValue', currentValue);
         if (currentValue.Photo) {
             return previousValue.concat(currentValue.Photo);
         }
