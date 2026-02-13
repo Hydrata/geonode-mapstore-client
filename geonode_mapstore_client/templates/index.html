@@ -57,7 +57,7 @@
                         const pagePath = catalogPagePath ? catalogPagePath : '/catalogue/';
                         const msAPI = event.detail;
                         msAPI.setPluginsConfig((localConfig) => {
-                            return [
+                            const plugins = [
                                 {
                                     "name": "ResourcesGrid",
                                     "cfg": {
@@ -71,9 +71,12 @@
                                             "f": "featured"
                                         }
                                     }
-                                },
-                                ...(localConfig?.plugins?.catalogue || [])
+                                }
                             ];
+                            {% if job_name != 'swamm' %}
+                            plugins.push(...(localConfig?.plugins?.catalogue || []));
+                            {% endif %}
+                            return plugins;
                         });
                     });
                 </script>
@@ -81,7 +84,13 @@
                 {% block ms_scripts %}
                     <script id="gn-script" src="{% static 'mapstore/dist/js/gn-components.js' %}?{% client_version %}"></script>
                 {% endblock %}
-    
+
+                {% block marketing %}
+                    {% if job_name == 'swamm' %}
+                        {% include './geonode-mapstore-client/snippets/marketing_swamm.html' %}
+                    {% endif %}
+                {% endblock %}
+
                 {% block footer %}
                     {% if job_name == 'hydratabase' %}
                         {% include './geonode-mapstore-client/snippets/footer_hydratabase.html' %}
