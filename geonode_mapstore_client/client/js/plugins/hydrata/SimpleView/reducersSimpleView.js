@@ -71,25 +71,22 @@ export default ( state = {}, action) => {
             submitUrl: action.submitUrl,
             visibleSimpleViewAttributeForm: true
         };
-    case UPDATE_SV_ATTRIBUTE_FORM:
-        const override_used = action.kv.override_used;
-        delete action.kv.override_used;
-        const newKey = Object.keys(action.kv)[0];
-        const newValue = action.kv[newKey];
-        const existingAttributeValue = {...state.simpleViewAttributeForm[newKey]};
-        const updatedFormValue = {
-            ...existingAttributeValue,
-            value: newValue,
-            override_used: override_used
-        };
-        const updatedSimpleViewAttributeForm = {
-            ...state.simpleViewAttributeForm,
-            [newKey]: updatedFormValue
-        };
+    case UPDATE_SV_ATTRIBUTE_FORM: {
+        const { override_used: overrideUsed, ...fields } = action.kv;
+        const newKey = Object.keys(fields)[0];
+        const newValue = fields[newKey];
         return {
             ...state,
-            simpleViewAttributeForm: updatedSimpleViewAttributeForm
+            simpleViewAttributeForm: {
+                ...state.simpleViewAttributeForm,
+                [newKey]: {
+                    ...state.simpleViewAttributeForm[newKey],
+                    value: newValue,
+                    override_used: overrideUsed
+                }
+            }
         };
+    }
     case SUBMIT_SV_ATTRIBUTE_FORM_SUCCESS:
         return {
             ...state,

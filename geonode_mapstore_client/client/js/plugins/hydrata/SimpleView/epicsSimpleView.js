@@ -43,6 +43,12 @@ export const updateDatasetTitleEpic = (action$) =>
                     .from(axios.patch(`/api/v2/datasets/${response?.data?.datasets?.[0]?.pk}/`, {"title": action.newTitle}))
                 )
                 .concatMap(() => Rx.Observable.of(updateDatasetTitleSuccess()))
+                .catch(() => Rx.Observable.of(show({
+                    "message": "Failed to update dataset title",
+                    "title": "Error",
+                    "uid": 6000,
+                    "position": "tc"
+                }, "error")))
         );
 
 
@@ -60,13 +66,22 @@ export const submitAttributeFormEpic = (action$, store) =>
                             importer_session_id: action?.simpleViewImporterSessionId
                         }
                     )
-                        .then(response => {
-                            if (response.data?.submitUrl) {
-                                return createSimpleViewAttributeForm(response.data);
-                            }
-                            return submitSimpleViewAttributeFormSuccess(response.data);
-                        })
                 )
+                .switchMap(response => {
+                    if (response.data?.submitUrl) {
+                        return Rx.Observable.of(createSimpleViewAttributeForm(response.data));
+                    }
+                    return Rx.Observable.of(submitSimpleViewAttributeFormSuccess(response.data));
+                })
+                .catch(() => Rx.Observable.of(
+                    setProcessingSimpleViewAttributeForm(false),
+                    show({
+                        "message": "Import failed",
+                        "title": "Error",
+                        "uid": 6000,
+                        "position": "tc"
+                    }, "error")
+                ))
         );
 
 

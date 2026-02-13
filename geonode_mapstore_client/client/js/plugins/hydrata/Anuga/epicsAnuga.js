@@ -360,28 +360,35 @@ export const runAnugaScenarioEpic = (action$, store) =>
 export const cancelAnugaRunEpic = (action$, store) =>
     action$
         .ofType(CANCEL_ANUGA_RUN)
-        .concatMap((action) => Rx.Observable.from(
-            axios
-                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/run/`, action)
-        ))
-        .concatMap((action) => Rx.Observable.from(axios.post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/cancel/`, {"runId": action.scenario.latest_run.id})))
-        .concatMap(() => Rx.Observable.of(show({"message": "cancelling..."}, "warning")));
+        .concatMap((action) => {
+            const projectId = store.getState()?.anuga?.projectData?.id;
+            const scenarioId = action.scenario.id;
+            const runId = action.scenario.latest_run.id;
+            return Rx.Observable.from(
+                axios.post(`/anuga/api/${projectId}/scenario/${scenarioId}/run/`, action)
+            )
+                .concatMap(() => Rx.Observable.from(
+                    axios.post(`/anuga/api/${projectId}/scenario/${scenarioId}/cancel/`, {"runId": runId})
+                ))
+                .concatMap(() => Rx.Observable.of(show({"message": "cancelling..."}, "warning")));
+        });
 
 
 export const saveAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(SAVE_ANUGA_SCENARIO)
         .switchMap((action) => {
-            action.scenario.log = action.scenario.log || 'anuga log';
-            if (action.scenario.id) {
+            const scenario = {...action.scenario, log: action.scenario.log || 'anuga log'};
+            const projectId = store.getState()?.anuga?.projectData?.id;
+            if (scenario.id) {
                 return Rx.Observable.from(axios
-                    .put(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/${action.scenario.id}/`, action.scenario)
+                    .put(`/anuga/api/${projectId}/scenario/${scenario.id}/`, scenario)
                     .then(response => saveAnugaScenarioSuccess(response.data))
                     .catch(error => saveAnugaScenarioError(error))
                 );
             }
             return Rx.Observable.from(axios
-                .post(`/anuga/api/${store.getState()?.anuga?.projectData?.id}/scenario/`, action.scenario)
+                .post(`/anuga/api/${projectId}/scenario/`, scenario)
                 .then(response => saveAnugaScenarioSuccess(response.data))
                 .catch(error => saveAnugaScenarioError(error))
             );
@@ -731,15 +738,8 @@ export const updateComputeInstanceEpic = (action$, store) =>
 export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
     action$
         .ofType(CREATE_NEW_FEATURE)
-        .concatMap((action) => {
-            // console.log('store.getState()?.featuregrid?.selectedLayer', store.getState()?.featuregrid?.selectedLayer);
-            // console.log('!!store.getState()?.featuregrid?.selectedLayer?.includes(\'geonode:bdy_\')', !!store.getState()?.featuregrid?.selectedLayer?.includes('geonode:bdy_'));
-            // console.log('* action', action);
-            return Rx.Observable.of(action);
-        })
         .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
         .concatMap((action) => {
-            // console.log('** CREATE_NEW_FEATURE action', action);
             if (action?.features?.[0] && Object.keys(action?.features?.[0])?.length > 0) {
                 return Rx.Observable.empty();
             }
@@ -762,11 +762,16 @@ export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
                     resolution: 10
                 }
             };
-            action.features[0].properties = defaultPropertyMap[store.getState()?.featuregrid?.selectedLayer.substring(0, 12)];
-            // console.log('** CREATE returning:', action);
-            return Rx.Observable.of(action);
-        }
-        );
+            const layerPrefix = store.getState()?.featuregrid?.selectedLayer.substring(0, 12);
+            const newFeature = {
+                ...action.features[0],
+                properties: defaultPropertyMap[layerPrefix]
+            };
+            return Rx.Observable.of({
+                ...action,
+                features: [newFeature, ...action.features.slice(1)]
+            });
+        });
 
 
 export const updateAnugaModelTitle = (action$, store) =>
