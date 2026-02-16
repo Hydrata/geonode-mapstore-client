@@ -171,6 +171,11 @@
     text-align: center;
 }
 
+.legend-layer-title {
+    text-align: left;
+    margin-bottom: 4px;
+}
+
 .legend-close {
     position: absolute;
     right: 0;

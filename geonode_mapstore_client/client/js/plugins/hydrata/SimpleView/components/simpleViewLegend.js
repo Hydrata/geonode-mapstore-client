@@ -3,8 +3,7 @@ import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 
 import {changeActiveSearchTool} from "../../../../../MapStore2/web/client/actions/search";
-
-// import Legend from "../../../../../MapStore2/web/client/components/TOC/fragments/legend/Legend";
+import Legend from "../../../../../MapStore2/web/client/plugins/TOC/components/Legend";
 import {setVisibleLegendPanel} from "../actionsSimpleView";
 
 class simpleViewLegend extends React.Component {
@@ -58,24 +57,16 @@ class simpleViewLegend extends React.Component {
                                 </div>
                             ) :
                             (
-                                <div key={layer.id} className={"row legend-row"} >
-                                    <div className={"col-sm-7 legend-background"} >
-                                        <span className={"legend-image"}>
-                                            Legend Here
-                                            {/*<Legend*/}
-                                            {/*    layer={layer}*/}
-                                            {/*    legendHeight={12}*/}
-                                            {/*    legendWidth={12}*/}
-                                            {/*    legendOptions={"dpi:150; countMatched:true; hideEmptyRules:true"}*/}
-                                            {/*    scales={[100000]}*/}
-                                            {/*    scaleDependent*/}
-                                            {/*/>*/}
-                                        </span>
-                                    </div>
-                                    <div className={"col-sm-5 legend-text-label"}>
-                                        <span className={"h5"}>
-                                            {layer.title}
-                                        </span>
+                                <div key={layer.id} className={"legend-row"} >
+                                    <div className={"h5 legend-layer-title"}>{layer.title}</div>
+                                    <div className={"legend-background"} >
+                                        <Legend
+                                            layer={layer}
+                                            legendHeight={20}
+                                            legendWidth={20}
+                                            legendOptions={"forceLabels:on;fontAntiAliasing:true"}
+                                            style={{maxWidth: "100%"}}
+                                        />
                                     </div>
                                 </div>
                             );
