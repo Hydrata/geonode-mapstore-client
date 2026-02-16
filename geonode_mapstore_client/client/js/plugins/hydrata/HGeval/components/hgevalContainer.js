@@ -61,6 +61,7 @@ const HGevalContainer = ({
                         savedReport={savedReport}
                         onSave={onSaveReport}
                         onNewReport={onReset}
+                        onUpdateForm={onUpdateForm}
                     />
                 )}
             </div>

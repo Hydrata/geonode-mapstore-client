@@ -1,9 +1,15 @@
 import Rx from "rxjs";
 import axios from '../../../../MapStore2/web/client/libs/ajax';
 import { getToken } from '../../../../MapStore2/web/client/utils/SecurityUtils';
+import { CLICK_ON_MAP, registerEventListener, unRegisterEventListener } from '../../../../MapStore2/web/client/actions/map';
+import { purgeMapInfoResults, hideMapinfoMarker, toggleMapInfoState } from '../../../../MapStore2/web/client/actions/mapInfo';
 import {
+    HGEVAL_SET_STEP,
     HGEVAL_START_REPORT,
     HGEVAL_SAVE_REPORT,
+    HGEVAL_RESET,
+    HGEVAL_REPORT_ERROR,
+    setCoordinates,
     queryProgress,
     queryResult,
     rasterResult,
@@ -96,6 +102,48 @@ function validateLocation(reportData) {
     }
     return null;
 }
+
+/**
+ * Epic: Capture map clicks to set coordinates when HGeval is in selecting mode.
+ */
+export const mapClickEpic = (action$, store) =>
+    action$
+        .ofType(CLICK_ON_MAP)
+        .filter(() => store.getState()?.hgeval?.step === 'selecting')
+        .filter(({ point }) => point?.latlng?.lng != null && point?.latlng?.lat != null)
+        .map(({ point }) => setCoordinates(point.latlng.lng, point.latlng.lat));
+
+/**
+ * Epic: Manage identify tool (GetFeatureInfo) state when HGeval enters/exits selecting mode.
+ * Disables identify while HGeval is capturing map clicks, re-enables it when done.
+ */
+export const hgevalMapClickManagerEpic = (action$, store) => {
+    let weDisabledMapInfo = false;
+    return action$
+        .ofType(HGEVAL_SET_STEP, HGEVAL_START_REPORT, HGEVAL_RESET, HGEVAL_REPORT_ERROR)
+        .switchMap(() => {
+            const state = store.getState();
+            const step = state?.hgeval?.step;
+            if (step === 'selecting') {
+                const actions = [
+                    purgeMapInfoResults(),
+                    hideMapinfoMarker(),
+                    registerEventListener('click', 'hgeval')
+                ];
+                if (!weDisabledMapInfo && state?.mapInfo?.enabled !== false) {
+                    actions.push(toggleMapInfoState());
+                    weDisabledMapInfo = true;
+                }
+                return Rx.Observable.from(actions);
+            }
+            const actions = [unRegisterEventListener('click', 'hgeval')];
+            if (weDisabledMapInfo) {
+                actions.push(toggleMapInfoState());
+                weDisabledMapInfo = false;
+            }
+            return Rx.Observable.from(actions);
+        });
+};
 
 /**
  * Epic: When HGEVAL_START_REPORT is dispatched, run all WFS queries + raster API in parallel.
@@ -208,8 +256,9 @@ export const saveReportEpic = (action$, store) =>
                 name: hgeval?.form?.name || 'Untitled Report',
                 description: hgeval?.form?.description || '',
                 sector: hgeval?.form?.sector || '',
-                preferred_contact: hgeval?.form?.preferred_contact || '',
+                preferred_contact: hgeval?.form?.contact_email ? 'email' : (hgeval?.form?.contact_phone_number ? 'phone' : ''),
                 contact_phone_number: hgeval?.form?.contact_phone_number || '',
+                contact_email: hgeval?.form?.contact_email || '',
                 longitude: hgeval?.coordinates?.lon,
                 latitude: hgeval?.coordinates?.lat,
                 report_data: hgeval?.reportData || {},

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const SECTOR_OPTIONS = [
     { value: '', label: 'Select sector...' },
@@ -13,18 +13,20 @@ const SECTOR_OPTIONS = [
     { value: 'other', label: 'Other' }
 ];
 
-const CONTACT_OPTIONS = [
-    { value: '', label: 'Select...' },
-    { value: 'email', label: 'Email' },
-    { value: 'phone', label: 'Phone' }
-];
-
 const HGevalInputPanel = ({
     coordinates, form, validationError, error,
     onSetCoordinates, onUpdateForm, onStartReport, onCancel
 }) => {
     const [lonStr, setLonStr] = useState(coordinates ? Math.abs(coordinates.lon).toString() : '');
     const [latStr, setLatStr] = useState(coordinates?.lat?.toString() || '');
+
+    // Sync coordinates from map clicks into local input state
+    useEffect(() => {
+        if (coordinates?.lon != null && coordinates?.lat != null) {
+            setLonStr(Math.abs(coordinates.lon).toFixed(6));
+            setLatStr(coordinates.lat.toFixed(6));
+        }
+    }, [coordinates?.lon, coordinates?.lat]);
 
     const parsedLon = parseFloat(lonStr);
     const parsedLat = parseFloat(latStr);
@@ -47,6 +49,9 @@ const HGevalInputPanel = ({
 
     return (
         <div className="hgeval-input-panel">
+            <p className="hgeval-hint">
+                <span className="glyphicon glyphicon-map-marker" /> Click the map or enter coordinates:
+            </p>
             <div className="hgeval-coord-row">
                 <div className="form-group">
                     <label>Longitude *</label>
@@ -112,31 +117,29 @@ const HGevalInputPanel = ({
                 </select>
             </div>
             <details className="hgeval-optional-fields" open>
-                <summary>Contact details</summary>
+                <summary>Contact details (at least one required to download)</summary>
                 <div className="form-group">
-                    <label>Preferred Contact</label>
-                    <select
+                    <label>Email</label>
+                    <input
+                        type="email"
                         className="form-control input-sm"
-                        value={form.preferred_contact}
-                        onChange={(e) => onUpdateForm('preferred_contact', e.target.value)}
-                    >
-                        {CONTACT_OPTIONS.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
+                        placeholder="you@example.com"
+                        value={form.contact_email || ''}
+                        onChange={(e) => onUpdateForm('contact_email', e.target.value)}
+                        onKeyDown={handleKeyDown}
+                    />
                 </div>
-                {form.preferred_contact === 'phone' && (
-                    <div className="form-group">
-                        <label>Phone Number</label>
-                        <input
-                            type="tel"
-                            className="form-control input-sm"
-                            placeholder="+505..."
-                            value={form.contact_phone_number}
-                            onChange={(e) => onUpdateForm('contact_phone_number', e.target.value)}
-                        />
-                    </div>
-                )}
+                <div className="form-group">
+                    <label>Phone Number</label>
+                    <input
+                        type="tel"
+                        className="form-control input-sm"
+                        placeholder="+505..."
+                        value={form.contact_phone_number}
+                        onChange={(e) => onUpdateForm('contact_phone_number', e.target.value)}
+                        onKeyDown={handleKeyDown}
+                    />
+                </div>
             </details>
             {validationError && <div className="alert alert-danger hgeval-alert-sm">{validationError}</div>}
             {error && <div className="alert alert-danger hgeval-alert-sm">{error}</div>}

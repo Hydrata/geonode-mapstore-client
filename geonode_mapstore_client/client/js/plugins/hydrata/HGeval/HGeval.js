@@ -2,7 +2,7 @@ import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtil
 import { connect } from 'react-redux';
 import hgeval from "./reducersHGeval";
 import HGevalContainer from "./components/hgevalContainer";
-import { startReportEpic, saveReportEpic } from "./epicsHGeval";
+import { startReportEpic, saveReportEpic, mapClickEpic, hgevalMapClickManagerEpic } from "./epicsHGeval";
 import {
     setStep,
     setCoordinates,
@@ -60,6 +60,8 @@ export default createPlugin('HGeval', {
     reducers: { hgeval },
     epics: {
         startReportEpic,
-        saveReportEpic
+        saveReportEpic,
+        mapClickEpic,
+        hgevalMapClickManagerEpic
     }
 });

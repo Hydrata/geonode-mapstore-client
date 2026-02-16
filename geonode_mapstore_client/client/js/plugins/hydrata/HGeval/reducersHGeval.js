@@ -21,7 +21,7 @@ const initialState = {
         name: '',
         description: '',
         sector: '',
-        preferred_contact: '',
+        contact_email: '',
         contact_phone_number: ''
     },
     reportData: {}, // { 'geonode:layer_name': {field: value, ...}, ... }
