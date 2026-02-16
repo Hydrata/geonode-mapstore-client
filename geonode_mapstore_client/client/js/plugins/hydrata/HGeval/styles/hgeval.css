@@ -86,6 +86,11 @@
     margin-bottom: 8px;
 }
 
+.hgeval-input-panel select.form-control {
+    height: auto;
+    padding: 4px 8px;
+}
+
 .hgeval-selected-coords {
     padding: 4px 8px;
     background: #e8f5e9;

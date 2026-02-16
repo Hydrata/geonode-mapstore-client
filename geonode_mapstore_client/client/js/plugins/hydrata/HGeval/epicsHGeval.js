@@ -1,5 +1,5 @@
 import Rx from "rxjs";
-const axios = require('../../../../MapStore2/web/client/libs/ajax');
+import axios from '../../../../MapStore2/web/client/libs/ajax';
 import { getToken } from '../../../../MapStore2/web/client/utils/SecurityUtils';
 import {
     HGEVAL_START_REPORT,
