@@ -77,10 +77,11 @@ class simpleViewLegend extends React.Component {
         return (
             <div>
                 <button
-                    className={'simple-view-menu-button ' + (this.props.searchBarVisible ? "legend-button-with-search" : "legend-button")}
+                    className={'simple-view-menu-button'}
+                    style={{left: 420}}
                     onClick={() => this.props.setVisibleLegendPanel(true)}
                 >
-                    Show Legend
+                    Generate Report
                 </button>
             </div>
         );
