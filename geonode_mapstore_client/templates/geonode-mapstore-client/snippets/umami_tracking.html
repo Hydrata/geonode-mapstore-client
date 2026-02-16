@@ -7,3 +7,28 @@
 {% elif job_name == 'nicp' %}
 <script defer src="https://analytics.hydrata.com/script.js" data-website-id="71afa04e-a81a-4cb8-bd56-fc98fcf6ac25"></script>
 {% endif %}
+<script>
+(function() {
+    var seen = {};
+    function trackError(msg, source, line) {
+        if (typeof umami === 'undefined') return;
+        var key = msg + (source || '') + (line || '');
+        if (seen[key]) return;
+        seen[key] = true;
+        var name = String(msg).substring(0, 50);
+        umami.track(name, {
+            category: 'js-error',
+            source: source ? source.split('/').pop().split('?')[0] : '',
+            line: line || ''
+        });
+    }
+    window.addEventListener('error', function(e) {
+        trackError(e.message || e.error || 'Unknown error', e.filename, e.lineno);
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+        var msg = e.reason instanceof Error ? e.reason.message : String(e.reason);
+        if (msg === '[object Object]') msg = 'Unhandled rejection (object)';
+        trackError(msg);
+    });
+})();
+</script>
