@@ -57,7 +57,7 @@ const Media = ({ resource, ...props }) => {
     const mediaTypes = getResourceTypesInfo();
     const {
         hasPermission, metadataPreviewUrl = () => {}
-    } = resource && (mediaTypes[resource.subtype] || mediaTypes[resource.resource_type]) || {};
+    } = resource && (resource.subtype && mediaTypes[resource.subtype] || mediaTypes[resource.resource_type]) || {};
     const viewResource = resource?.pk && hasPermission && hasPermission(resource);
 
     if (resource && viewResource) {
