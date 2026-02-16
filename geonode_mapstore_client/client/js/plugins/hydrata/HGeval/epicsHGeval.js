@@ -1,5 +1,6 @@
 import Rx from "rxjs";
 const axios = require('../../../../MapStore2/web/client/libs/ajax');
+import { getToken } from '../../../../MapStore2/web/client/utils/SecurityUtils';
 import {
     HGEVAL_START_REPORT,
     HGEVAL_SAVE_REPORT,
@@ -15,6 +16,16 @@ import {
 } from "./actionsHGeval";
 import { VECTOR_LAYERS, TOTAL_QUERIES, NICARAGUA_BOUNDS } from "./utils/layerConfig";
 import { buildWfsContainsQuery } from "./utils/wfsQuery";
+
+/**
+ * Build auth headers for custom Django API endpoints.
+ * MapStore's axios interceptor only adds tokens for /geoserver/ and /api/v2/ URLs.
+ * Our /nicp/api/ endpoints need the bearer token added manually.
+ */
+function getBearerHeaders() {
+    const token = getToken();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
 
 /**
  * Compute warnings from collected report data and raster values.
@@ -141,8 +152,9 @@ export const startReportEpic = (action$, store) =>
 
             // Build raster API observable
             const rasterApiUrl = state?.hgeval?.rasterApiUrl || '/nicp/api/raster/';
+            const authHeaders = getBearerHeaders();
             const rasterQuery = Rx.Observable
-                .from(axios.get(`${rasterApiUrl}?lon=${lon}&lat=${lat}`))
+                .from(axios.get(`${rasterApiUrl}?lon=${lon}&lat=${lat}`, { headers: authHeaders }))
                 .map(response => {
                     completedCount++;
                     return [
@@ -206,9 +218,9 @@ export const saveReportEpic = (action$, store) =>
             };
 
             return Rx.Observable
-                .from(axios.post(reportApiUrl, payload))
+                .from(axios.post(reportApiUrl, payload, { headers: getBearerHeaders() }))
                 .map(response => saveSuccess(response.data))
                 .catch(err => Rx.Observable.of(
-                    saveError(err?.data?.detail || 'Failed to save report')
+                    saveError(err?.response?.data?.detail || err?.data?.detail || 'Failed to save report')
                 ));
         });

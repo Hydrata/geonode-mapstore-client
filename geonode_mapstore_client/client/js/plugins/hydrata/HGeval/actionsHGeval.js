@@ -1,5 +1,3 @@
-const axios = require('../../../../MapStore2/web/client/libs/ajax');
-
 const HGEVAL_SET_STEP = 'HGEVAL_SET_STEP';
 const HGEVAL_SET_COORDINATES = 'HGEVAL_SET_COORDINATES';
 const HGEVAL_UPDATE_FORM = 'HGEVAL_UPDATE_FORM';

@@ -22,7 +22,7 @@ const HGevalLocationSelector = ({ coordinates, validationError, onSetCoordinates
     return (
         <div className="hgeval-location-selector">
             <p className="hgeval-instruction">
-                Click on the map to select a location, or enter coordinates manually below.
+                Enter the coordinates of the location you would like to evaluate.
             </p>
             <div className="hgeval-manual-entry">
                 <h4>Manual Coordinate Entry (Decimal Degrees)</h4>
