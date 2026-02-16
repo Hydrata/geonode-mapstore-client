@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { AgGridReact } from 'ag-grid-react';
-import '../../../../../../client/node_modules/ag-grid-community/dist/styles/ag-grid.css';
-import '../../../../../../client/node_modules/ag-grid-community/dist/styles/ag-theme-blue.css';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
 import {BarChart, Bar, XAxis, YAxis, Rectangle, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from 'recharts';
 import {
     setActiveHydrologyItem,
@@ -54,7 +54,7 @@ const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData })
                     borderRadius: '3px'
                 }}>
                     <div
-                        className="ag-theme-blue"
+                        className="ag-theme-alpine"
                     >
                         <AgGridReact
                             rowData={rowData}
