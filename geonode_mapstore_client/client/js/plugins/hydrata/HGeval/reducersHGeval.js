@@ -80,7 +80,7 @@ export default (state = initialState, action) => {
             warnings: action.warnings
         };
     case HGEVAL_REPORT_ERROR:
-        return { ...state, step: 'form', loading: false, error: action.error };
+        return { ...state, step: 'selecting', loading: false, error: action.error };
     case HGEVAL_SAVE_SUCCESS:
         return { ...state, savedReport: action.report };
     case HGEVAL_SAVE_ERROR:

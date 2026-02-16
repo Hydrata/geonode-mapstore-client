@@ -1,6 +1,5 @@
 import React from 'react';
-import HGevalLocationSelector from './hgevalLocationSelector';
-import HGevalProjectForm from './hgevalProjectForm';
+import HGevalInputPanel from './hgevalInputPanel';
 import HGevalReportDisplay from './hgevalReportDisplay';
 import HGevalProgressIndicator from './hgevalProgressIndicator';
 
@@ -29,38 +28,28 @@ const HGevalContainer = ({
     }
 
     return (
-        <div className="hgeval-overlay">
+        <div className="hgeval-panel">
             <div className="hgeval-header">
-                <h3>Hydrogeological Evaluation</h3>
+                <h4>Hydrogeological Evaluation</h4>
                 <button className="btn btn-link hgeval-close" onClick={onReset}>
                     <span className="glyphicon glyphicon-remove" />
                 </button>
             </div>
             <div className="hgeval-content">
-                {step === 'selecting' && (
-                    <HGevalLocationSelector
+                {(step === 'selecting' || step === 'form') && (
+                    <HGevalInputPanel
                         coordinates={coordinates}
+                        form={form}
                         validationError={validationError}
+                        error={error}
                         onSetCoordinates={onSetCoordinates}
-                        onConfirm={() => onSetStep('form')}
+                        onUpdateForm={onUpdateForm}
+                        onStartReport={onStartReport}
                         onCancel={onReset}
                     />
                 )}
-                {step === 'form' && (
-                    <HGevalProjectForm
-                        form={form}
-                        coordinates={coordinates}
-                        error={error}
-                        validationError={validationError}
-                        onUpdateForm={onUpdateForm}
-                        onBack={() => onSetStep('selecting')}
-                        onSubmit={onStartReport}
-                    />
-                )}
                 {step === 'loading' && (
-                    <HGevalProgressIndicator
-                        progress={queryProgress}
-                    />
+                    <HGevalProgressIndicator progress={queryProgress} />
                 )}
                 {step === 'report' && (
                     <HGevalReportDisplay

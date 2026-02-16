@@ -117,7 +117,7 @@ export const startReportEpic = (action$, store) =>
                 lat < NICARAGUA_BOUNDS.minLat || lat > NICARAGUA_BOUNDS.maxLat) {
                 return Rx.Observable.of(
                     validationError('Location is outside Nicaragua. Please select a point within the country.'),
-                    setStep('form')
+                    setStep('selecting')
                 );
             }
 
@@ -184,7 +184,7 @@ export const startReportEpic = (action$, store) =>
                         if (locationError) {
                             return Rx.Observable.of(
                                 validationError(locationError),
-                                setStep('form')
+                                setStep('selecting')
                             );
                         }
 
