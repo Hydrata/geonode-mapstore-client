@@ -15,55 +15,55 @@ export const VECTOR_LAYERS = [
     {
         name: 'geonode:admin_level_0',
         label: 'Country',
-        properties: ['admin_leve', 'name'],
+        properties: ['NAME_0', 'ISO'],
         required: true // used for boundary validation
     },
     {
         name: 'geonode:admin_level_1',
         label: 'Department',
-        properties: ['admin_leve', 'name']
+        properties: ['NAME_1', 'ENGTYPE_1']
     },
     {
         name: 'geonode:admin_level_2',
         label: 'Municipality',
-        properties: ['admin_leve', 'name']
+        properties: ['NAME_2', 'ENGTYPE_2']
     },
     {
         name: 'geonode:lakes_02',
         label: 'Lakes',
-        properties: ['Lk_Name'],
+        properties: ['name'],
         required: true // used for lake validation
     },
     {
         name: 'geonode:groundwater_potential_01',
         label: 'Groundwater Potential',
-        properties: ['GW_Pot', 'EN_GW_Desc', 'ES_GW_Desc']
+        properties: ['GWpot_calc', 'EN_GWpot_D', 'ES_GWpot_D']
     },
     {
         name: 'geonode:permeability_03',
         label: 'Permeability',
-        properties: ['Perm_Code', 'EN_Per_Des', 'ES_Per_Des']
+        properties: ['EN_Perm', 'EN_PrmDesc', 'ES_PrmDesc']
     },
     {
         name: 'geonode:hydrogeological_environments_01',
         label: 'Hydrogeological Environment',
-        properties: ['HGE_Code', 'EN_HGE_Des', 'ES_HGE_Des']
+        properties: ['EN_Hyd_Env', 'ES_Hyd_Env']
     },
     {
         name: 'geonode:landform_01',
         label: 'Landform',
-        properties: ['Lnd_Code', 'EN_Lnd_Des', 'ES_Lnd_Des']
+        properties: ['Lnd_Code', 'Lnd_Desc']
     },
     {
         name: 'geonode:master_geology_01',
         label: 'Geology',
         properties: ['FLG_Lperm', 'FLG_PotCon', 'FLG_Drill', 'FLG_Thick',
-            'EN_Geo_Des', 'ES_Geo_Des', 'EN_Aqu_Des', 'ES_Aqu_Des']
+            'EN_Desc', 'ES_Desc', 'EN_Hyd_Env']
     },
     {
         name: 'geonode:islands_01',
         label: 'Islands',
-        properties: ['OBJECTID', 'ISLAND']
+        properties: ['OBJECTID', 'name']
     },
     {
         name: 'geonode:wq_arsenic_01',
@@ -73,7 +73,7 @@ export const VECTOR_LAYERS = [
     {
         name: 'geonode:wq_industrial_contamination_01',
         label: 'Industrial Contamination',
-        properties: ['InCon_Risk', 'EN_InCon_D', 'ES_InCon_D']
+        properties: ['InCon_Risk', 'EN_ICon_De', 'ES_ICon_De']
     },
     {
         name: 'geonode:wq_saltwater_intrusion_01',
@@ -83,7 +83,7 @@ export const VECTOR_LAYERS = [
     {
         name: 'geonode:wq_nitrate_01',
         label: 'Nitrate Risk',
-        properties: ['N03_Risk', 'EN_N03_Des', 'ES_N03_Des']
+        properties: ['N03_Risk', 'EN_NO3_Des', 'ES_NO3_Des']
     },
     {
         name: 'geonode:wq_chloride_01',

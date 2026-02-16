@@ -31,15 +31,15 @@ const HGevalReportDisplay = ({
                     <tbody>
                         <DataRow label="Latitude" value={coordinates?.lat?.toFixed(6) + '\u00B0'} />
                         <DataRow label="Longitude" value={coordinates?.lon?.toFixed(6) + '\u00B0'} />
-                        <DataRow label="Department" value={admin1?.name} />
-                        <DataRow label="Municipality" value={admin2?.name} />
+                        <DataRow label="Department" value={admin1?.NAME_1} />
+                        <DataRow label="Municipality" value={admin2?.NAME_2} />
                         <DataRow label="Elevation" value={
                             rasterValues?.elevation != null
                                 ? `${rasterValues.elevation} m`
                                 : null
                         } />
                         {island?.OBJECTID != null && (
-                            <DataRow label="Island" value={island?.ISLAND || 'Yes'} />
+                            <DataRow label="Island" value={island?.name || 'Yes'} />
                         )}
                     </tbody>
                 </table>
@@ -49,12 +49,12 @@ const HGevalReportDisplay = ({
                 <h5>Groundwater Assessment</h5>
                 <table className="table table-condensed">
                     <tbody>
-                        <DataRow label="Groundwater Potential" value={gwPotential?.EN_GW_Desc} />
-                        <DataRow label="Permeability" value={permeability?.EN_Per_Des} />
-                        <DataRow label="Hydrogeological Environment" value={hydroEnv?.EN_HGE_Des} />
-                        <DataRow label="Landform" value={landform?.EN_Lnd_Des} />
-                        <DataRow label="Geology" value={geology?.EN_Geo_Des} />
-                        <DataRow label="Aquifer Type" value={geology?.EN_Aqu_Des} />
+                        <DataRow label="Groundwater Potential" value={gwPotential?.EN_GWpot_D} />
+                        <DataRow label="Permeability" value={permeability?.EN_PrmDesc} />
+                        <DataRow label="Hydrogeological Environment" value={hydroEnv?.EN_Hyd_Env} />
+                        <DataRow label="Landform" value={landform?.Lnd_Desc} />
+                        <DataRow label="Geology" value={geology?.EN_Desc} />
+                        <DataRow label="Aquifer Type" value={geology?.EN_Hyd_Env} />
                     </tbody>
                 </table>
             </section>

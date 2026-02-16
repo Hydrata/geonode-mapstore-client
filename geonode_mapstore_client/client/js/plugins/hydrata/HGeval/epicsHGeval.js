@@ -76,12 +76,12 @@ function computeWarnings(reportData, rasterVals) {
  */
 function validateLocation(reportData) {
     const country = reportData['geonode:admin_level_0'];
-    if (!country || !country.name) {
+    if (!country || !country.NAME_0) {
         return 'Location is outside Nicaragua. Please select a point within the country.';
     }
     const lake = reportData['geonode:lakes_02'];
-    if (lake && lake.Lk_Name) {
-        return `Location is inside ${lake.Lk_Name}. Please select a point on land.`;
+    if (lake && lake.name) {
+        return `Location is inside ${lake.name}. Please select a point on land.`;
     }
     return null;
 }
