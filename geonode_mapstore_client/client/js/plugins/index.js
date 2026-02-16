@@ -505,6 +505,10 @@ export const plugins = {
     SwammPlugin: toModulePlugin(
         'Swamm',
         () => import(/* webpackChunkName: 'plugins/swamm-plugin' */ '@js/plugins/hydrata/Swamm/Swamm')
+    ),
+    HGevalPlugin: toModulePlugin(
+        'HGeval',
+        () => import(/* webpackChunkName: 'plugins/hgeval-plugin' */ '@js/plugins/hydrata/HGeval/HGeval')
     )
 };
 

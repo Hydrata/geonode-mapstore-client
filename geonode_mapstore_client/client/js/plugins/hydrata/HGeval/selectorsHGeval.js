@@ -1,0 +1,12 @@
+export const hgevalStepSelector = (state) => state?.hgeval?.step || 'idle';
+export const hgevalCoordinatesSelector = (state) => state?.hgeval?.coordinates;
+export const hgevalFormSelector = (state) => state?.hgeval?.form;
+export const hgevalReportDataSelector = (state) => state?.hgeval?.reportData || {};
+export const hgevalRasterValuesSelector = (state) => state?.hgeval?.rasterValues;
+export const hgevalWarningsSelector = (state) => state?.hgeval?.warnings || [];
+export const hgevalProgressSelector = (state) => state?.hgeval?.queryProgress || { completed: 0, total: 0 };
+export const hgevalLoadingSelector = (state) => state?.hgeval?.loading || false;
+export const hgevalErrorSelector = (state) => state?.hgeval?.error;
+export const hgevalValidationErrorSelector = (state) => state?.hgeval?.validationError;
+export const hgevalSavedReportSelector = (state) => state?.hgeval?.savedReport;
+export const isUserLoggedIn = (state) => !!state?.security?.user;
