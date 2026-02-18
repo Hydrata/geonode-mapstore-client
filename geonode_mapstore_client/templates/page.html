@@ -30,7 +30,17 @@
                 {% endblock %}
 
                 {% block footer %}
-                    {% include './geonode-mapstore-client/snippets/footer.html' %}
+                    {% if job_name == 'hydratabase' %}
+                        {% include './geonode-mapstore-client/snippets/footer_hydratabase.html' %}
+                    {% elif job_name == 'swamm' %}
+                        {% include './geonode-mapstore-client/snippets/footer_swamm.html' %}
+                    {% elif job_name == 'nicp' %}
+                        {% include './geonode-mapstore-client/snippets/footer_nicp.html' %}
+                    {% elif job_name == 'sararaportal' %}
+                        {% include './geonode-mapstore-client/snippets/footer_sararaportal.html' %}
+                    {% else %}
+                        {% include './geonode-mapstore-client/snippets/footer.html' %}
+                    {% endif %}
                 {% endblock %}
 
                 {% block scripts %}

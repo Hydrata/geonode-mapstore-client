@@ -45,7 +45,17 @@
                 {% endblock %}
 
                 {% block footer %}
-                    {% include './snippets/footer.html' %}
+                    {% if job_name == 'hydratabase' %}
+                        {% include './snippets/footer_hydratabase.html' %}
+                    {% elif job_name == 'swamm' %}
+                        {% include './snippets/footer_swamm.html' %}
+                    {% elif job_name == 'nicp' %}
+                        {% include './snippets/footer_nicp.html' %}
+                    {% elif job_name == 'sararaportal' %}
+                        {% include './snippets/footer_sararaportal.html' %}
+                    {% else %}
+                        {% include './snippets/footer.html' %}
+                    {% endif %}
                 {% endblock %}
 
                 {% block scripts %}

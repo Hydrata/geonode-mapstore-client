@@ -73,7 +73,7 @@
                                     }
                                 }
                             ];
-                            {% if job_name != 'swamm' and job_name != 'sararaportal' %}
+                            {% if job_name != 'swamm' and job_name != 'nicp' and job_name != 'hydratabase' and job_name != 'sararaportal' %}
                             plugins.push(...(localConfig?.plugins?.catalogue || []));
                             {% endif %}
                             return plugins;
