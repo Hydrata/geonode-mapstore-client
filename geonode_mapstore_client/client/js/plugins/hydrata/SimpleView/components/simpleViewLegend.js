@@ -88,11 +88,11 @@ class simpleViewLegend extends React.Component {
     }
 }
 
-const mapStateToProps = (state) => {
+const mapStateToProps = (state, ownProps) => {
     return {
         visibleLayers: state?.layers?.flat.filter(layer => (layer?.visibility === true && layer?.group !== 'background')),
         visibleLegendPanel: state?.simpleView?.visibleLegendPanel,
-        legendOverrides: state?.simpleView?.config?.legendOverrides || [],
+        legendOverrides: state?.simpleView?.config?.legendOverrides || ownProps?.legendOverrides || [],
         searchBarVisible: !!state?.localConfig?.plugins?.map_view?.find(x => x.name === "Search")
     };
 };

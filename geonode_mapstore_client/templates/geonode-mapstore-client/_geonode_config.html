@@ -249,34 +249,47 @@
     })();
 </script>
 {% block override_local_config %}
-{% comment %}
+{% if site_simple_view_defaults and site_simple_view_defaults != '{}' %}
 <script>
-    window.__GEONODE_CONFIG__.overrideLocalConfig = function(localConfig, _) {
-        /*
-        _ is a subset of lodash and contains following functions
-        {
-            mergeWith,
-            merge,
-            isArray,
-            isString,
-            isObject,
-            castArray,
-            get
-        }
-        */
-        return _.mergeWith(localConfig, {
-            // ...my override config
-        }, function(objValue, srcValue, key) {
-            if (_.isArray(objValue)) {
-                return srcValue;
-            }
-            // supportedLocales is an object so it's merged with the default one
-            // so to remove the default languages we should take only the supportedLocales from override
-            if (key === 'supportedLocales') {
-                return srcValue;
-            }
+    (function(){
+        var siteSimpleViewDefaults = {{ site_simple_view_defaults|safe }};
+        var svPatchSections = ['map_viewer', 'map_view'];
+        var svPatches = svPatchSections.map(function(section) {
+            return {
+                "op": "replace",
+                "jsonpath": "$." + section + "..[?(@.name == 'SimpleView')].cfg",
+                "value": siteSimpleViewDefaults
+            };
         });
-    };
+        window.__GEONODE_CONFIG__.pluginsConfigPatchRules =
+            (window.__GEONODE_CONFIG__.pluginsConfigPatchRules || []).concat(svPatches);
+    })();
 </script>
-{% endcomment %}
+{% endif %}
+{% if site_plugin_overrides and site_plugin_overrides != '[]' %}
+<script>
+    (function(){
+        var sitePluginOverrides = {{ site_plugin_overrides|safe }};
+        window.__GEONODE_CONFIG__.pluginsConfigPatchRules =
+            (window.__GEONODE_CONFIG__.pluginsConfigPatchRules || []).concat(sitePluginOverrides);
+    })();
+</script>
+{% endif %}
+{% if site_override_local_config and site_override_local_config != '{}' %}
+<script>
+    (function(){
+        var siteOverrideLocalConfig = {{ site_override_local_config|safe }};
+        window.__GEONODE_CONFIG__.overrideLocalConfig = function(localConfig, _) {
+            return _.mergeWith(localConfig, siteOverrideLocalConfig, function(objValue, srcValue, key) {
+                if (_.isArray(objValue)) {
+                    return srcValue;
+                }
+                if (key === 'supportedLocales') {
+                    return srcValue;
+                }
+            });
+        };
+    })();
+</script>
+{% endif %}
 {% endblock %}

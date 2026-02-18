@@ -92,9 +92,18 @@ class SimpleViewContainer extends React.Component {
     }
 }
 
-const mapStateToProps = (state) => {
-    let customMenus = state?.simpleView?.config?.customMenus || [];
-    let menuSpaces = state?.simpleView?.config?.menuSpaces || 0;
+const mapStateToProps = (state, ownProps) => {
+    // ownProps contains site-level cfg from admin (via MapStore pluginCfg)
+    // state.simpleView.config contains project-level config (via ANUGA/SWAMM)
+    const siteDefaults = {
+        customMenus: ownProps?.customMenus || [],
+        menuSpaces: ownProps?.menuSpaces || 0
+    };
+    const projectConfig = state?.simpleView?.config || {};
+    // Project overrides site defaults
+    let customMenus = projectConfig.customMenus || siteDefaults.customMenus;
+    let menuSpaces = projectConfig.menuSpaces || siteDefaults.menuSpaces;
+    // ANUGA hardcoded override (existing behavior, preserved)
     if (state?.anuga?.projectData?.id) {
         customMenus = ['Input Data', 'Results'];
         menuSpaces = 4;
