@@ -6,8 +6,8 @@
     <div class="jumbotron">
         <div class="gn-hero-description">
             <h1>Hydrata</h1>
-            <p>An online interface to the ANUGA open source hydraulic model.</p>
-            <p>Collaborative, transparent surface water modelling.</p>
+            <p>{% trans "An online interface to the ANUGA open source hydraulic model." %}</p>
+            <p>{% trans "Collaborative, transparent surface water modelling." %}</p>
         </div>
         <p class="gn-hero-tools">
         </p>
@@ -24,8 +24,8 @@
     <div id="new-project-form">
         <form action="/anuga/api/project/" method="post">
             {% csrf_token %}
-            <label for="name" id="project-create-text">Create New Project:</label>
-            <input type="text" id="name" name="name" value="" placeholder="project name" class="project-create-text-input"/>
+            <label for="name" id="project-create-text">{% trans "Create New Project:" %}</label>
+            <input type="text" id="name" name="name" value="" placeholder="{% trans 'project name' %}" class="project-create-text-input"/>
             <input type="submit" value="Create" class="btn btn-success"/>
         </form>
     </div>
@@ -34,11 +34,11 @@
 <div class="container">
     <div id="home-page-forms">
         <div id="home-page-register-form">
-            <p class="home-page-form-heading-text">Create Account</p>
+            <p class="home-page-form-heading-text">{% trans "Create Account" %}</p>
             <form method="post" id="signup_form" action="{% url 'gn_anuga:home' %}">
                 <div class="form-content">
                     <div class="form-group">
-                        <label for="signup_email">Email:</label>
+                        <label for="signup_email">{% trans "Email:" %}</label>
                         <input type="text" id="signup_email" name="email" placeholder="required" class="home-page-register-text-input"/>
                         {% if form.email.errors %}
                             <div class="home-page-form-error-messages">
@@ -49,7 +49,7 @@
                         {% endif %}
                     </div>
                     <div class="form-group">
-                        <label for="signup_password1">Password:</label>
+                        <label for="signup_password1">{% trans "Password:" %}</label>
                         <div class="input-group">
                             <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input"/>
                             <span class="input-group-addon">
@@ -65,7 +65,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                      <label for="signup_first_name">First name:</label>
+                      <label for="signup_first_name">{% trans "First name:" %}</label>
                       <input type="text" id="signup_first_name" name="first_name" placeholder="required" class="home-page-register-text-input"/>
                         {% if form.first_name.errors %}
                             <div class="home-page-form-error-messages">
@@ -76,7 +76,7 @@
                         {% endif %}
                     </div>
                     <div class="form-group">
-                      <label for="signup_last_name">Last name:</label>
+                      <label for="signup_last_name">{% trans "Last name:" %}</label>
                       <input type="text" id="signup_last_name" name="last_name" placeholder="required" class="home-page-register-text-input"/>
                         {% if form.last_name.errors %}
                             <div class="home-page-form-error-messages">
@@ -87,7 +87,7 @@
                         {% endif %}
                     </div>
                     <div class="form-group">
-                      <label for="signup_organization">Organisation:</label>
+                      <label for="signup_organization">{% trans "Organisation:" %}</label>
                       <input type="text" id="signup_organization" name="organization" placeholder="required" class="home-page-register-text-input"/>
                         {% if form.organization.errors %}
                             <div class="home-page-form-error-messages">
@@ -99,7 +99,7 @@
                     </div>
                     <div class="form-group">
                       <input type="checkbox" id="signup_privacy_policy" name="privacy_policy" class="align-checkbox-left"/>
-                      <label for="signup_privacy_policy">I have reviewed and agree to Hydrata's <br/><a href="/privacy-policy">Privacy Policy</a></label>
+                      <label for="signup_privacy_policy">{% blocktrans %}I have reviewed and agree to Hydrata's <br/><a href="/privacy-policy">Privacy Policy</a>{% endblocktrans %}</label>
                         {% if form.privacy_policy.errors %}
                             <div class="home-page-form-error-messages">
                                 {% for error in form.privacy_policy.errors %}
@@ -110,7 +110,7 @@
                     </div>
                     <div class="form-group">
                       <input type="checkbox" id="signup_terms_and_conditions" name="terms_and_conditions" class="align-checkbox-left"/>
-                        <label for="signup_terms_and_conditions">I have reviewed and agree to Hydrata's <br/><a href="/terms-and-conditions">Terms and Conditions</a></label>
+                        <label for="signup_terms_and_conditions">{% blocktrans %}I have reviewed and agree to Hydrata's <br/><a href="/terms-and-conditions">Terms and Conditions</a>{% endblocktrans %}</label>
                         {% if form.terms_and_conditions.errors %}
                             <div class="home-page-form-error-messages">
                                 {% for error in form.terms_and_conditions.errors %}
@@ -130,7 +130,7 @@
                         {% endfor %}
                       </div>
                     {% endif %}
-                    <input type="submit" value="Create Account" class="btn btn-success"/>
+                    <input type="submit" value="{% trans 'Create Account' %}" class="btn btn-success"/>
                     {% if redirect_field_value %}
                         <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
                     {% endif %}
@@ -140,13 +140,13 @@
         <div id="home-page-signin-form">
             <form method="post" id="signin_form" action="{% url 'account_login' %}" autocapitalize="off">
                 <div class="form-content">
-                    <p class="home-page-form-heading-text">Existing User</p>
+                    <p class="home-page-form-heading-text">{% trans "Existing User" %}</p>
                     <div class="form-group">
-                      <label for="signin_email">Email:</label>
+                      <label for="signin_email">{% trans "Email:" %}</label>
                       <input type="text" id="signin_email" name="login" placeholder="email" class="home-page-register-text-input"/>
                     </div>
                     <div class="form-group">
-                        <label for="signin_password">Password:</label>
+                        <label for="signin_password">{% trans "Password:" %}</label>
                         <div class="input-group">
                             <input type="password" id="signin_password" name="password" placeholder="required" class="form-control home-page-register-text-input"/>
                             <span class="input-group-addon">
@@ -158,8 +158,8 @@
                 <div class="form-footer">
                     {% csrf_token %}
                     <div class="form-footer-row">
-                        <input type="submit" value="Login" class="btn btn-success" style="max-width: 100px"/>
-                        <a href="/account/password/reset/">Forgot Password?</a>
+                        <input type="submit" value="{% trans 'Login' %}" class="btn btn-success" style="max-width: 100px"/>
+                        <a href="/account/password/reset/">{% trans "Forgot Password?" %}</a>
                     </div>
                     {% if redirect_field_value %}
                         <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
@@ -174,18 +174,18 @@
     <div class="row feature-circles">
         <div class="col-lg-4">
             <img class="img-circle" src="{% static 'hydratabase/img/secure.jpg' %}" alt="online" width="140" height="140">
-            <h1 style="font-size: revert">Secure</h1>
-            <p class="lead">Our web-based permissions system means you can securely share, review, run, and publish models, without installing any software.</p>
+            <h1 style="font-size: revert">{% trans "Secure" %}</h1>
+            <p class="lead">{% trans "Our web-based permissions system means you can securely share, review, run, and publish models, without installing any software." %}</p>
         </div>
         <div class="col-lg-4">
             <img class="img-circle" src="{% static 'hydratabase/img/growth.jpg' %}" alt="future" width="140" height="140">
-            <h1 style="font-size: revert">Open Source</h1>
-            <p class="lead">Built on the open-source ANUGA 2d hydraulic model. No licence fees. Run on your servers or buy compute time on ours.</p>
+            <h1 style="font-size: revert">{% trans "Open Source" %}</h1>
+            <p class="lead">{% trans "Built on the open-source ANUGA 2d hydraulic model. No licence fees. Run on your servers or buy compute time on ours." %}</p>
         </div>
         <div class="col-lg-4">
             <img class="img-circle" src="{% static 'hydratabase/img/redwood.jpg' %}" alt="agile" width="140" height="140">
-            <h1 style="font-size: revert">Robust</h1>
-            <p class="lead">Collaborative data creation means models get better with time. No more static PDF going out-of-date at the end of the contract.</p>
+            <h1 style="font-size: revert">{% trans "Robust" %}</h1>
+            <p class="lead">{% trans "Collaborative data creation means models get better with time. No more static PDF going out-of-date at the end of the contract." %}</p>
         </div>
     </div>
 </div>
