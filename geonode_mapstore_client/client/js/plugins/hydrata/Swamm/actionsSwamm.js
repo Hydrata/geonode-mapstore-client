@@ -266,7 +266,7 @@ function fetchSwammAllBmpsError(e) {
 
 const fetchSwammAllBmps = (mapId) => {
     return (dispatch) => {
-        return swammApi.getAllBmps(mapId).then(
+        return swammApi.getAllBmpsPaginated(mapId).then(
             response => {
                 dispatch(fetchSwammAllBmpsSuccess(response.data));
             }

@@ -32,8 +32,28 @@ export const getGroupProfiles = () =>
 
 // ── BMPs ─────────────────────────────────────────────────────────────────
 
-export const getAllBmps = (projectId) =>
-    axios.get(`/swamm/api/${projectId}/bmps/`);
+export const getAllBmps = (projectId, cursor = null) => {
+    const url = cursor || `/swamm/api/${projectId}/bmps/`;
+    return axios.get(url);
+};
+
+/**
+ * Fetch all BMP pages recursively, accumulating results into a flat array.
+ * Returns a Promise that resolves with { data: allResults[] }.
+ */
+export const getAllBmpsPaginated = (projectId) => {
+    const accumulate = (cursor, collected) =>
+        getAllBmps(projectId, cursor).then(response => {
+            const results = response.data?.results || response.data || [];
+            const all = collected.concat(results);
+            const next = response.data?.next || null;
+            if (next) {
+                return accumulate(next, all);
+            }
+            return { data: all };
+        });
+    return accumulate(null, []);
+};
 
 export const getBmp = (projectId, bmpId) =>
     axios.get(`/swamm/api/${projectId}/bmps/${bmpId}/`);

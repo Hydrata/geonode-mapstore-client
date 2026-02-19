@@ -10,7 +10,7 @@ describe('swammApi', () => {
         const expectedFunctions = [
             'getProjectFromMapId', 'getProject', 'getProjectManagerConfig',
             'getBmpTypes', 'getBmpTypeGroups', 'getGroupProfiles',
-            'getAllBmps', 'getBmp', 'createBmp', 'updateBmp', 'deleteBmp',
+            'getAllBmps', 'getAllBmpsPaginated', 'getBmp', 'createBmp', 'updateBmp', 'deleteBmp',
             'getBmpStatuses', 'getLatestFeatureId',
             'getTargets', 'createTarget', 'updateTarget', 'deleteTarget',
             'downloadTargetXlsx',
@@ -23,11 +23,11 @@ describe('swammApi', () => {
             });
         });
 
-        it('should export exactly 22 API functions', () => {
+        it('should export exactly 23 API functions', () => {
             const exportedFunctions = Object.keys(swammApi).filter(
                 k => typeof swammApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(22);
+            expect(exportedFunctions.length).toBe(23);
         });
     });
 
@@ -58,8 +58,12 @@ describe('swammApi', () => {
             expect(swammApi.getGroupProfiles.length).toBe(0);
         });
 
-        it('getAllBmps takes 1 argument (projectId)', () => {
+        it('getAllBmps takes 1 required argument (projectId, cursor optional)', () => {
             expect(swammApi.getAllBmps.length).toBe(1);
+        });
+
+        it('getAllBmpsPaginated takes 1 argument (projectId)', () => {
+            expect(swammApi.getAllBmpsPaginated.length).toBe(1);
         });
 
         it('getBmp takes 2 arguments (projectId, bmpId)', () => {
@@ -134,6 +138,7 @@ describe('swammApi', () => {
 
         it('has BMP CRUD functions', () => {
             expect(swammApi.getAllBmps).toExist();
+            expect(swammApi.getAllBmpsPaginated).toExist();
             expect(swammApi.getBmp).toExist();
             expect(swammApi.createBmp).toExist();
             expect(swammApi.updateBmp).toExist();
