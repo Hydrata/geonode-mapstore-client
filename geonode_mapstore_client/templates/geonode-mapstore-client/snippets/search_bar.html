@@ -1,3 +1,4 @@
+{% load i18n %}
 <div id="{{ search_bar_id }}" class="gn-search-bar">
     <div class="input-group">
         <div class="input-group-prepend">
@@ -10,7 +11,7 @@
         </div>
 
         <input
-            placeholder="Search"
+            placeholder="{% trans 'Search' %}"
             class="form-control" value=""
             style="outline: none; box-shadow: none;"
         >

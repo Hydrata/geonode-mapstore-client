@@ -75,6 +75,7 @@
             <div class="gn-menu-content-right">
                 {% block right_menu %}
                 <ul class="gn-menu-list">
+                    {% include './language_selector.html' with align_right=True %}
                     {% for menu_item in USER_MENU %}
                         {% include './menu_item.html' with menu_item=menu_item align_right=True %}
                     {% endfor %}
