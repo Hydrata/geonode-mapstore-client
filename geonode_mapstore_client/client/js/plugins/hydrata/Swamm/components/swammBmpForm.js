@@ -955,9 +955,7 @@ class SwammBmpFormClass extends React.Component {
         this.props.updateBmpForm(kv);
     }
     handleBmpChange(event) {
-        // console.log('event:', event);
         let fieldValue = event.target.value;
-        // console.log('fieldValue:', fieldValue);
         const selectedBmpType = this.props.bmpTypes.filter(
             bmpType => bmpType?.name === fieldValue
         )[0];
@@ -982,15 +980,11 @@ class SwammBmpFormClass extends React.Component {
 
 const mapStateToProps = (state) => {
     const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
-    // console.log('validGroupProfiles:', validGroupProfiles);
     const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
     const saveableGroupProfiles = viewableGroupProfiles.map(item => {
         item.saveable = state?.security?.user?.info?.groups?.includes(item?.slug);
         return item;
     });
-    // console.log('saveableGroupProfiles:', saveableGroupProfiles);
-    // console.log('expandedBmpTypeGroupName:', state?.swamm?.expandedBmpTypeGroupName);
-    // console.log('bmpTypeGroups:', state?.swamm?.bmpTypeGroups);
     return {
         projectId: state?.swamm?.projectData?.id,
         projectData: state?.swamm?.projectData,

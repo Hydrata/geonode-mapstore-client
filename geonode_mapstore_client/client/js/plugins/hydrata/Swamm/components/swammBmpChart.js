@@ -383,14 +383,10 @@ class SwammBmpChartClass extends React.Component {
 
 const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
     if (active && payload && payload.length && tooltipKey) {
-        // console.log('*** payload:', payload);
         return payload.map(bar => {
             if (bar.dataKey === tooltipKey) {
                 const tooltipKeys = tooltipKey.split('.');
                 const barValue = bar.payload[tooltipKeys[0]][Number(tooltipKeys[1])][tooltipKeys[2]];
-                // console.log('CustomTooltipTwo tooltipKeys: ', tooltipKeys);
-                // console.log('CustomTooltipTwo barValue: ', barValue);
-                // console.log('CustomTooltipTwo label: ', label);
                 return (
                     <div className="custom-tooltip">
                         <div className="custom-tooltip-label">
@@ -400,7 +396,6 @@ const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
                     </div >
                 );
             }
-            // console.log('*** missing bar:', bar);
             return null;
         });
     }
@@ -408,14 +403,9 @@ const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
 };
 
 const mapStateToProps = (state) => {
-    // console.log('mapStateToProps start __________________');
     const selectedTarget = state?.swamm?.targets?.filter((target) => target.id === state?.swamm?.selectedTargetId)?.[0];
-    // console.log('selectedTarget:', selectedTarget);
     const bmpFilterMode = state?.swamm?.bmpFilterMode || 'type';
-    // console.log('bmpFilterMode:', bmpFilterMode);
     const rechartsBarData = [{'barOne': selectedTarget?.barChartData?.[bmpFilterMode]}];
-    // console.log('rechartsBarData:', rechartsBarData);
-    // console.log('mapStateToProps finish __________________');
     return {
         statuses: state?.swamm?.statuses || [],
         targets: state?.swamm?.targets || [],

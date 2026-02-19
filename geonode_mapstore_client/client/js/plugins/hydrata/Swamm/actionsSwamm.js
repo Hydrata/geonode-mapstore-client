@@ -141,7 +141,6 @@ const fetchSwammBmpTypesSuccess = (bmpTypes) => {
 };
 
 function fetchSwammBmpTypesError(e) {
-    // console.log('fetchSwammBmpTypesError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch Swamm Bmp Types Error',
@@ -175,7 +174,6 @@ const fetchProjectManagerConfigSuccess = (config) => {
 };
 
 function fetchProjectManagerConfigError(e) {
-    // console.log('*** error:', e);
     return {
         type: FETCH_PROJECT_MANAGER_CONFIG_ERROR,
         error: e
@@ -211,7 +209,6 @@ const fetchGroupProfilesSuccess = (groupProfiles) => {
 };
 
 function fetchGroupProfilesError(e) {
-    // console.log('fetchGroupProfilesError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch fetchGroupProfiles Error',
@@ -252,7 +249,6 @@ const fetchSwammAllBmpsSuccess = (allBmps) => {
 };
 
 function fetchSwammAllBmpsError(e) {
-    // console.log('fetchSwammAllBmpsError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch Swamm All Bmps Error',
@@ -286,7 +282,6 @@ const fetchSwammBmpStatusesSuccess = (statuses) => {
 };
 
 function fetchSwammBmpStatusesError(e) {
-    // console.log('fetchSwammBmpStatusesError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Fetch Swamm Bmp Statuses Error',
@@ -401,7 +396,6 @@ const setExpandedBmpTypeGroupName = (expandedBmpTypeGroupName) => {
 };
 
 const toggleBmpTypeGroup = (bmpTypeGroup) => {
-    // console.log('actions read:', bmpTypeGroup);
     return {
         type: TOGGLE_BMP_TYPE_GROUP,
         bmpTypeGroup
@@ -497,7 +491,6 @@ const startDrawingBmp = () => {
 };
 
 const setDrawingBmpLayerName = (layerName) => {
-    // console.log('setDrawingBmpLayerName', layerName);
     return {
         type: SET_DRAWING_BMP_LAYER_NAME,
         drawingBmpLayerName: layerName
@@ -511,7 +504,6 @@ const clearDrawingBmpLayerName = () => {
 };
 
 const setEditingBmpFeatureId = (featureId) => {
-    // console.log('setEditingBmpFeatureId', featureId);
     return {
         type: SET_EDITING_BMP_FEATURE_ID,
         editingBmpFeatureId: featureId
@@ -526,7 +518,6 @@ const registerMissingBmpFeatureId = (missingBmpFeatureId) => {
 };
 
 const clearEditingBmpFeatureId = () => {
-    // console.log('clearEditingBmpFeatureId');
     return {
         type: CLEAR_EDITING_BMP_FEATURE_ID
     };
@@ -542,7 +533,6 @@ const fetchSwammTargetsSuccess = (data) => {
 };
 
 const fetchSwammTargetsError = (e) => {
-    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -592,7 +582,6 @@ const downloadTargetDataSuccess = (data) => {
 };
 
 const downloadTargetDataError = (e) => {
-    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -649,7 +638,6 @@ const submitBmpFormSuccess = (bmp) => {
 };
 
 function submitBmpFormError(e) {
-    // console.log('submitBmpFormError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Submit Bmp Form Error',
@@ -695,7 +683,6 @@ const submitBmpForm = (newBmp, projectId) => {
 };
 
 const getBmpFormSuccess = (bmp) => {
-    // console.log('getBmpFormSuccess bmp:', bmp);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -714,7 +701,6 @@ const getBmpFormSuccess = (bmp) => {
 };
 
 function getBmpFormError(e) {
-    // console.log('getBmpFormError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Get Bmp Form Error',
@@ -745,7 +731,6 @@ const deleteBmpSuccess = (bmpId) => {
 };
 
 const deleteBmpError = (e) => {
-    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -847,7 +832,6 @@ const submitTargetFormSuccess = (target) => {
 };
 
 function submitTargetFormError(e) {
-    // console.log('submitTargetFormError', e);
     return {
         type: SHOW_NOTIFICATION,
         title: 'Submit Target Form Error',
@@ -912,7 +896,6 @@ const deleteTargetSuccess = (targetId) => {
 };
 
 const deleteTargetError = (e) => {
-    // console.log('*** error:', e);
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -956,7 +939,6 @@ function setMenuGroup(menuGroup) {
 
 
 function updateBmpTypeGroups(bmpTypeGroups) {
-    // console.log('****');
     return {
         type: UPDATE_BMP_TYPE_GROUPS,
         bmpTypeGroups

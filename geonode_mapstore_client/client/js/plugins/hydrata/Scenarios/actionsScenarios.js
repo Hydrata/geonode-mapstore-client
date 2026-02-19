@@ -1,4 +1,4 @@
-const axios = require('../../libs/ajax');
+const axios = require('../../../../MapStore2/web/client/libs/ajax');
 
 const FETCH_SCENARIOS_CONFIG = 'FETCH_SCENARIOS_CONFIG';
 const FETCH_SCENARIOS_CONFIG_ERROR = 'FETCH_SCENARIOS_CONFIG_ERROR';
