@@ -1,5 +1,5 @@
 import Rx from "rxjs";
-const axios = require('../../../../MapStore2/web/client/libs/ajax');
+import * as swammApi from './api/swammApi';
 import { isInt } from "../Utils/utils";
 import {
     QUERY_RESULT,
@@ -98,7 +98,7 @@ export const initSwammEpic = (action$, store) =>
         })
         .switchMap(() => Rx.Observable
             .from(
-                axios.post(`/swamm/api/project/get_project_from_map_id/`, {"mapId": store.getState()?.gnresource.id})
+                swammApi.getProjectFromMapId(store.getState()?.gnresource.id)
                     .catch(() => { return 'error';
                     })
             )
@@ -107,29 +107,29 @@ export const initSwammEpic = (action$, store) =>
             .switchMap(response1 => {
                 const projectId = response1.data.projectId;
                 return Rx.Observable
-                    .from(axios.get(`/swamm/api/project/${projectId}/`))
+                    .from(swammApi.getProject(projectId))
                     .switchMap(response2 => Rx.Observable.of(
                         setSwammProjectData(response2.data),
                         setSvConfig(response2.data?.simple_view_config)
                     ).concat(
                         Rx.Observable.merge(
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmp-type/`))
+                            Rx.Observable.from(swammApi.getBmpTypes(projectId))
                                 .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data))),
-                            Rx.Observable.from(axios.get(`/api/v2/groups?page_size=1000`))
+                            Rx.Observable.from(swammApi.getGroupProfiles())
                                 .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles))),
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/status_list/`))
+                            Rx.Observable.from(swammApi.getBmpStatuses(projectId))
                                 .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data))),
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/pollutant-loading-target/`))
+                            Rx.Observable.from(swammApi.getTargets(projectId))
                                 .switchMap((r) => Rx.Observable.of(fetchSwammTargetsSuccess(r.data))),
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmp-type/bmp_type_group_list/`))
+                            Rx.Observable.from(swammApi.getBmpTypeGroups(projectId))
                                 .switchMap((r) => Rx.Observable.of(updateBmpTypeGroups(r.data))),
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/erosion/`))
+                            Rx.Observable.from(swammApi.getErosionData(projectId))
                                 .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data))),
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/nitrogen/`))
+                            Rx.Observable.from(swammApi.getNitrogenData(projectId))
                                 .switchMap((r) => Rx.Observable.of(setSwammNitrogenData(r.data))),
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/phosphorus/`))
+                            Rx.Observable.from(swammApi.getPhosphorusData(projectId))
                                 .switchMap((r) => Rx.Observable.of(setSwammPhosphorusData(r.data))),
-                            Rx.Observable.from(axios.get(`/swamm/api/${projectId}/sediment/`))
+                            Rx.Observable.from(swammApi.getSedimentData(projectId))
                                 .switchMap((r) => Rx.Observable.of(setSwammSedimentData(r.data)))
                         )
                     ));
@@ -172,8 +172,7 @@ export const catchBmpFeatureClick = (action$, store) =>
                 bmpFeatureId = featureIdNumber;
             }
             const projectId = store.getState()?.swamm?.projectData?.id;
-            // return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/449/`));
-            return Rx.Observable.from(axios.get(`/swamm/api/${projectId}/bmps/${bmpFeatureId}/`));
+            return Rx.Observable.from(swammApi.getBmp(projectId, bmpFeatureId));
         })
         .mergeMap((response) => Rx.Observable.of(
             closeIdentify(),
@@ -279,7 +278,7 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
             const projectId = store.getState()?.swamm?.projectData?.id;
             const geomType = store.getState()?.swamm?.drawingBmpLayerName?.slice(8);
             return Rx.Observable.from(
-                axios.get(`/swamm/api/${projectId}/bmps/get-latest-feature-id/${geomType}/`)
+                swammApi.getLatestFeatureId(projectId, geomType)
             );
         })
         .mergeMap((response) => Rx.Observable.of(
@@ -328,7 +327,7 @@ export const getBmpTypeGroups = (action$, store) =>
         .mergeMap(() => {
             const mapId = store.getState()?.swamm?.data?.base_map;
             return Rx.Observable.from(
-                axios.get(`/swamm/api/${mapId}/bmp-type/bmp_type_group_list/`)
+                swammApi.getBmpTypeGroups(mapId)
             );
         })
         .exhaustMap((response) => {

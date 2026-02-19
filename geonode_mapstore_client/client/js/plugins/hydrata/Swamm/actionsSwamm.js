@@ -1,4 +1,4 @@
-const axios = require('../../../../MapStore2/web/client/libs/ajax');
+const swammApi = require('./api/swammApi');
 
 const INIT_SWAMM = 'INIT_SWAMM';
 const SET_SWAMM_PROJECT_DATA = 'SET_SWAMM_PROJECT_DATA';
@@ -155,8 +155,7 @@ function fetchSwammBmpTypesError(e) {
 
 const fetchSwammBmpTypes = (mapId) => {
     return (dispatch) => {
-        return axios.get(`/swamm/api/${mapId}/bmp-type/`
-        ).then(
+        return swammApi.getBmpTypes(mapId).then(
             response => {
                 dispatch(fetchSwammBmpTypesSuccess(response.data));
             }
@@ -185,8 +184,7 @@ function fetchProjectManagerConfigError(e) {
 
 const fetchProjectManagerConfig = (dispatch) => {
     return (mapId) => {
-        return axios.get(`/projects/api/maps/${mapId}/`
-        ).then(
+        return swammApi.getProjectManagerConfig(mapId).then(
             response => {
                 dispatch(fetchProjectManagerConfigSuccess(response.data.project));
             }
@@ -227,8 +225,7 @@ function fetchGroupProfilesError(e) {
 
 const fetchGroupProfiles = () => {
     return (dispatch) => {
-        return axios.get(`/api/v2/groups?page_size=1000`
-        ).then(
+        return swammApi.getGroupProfiles().then(
             response => {
                 dispatch(fetchGroupProfilesSuccess(response.data.group_profiles));
             }
@@ -269,8 +266,7 @@ function fetchSwammAllBmpsError(e) {
 
 const fetchSwammAllBmps = (mapId) => {
     return (dispatch) => {
-        return axios.get(`/swamm/api/${mapId}/bmps/`
-        ).then(
+        return swammApi.getAllBmps(mapId).then(
             response => {
                 dispatch(fetchSwammAllBmpsSuccess(response.data));
             }
@@ -304,8 +300,7 @@ function fetchSwammBmpStatusesError(e) {
 
 const fetchSwammBmpStatuses = (projectId) => {
     return (dispatch) => {
-        return axios.get(`/swamm/api/${projectId}/bmps/status_list/`
-        ).then(
+        return swammApi.getBmpStatuses(projectId).then(
             response => {
                 dispatch(fetchSwammBmpStatusesSuccess(response.data));
             }
@@ -567,8 +562,7 @@ const fetchSwammTargetsError = (e) => {
 
 const fetchSwammTargets = (projectId) => {
     return (dispatch) => {
-        return axios.get(`/swamm/api/${projectId}/pollutant-loading-target/`
-        ).then(
+        return swammApi.getTargets(projectId).then(
             response => {
                 dispatch(fetchSwammTargetsSuccess(response.data));
             }
@@ -618,10 +612,7 @@ const downloadTargetDataError = (e) => {
 
 const downloadTargetData = (projectId, targetId) => {
     return (dispatch) => {
-        return axios.get(
-            `/swamm/api/${projectId}/pollutant-loading-target/${targetId}/download-xlsx/`,
-            {responseType: "blob"}
-        ).then(
+        return swammApi.downloadTargetXlsx(projectId, targetId).then(
             response => {
                 const url = window.URL.createObjectURL(new Blob([response.data]));
                 const link = document.createElement('a');
@@ -673,9 +664,7 @@ function submitBmpFormError(e) {
 const submitBmpForm = (newBmp, projectId) => {
     if (newBmp.id) {
         return (dispatch) => {
-            // console.log('updating existing BMP: ', newBmp);
-            return axios.patch(`/swamm/api/${projectId}/bmps/${newBmp.id}/`, newBmp
-            ).then(
+            return swammApi.updateBmp(projectId, newBmp.id, newBmp).then(
                 response => {
                     dispatch(submitBmpFormSuccess(response.data));
                     dispatch(setChangingBmpType(false));
@@ -690,9 +679,7 @@ const submitBmpForm = (newBmp, projectId) => {
         };
     }
     return (dispatch) => {
-        // console.log('creating new BMP: ', newBmp);
-        return axios.post(`/swamm/api/${projectId}/bmps/`, newBmp
-        ).then(
+        return swammApi.createBmp(projectId, newBmp).then(
             response => {
                 dispatch(submitBmpFormSuccess(response.data));
                 dispatch(setChangingBmpType(false));
@@ -778,8 +765,7 @@ const deleteBmpError = (e) => {
 
 const deleteBmp = (mapId, bmpId) => {
     return (dispatch) => {
-        return axios.delete(`/swamm/api/${mapId}/bmps/${bmpId}/`, {}
-        ).then(
+        return swammApi.deleteBmp(mapId, bmpId).then(
             response => {
                 dispatch(deleteBmpSuccess(bmpId));
                 dispatch(hideBmpForm());
@@ -876,9 +862,7 @@ function submitTargetFormError(e) {
 const submitTargetForm = (target, projectId) => {
     if (target.id) {
         return (dispatch) => {
-            // console.log('updating existing Target: ', target);
-            return axios.patch(`/swamm/api/${projectId}/pollutant-loading-target/${target.id}/`, target
-            ).then(
+            return swammApi.updateTarget(projectId, target.id, target).then(
                 response => {
                     dispatch(submitTargetFormSuccess(response.data));
                     dispatch(fetchSwammTargets(projectId));
@@ -893,9 +877,7 @@ const submitTargetForm = (target, projectId) => {
         };
     }
     return (dispatch) => {
-        // console.log('creating new Target: ', target);
-        return axios.post(`/swamm/api/${projectId}/pollutant-loading-target/`, target
-        ).then(
+        return swammApi.createTarget(projectId, target).then(
             response => {
                 dispatch(submitTargetFormSuccess(response.data));
                 dispatch(fetchSwammTargets(projectId));
@@ -950,8 +932,7 @@ const deleteTargetError = (e) => {
 
 const deleteTarget = (projectId, targetId) => {
     return (dispatch) => {
-        return axios.delete(`/swamm/api/${projectId}/pollutant-loading-target/${targetId}/`, {}
-        ).then(
+        return swammApi.deleteTarget(projectId, targetId).then(
             response => {
                 dispatch(deleteTargetSuccess(targetId));
                 dispatch(fetchSwammTargets(projectId));
