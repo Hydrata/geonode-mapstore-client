@@ -46,15 +46,14 @@ const bmpDataReducer = (state, action) => {
     case SELECT_SWAMM_TARGET_ID:
         return { selectedTargetId: action.selectedTargetId };
     case UPDATE_BMP_TYPE_GROUPS: {
-        const bmpTypeGroups = action.bmpTypeGroups;
-        bmpTypeGroups.map(bmpTypeGroup => {
-            if (bmpTypeGroup?.[2]) {
-                return bmpTypeGroup;
-            }
-            bmpTypeGroup.push(true);
-            return bmpTypeGroup;
-        });
-        return { bmpTypeGroups: bmpTypeGroups };
+        return {
+            bmpTypeGroups: action.bmpTypeGroups.map(bmpTypeGroup => {
+                if (bmpTypeGroup?.[2]) {
+                    return bmpTypeGroup;
+                }
+                return [...bmpTypeGroup, true];
+            })
+        };
     }
     case SUBMIT_BMP_FORM_SUCCESS: {
         const allBmpIds = state.allBmps?.map((bmp) => bmp.id);

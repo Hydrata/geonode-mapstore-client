@@ -99,7 +99,9 @@ export const initSwammEpic = (action$, store) =>
         .switchMap(() => Rx.Observable
             .from(
                 swammApi.getProjectFromMapId(store.getState()?.gnresource.id)
-                    .catch(() => { return 'error';
+                    .catch(err => {
+                        console.error('initSwammEpic: failed to get project from map ID', err);
+                        return Rx.Observable.of({ status: 999 });
                     })
             )
             .filter(response1 => response1?.status <= 400)
@@ -172,7 +174,11 @@ export const catchBmpFeatureClick = (action$, store) =>
                 bmpFeatureId = featureIdNumber;
             }
             const projectId = store.getState()?.swamm?.projectData?.id;
-            return Rx.Observable.from(swammApi.getBmp(projectId, bmpFeatureId));
+            return Rx.Observable.from(swammApi.getBmp(projectId, bmpFeatureId))
+                .catch(err => {
+                    console.error('catchBmpFeatureClick: failed to load BMP', err);
+                    return Rx.Observable.empty();
+                });
         })
         .mergeMap((response) => Rx.Observable.of(
             closeIdentify(),

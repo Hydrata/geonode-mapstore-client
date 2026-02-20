@@ -130,13 +130,10 @@ function setSwammInputMenu(visible) {
 }
 
 const fetchSwammBmpTypesSuccess = (bmpTypes) => {
-    bmpTypes.map(type => {
-        type.visibility = true;
-        return type;
-    });
+    const typesWithVisibility = bmpTypes.map(type => ({ ...type, visibility: true }));
     return {
         type: FETCH_SWAMM_BMPTYPES_SUCCESS,
-        bmpTypes
+        bmpTypes: typesWithVisibility
     };
 };
 

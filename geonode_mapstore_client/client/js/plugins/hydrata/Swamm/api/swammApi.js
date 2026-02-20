@@ -42,17 +42,23 @@ export const getAllBmps = (projectId, cursor = null) => {
  * Returns a Promise that resolves with { data: allResults[] }.
  */
 export const getAllBmpsPaginated = (projectId) => {
-    const accumulate = (cursor, collected) =>
-        getAllBmps(projectId, cursor).then(response => {
+    const MAX_PAGES = 200;
+    const accumulate = (cursor, collected, pageCount) => {
+        if (pageCount >= MAX_PAGES) {
+            console.warn('getAllBmpsPaginated: max pages reached, returning partial results');
+            return { data: collected };
+        }
+        return getAllBmps(projectId, cursor).then(response => {
             const results = response.data?.results || response.data || [];
             const all = collected.concat(results);
             const next = response.data?.next || null;
             if (next) {
-                return accumulate(next, all);
+                return accumulate(next, all, pageCount + 1);
             }
             return { data: all };
         });
-    return accumulate(null, []);
+    };
+    return accumulate(null, [], 0);
 };
 
 export const getBmp = (projectId, bmpId) =>

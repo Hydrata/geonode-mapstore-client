@@ -26,11 +26,9 @@ const bmpFilterReducer = (state, action) => {
             bmpTypeGroups: state.bmpTypeGroups.map(bmpTypeGroup => {
                 if (bmpTypeGroup[0] === action.bmpTypeGroup?.[0]) {
                     if (bmpTypeGroup?.[2]) {
-                        bmpTypeGroup.splice(2);
-                        return bmpTypeGroup;
+                        return [bmpTypeGroup[0], bmpTypeGroup[1]];
                     }
-                    bmpTypeGroup.push(true);
-                    return bmpTypeGroup;
+                    return [...bmpTypeGroup, true];
                 }
                 return bmpTypeGroup;
             }),
@@ -80,10 +78,10 @@ const bmpFilterReducer = (state, action) => {
         };
     case SET_ALL_BMP_TYPES_VISIBILITY:
         return {
-            bmpTypes: state.bmpTypes.map(bmpType => {
-                bmpType.visibility = action.boolValue;
-                return bmpType;
-            })
+            bmpTypes: state.bmpTypes.map(bmpType => ({
+                ...bmpType,
+                visibility: action.boolValue
+            }))
         };
     case SET_BMP_FILTER_MODE:
         return { bmpFilterMode: action.bmpFilterMode };
