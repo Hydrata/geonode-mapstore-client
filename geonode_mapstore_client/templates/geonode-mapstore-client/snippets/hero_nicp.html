@@ -13,8 +13,8 @@
 </div>
 
 {% block extra_head %}
-    <link href="{% static 'nicp/css/nicp_base.css' %}" rel="stylesheet"/>
-    <link href="{% static 'nicp/css/nicp_home.css' %}" rel="stylesheet"/>
+    <link href="{% static 'nicp/css/nicp_base.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
+    <link href="{% static 'nicp/css/nicp_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <meta property="og:title" content="Nicaragua Hydro Portal" />
     <meta property="og:description" content="A web portal for Nicaragua's hydrogeological data and knowledge" />
     <meta property="og:url" content="https://nicaraguahydroportal.com" />

@@ -15,8 +15,8 @@
 </div>
 
 {% block extra_head %}
-    <link href="{% static 'swamm/css/swamm_base.css' %}" rel="stylesheet"/>
-    <link href="{% static 'swamm/css/swamm_home.css' %}" rel="stylesheet"/>
+    <link href="{% static 'swamm/css/swamm_base.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
+    <link href="{% static 'swamm/css/swamm_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <link href="//cdn-images.mailchimp.com/embedcode/classic-10_7.css" rel="stylesheet" type="text/css">
     <style type="text/css">
         #mc_embed_signup {
