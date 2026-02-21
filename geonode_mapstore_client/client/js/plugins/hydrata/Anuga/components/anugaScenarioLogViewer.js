@@ -6,6 +6,7 @@ import '../../SimpleView/simpleView.css';
 import {
     showAnugaScenarioLog
 } from "../actionsAnuga";
+import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 
 class AnugaScenarioLogViewerClass extends React.Component {
@@ -27,7 +28,7 @@ class AnugaScenarioLogViewerClass extends React.Component {
         return (
             <div id={'anuga-scenario-log-viewer-container'}>
                 <h5 style={{marginLeft: "9px"}}>
-                    Scenario: {this.props.selectedScenario?.name}
+                    <Message msgId="hydrata.anuga.scenarioPrefix" /> {this.props.selectedScenario?.name}
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
                         onClick={() => {

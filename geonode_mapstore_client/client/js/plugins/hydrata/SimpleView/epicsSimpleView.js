@@ -44,8 +44,8 @@ export const updateDatasetTitleEpic = (action$) =>
                 )
                 .concatMap(() => Rx.Observable.of(updateDatasetTitleSuccess()))
                 .catch(() => Rx.Observable.of(show({
-                    "message": "Failed to update dataset title",
-                    "title": "Error",
+                    "message": "hydrata.simpleView.failedToUpdateTitle",
+                    "title": "hydrata.simpleView.error",
                     "uid": 6000,
                     "position": "tc"
                 }, "error")))
@@ -76,8 +76,8 @@ export const submitAttributeFormEpic = (action$, store) =>
                 .catch(() => Rx.Observable.of(
                     setProcessingSimpleViewAttributeForm(false),
                     show({
-                        "message": "Import failed",
-                        "title": "Error",
+                        "message": "hydrata.simpleView.importFailed",
+                        "title": "hydrata.simpleView.error",
                         "uid": 6000,
                         "position": "tc"
                     }, "error")
@@ -94,8 +94,8 @@ export const submitSimpleViewAttributeFormSuccessEpic = (action$) =>
             setVisibleSimpleViewAttributeResult(true),
             setSimpleViewAttributeResult(action.data),
             show({
-                "message": "Import successful",
-                "title": "Features added",
+                "message": "hydrata.simpleView.importSuccessful",
+                "title": "hydrata.simpleView.featuresAdded",
                 "uid": 1000,
                 "position": "tc"
             })

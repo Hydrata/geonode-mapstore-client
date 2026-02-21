@@ -1,4 +1,5 @@
 import React from 'react';
+import Message from '@mapstore/framework/components/I18N/Message';
 import HGevalInputPanel from './hgevalInputPanel';
 import HGevalReportDisplay from './hgevalReportDisplay';
 import HGevalProgressIndicator from './hgevalProgressIndicator';
@@ -21,7 +22,7 @@ const HGevalContainer = ({
                     title="Evaluate groundwater at a location"
                 >
                     <span className="glyphicon glyphicon-tint" />
-                    <span className="hgeval-btn-label"> HGeval</span>
+                    <span className="hgeval-btn-label"> <Message msgId="hydrata.hgeval.hgeval" /></span>
                 </button>
             </div>
         );
@@ -30,7 +31,7 @@ const HGevalContainer = ({
     return (
         <div className="hgeval-panel">
             <div className="hgeval-header">
-                <h4>Hydrogeological Evaluation</h4>
+                <h4><Message msgId="hydrata.hgeval.hydrogeologicalEvaluation" /></h4>
                 <button className="btn btn-link hgeval-close" onClick={onReset}>
                     <span className="glyphicon glyphicon-remove" />
                 </button>

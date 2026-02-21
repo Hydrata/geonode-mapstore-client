@@ -10,6 +10,7 @@ import {
     runNetwork
 } from "../actionsAnuga";
 import {Table, Button} from "react-bootstrap";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class NetworkMenuClass extends React.Component {
     static propTypes = {
@@ -39,7 +40,7 @@ class NetworkMenuClass extends React.Component {
             <div id={'anuga-network-container'} className={'simple-view-panel'} style={{top: "70px", height: "80%", width: "80%"}}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"}>
-                        <h3>Hydrology</h3>
+                        <h3><Message msgId="hydrata.anuga.hydrology" /></h3>
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={() => {
@@ -50,13 +51,13 @@ class NetworkMenuClass extends React.Component {
                             <Table className={"network-table"}>
                                 <thead>
                                     <tr className={"network-table-header"}>
-                                        <th>Id</th>
-                                        <th>Name</th>
-                                        <th>Elevation</th>
-                                        <th>Nodes</th>
-                                        <th>Links</th>
-                                        <th>Method</th>
-                                        <th>Inflow Dataset<br/>to Store Results</th>
+                                        <th><Message msgId="hydrata.anuga.id" /></th>
+                                        <th><Message msgId="hydrata.anuga.name" /></th>
+                                        <th><Message msgId="hydrata.anuga.elevation" /></th>
+                                        <th><Message msgId="hydrata.anuga.nodes" /></th>
+                                        <th><Message msgId="hydrata.anuga.links" /></th>
+                                        <th><Message msgId="hydrata.anuga.method" /></th>
+                                        <th><Message msgId="hydrata.anuga.inflowDataset" /><br/><Message msgId="hydrata.anuga.toStoreResults" /></th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -164,7 +165,7 @@ class NetworkMenuClass extends React.Component {
                                                                 this.props.runNetwork(network);
                                                             }}
                                                         >
-                                                            Run
+                                                            <Message msgId="hydrata.anuga.run" />
                                                         </Button>
                                                     </td>
                                                 </tr>

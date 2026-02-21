@@ -13,6 +13,7 @@ import {
     stopAnugaScenarioPolling
 } from '../actionsAnuga';
 import {canEditAnugaMap, canViewAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
 import {AnugaScenarioMenu} from './anugaScenarioMenu';
 import {PublicationPanel} from './publicationPanel';
@@ -90,7 +91,7 @@ class AnugaContainer extends React.Component {
                                 trackEvent('button', `click`, `anuga-input-menu-toggle`);
                             }}
                         >
-                            Inputs
+                            <Message msgId="hydrata.anuga.inputs" />
                         </button>
                     </div>
                     {
@@ -112,7 +113,7 @@ class AnugaContainer extends React.Component {
                                         trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
                                     }}
                                 >
-                                    Scenarios
+                                    <Message msgId="hydrata.anuga.scenarios" />
                                 </button>
                                 {
                                     this.props.showAnugaScenarioMenu ?
@@ -134,7 +135,7 @@ class AnugaContainer extends React.Component {
                                     trackEvent('button', `click`, `anuga-results-menu-toggle`);
                                 }}
                             >
-                                Results
+                                <Message msgId="hydrata.anuga.results" />
                             </button>
                             : null
                     }
@@ -151,7 +152,7 @@ class AnugaContainer extends React.Component {
                                         trackEvent('button', `click`, `anuga-publication-menu-toggle`);
                                     }}
                                 >
-                                    Publish
+                                    <Message msgId="hydrata.anuga.publish" />
                                 </button>
                                 {
                                     this.props.showPublicationPanel ?

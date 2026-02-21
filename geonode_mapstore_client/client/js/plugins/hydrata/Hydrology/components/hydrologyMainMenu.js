@@ -14,6 +14,7 @@ import {
 } from "../../SimpleView/actionsSimpleView";
 import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class HydrologyMainMenuClass extends React.Component {
     static propTypes = {
@@ -57,12 +58,12 @@ class HydrologyMainMenuClass extends React.Component {
                 backgroundColor: "rgba(0, 60, 136, 0.99)"
             }}>
                 <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                    <span style={{top: "8px", position: "relative"}}>Hydrology</span>
+                    <span style={{top: "8px", position: "relative"}}><Message msgId="hydrata.hydrology.hydrology" /></span>
                     <span id={"hydrology-page-button-group"}>
-                        {this.renderButton('idf-table', 'IDF Tables')}
-                        {this.renderButton('temporal-pattern', 'Temporal Patterns')}
-                        {this.renderButton('time-series', 'Timeseries')}
-                        {this.renderButton('inflow', 'Inflows')}
+                        {this.renderButton('idf-table', <Message msgId="hydrata.hydrology.idfTables" />)}
+                        {this.renderButton('temporal-pattern', <Message msgId="hydrata.hydrology.temporalPatterns" />)}
+                        {this.renderButton('time-series', <Message msgId="hydrata.hydrology.timeseries" />)}
+                        {this.renderButton('inflow', <Message msgId="hydrata.hydrology.inflows" />)}
                     </span>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}

@@ -10,6 +10,7 @@ import {
     setPublicationPanel
 } from "../actionsAnuga";
 import {trackEvent} from "@js/utils/analytics";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class PublicationPanelClass extends React.Component {
     static propTypes = {
@@ -48,7 +49,7 @@ class PublicationPanelClass extends React.Component {
                     {
                         this.props.publications?.map(publication =>
                             <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                                <span style={{lineHeight: "40px"}}>Publish: {publication?.geostory?.title}</span>
+                                <span style={{lineHeight: "40px"}}><Message msgId="hydrata.anuga.publishPrefix" /> {publication?.geostory?.title}</span>
                                 <Button
                                     bsStyle={'success'}
                                     bsSize={'xlarge'}
@@ -58,10 +59,10 @@ class PublicationPanelClass extends React.Component {
                                         trackEvent('button', `click`, `anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
                                     }}
                                 >
-                                    Edit Publication
+                                    <Message msgId="hydrata.anuga.editPublication" />
                                 </Button>
                                 <h3 style={{display: "inlineBlock"}}>
-                                    Figures
+                                    <Message msgId="hydrata.anuga.figures" />
                                 </h3>
                                 {
                                     publication?.figures?.map(figure =>
@@ -98,7 +99,7 @@ class PublicationPanelClass extends React.Component {
                                             trackEvent('button', `click`, `anuga-publication-menu-create-figure`);
                                         }}
                                     >
-                                        Create Figure
+                                        <Message msgId="hydrata.anuga.createFigure" />
                                     </Button>
                                 </div>
                             </div>

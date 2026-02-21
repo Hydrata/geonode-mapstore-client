@@ -16,6 +16,7 @@ import {DateFormat} from "../../../../../MapStore2/web/client/components/I18N/I1
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
 import {trackEvent} from "@js/utils/analytics";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class simpleViewUploaderPanel extends React.Component {
     static propTypes = {
@@ -67,11 +68,11 @@ class simpleViewUploaderPanel extends React.Component {
                     <Table bordered condensed hover ref={this.beginTooltip} style={{'tableLayout': 'fixed'}}>
                         <thead>
                             <tr>
-                                <th width="160px" key="hname">Title</th>
-                                <th width="200px" key="hname">Filename</th>
-                                <th width="80px" key="hsize">Filesize</th>
-                                <th width="80px" key="hlast">Modified</th>
-                                <th width="80px" key="hstatus">Status</th>
+                                <th width="160px" key="hname"><Message msgId="hydrata.simpleView.title" /></th>
+                                <th width="200px" key="hname"><Message msgId="hydrata.simpleView.filename" /></th>
+                                <th width="80px" key="hsize"><Message msgId="hydrata.simpleView.filesize" /></th>
+                                <th width="80px" key="hlast"><Message msgId="hydrata.simpleView.modified" /></th>
+                                <th width="80px" key="hstatus"><Message msgId="hydrata.simpleView.status" /></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -105,11 +106,11 @@ class simpleViewUploaderPanel extends React.Component {
                                                         bsSize={'small'}
                                                         bsStyle={'success'}
                                                     >
-                                                        Begin
+                                                        <Message msgId="hydrata.simpleView.begin" />
                                                     </Button> :
                                                     <span>
                                                         <ProgressBar active bsStyle={'success'} now={parseInt(this.props.uploadStatus, 10)}/>
-                                                        {parseInt(this.props.uploadStatus, 10) === 100 ? <span>importing: <Countdown/></span> : this.props.uploadStatus}
+                                                        {parseInt(this.props.uploadStatus, 10) === 100 ? <span><Message msgId="hydrata.simpleView.importing" /> <Countdown/></span> : this.props.uploadStatus}
                                                         {isNaN(parseInt(this.props.uploadStatus, 10)) || parseInt(this.props.uploadStatus, 10) === 100 ? '' : '%'}
                                                     </span> :
                                                 null
@@ -148,8 +149,7 @@ class simpleViewUploaderPanel extends React.Component {
                             >
                                 <Glyphicon glyph="upload"/>
                                 <br/>
-                                Drag files or<br/>
-                                click here
+                                <Message msgId="hydrata.simpleView.dragFilesOrClick" />
                             </span>
                         </div>
                     </Dropzone>
@@ -236,8 +236,8 @@ class simpleViewUploaderPanel extends React.Component {
                         trackEvent('process', `complete`, `simpleview-uploader-complete`);
                     } else {
                         this.props.show({
-                            "message": "Import processing - the layer will appear when it's ready.",
-                            "title": "Processing started",
+                            "message": "hydrata.simpleView.importProcessingMessage",
+                            "title": "hydrata.simpleView.processingStarted",
                             "uid": 1000,
                             "position": "tc"
                         });

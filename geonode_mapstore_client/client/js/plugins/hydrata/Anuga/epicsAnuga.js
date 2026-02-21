@@ -118,8 +118,8 @@ const addAnugaLayerFromAvailableResponse = (response, store) => {
             actions.unshift(addLayer(model));
             actions.push(
                 show({
-                    "message": "Adding new layers... You should save your project.",
-                    "title": "New layers found",
+                    "message": "hydrata.anuga.newLayersMessage",
+                    "title": "hydrata.anuga.newLayersTitle",
                     "uid": 1000,
                     "position": "tc"
                 })
@@ -370,7 +370,7 @@ export const cancelAnugaRunEpic = (action$, store) =>
                 .concatMap(() => Rx.Observable.from(
                     axios.post(`/anuga/api/${projectId}/scenario/${scenarioId}/cancel/`, {"runId": runId})
                 ))
-                .concatMap(() => Rx.Observable.of(show({"message": "cancelling..."}, "warning")));
+                .concatMap(() => Rx.Observable.of(show({"message": "hydrata.anuga.cancelling"}, "warning")));
         });
 
 

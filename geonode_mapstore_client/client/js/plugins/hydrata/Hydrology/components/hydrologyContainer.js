@@ -12,6 +12,7 @@ import {trackEvent} from "@js/utils/analytics";
 import {setHydrologyMainMenu} from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 import {setOpenMenuGroupId} from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 import PropTypes from "prop-types";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class HydrologyContainer extends React.Component {
     static propTypes = {
@@ -50,7 +51,7 @@ class HydrologyContainer extends React.Component {
                             trackEvent('button', `click`, `hydrology-main-menu-toggle`);
                         }}
                     >
-                        Hydrology
+                        <Message msgId="hydrata.hydrology.hydrology" />
                     </button>
                 </div>
                 {

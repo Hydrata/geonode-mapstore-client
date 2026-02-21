@@ -79,8 +79,8 @@ const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
         actions.push(addLayer(layerToAdd));
         actions.push(
             show({
-                "message": "BMP layers added.",
-                "title": "Layers added",
+                "message": "hydrata.swamm.bmpLayersAdded",
+                "title": "hydrata.swamm.layersAdded",
                 "uid": 1000,
                 "position": "tc"
             })

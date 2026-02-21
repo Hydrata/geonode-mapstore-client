@@ -1,4 +1,5 @@
 import React from 'react';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const HGevalProgressIndicator = ({ progress }) => {
     const { completed, total } = progress;
@@ -6,7 +7,7 @@ const HGevalProgressIndicator = ({ progress }) => {
 
     return (
         <div className="hgeval-progress">
-            <h4>Generating Report...</h4>
+            <h4><Message msgId="hydrata.hgeval.generatingReport" /></h4>
             <div className="progress">
                 <div
                     className="progress-bar progress-bar-striped active"
@@ -17,7 +18,7 @@ const HGevalProgressIndicator = ({ progress }) => {
                 </div>
             </div>
             <p className="text-muted">
-                Querying GeoServer layers and raster data at your selected location...
+                <Message msgId="hydrata.hgeval.queryingLayers" />
             </p>
         </div>
     );

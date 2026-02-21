@@ -9,6 +9,7 @@ import {
     updateSimpleViewAttributeForm,
     submitSimpleViewAttributeForm
 } from "../actionsSimpleView";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class SimpleViewAttributeFormClass extends React.Component {
     static propTypes = {
@@ -121,7 +122,7 @@ class SimpleViewAttributeFormClass extends React.Component {
             >
                 <div id={"simple-view-attribute-form-header"}>
                     <div className={'simple-view-panel-header'}>
-                        Import external data - attribute mapping
+                        <Message msgId="hydrata.simpleView.importAttributeMapping" />
                     </div>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
@@ -236,7 +237,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                         onClick={() => {
                             this.props.setVisibleSimpleViewAttributeForm(false);
                         }}>
-                        Cancel
+                        <Message msgId="hydrata.simpleView.cancel" />
                     </button>
                     {
                         this.props.submitUrl.includes('importer-execute') ?
@@ -267,7 +268,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                                         this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
                                         this.props.setProcessingSimpleViewAttributeForm(true);
                                     }}>
-                                    Process
+                                    <Message msgId="hydrata.simpleView.process" />
                                 </button> :
                             <button
                                 type={'button'}
@@ -276,7 +277,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                                 onClick={() => {
                                     this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
                                 }}>
-                                Next
+                                <Message msgId="hydrata.simpleView.next" />
                             </button>
                     }
                 </div>

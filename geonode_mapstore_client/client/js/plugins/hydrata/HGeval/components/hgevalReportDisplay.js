@@ -1,9 +1,10 @@
 import React from 'react';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const DataRow = ({ label, value, fallback }) => (
     <tr>
         <td className="hgeval-label">{label}</td>
-        <td className="hgeval-value">{value || fallback || 'Data not available'}</td>
+        <td className="hgeval-value">{value || fallback || <Message msgId="hydrata.hgeval.dataNotAvailable" />}</td>
     </tr>
 );
 
@@ -110,53 +111,53 @@ const HGevalReportDisplay = ({
 
     return (
         <div className="hgeval-report">
-            <h4>Hydrogeological Evaluation Report</h4>
+            <h4><Message msgId="hydrata.hgeval.evaluationReport" /></h4>
             <p className="hgeval-project-name"><strong>{form?.name}</strong></p>
 
             <section className="hgeval-section">
-                <h5>Location</h5>
+                <h5><Message msgId="hydrata.hgeval.locationSection" /></h5>
                 <table className="table table-condensed">
                     <tbody>
-                        <DataRow label="Latitude" value={coordinates?.lat?.toFixed(6) + '\u00B0'} />
-                        <DataRow label="Longitude" value={coordinates?.lon?.toFixed(6) + '\u00B0'} />
-                        <DataRow label="Department" value={admin1?.NAME_1} />
-                        <DataRow label="Municipality" value={admin2?.NAME_2} />
-                        <DataRow label="Elevation" value={
+                        <DataRow label={<Message msgId="hydrata.hgeval.latitude" />} value={coordinates?.lat?.toFixed(6) + '\u00B0'} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.longitude" />} value={coordinates?.lon?.toFixed(6) + '\u00B0'} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.department" />} value={admin1?.NAME_1} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.municipality" />} value={admin2?.NAME_2} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.elevation" />} value={
                             rasterValues?.elevation != null
                                 ? `${rasterValues.elevation} m`
                                 : null
                         } />
                         {island?.OBJECTID != null && (
-                            <DataRow label="Island" value={island?.name || 'Yes'} />
+                            <DataRow label={<Message msgId="hydrata.hgeval.island" />} value={island?.name || 'Yes'} />
                         )}
                     </tbody>
                 </table>
             </section>
 
             <section className="hgeval-section">
-                <h5>Groundwater Assessment</h5>
+                <h5><Message msgId="hydrata.hgeval.groundwaterAssessment" /></h5>
                 <table className="table table-condensed">
                     <tbody>
-                        <DataRow label="Groundwater Potential" value={gwPotential?.EN_GWpot_D} />
-                        <DataRow label="Permeability" value={permeability?.EN_PrmDesc} />
-                        <DataRow label="Hydrogeological Environment" value={hydroEnv?.EN_Hyd_Env} />
-                        <DataRow label="Landform" value={landform?.Lnd_Desc} />
-                        <DataRow label="Geology" value={geology?.EN_Desc} />
-                        <DataRow label="Aquifer Type" value={geology?.EN_Hyd_Env} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.groundwaterPotential" />} value={gwPotential?.EN_GWpot_D} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.permeability" />} value={permeability?.EN_PrmDesc} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.hydrogeologicalEnvironment" />} value={hydroEnv?.EN_Hyd_Env} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.landform" />} value={landform?.Lnd_Desc} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.geology" />} value={geology?.EN_Desc} />
+                        <DataRow label={<Message msgId="hydrata.hgeval.aquiferType" />} value={geology?.EN_Hyd_Env} />
                     </tbody>
                 </table>
             </section>
 
             <section className="hgeval-section">
-                <h5>Rainfall</h5>
+                <h5><Message msgId="hydrata.hgeval.rainfall" /></h5>
                 <table className="table table-condensed">
                     <tbody>
-                        <DataRow label="Annual Precipitation" value={
+                        <DataRow label={<Message msgId="hydrata.hgeval.annualPrecipitation" />} value={
                             rasterValues?.precip_annual != null
                                 ? `${rasterValues.precip_annual} mm`
                                 : null
                         } />
-                        <DataRow label="Driest Quarter Precipitation" value={
+                        <DataRow label={<Message msgId="hydrata.hgeval.driestQuarterPrecipitation" />} value={
                             rasterValues?.precip_driest_quarter != null
                                 ? `${rasterValues.precip_driest_quarter} mm`
                                 : null
@@ -167,7 +168,7 @@ const HGevalReportDisplay = ({
 
             {warnings.length > 0 && (
                 <section className="hgeval-section hgeval-warnings">
-                    <h5>Warnings ({warnings.length})</h5>
+                    <h5><Message msgId="hydrata.hgeval.warnings" /> ({warnings.length})</h5>
                     <ul className="list-group">
                         {warnings.map((w, i) => (
                             <li key={i} className="list-group-item list-group-item-warning">
@@ -179,18 +180,15 @@ const HGevalReportDisplay = ({
             )}
 
             <section className="hgeval-section hgeval-disclaimer">
-                <h5>Disclaimer</h5>
+                <h5><Message msgId="hydrata.hgeval.disclaimer" /></h5>
                 <p>
-                    This report is generated from automated spatial analysis and should be considered
-                    preliminary. The data presented is derived from regional-scale datasets and may not
-                    reflect local conditions. A professional hydrogeological assessment is recommended
-                    before making investment decisions based on this information.
+                    <Message msgId="hydrata.hgeval.disclaimerText" />
                 </p>
             </section>
 
             {!hasContact && (
                 <div className="hgeval-contact-prompt">
-                    <p>Enter your email or phone to save &amp; download:</p>
+                    <p><Message msgId="hydrata.hgeval.enterContactToDownload" /></p>
                     <div className="hgeval-contact-row">
                         <input
                             type="email"
@@ -199,7 +197,7 @@ const HGevalReportDisplay = ({
                             value={form?.contact_email || ''}
                             onChange={(e) => onUpdateForm('contact_email', e.target.value)}
                         />
-                        <span className="hgeval-contact-or">or</span>
+                        <span className="hgeval-contact-or"><Message msgId="hydrata.hgeval.or" /></span>
                         <input
                             type="tel"
                             className="form-control input-sm"
@@ -213,7 +211,7 @@ const HGevalReportDisplay = ({
 
             <div className="hgeval-actions">
                 <button className="btn btn-default btn-sm" onClick={onNewReport}>
-                    New Evaluation
+                    <Message msgId="hydrata.hgeval.newEvaluation" />
                 </button>
                 {!savedReport ? (
                     <button
@@ -222,15 +220,15 @@ const HGevalReportDisplay = ({
                         disabled={!hasContact}
                         title={hasContact ? '' : 'Enter email or phone to enable'}
                     >
-                        <span className="glyphicon glyphicon-download-alt" /> Save &amp; Download
+                        <span className="glyphicon glyphicon-download-alt" /> <Message msgId="hydrata.hgeval.saveAndDownload" />
                     </button>
                 ) : (
                     <div className="hgeval-saved-actions">
                         <span className="text-success">
-                            <span className="glyphicon glyphicon-ok" /> Saved
+                            <span className="glyphicon glyphicon-ok" /> <Message msgId="hydrata.hgeval.saved" />
                         </span>
                         <button className="btn btn-default btn-sm" onClick={handleDownload}>
-                            <span className="glyphicon glyphicon-download-alt" /> Download
+                            <span className="glyphicon glyphicon-download-alt" /> <Message msgId="hydrata.hgeval.download" />
                         </button>
                     </div>
                 )}

@@ -8,6 +8,7 @@ import '../../SimpleView/simpleView.css';
 import {
     setReviewPanel
 } from "../actionsAnuga";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class ReviewPanelClass extends React.Component {
     static propTypes = {
@@ -22,7 +23,7 @@ class ReviewPanelClass extends React.Component {
             <div id={'publication-panel'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                        -- Under development -- Model review process.
+                        <Message msgId="hydrata.anuga.underDevelopment" />
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={
@@ -32,7 +33,7 @@ class ReviewPanelClass extends React.Component {
                             }
                         />
                     </div>
-                    <div>Content</div>
+                    <div><Message msgId="hydrata.anuga.content" /></div>
                 </div>
             </div>
         );

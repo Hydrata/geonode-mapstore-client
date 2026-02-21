@@ -15,6 +15,7 @@ import {
 import {Table, Button} from "react-bootstrap";
 import {formatMoney} from "@js/plugins/hydrata/Utils/utils";
 import {trackEvent} from "@js/utils/analytics";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class AnugaRunMenuClass extends React.Component {
     static propTypes = {
@@ -58,10 +59,10 @@ class AnugaRunMenuClass extends React.Component {
                             <Table className={"run-server-table"}>
                                 <thead>
                                     <tr className={"run-server-table-header"}>
-                                        <th style={{width: "200px", textAlign: "left"}}>Run Scenario</th>
-                                        <th style={{width: "100px"}}>Available Hours</th>
-                                        <th style={{width: "80px"}}>Run</th>
-                                        <th style={{width: "80px"}}>Download</th>
+                                        <th style={{width: "200px", textAlign: "left"}}><Message msgId="hydrata.anuga.runScenario" /></th>
+                                        <th style={{width: "100px"}}><Message msgId="hydrata.anuga.availableHours" /></th>
+                                        <th style={{width: "80px"}}><Message msgId="hydrata.anuga.run" /></th>
+                                        <th style={{width: "80px"}}><Message msgId="hydrata.anuga.download" /></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -81,7 +82,7 @@ class AnugaRunMenuClass extends React.Component {
                                                     trackEvent('button', `click`, `anuga-run-menu-run-${this.props.selectedScenario.name}`);
                                                 }}
                                             >
-                                                Run
+                                                <Message msgId="hydrata.anuga.run" />
                                             </Button>
                                         </td>
                                         <td>
@@ -114,7 +115,7 @@ class AnugaRunMenuClass extends React.Component {
                         trackEvent('button', `click`, `anuga-run-menu-manage-account-open`);
                     }}
                 >
-                    Manage Account
+                    <Message msgId="hydrata.anuga.manageAccount" />
                 </Button>
             </div>
         );

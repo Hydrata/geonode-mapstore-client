@@ -5,6 +5,7 @@ const PropTypes = require('prop-types');
 import {
     setVisibleSimpleViewAttributeResult
 } from "../actionsSimpleView";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class SimpleViewAttributeResultClass extends React.Component {
     static propTypes = {
@@ -39,7 +40,7 @@ class SimpleViewAttributeResultClass extends React.Component {
             >
                 <div id={"simple-view-attribute-form-header"}>
                     <div className={'simple-view-panel-header'}>
-                        Import Result (showing "external_id" fields)
+                        <Message msgId="hydrata.simpleView.importResult" />
                     </div>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
@@ -83,7 +84,7 @@ class SimpleViewAttributeResultClass extends React.Component {
                         onClick={() => {
                             this.props.setVisibleSimpleViewAttributeResult(false);
                         }}>
-                        Close
+                        <Message msgId="hydrata.simpleView.close" />
                     </button>
                 </div>
             </div>

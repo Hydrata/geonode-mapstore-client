@@ -38,6 +38,7 @@ import {
     bmpFootprintLayerSelector,
     bmpWatershedLayerSelector
 } from "../selectorsSwamm";
+import Message from '@mapstore/framework/components/I18N/Message';
 import {changeLayerProperties, refreshLayerVersion} from "../../../../../MapStore2/web/client/actions/layers";
 
 class SwammBmpFormClass extends React.Component {
@@ -142,8 +143,8 @@ class SwammBmpFormClass extends React.Component {
                 <div id={"swamm-bmp-form-grid-header"}>
                     <div className={'simple-view-panel-header'}>
                         {this.props.storedBmpForm.id ?
-                            "BMP " + this.props.storedBmpForm.id + ": " + this.props.storedBmpForm?.bmpName :
-                            "Create a new BMP"
+                            <React.Fragment><Message msgId="hydrata.swamm.bmpPrefix" /> {this.props.storedBmpForm.id}: {this.props.storedBmpForm?.bmpName}</React.Fragment> :
+                            <Message msgId="hydrata.swamm.createNewBmp" />
                         }
                     </div>
                     <span
@@ -160,7 +161,7 @@ class SwammBmpFormClass extends React.Component {
                         this.props.storedBmpForm?.id ?
                             <div className={"simple-view-panel-item-row"}>
                                 <div>
-                                    Type: {this.props.storedBmpForm?.type_data?.name}
+                                    <Message msgId="hydrata.swamm.type" />: {this.props.storedBmpForm?.type_data?.name}
                                 </div>
                                 <button
                                     type={'button'}
@@ -170,7 +171,7 @@ class SwammBmpFormClass extends React.Component {
                                             this.props.setChangingBmpType(true);
                                         }
                                     }}>
-                                    Edit Type
+                                    <Message msgId="hydrata.swamm.editType" />
                                 </button>
                             </div> :
                             null
@@ -179,7 +180,7 @@ class SwammBmpFormClass extends React.Component {
                         this.props.requiresOutlet || this.props.complexBmpForm ?
                             <div className={"simple-view-panel-item-row"}>
                                 <div>
-                                    Outlet Point:
+                                    <Message msgId="hydrata.swamm.outletPoint" />:
                                 </div>
                                 {this.props.storedBmpForm?.outlet_fid ?
                                     <button
@@ -190,7 +191,7 @@ class SwammBmpFormClass extends React.Component {
                                             this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
                                             this.drawBmpStep1(this.props.bmpOutletLayer?.name, this.props.storedBmpForm?.outlet_fid);
                                         }}>
-                                    Edit Outlet
+                                    <Message msgId="hydrata.swamm.editOutlet" />
                                     </button> :
                                     <button
                                         type={'button'}
@@ -202,7 +203,7 @@ class SwammBmpFormClass extends React.Component {
                                             this.props.toggleLayer(this.props.bmpOutletLayer?.id, true);
                                             this.drawBmpStep1(this.props.bmpOutletLayer?.name, null);
                                         }}>
-                                    Locate
+                                    <Message msgId="hydrata.swamm.locate" />
                                     </button>
                                 }
                             </div>
@@ -214,7 +215,7 @@ class SwammBmpFormClass extends React.Component {
                                 {this.props.storedBmpForm?.footprint_fid ?
                                     <React.Fragment>
                                         <div>
-                                            Footprint: {
+                                            <Message msgId="hydrata.swamm.footprint" />: {
                                                 this.props.storedBmpForm?.calculated_footprint_area ?
                                                     this.props.storedBmpForm?.calculated_footprint_area?.toFixed(2) + " acres" :
                                                     ' '
@@ -229,7 +230,7 @@ class SwammBmpFormClass extends React.Component {
                                                 this.drawBmpStep1(this.props.bmpFootprintLayer?.name, this.props.storedBmpForm?.footprint_fid);
                                             }}
                                         >
-                                            Edit Footprint
+                                            <Message msgId="hydrata.swamm.editFootprint" />
                                         </button>
                                     </React.Fragment> :
                                     <button
@@ -243,7 +244,7 @@ class SwammBmpFormClass extends React.Component {
                                             this.drawBmpStep1(this.props.bmpFootprintLayer?.name);
                                         }}
                                     >
-                                        Draw Footprint
+                                        <Message msgId="hydrata.swamm.drawFootprint" />
                                     </button>
                                 }
                             </div>
@@ -255,7 +256,7 @@ class SwammBmpFormClass extends React.Component {
                                 {this.props.storedBmpForm?.watershed_fid ?
                                     <React.Fragment>
                                         <div>
-                                            Watershed: {this.props.storedBmpForm?.calculated_watershed_area ?
+                                            <Message msgId="hydrata.swamm.watershed" />: {this.props.storedBmpForm?.calculated_watershed_area ?
                                                 this.props.storedBmpForm?.calculated_watershed_area?.toFixed(2) + " acres" :
                                                 ' '}
                                         </div>
@@ -268,7 +269,7 @@ class SwammBmpFormClass extends React.Component {
                                                 this.drawBmpStep1(this.props.bmpWatershedLayer?.name, this.props.storedBmpForm?.watershed_fid);
                                             }}
                                         >
-                                            Edit Watershed
+                                            <Message msgId="hydrata.swamm.editWatershed" />
                                         </button>
                                     </React.Fragment> :
                                     <button
@@ -281,7 +282,7 @@ class SwammBmpFormClass extends React.Component {
                                             this.drawBmpStep1(this.props?.bmpWatershedLayer?.name);
                                         }}
                                     >
-                                        Draw Watershed
+                                        <Message msgId="hydrata.swamm.drawWatershed" />
                                     </button>
                                 }
                             </div>
@@ -289,7 +290,7 @@ class SwammBmpFormClass extends React.Component {
                     }
                     <div className={"simple-view-panel-item-row"}>
                         <div>
-                          Field Identifier:
+                          <Message msgId="hydrata.swamm.fieldIdentifier" />:
                         </div>
                         <input
                             type={"text"}
@@ -304,7 +305,7 @@ class SwammBmpFormClass extends React.Component {
                     </div>
                     <div className={"simple-view-panel-item-row"}>
                         <div style={{textAlign: "left"}}>
-                          Owner details:
+                          <Message msgId="hydrata.swamm.ownerDetails" />:
                         </div>
                         <input
                             type={"text"}
@@ -322,7 +323,7 @@ class SwammBmpFormClass extends React.Component {
                             <React.Fragment>
                                 <div className={"simple-view-panel-item-row"} id="organization-selector-container">
                                     <div>
-                                      Organization
+                                      <Message msgId="hydrata.swamm.organization" />
                                     </div>
                                     <select
                                         id="organization-selector"
@@ -346,7 +347,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="status-selector-container">
                                     <div>
-                                      BMP Status
+                                      <Message msgId="hydrata.swamm.bmpStatus" />
                                     </div>
                                     <select
                                         id="status-selector"
@@ -363,7 +364,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="priority-selector-container">
                                     <div>
-                                      BMP Priority
+                                      <Message msgId="hydrata.swamm.bmpPriority" />
                                     </div>
                                     <select
                                         id="priority-selector"
@@ -386,7 +387,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="n_surface_red_percent-selector-container">
                                     <div>
-                                      Surface Nitrogen Reduction Percentage
+                                      <Message msgId="hydrata.swamm.surfaceNitrogenReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -401,7 +402,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="p_surface_red_percent-selector-container">
                                     <div>
-                                      Surface Phosphorus Reduction Percentage
+                                      <Message msgId="hydrata.swamm.surfacePhosphorusReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -414,7 +415,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="s_surface_red_percent-selector-container">
                                     <div>
-                                      Surface Sediment Reduction Percentage
+                                      <Message msgId="hydrata.swamm.surfaceSedimentReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -429,7 +430,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="n_tiled_red_percent-selector-container">
                                     <div>
-                                      Tiled Nitrogen Reduction Percentage
+                                      <Message msgId="hydrata.swamm.tiledNitrogenReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -444,7 +445,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="p_tiled_red_percent-selector-container">
                                     <div>
-                                      Tiled Phosphorus Reduction Percentage
+                                      <Message msgId="hydrata.swamm.tiledPhosphorusReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -459,7 +460,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="n_erosion_red_percent-selector-container">
                                     <div>
-                                      Erosion Nitrogen Reduction Percentage
+                                      <Message msgId="hydrata.swamm.erosionNitrogenReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -474,7 +475,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="p_erosion_red_percent-selector-container">
                                     <div>
-                                      Erosion Phosphorus Reduction Percentage
+                                      <Message msgId="hydrata.swamm.erosionPhosphorusReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -489,7 +490,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="s_erosion_red_percent-selector-container">
                                     <div>
-                                      Erosion Sediment Reduction Percentage
+                                      <Message msgId="hydrata.swamm.erosionSedimentReductionPercentage" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -504,7 +505,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="override_cost_base-selector-container">
                                     <div>
-                                      Base Cost ($)
+                                      <Message msgId="hydrata.swamm.baseCost" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -517,7 +518,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="cost_rate_per_footprint_area-selector-container">
                                     <div>
-                                      Footprint Cost ($/acre)
+                                      <Message msgId="hydrata.swamm.footprintCost" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -530,7 +531,7 @@ class SwammBmpFormClass extends React.Component {
                                 </div>
                                 <div className={"simple-view-panel-item-row"} id="cost_rate_per_watershed_area-selector-container">
                                     <div>
-                                      Watershed Cost ($/acre)
+                                      <Message msgId="hydrata.swamm.watershedCost" />
                                     </div>
                                     <input
                                         type={"number"}
@@ -545,7 +546,7 @@ class SwammBmpFormClass extends React.Component {
                             : null
                     }
                     <div style={{marginTop: "10px"}}>
-                        Notes
+                        <Message msgId="hydrata.swamm.notes" />
                     </div>
                     <textarea
                         id={'bmp-notes'}
@@ -561,7 +562,7 @@ class SwammBmpFormClass extends React.Component {
                         !this.props.storedBmpForm?.id || this.props.changingBmpType ?
                             <React.Fragment>
                                 <div style={{textAlign: "left"}}>
-                                    <h5>Select a BMP Type...</h5>
+                                    <h5><Message msgId="hydrata.swamm.selectBmpType" /></h5>
                                     {this.props.bmpTypeGroups?.map((group) => {
                                         return (
                                             <div
@@ -629,7 +630,7 @@ class SwammBmpFormClass extends React.Component {
                                         style={{marginTop: "20px", backgroundColor: "darkgreen"}}
                                         onClick={() => this.props.setChangingBmpType(false)}
                                     >
-                                        Accept
+                                        <Message msgId="hydrata.swamm.accept" />
                                     </button> :
                                     null
                                 }
@@ -650,15 +651,15 @@ class SwammBmpFormClass extends React.Component {
                                     >
                                         <thead>
                                             <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
-                                                <th style={{"width": "30%"}}>Results</th>
-                                                <th style={{"width": "13%"}}>Surface</th>
-                                                <th style={{"width": "13%"}}>Tiled</th>
+                                                <th style={{"width": "30%"}}><Message msgId="hydrata.swamm.results" /></th>
+                                                <th style={{"width": "13%"}}><Message msgId="hydrata.swamm.surface" /></th>
+                                                <th style={{"width": "13%"}}><Message msgId="hydrata.swamm.tiled" /></th>
                                                 <th style={{"width": "13%", "word-break": "break-word"}}>Gully/<wbr/>Bank</th>
-                                                <th style={{"width": "10%"}}>Total</th>
+                                                <th style={{"width": "10%"}}><Message msgId="hydrata.swamm.total" /></th>
                                                 {
                                                     this.props.watershedIsFootprint ?
                                                         <React.Fragment>
-                                                            <th style={{"width": "10%"}}>Per Acre</th>
+                                                            <th style={{"width": "10%"}}><Message msgId="hydrata.swamm.perAcre" /></th>
                                                             <th style={{"width": "11%"}}/>
                                                         </React.Fragment>
                                                         :
@@ -668,7 +669,7 @@ class SwammBmpFormClass extends React.Component {
                                         </thead>
                                         <tbody>
                                             <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
-                                                <td>Nitrogen load previous: </td>
+                                                <td><Message msgId="hydrata.swamm.nitrogenLoadPrevious" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_previous_n_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_previous_n_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_n_load?.toPrecision(3))}</td>
@@ -682,7 +683,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Nitrogen load reduction: </td>
+                                                <td><Message msgId="hydrata.swamm.nitrogenLoadReduction" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_n_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_n_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_n_load_reduction?.toPrecision(3))}</td>
@@ -696,7 +697,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Nitrogen load new: </td>
+                                                <td><Message msgId="hydrata.swamm.nitrogenLoadNew" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_new_n_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_new_n_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_new_n_load?.toPrecision(3))}</td>
@@ -710,7 +711,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
-                                                <td>Phosphorus load previous: </td>
+                                                <td><Message msgId="hydrata.swamm.phosphorusLoadPrevious" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_previous_p_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_previous_p_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_p_load?.toPrecision(3))}</td>
@@ -724,7 +725,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Phosphorus load reduction: </td>
+                                                <td><Message msgId="hydrata.swamm.phosphorusLoadReduction" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_p_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_p_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_p_load_reduction?.toPrecision(3))}</td>
@@ -738,7 +739,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Phosphorus load new: </td>
+                                                <td><Message msgId="hydrata.swamm.phosphorusLoadNew" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_new_p_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_new_p_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_new_p_load?.toPrecision(3))}</td>
@@ -752,7 +753,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>lbs/<wbr/>year</td>
                                             </tr>
                                             <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
-                                                <td>Sediment load previous: </td>
+                                                <td><Message msgId="hydrata.swamm.sedimentLoadPrevious" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_previous_s_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_previous_s_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_previous_s_load?.toPrecision(3))}</td>
@@ -766,7 +767,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>tons/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Sediment load reduction: </td>
+                                                <td><Message msgId="hydrata.swamm.sedimentLoadReduction" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_s_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_s_load_reduction?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_s_load_reduction?.toPrecision(3))}</td>
@@ -780,7 +781,7 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>tons/<wbr/>year</td>
                                             </tr>
                                             <tr style={{borderBottom: "solid 3px rgb(255, 255, 255, 1)"}}>
-                                                <td>Sediment load new: </td>
+                                                <td><Message msgId="hydrata.swamm.sedimentLoadNew" /></td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.surface_new_s_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.tiled_new_s_load?.toPrecision(3))}</td>
                                                 <td>{parseFloat(this.props.storedBmpForm?.erosion_new_s_load?.toPrecision(3))}</td>
@@ -794,28 +795,28 @@ class SwammBmpFormClass extends React.Component {
                                                 <td className={"text-left"}>tons/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Cost Estimate:</td>
+                                                <td><Message msgId="hydrata.swamm.costEstimate" /></td>
                                                 {this.props.storedBmpForm?.calculated_total_cost ?
                                                     <td>${Number(this.props.storedBmpForm?.calculated_total_cost?.toFixed(0)).toLocaleString()}</td> :
                                                     <td/>}
                                                 <td/>
                                             </tr>
                                             <tr>
-                                                <td>Nitrogen reduction value: </td>
+                                                <td><Message msgId="hydrata.swamm.nitrogenReductionValue" /></td>
                                                 {this.props.storedBmpForm?.total_cost_per_lbs_n_reduced ?
                                                     <td>{Number(this.props.storedBmpForm?.total_cost_per_lbs_n_reduced?.toFixed(0)).toLocaleString()}</td> :
                                                     <td/>}
                                                 <td className={"text-left"}>$/lb/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Phosphorus reduction value: </td>
+                                                <td><Message msgId="hydrata.swamm.phosphorusReductionValue" /></td>
                                                 {this.props.storedBmpForm?.total_cost_per_lbs_p_reduced ?
                                                     <td>{Number(this.props.storedBmpForm?.total_cost_per_lbs_p_reduced?.toFixed(0)).toLocaleString()}</td> :
                                                     <td/>}
                                                 <td className={"text-left"}>$/lb/<wbr/>year</td>
                                             </tr>
                                             <tr>
-                                                <td>Sediment reduction value: </td>
+                                                <td><Message msgId="hydrata.swamm.sedimentReductionValue" /></td>
                                                 {this.props.storedBmpForm?.total_cost_per_ton_s_reduced ?
                                                     <td>{Number(this.props.storedBmpForm?.total_cost_per_ton_s_reduced?.toFixed(0)).toLocaleString()}</td> :
                                                     <td/>}
@@ -824,11 +825,11 @@ class SwammBmpFormClass extends React.Component {
                                         </tbody>
                                     </Table>
                                     {this.props.storedBmpForm?.created_by ?
-                                        <p>Created by: {this.props.storedBmpForm?.created_by} on {new Date(this.props.storedBmpForm?.created_at).toLocaleString()}</p> :
+                                        <p><Message msgId="hydrata.swamm.createdBy" /> {this.props.storedBmpForm?.created_by} <Message msgId="hydrata.swamm.on" /> {new Date(this.props.storedBmpForm?.created_at).toLocaleString()}</p> :
                                         null
                                     }
                                     {this.props.storedBmpForm?.updated_by ?
-                                        <p>Updated by: {this.props.storedBmpForm?.updated_by} on {new Date(this.props.storedBmpForm?.updated_at).toLocaleString()}</p> :
+                                        <p><Message msgId="hydrata.swamm.updatedBy" /> {this.props.storedBmpForm?.updated_by} <Message msgId="hydrata.swamm.on" /> {new Date(this.props.storedBmpForm?.updated_at).toLocaleString()}</p> :
                                         null
                                     }
                                 </React.Fragment> :
@@ -846,26 +847,26 @@ class SwammBmpFormClass extends React.Component {
                                 >
                                     <thead>
                                         <tr>
-                                            <th>Results</th>
-                                            <th style={{"width": "100px"}}>Total</th>
+                                            <th><Message msgId="hydrata.swamm.results" /></th>
+                                            <th style={{"width": "100px"}}><Message msgId="hydrata.swamm.total" /></th>
                                             <th/>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr>
-                                            <td>Nitrogen load reduction: </td>
+                                            <td><Message msgId="hydrata.swamm.nitrogenLoadReduction" /></td>
                                             <td>{this.props.storedBmpForm?.total_n_load_reduction?.toFixed(0)}</td>
-                                            <td className={"text-left"}>lbs/year</td>
+                                            <td className={"text-left"}><Message msgId="hydrata.swamm.lbsPerYear" /></td>
                                         </tr>
                                         <tr>
-                                            <td>Phosphorus load reduction: </td>
+                                            <td><Message msgId="hydrata.swamm.phosphorusLoadReduction" /></td>
                                             <td>{this.props.storedBmpForm?.total_p_load_reduction?.toFixed(0)}</td>
-                                            <td className={"text-left"}>lbs/year</td>
+                                            <td className={"text-left"}><Message msgId="hydrata.swamm.lbsPerYear" /></td>
                                         </tr>
                                         <tr>
-                                            <td>Sediment load reduction: </td>
+                                            <td><Message msgId="hydrata.swamm.sedimentLoadReduction" /></td>
                                             <td>{this.props.storedBmpForm?.total_s_load_reduction?.toFixed(0)}</td>
-                                            <td className={"text-left"}>tons/year</td>
+                                            <td className={"text-left"}><Message msgId="hydrata.swamm.tonsPerYear" /></td>
                                         </tr>
                                     </tbody>
                                 </Table>
@@ -887,21 +888,21 @@ class SwammBmpFormClass extends React.Component {
                                         type={'button'}
                                         className={'swamm-button'}
                                         onClick={() => this.props.setComplexBmpForm(false)}>
-                                        Simple
+                                        <Message msgId="hydrata.swamm.simple" />
                                     </button>
                                     :
                                     <button
                                         type={'button'}
                                         className={'swamm-button'}
                                         onClick={() => this.props.setComplexBmpForm(true)}>
-                                        Advanced
+                                        <Message msgId="hydrata.swamm.advanced" />
                                     </button>
                             }
                             <button
                                 type={'button'}
                                 className={'swamm-button'}
                                 onClick={() => { this.props.downloadBmpReport(this.props.storedBmpForm?.id);}}>
-                                Make PDF
+                                <Message msgId="hydrata.swamm.makePdf" />
                             </button>
                         </React.Fragment>
                         : null}
@@ -912,14 +913,14 @@ class SwammBmpFormClass extends React.Component {
                             this.props.hideBmpForm();
                             this.refreshBmpLayers();
                         }}>
-                        View Map
+                        <Message msgId="hydrata.swamm.viewMap" />
                     </button>
                     <button
                         type={'button'}
                         disabled={!!this.props.standard_url}
                         className={`swamm-button ${this.props.standard_url ? "" : "swamm-button-disabled"}`}
                         onClick={() => window.open(this.props.standard_url, "_blank")}>
-                        Description
+                        <Message msgId="hydrata.swamm.description" />
                     </button>
                     {this.props.storedBmpForm?.id ?
                         <button
@@ -933,7 +934,7 @@ class SwammBmpFormClass extends React.Component {
                                     this.props.deleteBmp(this.props.projectId, this.props.storedBmpForm?.id);
                                 }
                             }}>
-                            Delete
+                            <Message msgId="hydrata.swamm.delete" />
                         </button> : null
                     }
                     <button
@@ -945,7 +946,7 @@ class SwammBmpFormClass extends React.Component {
                         onClick={() => {
                             this.props.submitBmpForm(this.props.storedBmpForm, this.props.projectId);
                         }}>
-                        Save
+                        <Message msgId="hydrata.swamm.save" />
                     </button>
                 </div>
             </div>

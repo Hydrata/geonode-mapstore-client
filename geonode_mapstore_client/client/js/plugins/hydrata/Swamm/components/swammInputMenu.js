@@ -9,6 +9,7 @@ import {
 import {
     setSwammInputMenu
 } from "../actionsSwamm";
+import Message from '@mapstore/framework/components/I18N/Message';
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
@@ -60,7 +61,7 @@ class SwammInputMenuClass extends React.Component {
                             border: "none"
                         }}
                     >
-                        <span className="menu-row-text">Erosion</span>
+                        <span className="menu-row-text"><Message msgId="hydrata.swamm.erosion" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                             style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
@@ -77,7 +78,7 @@ class SwammInputMenuClass extends React.Component {
                     {
                         this.props.erosionLayers?.length === 0 ?
                             <div className={"row menu-row menu-row"} style={{width: "510px", textAlign: "left", border: "none"}}>
-                                No erosion layer available
+                                <Message msgId="hydrata.swamm.noErosionLayerAvailable" />
                             </div>
                             : null
                     }
@@ -98,7 +99,7 @@ class SwammInputMenuClass extends React.Component {
                             border: "none"
                         }}
                     >
-                        <span className="menu-row-text">SWAMM Models</span>
+                        <span className="menu-row-text"><Message msgId="hydrata.swamm.swammModels" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                             style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
@@ -115,7 +116,7 @@ class SwammInputMenuClass extends React.Component {
                     {
                         this.props.swammEngines?.length === 0 ?
                             <div className={"row menu-row menu-row"} style={{width: "510px", textAlign: "left", border: "none"}}>
-                                No SWAMM models available
+                                <Message msgId="hydrata.swamm.noSwammModelsAvailable" />
                             </div>
                             : null
                     }
@@ -136,7 +137,7 @@ class SwammInputMenuClass extends React.Component {
                             border: "none"
                         }}
                     >
-                        <span className="menu-row-text">BMPs</span>
+                        <span className="menu-row-text"><Message msgId="hydrata.swamm.bmps" /></span>
                     </div>
                     <div
                         className={"row menu-row menu-row-header"}
@@ -146,7 +147,7 @@ class SwammInputMenuClass extends React.Component {
                             border: "none"
                         }}
                     >
-                        <span className="menu-row-text">Outlets</span>
+                        <span className="menu-row-text"><Message msgId="hydrata.swamm.outlets" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                             style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
@@ -163,7 +164,7 @@ class SwammInputMenuClass extends React.Component {
                             border: "none"
                         }}
                     >
-                        <span className="menu-row-text">Footprints</span>
+                        <span className="menu-row-text"><Message msgId="hydrata.swamm.footprints" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                             style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
@@ -180,7 +181,7 @@ class SwammInputMenuClass extends React.Component {
                             border: "none"
                         }}
                     >
-                        <span className="menu-row-text">Watersheds</span>
+                        <span className="menu-row-text"><Message msgId="hydrata.swamm.watersheds" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                             style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}

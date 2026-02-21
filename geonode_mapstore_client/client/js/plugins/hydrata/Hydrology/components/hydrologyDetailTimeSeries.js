@@ -24,6 +24,7 @@ import {
     useReactTable
 } from '@tanstack/react-table';
 import moment from "moment";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const TableCell = ({getValue, row, column, table}) => {
     const initialValue = getValue();
@@ -58,7 +59,7 @@ const columnHelper = createColumnHelper();
 const columns = [
     columnHelper.accessor('timestamp', {
         cell: TableCell,
-        header: () => <span>TimeStamp</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.timestamp" /></span>,
         meta: {
             type: "datetime-local"
         }
@@ -141,7 +142,7 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
                 boxSizing: 'border-box',
                 paddingTop: "5px"
             }}>
-                <p style={{marginRight: '5px', width: "100px"}}>Paste Data:</p>
+                <p style={{marginRight: '5px', width: "100px"}}><Message msgId="hydrata.hydrology.pasteData" /></p>
                 <input
                     ref={pasteDivRef}
                     id={'name'}
@@ -162,7 +163,7 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
                     marginRight: '50px'
                 }}>
                     <div className="">
-                        <h3 style={{marginTop: 0}}>Time Series</h3>
+                        <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.timeSeries" /></h3>
                         <table className={'time-series-table'}>
                             <thead>
                                 {table.getHeaderGroups().map(headerGroup => (
@@ -200,7 +201,7 @@ const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, up
                         marginTop: '20px',
                         padding: '10px'
                     }}>
-                        <h3 style={{marginTop: 0}}>Time Series</h3>
+                        <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.timeSeries" /></h3>
                         <div style={{
                             width: '100%',
                             height: '100%',

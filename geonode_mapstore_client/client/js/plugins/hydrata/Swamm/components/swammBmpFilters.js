@@ -11,6 +11,7 @@ import {
     toggleBmpTypeGroup,
     toggleBmpPriorityVisibility
 } from "../actionsSwamm";
+import Message from '@mapstore/framework/components/I18N/Message';
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {
     bmpFootprintLayerSelector,
@@ -66,7 +67,7 @@ class SwammBmpFiltersClass extends React.Component {
                                 className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('bmpType');}}
                             />
-                            <span className="menu-row-text"><div>Filter by BMP type</div></span>
+                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpType" /></div></span>
                         </div>
                         { this.props.expandedFilter === "bmpType" ?
                             <div className="bmp-filter-group-expanded-panel">
@@ -137,7 +138,7 @@ class SwammBmpFiltersClass extends React.Component {
                                 className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "priority" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('priority');}}
                             />
-                            <span className="menu-row-text"><div>Filter by BMP priority</div></span>
+                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpPriority" /></div></span>
                         </div>
                         { this.props.expandedFilter === "priority" ?
                             <div className="bmp-filter-group-expanded-panel">
@@ -172,7 +173,7 @@ class SwammBmpFiltersClass extends React.Component {
                                 className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "status" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('status');}}
                             />
-                            <span className="menu-row-text"><div>Filter by BMP status</div></span>
+                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpStatus" /></div></span>
                         </div>
                         {
                             this.props.expandedFilter === "status" ?
@@ -210,7 +211,7 @@ class SwammBmpFiltersClass extends React.Component {
                                 className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "groupProfile" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('groupProfile');}}
                             />
-                            <span className="menu-row-text"><div>Filter by Organization</div></span>
+                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByOrganization" /></div></span>
                         </div>
                         {
                             this.props.expandedFilter === "groupProfile" ?

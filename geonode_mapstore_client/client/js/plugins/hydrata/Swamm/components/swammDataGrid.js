@@ -11,6 +11,7 @@ const {
     SingleSelectFilter
 } = Filters;
 
+import Message from '@mapstore/framework/components/I18N/Message';
 import {formatMoney} from '../../Utils/utils';
 import {hideSwammDataGrid} from "../actionsSwamm";
 
@@ -48,7 +49,7 @@ class SwammDataGridClass extends React.Component {
             >
                 <Modal.Header>
                     <Modal.Title>
-                        BMP Summary
+                        <Message msgId="hydrata.swamm.bmpSummary" />
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
@@ -69,7 +70,7 @@ class SwammDataGridClass extends React.Component {
                         bsSize="small"
                         style={{opacity: "0.7"}}
                         onClick={() => this.props.hideSwammDataGrid()}>
-                        Close
+                        <Message msgId="hydrata.swamm.close" />
                     </Button>
                 </Modal.Footer>
             </Modal>

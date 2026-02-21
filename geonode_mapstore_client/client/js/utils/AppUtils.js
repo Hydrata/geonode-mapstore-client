@@ -198,7 +198,7 @@ export function setupConfiguration({
         ? geoNodePageConfig.translationsPath
         : config.translationsPath
             ? config.translationsPath
-            : ['/static/mapstore/ms-translations', '/static/mapstore/gn-translations']
+            : ['/static/mapstore/ms-translations', '/static/mapstore/gn-translations', '/static/mapstore/hydrata-translations']
     );
     const supportedLocales = languagesToSupportedLocales(geoNodePageConfig.languages) || defaultSupportedLocales || getSupportedLocales();
     setSupportedLocales(supportedLocales);

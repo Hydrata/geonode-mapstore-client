@@ -132,7 +132,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
                             saveHydrologyItemSuccess(action.activeHydrologyPage, response.data),
                             show({
                                 "message": `Successfully saved ${response.data.name}`,
-                                "title": "Success",
+                                "title": "hydrata.hydrology.success",
                                 "uid": 1000,
                                 "position": "tc"
                             })
@@ -142,7 +142,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
                         saveHydrologyItemFailure(error.data),
                         show({
                             "message": `Error: ${error.data?.errors}`,
-                            "title": "Error",
+                            "title": "hydrata.hydrology.error",
                             "uid": 6000,
                             "position": "tc"
                         }, 'error')
@@ -159,7 +159,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
                         createHydrologyItemSuccess(action.activeHydrologyPage, response.data),
                         show({
                             "message": `Successfully created ${response.data.name}`,
-                            "title": "Success",
+                            "title": "hydrata.hydrology.success",
                             "uid": 1000,
                             "position": "tc"
                         })
@@ -169,7 +169,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
                     createHydrologyItemFailure(error.data),
                     show({
                         "message": `Error: ${error.data?.errors}`,
-                        "title": "Error",
+                        "title": "hydrata.hydrology.error",
                         "uid": 6000,
                         "position": "tc"
                     }, 'error')
@@ -192,7 +192,7 @@ export const deleteHydrologyItemEpic = (action$, store) =>
                         deleteHydrologyItemSuccess(action.activeHydrologyPage, action.item),
                         show({
                             "message": `Successfully deleted ${action.item.name}`,
-                            "title": "Success",
+                            "title": "hydrata.hydrology.success",
                             "uid": 1000,
                             "position": "tc"
                         })
@@ -202,7 +202,7 @@ export const deleteHydrologyItemEpic = (action$, store) =>
                     deleteHydrologyItemFailure(error.data),
                     show({
                         "message": `Error: ${error.data?.errors}`,
-                        "title": "Error",
+                        "title": "hydrata.hydrology.error",
                         "uid": 6000,
                         "position": "tc"
                     }, 'error')

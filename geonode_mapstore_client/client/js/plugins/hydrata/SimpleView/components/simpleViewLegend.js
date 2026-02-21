@@ -5,6 +5,7 @@ const PropTypes = require('prop-types');
 import {changeActiveSearchTool} from "../../../../../MapStore2/web/client/actions/search";
 import Legend from "../../../../../MapStore2/web/client/plugins/TOC/components/Legend";
 import {setVisibleLegendPanel} from "../actionsSimpleView";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class simpleViewLegend extends React.Component {
     static propTypes = {
@@ -30,7 +31,7 @@ class simpleViewLegend extends React.Component {
             return (
                 <div className={'simple-view-panel ' + (this.props.searchBarVisible ? "legend-panel-with-search" : "legend-panel")}>
                     <div className={"row h4 legend-heading"}>
-                        Legend
+                        <Message msgId="hydrata.simpleView.legend" />
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={() => this.props.setVisibleLegendPanel(false)}
@@ -81,7 +82,7 @@ class simpleViewLegend extends React.Component {
                     style={{left: 420}}
                     onClick={() => this.props.setVisibleLegendPanel(true)}
                 >
-                    Generate Report
+                    <Message msgId="hydrata.simpleView.generateReport" />
                 </button>
             </div>
         );

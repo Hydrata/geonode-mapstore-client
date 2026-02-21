@@ -24,6 +24,7 @@ import {
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import {trackEvent} from "@js/utils/analytics";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class MenuRowClass extends React.Component {
     static propTypes = {
@@ -64,7 +65,7 @@ class MenuRowClass extends React.Component {
             return (
                 <div className={"row menu-row"}>
                     <div className={"inline pull-left menu-row-button"}>
-                        <div className="h5 menu-row-text">No datasets here yet...</div>
+                        <div className="h5 menu-row-text"><Message msgId="hydrata.simpleView.noDatasetsYet" /></div>
                     </div>
                 </div>
             );

@@ -6,6 +6,7 @@ import {setVisibleIntroduction} from "../actionsSimpleView";
 import Modal from "../../../../../MapStore2/web/client/components/misc/Modal";
 import Button from "../../../../../MapStore2/web/client/components/misc/Button";
 import {trackEvent} from "@js/utils/analytics";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class simpleViewIntroduction extends React.Component {
     static propTypes = {
@@ -32,16 +33,12 @@ class simpleViewIntroduction extends React.Component {
                 >
                     <Modal.Header closeButton>
                         <Modal.Title id="contained-modal-title-lg">
-                            Welcome to Hydrata
+                            <Message msgId="hydrata.simpleView.welcomeTitle" />
                         </Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
                         <p style={{"fontSize": "small"}}>
-                            The application is provided "as-is", without warranty of any kind, express or implied, including but not limited to
-                            the warranties of merchantability, firness for a particular pupose and noninfringement. In no event shall the authors or
-                            copyright holders be liable for any claim, damages or other liability, whether in an action of
-                            contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the
-                            software.
+                            <Message msgId="hydrata.simpleView.disclaimer" />
                         </p>
                         <Button
                             onClick = {
@@ -53,7 +50,7 @@ class simpleViewIntroduction extends React.Component {
                             bsStyle="primary"
                             style={{marginLeft: "45%"}}
                         >
-                            Accept
+                            <Message msgId="hydrata.simpleView.accept" />
                         </Button>
                     </Modal.Body>
                 </Modal>

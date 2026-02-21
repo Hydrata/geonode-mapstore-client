@@ -5,6 +5,7 @@ import {Table} from "react-bootstrap";
 import {formatMoney} from "../../Utils/utils";
 import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData} from "../actionsSwamm";
 const {Cell, BarChart, Bar, PieChart, Pie, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip} = require('recharts');
+import Message from '@mapstore/framework/components/I18N/Message';
 import '../swamm.css';
 
 const circleSize = 100;
@@ -49,7 +50,7 @@ class SwammBmpChartClass extends React.Component {
             >
                 <div id={"swamm-bmp-chart-header"}>
                     <div>
-                        Dashboard: {this.props.selectedTarget?.name}
+                        <Message msgId="hydrata.swamm.dashboardPrefix" /> {this.props.selectedTarget?.name}
                     </div>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
@@ -61,7 +62,7 @@ class SwammBmpChartClass extends React.Component {
                 <div id={"swamm-bmp-chart-body"}>
                     <div id={"swamm-bmp-chart-col-one"}>
                         <div id={"swamm-bmp-chart-targets"}>
-                            <div className={"swamm-bmp-chart-heading"}>Targets</div>
+                            <div className={"swamm-bmp-chart-heading"}><Message msgId="hydrata.swamm.targets" /></div>
                             {this.props.targets.map((target) => {
                                 return (
                                     <button
@@ -78,18 +79,18 @@ class SwammBmpChartClass extends React.Component {
                                 className={"swamm-button"}
                                 style={{marginTop: "10px"}}
                                 onClick={() => this.props.showTargetForm(null)}>
-                                New Target
+                                <Message msgId="hydrata.swamm.newTarget" />
                             </button>
                             <button
                                 className={"swamm-button"}
                                 style={{marginTop: "10px", marginBottom: "10px"}}
                                 onClick={() => this.props.showTargetForm(this.props.selectedTarget)}>
-                                Edit Target
+                                <Message msgId="hydrata.swamm.editTarget" />
                             </button>
                         </div>
                         <div id={"swamm-bmp-chart-filter"}>
                             <div className={"swamm-bmp-chart-heading"}>
-                                Sort Data By:
+                                <Message msgId="hydrata.swamm.sortDataBy" />:
                             </div>
                             <button
                                 className={"swamm-button"}
@@ -98,7 +99,7 @@ class SwammBmpChartClass extends React.Component {
                                 }}
                                 onClick={() => this.props.setBmpFilterMode('type')}
                             >
-                                BMP Type
+                                <Message msgId="hydrata.swamm.bmpType" />
                             </button>
                             <button
                                 className={"swamm-button"}
@@ -107,7 +108,7 @@ class SwammBmpChartClass extends React.Component {
                                 }}
                                 onClick={() => this.props.setBmpFilterMode('status')}
                             >
-                                BMP Status
+                                <Message msgId="hydrata.swamm.bmpStatus" />
                             </button>
                             <button
                                 className={"swamm-button"}
@@ -116,12 +117,12 @@ class SwammBmpChartClass extends React.Component {
                                 }}
                                 onClick={() => this.props.setBmpFilterMode('group_profile')}
                             >
-                                Organization
+                                <Message msgId="hydrata.swamm.organization" />
                             </button>
                         </div>
                         <div id={"swamm-bmp-chart-download"}>
                             <div className={"swamm-bmp-chart-heading"}>
-                                Download target data:
+                                <Message msgId="hydrata.swamm.downloadTargetData" />:
                             </div>
                             <button
                                 className={"swamm-button"}
@@ -260,55 +261,55 @@ class SwammBmpChartClass extends React.Component {
                             <Table bordered condensed hover className={"text-right"}>
                                 <thead>
                                     <tr>
-                                        <th>Summary</th>
-                                        <th style={{'textAlign': 'center'}}>Phosphorus</th>
-                                        <th style={{'textAlign': 'center'}}>Nitrogen</th>
-                                        <th style={{'textAlign': 'center'}}>Sediment</th>
+                                        <th><Message msgId="hydrata.swamm.summary" /></th>
+                                        <th style={{'textAlign': 'center'}}><Message msgId="hydrata.swamm.phosphorus" /></th>
+                                        <th style={{'textAlign': 'center'}}><Message msgId="hydrata.swamm.nitrogen" /></th>
+                                        <th style={{'textAlign': 'center'}}><Message msgId="hydrata.swamm.sediment" /></th>
                                         <th/>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td>Current total untreated pollutant volume:</td>
+                                        <td><Message msgId="hydrata.swamm.currentTotalUntreatedVolume" /></td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentPhosphorusLoad, 0)}</td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentNitrogenLoad, 0)}</td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.currentSedimentLoad, 0)}</td>
-                                        <td className={"text-left"}>units/year</td>
+                                        <td className={"text-left"}><Message msgId="hydrata.swamm.unitsPerYear" /></td>
                                     </tr>
                                     <tr>
-                                        <td>Selected target reduction percentage:</td>
+                                        <td><Message msgId="hydrata.swamm.selectedTargetReductionPercentage" /></td>
                                         <td>{(this.props.selectedTarget?.speedDialData?.percentPhosphorusReductionTarget * 100).toFixed(0)}</td>
                                         <td>{(this.props.selectedTarget?.speedDialData?.percentNitrogenReductionTarget * 100).toFixed(0)}</td>
                                         <td>{(this.props.selectedTarget?.speedDialData?.percentSedimentReductionTarget * 100).toFixed(0)}</td>
-                                        <td className={"text-left"}>% of total</td>
+                                        <td className={"text-left"}><Message msgId="hydrata.swamm.percentOfTotal" /></td>
                                     </tr>
                                     <tr>
-                                        <td>Selected target load reduction required:</td>
+                                        <td><Message msgId="hydrata.swamm.selectedTargetLoadReductionRequired" /></td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetPhosphorusLoadReductionRequired, 0)}</td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetNitrogenLoadReductionRequired, 0)}</td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.targetSedimentLoadReductionRequired, 0)}</td>
-                                        <td className={"text-left"}>units/year</td>
+                                        <td className={"text-left"}><Message msgId="hydrata.swamm.unitsPerYear" /></td>
                                     </tr>
                                     <tr>
-                                        <td>Actual pollutant reduction from BMPs:</td>
+                                        <td><Message msgId="hydrata.swamm.actualPollutantReductionFromBmps" /></td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpPhosphorusReduction, 0)}</td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpNitrogenReduction, 0)}</td>
                                         <td>{formatMoney(this.props.selectedTarget?.speedDialData?.totalBmpSedimentReduction, 0)}</td>
-                                        <td className={"text-left"}>units/year</td>
+                                        <td className={"text-left"}><Message msgId="hydrata.swamm.unitsPerYear" /></td>
                                     </tr>
                                     <tr>
-                                        <td>Percentage of target achieved:</td>
+                                        <td><Message msgId="hydrata.swamm.percentageOfTargetAchieved" /></td>
                                         <td>{this.props.selectedTarget?.speedDialData?.percentPhosphorusTarget?.[0]?.value?.toFixed(1)}</td>
                                         <td>{this.props.selectedTarget?.speedDialData?.percentNitrogenTarget?.[0]?.value?.toFixed(1)}</td>
                                         <td>{this.props.selectedTarget?.speedDialData?.percentSedimentTarget?.[0]?.value?.toFixed(1)}</td>
-                                        <td className={"text-left"}>%</td>
+                                        <td className={"text-left"}><Message msgId="hydrata.swamm.percent" /></td>
                                     </tr>
                                 </tbody>
                             </Table>
                         </div>
                     </div>
                     <div id={"swamm-bmp-chart-col-three"}>
-                        <div className={"swamm-bmp-chart-heading"}>Legend</div>
+                        <div className={"swamm-bmp-chart-heading"}><Message msgId="hydrata.swamm.legend" /></div>
                         <div id={"swamm-bmp-chart-legend-rows"}>
                             {
                                 this.props.selectedTarget?.barChartData?.[this.props.bmpFilterMode]?.map((bar, index) => {
@@ -337,7 +338,7 @@ class SwammBmpChartClass extends React.Component {
                     <button
                         className={"swamm-button"}
                         onClick={() => this.props.hideSwammBmpChart()}>
-                        Close
+                        <Message msgId="hydrata.swamm.close" />
                     </button>
                 </div>
             </div>

@@ -16,6 +16,7 @@ import {
 import {hydrologyKeyMap} from '../reducersHydrology';
 import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class HydrologyListDetailContainerClass extends React.Component {
     static propTypes = {
@@ -42,7 +43,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                     <div id={"hydrology-list-detail-col-one"}>
                         <div id={"hydrology-list-detail-items"}>
                             <div id={"top-buttons"} style={{display: "flex", flexDirection: "column"}}>
-                                <div className={"hydrology-list-detail-heading"}>Items</div>
+                                <div className={"hydrology-list-detail-heading"}><Message msgId="hydrata.hydrology.items" /></div>
                                 {this.props.activeHydrologyItems?.map((item) => {
                                     return (
                                         <button
@@ -67,7 +68,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                         () => this.props.createHydrologyForm(this.props.activeHydrologyPage)
                                     }
                                 >
-                                    New Item
+                                    <Message msgId="hydrata.hydrology.newItem" />
                                 </button>
                             </div>
                         </div>
@@ -87,7 +88,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             boxSizing: 'border-box',
                                             paddingTop: "5px"
                                         }}>
-                                            <p style={{marginRight: '5px', width: "100px"}}>Name:</p>
+                                            <p style={{marginRight: '5px', width: "100px"}}><Message msgId="hydrata.hydrology.name" /></p>
                                             <input
                                                 id={'name'}
                                                 key={`name-${this.props.activeHydrologyItem.id}`}
@@ -103,7 +104,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             alignItems: "baseline",
                                             boxSizing: 'border-box'
                                         }}>
-                                            <p style={{marginRight: '5px', width: "100px"}}>Source:</p>
+                                            <p style={{marginRight: '5px', width: "100px"}}><Message msgId="hydrata.hydrology.source" /></p>
                                             <input
                                                 id={'source'}
                                                 key={`source-${this.props.activeHydrologyItem.id}`}
@@ -119,7 +120,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             alignItems: "baseline",
                                             boxSizing: 'border-box'
                                         }}>
-                                            <p style={{marginRight: '5px', width: "100px"}}>Description:</p>
+                                            <p style={{marginRight: '5px', width: "100px"}}><Message msgId="hydrata.hydrology.description" /></p>
                                             <textarea
                                                 id={'description'}
                                                 key={`description-${this.props.activeHydrologyItem.id}`}
@@ -145,7 +146,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             }
                                         })()}
                                     </div>
-                                    : <div>Select an item on the left.</div>
+                                    : <div><Message msgId="hydrata.hydrology.selectItem" /></div>
                             }
                         </div>
                     </div>
@@ -160,14 +161,14 @@ class HydrologyListDetailContainerClass extends React.Component {
                             }
                         }}
                     >
-                        Delete
+                        <Message msgId="hydrata.hydrology.delete" />
                     </button>
                     <button
                         className={this.props.activeHydrologyItem?.unsaved ? "hydrology-button" : "hydrology-button-disabled"}
                         style={{backgroundColor: this.props.activeHydrologyItem?.unsaved ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}
                         onClick={() => this.props.saveHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem)}
                     >
-                        Save
+                        <Message msgId="hydrata.hydrology.save" />
                     </button>
                 </div>
             </div>

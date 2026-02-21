@@ -5,6 +5,7 @@ const { mapIdSelector } = require('../../../selectors/map');
 import {setMenuGroup } from "../../ProjectManager/actionsProjectManager";
 import {fetchScenariosConfig, toggleScenarioManager, showScenarioOverview, hideScenarioManager} from "../actionsScenarios";
 import {ScenarioOverview} from "./scenarioOverview";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 // eslint-disable-next-line camelcase
 const menuGroupsSelector = (state) => state?.projectManager?.data?.map_store_menu_groups || [];
@@ -136,7 +137,7 @@ class ScenariosContainer extends React.Component {
                                 this.props.toggleScenarioManager();
                                 this.props.setMenuGroup('app_scenario');
                             }}>
-                            { this.isFetching ? 'Scenarios' : 'Scenarios'}
+                            <Message msgId="hydrata.scenarios.scenarios" />
                         </button>
                     </ul>
                 </div>

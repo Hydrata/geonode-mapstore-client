@@ -22,6 +22,7 @@ import {
 } from "../actionsAnuga";
 
 import {selectedScenarios} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -93,7 +94,7 @@ class AnugaScenarioMenuClass extends React.Component {
             <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px"}}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                        Scenarios
+                        <Message msgId="hydrata.anuga.scenarios" />
                         <span id={"scenario-tab-button-group"}>
                             <Button
                                 bsSize={'medium'}
@@ -116,7 +117,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     }
                                 }
                             >
-                                Manage
+                                <Message msgId="hydrata.anuga.manage" />
                             </Button>
                             <Button
                                 bsSize={'medium'}
@@ -139,7 +140,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     }
                                 }
                             >
-                                Advanced
+                                <Message msgId="hydrata.anuga.advanced" />
                             </Button>
                             <Button
                                 bsSize={'medium'}
@@ -162,7 +163,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     }
                                 }
                             >
-                                Compare
+                                <Message msgId="hydrata.anuga.compare" />
                             </Button>
                         </span>
                         <span id={"new-scenario-button"}>
@@ -175,7 +176,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     trackEvent('button', `click`, `anuga-scenario-menu-new-scenario`);
                                 }}
                             >
-                                New Scenario
+                                <Message msgId="hydrata.anuga.newScenario" />
                             </Button>
                         </span>
                         <span
@@ -192,23 +193,23 @@ class AnugaScenarioMenuClass extends React.Component {
                     <Table className={"scenario-table"}>
                         <thead>
                             <tr className={"scenario-table-header"}>
-                                <th>Id</th>
-                                <th>Name</th>
+                                <th><Message msgId="hydrata.anuga.id" /></th>
+                                <th><Message msgId="hydrata.anuga.name" /></th>
                                 {
                                     this.state.scenarioTableTabs?.includes('manage') ?
                                         <React.Fragment>
-                                            <th>Elevation</th>
-                                            <th>Boundary</th>
-                                            <th>Inflow</th>
+                                            <th><Message msgId="hydrata.anuga.elevation" /></th>
+                                            <th><Message msgId="hydrata.anuga.boundary" /></th>
+                                            <th><Message msgId="hydrata.anuga.inflow" /></th>
                                         </React.Fragment> : null
                                 }
                                 {
                                     this.state.scenarioTableTabs?.includes('advanced') ?
                                         <React.Fragment>
-                                            <th>Friction Map</th>
-                                            <th>Structures</th>
-                                            <th>Mesh Regions</th>
-                                            <th>Network</th>
+                                            <th><Message msgId="hydrata.anuga.frictionMap" /></th>
+                                            <th><Message msgId="hydrata.anuga.structures" /></th>
+                                            <th><Message msgId="hydrata.anuga.meshRegions" /></th>
+                                            <th><Message msgId="hydrata.anuga.network" /></th>
                                             {
                                                 !this.state.scenarioTableTabs?.includes('manage') ?
                                                     <th/> : null
@@ -218,9 +219,9 @@ class AnugaScenarioMenuClass extends React.Component {
                                 {
                                     this.state.scenarioTableTabs?.includes('manage') ?
                                         <React.Fragment>
-                                            <th>Resolution(m2)</th>
-                                            <th>Duration</th>
-                                            <th>Status</th>
+                                            <th><Message msgId="hydrata.anuga.resolutionM2" /></th>
+                                            <th><Message msgId="hydrata.anuga.duration" /></th>
+                                            <th><Message msgId="hydrata.anuga.status" /></th>
                                             <th/>
                                             <th/>
                                             <th/>
@@ -242,7 +243,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                             trackEvent('button', `click`, `anuga-scenario-menu-compare-execute`);
                                                         }}
                                                     >
-                                                        Compare
+                                                        <Message msgId="hydrata.anuga.compare" />
                                                     </Button>
                                                 </span>
                                             </th>
@@ -425,7 +426,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                                 : window.alert("Scenario is not valid");
                                                                         }}
                                                                     >
-                                                                        Build
+                                                                        <Message msgId="hydrata.anuga.build" />
                                                                     </Button>
                                                                 </td> : null
                                                         }
@@ -476,7 +477,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                         : window.alert("Scenario is not valid");
                                                                 }}
                                                             >
-                                                                Build
+                                                                <Message msgId="hydrata.anuga.build" />
                                                             </Button>
                                                         </td>
                                                         <td>
@@ -496,7 +497,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                                 trackEvent('button', `click`, `anuga-scenario-menu-run`);
                                                                             }}
                                                                         >
-                                                                            Run
+                                                                            <Message msgId="hydrata.anuga.run" />
                                                                         </Button>
                                                                     );
                                                                 case 'complete':
@@ -525,7 +526,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                                 trackEvent('button', `click`, `anuga-scenario-menu-run`);
                                                                             }}
                                                                         >
-                                                                            Run
+                                                                            <Message msgId="hydrata.anuga.run" />
                                                                         </Button>
                                                                     );
                                                                 }
@@ -542,7 +543,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                                                     trackEvent('button', `click`, `anuga-scenario-menu-view-log`);
                                                                 }}
                                                             >
-                                                                Log
+                                                                <Message msgId="hydrata.anuga.log" />
                                                             </Button>
                                                         </td>
                                                         <td>

@@ -4,6 +4,7 @@ const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
 import {refreshSwamps} from "../actionsSwamps";
 import '../swamps.css';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 class SwampsControlsClass extends React.Component {
     static propTypes = {
@@ -31,7 +32,7 @@ class SwampsControlsClass extends React.Component {
                                 style={{margin: "2px", borderRadius: "2px"}}
                                 onClick={() => {this.props.refreshSwamps();}}
                             >
-                                Refresh Monitoring Data
+                                <Message msgId="hydrata.swamps.refreshMonitoringData" />
                             </Button>
                         </div>
                     </div>

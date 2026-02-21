@@ -15,6 +15,7 @@ import {
     getCoreRowModel,
     useReactTable
 } from '@tanstack/react-table';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const TableCell = ({getValue, row, column, table}) => {
     const initialValue = getValue();
@@ -40,70 +41,70 @@ const columnHelper = createColumnHelper();
 const columns = [
     columnHelper.accessor('duration', {
         cell: TableCell,
-        header: () => <span>Duration (min)</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.durationMin" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('0-5yrARI', {
         cell: TableCell,
-        header: () => <span>0.5yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari05yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('1yrARI', {
         cell: TableCell,
-        header: () => <span>1yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari1yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('2yrARI', {
         cell: TableCell,
-        header: () => <span>2yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari2yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('5yrARI', {
         cell: TableCell,
-        header: () => <span>5yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari5yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('10yrARI', {
         cell: TableCell,
-        header: () => <span>10yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari10yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('20yrARI', {
         cell: TableCell,
-        header: () => <span>20yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari20yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('50yrARI', {
         cell: TableCell,
-        header: () => <span>50yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari50yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('100yrARI', {
         cell: TableCell,
-        header: () => <span>100yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari100yr" /></span>,
         meta: {
             type: "number"
         }
     }),
     columnHelper.accessor('500yrARI', {
         cell: TableCell,
-        header: () => <span>500yr</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.ari500yr" /></span>,
         meta: {
             type: "number"
         }
@@ -148,7 +149,7 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
     return (
         <div style={{display: 'flex', flexDirection: flexDirection, boxSizing: 'border-box'}}>
             <div style={{padding: '10px', height: '600px', minWidth: '600px', maxWidth: '800px', marginBottom: '60px'}}>
-                <h3 style={{marginTop: 0}}>Intensity (mm/hr)</h3>
+                <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.intensityMmHr" /></h3>
                 <div className="">
                     <table className={'idf-table'}>
                         <thead>
@@ -185,7 +186,7 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
                 width: '100%',
                 padding: '10px'
             }}>
-                <h3 style={{marginTop: 0}}>IDF Curve</h3>
+                <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.idfCurve" /></h3>
                 <div style={{
                     width: '100%',
                     height: '600px',

@@ -1,4 +1,5 @@
 import React from 'react';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const SECTOR_OPTIONS = [
     { value: '', label: 'Select sector...' },
@@ -23,11 +24,11 @@ const HGevalProjectForm = ({ form, coordinates, error, validationError, onUpdate
     return (
         <div className="hgeval-project-form">
             <div className="hgeval-selected-coords">
-                <strong>Location: </strong>
+                <strong><Message msgId="hydrata.hgeval.location" /> </strong>
                 {coordinates?.lat?.toFixed(4)}&deg;N, {Math.abs(coordinates?.lon)?.toFixed(4)}&deg;W
             </div>
             <div className="form-group">
-                <label>Project Name *</label>
+                <label><Message msgId="hydrata.hgeval.projectNameRequired" /></label>
                 <input
                     type="text"
                     className="form-control"
@@ -37,7 +38,7 @@ const HGevalProjectForm = ({ form, coordinates, error, validationError, onUpdate
                 />
             </div>
             <div className="form-group">
-                <label>Description</label>
+                <label><Message msgId="hydrata.hgeval.description" /></label>
                 <textarea
                     className="form-control"
                     rows="3"
@@ -47,7 +48,7 @@ const HGevalProjectForm = ({ form, coordinates, error, validationError, onUpdate
                 />
             </div>
             <div className="form-group">
-                <label>Sector</label>
+                <label><Message msgId="hydrata.hgeval.sector" /></label>
                 <select
                     className="form-control"
                     value={form.sector}
@@ -59,7 +60,7 @@ const HGevalProjectForm = ({ form, coordinates, error, validationError, onUpdate
                 </select>
             </div>
             <div className="form-group">
-                <label>Preferred Contact</label>
+                <label><Message msgId="hydrata.hgeval.preferredContact" /></label>
                 <select
                     className="form-control"
                     value={form.preferred_contact}
@@ -72,7 +73,7 @@ const HGevalProjectForm = ({ form, coordinates, error, validationError, onUpdate
             </div>
             {form.preferred_contact === 'phone' && (
                 <div className="form-group">
-                    <label>Phone Number</label>
+                    <label><Message msgId="hydrata.hgeval.phoneNumber" /></label>
                     <input
                         type="tel"
                         className="form-control"
@@ -89,13 +90,13 @@ const HGevalProjectForm = ({ form, coordinates, error, validationError, onUpdate
                 <div className="alert alert-danger">{validationError}</div>
             )}
             <div className="hgeval-actions">
-                <button className="btn btn-default" onClick={onBack}>Back</button>
+                <button className="btn btn-default" onClick={onBack}><Message msgId="hydrata.hgeval.back" /></button>
                 <button
                     className="btn btn-primary"
                     onClick={onSubmit}
                     disabled={!form.name}
                 >
-                    Generate Report
+                    <Message msgId="hydrata.hgeval.generateReport" />
                 </button>
             </div>
         </div>

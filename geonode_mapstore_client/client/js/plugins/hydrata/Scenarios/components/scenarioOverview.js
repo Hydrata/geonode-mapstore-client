@@ -14,6 +14,7 @@ import {
     deleteScenario
 } from '../actionsScenarios';
 import '../scenarios.css';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const scenarioOverviewPanelStyle = {
     position: "absolute",
@@ -94,7 +95,7 @@ class ScenarioOverviewClass extends React.Component {
                     <h5
                         style={{textAlign: 'left', marginLeft: '10px'}}
                     >
-                        Scenarios - {this.props.scenarioOverview.title}
+                        <Message msgId="hydrata.scenarios.scenarios" /> - {this.props.scenarioOverview.title}
                     </h5>
                 </div>
                 <span
@@ -110,7 +111,7 @@ class ScenarioOverviewClass extends React.Component {
                     <div className={'scenario-table-header-group'}>
                         <div className={'scenario-table-row'}>
                             <div className={'scenario-table-cell'} key={'scenario-selector'}>
-                                Select
+                                <Message msgId="hydrata.scenarios.select" />
                             </div>
                             {this.props?.fields?.filter((field) => field.widget !== 'resultButton').map((field) => {
                                 return (
@@ -118,9 +119,9 @@ class ScenarioOverviewClass extends React.Component {
                                         {field.label}
                                     </div>);
                             })}
-                            <div className={'scenario-table-cell'}>Save</div>
-                            <div className={'scenario-table-cell'}>Run</div>
-                            <div className={'scenario-table-cell'}>Delete</div>
+                            <div className={'scenario-table-cell'}><Message msgId="hydrata.scenarios.save" /></div>
+                            <div className={'scenario-table-cell'}><Message msgId="hydrata.scenarios.run" /></div>
+                            <div className={'scenario-table-cell'}><Message msgId="hydrata.scenarios.delete" /></div>
                             {this.props?.fields?.filter((field) => field.widget === 'resultButton').map((field) => {
                                 return (
                                     <div className={'scenario-table-cell'} key={field.name}>
@@ -192,7 +193,7 @@ class ScenarioOverviewClass extends React.Component {
                                         style={{'borderRadius': '3px'}}
                                         className={scen.unsaved ? null : 'disabled'}
                                     >
-                                        Save
+                                        <Message msgId="hydrata.scenarios.save" />
                                     </Button>
                                 </div>
                                 <div className={'scenario-button scenario-table-cell'}>
@@ -203,7 +204,7 @@ class ScenarioOverviewClass extends React.Component {
                                         style={{'borderRadius': '3px'}}
                                         className={scen.unsaved ? 'disabled' : null}
                                     >
-                                        Run
+                                        <Message msgId="hydrata.scenarios.run" />
                                     </Button>
                                 </div>
                                 <div className={'scenario-button scenario-table-cell'}>
@@ -214,7 +215,7 @@ class ScenarioOverviewClass extends React.Component {
                                         style={{'borderRadius': '3px', 'opacity': 0.7}}
                                         className={scen.unsaved ? 'disabled' : null}
                                     >
-                                        Delete
+                                        <Message msgId="hydrata.scenarios.delete" />
                                     </Button>
                                 </div>
                                 {this.props?.fields?.filter((field) => field.widget === 'resultButton')
@@ -241,7 +242,7 @@ class ScenarioOverviewClass extends React.Component {
                                 onClick={() => this.props.createScenario(this.props.fields, this.props.projectId)}
                                 style={{'borderRadius': '3px'}}
                             >
-                                New
+                                <Message msgId="hydrata.scenarios.new" />
                             </Button>
                         </div>
                     </div>

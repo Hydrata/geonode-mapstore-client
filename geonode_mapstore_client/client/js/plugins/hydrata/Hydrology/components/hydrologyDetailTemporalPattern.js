@@ -15,6 +15,7 @@ import {
     getCoreRowModel,
     useReactTable
 } from '@tanstack/react-table';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const TableCell = ({getValue, row, column, table}) => {
     const initialValue = getValue();
@@ -40,7 +41,7 @@ const columnHelper = createColumnHelper();
 const columns = [
     columnHelper.accessor('percentage', {
         cell: TableCell,
-        header: () => <span>Percentage</span>,
+        header: () => <span><Message msgId="hydrata.hydrology.percentage" /></span>,
         meta: {
             type: "number"
         }
@@ -89,7 +90,7 @@ const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRo
                 marginBottom: '60px',
                 marginRight: '50px'
             }}>
-                <h3 style={{marginTop: 0}}>Intensity (mm/hr)</h3>
+                <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.intensityMmHr" /></h3>
                 <div className="">
                     <table className={'temporal-pattern-table'}>
                         <thead>
@@ -126,7 +127,7 @@ const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRo
                 width: '100%',
                 padding: '10px'
             }}>
-                <h3 style={{marginTop: 0}}>Temporal Pattern</h3>
+                <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.temporalPattern" /></h3>
                 <div style={{
                     width: '100%',
                     height: '600px',

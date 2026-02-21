@@ -2,6 +2,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
 import {trackEvent} from "@js/utils/analytics";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 import {setOpenMenuGroupId, setVisibleIntroduction} from "../actionsSimpleView";
 import "../simpleView.css";
@@ -41,7 +42,7 @@ class SimpleViewContainer extends React.Component {
                         className={'simple-view-menu-button'}
                         style={{left: 20}}
                         onClick={() => {this.props.setOpenMenuGroupId(this.props.baseMapMenuGroup?.id);}}>
-                        BaseMaps
+                        <Message msgId="hydrata.simpleView.baseMaps" />
                     </button>
                     {this.props.menuGroups && this.props.menuGroups.length ?
                         this.props.menuGroups.map(

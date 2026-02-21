@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Message from '@mapstore/framework/components/I18N/Message';
 
 const SECTOR_OPTIONS = [
     { value: '', label: 'Select sector...' },
@@ -50,11 +51,11 @@ const HGevalInputPanel = ({
     return (
         <div className="hgeval-input-panel">
             <p className="hgeval-hint">
-                <span className="glyphicon glyphicon-map-marker" /> Click the map or enter coordinates:
+                <span className="glyphicon glyphicon-map-marker" /> <Message msgId="hydrata.hgeval.clickMapOrEnterCoordinates" />
             </p>
             <div className="hgeval-coord-row">
                 <div className="form-group">
-                    <label>Longitude *</label>
+                    <label><Message msgId="hydrata.hgeval.longitudeRequired" /></label>
                     <input
                         type="number"
                         className="form-control input-sm"
@@ -66,7 +67,7 @@ const HGevalInputPanel = ({
                     />
                 </div>
                 <div className="form-group">
-                    <label>Latitude *</label>
+                    <label><Message msgId="hydrata.hgeval.latitudeRequired" /></label>
                     <input
                         type="number"
                         className="form-control input-sm"
@@ -84,7 +85,7 @@ const HGevalInputPanel = ({
                 </div>
             )}
             <div className="form-group">
-                <label>Project Name *</label>
+                <label><Message msgId="hydrata.hgeval.projectNameRequired" /></label>
                 <input
                     type="text"
                     className="form-control input-sm"
@@ -95,7 +96,7 @@ const HGevalInputPanel = ({
                 />
             </div>
             <div className="form-group">
-                <label>Description *</label>
+                <label><Message msgId="hydrata.hgeval.descriptionRequired" /></label>
                 <textarea
                     className="form-control input-sm"
                     rows="2"
@@ -105,7 +106,7 @@ const HGevalInputPanel = ({
                 />
             </div>
             <div className="form-group">
-                <label>Sector *</label>
+                <label><Message msgId="hydrata.hgeval.sectorRequired" /></label>
                 <select
                     className="form-control input-sm"
                     value={form.sector}
@@ -117,9 +118,9 @@ const HGevalInputPanel = ({
                 </select>
             </div>
             <details className="hgeval-optional-fields" open>
-                <summary>Contact details (at least one required to download)</summary>
+                <summary><Message msgId="hydrata.hgeval.contactDetails" /></summary>
                 <div className="form-group">
-                    <label>Email</label>
+                    <label><Message msgId="hydrata.hgeval.email" /></label>
                     <input
                         type="email"
                         className="form-control input-sm"
@@ -130,7 +131,7 @@ const HGevalInputPanel = ({
                     />
                 </div>
                 <div className="form-group">
-                    <label>Phone Number</label>
+                    <label><Message msgId="hydrata.hgeval.phoneNumber" /></label>
                     <input
                         type="tel"
                         className="form-control input-sm"
@@ -144,13 +145,13 @@ const HGevalInputPanel = ({
             {validationError && <div className="alert alert-danger hgeval-alert-sm">{validationError}</div>}
             {error && <div className="alert alert-danger hgeval-alert-sm">{error}</div>}
             <div className="hgeval-actions">
-                <button className="btn btn-default btn-sm" onClick={onCancel}>Cancel</button>
+                <button className="btn btn-default btn-sm" onClick={onCancel}><Message msgId="hydrata.hgeval.cancel" /></button>
                 <button
                     className="btn btn-primary btn-sm"
                     onClick={handleGenerate}
                     disabled={!formValid}
                 >
-                    Generate Report
+                    <Message msgId="hydrata.hgeval.generateReport" />
                 </button>
             </div>
         </div>

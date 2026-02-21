@@ -41,6 +41,7 @@ import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
 import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 
 class AnugaInputMenuClass extends React.Component {
@@ -147,8 +148,8 @@ class AnugaInputMenuClass extends React.Component {
                             border: "none"
                         }}
                     >
-                        <span className="menu-row-text">Elevations</span>
-                        <OverlayTrigger placement="right" overlay={<Tooltip>Upload a new *.tiff elevation</Tooltip>}>
+                        <span className="menu-row-text"><Message msgId="hydrata.anuga.elevations" /></span>
+                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadElevationTooltip" /></Tooltip>}>
                             <span
                                 className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
                                 style={{"color": "limegreen", "fontSize": "smaller", "textAlign": "right", "marginRight": "8px"}}
@@ -168,7 +169,7 @@ class AnugaInputMenuClass extends React.Component {
                     {
                         this.props.elevationLayers?.length === 0 ?
                             <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
-                                No elevations available
+                                <Message msgId="hydrata.anuga.noElevationsAvailable" />
                             </div>
                             : null
                     }
@@ -192,7 +193,7 @@ class AnugaInputMenuClass extends React.Component {
                                         border: "none"
                                     }}
                                 >
-                                    <span className="pull-left menu-row-text">Boundaries</span>
+                                    <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.boundaries" /></span>
                                     {this.props.canEditAnugaMap ?
                                         <React.Fragment>
                                             <span
@@ -237,7 +238,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.boundaryLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
-                                            None
+                                            <Message msgId="hydrata.anuga.none" />
                                         </div>
                                         : null
                                 }
@@ -258,7 +259,7 @@ class AnugaInputMenuClass extends React.Component {
                                         border: "none"
                                     }}
                                 >
-                                    <span className="pull-left menu-row-text">Inflows</span>
+                                    <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.inflows" /></span>
                                     {this.props.canEditAnugaMap ?
                                         <React.Fragment>
                                             <span
@@ -307,7 +308,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {
                                     this.props.inflowLayers?.length === 0 ?
                                         <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
-                                            None
+                                            <Message msgId="hydrata.anuga.none" />
                                         </div>
                                         : null
                                 }
@@ -328,7 +329,7 @@ class AnugaInputMenuClass extends React.Component {
                                         border: "none"
                                     }}
                                 >
-                                    <span className="pull-left menu-row-text">Advanced</span>
+                                    <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.advanced" /></span>
                                     <span
                                         className={`btn glyphicon menu-row-glyph ${this.state.showAdvanced ? "glyphicon-chevron-down" : "glyphicon-chevron-right"}`}
                                         style={{
@@ -371,7 +372,7 @@ class AnugaInputMenuClass extends React.Component {
                                                     trackEvent('button', `click`, `anuga-input-menu-show-introduction`);
                                                 }}
                                             />
-                                            <span className="menu-row-text">Introduction</span>
+                                            <span className="menu-row-text"><Message msgId="hydrata.anuga.introduction" /></span>
                                         </div>
                                     </div>
                                     <div
@@ -390,7 +391,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 border: "none"
                                             }}
                                         >
-                                            <span className="pull-left menu-row-text">Full Mesh</span>
+                                            <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.fullMesh" /></span>
                                         </div>
                                         {
                                             this.props.fullMeshLayers?.map(fullMesh => (
@@ -400,7 +401,7 @@ class AnugaInputMenuClass extends React.Component {
                                         {
                                             this.props.fullMeshLayers?.length === 0 ?
                                                 <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
-                                                    Mesh will appear here when a Scenario is built.
+                                                    <Message msgId="hydrata.anuga.meshWillAppear" />
                                                 </div>
                                                 : null
                                         }
@@ -421,7 +422,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 border: "none"
                                             }}
                                         >
-                                            <span className="pull-left menu-row-text">Mesh Regions</span>
+                                            <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.meshRegions" /></span>
                                             {this.props.canEditAnugaMap ?
                                                 <React.Fragment>
                                                     <span
@@ -470,7 +471,7 @@ class AnugaInputMenuClass extends React.Component {
                                         {
                                             this.props.meshRegionLayers?.length === 0 ?
                                                 <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
-                                                    None
+                                                    <Message msgId="hydrata.anuga.none" />
                                                 </div>
                                                 : null
                                         }
@@ -491,7 +492,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 border: "none"
                                             }}
                                         >
-                                            <span className="pull-left menu-row-text">Friction Maps</span>
+                                            <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.frictionMaps" /></span>
                                             {this.props.canEditAnugaMap ?
                                                 <React.Fragment>
                                                     <span
@@ -541,7 +542,7 @@ class AnugaInputMenuClass extends React.Component {
                                             this.props.frictionLayers?.length === 0 ?
                                                 <div className={"row menu-row menu-row"}
                                                     style={{width: "540px", textAlign: "left", border: "none"}}>
-                                                    None
+                                                    <Message msgId="hydrata.anuga.none" />
                                                 </div>
                                                 : null
                                         }
@@ -562,7 +563,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 border: "none"
                                             }}
                                         >
-                                            <span className="pull-left menu-row-text">Structures</span>
+                                            <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.structures" /></span>
                                             {this.props.canEditAnugaMap ?
                                                 <React.Fragment>
                                                     <span
@@ -611,7 +612,7 @@ class AnugaInputMenuClass extends React.Component {
                                         {
                                             this.props.structureLayers?.length === 0 ?
                                                 <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
-                                                    None
+                                                    <Message msgId="hydrata.anuga.none" />
                                                 </div>
                                                 : null
                                         }
@@ -632,7 +633,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 border: "none"
                                             }}
                                         >
-                                            <span className="pull-left menu-row-text" style={{"marginTop": "4px"}}>Networks</span>
+                                            <span className="pull-left menu-row-text" style={{"marginTop": "4px"}}><Message msgId="hydrata.anuga.networks" /></span>
                                             <span
                                                 className={`btn glyphicon menu-row-glyph glyphicon-cog`}
                                                 style={{
@@ -690,7 +691,7 @@ class AnugaInputMenuClass extends React.Component {
                                         </div>
                                         <div>
                                             <div className={'menu-row-mini-container'}>
-                                                <p className={'menu-row-mini-heading'}>Catchments</p>
+                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
                                                 {
                                                     this.props.catchmentLayers?.map(catchment => (
                                                         <MenuRow layer={catchment}/>
@@ -698,7 +699,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 }
                                             </div>
                                             <div className={'menu-row-mini-container'}>
-                                                <p className={'menu-row-mini-heading'}>Nodes</p>
+                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
                                                 {
                                                     this.props.nodesLayers?.map(nodes => (
                                                         <MenuRow layer={nodes}/>
@@ -706,7 +707,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 }
                                             </div>
                                             <div className={'menu-row-mini-container'}>
-                                                <p className={'menu-row-mini-heading'}>Links</p>
+                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
                                                 {
                                                     this.props.linksLayers?.map(links => (
                                                         <MenuRow layer={links}/>

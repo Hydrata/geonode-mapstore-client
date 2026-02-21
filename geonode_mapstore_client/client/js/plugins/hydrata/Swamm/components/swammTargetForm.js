@@ -9,6 +9,7 @@ import {
     submitTargetForm,
     updateTargetForm
 } from "../actionsSwamm";
+import Message from '@mapstore/framework/components/I18N/Message';
 import "../../Swamm/swamm.css";
 
 class SwammTargetFormClass extends React.Component {
@@ -50,8 +51,8 @@ class SwammTargetFormClass extends React.Component {
                 <div id={"swamm-target-form-header"}>
                     <div className={"swamm-bmp-chart-heading"}>
                         {this.props.targetForm.id ?
-                            "Edit Target: " + this.props.targetForm?.name :
-                            "Create a new Target"
+                            <React.Fragment><Message msgId="hydrata.swamm.editTargetPrefix" /> {this.props.targetForm?.name}</React.Fragment> :
+                            <Message msgId="hydrata.swamm.createNewTarget" />
                         }
                     </div>
                     <span
@@ -67,7 +68,7 @@ class SwammTargetFormClass extends React.Component {
                             <div
                                 style={{marginRight: "15px"}}
                             >
-                             Target Name:
+                             <Message msgId="hydrata.swamm.targetName" />:
                             </div>
                             <input
                                 type="text"
@@ -83,7 +84,7 @@ class SwammTargetFormClass extends React.Component {
                         </div>
                         <div className={"swamm-target-row"}>
                             <div>
-                              Description:
+                              <Message msgId="hydrata.swamm.description" />:
                             </div>
                         </div>
                         <div className={"swamm-target-row"}>
@@ -99,13 +100,13 @@ class SwammTargetFormClass extends React.Component {
                         </div>
                         <div id={"swamm-target-percentages"}>
                             <div className={"swamm-target-form-heading"}>
-                                Set Targets:
+                                <Message msgId="hydrata.swamm.setTargets" />:
                             </div>
                             <div className={"swamm-target-row"}>
                                 <div
                                     style={{width: "90px"}}
                                 >
-                                  Nitrogen:
+                                  <Message msgId="hydrata.swamm.nitrogen" />:
                                 </div>
                                 <input
                                     type="number"
@@ -117,14 +118,14 @@ class SwammTargetFormClass extends React.Component {
                                 <div
                                     style={{marginLeft: "4px"}}
                                 >
-                                    % reduction
+                                    <Message msgId="hydrata.swamm.percentReduction" />
                                 </div>
                             </div>
                             <div className={"swamm-target-row"}>
                                 <div
                                     style={{width: "90px"}}
                                 >
-                                  Phosphorus:
+                                  <Message msgId="hydrata.swamm.phosphorus" />:
                                 </div>
                                 <input
                                     type="number"
@@ -136,14 +137,14 @@ class SwammTargetFormClass extends React.Component {
                                 <div
                                     style={{marginLeft: "4px"}}
                                 >
-                                    % reduction
+                                    <Message msgId="hydrata.swamm.percentReduction" />
                                 </div>
                             </div>
                             <div className={"swamm-target-row"}>
                                 <div
                                     style={{width: "90px"}}
                                 >
-                                  Sediment:
+                                  <Message msgId="hydrata.swamm.sediment" />:
                                 </div>
                                 <input
                                     type="number"
@@ -155,14 +156,14 @@ class SwammTargetFormClass extends React.Component {
                                 <div
                                     style={{marginLeft: "4px"}}
                                 >
-                                    % reduction
+                                    <Message msgId="hydrata.swamm.percentReduction" />
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div id={"swamm-target-form-col-two"}>
                         <div className={"swamm-target-form-heading"}>
-                            Include BMPs from these organizations:
+                            <Message msgId="hydrata.swamm.includeBmpsFromOrganizations" />:
                         </div>
                         <select
                             multiple
@@ -179,7 +180,7 @@ class SwammTargetFormClass extends React.Component {
                             }
                         </select>
                         <div className={"swamm-target-form-heading"}>
-                            Include these BMP types:
+                            <Message msgId="hydrata.swamm.includeBmpTypes" />:
                         </div>
                         <select
                             multiple
@@ -196,7 +197,7 @@ class SwammTargetFormClass extends React.Component {
                             }
                         </select>
                         <div className={"swamm-target-form-heading"}>
-                            Include these BMP statuses:
+                            <Message msgId="hydrata.swamm.includeBmpStatuses" />:
                         </div>
                         <select
                             multiple
@@ -219,7 +220,7 @@ class SwammTargetFormClass extends React.Component {
                         className={"swamm-button"}
                         onClick={() => this.props.hideTargetForm()}
                     >
-                        Close
+                        <Message msgId="hydrata.swamm.close" />
                     </button>
                     <button
                         className={"swamm-button"}
@@ -228,7 +229,7 @@ class SwammTargetFormClass extends React.Component {
                             this.props.submitTargetForm(this.props.targetForm, this.props.projectId);
                         }}
                     >
-                        Save Target
+                        <Message msgId="hydrata.swamm.saveTarget" />
                     </button>
                     {
                         this.props.targetForm?.id ?
@@ -241,7 +242,7 @@ class SwammTargetFormClass extends React.Component {
                                     }
                                 }}
                             >
-                                Delete Target
+                                <Message msgId="hydrata.swamm.deleteTarget" />
                             </button> :
                             null
                     }

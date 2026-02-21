@@ -13,6 +13,7 @@ import {
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import moment from "moment";
+import Message from '@mapstore/framework/components/I18N/Message';
 
 
 const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData }) => {
@@ -41,7 +42,7 @@ const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData })
     }, []);
     return (
         <React.Fragment>
-            <h3 style={{marginTop: 0}}>HydrologyInflow</h3>
+            <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.hydrologyInflow" /></h3>
             <div style={{
                 display: 'flex',
                 flexDirection: 'column',

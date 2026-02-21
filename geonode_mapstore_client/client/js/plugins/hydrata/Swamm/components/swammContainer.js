@@ -31,6 +31,7 @@ import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/we
 import {drawStopped} from "../../../../../MapStore2/web/client/actions/draw";
 import {query, toggleSyncWms} from "../../../../../MapStore2/web/client/actions/wfsquery";
 
+import Message from '@mapstore/framework/components/I18N/Message';
 import "../../SimpleView/simpleView.css";
 import "../swamm.css";
 import {SwammInputMenu} from "@js/plugins/hydrata/Swamm/components/swammInputMenu";
@@ -121,7 +122,7 @@ class SwammContainer extends React.Component {
                                     bsStyle={"success"}
                                     onClick={() => this.props.showBmpForm()}
                                 >
-                                    BMP in progress
+                                    <Message msgId="hydrata.swamm.bmpInProgress" />
                                 </Button>
                                 <button
                                     key="swamm-bmp-creator-button"
@@ -132,7 +133,7 @@ class SwammContainer extends React.Component {
                                         this.props.setOpenMenuGroupId(null);
                                     }}
                                 >
-                                    Create BMPs
+                                    <Message msgId="hydrata.swamm.createBmps" />
                                 </button>
                             </React.Fragment>
                             : this.props.drawingBmpLayerName || this.props.editingBmpFeatureId ?
@@ -146,7 +147,7 @@ class SwammContainer extends React.Component {
                                             this.props.showBmpForm();
                                         }}
                                     >
-                                        Save Feature
+                                        <Message msgId="hydrata.swamm.saveFeature" />
                                     </Button>
                                     <Button
                                         bsStyle="danger"
@@ -161,7 +162,7 @@ class SwammContainer extends React.Component {
                                             this.props.clearEditingBmpFeatureId();
                                         }}
                                     >
-                                        Cancel Feature
+                                        <Message msgId="hydrata.swamm.cancelFeature" />
                                     </Button>
                                     <button
                                         key="swamm-bmp-creator-button"
@@ -173,7 +174,7 @@ class SwammContainer extends React.Component {
                                             this.props.setOpenMenuGroupId(null);
                                         }}
                                     >
-                                        Create BMPs
+                                        <Message msgId="hydrata.swamm.createBmps" />
                                     </button>
                                 </React.Fragment>
                                 : this.props.visibleBmpForm ?
@@ -182,7 +183,7 @@ class SwammContainer extends React.Component {
                                         style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
                                         disabled
                                     >
-                                        Create BMPs
+                                        <Message msgId="hydrata.swamm.createBmps" />
                                     </button>
                                     :
                                     <button
@@ -194,7 +195,7 @@ class SwammContainer extends React.Component {
                                             this.props.setOpenMenuGroupId(null);
                                         }}
                                     >
-                                        Create BMPs
+                                        <Message msgId="hydrata.swamm.createBmps" />
                                     </button>
                         }
                         {this.props.targets?.length ?
@@ -208,7 +209,7 @@ class SwammContainer extends React.Component {
                                     this.props.setOpenMenuGroupId(null);
                                 }}
                             >
-                                Dashboard
+                                <Message msgId="hydrata.swamm.dashboard" />
                             </button> :
                             <button
                                 key="swamm-bmp-chart-button"
@@ -228,7 +229,7 @@ class SwammContainer extends React.Component {
                                     this.props.setOpenMenuGroupId(null);
                                 }}
                             >
-                                Swamm Model
+                                <Message msgId="hydrata.swamm.swammModel" />
                             </button> : null
                         }
                         {this.props.showSwammInputMenu ?
@@ -253,7 +254,7 @@ class SwammContainer extends React.Component {
                         }
                         {this.props.loadingBmp ?
                             <button className={'simple-view-menu-button bmp-loading-button'}>
-                                <div style={{marginBottom: "10px"}}>Loading BMP data...</div>
+                                <div style={{marginBottom: "10px"}}><Message msgId="hydrata.swamm.loadingBmpData" /></div>
                                 <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
                             </button>
                             : null

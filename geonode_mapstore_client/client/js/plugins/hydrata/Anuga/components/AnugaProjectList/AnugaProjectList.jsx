@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import Button from '@js/components/Button';
 import Spinner from '@js/components/Spinner';
-import HTML from '@mapstore/framework/components/I18N/HTML';
+import Message from '@mapstore/framework/components/I18N/Message';
 import FaIcon from '@js/components/FaIcon';
 import { withResizeDetector } from 'react-resize-detector';
 import Cards from './Cards';
@@ -51,12 +51,12 @@ const AnugaProjectList = withResizeDetector(({
             }}>
                 <div style={{ flex: 1, width: '100%', display: resources.length > 0 ? "block" : "none"}}>
                     <div className="gn-card-grid-container" style={containerStyle}>
-                        <h3><HTML msgId={`Your Projects:`}/></h3>
+                        <h3><Message msgId="hydrata.anuga.yourProjects" /></h3>
                         <div>
                             { loading &&
                                 <div style={{"height": "270px", "paddingTop": "130px"}}>
                                     <Spinner size="lg"  animation="border" role="status">
-                                        <span className="sr-only">Loading...</span>
+                                        <span className="sr-only"><Message msgId="hydrata.anuga.loading" /></span>
                                     </Spinner>
                                 </div>
                             }
