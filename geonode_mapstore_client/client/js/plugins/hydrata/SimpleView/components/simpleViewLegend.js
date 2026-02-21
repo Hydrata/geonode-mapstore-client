@@ -78,11 +78,10 @@ class simpleViewLegend extends React.Component {
         return (
             <div>
                 <button
-                    className={'simple-view-menu-button'}
-                    style={{left: 420}}
+                    className={'simple-view-menu-button ' + (this.props.searchBarVisible ? 'legend-button-with-search' : 'legend-button')}
                     onClick={() => this.props.setVisibleLegendPanel(true)}
                 >
-                    <Message msgId="hydrata.simpleView.generateReport" />
+                    <Message msgId="hydrata.simpleView.legend" />
                 </button>
             </div>
         );
@@ -94,7 +93,7 @@ const mapStateToProps = (state, ownProps) => {
         visibleLayers: state?.layers?.flat.filter(layer => (layer?.visibility === true && layer?.group !== 'background')),
         visibleLegendPanel: state?.simpleView?.visibleLegendPanel,
         legendOverrides: state?.simpleView?.config?.legendOverrides || ownProps?.legendOverrides || [],
-        searchBarVisible: !!state?.localConfig?.plugins?.map_view?.find(x => x.name === "Search")
+        searchBarVisible: !!state?.localConfig?.plugins?.map_viewer?.find(x => x.name === "Search")
     };
 };
 

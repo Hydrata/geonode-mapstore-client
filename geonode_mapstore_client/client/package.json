@@ -33,9 +33,9 @@
   },
   "dependencies": {
     "@jsdoc/salty": "0.2.1",
-    "@rjsf/core": "5.19.4",
-    "@rjsf/utils": "5.19.4",
-    "@rjsf/validator-ajv8": "5.19.4",
+    "@rjsf/core": "^5.19.4",
+    "@rjsf/utils": "^5.19.4",
+    "@rjsf/validator-ajv8": "^5.19.4",
     "@tanstack/react-table": "^8.21.3",
     "ag-grid-community": "^35.1.0",
     "ag-grid-react": "^32.3.4",
@@ -43,7 +43,7 @@
     "react-helmet": "6.1.0",
     "react-intl": "2.3.0",
     "react-router-dom": "4.1.1",
-    "xlsx": "0.18.5"
+    "xlsx": "^0.18.5"
   },
   "mapstore": {
     "output": "dist",
