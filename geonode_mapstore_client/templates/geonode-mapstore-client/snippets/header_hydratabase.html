@@ -1,9 +1,9 @@
 {% load static %}
 
 {% block extra_head %}
-    <link href="{% static 'hydratabase/css/geonode-navbar-fixes.css' %}" rel="stylesheet"/>
-    <link href="{% static 'hydratabase/css/hydratabase_base.css' %}" rel="stylesheet"/>
-    <link href="{% static 'hydratabase/css/hydratabase_home.css' %}" rel="stylesheet"/>
+    <link href="{% static 'hydratabase/css/geonode-navbar-fixes.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
+    <link href="{% static 'hydratabase/css/hydratabase_base.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
+    <link href="{% static 'hydratabase/css/hydratabase_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <!--LinkedIn metadata:-->
     <meta property="og:title" content="Hydrata"/>
     <meta property="og:description" content="Online, Open Source Water Modelling"/>

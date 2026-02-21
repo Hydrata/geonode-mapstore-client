@@ -1,7 +1,7 @@
 {% load static %}
 
 {% block extra_head %}
-    <link href="{% static 'hydratabase/css/geonode-navbar-fixes.css' %}" rel="stylesheet"/>
+    <link href="{% static 'hydratabase/css/geonode-navbar-fixes.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
 {% endblock extra_head %}
 
 <header class="gn-main-header swamm-dummy-class-header_swamm">
