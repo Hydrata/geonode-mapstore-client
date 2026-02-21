@@ -146,14 +146,32 @@ function languagesToSupportedLocales(languages) {
     }), {});
 }
 
+// Map of locales missing from react-intl to their closest fallback
+const localeDataFallbacks = {
+    'ht': 'fr' // Haitian Creole falls back to French for number/date formatting
+};
+
 function setupLocale(locale) {
-    return import(`react-intl/locale-data/${locale}`)
+    const localeDataKey = localeDataFallbacks[locale] || locale;
+    return import(`react-intl/locale-data/${localeDataKey}`)
         .then((localeDataMod) => {
             const localeData = localeDataMod.default;
             addLocaleData([...localeData]);
-            // setup locale for moment
+            // setup locale for moment (use fallback if moment also lacks the locale)
             moment.locale(locale);
+            if (!moment.locale() || moment.locale() !== locale) {
+                moment.locale(localeDataKey);
+            }
             return locale;
+        })
+        .catch(() => {
+            // If locale data is unavailable, fall back to English
+            return import('react-intl/locale-data/en')
+                .then((localeDataMod) => {
+                    addLocaleData([...localeDataMod.default]);
+                    moment.locale('en');
+                    return locale;
+                });
         });
 }
 
