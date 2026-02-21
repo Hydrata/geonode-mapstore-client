@@ -1,4 +1,9 @@
 {
+    "geoNodeCustomFilters": {
+        "featured": {
+            "filter{featured}": true
+        }
+    },
     "proxyUrl": {
         "url": "proxy/?url=",
         "useCORS": []
@@ -97,10 +102,6 @@
             "path": "hydrology.timeSeriess"
         },
         {
-            "name": "anugaElevationLayers",
-            "path": "anuga.elevations"
-        },
-        {
             "name": "swammProjectData",
             "path": "swamm.projectData"
         }
@@ -126,6 +127,10 @@
         "es": {
             "code": "es-ES",
             "description": "Espa\u00f1ol"
+        },
+        "ht": {
+            "code": "ht-HT",
+            "description": "Kreyòl Ayisyen"
         }
     },
     "mapType": {
@@ -918,7 +923,12 @@
                 "name": "MapFooter"
             },
             {
-                "name": "Measure"
+                "name": "Measure",
+                "override": {
+                    "Toolbar": {
+                        "alwaysVisible": true
+                    }
+                }
             },
             {
                 "name": "Print",
@@ -1467,18 +1477,6 @@
             {
                 "name": "Map",
                 "cfg": {
-                    "additionalLayers": [
-                        {
-                            "type": "wms",
-                            "url": "http://localhost:8080/geoserver/wms",
-                            "title": "Elevation",
-                            "name": "{'geonode:' + state('anugaElevationLayers')?.[0]?.name}",
-                            "format": "application/bil16",
-                            "nodata": -9999,
-                            "visibility": true,
-                            "useForElevation": true
-                        }
-                    ],
                     "tools": [
                         "draw",
                         "box"
@@ -1735,7 +1733,12 @@
                 "name": "MapFooter"
             },
             {
-                "name": "Measure"
+                "name": "Measure",
+                "override": {
+                    "Toolbar": {
+                        "alwaysVisible": true
+                    }
+                }
             },
             {
                 "name": "ZoomAll",
@@ -3505,86 +3508,7 @@
                             "items": "{context.get(state('gnResourceData'), 'linkedResources')}"
                         }
                     ],
-                    "allPage": {
-                        "filtersFormItems": [
-                            {
-                              "type": "search"
-                            },
-                            {
-                              "type": "group",
-                              "labelId": "gnhome.customFiltersTitle",
-                              "items": [
-                                {
-                                  "id": "my-resources",
-                                  "labelId": "gnhome.myResources",
-                                  "type": "filter",
-                                  "disableIf": "{!state('user')}"
-                                },
-                                {
-                                  "id": "favorite",
-                                  "labelId": "gnhome.favorites",
-                                  "type": "filter",
-                                  "disableIf": "{!state('user')}"
-                                },
-                                {
-                                  "id": "featured",
-                                  "labelId": "gnhome.featuredList",
-                                  "type": "filter"
-                                },
-                                {
-                                  "id": "unpublished",
-                                  "labelId": "gnhome.unpublished",
-                                  "type": "filter",
-                                  "disableIf": "{!state('user')}"
-                                },
-                                {
-                                  "id": "pending-approval",
-                                  "labelId": "gnhome.pendingApproval",
-                                  "type": "filter",
-                                  "disableIf": "{!state('user')}"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "divider",
-                              "disableIf": "{!state('user')}"
-                            },
-                            {
-                              "type": "select",
-                              "facet": "category"
-                            },
-                            {
-                              "type": "select",
-                              "facet": "keyword"
-                            },
-                            {
-                              "type": "select",
-                              "facet": "place"
-                            },
-                            {
-                              "type": "select",
-                              "facet": "user"
-                            },
-                            {
-                              "type": "select",
-                              "facet": "group"
-                            },
-                            {
-                              "type": "accordion",
-                              "style": "facet",
-                              "facet": "thesaurus"
-                            },
-                            {
-                              "type": "date-range",
-                              "filterKey": "date",
-                              "labelId": "gnviewer.dateFilter"
-                            },
-                            {
-                              "labelId": "gnviewer.extent",
-                              "type": "extent"
-                            }
-                          ]
-                    },
+                    "allPage": {},
                     "mapsPage": {
                         "defaultQuery": {
                             "resource": "map"

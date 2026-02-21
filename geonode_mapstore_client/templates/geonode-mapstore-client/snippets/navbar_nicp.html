@@ -44,11 +44,8 @@
                 {% block right_menu %}
                 <ul class="gn-menu-list">
                     {% include './language_selector.html' with align_right=True %}
-                    {% for menu_item in USER_MENU %}
-                        {% include './menu_item.html' with menu_item=menu_item align_right=True %}
-                    {% endfor %}
+                    {% include './brand_navbar_default_right_menu_items.html' %}
                 </ul>
-                <p style="color: white; margin-top: 10px; margin-right: 3px">{{ user.username }}</p>
                 {% endblock %}
             </div>
         </div>
