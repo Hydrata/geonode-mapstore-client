@@ -1,18 +1,16 @@
 {% load i18n %}
 {% load static %}
+{% load account socialaccount %}
 
 <div id="gn-hero" class="gn-hero hydrata-hero-background">
     <div class="jumbotron">
         <div class="gn-hero-description">
-            <h1>{% trans "Professional 2D Flood Modeling" %}</h1>
-            <p>{% trans "Run ANUGA hydraulic simulations in your browser or from the command line." %}<br>
-            {% trans "Open source. Schema-validated. Production-ready." %}</p>
+            <h1>Hydrata</h1>
+            <p>{% trans "An online interface to the ANUGA open source hydraulic model." %}</p>
+            <p>{% trans "Collaborative, transparent surface water modelling." %}</p>
         </div>
-        <div class="hydrata-hero-cta">
-            <a href="/account/signup/" class="btn hydrata-btn-primary">{% trans "Get Started Free" %}</a>
-            <a href="https://docs.hydrata.com" target="_blank" rel="noopener" class="btn hydrata-btn-outline">{% trans "Read the Docs" %}</a>
-        </div>
-        <p class="hydrata-hero-signin">{% blocktrans %}Already have an account? <a href="/account/login/">Sign in</a>{% endblocktrans %}</p>
+        <p class="gn-hero-tools">
+        </p>
     </div>
 </div>
 {% if user.is_authenticated %}
@@ -33,69 +31,198 @@
     </div>
 </div>
 {% else %}
-<section class="hydrata-features">
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-4 col-md-4">
-                <div class="hydrata-feature-card">
-                    <div class="hydrata-feature-icon">
-                        <i class="fa fa-terminal"></i>
+<div class="container">
+    <div id="home-page-forms">
+        <div id="home-page-register-form">
+            <p class="home-page-form-heading-text">{% trans "Create Account" %}</p>
+            <form method="post" id="signup_form" action="{% url 'gn_anuga:home' %}">
+                <div class="form-content">
+                    <div class="form-group">
+                        <label for="signup_email">{% trans "Email:" %}</label>
+                        <input type="text" id="signup_email" name="email" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.email.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.email.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
-                    <h3>{% trans "CLI + Web Interface" %}</h3>
-                    <p>{% trans "pip install, JSON Schema validation, and single-command runs. Model from your browser or your terminal." %}</p>
-                </div>
-            </div>
-            <div class="col-lg-4 col-md-4">
-                <div class="hydrata-feature-card">
-                    <div class="hydrata-feature-icon">
-                        <i class="fa fa-code-fork"></i>
+                    <div class="form-group">
+                        <label for="signup_password1">{% trans "Password:" %}</label>
+                        <div class="input-group">
+                            <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input"/>
+                            <span class="input-group-addon">
+                                <i id="signup-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleSignupPasswordVisibility()" style="cursor: pointer;"></i>
+                            </span>
+                            {% if form.password.errors %}
+                                <div class="home-page-form-error-messages">
+                                    {% for error in form.password.errors %}
+                                        <p class="error-message">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
-                    <h3>{% trans "Open Source" %}</h3>
-                    <p>{% trans "Built on ANUGA — peer-reviewed, configurable physical constants, no license fees. Run on your servers or ours." %}</p>
-                </div>
-            </div>
-            <div class="col-lg-4 col-md-4">
-                <div class="hydrata-feature-card">
-                    <div class="hydrata-feature-icon">
-                        <i class="fa fa-shield"></i>
+                    <div class="form-group">
+                      <label for="signup_first_name">{% trans "First name:" %}</label>
+                      <input type="text" id="signup_first_name" name="first_name" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.first_name.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.first_name.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
-                    <h3>{% trans "Secure Collaboration" %}</h3>
-                    <p>{% trans "Granular permissions, real-time sharing, version history. No more static PDFs going out of date." %}</p>
+                    <div class="form-group">
+                      <label for="signup_last_name">{% trans "Last name:" %}</label>
+                      <input type="text" id="signup_last_name" name="last_name" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.last_name.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.last_name.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                      <label for="signup_organization">{% trans "Organisation:" %}</label>
+                      <input type="text" id="signup_organization" name="organization" placeholder="required" class="home-page-register-text-input"/>
+                        {% if form.organization.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.organization.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                      <input type="checkbox" id="signup_privacy_policy" name="privacy_policy" class="align-checkbox-left"/>
+                      <label for="signup_privacy_policy">{% blocktrans %}I have reviewed and agree to Hydrata's <br/><a href="/privacy-policy">Privacy Policy</a>{% endblocktrans %}</label>
+                        {% if form.privacy_policy.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.privacy_policy.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                      <input type="checkbox" id="signup_terms_and_conditions" name="terms_and_conditions" class="align-checkbox-left"/>
+                        <label for="signup_terms_and_conditions">{% blocktrans %}I have reviewed and agree to Hydrata's <br/><a href="/terms-and-conditions">Terms and Conditions</a>{% endblocktrans %}</label>
+                        {% if form.terms_and_conditions.errors %}
+                            <div class="home-page-form-error-messages">
+                                {% for error in form.terms_and_conditions.errors %}
+                                    <p class="error-message">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
+                <div class="form-footer">
+                    {% csrf_token %}
+                    {{ form.captcha }}
+                    {% if form.non_field_errors %}
+                      <div class="alert alert-danger" role="alert">
+                        {% for error in form.non_field_errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                    <input type="submit" value="{% trans 'Create Account' %}" class="btn btn-success"/>
+                    {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+        <div id="home-page-signin-form">
+            <form method="post" id="signin_form" action="{% url 'account_login' %}" autocapitalize="off">
+                <div class="form-content">
+                    <p class="home-page-form-heading-text">{% trans "Existing User" %}</p>
+                    <div class="form-group">
+                      <label for="signin_email">{% trans "Email:" %}</label>
+                      <input type="text" id="signin_email" name="login" placeholder="email" class="home-page-register-text-input"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="signin_password">{% trans "Password:" %}</label>
+                        <div class="input-group">
+                            <input type="password" id="signin_password" name="password" placeholder="required" class="form-control home-page-register-text-input"/>
+                            <span class="input-group-addon">
+                                <i id="signin-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleLoginPasswordVisibility()" style="cursor: pointer;"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-footer">
+                    {% csrf_token %}
+                    <div class="form-footer-row">
+                        <input type="submit" value="{% trans 'Login' %}" class="btn btn-success" style="max-width: 100px"/>
+                        <a href="/account/password/reset/">{% trans "Forgot Password?" %}</a>
+                    </div>
+                    {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                    {% endif %}
+                </div>
+            </form>
         </div>
     </div>
-</section>
+</div>
 
-<section class="hydrata-how-it-works">
-    <div class="container">
-        <h2 class="text-center">{% trans "How It Works" %}</h2>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="hydrata-step">
-                    <span class="hydrata-step-number">1</span>
-                    <h3>{% trans "Prepare Your Data" %}</h3>
-                    <p>{% trans "Upload a DEM, draw your boundary polygon, and define inflow conditions — all in the browser." %}</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="hydrata-step">
-                    <span class="hydrata-step-number">2</span>
-                    <h3>{% trans "Run the Simulation" %}</h3>
-                    <p>{% trans "Launch from the web UI or the CLI. Schema validation catches errors before they cost compute time." %}</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="hydrata-step">
-                    <span class="hydrata-step-number">3</span>
-                    <h3>{% trans "Analyze Results" %}</h3>
-                    <p>{% trans "Explore depth and velocity maps interactively. Export GeoTIFF rasters. Share with your team." %}</p>
-                </div>
-            </div>
+<div class="container">
+    <div class="row feature-circles">
+        <div class="col-lg-4">
+            <img class="img-circle" src="{% static 'hydratabase/img/secure.jpg' %}" alt="online" width="140" height="140">
+            <h1 style="font-size: revert">{% trans "Secure" %}</h1>
+            <p class="lead">{% trans "Our web-based permissions system means you can securely share, review, run, and publish models, without installing any software." %}</p>
         </div>
-        <p class="text-center hydrata-docs-link">
-            <a href="https://docs.hydrata.com" target="_blank" rel="noopener">{% trans "Explore the full documentation" %} <i class="fa fa-arrow-right"></i></a>
-        </p>
+        <div class="col-lg-4">
+            <img class="img-circle" src="{% static 'hydratabase/img/growth.jpg' %}" alt="future" width="140" height="140">
+            <h1 style="font-size: revert">{% trans "Open Source" %}</h1>
+            <p class="lead">{% trans "Built on the open-source ANUGA 2d hydraulic model. No licence fees. Run on your servers or buy compute time on ours." %}</p>
+        </div>
+        <div class="col-lg-4">
+            <img class="img-circle" src="{% static 'hydratabase/img/redwood.jpg' %}" alt="agile" width="140" height="140">
+            <h1 style="font-size: revert">{% trans "Robust" %}</h1>
+            <p class="lead">{% trans "Collaborative data creation means models get better with time. No more static PDF going out-of-date at the end of the contract." %}</p>
+        </div>
     </div>
-</section>
+</div>
 {% endif %}
+
+{% block scripts %}
+    <script>
+        function toggleSignupPasswordVisibility() {
+            let passwordInput = document.getElementById("signup_password1");
+            let toggleIcon = document.getElementById("signup-password-icon");
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                toggleIcon.classList.remove("glyphicon-eye-open");
+                toggleIcon.classList.add("glyphicon-eye-close");
+            } else {
+                passwordInput.type = "password";
+                toggleIcon.classList.remove("glyphicon-eye-close");
+                toggleIcon.classList.add("glyphicon-eye-open");
+            }
+        }
+        function toggleLoginPasswordVisibility() {
+            let passwordInput = document.getElementById("signin_password");
+            let toggleIcon = document.getElementById("signin-password-icon");
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                toggleIcon.classList.remove("glyphicon-eye-open");
+                toggleIcon.classList.add("glyphicon-eye-close");
+            } else {
+                passwordInput.type = "password";
+                toggleIcon.classList.remove("glyphicon-eye-close");
+                toggleIcon.classList.add("glyphicon-eye-open");
+            }
+        }
+
+        let public_maps = "{{public_maps}}";
+        let publications = "{{publications}}";
+        let permitted_view_maps = "{{permitted_view_maps}}";
+        let no_permitted_view_maps = "{{no_permitted_view_maps}}";
+    </script>
+{% endblock scripts %}
