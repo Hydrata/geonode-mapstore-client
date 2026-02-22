@@ -100,9 +100,8 @@
     padding: 10px;
     display: flex;
     flex-direction: row-reverse;
-    position: absolute;
-    bottom: 0;
-    right: 0;
+    flex-shrink: 0;
+    margin-top: auto;
 }
 
 #simple-view-editor > * {
@@ -312,4 +311,73 @@
 
 #mapstore-drawermenu {
     display: none;
+}
+
+/* ── Responsive: Tablet ── */
+@media (max-width: 900px) {
+    .simple-view-panel {
+        min-width: unset;
+        width: calc(100% - 20px);
+        left: 10px;
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+    }
+
+    .simple-view-panel-body {
+        flex-direction: column;
+        height: auto;
+        max-height: none;
+    }
+
+    .simple-view-panel-col-one {
+        min-width: unset;
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+
+    .simple-view-menu-button {
+        width: 75px;
+        height: 44px;
+        font-size: 11px;
+        padding: 2px 4px;
+    }
+
+    .legend-panel,
+    .legend-panel-with-search {
+        max-width: 300px;
+    }
+}
+
+/* ── Responsive: Mobile ── */
+@media (max-width: 600px) {
+    .simple-view-panel {
+        width: calc(100% - 10px);
+        left: 5px;
+        top: 55px;
+        max-height: calc(100vh - 60px);
+        padding: 4px 6px;
+    }
+
+    .simple-view-panel-header {
+        font-size: large;
+    }
+
+    .simple-view-menu-button {
+        width: 65px;
+        height: 38px;
+        font-size: 10px;
+        padding: 2px 3px;
+        top: 6px;
+    }
+
+    .legend-panel,
+    .legend-panel-with-search {
+        max-width: calc(100% - 80px);
+        right: 10px;
+    }
+
+    .uploader-panel {
+        max-width: calc(100% - 20px);
+        right: 10px;
+    }
 }
