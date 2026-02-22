@@ -73,35 +73,23 @@ describe('Swamm Selectors', () => {
         });
 
         describe('canEditSwammMap', () => {
-            it('should return true when user has change_resourcebase permission', () => {
+            it('should return true when user is superuser', () => {
                 const state = {
-                    gnresource: {
-                        initialResource: {
-                            perms: ['change_resourcebase', 'view_resourcebase']
-                        }
-                    }
+                    security: { user: { pk: 1, is_superuser: true } }
                 };
                 expect(canEditSwammMap(state)).toBe(true);
             });
 
-            it('should return false when user lacks change_resourcebase permission', () => {
+            it('should return false when user is not superuser', () => {
                 const state = {
-                    gnresource: {
-                        initialResource: {
-                            perms: ['view_resourcebase']
-                        }
-                    }
+                    security: { user: { pk: 1, is_superuser: false } }
                 };
                 expect(canEditSwammMap(state)).toBe(false);
             });
 
-            it('should return undefined when perms is undefined', () => {
-                const state = {
-                    gnresource: {
-                        initialResource: {}
-                    }
-                };
-                expect(canEditSwammMap(state)).toBe(undefined);
+            it('should return false when no user', () => {
+                const state = { security: {} };
+                expect(canEditSwammMap(state)).toBe(false);
             });
         });
 

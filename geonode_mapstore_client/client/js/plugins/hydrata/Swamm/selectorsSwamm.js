@@ -22,8 +22,7 @@ export const canViewSwammMap = (state) => {
 };
 
 export const canEditSwammMap = (state) => {
-    return state?.gnresource?.initialResource?.perms?.includes("change_resourcebase")
-        || state?.gnresource?.initialResource?.perms?.includes("view_resourcebase");
+    return state?.security?.user?.is_superuser === true;
 };
 
 export const canManageAnugaMap = (state) => {

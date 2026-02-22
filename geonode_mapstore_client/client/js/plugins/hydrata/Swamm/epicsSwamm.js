@@ -116,23 +116,32 @@ export const initSwammEpic = (action$, store) =>
                     ).concat(
                         Rx.Observable.merge(
                             Rx.Observable.from(swammApi.getBmpTypes(projectId))
-                                .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data))),
+                                .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getBmpTypes failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getGroupProfiles())
-                                .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles))),
+                                .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles)))
+                                .catch((err) => { console.warn('initSwammEpic: getGroupProfiles failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getBmpStatuses(projectId))
-                                .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data))),
+                                .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getBmpStatuses failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getTargets(projectId))
-                                .switchMap((r) => Rx.Observable.of(fetchSwammTargetsSuccess(r.data))),
+                                .switchMap((r) => Rx.Observable.of(fetchSwammTargetsSuccess(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getTargets failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getBmpTypeGroups(projectId))
-                                .switchMap((r) => Rx.Observable.of(updateBmpTypeGroups(r.data))),
+                                .switchMap((r) => Rx.Observable.of(updateBmpTypeGroups(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getBmpTypeGroups failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getErosionData(projectId))
-                                .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data))),
+                                .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getNitrogenData(projectId))
-                                .switchMap((r) => Rx.Observable.of(setSwammNitrogenData(r.data))),
+                                .switchMap((r) => Rx.Observable.of(setSwammNitrogenData(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getNitrogenData failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getPhosphorusData(projectId))
-                                .switchMap((r) => Rx.Observable.of(setSwammPhosphorusData(r.data))),
+                                .switchMap((r) => Rx.Observable.of(setSwammPhosphorusData(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getPhosphorusData failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getSedimentData(projectId))
                                 .switchMap((r) => Rx.Observable.of(setSwammSedimentData(r.data)))
+                                .catch((err) => { console.warn('initSwammEpic: getSedimentData failed', err); return Rx.Observable.empty(); })
                         )
                     ));
             })
