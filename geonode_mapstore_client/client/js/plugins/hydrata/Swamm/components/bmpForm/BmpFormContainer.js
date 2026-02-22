@@ -253,7 +253,7 @@ class SwammBmpFormClass extends React.Component {
     drawBmpStep1(layerName, featureId) {
         this.refreshBmpLayers();
         this.props.hideBmpForm();
-        const targetLayer = this.props.layers.flat.filter(layer => layer?.name.includes(layerName))[0];
+        const targetLayer = this.props.layers?.flat?.filter(layer => layer?.name?.includes(layerName))[0];
         this.props.setDrawingBmpLayerName(targetLayer?.name);
         featureId ? this.props.setEditingBmpFeatureId(featureId) : this.props.clearEditingBmpFeatureId();
         this.props.toggleLayer(targetLayer.id, true);
@@ -268,8 +268,8 @@ class SwammBmpFormClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const validGroupProfiles = state?.swamm?.groupProfiles.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug));
-    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
+    const validGroupProfiles = state?.swamm?.groupProfiles?.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug)) || [];
+    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups?.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
     const saveableGroupProfiles = viewableGroupProfiles.map(item => {
         item.saveable = state?.security?.user?.info?.groups?.includes(item?.slug);
         return item;
@@ -284,7 +284,7 @@ const mapStateToProps = (state) => {
         saveableGroupProfiles: saveableGroupProfiles,
         statuses: state?.swamm?.statuses,
         priorities: state?.swamm?.priorities,
-        thisBmpType: state?.swamm?.bmpTypes.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
+        thisBmpType: state?.swamm?.bmpTypes?.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
         storedBmpForm: state?.swamm?.storedBmpForm || {},
         complexBmpForm: state?.swamm?.complexBmpForm || false,
         bmpOutletLayer: bmpOutletLayerSelector(state),

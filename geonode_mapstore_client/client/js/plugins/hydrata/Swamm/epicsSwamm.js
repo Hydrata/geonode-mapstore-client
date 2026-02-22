@@ -420,7 +420,7 @@ export const filterBmpEpic = (action$, store) =>
             const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
             let atLeastOneBmpTypeVisible = false;
             let atLeastOneBmpPriorityVisible = false;
-            store.getState()?.swamm?.bmpTypes.map((bmpType) => {
+            (store.getState()?.swamm?.bmpTypes || []).map((bmpType) => {
                 if (bmpType?.visibility) {
                     const filterField = createFilterField('type', bmpType.id);
                     newFilter.filterObj.filterFields.push(filterField);
@@ -431,7 +431,7 @@ export const filterBmpEpic = (action$, store) =>
                 const filterField = createFilterField('type', -1);
                 newFilter.filterObj.filterFields.push(filterField);
             }
-            store.getState()?.swamm?.priorities.map((priority) => {
+            (store.getState()?.swamm?.priorities || []).map((priority) => {
                 if (priority?.visibility) {
                     const filterField = createFilterField('priority', priority.id);
                     newFilter.filterObj.filterFields.push(filterField);
@@ -442,14 +442,14 @@ export const filterBmpEpic = (action$, store) =>
                 const filterField = createFilterField('priority', -1);
                 newFilter.filterObj.filterFields.push(filterField);
             }
-            store.getState()?.swamm?.groupProfiles.map((groupProfile) => {
+            (store.getState()?.swamm?.groupProfiles || []).map((groupProfile) => {
                 if (groupProfile?.visibility) {
                     const filterField = createFilterField('group_profile', groupProfile.id);
                     newFilter.filterObj.filterFields.push(filterField);
                     // atLeastOnegroupProfileVisible = true;
                 }
             });
-            store.getState()?.swamm?.statuses.map((status) => {
+            (store.getState()?.swamm?.statuses || []).map((status) => {
                 if (status?.visibility) {
                     const filterField = createFilterField('status', status?.name);
                     newFilter.filterObj.filterFields.push(filterField);
