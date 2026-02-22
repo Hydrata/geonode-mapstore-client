@@ -13,6 +13,7 @@
         <div class="dropdown gn-user-menu-dropdown">
             <button role="button" type="button" class="dropdown-toggle btn btn-default" data-toggle="dropdown">
                 <img src="{% avatar_url request.user %}" />
+                <span class="gn-user-menu-username">{{ request.user.username }}</span>
             </button>
             <ul class="dropdown-menu dropdown-menu-right">
                 <li><a href="{{ request.user.get_absolute_url }}">{% trans "Profile" %}</a></li>

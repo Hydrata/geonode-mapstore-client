@@ -4,7 +4,7 @@
  * Pure functions returning Promises. No Redux, no dispatch.
  * Centralizes all HTTP calls for the SWAMM plugin.
  */
-const axios = require('../../../../../MapStore2/web/client/libs/ajax');
+import axios from '../../../../../MapStore2/web/client/libs/ajax';
 
 // ── Project ──────────────────────────────────────────────────────────────
 
