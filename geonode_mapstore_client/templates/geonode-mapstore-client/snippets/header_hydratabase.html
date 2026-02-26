@@ -4,11 +4,42 @@
     <link href="{% static 'hydratabase/css/geonode-navbar-fixes.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <link href="{% static 'hydratabase/css/hydratabase_base.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <link href="{% static 'hydratabase/css/hydratabase_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
-    <!--LinkedIn metadata:-->
-    <meta property="og:title" content="Hydrata"/>
-    <meta property="og:description" content="Online, Open Source Water Modelling"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:title" content="Hydrata — Agent-First Hydraulic Flood Modelling"/>
+    <meta property="og:description" content="Run ANUGA 2D flood simulations in the cloud. REST API and MCP server for AI coding assistants. No install required."/>
     <meta property="og:url" content="https://hydrata.com"/>
     <meta property="og:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
+    <meta name="twitter:card" content="summary_large_image"/>
+    <meta name="twitter:site" content="@hydrata"/>
+    <meta name="twitter:title" content="Hydrata — Agent-First Hydraulic Flood Modelling"/>
+    <meta name="twitter:description" content="Run ANUGA 2D flood simulations in the cloud. REST API and MCP server for AI coding assistants. No install required."/>
+    <meta name="twitter:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": ["WebApplication", "SoftwareApplication"],
+      "name": "Hydrata",
+      "url": "https://hydrata.com/",
+      "applicationCategory": "EngineeringApplication",
+      "operatingSystem": "Web",
+      "description": "Cloud-based 2D hydraulic flood modelling platform powered by the ANUGA solver. Run flood simulations via browser, REST API, or MCP server. First hydraulic modelling platform with native AI agent integration.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "Free tier available. Pay-per-compute for large simulations."
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Hydrata",
+        "url": "https://hydrata.com/",
+        "sameAs": [
+          "https://github.com/Hydrata",
+          "https://twitter.com/hydrata"
+        ]
+      }
+    }
+    </script>
 {% endblock extra_head %}
 
 <header class="gn-main-header  hydratabase-dummy-class-header_hydratabase">
