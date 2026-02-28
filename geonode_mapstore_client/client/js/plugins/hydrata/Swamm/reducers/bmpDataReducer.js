@@ -2,6 +2,7 @@ import {
     SET_SWAMM_PROJECT_DATA,
     FETCH_GROUP_PROFILES,
     FETCH_GROUP_PROFILES_SUCCESS,
+    FETCH_USER_GROUP_MEMBERSHIPS_SUCCESS,
     FETCH_PROJECT_MANAGER_CONFIG,
     FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
     FETCH_SWAMM_BMPTYPES,
@@ -24,6 +25,8 @@ const bmpDataReducer = (state, action) => {
         return { fetchingGroupProfiles: action.groupProfiles };
     case FETCH_GROUP_PROFILES_SUCCESS:
         return { fetchingGroupProfiles: false, groupProfiles: action.groupProfiles };
+    case FETCH_USER_GROUP_MEMBERSHIPS_SUCCESS:
+        return { userGroupProfileSlugs: action.groupProfileSlugs };
     case FETCH_PROJECT_MANAGER_CONFIG:
         return { fetching: action.mapId };
     case FETCH_PROJECT_MANAGER_CONFIG_SUCCESS:

@@ -30,6 +30,9 @@ export const getBmpTypeGroups = (projectId) =>
 export const getGroupProfiles = () =>
     axios.get('/api/v2/groups?page_size=1000');
 
+export const getUserGroupMemberships = () =>
+    axios.get('/swamm/api/user-group-memberships/');
+
 // ── BMPs ─────────────────────────────────────────────────────────────────
 
 export const getAllBmps = (projectId, cursor = null) => {

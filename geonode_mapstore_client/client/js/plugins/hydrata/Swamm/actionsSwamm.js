@@ -11,6 +11,8 @@ const FETCH_GROUP_PROFILES = 'FETCH_GROUP_PROFILES';
 const FETCH_GROUP_PROFILES_ERROR = 'FETCH_GROUP_PROFILES_ERROR';
 const FETCH_GROUP_PROFILES_SUCCESS = 'FETCH_GROUP_PROFILES_SUCCESS';
 
+const FETCH_USER_GROUP_MEMBERSHIPS_SUCCESS = 'FETCH_USER_GROUP_MEMBERSHIPS_SUCCESS';
+
 const FETCH_PROJECT_MANAGER_CONFIG = 'FETCH_PROJECT_MANAGER_CONFIG';
 const FETCH_PROJECT_MANAGER_CONFIG_ERROR = 'FETCH_PROJECT_MANAGER_CONFIG_ERROR';
 const FETCH_PROJECT_MANAGER_CONFIG_SUCCESS = 'FETCH_PROJECT_MANAGER_CONFIG_SUCCESS';
@@ -213,6 +215,11 @@ function fetchGroupProfilesError(e) {
         level: 'error'
     };
 }
+
+const fetchUserGroupMembershipsSuccess = (groupProfileSlugs) => ({
+    type: FETCH_USER_GROUP_MEMBERSHIPS_SUCCESS,
+    groupProfileSlugs
+});
 
 const fetchGroupProfiles = () => {
     return (dispatch) => {
@@ -1001,6 +1008,7 @@ module.exports = {
     FETCH_GROUP_PROFILES, fetchGroupProfiles,
     FETCH_GROUP_PROFILES_ERROR, fetchGroupProfilesError,
     FETCH_GROUP_PROFILES_SUCCESS, fetchGroupProfilesSuccess,
+    FETCH_USER_GROUP_MEMBERSHIPS_SUCCESS, fetchUserGroupMembershipsSuccess,
     FETCH_SWAMM_ALL_BMPS, fetchSwammAllBmps,
     FETCH_SWAMM_ALL_BMPS_ERROR, fetchSwammAllBmpsError,
     FETCH_SWAMM_ALL_BMPS_SUCCESS, fetchSwammAllBmpsSuccess,

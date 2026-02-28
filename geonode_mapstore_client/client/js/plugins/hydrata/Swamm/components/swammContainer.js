@@ -267,7 +267,8 @@ class SwammContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const allowedGroupProfileNames = state?.security?.user?.info?.groups?.filter(item => !["anonymous", "registered-members", "admin"].includes(item)) || [];
+    const membershipSlugs = state?.swamm?.userGroupProfileSlugs || state?.security?.user?.info?.groups || [];
+    const allowedGroupProfileNames = membershipSlugs.filter(item => !["anonymous", "registered-members", "admin"].includes(item));
     const allowedGroupProfiles = state?.swamm?.groupProfiles?.filter(item => allowedGroupProfileNames.includes(item.slug)) || [];
     return {
         canEditSwammMap: canEditSwammMap(state),

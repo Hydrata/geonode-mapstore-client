@@ -38,6 +38,7 @@ import {
     setBmpLayers, TOGGLE_BMP_PRIORITY_VISIBILITY,
     fetchSwammBmpTypesSuccess,
     fetchGroupProfilesSuccess,
+    fetchUserGroupMembershipsSuccess,
     fetchSwammBmpStatusesSuccess,
     fetchSwammTargetsSuccess,
     setSwammErosionData,
@@ -118,6 +119,9 @@ export const initSwammEpic = (action$, store) =>
                             Rx.Observable.from(swammApi.getGroupProfiles())
                                 .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles)))
                                 .catch((err) => { console.warn('initSwammEpic: getGroupProfiles failed', err); return Rx.Observable.empty(); }),
+                            Rx.Observable.from(swammApi.getUserGroupMemberships())
+                                .switchMap((r) => Rx.Observable.of(fetchUserGroupMembershipsSuccess(r.data?.group_profile_slugs)))
+                                .catch((err) => { console.warn('initSwammEpic: getUserGroupMemberships failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getBmpStatuses(projectId))
                                 .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data)))
                                 .catch((err) => { console.warn('initSwammEpic: getBmpStatuses failed', err); return Rx.Observable.empty(); }),
