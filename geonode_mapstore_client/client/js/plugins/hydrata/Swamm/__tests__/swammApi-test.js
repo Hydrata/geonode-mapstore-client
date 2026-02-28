@@ -14,7 +14,7 @@ describe('swammApi', () => {
             'getBmpStatuses', 'getLatestFeatureId',
             'getTargets', 'createTarget', 'updateTarget', 'deleteTarget',
             'downloadTargetXlsx',
-            'getErosionData', 'getNitrogenData', 'getPhosphorusData', 'getSedimentData'
+            'getErosionData'
         ];
 
         expectedFunctions.forEach(name => {
@@ -114,17 +114,6 @@ describe('swammApi', () => {
             expect(swammApi.getErosionData.length).toBe(1);
         });
 
-        it('getNitrogenData takes 1 argument (projectId)', () => {
-            expect(swammApi.getNitrogenData.length).toBe(1);
-        });
-
-        it('getPhosphorusData takes 1 argument (projectId)', () => {
-            expect(swammApi.getPhosphorusData.length).toBe(1);
-        });
-
-        it('getSedimentData takes 1 argument (projectId)', () => {
-            expect(swammApi.getSedimentData.length).toBe(1);
-        });
     });
 
     // ── Grouping sanity checks ───────────────────────────────────────
@@ -155,9 +144,6 @@ describe('swammApi', () => {
 
         it('has loading data functions', () => {
             expect(swammApi.getErosionData).toExist();
-            expect(swammApi.getNitrogenData).toExist();
-            expect(swammApi.getPhosphorusData).toExist();
-            expect(swammApi.getSedimentData).toExist();
         });
 
         it('has reference data functions', () => {

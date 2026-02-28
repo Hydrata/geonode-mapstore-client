@@ -41,9 +41,6 @@ import {
     fetchSwammBmpStatusesSuccess,
     fetchSwammTargetsSuccess,
     setSwammErosionData,
-    setSwammNitrogenData,
-    setSwammPhosphorusData,
-    setSwammSedimentData,
     TOGGLE_BMP_TYPE_GROUP
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
 
@@ -132,16 +129,7 @@ export const initSwammEpic = (action$, store) =>
                                 .catch((err) => { console.warn('initSwammEpic: getBmpTypeGroups failed', err); return Rx.Observable.empty(); }),
                             Rx.Observable.from(swammApi.getErosionData(projectId))
                                 .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getNitrogenData(projectId))
-                                .switchMap((r) => Rx.Observable.of(setSwammNitrogenData(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getNitrogenData failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getPhosphorusData(projectId))
-                                .switchMap((r) => Rx.Observable.of(setSwammPhosphorusData(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getPhosphorusData failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getSedimentData(projectId))
-                                .switchMap((r) => Rx.Observable.of(setSwammSedimentData(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getSedimentData failed', err); return Rx.Observable.empty(); })
+                                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); })
                         )
                     ));
             })
@@ -304,7 +292,7 @@ export const finishBmpCreateFeatureEpic = (action$, store) =>
             setHighlightFeaturesPath('highlight.emptyFeatures'),
             submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
             resetQuery(),
-            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.drawingBmpLayerName))[0].id),
+            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name?.includes(store.getState()?.swamm?.drawingBmpLayerName))?.[0]?.id),
             clearDrawingBmpLayerName()
         ));
 
@@ -320,7 +308,7 @@ export const saveBmpEditFeatureEpic = (action$, store) =>
             setHighlightFeaturesPath('highlight.emptyFeatures'),
             submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
             resetQuery(),
-            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name.includes(store.getState()?.swamm?.drawingBmpLayerName))[0].id),
+            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name?.includes(store.getState()?.swamm?.drawingBmpLayerName))?.[0]?.id),
             clearDrawingBmpLayerName()
         ));
 

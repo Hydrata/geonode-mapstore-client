@@ -104,11 +104,3 @@ export const downloadTargetXlsx = (projectId, targetId) =>
 export const getErosionData = (projectId) =>
     axios.get(`/swamm/api/${projectId}/erosion/`);
 
-export const getNitrogenData = (projectId) =>
-    axios.get(`/swamm/api/${projectId}/nitrogen/`);
-
-export const getPhosphorusData = (projectId) =>
-    axios.get(`/swamm/api/${projectId}/phosphorus/`);
-
-export const getSedimentData = (projectId) =>
-    axios.get(`/swamm/api/${projectId}/sediment/`);

@@ -59,10 +59,7 @@ import {
     CLEAR_TARGET_FORM, clearTargetForm,
     DOWNLOAD_BMP_REPORT, downloadBmpReport,
     SET_SWAMM_INPUT_MENU, setSwammInputMenu,
-    SET_SWAMM_EROSION_DATA, setSwammErosionData,
-    SET_SWAMM_NITROGEN_DATA, setSwammNitrogenData,
-    SET_SWAMM_PHOSPHORUS_DATA, setSwammPhosphorusData,
-    SET_SWAMM_SEDIMENT_DATA, setSwammSedimentData
+    SET_SWAMM_EROSION_DATA, setSwammErosionData
 } from '../actionsSwamm';
 
 
@@ -385,26 +382,6 @@ describe('SWAMM Action Creators', () => {
             expect(action.data).toEqual(data);
         });
 
-        it('setSwammNitrogenData includes data', () => {
-            const data = [{ id: 1, total_load: 100 }];
-            const action = setSwammNitrogenData(data);
-            expect(action.type).toBe(SET_SWAMM_NITROGEN_DATA);
-            expect(action.data).toEqual(data);
-        });
-
-        it('setSwammPhosphorusData includes data', () => {
-            const data = [{ id: 1, total_load: 50 }];
-            const action = setSwammPhosphorusData(data);
-            expect(action.type).toBe(SET_SWAMM_PHOSPHORUS_DATA);
-            expect(action.data).toEqual(data);
-        });
-
-        it('setSwammSedimentData includes data', () => {
-            const data = [{ id: 1, total_load: 200 }];
-            const action = setSwammSedimentData(data);
-            expect(action.type).toBe(SET_SWAMM_SEDIMENT_DATA);
-            expect(action.data).toEqual(data);
-        });
     });
 
     // ──────────────────────────────────────────────────────────────────
@@ -626,8 +603,7 @@ describe('SWAMM Action Creators', () => {
                 SHOW_TARGET_FORM, HIDE_TARGET_FORM,
                 UPDATE_TARGET_FORM, CLEAR_TARGET_FORM,
                 SET_SWAMM_INPUT_MENU,
-                SET_SWAMM_EROSION_DATA, SET_SWAMM_NITROGEN_DATA,
-                SET_SWAMM_PHOSPHORUS_DATA, SET_SWAMM_SEDIMENT_DATA,
+                SET_SWAMM_EROSION_DATA,
                 DOWNLOAD_BMP_REPORT, START_DRAWING_BMP
             ];
             constants.forEach((c) => {

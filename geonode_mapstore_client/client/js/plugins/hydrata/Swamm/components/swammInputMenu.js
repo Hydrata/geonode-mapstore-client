@@ -20,9 +20,6 @@ class SwammInputMenuClass extends React.Component {
         projectData: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
         swammEngines: PropTypes.array,
-        nitrogenLayers: PropTypes.array,
-        phosphorusLayers: PropTypes.array,
-        sedimentLayers: PropTypes.array,
         erosionLayers: PropTypes.array,
         setSwammInputMenu: PropTypes.func
     };
@@ -204,24 +201,6 @@ const mapStateToProps = (state) => {
             ?.filter(layer => layer?.name.indexOf('erosion_') > -1)
             ?.map(layer => {
                 layer.importerTargetObjectId = state?.swamm?.erosions?.filter(erosion => erosion?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
-                return layer;
-            }),
-        nitrogenLayers: state?.layers?.flat
-            ?.filter(layer => layer?.name.indexOf('_n_surface_loading') > -1)
-            ?.map(layer => {
-                layer.importerTargetObjectId = state?.swamm?.nitrogen?.filter(nitrogen => nitrogen?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
-                return layer;
-            }),
-        phosphorusLayers: state?.layers?.flat
-            ?.filter(layer => layer?.name.indexOf('_p_surface_loading') > -1)
-            ?.map(layer => {
-                layer.importerTargetObjectId = state?.swamm?.phosphorus?.filter(phosphorus => phosphorus?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
-                return layer;
-            }),
-        sedimentLayers: state?.layers?.flat
-            ?.filter(layer => layer?.name.indexOf('_s_surface_loading') > -1)
-            ?.map(layer => {
-                layer.importerTargetObjectId = state?.swamm?.sediment?.filter(sediment => sediment?.gn_layer === parseInt(layer?.extendedParams?.pk, 10))[0]?.id;
                 return layer;
             }),
         erosionModels: state?.swamm?.erosions,

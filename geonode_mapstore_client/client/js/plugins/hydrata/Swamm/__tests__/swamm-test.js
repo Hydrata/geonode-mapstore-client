@@ -56,9 +56,6 @@ import {
     SET_SWAMM_INPUT_MENU,
     UPDATE_BMP_TYPE_GROUPS,
     SET_SWAMM_EROSION_DATA,
-    SET_SWAMM_NITROGEN_DATA,
-    SET_SWAMM_PHOSPHORUS_DATA,
-    SET_SWAMM_SEDIMENT_DATA,
     DELETE_BMP_SUCCESS,
     setSwammProjectData,
     initSwamm,
@@ -956,33 +953,6 @@ describe('Swamm Plugin', () => {
                 data: data
             });
             expect(state.erosions).toEqual(data);
-        });
-
-        it('should handle SET_SWAMM_NITROGEN_DATA', () => {
-            const data = [{ id: 1, total_load: 1000 }];
-            const state = reducer(initialState, {
-                type: SET_SWAMM_NITROGEN_DATA,
-                data: data
-            });
-            expect(state.nitrogen).toEqual(data);
-        });
-
-        it('should handle SET_SWAMM_PHOSPHORUS_DATA', () => {
-            const data = [{ id: 1, total_load: 500 }];
-            const state = reducer(initialState, {
-                type: SET_SWAMM_PHOSPHORUS_DATA,
-                data: data
-            });
-            expect(state.phosphorus).toEqual(data);
-        });
-
-        it('should handle SET_SWAMM_SEDIMENT_DATA', () => {
-            const data = [{ id: 1, total_load: 200 }];
-            const state = reducer(initialState, {
-                type: SET_SWAMM_SEDIMENT_DATA,
-                data: data
-            });
-            expect(state.sediment).toEqual(data);
         });
 
         // ──────────────────────────────────────────────────────────────
