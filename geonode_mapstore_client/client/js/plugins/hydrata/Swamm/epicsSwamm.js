@@ -42,7 +42,9 @@ import {
     fetchSwammBmpStatusesSuccess,
     fetchSwammTargetsSuccess,
     setSwammErosionData,
-    TOGGLE_BMP_TYPE_GROUP
+    TOGGLE_BMP_TYPE_GROUP,
+    APPLY_INITIAL_BMP_FILTER,
+    applyInitialBmpFilter
 } from "@js/plugins/hydrata/Swamm/actionsSwamm";
 
 import {
@@ -134,6 +136,8 @@ export const initSwammEpic = (action$, store) =>
                             Rx.Observable.from(swammApi.getErosionData(projectId))
                                 .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
                                 .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); })
+                        ).concat(
+                            Rx.Observable.of(applyInitialBmpFilter())
                         )
                     ));
             })
@@ -415,7 +419,8 @@ export const filterBmpEpic = (action$, store) =>
         TOGGLE_BMP_TYPE_GROUP,
         TOGGLE_BMP_PRIORITY_VISIBILITY,
         TOGGLE_BMP_STATUS_VISIBILITY,
-        TOGGLE_BMP_GROUP_PROFILE_VISIBILITY
+        TOGGLE_BMP_GROUP_PROFILE_VISIBILITY,
+        APPLY_INITIAL_BMP_FILTER
     )
         .mergeMap(() => {
             const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));

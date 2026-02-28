@@ -104,6 +104,8 @@ const SET_SWAMM_INPUT_MENU = 'SET_SWAMM_INPUT_MENU';
 
 const SET_SWAMM_EROSION_DATA = 'SET_SWAMM_EROSION_DATA';
 
+const APPLY_INITIAL_BMP_FILTER = 'APPLY_INITIAL_BMP_FILTER';
+
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
 
@@ -995,6 +997,8 @@ function setSwammErosionData(data) {
     };
 }
 
+const applyInitialBmpFilter = () => ({ type: APPLY_INITIAL_BMP_FILTER });
+
 module.exports = {
     INIT_SWAMM, initSwamm,
     SET_SWAMM_PROJECT_DATA, setSwammProjectData,
@@ -1081,5 +1085,6 @@ module.exports = {
     SET_SWAMM_EROSION_DATA, setSwammErosionData,
     DOWNLOAD_TARGET_DATA, downloadTargetData,
     DOWNLOAD_TARGET_DATA_SUCCESS, downloadTargetDataSuccess,
-    DOWNLOAD_TARGET_DATA_ERROR, downloadTargetDataError
+    DOWNLOAD_TARGET_DATA_ERROR, downloadTargetDataError,
+    APPLY_INITIAL_BMP_FILTER, applyInitialBmpFilter
 };
