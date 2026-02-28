@@ -12,10 +12,21 @@ The geonode-mapstore-client frontend is a webpack-compiled React application. Co
 
 ## Prerequisites
 
-- **Node.js 22+** (tested with v22.22.0)
-- **npm 10+**
+- **Node.js 20.13.1** (tested; matches upstream CI — install via `nvm install 20.13.1`)
+- **npm 10.5.2**
 - **MapStore2 submodule** must be initialized: `git submodule update --init --recursive`
-- ~30 min compile time, ~4GB RAM peak
+- ~2 min compile time on this sandbox (16 vCPU), ~4GB RAM peak
+
+## Dependency Chain
+
+```
+Hydrata/geonode-mapstore-client (5.x)          ← our fork
+  ├── mapstore: file:MapStore2                  ← submodule → geosolutions-it/MapStore2 (geonode-5.0.x)
+  ├── @mapstore/project (devDep)                ← Hydrata/mapstore-project (geonode-5.0.x)
+  └── @mapstore/patcher (transitive)            ← geosolutions-it/Patcher (frozen, low risk)
+```
+
+**Why Hydrata/mapstore-project?** The upstream `geosolutions-it/mapstore-project` has `"version": "master"` in package.json which is invalid semver and breaks `npm install` on npm 7+. Our fork fixes this to `"0.0.0-geonode-5.0.x"`. The package itself is just build tooling (webpack configs, compile scripts) — functionally identical to upstream.
 
 ## Step-by-Step
 
@@ -107,7 +118,17 @@ The `MapStore2/build/buildConfig.js` sets `hashFunction: "xxhash64"`. This works
 - Node 17+: `xxhash64` or `sha256` both work
 - If `xxhash64` fails: change to `sha256`
 
-### 5. postCompile doesn't run with direct compile.js invocation
+### 5. "Invalid Version: master" from npm install (fixed 2026-02-28)
+
+The upstream `@mapstore/project` package has `"version": "master"` in its package.json, which is not valid semver. npm 7+ rejects this during dependency resolution.
+
+**Symptom:** `npm install` fails with `npm ERR! Invalid Version: master`
+
+**Fix:** Switched `@mapstore/project` devDependency from `geosolutions-it/mapstore-project` to `Hydrata/mapstore-project` fork, which has the version field fixed to `"0.0.0-geonode-5.0.x"`. See commit `e7dca203b`.
+
+**If you need to sync upstream changes:** Pull from `geosolutions-it/mapstore-project` into the Hydrata fork's `geonode-5.0.x` branch, keeping the version fix.
+
+### 6. postCompile doesn't run with direct compile.js invocation
 
 If you run `node node_modules/@mapstore/project/scripts/compile.js` directly (instead of `npm run compile`), the `postCompile.js` script won't execute. The compiled output stays in `client/dist/` and never gets moved to `static/mapstore/dist/`.
 
