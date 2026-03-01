@@ -43,6 +43,7 @@ import InputSection from "./InputSection";
 import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
+const Spinner = require('react-spinkit');
 
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
@@ -260,20 +261,18 @@ class AnugaInputMenuClass extends React.Component {
                                     inputId="structure-input"
                                     trackEventName="anuga-input-menu-create-structure"
                                 />
-                                {/* Networks section — has extra cog button + sub-sections */}
-                                <InputSection
-                                    titleMsgId="hydrata.anuga.networks"
-                                    layers={[]}
-                                    titleValue={this.state.networkTitle}
-                                    onTitleChange={(v) => this.setState({networkTitle: v})}
-                                    onCreate={() => this.createAndReset(this.props.createNetwork, 'networkTitle')}
-                                    isCreating={this.props.isCreatingAnugaLayer}
-                                    canEdit={this.props.canEditAnugaMap}
-                                    inputId="network-input"
-                                    trackEventName="anuga-input-menu-create-network"
-                                    extraHeaderContent={
+                                {/* Networks section — header + sub-sections in one container */}
+                                <div
+                                    className={'menu-rows-container'}
+                                    style={{ border: "1px solid rgba(255, 255, 255)", borderRadius: "3px", margin: "3px 0" }}
+                                >
+                                    <div
+                                        className={"row menu-row menu-row-header"}
+                                        style={{ width: "540px", textAlign: "left", border: "none" }}
+                                    >
+                                        <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.networks" /></span>
                                         <span
-                                            className={`btn glyphicon menu-row-glyph glyphicon-cog`}
+                                            className={'btn glyphicon menu-row-glyph glyphicon-cog'}
                                             style={{ color: "#325f93", fontSize: "smaller", textAlign: "right", marginLeft: "8px", float: "left" }}
                                             onClick={() => {
                                                 this.props.setNetworkMenu(true);
@@ -281,24 +280,44 @@ class AnugaInputMenuClass extends React.Component {
                                                 trackEvent('button', 'click', 'anuga-input-menu-show-network');
                                             }}
                                         />
-                                    }
-                                >
-                                </InputSection>
-                                {/* Network sub-sections: catchments, nodes, links */}
-                                <div className={'menu-rows-container'} style={{ border: "1px solid rgba(255, 255, 255)", borderRadius: "3px", margin: "3px 0" }}>
-                                    <div>
-                                        <div className={'menu-row-mini-container'}>
-                                            <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
-                                            {this.props.catchmentLayers?.map(catchment => <MenuRow layer={catchment}/>)}
-                                        </div>
-                                        <div className={'menu-row-mini-container'}>
-                                            <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
-                                            {this.props.nodesLayers?.map(nodes => <MenuRow layer={nodes}/>)}
-                                        </div>
-                                        <div className={'menu-row-mini-container'}>
-                                            <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
-                                            {this.props.linksLayers?.map(links => <MenuRow layer={links}/>)}
-                                        </div>
+                                        {this.props.canEditAnugaMap ?
+                                            <React.Fragment>
+                                                <span
+                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.networkTitle ? "" : " disabled"}`}
+                                                    style={{ color: "limegreen", fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
+                                                    onClick={() => {
+                                                        this.createAndReset(this.props.createNetwork, 'networkTitle');
+                                                        trackEvent('button', 'click', 'anuga-input-menu-create-network');
+                                                    }}
+                                                />
+                                                {this.props.isCreatingAnugaLayer ?
+                                                    <span>
+                                                        <Spinner color="white" style={{display: "inline-block", position: "absolute", right: "45px"}} spinnerName="circle" noFadeIn/>
+                                                    </span> :
+                                                    <input
+                                                        id="network-input"
+                                                        key="network-input"
+                                                        className={'data-title-input'}
+                                                        style={{marginTop: "3px", marginRight: "5px"}}
+                                                        type={'text'}
+                                                        value={this.state.networkTitle}
+                                                        onChange={(e) => this.setState({networkTitle: e.target.value})}
+                                                    />
+                                                }
+                                            </React.Fragment> : null
+                                        }
+                                    </div>
+                                    <div className={'menu-row-mini-container'}>
+                                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
+                                        {this.props.catchmentLayers?.map(catchment => <MenuRow layer={catchment}/>)}
+                                    </div>
+                                    <div className={'menu-row-mini-container'}>
+                                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
+                                        {this.props.nodesLayers?.map(nodes => <MenuRow layer={nodes}/>)}
+                                    </div>
+                                    <div className={'menu-row-mini-container'}>
+                                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
+                                        {this.props.linksLayers?.map(links => <MenuRow layer={links}/>)}
                                     </div>
                                 </div>
                             </div> : null

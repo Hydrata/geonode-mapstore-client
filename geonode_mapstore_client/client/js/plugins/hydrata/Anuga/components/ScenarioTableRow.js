@@ -30,7 +30,8 @@ class ScenarioTableRow extends React.Component {
         setAnugaScenarioMenu: PropTypes.func.isRequired,
         deleteAnugaScenario: PropTypes.func.isRequired,
         cancelAnugaRun: PropTypes.func.isRequired,
-        toggleScenarioSelected: PropTypes.func.isRequired
+        toggleScenarioSelected: PropTypes.func.isRequired,
+        validateScenario: PropTypes.func
     };
 
     handleTextChange = (e) => {

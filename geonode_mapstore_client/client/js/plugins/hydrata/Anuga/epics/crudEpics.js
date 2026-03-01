@@ -41,15 +41,13 @@ import {
     COMPARE_SCENARIOS,
     compareScenariosSuccess,
     UPDATE_ANUGA_RESOURCES,
-    setAnugaResources,
-    fixAnugaGroups
+    setAnugaResources
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE
 } from "../../SimpleView/actionsSimpleView";
 import {getAnugaModels} from "../selectorsAnuga";
 import {resourceError} from "@js/actions/gnresource";
-import {parseDevHostname} from "@js/utils/APIUtils";
 
 // -- Create-resource epics (create + trigger add-layer) --------------------
 
