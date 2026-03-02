@@ -23,7 +23,7 @@ class simpleViewLegend extends React.Component {
     }
 
     componentDidMount() {
-        this.props.searchBarVisible ? this.props.changeActiveSearchTool("coordinatesSearch") : null;
+        this.props.searchBarVisible ? this.props.changeActiveSearchTool("addressSearch") : null;
     }
 
     render() {
