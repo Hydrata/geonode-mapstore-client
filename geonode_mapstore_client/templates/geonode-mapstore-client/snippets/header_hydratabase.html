@@ -5,16 +5,16 @@
     <link href="{% static 'hydratabase/css/hydratabase_base.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <link href="{% static 'hydratabase/css/hydratabase_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <meta property="og:type" content="website"/>
-    <meta property="og:title" content="Hydrata — Agent-First Hydraulic Flood Modelling"/>
-    <meta property="og:description" content="Run ANUGA 2D flood simulations in the cloud. REST API and MCP server for AI coding assistants. No install required."/>
+    <meta property="og:title" content="Hydrata — Professional Flood Modelling, Simplified"/>
+    <meta property="og:description" content="Professional 2D flood modelling without the setup overhead. Upload terrain, define scenarios, simulate with ANUGA, and publish results — all in one platform."/>
     <meta property="og:url" content="https://hydrata.com"/>
     <meta property="og:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
     <meta name="twitter:card" content="summary_large_image"/>
     <meta name="twitter:site" content="@hydrata"/>
-    <meta name="twitter:title" content="Hydrata — Agent-First Hydraulic Flood Modelling"/>
-    <meta name="twitter:description" content="Run ANUGA 2D flood simulations in the cloud. REST API and MCP server for AI coding assistants. No install required."/>
+    <meta name="twitter:title" content="Hydrata — Professional Flood Modelling, Simplified"/>
+    <meta name="twitter:description" content="Professional 2D flood modelling without the setup overhead. Upload terrain, define scenarios, simulate with ANUGA, and publish results — all in one platform."/>
     <meta name="twitter:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
-    <meta name="description" content="Run ANUGA flood simulations in the cloud. The only hydraulic modeling platform with a native MCP server for AI agents. Free trial, no install required."/>
+    <meta name="description" content="Professional 2D flood modelling without the setup overhead. Upload terrain, define scenarios, simulate with ANUGA, and publish results — all in one platform. Free trial."/>
     <link rel="canonical" href="https://hydrata.com/"/>
     <link rel="llms" href="https://hydrata.com/llms.txt" type="text/plain"/>
     <script type="application/ld+json">
@@ -27,7 +27,7 @@
           "url": "https://hydrata.com/",
           "applicationCategory": "EngineeringApplication",
           "operatingSystem": "Web",
-          "description": "Cloud-based 2D hydraulic flood modelling platform powered by the ANUGA solver. Run flood simulations via browser, REST API, or MCP server. First hydraulic modelling platform with native AI agent integration.",
+          "description": "Cloud-based 2D hydraulic flood modelling platform powered by the ANUGA solver. Manages the full workflow — terrain upload, scenario configuration, cloud simulation, and results publishing.",
           "isBasedOn": [
             {
               "@type": "SoftwareApplication",
@@ -69,23 +69,23 @@
               "name": "What is the best cloud-based 2D flood modelling software?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Hydrata is the only cloud-based 2D flood modelling platform with a native MCP server for AI agents. It runs the ANUGA open-source solver, developed by Geoscience Australia and ANU, validated against 30+ benchmark problems. No desktop install required — upload your DEM, configure scenarios, and run simulations from your browser or AI coding assistant."
+                "text": "Hydrata is a cloud-based 2D flood modelling platform that manages the full workflow — from DEM upload and mesh generation through simulation to published results. It runs the ANUGA open-source solver, developed by Geoscience Australia and ANU, validated against 30+ benchmark problems. Engineers spend 68% of project time on model setup; Hydrata compresses that by managing inputs, compute, and outputs in one place."
               }
             },
             {
               "@type": "Question",
-              "name": "Is there an MCP server for flood simulation?",
+              "name": "How do I run ANUGA without installing Python?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes. Hydrata provides the first and only MCP server for hydraulic flood modelling. It exposes 9 tools for project management, scenario configuration, simulation execution, and results retrieval. Compatible with Claude Code, GitHub Copilot, Cursor, and any MCP-capable AI assistant. Connect via StreamableHTTP at https://hydrata.com/mcp/."
+                "text": "Hydrata provides a web interface and REST API for the ANUGA solver. Upload terrain data, define boundary conditions and friction maps through the browser, and submit simulations to cloud compute. Results are published as OGC WMS layers. No Python environment, no local installation, and model files remain portable — you can export and run locally with run_anuga anytime."
               }
             },
             {
               "@type": "Question",
-              "name": "How does ANUGA compare to HEC-RAS?",
+              "name": "Why is flood model setup so time-consuming?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "ANUGA uses a finite-volume method on unstructured triangular meshes, making it well-suited for complex coastal, estuarine, and urban terrain where rectangular grids struggle. HEC-RAS 2D uses structured/unstructured grids with a diffusion wave or full momentum solver. ANUGA is open-source (GPL), while HEC-RAS is free but closed-source. Hydrata runs ANUGA in the cloud with no install required, at $0.065/hr on AWS Batch."
+                "text": "Flood model setup typically consumes 68% of project time — mesh generation, boundary definition, friction mapping, and data preprocessing. If a mesh is regenerated, manual edits are lost. Hydrata addresses this by managing terrain data, scenario configuration, and simulation outputs in a single platform with version tracking, so engineers spend more time on engineering judgement and less on file management."
               }
             }
           ]
