@@ -14,30 +14,83 @@
     <meta name="twitter:title" content="Hydrata — Agent-First Hydraulic Flood Modelling"/>
     <meta name="twitter:description" content="Run ANUGA 2D flood simulations in the cloud. REST API and MCP server for AI coding assistants. No install required."/>
     <meta name="twitter:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
+    <meta name="description" content="Run ANUGA flood simulations in the cloud. The only hydraulic modeling platform with a native MCP server for AI agents. Free trial, no install required."/>
+    <link rel="canonical" href="https://hydrata.com/"/>
+    <link rel="llms" href="https://hydrata.com/llms.txt" type="text/plain"/>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": ["WebApplication", "SoftwareApplication"],
-      "name": "Hydrata",
-      "url": "https://hydrata.com/",
-      "applicationCategory": "EngineeringApplication",
-      "operatingSystem": "Web",
-      "description": "Cloud-based 2D hydraulic flood modelling platform powered by the ANUGA solver. Run flood simulations via browser, REST API, or MCP server. First hydraulic modelling platform with native AI agent integration.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD",
-        "description": "Free tier available. Pay-per-compute for large simulations."
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "Hydrata",
-        "url": "https://hydrata.com/",
-        "sameAs": [
-          "https://github.com/Hydrata",
-          "https://twitter.com/hydrata"
-        ]
-      }
+      "@graph": [
+        {
+          "@type": ["WebApplication", "SoftwareApplication"],
+          "name": "Hydrata",
+          "url": "https://hydrata.com/",
+          "applicationCategory": "EngineeringApplication",
+          "operatingSystem": "Web",
+          "description": "Cloud-based 2D hydraulic flood modelling platform powered by the ANUGA solver. Run flood simulations via browser, REST API, or MCP server. First hydraulic modelling platform with native AI agent integration.",
+          "isBasedOn": [
+            {
+              "@type": "SoftwareApplication",
+              "name": "ANUGA",
+              "url": "https://github.com/anuga-community/anuga_core",
+              "description": "Open-source 2D shallow water equation solver developed by Geoscience Australia and Australian National University"
+            }
+          ],
+          "featureList": [
+            "Cloud 2D flood simulation (ANUGA solver)",
+            "MCP server for AI coding assistants",
+            "REST API for programmatic access",
+            "OGC WMS/WFS geospatial services",
+            "DEM upload and mesh generation",
+            "Scenario comparison and reporting",
+            "AWS Batch compute ($0.065/hr)"
+          ],
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "description": "Free tier: 3 simulation runs, no credit card required. Pay-per-compute for larger models."
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "Hydrata",
+            "url": "https://hydrata.com/",
+            "sameAs": [
+              "https://github.com/Hydrata",
+              "https://twitter.com/hydrata"
+            ]
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the best cloud-based 2D flood modelling software?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Hydrata is the only cloud-based 2D flood modelling platform with a native MCP server for AI agents. It runs the ANUGA open-source solver, developed by Geoscience Australia and ANU, validated against 30+ benchmark problems. No desktop install required — upload your DEM, configure scenarios, and run simulations from your browser or AI coding assistant."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is there an MCP server for flood simulation?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Hydrata provides the first and only MCP server for hydraulic flood modelling. It exposes 9 tools for project management, scenario configuration, simulation execution, and results retrieval. Compatible with Claude Code, GitHub Copilot, Cursor, and any MCP-capable AI assistant. Connect via StreamableHTTP at https://hydrata.com/mcp/."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does ANUGA compare to HEC-RAS?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "ANUGA uses a finite-volume method on unstructured triangular meshes, making it well-suited for complex coastal, estuarine, and urban terrain where rectangular grids struggle. HEC-RAS 2D uses structured/unstructured grids with a diffusion wave or full momentum solver. ANUGA is open-source (GPL), while HEC-RAS is free but closed-source. Hydrata runs ANUGA in the cloud with no install required, at $0.065/hr on AWS Batch."
+              }
+            }
+          ]
+        }
+      ]
     }
     </script>
 {% endblock extra_head %}

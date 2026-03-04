@@ -5,14 +5,19 @@
 <div id="gn-hero" class="gn-hero hydrata-hero-background">
     <div class="jumbotron">
         <div class="gn-hero-description">
-            <h1>Hydrata</h1>
-            <p>{% trans "An online interface to the ANUGA open source hydraulic model." %}</p>
-            <p>{% trans "Collaborative, transparent surface water modelling." %}</p>
+            <h1>Cloud 2D Flood Modelling</h1>
+            <p>{% trans "Run ANUGA simulations from your browser or AI assistant." %}</p>
+            <p>{% trans "The only hydraulic model with a native MCP server." %}</p>
         </div>
         <p class="gn-hero-tools">
+            {% if not user.is_authenticated %}
+            <a href="/account/signup/" class="btn btn-success btn-lg">Get Started Free</a>
+            <a href="/docs/" class="btn btn-default btn-lg" style="margin-left: 10px;">Read the Docs</a>
+            {% endif %}
         </p>
     </div>
 </div>
+
 {% if user.is_authenticated %}
 <div>
     <div class="container text-center hero container-fluid">
@@ -31,6 +36,32 @@
     </div>
 </div>
 {% else %}
+
+<div class="hydrata-trust-bar">
+    <div class="container">
+        <p>Built on <strong>ANUGA</strong> — developed by Geoscience Australia and Australian National University. Validated against 30+ benchmark problems.</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="hydrata-code-block">
+        <div class="hydrata-code-label">Claude Code + Hydrata MCP</div>
+<pre><code><span class="code-comment"># Connect your AI assistant to Hydrata</span>
+<span class="code-prompt">$</span> claude mcp add hydrata https://hydrata.com/mcp/ \
+    --transport streamable-http --header "Authorization: Bearer $HYDRATA_TOKEN"
+
+<span class="code-prompt">></span> Create a flood model for Merewether, NSW using a 5m DEM
+  <span class="code-tool">Tool: create_project</span>("Merewether Flood Study")           <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: upload_dem</span>(project_id=42, file="merewether_5m.tif")  <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: create_scenario</span>(friction=0.03, rainfall="100yr_6hr") <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: run_simulation</span>(scenario_id=87)                      <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: get_results</span>(run_id=201)                             <span class="code-ok">OK</span>
+
+  Simulation complete. Peak depth: 1.42m at outlet.
+  Results: https://hydrata.com/catalogue/merewether-flood-depth-201</code></pre>
+    </div>
+</div>
+
 <div class="container">
     <div id="home-page-forms">
         <div id="home-page-register-form">
@@ -171,21 +202,22 @@
 </div>
 
 <div class="container">
-    <div class="row feature-circles">
-        <div class="col-lg-4">
-            <img class="img-circle" src="{% static 'hydratabase/img/secure.jpg' %}" alt="online" width="140" height="140">
-            <h1 style="font-size: revert">{% trans "Secure" %}</h1>
-            <p class="lead">{% trans "Our web-based permissions system means you can securely share, review, run, and publish models, without installing any software." %}</p>
+    <div class="hydrata-value-cards">
+        <div class="hydrata-value-card">
+            <h3>Agent-Native</h3>
+            <p>HEC-RAS has no MCP server. Hydrata does. Run flood models from Claude Code, Copilot, or Cursor.</p>
         </div>
-        <div class="col-lg-4">
-            <img class="img-circle" src="{% static 'hydratabase/img/growth.jpg' %}" alt="future" width="140" height="140">
-            <h1 style="font-size: revert">{% trans "Open Source" %}</h1>
-            <p class="lead">{% trans "Built on the open-source ANUGA 2d hydraulic model. No licence fees. Run on your servers or buy compute time on ours." %}</p>
+        <div class="hydrata-value-card">
+            <h3>No Install</h3>
+            <p>ANUGA in the cloud. No Python environment, no desktop licence, no IT department approval.</p>
         </div>
-        <div class="col-lg-4">
-            <img class="img-circle" src="{% static 'hydratabase/img/redwood.jpg' %}" alt="agile" width="140" height="140">
-            <h1 style="font-size: revert">{% trans "Robust" %}</h1>
-            <p class="lead">{% trans "Collaborative data creation means models get better with time. No more static PDF going out-of-date at the end of the contract." %}</p>
+        <div class="hydrata-value-card">
+            <h3>Low Cost</h3>
+            <p>AWS Batch at $0.065/hr. Merewether benchmark: $0.017/run. Free tier: 3 runs, no credit card.</p>
+        </div>
+        <div class="hydrata-value-card">
+            <h3>Open Science</h3>
+            <p>Built on ANUGA (GPL). Your model files are portable. No vendor lock-in, no proprietary formats.</p>
         </div>
     </div>
 </div>

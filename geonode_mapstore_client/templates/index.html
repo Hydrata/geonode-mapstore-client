@@ -88,6 +88,8 @@
                 {% block marketing %}
                     {% if job_name == 'swamm' %}
                         {% include './geonode-mapstore-client/snippets/marketing_swamm.html' %}
+                    {% elif job_name == 'hydratabase' %}
+                        {% include './geonode-mapstore-client/snippets/marketing_hydratabase.html' %}
                     {% endif %}
                 {% endblock %}
 

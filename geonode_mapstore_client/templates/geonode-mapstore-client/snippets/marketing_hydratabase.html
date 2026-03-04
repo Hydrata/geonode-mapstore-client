@@ -1,0 +1,101 @@
+{% load static %}
+
+{% if not user.is_authenticated %}
+<div class="container hydrata-marketing">
+
+    <hr class="featurette-divider">
+
+    <div class="hydrata-how-it-works">
+        <h2 class="text-center" style="margin-bottom: 30px;">How It Works</h2>
+        <div class="row">
+            <div class="col-md-4 text-center">
+                <div class="hydrata-step-number">1</div>
+                <h3>Configure</h3>
+                <p>Upload your DEM, define boundary conditions, set friction and rainfall inputs. Or let your AI assistant do it via MCP.</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="hydrata-step-number">2</div>
+                <h3>Simulate</h3>
+                <p>ANUGA runs on AWS Batch. No queue, no desktop licence. Merewether benchmark completes in under 2 minutes.</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="hydrata-step-number">3</div>
+                <h3>Results</h3>
+                <p>Flood depth maps, velocity fields, and extent polygons published as OGC WMS layers. Download or share via URL.</p>
+            </div>
+        </div>
+    </div>
+
+    <hr class="featurette-divider">
+
+    <div class="hydrata-pricing-summary">
+        <h2 class="text-center" style="margin-bottom: 30px;">Pricing</h2>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="hydrata-pricing-card">
+                    <h3>Free</h3>
+                    <p class="hydrata-pricing-price">$0</p>
+                    <ul>
+                        <li>3 simulation runs</li>
+                        <li>No credit card required</li>
+                        <li>Full API and MCP access</li>
+                        <li>Results published as WMS</li>
+                    </ul>
+                    <a href="/account/signup/" class="btn btn-success btn-block">Sign Up Free</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="hydrata-pricing-card hydrata-pricing-featured">
+                    <h3>Pay-as-you-go</h3>
+                    <p class="hydrata-pricing-price">$0.25–0.35/hr</p>
+                    <ul>
+                        <li>Unlimited simulation runs</li>
+                        <li>AWS Batch spot instances</li>
+                        <li>Priority compute queue</li>
+                        <li>Email support</li>
+                    </ul>
+                    <a href="/account/signup/" class="btn btn-success btn-block">Get Started</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="hydrata-pricing-card">
+                    <h3>Team</h3>
+                    <p class="hydrata-pricing-price">Contact us</p>
+                    <ul>
+                        <li>Shared project workspace</li>
+                        <li>Dedicated compute resources</li>
+                        <li>Custom integrations</li>
+                        <li>Priority support</li>
+                    </ul>
+                    <a href="mailto:david.kennewell@hydrata.com" class="btn btn-default btn-block">Contact</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="featurette-divider">
+
+    <div class="hydrata-users-section">
+        <h2 class="text-center" style="margin-bottom: 30px;">Who Uses Hydrata</h2>
+        <div class="row">
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>Consulting Engineers</h4>
+                <p>Run site-specific flood studies without HEC-RAS licences or local compute.</p>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>Government Agencies</h4>
+                <p>Transparent, reproducible flood modelling for planning and regulatory decisions.</p>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>Researchers</h4>
+                <p>ANUGA in the cloud. Focus on science, not infrastructure. Portable model files.</p>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>Development Finance</h4>
+                <p>Accessible 2D flood modelling for project appraisal in data-scarce regions.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endif %}
