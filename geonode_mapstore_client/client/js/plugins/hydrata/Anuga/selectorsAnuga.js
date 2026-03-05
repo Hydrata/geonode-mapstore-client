@@ -1,52 +1,49 @@
+import {createSelector} from 'reselect';
 
 // -- Permission selectors (unchanged — read from gnresource) ----------------
 
-export const canViewAnugaMap = (state) => {
+const getCurrentUserPerm = (state) => {
     const currentUserId = state?.security?.user?.pk;
-    const currentUserPerm = state?.gnresource?.compactPermissions?.users?.filter(user => user.id === currentUserId)[0]?.permissions;
-    return ["view", "edit", "manage", "owner"].includes(currentUserPerm);
+    return state?.gnresource?.compactPermissions?.users?.filter(user => user.id === currentUserId)[0]?.permissions;
 };
 
-export const canEditAnugaMap = (state) => {
-    const currentUserId = state?.security?.user?.pk;
-    const currentUserPerm = state?.gnresource?.compactPermissions?.users?.filter(user => user.id === currentUserId)[0]?.permissions;
-    return ["edit", "manage", "owner"].includes(currentUserPerm);
-};
+export const canViewAnugaMap = (state) =>
+    ["view", "edit", "manage", "owner"].includes(getCurrentUserPerm(state));
 
-export const canManageAnugaMap = (state) => {
-    const currentUserId = state?.security?.user?.pk;
-    const currentUserPerm = state?.gnresource?.compactPermissions?.users?.filter(user => user.id === currentUserId)[0]?.permissions;
-    return ["manage", "owner"].includes(currentUserPerm);
-};
+export const canEditAnugaMap = (state) =>
+    ["edit", "manage", "owner"].includes(getCurrentUserPerm(state));
 
-export const isOwnerAnugaMap = (state) => {
-    const currentUserId = state?.security?.user?.pk;
-    const currentUserPerm = state?.gnresource?.compactPermissions?.users?.filter(user => user.id === currentUserId)[0]?.permissions;
-    return ["owner"].includes(currentUserPerm);
-};
+export const canManageAnugaMap = (state) =>
+    ["manage", "owner"].includes(getCurrentUserPerm(state));
 
-// -- Scenario selectors (normalized byId/allIds) ----------------------------
+export const isOwnerAnugaMap = (state) =>
+    ["owner"].includes(getCurrentUserPerm(state));
+
+// -- Scenario selectors (normalized byId/allIds, memoized) ------------------
+
+const getScenariosByIdRaw = (state) => state?.anuga?.scenarios?.byId || {};
+const getAllIdsRaw = (state) => state?.anuga?.scenarios?.allIds || [];
 
 /**
- * Get all scenarios as a sorted array (by id ascending).
+ * Get all scenarios as a sorted array (by id ascending). Memoized.
  */
-export const getScenariosArray = (state) => {
-    const byId = state?.anuga?.scenarios?.byId || {};
-    const allIds = state?.anuga?.scenarios?.allIds || [];
-    return allIds.map(id => byId[id]).filter(Boolean).sort((a, b) => {
+export const getScenariosArray = createSelector(
+    [getScenariosByIdRaw, getAllIdsRaw],
+    (byId, allIds) => allIds.map(id => byId[id]).filter(Boolean).sort((a, b) => {
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;
-    });
-};
+    })
+);
 
 export const getScenarioById = (state, id) => {
     return state?.anuga?.scenarios?.byId?.[id] || null;
 };
 
-export const selectedScenarios = (state) => {
-    return getScenariosArray(state).filter(scenario => scenario?.selected);
-};
+export const selectedScenarios = createSelector(
+    [getScenariosArray],
+    (scenarios) => scenarios.filter(scenario => scenario?.selected)
+);
 
 export const getSelectedScenario = (state) => {
     const selectedId = state?.anuga?.scenarios?.selectedId;
@@ -56,33 +53,24 @@ export const getSelectedScenario = (state) => {
 
 // -- Resource selectors (read from anuga.resources) -------------------------
 
+const modelTypesToApiName = {
+    elevations: 'elevation',
+    boundaries: 'boundary',
+    frictions: 'friction',
+    inflows: 'inflow',
+    meshRegions: 'mesh-region',
+    structures: 'structure',
+    catchments: 'catchment',
+    nodes: 'nodes',
+    links: 'links'
+};
+const modelTypes = Object.keys(modelTypesToApiName);
+
 export const getAnugaModels = (state) => {
-    const modelTypes = [
-        'elevations',
-        'boundaries',
-        'frictions',
-        'inflows',
-        'meshRegions',
-        'structures',
-        'catchments',
-        'nodes',
-        'links'
-    ];
-    const modelTypesToApiName = {
-        elevations: 'elevation',
-        boundaries: 'boundary',
-        frictions: 'friction',
-        inflows: 'inflow',
-        meshRegions: 'mesh-region',
-        structures: 'structure',
-        catchments: 'catchment',
-        nodes: 'nodes',
-        links: 'links'
-    };
-    let modelsArray = Array();
-    modelTypes.map(anugaModel => {
+    const modelsArray = [];
+    modelTypes.forEach(anugaModel => {
         const items = state?.anuga?.resources?.[anugaModel] || [];
-        items.map(instance => {
+        items.forEach(instance => {
             modelsArray.push({...instance, apiKey: modelTypesToApiName[anugaModel]});
         });
     });

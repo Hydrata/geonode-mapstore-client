@@ -304,11 +304,11 @@ export const pollActiveRunStatusEpic = (action$) =>
             const terminalStates = ['complete', 'error', 'cancelled'];
             return Rx.Observable.timer(0, 3000)
                 .takeUntil(action$.ofType(STOP_ACTIVE_RUN_POLLING).filter(a => a.runId === runId))
-                .switchMap(() =>
+                .exhaustMap(() =>
                     Rx.Observable.from(anugaApi.getRunStatus(runId))
                         .catch(() => Rx.Observable.empty())
                 )
-                .switchMap(response => {
+                .concatMap(response => {
                     const data = response.data;
                     const actions = [
                         updateRunStatus(runId, data)

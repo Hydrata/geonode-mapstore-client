@@ -12,9 +12,6 @@ import {parseDevHostname} from "@js/utils/APIUtils";
 export const getProjectFromMapId = (mapId) =>
     axios.post('/anuga/api/project/get_project_from_map_id/', { mapId });
 
-export const getProject = (projectId) =>
-    axios.get(`/anuga/api/project/${projectId}/`);
-
 export const getProjects = (pageSize = 100, page = 1) =>
     axios.get(parseDevHostname('/anuga/api/project/'), {
         params: { page_size: pageSize, page }
@@ -39,9 +36,6 @@ export const updateResource = (projectId, type, resourceId, data) =>
 
 // -- Scenarios -------------------------------------------------------------
 
-export const getScenarios = (projectId) =>
-    axios.get(`/anuga/api/${projectId}/scenario/`);
-
 export const createScenario = (projectId, scenario) =>
     axios.post(`/anuga/api/${projectId}/scenario/`, scenario);
 
@@ -50,12 +44,6 @@ export const updateScenario = (projectId, scenarioId, scenario) =>
 
 export const deleteScenario = (projectId, scenarioId) =>
     axios.delete(`/anuga/api/${projectId}/scenario/${scenarioId}/`);
-
-export const runScenario = (projectId, scenarioId, data) =>
-    axios.post(`/anuga/api/${projectId}/scenario/${scenarioId}/run/`, data);
-
-export const cancelScenario = (projectId, scenarioId, runId) =>
-    axios.post(`/anuga/api/${projectId}/scenario/${scenarioId}/cancel/`, { runId });
 
 export const compareScenarios = (projectId, scenarios) =>
     axios.post(`/anuga/api/${projectId}/scenario/compare/`, scenarios);

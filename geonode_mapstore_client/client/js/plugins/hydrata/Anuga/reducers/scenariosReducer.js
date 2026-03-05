@@ -31,12 +31,9 @@ const normalizeScenarios = (scenarios) => {
 export default (state = initialState, action) => {
     switch (action.type) {
     case SET_ANUGA_SCENARIO_DATA: {
-        // Initial load — only set if empty (preserve local edits)
-        if (state.allIds.length === 0) {
-            const { byId, allIds } = normalizeScenarios(action.scenarios);
-            return { ...state, byId, allIds };
-        }
-        return state;
+        // Always replace — allows refresh after delete/re-init
+        const { byId, allIds } = normalizeScenarios(action.scenarios);
+        return { ...state, byId, allIds };
     }
     case SET_ANUGA_POLLING_DATA: {
         // Merge backend scenario data into normalized state
@@ -49,7 +46,7 @@ export default (state = initialState, action) => {
                 // Merge: keep local fields (unsaved, selected, tempTimeString), update backend fields
                 newById[backendScenario.id] = {
                     ...existing,
-                    latest_run: { ...backendScenario?.latest_run },
+                    latest_run: backendScenario?.latest_run ?? null,
                     status: backendScenario?.status || 'unsaved',
                     computed_status: backendScenario?.computed_status || backendScenario?.status,
                     latest_run_is_valid: backendScenario?.latest_run_is_valid
@@ -97,6 +94,7 @@ export default (state = initialState, action) => {
         };
     }
     case UPDATE_ANUGA_SCENARIO: {
+        // action.scenario contains the merged fields (action creator spreads kv into it)
         const key = action.scenario.id || action.scenario._tempId;
         if (!key || !state.byId[key]) return state;
         const existing = state.byId[key];
@@ -104,7 +102,7 @@ export default (state = initialState, action) => {
             ...state,
             byId: {
                 ...state.byId,
-                [key]: { ...existing, ...(action.kv || {}), unsaved: true }
+                [key]: { ...existing, ...action.scenario, unsaved: true }
             }
         };
     }

@@ -198,13 +198,13 @@ export const runNetworkEpic = (action$, store) =>
         .concatMap((action) =>
             Rx.Observable.from(
                 anugaApi.runNetwork(getProjectId(store.getState()), action.network.id, action.network)
-                    .then(response => runNetworkSuccess(response.data))
             )
+                .concatMap((response) => Rx.Observable.of(
+                    runNetworkSuccess(response.data),
+                    setNetworkMenu(true)
+                ))
                 .catch(() => Rx.Observable.empty())
-        )
-        .concatMap(() => Rx.Observable.of(
-            setNetworkMenu(true)
-        ));
+        );
 
 // -- Save network (bug #6 fix) ---------------------------------------------
 

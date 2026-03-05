@@ -9,10 +9,10 @@ describe('anugaApi', () => {
     describe('module exports', () => {
         const expectedFunctions = [
             // v1 functions (kept for input-data CRUD)
-            'getProjectFromMapId', 'getProject', 'getProjects',
+            'getProjectFromMapId', 'getProjects',
             'createResource', 'getAvailableLayers', 'getResourceList', 'updateResourceTitle',
-            'getScenarios', 'createScenario', 'updateScenario', 'deleteScenario',
-            'runScenario', 'cancelScenario', 'compareScenarios',
+            'createScenario', 'updateScenario', 'deleteScenario',
+            'compareScenarios',
             'runNetwork',
             'getComputeInstances',
             'createFigure',
@@ -31,11 +31,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 29 API functions', () => {
+        it('should export exactly 25 API functions', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(29);
+            expect(exportedFunctions.length).toBe(25);
         });
     });
 
@@ -44,10 +44,6 @@ describe('anugaApi', () => {
     describe('function signatures', () => {
         it('getProjectFromMapId takes 1 argument (mapId)', () => {
             expect(anugaApi.getProjectFromMapId.length).toBe(1);
-        });
-
-        it('getProject takes 1 argument (projectId)', () => {
-            expect(anugaApi.getProject.length).toBe(1);
         });
 
         it('getProjects takes 0 required arguments (pageSize, page have defaults)', () => {
@@ -70,10 +66,6 @@ describe('anugaApi', () => {
             expect(anugaApi.updateResourceTitle.length).toBe(4);
         });
 
-        it('getScenarios takes 1 argument (projectId)', () => {
-            expect(anugaApi.getScenarios.length).toBe(1);
-        });
-
         it('createScenario takes 2 arguments (projectId, scenario)', () => {
             expect(anugaApi.createScenario.length).toBe(2);
         });
@@ -84,14 +76,6 @@ describe('anugaApi', () => {
 
         it('deleteScenario takes 2 arguments (projectId, scenarioId)', () => {
             expect(anugaApi.deleteScenario.length).toBe(2);
-        });
-
-        it('runScenario takes 3 arguments (projectId, scenarioId, data)', () => {
-            expect(anugaApi.runScenario.length).toBe(3);
-        });
-
-        it('cancelScenario takes 3 arguments (projectId, scenarioId, runId)', () => {
-            expect(anugaApi.cancelScenario.length).toBe(3);
         });
 
         it('compareScenarios takes 2 arguments (projectId, scenarios)', () => {
@@ -166,7 +150,6 @@ describe('anugaApi', () => {
     describe('API surface coverage', () => {
         it('has project-related functions (v1 + v2)', () => {
             expect(anugaApi.getProjectFromMapId).toExist();
-            expect(anugaApi.getProject).toExist();
             expect(anugaApi.getProjects).toExist();
             expect(anugaApi.getProjectV2).toExist();
             expect(anugaApi.getProjectsV2).toExist();
@@ -181,12 +164,9 @@ describe('anugaApi', () => {
         });
 
         it('has scenario CRUD functions (v1 + v2)', () => {
-            expect(anugaApi.getScenarios).toExist();
             expect(anugaApi.createScenario).toExist();
             expect(anugaApi.updateScenario).toExist();
             expect(anugaApi.deleteScenario).toExist();
-            expect(anugaApi.runScenario).toExist();
-            expect(anugaApi.cancelScenario).toExist();
             expect(anugaApi.compareScenarios).toExist();
             expect(anugaApi.getScenariosV2).toExist();
             expect(anugaApi.createScenarioV2).toExist();

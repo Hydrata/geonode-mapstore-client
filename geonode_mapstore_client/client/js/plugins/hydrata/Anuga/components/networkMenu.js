@@ -66,7 +66,7 @@ class NetworkMenuClass extends React.Component {
                                     {
                                         this.props.networks?.map(network => {
                                             return (
-                                                <tr className={'scenario-table-row'}>
+                                                <tr key={network.id} className={'scenario-table-row'}>
                                                     <td>{network.id}</td>
                                                     <td>
                                                         {network.title}
@@ -83,7 +83,7 @@ class NetworkMenuClass extends React.Component {
                                                             {
                                                                 this.props.elevations?.map((elevation) => {
                                                                     return (
-                                                                        <option
+                                                                        <option key={elevation?.id}
                                                                             value={elevation?.id}>{elevation?.title}</option>
                                                                     );
                                                                 })
@@ -102,7 +102,7 @@ class NetworkMenuClass extends React.Component {
                                                             {
                                                                 this.props.nodes?.map((node) => {
                                                                     return (
-                                                                        <option
+                                                                        <option key={node?.id}
                                                                             value={node?.id}>{node?.title}</option>
                                                                     );
                                                                 })
@@ -121,7 +121,7 @@ class NetworkMenuClass extends React.Component {
                                                             {
                                                                 this.props.links?.map((link) => {
                                                                     return (
-                                                                        <option
+                                                                        <option key={link?.id}
                                                                             value={link?.id}>{link?.title}</option>
                                                                     );
                                                                 })
@@ -150,7 +150,7 @@ class NetworkMenuClass extends React.Component {
                                                             {
                                                                 this.props.inflows?.map((inflow) => {
                                                                     return (
-                                                                        <option
+                                                                        <option key={inflow?.id}
                                                                             value={inflow?.id}>{inflow?.title}</option>
                                                                     );
                                                                 })

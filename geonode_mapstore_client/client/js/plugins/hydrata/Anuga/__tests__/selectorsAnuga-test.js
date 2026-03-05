@@ -7,6 +7,7 @@ import {
     selectedScenarios,
     getAnugaModels,
     getScenariosArray,
+    getScenarioById,
     getSelectedScenario,
     getProjectData,
     getProjectId,
@@ -166,6 +167,25 @@ describe('Anuga Selectors', () => {
         it('should return empty array when no scenarios', () => {
             const state = { anuga: { scenarios: { byId: {}, allIds: [] } } };
             expect(getScenariosArray(state)).toEqual([]);
+        });
+    });
+
+    describe('getScenarioById', () => {
+        it('should return scenario by id', () => {
+            const state = {
+                anuga: {
+                    scenarios: {
+                        byId: { 1: { id: 1, name: 'Test' } },
+                        allIds: [1]
+                    }
+                }
+            };
+            expect(getScenarioById(state, 1).name).toBe('Test');
+        });
+
+        it('should return null for missing id', () => {
+            const state = { anuga: { scenarios: { byId: {}, allIds: [] } } };
+            expect(getScenarioById(state, 999)).toBe(null);
         });
     });
 

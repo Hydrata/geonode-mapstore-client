@@ -38,7 +38,9 @@ import {
     retryAnugaRun,
     cancelAnugaRun,
     RETRY_ANUGA_RUN,
-    CANCEL_ANUGA_RUN
+    CANCEL_ANUGA_RUN,
+    SET_ANUGA_POLLING_DATA,
+    SAVE_ANUGA_SCENARIO_SUCCESS
 } from '../actionsAnuga';
 import {
     START_ACTIVE_RUN_POLLING,
@@ -321,18 +323,17 @@ describe('Anuga Plugin', () => {
             expect(state.scenarios.selectedId).toBe(1);
         });
 
-        it('should handle UPDATE_ANUGA_SCENARIO without mutating action', () => {
+        it('should handle UPDATE_ANUGA_SCENARIO with merged scenario', () => {
             let state = reducer(undefined, {
                 type: SET_ANUGA_SCENARIO_DATA,
                 scenarios: [{ id: 1, name: 'Scenario 1' }, { id: 2, name: 'Scenario 2' }]
             });
 
+            // Action creator merges kv into scenario: { ...scenario, ...kv }
             const originalAction = {
                 type: UPDATE_ANUGA_SCENARIO,
-                scenario: { id: 1 },
-                kv: { name: 'Updated' }
+                scenario: { id: 1, name: 'Updated' }
             };
-            // Freeze the action to detect mutation
             Object.freeze(originalAction);
             Object.freeze(originalAction.scenario);
 
@@ -356,6 +357,86 @@ describe('Anuga Plugin', () => {
             });
             expect(state.scenarios.byId[1].selected).toBe(true);
             expect(state.scenarios.byId[2].selected).toBe(false);
+        });
+    });
+
+    describe('Reducer — scenarios polling merge', () => {
+        it('should merge backend polling data into existing scenarios', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'Scenario 1', unsaved: true, selected: true }]
+            });
+            state = reducer(state, {
+                type: SET_ANUGA_POLLING_DATA,
+                scenarios: [{ id: 1, computed_status: 'computing', latest_run: { id: 10, status: 'computing' } }]
+            });
+            // Backend fields updated
+            expect(state.scenarios.byId[1].computed_status).toBe('computing');
+            expect(state.scenarios.byId[1].latest_run.id).toBe(10);
+            // Local fields preserved
+            expect(state.scenarios.byId[1].unsaved).toBe(true);
+            expect(state.scenarios.byId[1].selected).toBe(true);
+            expect(state.scenarios.byId[1].name).toBe('Scenario 1');
+        });
+
+        it('should add new backend-created scenarios', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'Scenario 1' }]
+            });
+            state = reducer(state, {
+                type: SET_ANUGA_POLLING_DATA,
+                scenarios: [
+                    { id: 1, computed_status: 'built' },
+                    { id: 2, name: 'Copy of Scenario 1', computed_status: 'created' }
+                ]
+            });
+            expect(state.scenarios.allIds).toContain(2);
+            expect(state.scenarios.byId[2].name).toBe('Copy of Scenario 1');
+        });
+
+        it('should set latest_run to null when backend returns null', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, latest_run: { id: 5 } }]
+            });
+            state = reducer(state, {
+                type: SET_ANUGA_POLLING_DATA,
+                scenarios: [{ id: 1, latest_run: null, computed_status: 'created' }]
+            });
+            expect(state.scenarios.byId[1].latest_run).toBe(null);
+        });
+    });
+
+    describe('Reducer — scenarios save success', () => {
+        it('should replace temp scenario with saved ID', () => {
+            let state = reducer(undefined, { type: ADD_ANUGA_SCENARIO });
+            const tempId = state.scenarios.allIds[0];
+            expect(state.scenarios.byId[tempId].id).toBe(null);
+
+            state = reducer(state, {
+                type: SAVE_ANUGA_SCENARIO_SUCCESS,
+                scenario: { id: 42, name: 'Saved Scenario', resolution: 100 }
+            });
+            expect(state.scenarios.byId[42]).toExist();
+            expect(state.scenarios.byId[42].unsaved).toBe(false);
+            expect(state.scenarios.allIds).toContain(42);
+            expect(state.scenarios.byId[tempId]).toNotExist();
+        });
+
+        it('should allow SET_ANUGA_SCENARIO_DATA to refresh after data exists', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'Original' }]
+            });
+            expect(state.scenarios.byId[1].name).toBe('Original');
+
+            // Second dispatch should replace (fix for Critical #1)
+            state = reducer(state, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'Refreshed' }]
+            });
+            expect(state.scenarios.byId[1].name).toBe('Refreshed');
         });
     });
 
