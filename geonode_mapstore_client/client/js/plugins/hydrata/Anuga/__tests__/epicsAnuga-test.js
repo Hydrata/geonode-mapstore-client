@@ -9,10 +9,23 @@ import {
 import {
     INIT_ANUGA,
     START_ANUGA_MODEL_CREATION_POLLING,
-    STOP_ANUGA_MODEL_CREATION_POLLING
+    STOP_ANUGA_MODEL_CREATION_POLLING,
+    CANCEL_ANUGA_RUN,
+    RETRY_ANUGA_RUN,
+    RUN_ANUGA_SCENARIO,
+    SAVE_NETWORK
 } from '../actionsAnuga';
+import {
+    START_ACTIVE_RUN_POLLING
+} from '../actions/pollingActions';
 import { SET_OPEN_MENU_GROUP_ID } from '../../SimpleView/actionsSimpleView';
 import { CREATE_NEW_FEATURE } from '../../../../../MapStore2/web/client/actions/featuregrid';
+import {
+    cancelAnugaRunEpic,
+    retryAnugaRunEpic,
+    runAnugaScenarioEpic,
+    saveNetworkEpic
+} from '../epics/crudEpics';
 
 /**
  * Helper: create a mock action$ observable from an array of actions.
@@ -214,6 +227,100 @@ describe('ANUGA Epics', () => {
             const emitted = [];
 
             prePopulateAnugaFeatureGridWithDefaults(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+    });
+
+    describe('cancelAnugaRunEpic', () => {
+        it('should be a function', () => {
+            expect(typeof cancelAnugaRunEpic).toBe('function');
+        });
+
+        it('should only listen for CANCEL_ANUGA_RUN action type', (done) => {
+            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION', runId: 1 }]);
+            const emitted = [];
+
+            cancelAnugaRunEpic(action$)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+    });
+
+    describe('retryAnugaRunEpic', () => {
+        it('should be a function', () => {
+            expect(typeof retryAnugaRunEpic).toBe('function');
+        });
+
+        it('should only listen for RETRY_ANUGA_RUN action type', (done) => {
+            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION', runId: 1 }]);
+            const emitted = [];
+
+            retryAnugaRunEpic(action$)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+    });
+
+    describe('runAnugaScenarioEpic', () => {
+        it('should be a function', () => {
+            expect(typeof runAnugaScenarioEpic).toBe('function');
+        });
+
+        it('should only listen for RUN_ANUGA_SCENARIO action type', (done) => {
+            const store = {
+                getState: () => ({
+                    anuga: { projects: { data: { id: 1 } } }
+                })
+            };
+            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION' }]);
+            const emitted = [];
+
+            runAnugaScenarioEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+    });
+
+    describe('saveNetworkEpic', () => {
+        it('should be a function', () => {
+            expect(typeof saveNetworkEpic).toBe('function');
+        });
+
+        it('should only listen for SAVE_NETWORK action type', (done) => {
+            const store = {
+                getState: () => ({
+                    anuga: { projects: { data: { id: 1 } } }
+                })
+            };
+            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION' }]);
+            const emitted = [];
+
+            saveNetworkEpic(action$, store)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),

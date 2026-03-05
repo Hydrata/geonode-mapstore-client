@@ -113,7 +113,7 @@ class PublicationPanelClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        publications: state?.anuga?.publications || [],
+        publications: state?.anuga?.resources?.publications || [],
         geonodeUrl: state?.gnsettings?.geonodeUrl
     };
 };

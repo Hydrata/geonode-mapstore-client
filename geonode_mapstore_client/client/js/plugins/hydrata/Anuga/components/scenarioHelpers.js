@@ -37,20 +37,14 @@ export const toHHMM = (secs) => {
 };
 
 export const findScenarioStatus = (scenario) => {
-    if (!scenario?.latest_run_is_valid && scenario.status === 'building server') {
-        return scenario.status;
-    }
-    if (scenario?.latest_run_is_valid || scenario?.latest_run?.status === 'error') {
-        return scenario.latest_run.status;
-    }
-    return scenario.status;
+    return scenario?.computed_status || scenario?.status || 'created';
 };
 
 export const validateScenario = (scenario) => {
     if (!scenario || typeof scenario !== 'object') {
         return false;
     }
-    if (!scenario?.name?.length > 0) {
+    if (!(scenario?.name?.length > 0)) {
         return false;
     }
     if (!scenario?.elevation) {
@@ -59,10 +53,10 @@ export const validateScenario = (scenario) => {
     if (!scenario?.inflow) {
         return false;
     }
-    if (!scenario?.resolution > 0) {
+    if (!(scenario?.resolution > 0)) {
         return false;
     }
-    if (!scenario?.duration > 0) {
+    if (!(scenario?.duration > 0)) {
         return false;
     }
     if (!scenario?.boundary) {

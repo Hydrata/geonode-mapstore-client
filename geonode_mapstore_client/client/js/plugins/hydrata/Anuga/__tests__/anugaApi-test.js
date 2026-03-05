@@ -8,6 +8,7 @@ describe('anugaApi', () => {
 
     describe('module exports', () => {
         const expectedFunctions = [
+            // v1 functions (kept for input-data CRUD)
             'getProjectFromMapId', 'getProject', 'getProjects',
             'createResource', 'getAvailableLayers', 'getResourceList', 'updateResourceTitle',
             'getScenarios', 'createScenario', 'updateScenario', 'deleteScenario',
@@ -15,7 +16,13 @@ describe('anugaApi', () => {
             'runNetwork',
             'getComputeInstances',
             'createFigure',
-            'searchDataset'
+            'searchDataset',
+            // v1 generic PATCH
+            'updateResource',
+            // v2 functions
+            'getProjectV2', 'getProjectsV2',
+            'getScenariosV2', 'createScenarioV2', 'deleteScenarioV2',
+            'startRun', 'cancelRun', 'retryRun', 'getRunStatus', 'getRun'
         ];
 
         expectedFunctions.forEach(name => {
@@ -24,11 +31,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 18 API functions', () => {
+        it('should export exactly 29 API functions', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(18);
+            expect(exportedFunctions.length).toBe(29);
         });
     });
 
@@ -106,15 +113,63 @@ describe('anugaApi', () => {
         it('searchDataset takes 1 argument (datasetName)', () => {
             expect(anugaApi.searchDataset.length).toBe(1);
         });
+
+        // v1 generic PATCH
+        it('updateResource takes 4 arguments (projectId, type, resourceId, data)', () => {
+            expect(anugaApi.updateResource.length).toBe(4);
+        });
+
+        // v2 function signatures
+        it('getProjectV2 takes 1 argument (projectId)', () => {
+            expect(anugaApi.getProjectV2.length).toBe(1);
+        });
+
+        it('getProjectsV2 takes 0 required arguments (defaults)', () => {
+            expect(anugaApi.getProjectsV2.length).toBe(0);
+        });
+
+        it('getScenariosV2 takes 1 argument (projectId)', () => {
+            expect(anugaApi.getScenariosV2.length).toBe(1);
+        });
+
+        it('createScenarioV2 takes 2 arguments (projectId, scenario)', () => {
+            expect(anugaApi.createScenarioV2.length).toBe(2);
+        });
+
+        it('deleteScenarioV2 takes 2 arguments (projectId, scenarioId)', () => {
+            expect(anugaApi.deleteScenarioV2.length).toBe(2);
+        });
+
+        it('startRun takes 1 required argument (scenarioId)', () => {
+            expect(anugaApi.startRun.length).toBe(1);
+        });
+
+        it('cancelRun takes 1 argument (runId)', () => {
+            expect(anugaApi.cancelRun.length).toBe(1);
+        });
+
+        it('retryRun takes 1 argument (runId)', () => {
+            expect(anugaApi.retryRun.length).toBe(1);
+        });
+
+        it('getRunStatus takes 1 argument (runId)', () => {
+            expect(anugaApi.getRunStatus.length).toBe(1);
+        });
+
+        it('getRun takes 1 argument (runId)', () => {
+            expect(anugaApi.getRun.length).toBe(1);
+        });
     });
 
     // -- Grouping sanity checks -------------------------------------------
 
     describe('API surface coverage', () => {
-        it('has project-related functions', () => {
+        it('has project-related functions (v1 + v2)', () => {
             expect(anugaApi.getProjectFromMapId).toExist();
             expect(anugaApi.getProject).toExist();
             expect(anugaApi.getProjects).toExist();
+            expect(anugaApi.getProjectV2).toExist();
+            expect(anugaApi.getProjectsV2).toExist();
         });
 
         it('has generic resource functions', () => {
@@ -122,9 +177,10 @@ describe('anugaApi', () => {
             expect(anugaApi.getAvailableLayers).toExist();
             expect(anugaApi.getResourceList).toExist();
             expect(anugaApi.updateResourceTitle).toExist();
+            expect(anugaApi.updateResource).toExist();
         });
 
-        it('has scenario CRUD functions', () => {
+        it('has scenario CRUD functions (v1 + v2)', () => {
             expect(anugaApi.getScenarios).toExist();
             expect(anugaApi.createScenario).toExist();
             expect(anugaApi.updateScenario).toExist();
@@ -132,6 +188,17 @@ describe('anugaApi', () => {
             expect(anugaApi.runScenario).toExist();
             expect(anugaApi.cancelScenario).toExist();
             expect(anugaApi.compareScenarios).toExist();
+            expect(anugaApi.getScenariosV2).toExist();
+            expect(anugaApi.createScenarioV2).toExist();
+            expect(anugaApi.deleteScenarioV2).toExist();
+        });
+
+        it('has v2 run lifecycle functions', () => {
+            expect(anugaApi.startRun).toExist();
+            expect(anugaApi.cancelRun).toExist();
+            expect(anugaApi.retryRun).toExist();
+            expect(anugaApi.getRunStatus).toExist();
+            expect(anugaApi.getRun).toExist();
         });
 
         it('has compute and publication functions', () => {

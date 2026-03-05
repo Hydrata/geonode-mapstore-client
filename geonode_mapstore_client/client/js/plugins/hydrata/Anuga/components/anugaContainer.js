@@ -184,30 +184,31 @@ class AnugaContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const latestRunIsValid = state?.anuga?.selectedScenario?.latest_run_is_valid;
+    const selectedId = state?.anuga?.scenarios?.selectedId;
+    const selectedScenario = selectedId ? state?.anuga?.scenarios?.byId?.[selectedId] : null;
+    const latestRunIsValid = selectedScenario?.latest_run_is_valid;
     const logText = latestRunIsValid ?
-        state?.anuga?.selectedScenario?.latest_run?.log || '-' :
-        state?.anuga?.selectedScenario?.log || '-';
+        selectedScenario?.latest_run?.log || '-' :
+        selectedScenario?.log || '-';
     return {
         logText: logText,
         gnResourceLoaded: state?.gnresource?.id,
-        isAnugaProject: state?.anuga?.projectData?.id,
-        hasEPSGset: !!state?.anuga?.projectData?.projection,
-        // anugaInputMenuGroupId: state?.layers?.groups?.filter((group) => group.name === "Input Data")?.[0]?.id,
-        showAnugaInputMenu: state?.anuga?.showAnugaInputMenu,
-        showAnugaScenarioMenu: state?.anuga?.showAnugaScenarioMenu,
-        showAnugaResultMenu: state?.anuga?.showAnugaResultMenu,
-        showReviewPanel: state?.anuga?.showReviewPanel,
-        showPublicationPanel: state?.anuga?.showPublicationPanel,
-        isAnugaMenuOpen: state?.anuga?.showAnugaInputMenu || state?.anuga?.showAnugaScenarioMenu || state?.anuga?.showAnugaResultMenu,
+        isAnugaProject: state?.anuga?.projects?.data?.id,
+        hasEPSGset: !!state?.anuga?.projects?.data?.projection,
+        showAnugaInputMenu: state?.anuga?.ui?.showAnugaInputMenu,
+        showAnugaScenarioMenu: state?.anuga?.ui?.showAnugaScenarioMenu,
+        showAnugaResultMenu: state?.anuga?.ui?.showAnugaResultMenu,
+        showReviewPanel: state?.anuga?.ui?.showReviewPanel,
+        showPublicationPanel: state?.anuga?.ui?.showPublicationPanel,
+        isAnugaMenuOpen: state?.anuga?.ui?.showAnugaInputMenu || state?.anuga?.ui?.showAnugaScenarioMenu || state?.anuga?.ui?.showAnugaResultMenu,
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups?.length || 1,
-        showAddAnugaElevationData: state?.anuga?.showAddAnugaElevationData,
-        visibleAnugaScenarioLogId: state?.anuga?.visibleAnugaScenarioLogId,
+        showAddAnugaElevationData: state?.anuga?.ui?.showAddAnugaElevationData,
+        visibleAnugaScenarioLogId: state?.anuga?.ui?.visibleAnugaScenarioLogId,
         visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
-        showNetworkMenu: state?.anuga?.showNetworkMenu,
-        visibleNetworkMenu: state?.anuga?.visibleNetworkMenu,
-        visibleAnugaRunMenu: state?.anuga?.visibleAnugaRunMenu,
+        showNetworkMenu: state?.anuga?.ui?.showNetworkMenu,
+        visibleNetworkMenu: state?.anuga?.ui?.visibleNetworkMenu,
+        visibleAnugaRunMenu: state?.anuga?.ui?.visibleAnugaRunMenu,
         canEditAnugaMap: canEditAnugaMap(state),
         canViewAnugaMap: canViewAnugaMap(state)
     };

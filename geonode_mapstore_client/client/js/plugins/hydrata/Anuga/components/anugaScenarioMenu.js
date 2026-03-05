@@ -8,6 +8,7 @@ import '../../SimpleView/simpleView.css';
 import {
     runAnugaScenario,
     cancelAnugaRun,
+    retryAnugaRun,
     saveAnugaScenario,
     updateAnugaScenario,
     selectAnugaScenario,
@@ -49,6 +50,7 @@ class AnugaScenarioMenuClass extends React.Component {
         addAnugaScenario: PropTypes.func,
         deleteAnugaScenario: PropTypes.func,
         cancelAnugaRun: PropTypes.func,
+        retryAnugaRun: PropTypes.func,
         showAnugaRunMenu: PropTypes.func,
         toggleScenarioSelected: PropTypes.func,
         selectedScenarios: PropTypes.array,
@@ -196,6 +198,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     setAnugaScenarioMenu={this.props.setAnugaScenarioMenu}
                                     deleteAnugaScenario={this.props.deleteAnugaScenario}
                                     cancelAnugaRun={this.props.cancelAnugaRun}
+                                    retryAnugaRun={this.props.retryAnugaRun}
                                     toggleScenarioSelected={this.props.toggleScenarioSelected}
                                     validateScenario={validateScenario}
                                 />
@@ -209,18 +212,24 @@ class AnugaScenarioMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    let scenarios = state?.anuga?.scenarios?.sort((a, b) => a.id - b.id);
+    const byId = state?.anuga?.scenarios?.byId || {};
+    const allIds = state?.anuga?.scenarios?.allIds || [];
+    const scenarios = allIds.map(id => byId[id]).filter(Boolean).sort((a, b) => {
+        const aId = a.id || 0;
+        const bId = b.id || 0;
+        return aId - bId;
+    });
     return {
         scenarios: scenarios,
         selectedScenarios: selectedScenarios(state),
         readyToCompare: selectedScenarios(state).length === 2,
-        boundaries: state?.anuga?.boundaries,
-        elevations: state?.anuga?.elevations,
-        frictions: state?.anuga?.frictions,
-        inflows: state?.anuga?.inflows,
-        structures: state?.anuga?.structures,
-        meshRegions: state?.anuga?.meshRegions,
-        networks: state?.anuga?.networks
+        boundaries: state?.anuga?.resources?.boundaries,
+        elevations: state?.anuga?.resources?.elevations,
+        frictions: state?.anuga?.resources?.frictions,
+        inflows: state?.anuga?.resources?.inflows,
+        structures: state?.anuga?.resources?.structures,
+        meshRegions: state?.anuga?.resources?.meshRegions,
+        networks: state?.anuga?.resources?.networks
     };
 };
 
@@ -236,7 +245,8 @@ const mapDispatchToProps = ( dispatch ) => {
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
-        cancelAnugaRun: (scenario) => dispatch(cancelAnugaRun(scenario)),
+        cancelAnugaRun: (runId) => dispatch(cancelAnugaRun(runId)),
+        retryAnugaRun: (runId) => dispatch(retryAnugaRun(runId)),
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
         toggleScenarioSelected: (scenario) => dispatch(toggleScenarioSelected(scenario)),
         compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios))

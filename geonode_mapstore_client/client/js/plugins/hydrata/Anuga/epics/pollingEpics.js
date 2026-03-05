@@ -58,9 +58,13 @@ import {
     STOP_ANUGA_MODEL_CREATION_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
     STOP_COMPARISON_POLLING,
+    START_ACTIVE_RUN_POLLING,
+    STOP_ACTIVE_RUN_POLLING,
     stopAnugaElevationPolling,
     startAnugaModelCreationPolling,
     startAnugaScenarioPolling,
+    stopActiveRunPolling,
+    updateRunStatus,
     fixAnugaGroups
 } from "../actionsAnuga";
 import {
@@ -69,6 +73,7 @@ import {
     setSvConfig,
     updateUploadStatus
 } from "../../SimpleView/actionsSimpleView";
+import {getProjectId} from "../selectorsAnuga";
 
 const addAnugaLayerFromAvailableResponse = (response, store) => {
     if (response.data?.length === 0) {
@@ -94,8 +99,8 @@ const addAnugaLayerFromAvailableResponse = (response, store) => {
     return Rx.Observable.from(actions);
 };
 
-const endpoints = [
-    {endpoint: 'scenario', action: setAnugaScenarioData},
+// Resource endpoints that stay on v1 (no v2 equivalent)
+const v1ResourceEndpoints = [
     {endpoint: 'boundary', action: setAnugaBoundaryData},
     {endpoint: 'elevation', action: setAnugaElevationData},
     {endpoint: 'inflow', action: setAnugaInflowData},
@@ -111,7 +116,7 @@ const endpoints = [
     {endpoint: 'publication', action: setPublicationData}
 ];
 
-const fetchEndpoint = (endpoint, projectId) => Rx.Observable
+const fetchV1Endpoint = (endpoint, projectId) => Rx.Observable
     .from(anugaApi.getResourceList(projectId, endpoint))
     .catch(() => Rx.Observable.of({data: {}}))
     .switchMap(response => Rx.Observable.of(response.data));
@@ -125,19 +130,32 @@ export const initAnugaEpic = (action$, store) =>
                 .catch(() => Rx.Observable.empty())
         )
         .filter(() => !!store.getState()?.security?.user)
-        .switchMap(response1 =>
-            Rx.Observable.from(anugaApi.getProject(response1.data.projectId))
+        .switchMap(response1 => {
+            const projectId = response1.data.projectId;
+            // Use v2 for project detail
+            return Rx.Observable.from(anugaApi.getProjectV2(projectId))
                 .catch(() => Rx.Observable.empty())
                 .switchMap(response2 => {
-                    const projectId = response1.data.projectId;
-                    const endpointsObservables = endpoints.map(({endpoint, action}) => fetchEndpoint(endpoint, projectId).map(action));
+                    // v2 scenario fetch
+                    const scenariosFetch = Rx.Observable.from(anugaApi.getScenariosV2(projectId))
+                        .catch(() => Rx.Observable.of({data: []}))
+                        .map(resp => setAnugaScenarioData(resp.data));
+
+                    // v1 resource fetches
+                    const resourceObservables = v1ResourceEndpoints.map(
+                        ({endpoint, action}) => fetchV1Endpoint(endpoint, projectId).map(action)
+                    );
+
                     return Rx.Observable.of(
                         setAnugaProjectData(response2.data),
                         fixAnugaGroups(),
-                        setSvConfig(response2.data.simple_view_config)).concat(Rx.Observable.merge(...endpointsObservables),
-                        Rx.Observable.of(startAnugaScenarioPolling()));
-                })
-        );
+                        setSvConfig(response2.data.simple_view_config)
+                    ).concat(
+                        Rx.Observable.merge(scenariosFetch, ...resourceObservables),
+                        Rx.Observable.of(startAnugaScenarioPolling())
+                    );
+                });
+        });
 
 export const pollAnugaModelCreationEpic = (action$) =>
     action$
@@ -168,7 +186,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                 .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable
-                        .from(anugaApi.getAvailableLayers(store.getState()?.anuga?.projectData?.id, 'elevation'))
+                        .from(anugaApi.getAvailableLayers(getProjectId(store.getState()), 'elevation'))
                         .catch(() => Rx.Observable.empty())
                 )
                 .switchMap(response => {
@@ -210,6 +228,9 @@ const isScenarioLoaded = (scenario, state) => {
     return !!depth?.length && !!velocityDepth?.length && !!velocity?.length;
 };
 
+// Bug #5 fix: use v2 getScenariosV2. Polling is still started once per init
+// via startAnugaScenarioPolling in initAnugaEpic — switchMap ensures only one
+// active subscription at a time.
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_SCENARIO_POLLING)
@@ -219,26 +240,22 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
                     Rx.Observable.from(
-                        anugaApi.getScenarios(store.getState()?.anuga?.projectData?.id)
+                        anugaApi.getScenariosV2(getProjectId(store.getState()))
                     )
                         .catch(() => Rx.Observable.empty())
                         .switchMap(response => Rx.Observable
                             .of(setAnugaPollingData(response.data))
                             .switchMap((action) => {
+                                const scenariosById = store.getState()?.anuga?.scenarios?.byId || {};
                                 let backendScenariosToLoadResults = action.scenarios?.filter(scenario =>
-                                    scenario.latest_run?.status === 'complete'
+                                    (scenario.computed_status === 'complete' || scenario.latest_run?.status === 'complete')
                                 );
                                 let scenarioToLoadResults = backendScenariosToLoadResults.filter(scenarioBackend => {
-                                    const scenarioBackendTestResult = store.getState()?.anuga?.scenarios?.filter(scenarioFrontEnd => {
-                                        const frontendMatchesBackend = scenarioFrontEnd?.id === scenarioBackend.id;
-                                        const frontendIsNotLoaded = !scenarioFrontEnd.isLoaded;
-                                        const backendIsNotLoaded = !isScenarioLoaded(scenarioFrontEnd, store.getState());
-                                        if (frontendMatchesBackend && frontendIsNotLoaded && backendIsNotLoaded) {
-                                            return scenarioBackend;
-                                        }
-                                        return null;
-                                    })[0];
-                                    return scenarioBackendTestResult;
+                                    const frontendScenario = scenariosById[scenarioBackend.id];
+                                    if (frontendScenario && !frontendScenario.isLoaded && !isScenarioLoaded(frontendScenario, store.getState())) {
+                                        return true;
+                                    }
+                                    return false;
                                 })[0];
                                 const currentLayerNames = store.getState()?.layers?.flat?.map(layer => layer?.name);
                                 let wmsLayers = store.getState()?.layers?.flat?.filter((l) => l?.type === 'wms' && l?.group !== 'background') || [];
@@ -278,6 +295,31 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                 )
         );
 
+// New: lightweight run-status poller for active runs (3s interval)
+export const pollActiveRunStatusEpic = (action$) =>
+    action$
+        .ofType(START_ACTIVE_RUN_POLLING)
+        .switchMap((action) => {
+            const runId = action.runId;
+            const terminalStates = ['complete', 'error', 'cancelled'];
+            return Rx.Observable.timer(0, 3000)
+                .takeUntil(action$.ofType(STOP_ACTIVE_RUN_POLLING).filter(a => a.runId === runId))
+                .switchMap(() =>
+                    Rx.Observable.from(anugaApi.getRunStatus(runId))
+                        .catch(() => Rx.Observable.empty())
+                )
+                .switchMap(response => {
+                    const data = response.data;
+                    const actions = [
+                        updateRunStatus(runId, data)
+                    ];
+                    if (terminalStates.includes(data?.status)) {
+                        actions.push(stopActiveRunPolling(runId));
+                    }
+                    return Rx.Observable.from(actions);
+                });
+        });
+
 export const pollComparisonEpic = (action$, store) =>
     action$
         .ofType(SET_OPEN_MENU_GROUP_ID)
@@ -298,7 +340,7 @@ const makeAddLayerEpic = (actionType, resourceType) => (action$, store) =>
         .ofType(actionType)
         .switchMap(() =>
             Rx.Observable
-                .from(anugaApi.getAvailableLayers(store.getState()?.anuga?.projectData?.id, resourceType))
+                .from(anugaApi.getAvailableLayers(getProjectId(store.getState()), resourceType))
                 .catch(() => Rx.Observable.empty())
                 .switchMap((response) => addAnugaLayerFromAvailableResponse(response, store))
         );

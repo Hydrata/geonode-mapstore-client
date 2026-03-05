@@ -34,8 +34,20 @@ import {
     toggleScenarioSelected,
     showAnugaScenarioLog,
     showAnugaRunMenu,
-    initAnuga
+    initAnuga,
+    retryAnugaRun,
+    cancelAnugaRun,
+    RETRY_ANUGA_RUN,
+    CANCEL_ANUGA_RUN
 } from '../actionsAnuga';
+import {
+    START_ACTIVE_RUN_POLLING,
+    STOP_ACTIVE_RUN_POLLING,
+    UPDATE_RUN_STATUS,
+    startActiveRunPolling,
+    stopActiveRunPolling,
+    updateRunStatus
+} from '../actions/pollingActions';
 
 describe('Anuga Plugin', () => {
     describe('Action Creators', () => {
@@ -125,210 +137,302 @@ describe('Anuga Plugin', () => {
             expect(action.type).toBe(SHOW_ANUGA_RUN_MENU);
             expect(action.visible).toBe(true);
         });
+
+        it('retryAnugaRun creates correct action', () => {
+            const action = retryAnugaRun(42);
+            expect(action.type).toBe(RETRY_ANUGA_RUN);
+            expect(action.runId).toBe(42);
+        });
+
+        it('cancelAnugaRun creates correct action', () => {
+            const action = cancelAnugaRun(42);
+            expect(action.type).toBe(CANCEL_ANUGA_RUN);
+            expect(action.runId).toBe(42);
+        });
+
+        it('startActiveRunPolling creates correct action', () => {
+            const action = startActiveRunPolling(99);
+            expect(action.type).toBe(START_ACTIVE_RUN_POLLING);
+            expect(action.runId).toBe(99);
+        });
+
+        it('stopActiveRunPolling creates correct action', () => {
+            const action = stopActiveRunPolling(99);
+            expect(action.type).toBe(STOP_ACTIVE_RUN_POLLING);
+            expect(action.runId).toBe(99);
+        });
+
+        it('updateRunStatus creates correct action', () => {
+            const action = updateRunStatus(99, { status: 'computing', progress_pct: 50 });
+            expect(action.type).toBe(UPDATE_RUN_STATUS);
+            expect(action.runId).toBe(99);
+            expect(action.data.status).toBe('computing');
+            expect(action.data.progress_pct).toBe(50);
+        });
     });
 
-    describe('Reducer', () => {
-        const initialState = {
-            showAddAnugaElevationData: false,
-            visibleAnugaScenarioLogId: false,
-            scenarios: []
-        };
-
-        it('should return initial state', () => {
+    describe('Reducer — normalized state shape', () => {
+        it('should return initial combined state', () => {
             const state = reducer(undefined, { type: 'UNKNOWN' });
-            expect(state).toEqual(initialState);
+            // Normalized: projects, scenarios, runs, ui, resources
+            expect(state.projects).toExist();
+            expect(state.scenarios).toExist();
+            expect(state.runs).toExist();
+            expect(state.ui).toExist();
+            expect(state.resources).toExist();
         });
 
-        it('should handle SET_CREATING_ANUGA_LAYER', () => {
-            const state = reducer(initialState, {
-                type: SET_CREATING_ANUGA_LAYER,
-                isCreatingAnugaLayer: true
-            });
-            expect(state.isCreatingAnugaLayer).toBe(true);
+        it('scenarios sub-state has byId and allIds', () => {
+            const state = reducer(undefined, { type: 'UNKNOWN' });
+            expect(state.scenarios.byId).toEqual({});
+            expect(state.scenarios.allIds).toEqual([]);
+            expect(state.scenarios.selectedId).toBe(null);
         });
 
-        it('should handle SET_ANUGA_INPUT_MENU - show input menu', () => {
-            const state = reducer(initialState, {
+        it('runs sub-state has byId and activePolling', () => {
+            const state = reducer(undefined, { type: 'UNKNOWN' });
+            expect(state.runs.byId).toEqual({});
+            expect(state.runs.activePolling).toEqual([]);
+        });
+    });
+
+    describe('Reducer — UI sub-reducer', () => {
+        it('should handle SET_ANUGA_INPUT_MENU', () => {
+            const state = reducer(undefined, {
                 type: SET_ANUGA_INPUT_MENU,
                 visible: true
             });
-            expect(state.showAnugaInputMenu).toBe(true);
-            expect(state.showAnugaScenarioMenu).toBe(false);
-            expect(state.showAnugaResultMenu).toBe(false);
-            expect(state.showNetworkMenu).toBe(false);
+            expect(state.ui.showAnugaInputMenu).toBe(true);
+            expect(state.ui.showAnugaScenarioMenu).toBe(false);
+            expect(state.ui.showAnugaResultMenu).toBe(false);
+            expect(state.ui.showNetworkMenu).toBe(false);
         });
 
-        it('should handle SET_ANUGA_SCENARIO_MENU - show scenario menu', () => {
-            const state = reducer(initialState, {
+        it('should handle SET_ANUGA_SCENARIO_MENU', () => {
+            const state = reducer(undefined, {
                 type: SET_ANUGA_SCENARIO_MENU,
                 visible: true
             });
-            expect(state.showAnugaInputMenu).toBe(false);
-            expect(state.showAnugaScenarioMenu).toBe(true);
-            expect(state.showAnugaResultMenu).toBe(false);
+            expect(state.ui.showAnugaInputMenu).toBe(false);
+            expect(state.ui.showAnugaScenarioMenu).toBe(true);
+            expect(state.ui.showAnugaResultMenu).toBe(false);
         });
 
-        it('should handle SET_ANUGA_RESULT_MENU - show result menu', () => {
-            const state = reducer(initialState, {
+        it('should handle SET_ANUGA_RESULT_MENU', () => {
+            const state = reducer(undefined, {
                 type: SET_ANUGA_RESULT_MENU,
                 visible: true
             });
-            expect(state.showAnugaInputMenu).toBe(false);
-            expect(state.showAnugaScenarioMenu).toBe(false);
-            expect(state.showAnugaResultMenu).toBe(true);
+            expect(state.ui.showAnugaInputMenu).toBe(false);
+            expect(state.ui.showAnugaScenarioMenu).toBe(false);
+            expect(state.ui.showAnugaResultMenu).toBe(true);
         });
 
         it('should handle SET_NETWORK_MENU', () => {
-            const state = reducer(initialState, {
+            const state = reducer(undefined, {
                 type: SET_NETWORK_MENU,
                 visible: true
             });
-            expect(state.showNetworkMenu).toBe(true);
-            expect(state.showAnugaInputMenu).toBe(false);
+            expect(state.ui.showNetworkMenu).toBe(true);
+            expect(state.ui.showAnugaInputMenu).toBe(false);
         });
 
         it('should handle SET_REVIEW_PANEL', () => {
-            const state = reducer(initialState, {
+            const state = reducer(undefined, {
                 type: SET_REVIEW_PANEL,
                 visible: true
             });
-            expect(state.showReviewPanel).toBe(true);
-            expect(state.showAnugaInputMenu).toBe(false);
+            expect(state.ui.showReviewPanel).toBe(true);
+            expect(state.ui.showAnugaInputMenu).toBe(false);
         });
 
         it('should handle SET_PUBLICATION_PANEL', () => {
-            const state = reducer(initialState, {
+            const state = reducer(undefined, {
                 type: SET_PUBLICATION_PANEL,
                 visible: true
             });
-            expect(state.showPublicationPanel).toBe(true);
-            expect(state.showReviewPanel).toBe(false);
+            expect(state.ui.showPublicationPanel).toBe(true);
+            expect(state.ui.showReviewPanel).toBe(false);
         });
 
+        it('should handle SET_CREATING_ANUGA_LAYER', () => {
+            const state = reducer(undefined, {
+                type: SET_CREATING_ANUGA_LAYER,
+                isCreatingAnugaLayer: true
+            });
+            expect(state.ui.isCreatingAnugaLayer).toBe(true);
+        });
+
+        it('should handle SHOW_ANUGA_SCENARIO_LOG', () => {
+            const state = reducer(undefined, {
+                type: SHOW_ANUGA_SCENARIO_LOG,
+                scenarioId: 123
+            });
+            expect(state.ui.visibleAnugaScenarioLogId).toBe(123);
+        });
+
+        it('should handle SHOW_ANUGA_RUN_MENU', () => {
+            const state = reducer(undefined, {
+                type: SHOW_ANUGA_RUN_MENU,
+                visible: true
+            });
+            expect(state.ui.visibleAnugaRunMenu).toBe(true);
+        });
+    });
+
+    describe('Reducer — projects sub-reducer', () => {
         it('should handle SET_ANUGA_PROJECT_DATA', () => {
             const projectData = { id: 1, name: 'Test Project' };
-            const state = reducer(initialState, {
+            const state = reducer(undefined, {
                 type: SET_ANUGA_PROJECT_DATA,
                 data: projectData
             });
-            expect(state.projectData).toEqual(projectData);
+            expect(state.projects.data).toEqual(projectData);
         });
+    });
 
-        it('should handle SET_ANUGA_SCENARIO_DATA with empty scenarios', () => {
+    describe('Reducer — scenarios sub-reducer', () => {
+        it('should handle SET_ANUGA_SCENARIO_DATA', () => {
             const scenarios = [{ id: 1, name: 'Scenario 1' }];
-            const state = reducer(initialState, {
+            const state = reducer(undefined, {
                 type: SET_ANUGA_SCENARIO_DATA,
                 scenarios: scenarios
             });
-            expect(state.scenarios).toEqual(scenarios);
-        });
-
-        it('should handle SET_ANUGA_INFLOW_DATA', () => {
-            const inflows = [{ id: 1, name: 'Inflow 1' }];
-            const state = reducer(initialState, {
-                type: SET_ANUGA_INFLOW_DATA,
-                data: inflows
-            });
-            expect(state.inflows).toEqual(inflows);
-        });
-
-        it('should handle SET_ANUGA_FRICTION_DATA', () => {
-            const frictions = [{ id: 1, name: 'Friction 1' }];
-            const state = reducer(initialState, {
-                type: SET_ANUGA_FRICTION_DATA,
-                data: frictions
-            });
-            expect(state.frictions).toEqual(frictions);
-        });
-
-        it('should handle SET_ANUGA_BOUNDARY_DATA', () => {
-            const boundaries = [{ id: 1, name: 'Boundary 1' }];
-            const state = reducer(initialState, {
-                type: SET_ANUGA_BOUNDARY_DATA,
-                data: boundaries
-            });
-            expect(state.boundaries).toEqual(boundaries);
-        });
-
-        it('should handle SET_ANUGA_ELEVATION_DATA', () => {
-            const elevations = [{ id: 1, name: 'Elevation 1' }];
-            const state = reducer(initialState, {
-                type: SET_ANUGA_ELEVATION_DATA,
-                data: elevations
-            });
-            expect(state.elevations).toEqual(elevations);
+            expect(state.scenarios.byId[1]).toExist();
+            expect(state.scenarios.byId[1].name).toBe('Scenario 1');
+            expect(state.scenarios.allIds).toContain(1);
         });
 
         it('should handle ADD_ANUGA_SCENARIO', () => {
-            const stateWithProject = {
-                ...initialState,
-                projectData: { id: 123 }
-            };
-            const state = reducer(stateWithProject, {
-                type: ADD_ANUGA_SCENARIO
+            // First set up projects.data with an id
+            let state = reducer(undefined, {
+                type: SET_ANUGA_PROJECT_DATA,
+                data: { id: 123 }
             });
-            expect(state.scenarios.length).toBe(1);
-            expect(state.scenarios[0].status).toBe('new');
-            expect(state.scenarios[0].project).toBe(123);
+            state = reducer(state, { type: ADD_ANUGA_SCENARIO });
+            expect(state.scenarios.allIds.length).toBe(1);
+            const newId = state.scenarios.allIds[0];
+            expect(state.scenarios.byId[newId]).toExist();
+            expect(state.scenarios.byId[newId].resolution).toBe(1000);
+            expect(state.scenarios.byId[newId].project).toBe(123);
         });
 
         it('should handle SELECT_ANUGA_SCENARIO', () => {
             const scenario = { id: 1, name: 'Test Scenario' };
-            const state = reducer(initialState, {
+            const state = reducer(undefined, {
                 type: SELECT_ANUGA_SCENARIO,
                 scenario: scenario
             });
-            expect(state.selectedScenarioId).toBe(1);
-            expect(state.selectedScenario).toEqual(scenario);
+            expect(state.scenarios.selectedId).toBe(1);
+        });
+
+        it('should handle UPDATE_ANUGA_SCENARIO without mutating action', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'Scenario 1' }, { id: 2, name: 'Scenario 2' }]
+            });
+
+            const originalAction = {
+                type: UPDATE_ANUGA_SCENARIO,
+                scenario: { id: 1 },
+                kv: { name: 'Updated' }
+            };
+            // Freeze the action to detect mutation
+            Object.freeze(originalAction);
+            Object.freeze(originalAction.scenario);
+
+            state = reducer(state, originalAction);
+            expect(state.scenarios.byId[1].name).toBe('Updated');
+            expect(state.scenarios.byId[1].unsaved).toBe(true);
+            expect(state.scenarios.byId[2].name).toBe('Scenario 2');
         });
 
         it('should handle TOGGLE_SCENARIO_SELECTED', () => {
-            const stateWithScenarios = {
-                ...initialState,
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
                 scenarios: [
                     { id: 1, name: 'Scenario 1', selected: false },
                     { id: 2, name: 'Scenario 2', selected: false }
                 ]
-            };
-            const state = reducer(stateWithScenarios, {
+            });
+            state = reducer(state, {
                 type: TOGGLE_SCENARIO_SELECTED,
-                scenario: { id: 1, name: 'Scenario 1', selected: false }
+                scenario: { id: 1 }
             });
-            expect(state.scenarios[0].selected).toBe(true);
-            expect(state.scenarios[1].selected).toBe(false);
+            expect(state.scenarios.byId[1].selected).toBe(true);
+            expect(state.scenarios.byId[2].selected).toBe(false);
+        });
+    });
+
+    describe('Reducer — resources sub-reducer', () => {
+        it('should handle SET_ANUGA_INFLOW_DATA', () => {
+            const inflows = [{ id: 1, name: 'Inflow 1' }];
+            const state = reducer(undefined, {
+                type: SET_ANUGA_INFLOW_DATA,
+                data: inflows
+            });
+            expect(state.resources.inflows).toEqual(inflows);
         });
 
-        it('should handle UPDATE_ANUGA_SCENARIO', () => {
-            const stateWithScenarios = {
-                ...initialState,
-                scenarios: [
-                    { id: 1, name: 'Scenario 1' },
-                    { id: 2, name: 'Scenario 2' }
-                ]
-            };
-            const state = reducer(stateWithScenarios, {
-                type: UPDATE_ANUGA_SCENARIO,
-                scenario: { id: 1, name: 'Updated Scenario 1' }
+        it('should handle SET_ANUGA_FRICTION_DATA', () => {
+            const frictions = [{ id: 1, name: 'Friction 1' }];
+            const state = reducer(undefined, {
+                type: SET_ANUGA_FRICTION_DATA,
+                data: frictions
             });
-            expect(state.scenarios[0].name).toBe('Updated Scenario 1');
-            expect(state.scenarios[0].unsaved).toBe(true);
-            expect(state.scenarios[1].name).toBe('Scenario 2');
+            expect(state.resources.frictions).toEqual(frictions);
         });
 
-        it('should handle SHOW_ANUGA_SCENARIO_LOG', () => {
-            const state = reducer(initialState, {
-                type: SHOW_ANUGA_SCENARIO_LOG,
-                scenarioId: 123
+        it('should handle SET_ANUGA_BOUNDARY_DATA', () => {
+            const boundaries = [{ id: 1, name: 'Boundary 1' }];
+            const state = reducer(undefined, {
+                type: SET_ANUGA_BOUNDARY_DATA,
+                data: boundaries
             });
-            expect(state.visibleAnugaScenarioLogId).toBe(123);
+            expect(state.resources.boundaries).toEqual(boundaries);
         });
 
-        it('should handle SHOW_ANUGA_RUN_MENU', () => {
-            const state = reducer(initialState, {
-                type: SHOW_ANUGA_RUN_MENU,
-                visible: true
+        it('should handle SET_ANUGA_ELEVATION_DATA', () => {
+            const elevations = [{ id: 1, name: 'Elevation 1' }];
+            const state = reducer(undefined, {
+                type: SET_ANUGA_ELEVATION_DATA,
+                data: elevations
             });
-            expect(state.visibleAnugaRunMenu).toBe(true);
+            expect(state.resources.elevations).toEqual(elevations);
+        });
+    });
+
+    describe('Reducer — runs sub-reducer', () => {
+        it('should handle START_ACTIVE_RUN_POLLING', () => {
+            const state = reducer(undefined, {
+                type: START_ACTIVE_RUN_POLLING,
+                runId: 42
+            });
+            expect(state.runs.activePolling).toContain(42);
+        });
+
+        it('should not duplicate run IDs in activePolling', () => {
+            let state = reducer(undefined, { type: START_ACTIVE_RUN_POLLING, runId: 42 });
+            state = reducer(state, { type: START_ACTIVE_RUN_POLLING, runId: 42 });
+            expect(state.runs.activePolling.length).toBe(1);
+        });
+
+        it('should handle STOP_ACTIVE_RUN_POLLING', () => {
+            let state = reducer(undefined, { type: START_ACTIVE_RUN_POLLING, runId: 42 });
+            state = reducer(state, { type: STOP_ACTIVE_RUN_POLLING, runId: 42 });
+            expect(state.runs.activePolling.length).toBe(0);
+        });
+
+        it('should handle UPDATE_RUN_STATUS', () => {
+            const state = reducer(undefined, {
+                type: UPDATE_RUN_STATUS,
+                runId: 42,
+                data: { status: 'computing', progress_pct: 75, eta_seconds: 120 }
+            });
+            expect(state.runs.byId[42]).toExist();
+            expect(state.runs.byId[42].status).toBe('computing');
+            expect(state.runs.byId[42].progress_pct).toBe(75);
+            expect(state.runs.byId[42].eta_seconds).toBe(120);
         });
     });
 });

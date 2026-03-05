@@ -7,6 +7,7 @@ import {findScenarioStatus, toHHMM, getSecondsFromHHMM} from './scenarioHelpers'
 
 /**
  * Renders a single scenario <tr> with manage/advanced/compare column groups.
+ * Supports 9 state machine states from v2 API.
  */
 class ScenarioTableRow extends React.Component {
     static propTypes = {
@@ -30,6 +31,7 @@ class ScenarioTableRow extends React.Component {
         setAnugaScenarioMenu: PropTypes.func.isRequired,
         deleteAnugaScenario: PropTypes.func.isRequired,
         cancelAnugaRun: PropTypes.func.isRequired,
+        retryAnugaRun: PropTypes.func,
         toggleScenarioSelected: PropTypes.func.isRequired,
         validateScenario: PropTypes.func
     };
@@ -91,6 +93,80 @@ class ScenarioTableRow extends React.Component {
         );
     }
 
+    renderStatusCell() {
+        const {scenario} = this.props;
+        const status = findScenarioStatus(scenario);
+        const latestRun = scenario?.latest_run;
+
+        switch (status) {
+        case 'building':
+            return (
+                <td>
+                    <span className="glyphicon glyphicon-refresh glyphicon-spin" style={{marginRight: 4}} />
+                    <Message msgId="hydrata.anuga.statusBuilding" />
+                </td>
+            );
+        case 'queued':
+            return (
+                <td>
+                    <span className="glyphicon glyphicon-refresh glyphicon-spin" style={{marginRight: 4}} />
+                    <Message msgId="hydrata.anuga.statusQueued" />
+                </td>
+            );
+        case 'computing': {
+            const pct = latestRun?.progress_pct || 0;
+            const eta = latestRun?.eta_seconds;
+            return (
+                <td>
+                    <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
+                        <div style={{flex: 1, height: 8, background: '#444', borderRadius: 4, overflow: 'hidden'}}>
+                            <div style={{width: `${pct}%`, height: '100%', background: '#5cb85c', transition: 'width 0.5s'}} />
+                        </div>
+                        <span style={{fontSize: 10, minWidth: 32}}>{Math.round(pct)}%</span>
+                        {eta ? <span style={{fontSize: 10, color: '#888'}}>{Math.ceil(eta / 60)}m</span> : null}
+                    </div>
+                </td>
+            );
+        }
+        case 'processing':
+            return (
+                <td>
+                    <span className="glyphicon glyphicon-refresh glyphicon-spin" style={{marginRight: 4}} />
+                    <Message msgId="hydrata.anuga.statusProcessing" />
+                </td>
+            );
+        case 'complete':
+            return (
+                <td style={{color: '#5cb85c'}}>
+                    <span className="glyphicon glyphicon-ok" style={{marginRight: 4}} />
+                    <Message msgId="hydrata.anuga.statusComplete" />
+                </td>
+            );
+        case 'error':
+            return (
+                <td style={{color: '#d9534f'}}>
+                    <Message msgId="hydrata.anuga.statusError" />
+                    {latestRun?.error_message ?
+                        <span title={latestRun.error_message} style={{fontSize: 10, marginLeft: 4}}>
+                            {latestRun.error_message.substring(0, 30)}{latestRun.error_message.length > 30 ? '...' : ''}
+                        </span> : null
+                    }
+                </td>
+            );
+        case 'cancelled':
+            return (
+                <td style={{color: '#888'}}>
+                    <Message msgId="hydrata.anuga.statusCancelled" />
+                </td>
+            );
+        case 'built':
+            return (<td><Message msgId="hydrata.anuga.statusBuilt" /></td>);
+        case 'created':
+        default:
+            return (<td>{status}</td>);
+        }
+    }
+
     renderRunButton() {
         const {scenario} = this.props;
         const status = findScenarioStatus(scenario);
@@ -121,6 +197,49 @@ class ScenarioTableRow extends React.Component {
                     <span className="glyphicon glyphicon-download" aria-hidden="true" />
                 </Button>
             );
+        case 'error':
+            return (
+                <Button
+                    bsStyle={'warning'} bsSize={'xsmall'}
+                    style={{margin: "2px", borderRadius: "2px"}}
+                    onClick={() => {
+                        if (scenario?.latest_run?.id && this.props.retryAnugaRun) {
+                            this.props.retryAnugaRun(scenario.latest_run.id);
+                        }
+                        trackEvent('button', 'click', 'anuga-scenario-menu-retry');
+                    }}
+                >
+                    <Message msgId="hydrata.anuga.retry" />
+                </Button>
+            );
+        case 'cancelled':
+            return (
+                <Button
+                    bsStyle={'success'} bsSize={'xsmall'}
+                    style={{margin: "2px", borderRadius: "2px"}}
+                    onClick={() => {
+                        this.props.setAnugaScenarioMenu(false);
+                        this.props.selectAnugaScenario(scenario);
+                        this.props.showAnugaRunMenu(true);
+                        trackEvent('button', 'click', 'anuga-scenario-menu-rerun');
+                    }}
+                >
+                    <Message msgId="hydrata.anuga.run" />
+                </Button>
+            );
+        case 'queued':
+        case 'computing':
+        case 'processing':
+        case 'building':
+            return (
+                <Button
+                    bsStyle={'success'} bsSize={'xsmall'}
+                    className={'disabled'}
+                    style={{margin: "2px", borderRadius: "2px"}}
+                >
+                    <span className="glyphicon glyphicon-refresh glyphicon-spin" aria-hidden="true" />
+                </Button>
+            );
         default:
             return (
                 <Button
@@ -141,6 +260,8 @@ class ScenarioTableRow extends React.Component {
         const showAdvanced = scenarioTableTabs?.includes('advanced');
         const showCompare = scenarioTableTabs?.includes('compare');
         const isUnsaved = scenario.unsaved;
+        const status = findScenarioStatus(scenario);
+        const isCancellable = ['queued', 'computing', 'building'].includes(status);
 
         return (
             <tr className={'scenario-table-row'}>
@@ -207,7 +328,7 @@ class ScenarioTableRow extends React.Component {
                                 onBlur={this.handleTimeBlur}
                             />
                         </td>
-                        <td>{findScenarioStatus(scenario)}</td>
+                        {this.renderStatusCell()}
                         <td>
                             <Button
                                 bsStyle={'success'} bsSize={'xsmall'}
@@ -243,12 +364,12 @@ class ScenarioTableRow extends React.Component {
                                 bsStyle={'danger'} bsSize={'xsmall'}
                                 style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
                                 onClick={
-                                    findScenarioStatus(scenario)?.includes?.('%') ?
+                                    isCancellable ?
                                         () => {
                                             trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
                                             if (confirm('Cancel Run?')) {
                                                 trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run-confirm');
-                                                this.props.cancelAnugaRun(scenario);
+                                                this.props.cancelAnugaRun(scenario?.latest_run?.id);
                                             }
                                         } :
                                         () => {
@@ -260,7 +381,7 @@ class ScenarioTableRow extends React.Component {
                                         }
                                 }
                             >
-                                <span className="glyphicon glyphicon-trash" aria-hidden="true" />
+                                <span className={isCancellable ? "glyphicon glyphicon-ban-circle" : "glyphicon glyphicon-trash"} aria-hidden="true" />
                             </Button>
                         </td>
                     </React.Fragment> : null

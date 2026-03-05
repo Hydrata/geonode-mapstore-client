@@ -34,7 +34,7 @@ class AnugaRunMenuClass extends React.Component {
 
     constructor(props) {
         super(props);
-        this.state = {};
+        this.state = { computeBackend: 'local' };
     }
 
     componentDidMount() {
@@ -60,7 +60,7 @@ class AnugaRunMenuClass extends React.Component {
                                 <thead>
                                     <tr className={"run-server-table-header"}>
                                         <th style={{width: "200px", textAlign: "left"}}><Message msgId="hydrata.anuga.runScenario" /></th>
-                                        <th style={{width: "100px"}}><Message msgId="hydrata.anuga.availableHours" /></th>
+                                        <th style={{width: "120px"}}><Message msgId="hydrata.anuga.computeBackend" /></th>
                                         <th style={{width: "80px"}}><Message msgId="hydrata.anuga.run" /></th>
                                         <th style={{width: "80px"}}><Message msgId="hydrata.anuga.download" /></th>
                                     </tr>
@@ -68,14 +68,24 @@ class AnugaRunMenuClass extends React.Component {
                                 <tbody>
                                     <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
                                         <td style={{'textAlign': 'left'}}>{this.props.selectedScenario.name}</td>
-                                        <td>200</td>
+                                        <td>
+                                            <select
+                                                className={'scenario-select'}
+                                                value={this.state.computeBackend}
+                                                onChange={(e) => this.setState({computeBackend: e.target.value})}
+                                            >
+                                                <option value="local">Local</option>
+                                                <option value="ec2">EC2</option>
+                                                <option value="batch">AWS Batch</option>
+                                            </select>
+                                        </td>
                                         <td>
                                             <Button
                                                 bsStyle={'success'}
                                                 bsSize={'xsmall'}
                                                 style={{margin: "2px", borderRadius: "2px"}}
                                                 onClick={() => {
-                                                    this.props.runAnugaScenario(this.props.selectedScenario, 0);
+                                                    this.props.runAnugaScenario(this.props.selectedScenario, this.state.computeBackend);
                                                     this.props.showAnugaRunMenu(false);
                                                     this.props.showAnugaScenarioLog(this.props.selectedScenario.id);
                                                     this.props.setAnugaScenarioMenu(true);
@@ -123,9 +133,11 @@ class AnugaRunMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    const selectedId = state?.anuga?.scenarios?.selectedId;
+    const selectedScenario = selectedId ? state?.anuga?.scenarios?.byId?.[selectedId] : null;
     return {
-        selectedScenario: state?.anuga?.selectedScenario,
-        computeInstances: state?.anuga?.computeInstances
+        selectedScenario: selectedScenario || {},
+        computeInstances: state?.anuga?.resources?.computeInstances
     };
 };
 
@@ -133,7 +145,7 @@ const mapDispatchToProps = ( dispatch ) => {
     return {
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
         updateComputeInstance: () => dispatch(updateComputeInstance()),
-        runAnugaScenario: (scenario, instanceId) => dispatch(runAnugaScenario(scenario, instanceId)),
+        runAnugaScenario: (scenario, computeBackend) => dispatch(runAnugaScenario(scenario, computeBackend)),
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),
         showManageAccount: (visible) => dispatch(showManageAccount(visible))

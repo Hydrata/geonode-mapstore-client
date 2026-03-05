@@ -34,6 +34,9 @@ export const getResourceList = (projectId, type) =>
 export const updateResourceTitle = (projectId, type, resourceId, title) =>
     axios.patch(`/anuga/api/${projectId}/${type}/${resourceId}/`, { title });
 
+export const updateResource = (projectId, type, resourceId, data) =>
+    axios.patch(`/anuga/api/${projectId}/${type}/${resourceId}/`, data);
+
 // -- Scenarios -------------------------------------------------------------
 
 export const getScenarios = (projectId) =>
@@ -76,3 +79,39 @@ export const createFigure = (projectId, publicationId, title) =>
 
 export const searchDataset = (datasetName) =>
     axios.get(`/api/v2/datasets?search=${datasetName}&search_fields=name`);
+
+// -- v2 Project -----------------------------------------------------------
+
+export const getProjectV2 = (projectId) =>
+    axios.get(`/api/v2/anuga/projects/${projectId}/`);
+
+export const getProjectsV2 = (pageSize = 100, page = 1) =>
+    axios.get('/api/v2/anuga/projects/', { params: { page_size: pageSize, page } });
+
+// -- v2 Scenarios ---------------------------------------------------------
+
+export const getScenariosV2 = (projectId) =>
+    axios.get(`/api/v2/anuga/projects/${projectId}/scenarios/`);
+
+export const createScenarioV2 = (projectId, scenario) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/scenarios/`, scenario);
+
+export const deleteScenarioV2 = (projectId, scenarioId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/`);
+
+// -- v2 Run lifecycle -----------------------------------------------------
+
+export const startRun = (scenarioId, computeBackend = 'local') =>
+    axios.post(`/api/v2/anuga/scenarios/${scenarioId}/run/`, { compute_backend: computeBackend });
+
+export const cancelRun = (runId) =>
+    axios.post(`/api/v2/anuga/runs/${runId}/cancel/`);
+
+export const retryRun = (runId) =>
+    axios.post(`/api/v2/anuga/runs/${runId}/retry/`);
+
+export const getRunStatus = (runId) =>
+    axios.get(`/api/v2/anuga/runs/${runId}/status/`);
+
+export const getRun = (runId) =>
+    axios.get(`/api/v2/anuga/runs/${runId}/`);

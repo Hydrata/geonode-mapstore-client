@@ -33,10 +33,49 @@ describe('Anuga i18n', () => {
         const epicMsgIds = [
             'hydrata.anuga.newLayersMessage',
             'hydrata.anuga.newLayersTitle',
-            'hydrata.anuga.cancelling'
+            'hydrata.anuga.cancelling',
+            'hydrata.anuga.cancelled',
+            'hydrata.anuga.cancelError',
+            'hydrata.anuga.retrySuccess',
+            'hydrata.anuga.retryError',
+            'hydrata.anuga.networkSaved',
+            'hydrata.anuga.networkSaveError'
         ];
         epicMsgIds.forEach(msgId => {
             expect(enMessages[msgId]).toExist(`Missing epic msgId: ${msgId}`);
+        });
+    });
+
+    it('v2 state machine status keys exist', () => {
+        const statusKeys = [
+            'hydrata.anuga.statusCreated',
+            'hydrata.anuga.statusBuilding',
+            'hydrata.anuga.statusBuilt',
+            'hydrata.anuga.statusQueued',
+            'hydrata.anuga.statusComputing',
+            'hydrata.anuga.statusProcessing',
+            'hydrata.anuga.statusComplete',
+            'hydrata.anuga.statusError',
+            'hydrata.anuga.statusCancelled'
+        ];
+        statusKeys.forEach(key => {
+            expect(enMessages[key]).toExist(`Missing status key: ${key}`);
+            expect(enMessages[key].length).toBeGreaterThan(0, `Empty value for status key: ${key}`);
+        });
+    });
+
+    it('run lifecycle keys exist', () => {
+        const runKeys = [
+            'hydrata.anuga.retry',
+            'hydrata.anuga.cancel',
+            'hydrata.anuga.save',
+            'hydrata.anuga.computeBackend',
+            'hydrata.anuga.computeLocal',
+            'hydrata.anuga.computeEc2',
+            'hydrata.anuga.computeBatch'
+        ];
+        runKeys.forEach(key => {
+            expect(enMessages[key]).toExist(`Missing run lifecycle key: ${key}`);
         });
     });
 

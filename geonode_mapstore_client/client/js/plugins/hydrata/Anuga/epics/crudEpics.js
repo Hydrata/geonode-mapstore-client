@@ -13,6 +13,8 @@ import {
     addNodes,
     addLinks,
     CANCEL_ANUGA_RUN,
+    RETRY_ANUGA_RUN,
+    SAVE_NETWORK,
     CREATE_ANUGA_BOUNDARY,
     CREATE_ANUGA_FRICTION,
     CREATE_ANUGA_INFLOW,
@@ -41,12 +43,13 @@ import {
     COMPARE_SCENARIOS,
     compareScenariosSuccess,
     UPDATE_ANUGA_RESOURCES,
-    setAnugaResources
+    setAnugaResources,
+    startActiveRunPolling
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE
 } from "../../SimpleView/actionsSimpleView";
-import {getAnugaModels} from "../selectorsAnuga";
+import {getAnugaModels, getProjectId} from "../selectorsAnuga";
 import {resourceError} from "@js/actions/gnresource";
 
 // -- Create-resource epics (create + trigger add-layer) --------------------
@@ -57,10 +60,10 @@ const makeCreateEpic = (actionType, resourceType, titleKey, addAction) => (actio
         .switchMap((action) =>
             Rx.Observable
                 .from(anugaApi.createResource(
-                    store.getState()?.anuga?.projectData?.id,
+                    getProjectId(store.getState()),
                     resourceType,
                     {
-                        project: store.getState()?.anuga?.projectData?.id,
+                        project: getProjectId(store.getState()),
                         title: action[titleKey]
                     }
                 ))
@@ -84,57 +87,93 @@ export const deleteAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(DELETE_ANUGA_SCENARIO)
         .concatMap((action) =>
-            Rx.Observable.from(anugaApi.deleteScenario(store.getState()?.anuga?.projectData?.id, action.scenario.id))
+            Rx.Observable.from(
+                anugaApi.deleteScenarioV2(getProjectId(store.getState()), action.scenario.id)
+            )
                 .catch(() => Rx.Observable.empty())
-        )
-        .concatMap((response) => Rx.Observable.of(deleteAnugaScenarioSuccess(response.data)));
+                .concatMap((response) => Rx.Observable.of(deleteAnugaScenarioSuccess(response.data)))
+        );
 
+// Bug #2 fix: restructured so runAnugaScenarioSuccess dispatch is emitted
+// into the observable chain (previously swallowed by .then inside .concatMap)
 export const runAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
         .concatMap((action) =>
             Rx.Observable.from(
-                anugaApi.runScenario(store.getState()?.anuga?.projectData?.id, action.scenario.id, action)
-                    .then(response => runAnugaScenarioSuccess(response.data))
+                anugaApi.startRun(action.scenario.id, action.computeBackend)
             )
+                .concatMap((response) => {
+                    const runId = response?.data?.id;
+                    return Rx.Observable.of(
+                        runAnugaScenarioSuccess(response.data),
+                        setAnugaScenarioMenu(true),
+                        ...(runId ? [startActiveRunPolling(runId)] : [])
+                    );
+                })
                 .catch(() => Rx.Observable.empty())
-        )
-        .concatMap(() => Rx.Observable.of(
-            setAnugaScenarioMenu(true)
-        ));
+        );
 
-export const cancelAnugaRunEpic = (action$, store) =>
+// Bug #1 fix: removed the spurious runScenario call before cancel.
+// Now calls cancelRun(runId) directly.
+export const cancelAnugaRunEpic = (action$) =>
     action$
         .ofType(CANCEL_ANUGA_RUN)
-        .concatMap((action) => {
-            const projectId = store.getState()?.anuga?.projectData?.id;
-            const scenarioId = action.scenario.id;
-            const runId = action.scenario.latest_run.id;
-            return Rx.Observable.from(
-                anugaApi.runScenario(projectId, scenarioId, action)
+        .concatMap((action) =>
+            Rx.Observable.from(
+                anugaApi.cancelRun(action.runId)
             )
-                .concatMap(() => Rx.Observable.from(
-                    anugaApi.cancelScenario(projectId, scenarioId, runId)
+                .concatMap(() => Rx.Observable.of(
+                    show({"message": "hydrata.anuga.cancelled"}, "info")
                 ))
-                .concatMap(() => Rx.Observable.of(show({"message": "hydrata.anuga.cancelling"}, "warning")))
-                .catch(() => Rx.Observable.empty());
-        });
+                .catch((error) => {
+                    // 409 = already terminal — show info instead of error
+                    if (error?.response?.status === 409) {
+                        return Rx.Observable.of(
+                            show({"message": "hydrata.anuga.cancelError"}, "warning")
+                        );
+                    }
+                    return Rx.Observable.empty();
+                })
+        );
+
+// New: retry a failed run
+export const retryAnugaRunEpic = (action$) =>
+    action$
+        .ofType(RETRY_ANUGA_RUN)
+        .concatMap((action) =>
+            Rx.Observable.from(
+                anugaApi.retryRun(action.runId)
+            )
+                .concatMap((response) => {
+                    const runId = response?.data?.id;
+                    return Rx.Observable.of(
+                        show({"message": "hydrata.anuga.retrySuccess"}, "success"),
+                        ...(runId ? [startActiveRunPolling(runId)] : [])
+                    );
+                })
+                .catch(() => Rx.Observable.of(
+                    show({"message": "hydrata.anuga.retryError"}, "error")
+                ))
+        );
 
 export const saveAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(SAVE_ANUGA_SCENARIO)
         .switchMap((action) => {
             const scenario = {...action.scenario, log: action.scenario.log || 'anuga log'};
-            const projectId = store.getState()?.anuga?.projectData?.id;
+            const projectId = getProjectId(store.getState());
             if (scenario.id) {
+                // Existing scenario — keep v1 update (v2 has no update endpoint)
                 return Rx.Observable.from(
                     anugaApi.updateScenario(projectId, scenario.id, scenario)
                         .then(response => saveAnugaScenarioSuccess(response.data))
                         .catch(error => saveAnugaScenarioError(error))
                 );
             }
+            // New scenario — use v2 create
             return Rx.Observable.from(
-                anugaApi.createScenario(projectId, scenario)
+                anugaApi.createScenarioV2(projectId, scenario)
                     .then(response => saveAnugaScenarioSuccess(response.data))
                     .catch(error => saveAnugaScenarioError(error))
             );
@@ -145,7 +184,7 @@ export const compareScenarioEpic = (action$, store) =>
         .ofType(COMPARE_SCENARIOS)
         .concatMap((action) =>
             Rx.Observable.from(
-                anugaApi.compareScenarios(store.getState()?.anuga?.projectData?.id, action.scenarios)
+                anugaApi.compareScenarios(getProjectId(store.getState()), action.scenarios)
                     .then(response => compareScenariosSuccess(response.data))
             )
                 .catch(() => Rx.Observable.empty())
@@ -158,7 +197,7 @@ export const runNetworkEpic = (action$, store) =>
         .ofType(RUN_NETWORK)
         .concatMap((action) =>
             Rx.Observable.from(
-                anugaApi.runNetwork(store.getState()?.anuga?.projectData?.id, action.network.id, action.network)
+                anugaApi.runNetwork(getProjectId(store.getState()), action.network.id, action.network)
                     .then(response => runNetworkSuccess(response.data))
             )
                 .catch(() => Rx.Observable.empty())
@@ -167,6 +206,26 @@ export const runNetworkEpic = (action$, store) =>
             setNetworkMenu(true)
         ));
 
+// -- Save network (bug #6 fix) ---------------------------------------------
+
+export const saveNetworkEpic = (action$, store) =>
+    action$
+        .ofType(SAVE_NETWORK)
+        .switchMap((action) => {
+            const projectId = getProjectId(store.getState());
+            const network = action.network;
+            return Rx.Observable.from(
+                anugaApi.updateResource(projectId, 'network', network.id, network)
+            )
+                .concatMap(() => Rx.Observable.of(
+                    show({"message": "hydrata.anuga.networkSaved"}, "success"),
+                    initAnuga()
+                ))
+                .catch(() => Rx.Observable.of(
+                    show({"message": "hydrata.anuga.networkSaveError"}, "error")
+                ));
+        });
+
 // -- Compute instances -----------------------------------------------------
 
 export const updateComputeInstanceEpic = (action$, store) =>
@@ -174,7 +233,7 @@ export const updateComputeInstanceEpic = (action$, store) =>
         .ofType(UPDATE_COMPUTE_INSTANCE)
         .switchMap(() =>
             Rx.Observable
-                .from(anugaApi.getComputeInstances(store.getState()?.anuga?.projectData?.id))
+                .from(anugaApi.getComputeInstances(getProjectId(store.getState())))
                 .catch(() => Rx.Observable.empty())
                 .switchMap((response) => Rx.Observable.of(updateComputeInstanceSuccess(response.data)))
         );
@@ -186,7 +245,7 @@ export const createFigureEpic = (action$, store) =>
         .ofType(CREATE_FIGURE)
         .switchMap((action) =>
             Rx.Observable
-                .from(anugaApi.createFigure(store.getState()?.anuga?.projectData?.id, action.publicationId, action.figureTitle))
+                .from(anugaApi.createFigure(getProjectId(store.getState()), action.publicationId, action.figureTitle))
                 .catch(() => Rx.Observable.empty())
         )
         .switchMap((response) => {
@@ -249,7 +308,7 @@ export const updateAnugaModelTitle = (action$, store) =>
                     const anugaModel = anugaModels.filter(model => model.gn_layer === gnLayerPk)?.[0];
                     return Rx.Observable
                         .from(anugaApi.updateResourceTitle(
-                            store.getState()?.anuga?.projectData?.id,
+                            getProjectId(store.getState()),
                             anugaModel.apiKey,
                             anugaModel.id,
                             action.newTitle

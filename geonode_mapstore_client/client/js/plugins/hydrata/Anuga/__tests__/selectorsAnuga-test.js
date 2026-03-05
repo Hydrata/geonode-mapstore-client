@@ -5,7 +5,12 @@ import {
     canManageAnugaMap,
     isOwnerAnugaMap,
     selectedScenarios,
-    getAnugaModels
+    getAnugaModels,
+    getScenariosArray,
+    getSelectedScenario,
+    getProjectData,
+    getProjectId,
+    getActiveRuns
 } from '../selectorsAnuga';
 
 describe('Anuga Selectors', () => {
@@ -96,14 +101,17 @@ describe('Anuga Selectors', () => {
         });
     });
 
-    describe('selectedScenarios', () => {
+    describe('selectedScenarios (normalized state)', () => {
         it('should return empty array when no scenarios are selected', () => {
             const state = {
                 anuga: {
-                    scenarios: [
-                        { id: 1, selected: false },
-                        { id: 2, selected: false }
-                    ]
+                    scenarios: {
+                        byId: {
+                            1: { id: 1, selected: false },
+                            2: { id: 2, selected: false }
+                        },
+                        allIds: [1, 2]
+                    }
                 }
             };
             expect(selectedScenarios(state)).toEqual([]);
@@ -112,11 +120,14 @@ describe('Anuga Selectors', () => {
         it('should return only selected scenarios', () => {
             const state = {
                 anuga: {
-                    scenarios: [
-                        { id: 1, selected: true },
-                        { id: 2, selected: false },
-                        { id: 3, selected: true }
-                    ]
+                    scenarios: {
+                        byId: {
+                            1: { id: 1, selected: true },
+                            2: { id: 2, selected: false },
+                            3: { id: 3, selected: true }
+                        },
+                        allIds: [1, 2, 3]
+                    }
                 }
             };
             const result = selectedScenarios(state);
@@ -127,23 +138,121 @@ describe('Anuga Selectors', () => {
 
         it('should handle undefined anuga state', () => {
             const state = {};
-            expect(selectedScenarios(state)).toBe(undefined);
+            expect(selectedScenarios(state)).toEqual([]);
         });
     });
 
-    describe('getAnugaModels', () => {
+    describe('getScenariosArray', () => {
+        it('should return sorted array from normalized state', () => {
+            const state = {
+                anuga: {
+                    scenarios: {
+                        byId: {
+                            3: { id: 3, name: 'C' },
+                            1: { id: 1, name: 'A' },
+                            2: { id: 2, name: 'B' }
+                        },
+                        allIds: [3, 1, 2]
+                    }
+                }
+            };
+            const result = getScenariosArray(state);
+            expect(result.length).toBe(3);
+            expect(result[0].id).toBe(1);
+            expect(result[1].id).toBe(2);
+            expect(result[2].id).toBe(3);
+        });
+
+        it('should return empty array when no scenarios', () => {
+            const state = { anuga: { scenarios: { byId: {}, allIds: [] } } };
+            expect(getScenariosArray(state)).toEqual([]);
+        });
+    });
+
+    describe('getSelectedScenario', () => {
+        it('should return selected scenario from byId', () => {
+            const state = {
+                anuga: {
+                    scenarios: {
+                        byId: { 1: { id: 1, name: 'Test' } },
+                        allIds: [1],
+                        selectedId: 1
+                    }
+                }
+            };
+            const result = getSelectedScenario(state);
+            expect(result.id).toBe(1);
+            expect(result.name).toBe('Test');
+        });
+
+        it('should return null when no selection', () => {
+            const state = {
+                anuga: {
+                    scenarios: { byId: {}, allIds: [], selectedId: null }
+                }
+            };
+            expect(getSelectedScenario(state)).toBe(undefined);
+        });
+    });
+
+    describe('getProjectData / getProjectId', () => {
+        it('should return project data from normalized state', () => {
+            const state = {
+                anuga: {
+                    projects: { data: { id: 42, name: 'Test' } }
+                }
+            };
+            expect(getProjectData(state)).toEqual({ id: 42, name: 'Test' });
+            expect(getProjectId(state)).toBe(42);
+        });
+
+        it('should return undefined when no project data', () => {
+            const state = { anuga: { projects: {} } };
+            expect(getProjectData(state)).toBe(undefined);
+            expect(getProjectId(state)).toBe(undefined);
+        });
+    });
+
+    describe('getActiveRuns', () => {
+        it('should return runs in non-terminal states', () => {
+            const state = {
+                anuga: {
+                    runs: {
+                        byId: {
+                            1: { id: 1, status: 'computing' },
+                            2: { id: 2, status: 'complete' },
+                            3: { id: 3, status: 'queued' }
+                        }
+                    }
+                }
+            };
+            const result = getActiveRuns(state);
+            expect(result.length).toBe(2);
+            expect(result[0].id).toBe(1);
+            expect(result[1].id).toBe(3);
+        });
+
+        it('should return empty array when no runs', () => {
+            const state = { anuga: { runs: { byId: {} } } };
+            expect(getActiveRuns(state)).toEqual([]);
+        });
+    });
+
+    describe('getAnugaModels (normalized state)', () => {
         it('should aggregate all model types into single array', () => {
             const state = {
                 anuga: {
-                    elevations: [{ id: 1, name: 'Elevation 1' }],
-                    boundaries: [{ id: 2, name: 'Boundary 1' }],
-                    frictions: [],
-                    inflows: [{ id: 3, name: 'Inflow 1' }],
-                    meshRegions: [],
-                    structures: [],
-                    catchments: [],
-                    nodes: [],
-                    links: []
+                    resources: {
+                        elevations: [{ id: 1, name: 'Elevation 1' }],
+                        boundaries: [{ id: 2, name: 'Boundary 1' }],
+                        frictions: [],
+                        inflows: [{ id: 3, name: 'Inflow 1' }],
+                        meshRegions: [],
+                        structures: [],
+                        catchments: [],
+                        nodes: [],
+                        links: []
+                    }
                 }
             };
             const result = getAnugaModels(state);
@@ -156,15 +265,17 @@ describe('Anuga Selectors', () => {
         it('should add correct apiKey to each model', () => {
             const state = {
                 anuga: {
-                    elevations: [{ id: 1 }],
-                    boundaries: [{ id: 2 }],
-                    frictions: [{ id: 3 }],
-                    inflows: [{ id: 4 }],
-                    meshRegions: [{ id: 5 }],
-                    structures: [{ id: 6 }],
-                    catchments: [{ id: 7 }],
-                    nodes: [{ id: 8 }],
-                    links: [{ id: 9 }]
+                    resources: {
+                        elevations: [{ id: 1 }],
+                        boundaries: [{ id: 2 }],
+                        frictions: [{ id: 3 }],
+                        inflows: [{ id: 4 }],
+                        meshRegions: [{ id: 5 }],
+                        structures: [{ id: 6 }],
+                        catchments: [{ id: 7 }],
+                        nodes: [{ id: 8 }],
+                        links: [{ id: 9 }]
+                    }
                 }
             };
             const result = getAnugaModels(state);
@@ -183,15 +294,17 @@ describe('Anuga Selectors', () => {
         it('should return empty array when no models exist', () => {
             const state = {
                 anuga: {
-                    elevations: [],
-                    boundaries: [],
-                    frictions: [],
-                    inflows: [],
-                    meshRegions: [],
-                    structures: [],
-                    catchments: [],
-                    nodes: [],
-                    links: []
+                    resources: {
+                        elevations: [],
+                        boundaries: [],
+                        frictions: [],
+                        inflows: [],
+                        meshRegions: [],
+                        structures: [],
+                        catchments: [],
+                        nodes: [],
+                        links: []
+                    }
                 }
             };
             const result = getAnugaModels(state);

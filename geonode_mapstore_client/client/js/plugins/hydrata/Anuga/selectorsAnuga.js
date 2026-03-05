@@ -1,4 +1,5 @@
 
+// -- Permission selectors (unchanged — read from gnresource) ----------------
 
 export const canViewAnugaMap = (state) => {
     const currentUserId = state?.security?.user?.pk;
@@ -24,9 +25,36 @@ export const isOwnerAnugaMap = (state) => {
     return ["owner"].includes(currentUserPerm);
 };
 
-export const selectedScenarios = (state) => {
-    return state?.anuga?.scenarios.filter(scenario => scenario?.selected);
+// -- Scenario selectors (normalized byId/allIds) ----------------------------
+
+/**
+ * Get all scenarios as a sorted array (by id ascending).
+ */
+export const getScenariosArray = (state) => {
+    const byId = state?.anuga?.scenarios?.byId || {};
+    const allIds = state?.anuga?.scenarios?.allIds || [];
+    return allIds.map(id => byId[id]).filter(Boolean).sort((a, b) => {
+        const aId = a.id || 0;
+        const bId = b.id || 0;
+        return aId - bId;
+    });
 };
+
+export const getScenarioById = (state, id) => {
+    return state?.anuga?.scenarios?.byId?.[id] || null;
+};
+
+export const selectedScenarios = (state) => {
+    return getScenariosArray(state).filter(scenario => scenario?.selected);
+};
+
+export const getSelectedScenario = (state) => {
+    const selectedId = state?.anuga?.scenarios?.selectedId;
+    if (!selectedId) return null;
+    return state?.anuga?.scenarios?.byId?.[selectedId] || null;
+};
+
+// -- Resource selectors (read from anuga.resources) -------------------------
 
 export const getAnugaModels = (state) => {
     const modelTypes = [
@@ -53,9 +81,23 @@ export const getAnugaModels = (state) => {
     };
     let modelsArray = Array();
     modelTypes.map(anugaModel => {
-        state?.anuga?.[anugaModel].map(instance => {
+        const items = state?.anuga?.resources?.[anugaModel] || [];
+        items.map(instance => {
             modelsArray.push({...instance, apiKey: modelTypesToApiName[anugaModel]});
         });
     });
     return modelsArray;
 };
+
+// -- Run selectors ----------------------------------------------------------
+
+export const getActiveRuns = (state) => {
+    const byId = state?.anuga?.runs?.byId || {};
+    const terminalStates = ['complete', 'error', 'cancelled'];
+    return Object.values(byId).filter(run => !terminalStates.includes(run?.status));
+};
+
+// -- Project selectors ------------------------------------------------------
+
+export const getProjectData = (state) => state?.anuga?.projects?.data || null;
+export const getProjectId = (state) => state?.anuga?.projects?.data?.id || null;

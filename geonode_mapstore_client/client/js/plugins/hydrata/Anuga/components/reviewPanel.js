@@ -42,7 +42,7 @@ class ReviewPanelClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        review: state?.anuga?.projectData?.review
+        review: state?.anuga?.projects?.data?.review
     };
 };
 

@@ -13,8 +13,10 @@ const SAVE_ANUGA_SCENARIO_ERROR = 'SAVE_ANUGA_SCENARIO_ERROR';
 const DELETE_ANUGA_SCENARIO = 'DELETE_ANUGA_SCENARIO';
 const DELETE_ANUGA_SCENARIO_SUCCESS = 'DELETE_ANUGA_SCENARIO_SUCCESS';
 const CANCEL_ANUGA_RUN = 'CANCEL_ANUGA_RUN';
+const RETRY_ANUGA_RUN = 'RETRY_ANUGA_RUN';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
 const UPDATE_NETWORK = 'UPDATE_NETWORK';
+const SAVE_NETWORK = 'SAVE_NETWORK';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 
 function createAnugaElevationFromLayer(pk, title) {
@@ -59,12 +61,16 @@ function saveAnugaScenarioError(error) {
     };
 }
 
-function runAnugaScenario(scenario, computeInstanceId) {
-    return { type: RUN_ANUGA_SCENARIO, scenario, computeInstanceId };
+function runAnugaScenario(scenario, computeBackend = 'local') {
+    return { type: RUN_ANUGA_SCENARIO, scenario, computeBackend };
 }
 
-function cancelAnugaRun(scenario, computeInstanceId) {
-    return { type: CANCEL_ANUGA_RUN, scenario, computeInstanceId };
+function cancelAnugaRun(runId) {
+    return { type: CANCEL_ANUGA_RUN, runId };
+}
+
+function retryAnugaRun(runId) {
+    return { type: RETRY_ANUGA_RUN, runId };
 }
 
 function runAnugaScenarioSuccess(scenario) {
@@ -134,6 +140,10 @@ function updateNetwork(network, kv) {
     };
 }
 
+function saveNetwork(network) {
+    return { type: SAVE_NETWORK, network };
+}
+
 const selectAnugaScenario = (scenario) => {
     return { type: SELECT_ANUGA_SCENARIO, scenario };
 };
@@ -149,9 +159,11 @@ module.exports = {
     RUN_ANUGA_SCENARIO, runAnugaScenario,
     RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,
     CANCEL_ANUGA_RUN, cancelAnugaRun,
+    RETRY_ANUGA_RUN, retryAnugaRun,
     RUN_NETWORK, runNetwork,
     RUN_NETWORK_SUCCESS, runNetworkSuccess,
     UPDATE_ANUGA_SCENARIO, updateAnugaScenario,
     UPDATE_NETWORK, updateNetwork,
+    SAVE_NETWORK, saveNetwork,
     SELECT_ANUGA_SCENARIO, selectAnugaScenario
 };

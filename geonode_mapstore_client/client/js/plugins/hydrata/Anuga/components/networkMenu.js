@@ -7,6 +7,7 @@ import '../../SimpleView/simpleView.css';
 import {
     setNetworkMenu,
     updateNetwork,
+    saveNetwork,
     runNetwork
 } from "../actionsAnuga";
 import {Table, Button} from "react-bootstrap";
@@ -161,6 +162,19 @@ class NetworkMenuClass extends React.Component {
                                                             bsStyle={'success'}
                                                             bsSize={'xsmall'}
                                                             style={{margin: "2px", borderRadius: "2px"}}
+                                                            className={network?.unsaved ? null : 'disabled'}
+                                                            onClick={() => {
+                                                                if (network?.unsaved) {
+                                                                    this.props.saveNetwork(network);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Message msgId="hydrata.anuga.save" />
+                                                        </Button>
+                                                        <Button
+                                                            bsStyle={'success'}
+                                                            bsSize={'xsmall'}
+                                                            style={{margin: "2px", borderRadius: "2px"}}
                                                             onClick={() => {
                                                                 this.props.runNetwork(network);
                                                             }}
@@ -207,13 +221,13 @@ class NetworkMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    let networks = state?.anuga?.networks?.sort((a, b) => a.id - b.id);
+    let networks = (state?.anuga?.resources?.networks || []).slice().sort((a, b) => a.id - b.id);
     return {
         networks: networks,
-        elevations: state?.anuga?.elevations,
-        nodes: state?.anuga?.nodes,
-        links: state?.anuga?.links,
-        inflows: state?.anuga?.inflows
+        elevations: state?.anuga?.resources?.elevations,
+        nodes: state?.anuga?.resources?.nodes,
+        links: state?.anuga?.resources?.links,
+        inflows: state?.anuga?.resources?.inflows
     };
 };
 
@@ -221,6 +235,7 @@ const mapDispatchToProps = ( dispatch ) => {
     return {
         setNetworkMenu: (visible) => dispatch(setNetworkMenu(visible)),
         updateNetwork: (network, kv) => dispatch(updateNetwork(network, kv)),
+        saveNetwork: (network) => dispatch(saveNetwork(network)),
         runNetwork: (network) => dispatch(runNetwork(network))
     };
 };

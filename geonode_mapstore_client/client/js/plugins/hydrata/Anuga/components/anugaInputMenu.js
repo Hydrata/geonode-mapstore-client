@@ -332,7 +332,7 @@ class AnugaInputMenuClass extends React.Component {
 
 const mapStateToProps = (state) => {
     return {
-        projectData: state?.anuga?.projectData,
+        projectData: state?.anuga?.projects?.data,
         elevationLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations'),
         boundaryLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
         inflowLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
@@ -344,17 +344,17 @@ const mapStateToProps = (state) => {
         catchmentLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Catchments'),
         nodesLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Nodes'),
         linksLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Links'),
-        elevationModels: state?.anuga?.elevations,
-        boundaryModels: state?.anuga?.boundaries,
-        inflowModels: state?.anuga?.inflows,
-        frictionModels: state?.anuga?.frictions,
-        structureModels: state?.anuga?.structures,
-        fullMeshModels: state?.anuga?.fullMeshes,
-        meshRegionModels: state?.anuga?.meshRegions,
-        catchmentModels: state?.anuga?.catchments,
-        nodesModels: state?.anuga?.nodes,
-        linksModels: state?.anuga?.links,
-        isCreatingAnugaLayer: state?.anuga?.isCreatingAnugaLayer,
+        elevationModels: state?.anuga?.resources?.elevations,
+        boundaryModels: state?.anuga?.resources?.boundaries,
+        inflowModels: state?.anuga?.resources?.inflows,
+        frictionModels: state?.anuga?.resources?.frictions,
+        structureModels: state?.anuga?.resources?.structures,
+        fullMeshModels: state?.anuga?.resources?.fullMeshes,
+        meshRegionModels: state?.anuga?.resources?.meshRegions,
+        catchmentModels: state?.anuga?.resources?.catchments,
+        nodesModels: state?.anuga?.resources?.nodes,
+        linksModels: state?.anuga?.resources?.links,
+        isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer,
         canEditAnugaMap: canEditAnugaMap(state),
         visibleIntroduction: state?.simpleView?.visibleIntroduction
     };
