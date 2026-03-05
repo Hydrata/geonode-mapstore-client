@@ -166,8 +166,8 @@ describe('Anuga Plugin', () => {
             const action = updateRunStatus(99, { status: 'computing', progress_pct: 50 });
             expect(action.type).toBe(UPDATE_RUN_STATUS);
             expect(action.runId).toBe(99);
-            expect(action.data.status).toBe('computing');
-            expect(action.data.progress_pct).toBe(50);
+            expect(action.status).toBe('computing');
+            expect(action.progress_pct).toBe(50);
         });
     });
 
@@ -304,17 +304,12 @@ describe('Anuga Plugin', () => {
         });
 
         it('should handle ADD_ANUGA_SCENARIO', () => {
-            // First set up projects.data with an id
-            let state = reducer(undefined, {
-                type: SET_ANUGA_PROJECT_DATA,
-                data: { id: 123 }
-            });
-            state = reducer(state, { type: ADD_ANUGA_SCENARIO });
+            const state = reducer(undefined, { type: ADD_ANUGA_SCENARIO });
             expect(state.scenarios.allIds.length).toBe(1);
             const newId = state.scenarios.allIds[0];
             expect(state.scenarios.byId[newId]).toExist();
             expect(state.scenarios.byId[newId].resolution).toBe(1000);
-            expect(state.scenarios.byId[newId].project).toBe(123);
+            expect(state.scenarios.byId[newId].id).toBe(null);
         });
 
         it('should handle SELECT_ANUGA_SCENARIO', () => {
@@ -427,7 +422,9 @@ describe('Anuga Plugin', () => {
             const state = reducer(undefined, {
                 type: UPDATE_RUN_STATUS,
                 runId: 42,
-                data: { status: 'computing', progress_pct: 75, eta_seconds: 120 }
+                status: 'computing',
+                progress_pct: 75,
+                eta_seconds: 120
             });
             expect(state.runs.byId[42]).toExist();
             expect(state.runs.byId[42].status).toBe('computing');

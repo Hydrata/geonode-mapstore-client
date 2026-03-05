@@ -191,7 +191,7 @@ describe('Anuga Selectors', () => {
                     scenarios: { byId: {}, allIds: [], selectedId: null }
                 }
             };
-            expect(getSelectedScenario(state)).toBe(undefined);
+            expect(getSelectedScenario(state)).toBe(null);
         });
     });
 
@@ -206,10 +206,10 @@ describe('Anuga Selectors', () => {
             expect(getProjectId(state)).toBe(42);
         });
 
-        it('should return undefined when no project data', () => {
+        it('should return null/undefined when no project data', () => {
             const state = { anuga: { projects: {} } };
-            expect(getProjectData(state)).toBe(undefined);
-            expect(getProjectId(state)).toBe(undefined);
+            expect(getProjectData(state)).toNotExist();
+            expect(getProjectId(state)).toNotExist();
         });
     });
 

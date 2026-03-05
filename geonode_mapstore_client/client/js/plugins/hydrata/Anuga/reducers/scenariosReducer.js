@@ -99,11 +99,12 @@ export default (state = initialState, action) => {
     case UPDATE_ANUGA_SCENARIO: {
         const key = action.scenario.id || action.scenario._tempId;
         if (!key || !state.byId[key]) return state;
+        const existing = state.byId[key];
         return {
             ...state,
             byId: {
                 ...state.byId,
-                [key]: { ...action.scenario, unsaved: true }
+                [key]: { ...existing, ...(action.kv || {}), unsaved: true }
             }
         };
     }
