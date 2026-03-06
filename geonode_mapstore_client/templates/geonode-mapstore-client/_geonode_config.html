@@ -134,11 +134,11 @@
         let isMobile = '{{ request.user_agent.is_mobile }}' === 'True' ? true : false;
 
         const searchServicesPayload =  {{SEARCH_SERVICES_PAYLOAD|safe}};
-        let searchServicesPatchRules = searchServicesPayload.length ? ['map_viewer', 'dataset_viewr', 'map_viewer_mobile', 'dataset_viewer_mobile'].map(
+        let searchServicesPatchRules = searchServicesPayload.length ? ['map_viewer', 'dataset_viewer', 'map_viewer_mobile', 'dataset_viewer_mobile'].map(
             (v, i) => ({
                 "op": "replace",
-                "jsonpath": `$.${v}..[?(@.name == 'Search')].cfg`,
-                "value": {"searchOptions": {"services": searchServicesPayload}}
+                "jsonpath": `$.${v}..[?(@.name == 'Search')].cfg.searchOptions`,
+                "value": {"services": searchServicesPayload}
             })
         ) : [];
 
