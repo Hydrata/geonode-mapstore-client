@@ -39,7 +39,8 @@ import {
     compareScenarioEpic,
     pollComparisonEpic,
     addComparisonEpic,
-    getAnugaResourcesEpic
+    getAnugaResourcesEpic,
+    manageTerrain3DEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -85,6 +86,7 @@ export default createPlugin('Anuga', {
         compareScenarioEpic,
         pollComparisonEpic,
         addComparisonEpic,
-        getAnugaResourcesEpic
+        getAnugaResourcesEpic,
+        manageTerrain3DEpic
     }
 });

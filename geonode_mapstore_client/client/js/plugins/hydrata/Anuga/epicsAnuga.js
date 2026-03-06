@@ -42,3 +42,7 @@ export {
     updateAnugaModelTitle,
     getAnugaResourcesEpic
 } from './epics/crudEpics';
+
+export {
+    manageTerrain3DEpic
+} from './epics/terrainEpics';
