@@ -40,6 +40,17 @@ class AnugaScenarioLogViewerClass extends React.Component {
                 <pre id={'anuga-scenario-log-viewer'} style={{color: "white", background: "black"}}>
                     {this.props.logText}
                 </pre>
+                <div style={{display: "flex", justifyContent: "flex-end", padding: "10px"}}>
+                    <button
+                        className={"btn btn-default"}
+                        onClick={() => {
+                            this.props.showAnugaScenarioLog(false);
+                            trackEvent('button', `click`, `anuga-scenario-log-close-footer`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.close" />
+                    </button>
+                </div>
             </div>
         );
     }

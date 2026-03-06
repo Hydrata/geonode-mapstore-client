@@ -154,6 +154,17 @@ class simpleViewUploaderPanel extends React.Component {
                         </div>
                     </Dropzone>
                 }
+                <div className={"simple-view-panel-footer"}>
+                    <button
+                        className={"swamm-button"}
+                        onClick={() => {
+                            this.props.setVisibleUploaderPanel(false);
+                            trackEvent('button', `click`, `simpleview-uploader-close-footer`);
+                        }}
+                    >
+                        <Message msgId="hydrata.simpleView.close" />
+                    </button>
+                </div>
             </div> :
             null;
     }

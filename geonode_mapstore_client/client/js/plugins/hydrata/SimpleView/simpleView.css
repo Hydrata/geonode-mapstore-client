@@ -21,7 +21,7 @@
 
 .simple-view-panel {
     position: absolute;
-    z-index: 1021;
+    z-index: 1025;
     top: 65px;
     left: 20px;
     min-width: 500px;

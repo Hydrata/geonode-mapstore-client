@@ -40,6 +40,8 @@ class simpleViewIntroduction extends React.Component {
                         <p style={{"fontSize": "small"}}>
                             <Message msgId="hydrata.simpleView.disclaimer" />
                         </p>
+                    </Modal.Body>
+                    <Modal.Footer>
                         <Button
                             onClick = {
                                 () => {
@@ -48,11 +50,10 @@ class simpleViewIntroduction extends React.Component {
                                 }
                             }
                             bsStyle="primary"
-                            style={{marginLeft: "45%"}}
                         >
                             <Message msgId="hydrata.simpleView.accept" />
                         </Button>
-                    </Modal.Body>
+                    </Modal.Footer>
                 </Modal>
             </div>
         );

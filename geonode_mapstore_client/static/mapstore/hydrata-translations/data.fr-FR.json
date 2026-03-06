@@ -150,6 +150,7 @@
                 "watersheds": "Watersheds"
             },
             "anuga": {
+                "close": "Fermer",
                 "advanced": "Avancé",
                 "availableHours": "Heures disponibles",
                 "boundaries": "Boundaries",

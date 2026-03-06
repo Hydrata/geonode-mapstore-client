@@ -72,6 +72,14 @@ class simpleViewLegend extends React.Component {
                                 </div>
                             );
                     })}
+                    <div className={"simple-view-panel-footer"}>
+                        <button
+                            className={"swamm-button"}
+                            onClick={() => this.props.setVisibleLegendPanel(false)}
+                        >
+                            <Message msgId="hydrata.simpleView.close" />
+                        </button>
+                    </div>
                 </div>
             );
         }

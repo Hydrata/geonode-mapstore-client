@@ -40,14 +40,14 @@ class SwammDataGridClass extends React.Component {
         return (
             <Modal
                 show
-                onHide={() => {}}
+                onHide={() => this.props.hideSwammDataGrid()}
                 style={{
                     marginTop: "50px",
                     width: "100%"
                 }}
                 dialogClassName="swamm-big-modal"
             >
-                <Modal.Header>
+                <Modal.Header closeButton>
                     <Modal.Title>
                         <Message msgId="hydrata.swamm.bmpSummary" />
                     </Modal.Title>

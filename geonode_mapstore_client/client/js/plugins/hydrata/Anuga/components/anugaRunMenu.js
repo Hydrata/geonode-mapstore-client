@@ -115,18 +115,32 @@ class AnugaRunMenuClass extends React.Component {
                         </div>
                     </div>
                 </div>
-                <Button
-                    bsStyle={'success'}
-                    bsSize={'small'}
-                    style={{margin: "10px", borderRadius: "2px"}}
-                    onClick={() => {
-                        this.props.showManageAccount(true);
-                        this.props.showAnugaRunMenu(false);
-                        trackEvent('button', `click`, `anuga-run-menu-manage-account-open`);
-                    }}
-                >
-                    <Message msgId="hydrata.anuga.manageAccount" />
-                </Button>
+                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 10px 10px"}}>
+                    <Button
+                        bsStyle={'success'}
+                        bsSize={'small'}
+                        style={{borderRadius: "2px"}}
+                        onClick={() => {
+                            this.props.showManageAccount(true);
+                            this.props.showAnugaRunMenu(false);
+                            trackEvent('button', `click`, `anuga-run-menu-manage-account-open`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.manageAccount" />
+                    </Button>
+                    <Button
+                        bsStyle={'default'}
+                        bsSize={'small'}
+                        style={{borderRadius: "2px"}}
+                        onClick={() => {
+                            this.props.showAnugaRunMenu(false);
+                            this.props.setAnugaScenarioMenu(true);
+                            trackEvent('button', `click`, `anuga-run-menu-close-footer`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.close" />
+                    </Button>
+                </div>
             </div>
         );
     }

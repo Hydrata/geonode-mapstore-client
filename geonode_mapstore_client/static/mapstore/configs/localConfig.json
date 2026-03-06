@@ -7,6 +7,19 @@
         "endpointV1": "/api",
         "endpointV2": "/api/v2"
     },
+    "hydrataConfig": {
+        "defaultTerrain": {
+            "type": "terrain",
+            "provider": "cesium",
+            "url": "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=5upc6r2tsUgFRVMWgx5B",
+            "title": "Global Terrain",
+            "group": "background",
+            "visibility": true,
+            "options": {
+                "requestVertexNormals": true
+            }
+        }
+    },
     "mapLayout": {
         "preview": {
             "left": {
@@ -1352,6 +1365,11 @@
                                 "pinchRotate": false,
                                 "altShiftDragRotate": false
                             }
+                        },
+                        "cesium": {
+                            "depthTestAgainstTerrain": true,
+                            "showSkyAtmosphere": true,
+                            "enableFog": false
                         }
                     }
                 }
