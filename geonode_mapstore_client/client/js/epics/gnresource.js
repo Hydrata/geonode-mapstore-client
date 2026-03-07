@@ -531,34 +531,37 @@ export const gnViewerRequestResourceConfig = (action$, store) =>
             const { query = {} } = url.parse(searchSelector(state), true) || {};
             const resourceData = getResourceData(state);
             const isSamePreviousResource = !resourceData?.['@ms-detail'] && resourceData?.pk === action.pk;
-            return Observable.concat(
-                Observable.of(
-                    ...getResetActions(state, isSamePreviousResource),
-                    loadingResourceConfig(true),
-                    setResourceType(action.resourceType),
-                    setResourcePathParameters(action?.options?.params)
-                ),
-                ...((!isSamePreviousResource && !!isLoggedIn(state))
-                    ? [
-                        Observable.defer(() => getCompactPermissionsByPk(action.pk))
-                            .switchMap((compactPermissions) => {
-                                return Observable.of(setResourceCompactPermissions(compactPermissions));
-                            })
-                            .catch(() => {
-                                return Observable.empty();
-                            })
-                    ]
-                    : []),
-                resourceObservable(action.pk, {
-                    ...action.options,
-                    isSamePreviousResource,
-                    resourceData,
-                    selectedLayer: isSamePreviousResource && {...getInitialDatasetLayer(state), style: getInitialDatasetLayerStyle(state)},
-                    params: {...action?.options?.params, query},
-                    action$
-                }),
-                Observable.of(
-                    loadingResourceConfig(false)
+            // Fetch permissions in parallel (non-blocking) instead of serial
+            const permissionsObservable = (!isSamePreviousResource && !!isLoggedIn(state))
+                ? Observable.defer(() => getCompactPermissionsByPk(action.pk))
+                    .switchMap((compactPermissions) => {
+                        return Observable.of(setResourceCompactPermissions(compactPermissions));
+                    })
+                    .catch(() => {
+                        return Observable.empty();
+                    })
+                : Observable.empty();
+
+            return Observable.merge(
+                permissionsObservable,
+                Observable.concat(
+                    Observable.of(
+                        ...getResetActions(state, isSamePreviousResource),
+                        loadingResourceConfig(true),
+                        setResourceType(action.resourceType),
+                        setResourcePathParameters(action?.options?.params)
+                    ),
+                    resourceObservable(action.pk, {
+                        ...action.options,
+                        isSamePreviousResource,
+                        resourceData,
+                        selectedLayer: isSamePreviousResource && {...getInitialDatasetLayer(state), style: getInitialDatasetLayerStyle(state)},
+                        params: {...action?.options?.params, query},
+                        action$
+                    }),
+                    Observable.of(
+                        loadingResourceConfig(false)
+                    )
                 )
             )
                 .catch((error) => {
