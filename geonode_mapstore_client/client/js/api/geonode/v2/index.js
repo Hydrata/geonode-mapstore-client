@@ -607,7 +607,11 @@ export const getMapByPk = (pk) => {
     return axios.get(getEndpointUrl(MAPS, `/${pk}/`),
         {
             params: {
-                api_preset: [API_PRESET.VIEWER_COMMON, API_PRESET.MAP]
+                api_preset: [API_PRESET.VIEWER_COMMON, API_PRESET.MAP],
+                exclude: [
+                    'maplayers.dataset.links',
+                    'maplayers.dataset.featureinfo_custom_template'
+                ]
             },
             ...paramsSerializer()
         })

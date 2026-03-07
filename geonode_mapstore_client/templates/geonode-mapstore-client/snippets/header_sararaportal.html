@@ -1,6 +1,7 @@
 {% load static %}
 
 {% block extra_head %}
+    <link rel="preconnect" href="https://api.maptiler.com">
     <link href="{% static 'hydratabase/css/geonode-navbar-fixes.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <link href="{% static 'sararaportal/css/sararaportal_base.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <link href="{% static 'sararaportal/css/sararaportal_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>

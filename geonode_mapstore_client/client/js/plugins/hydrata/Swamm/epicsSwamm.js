@@ -424,44 +424,53 @@ export const filterBmpEpic = (action$, store) =>
     )
         .mergeMap(() => {
             const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
-            let atLeastOneBmpTypeVisible = false;
-            let atLeastOneBmpPriorityVisible = false;
-            (store.getState()?.swamm?.bmpTypes || []).map((bmpType) => {
-                if (bmpType?.visibility) {
-                    const filterField = createFilterField('type', bmpType.id);
-                    newFilter.filterObj.filterFields.push(filterField);
-                    atLeastOneBmpTypeVisible = true;
+
+            const bmpTypes = store.getState()?.swamm?.bmpTypes || [];
+            const priorities = store.getState()?.swamm?.priorities || [];
+            const groupProfiles = store.getState()?.swamm?.groupProfiles || [];
+            const statuses = store.getState()?.swamm?.statuses || [];
+
+            // When all values in a group are selected, omit that filter entirely
+            // to avoid sending massive CQL_FILTER with 100+ OR clauses
+            const visibleTypes = bmpTypes.filter(t => t?.visibility);
+            const allTypesSelected = visibleTypes.length === bmpTypes.length;
+            if (!allTypesSelected) {
+                if (visibleTypes.length === 0) {
+                    newFilter.filterObj.filterFields.push(createFilterField('type', -1));
+                } else {
+                    visibleTypes.forEach(bmpType => {
+                        newFilter.filterObj.filterFields.push(createFilterField('type', bmpType.id));
+                    });
                 }
-            });
-            if (!atLeastOneBmpTypeVisible) {
-                const filterField = createFilterField('type', -1);
-                newFilter.filterObj.filterFields.push(filterField);
             }
-            (store.getState()?.swamm?.priorities || []).map((priority) => {
-                if (priority?.visibility) {
-                    const filterField = createFilterField('priority', priority.id);
-                    newFilter.filterObj.filterFields.push(filterField);
-                    atLeastOneBmpPriorityVisible = true;
+
+            const visiblePriorities = priorities.filter(p => p?.visibility);
+            const allPrioritiesSelected = visiblePriorities.length === priorities.length;
+            if (!allPrioritiesSelected) {
+                if (visiblePriorities.length === 0) {
+                    newFilter.filterObj.filterFields.push(createFilterField('priority', -1));
+                } else {
+                    visiblePriorities.forEach(priority => {
+                        newFilter.filterObj.filterFields.push(createFilterField('priority', priority.id));
+                    });
                 }
-            });
-            if (!atLeastOneBmpPriorityVisible) {
-                const filterField = createFilterField('priority', -1);
-                newFilter.filterObj.filterFields.push(filterField);
             }
-            (store.getState()?.swamm?.groupProfiles || []).map((groupProfile) => {
-                if (groupProfile?.visibility) {
-                    const filterField = createFilterField('group_profile', groupProfile.id);
-                    newFilter.filterObj.filterFields.push(filterField);
-                    // atLeastOnegroupProfileVisible = true;
-                }
-            });
-            (store.getState()?.swamm?.statuses || []).map((status) => {
-                if (status?.visibility) {
-                    const filterField = createFilterField('status', status?.name);
-                    newFilter.filterObj.filterFields.push(filterField);
-                    // atLeastOnegroupProfileVisible = true;
-                }
-            });
+
+            const visibleGroupProfiles = groupProfiles.filter(gp => gp?.visibility);
+            const allGroupProfilesSelected = visibleGroupProfiles.length === groupProfiles.length;
+            if (!allGroupProfilesSelected) {
+                visibleGroupProfiles.forEach(groupProfile => {
+                    newFilter.filterObj.filterFields.push(createFilterField('group_profile', groupProfile.id));
+                });
+            }
+
+            const visibleStatuses = statuses.filter(s => s?.visibility);
+            const allStatusesSelected = visibleStatuses.length === statuses.length;
+            if (!allStatusesSelected) {
+                visibleStatuses.forEach(status => {
+                    newFilter.filterObj.filterFields.push(createFilterField('status', status?.name));
+                });
+            }
             const outletFilter = JSON.parse(JSON.stringify(newFilter));
             const footprintFilter = JSON.parse(JSON.stringify(newFilter));
             const watershedFilter = JSON.parse(JSON.stringify(newFilter));
