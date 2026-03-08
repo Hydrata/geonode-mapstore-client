@@ -14,6 +14,7 @@ import {
     addLayer
 } from "../../../../MapStore2/web/client/actions/layers";
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
+import { SET_RESOURCE_ID } from '@js/actions/gnresource';
 import {
     INIT_SWAMM,
     setSwammProjectData,
@@ -90,58 +91,70 @@ const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
 };
 
 
+// Shared init logic — used by both primary and fallback triggers
+const swammInitFlow = (mapId, store) =>
+    Rx.Observable.from(
+        swammApi.getProjectFromMapId(mapId)
+            .catch(err => {
+                console.error('initSwammEpic: failed to get project from map ID', err);
+                return { status: 999 };
+            })
+    )
+    .filter(response1 => response1?.status <= 400)
+    .filter(() => !!store.getState()?.security?.user)
+    .switchMap(response1 => {
+        const projectId = response1.data.projectId;
+        return Rx.Observable.merge(
+            // Project details — runs in parallel with reference data
+            Rx.Observable.from(swammApi.getProject(projectId))
+                .switchMap(response2 => Rx.Observable.of(
+                    setSwammProjectData(response2.data),
+                    setSvConfig(response2.data?.simple_view_config)
+                ))
+                .catch((err) => { console.warn('initSwammEpic: getProject failed', err); return Rx.Observable.empty(); }),
+            // 7 reference data calls — only need projectId, not project response
+            Rx.Observable.from(swammApi.getBmpTypes(projectId))
+                .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data)))
+                .catch((err) => { console.warn('initSwammEpic: getBmpTypes failed', err); return Rx.Observable.empty(); }),
+            Rx.Observable.from(swammApi.getGroupProfiles())
+                .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles)))
+                .catch((err) => { console.warn('initSwammEpic: getGroupProfiles failed', err); return Rx.Observable.empty(); }),
+            Rx.Observable.from(swammApi.getUserGroupMemberships())
+                .switchMap((r) => Rx.Observable.of(fetchUserGroupMembershipsSuccess(r.data?.group_profile_slugs)))
+                .catch((err) => { console.warn('initSwammEpic: getUserGroupMemberships failed', err); return Rx.Observable.empty(); }),
+            Rx.Observable.from(swammApi.getBmpStatuses(projectId))
+                .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data)))
+                .catch((err) => { console.warn('initSwammEpic: getBmpStatuses failed', err); return Rx.Observable.empty(); }),
+            Rx.Observable.from(swammApi.getTargets(projectId))
+                .switchMap((r) => Rx.Observable.of(fetchSwammTargetsSuccess(r.data)))
+                .catch((err) => { console.warn('initSwammEpic: getTargets failed', err); return Rx.Observable.empty(); }),
+            Rx.Observable.from(swammApi.getBmpTypeGroups(projectId))
+                .switchMap((r) => Rx.Observable.of(updateBmpTypeGroups(r.data)))
+                .catch((err) => { console.warn('initSwammEpic: getBmpTypeGroups failed', err); return Rx.Observable.empty(); }),
+            Rx.Observable.from(swammApi.getErosionData(projectId))
+                .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
+                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); })
+        ).concat(
+            Rx.Observable.of(applyInitialBmpFilter())
+        );
+    });
+
+// Primary trigger: fires early on SET_RESOURCE_ID (~3.3s instead of ~6.8s)
 export const initSwammEpic = (action$, store) =>
     action$
+        .ofType(SET_RESOURCE_ID)
+        .filter((action) => !!action.id)
+        .filter(() => !!store.getState()?.security?.user)
+        .switchMap((action) => swammInitFlow(action.id, store));
+
+// Fallback trigger: fires on componentDidMount if primary didn't run
+export const initSwammFallbackEpic = (action$, store) =>
+    action$
         .ofType(INIT_SWAMM)
-        .filter(() => {
-            return store.getState()?.gnresource.id;
-        })
-        .switchMap(() => Rx.Observable
-            .from(
-                swammApi.getProjectFromMapId(store.getState()?.gnresource.id)
-                    .catch(err => {
-                        console.error('initSwammEpic: failed to get project from map ID', err);
-                        return Rx.Observable.of({ status: 999 });
-                    })
-            )
-            .filter(response1 => response1?.status <= 400)
-            .filter(() => !!store.getState()?.security?.user)
-            .switchMap(response1 => {
-                const projectId = response1.data.projectId;
-                return Rx.Observable
-                    .from(swammApi.getProject(projectId))
-                    .switchMap(response2 => Rx.Observable.of(
-                        setSwammProjectData(response2.data),
-                        setSvConfig(response2.data?.simple_view_config)
-                    ).concat(
-                        Rx.Observable.merge(
-                            Rx.Observable.from(swammApi.getBmpTypes(projectId))
-                                .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getBmpTypes failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getGroupProfiles())
-                                .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles)))
-                                .catch((err) => { console.warn('initSwammEpic: getGroupProfiles failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getUserGroupMemberships())
-                                .switchMap((r) => Rx.Observable.of(fetchUserGroupMembershipsSuccess(r.data?.group_profile_slugs)))
-                                .catch((err) => { console.warn('initSwammEpic: getUserGroupMemberships failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getBmpStatuses(projectId))
-                                .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getBmpStatuses failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getTargets(projectId))
-                                .switchMap((r) => Rx.Observable.of(fetchSwammTargetsSuccess(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getTargets failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getBmpTypeGroups(projectId))
-                                .switchMap((r) => Rx.Observable.of(updateBmpTypeGroups(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getBmpTypeGroups failed', err); return Rx.Observable.empty(); }),
-                            Rx.Observable.from(swammApi.getErosionData(projectId))
-                                .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
-                                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); })
-                        ).concat(
-                            Rx.Observable.of(applyInitialBmpFilter())
-                        )
-                    ));
-            })
-        );
+        .filter(() => !store.getState()?.swamm?.projectData?.id)
+        .filter(() => !!store.getState()?.gnresource?.id)
+        .filter(() => !!store.getState()?.security?.user)
+        .switchMap(() => swammInitFlow(store.getState().gnresource.id, store));
 
 
 export const catchBmpFeatureClick = (action$, store) =>

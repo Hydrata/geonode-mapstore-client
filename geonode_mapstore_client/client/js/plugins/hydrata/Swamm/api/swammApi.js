@@ -8,8 +8,20 @@ import axios from '../../../../../MapStore2/web/client/libs/ajax';
 
 // ── Project ──────────────────────────────────────────────────────────────
 
-export const getProjectFromMapId = (mapId) =>
-    axios.post('/swamm/api/project/get_project_from_map_id/', { mapId });
+const _projectIdCache = {};
+
+export const getProjectFromMapId = (mapId) => {
+    if (_projectIdCache[mapId]) {
+        return Promise.resolve({ data: { projectId: _projectIdCache[mapId] }, status: 200 });
+    }
+    return axios.post('/swamm/api/project/get_project_from_map_id/', { mapId })
+        .then(response => {
+            if (response?.data?.projectId) {
+                _projectIdCache[mapId] = response.data.projectId;
+            }
+            return response;
+        });
+};
 
 export const getProject = (projectId) =>
     axios.get(`/swamm/api/project/${projectId}/`);

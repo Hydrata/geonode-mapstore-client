@@ -103,7 +103,11 @@ class SwammContainer extends React.Component {
     }
 
     componentDidMount() {
-        this.props.initSwamm();
+        // Fallback: if initSwammEpic didn't trigger on SET_RESOURCE_ID
+        // (e.g., user not yet authenticated when SET_RESOURCE_ID fired)
+        if (!this.props.isSwammProject) {
+            this.props.initSwamm();
+        }
     }
 
     componentDidUpdate() {

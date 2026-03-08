@@ -3,6 +3,7 @@ import swamm from "./reducersSwamm";
 import SwammContainer from "./components/swammContainer";
 import {
     initSwammEpic,
+    initSwammFallbackEpic,
     startBmpCreateFeatureEpic,
     saveBmpCreateFeatureEpic,
     setCreateBmpDrawingLayerEpic,
@@ -22,6 +23,7 @@ export default createPlugin('Swamm', {
     reducers: {swamm},
     epics: {
         initSwammEpic,
+        initSwammFallbackEpic,
         startBmpCreateFeatureEpic,
         saveBmpCreateFeatureEpic,
         setCreateBmpDrawingLayerEpic,
