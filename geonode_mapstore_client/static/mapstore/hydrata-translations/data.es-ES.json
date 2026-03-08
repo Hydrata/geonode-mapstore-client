@@ -30,6 +30,8 @@
                 "processingStarted": "Procesamiento iniciado",
                 "status": "Estado",
                 "title": "Título",
+                "search": "Buscar",
+                "measure": "Medir",
                 "welcomeTitle": "Bienvenido a Hydrata"
             },
             "swamm": {

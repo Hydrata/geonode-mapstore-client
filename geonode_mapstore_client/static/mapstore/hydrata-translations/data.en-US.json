@@ -30,6 +30,8 @@
                 "processingStarted": "Processing started",
                 "status": "Status",
                 "title": "Title",
+                "search": "Search",
+                "measure": "Measure",
                 "welcomeTitle": "Welcome to Hydrata"
             },
             "swamm": {

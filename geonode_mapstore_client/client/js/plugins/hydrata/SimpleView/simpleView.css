@@ -2,10 +2,30 @@
     /*z-index: 1;*/
 }
 
-.simple-view-menu-button {
+/* ── Left toolbar: data group buttons ── */
+.simple-view-left-toolbar {
     position: absolute;
-    z-index: 1021;
     top: 11px;
+    left: 20px;
+    z-index: 1021;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* ── Right toolbar: tool buttons (search, measure, legend) ── */
+.simple-view-right-toolbar {
+    position: absolute;
+    top: 11px;
+    right: 15px;
+    z-index: 1021;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.simple-view-menu-button {
+    z-index: 1021;
     width: 85px;
     height: 50px;
     background-color: rgba(0, 60, 136, 0.6);
@@ -17,6 +37,31 @@
     border-radius: 4px;
     color: white;
     text-align: center
+}
+
+.simple-view-right-button {
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 60, 136, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    color: white;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.simple-view-right-button:hover {
+    background-color: rgba(0, 60, 136, 0.8);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.simple-view-right-button.active {
+    background-color: rgba(0, 60, 136, 0.9);
+    border-color: rgba(255, 255, 255, 0.9);
 }
 
 .simple-view-panel {
@@ -108,29 +153,8 @@
     text-align: left;
 }
 
-.legend-button {
-    right: 60px;
-}
-
 .legend-panel {
-    top: 10px;
-    right: 60px;
-    left: unset;
-    text-align: right;
-    padding-bottom: 20px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 92%;
-    max-width: 400px;
-}
-
-.legend-button-with-search {
-    top: 65px;
-    right: 15px;
-}
-
-.legend-panel-with-search {
-    top: 65px;
+    top: 55px;
     right: 15px;
     left: unset;
     text-align: right;
@@ -154,7 +178,7 @@
     border-radius: 3px;
 }
 
-.legend-image {                                                
+.legend-image {
     display: block;
     text-align: center;
     margin-left: auto;
@@ -342,8 +366,13 @@
         padding: 2px 4px;
     }
 
-    .legend-panel,
-    .legend-panel-with-search {
+    .simple-view-right-button {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    .legend-panel {
         max-width: 300px;
     }
 }
@@ -367,11 +396,25 @@
         height: 38px;
         font-size: 10px;
         padding: 2px 3px;
-        top: 6px;
     }
 
-    .legend-panel,
-    .legend-panel-with-search {
+    .simple-view-left-toolbar {
+        top: 6px;
+        left: 10px;
+    }
+
+    .simple-view-right-toolbar {
+        top: 6px;
+        right: 10px;
+    }
+
+    .simple-view-right-button {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+    }
+
+    .legend-panel {
         max-width: calc(100% - 80px);
         right: 10px;
     }

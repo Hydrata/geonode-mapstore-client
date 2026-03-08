@@ -42,7 +42,8 @@ const mockStore = {
         },
         gnresource: { initialResource: { perms: [] } },
         gnsettings: { geonodeUrl: 'http://localhost' },
-        localConfig: { plugins: { map_view: [] } }
+        controls: {},
+        localConfig: { plugins: { map_viewer: [] } }
     }),
     subscribe: () => {},
     dispatch: () => {}
