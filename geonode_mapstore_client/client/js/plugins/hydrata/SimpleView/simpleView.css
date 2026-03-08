@@ -337,6 +337,11 @@
     display: none;
 }
 
+/* Hide MapStore's default search bar — SimpleView right toolbar controls visibility */
+body.sv-search-hidden #search-bar-container {
+    display: none !important;
+}
+
 /* ── Responsive: Tablet ── */
 @media (max-width: 900px) {
     .simple-view-panel {

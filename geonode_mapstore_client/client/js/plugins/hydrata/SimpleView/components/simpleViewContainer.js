@@ -42,9 +42,27 @@ class SimpleViewContainer extends React.Component {
         super(props);
     }
 
+    componentDidMount() {
+        document.body.classList.add('sv-search-hidden');
+    }
+
+    componentWillUnmount() {
+        document.body.classList.remove('sv-search-hidden');
+    }
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.searchEnabled !== this.props.searchEnabled) {
+            if (this.props.searchEnabled) {
+                document.body.classList.remove('sv-search-hidden');
+            } else {
+                document.body.classList.add('sv-search-hidden');
+            }
+        }
+    }
+
     render() {
         return (
-            <div id={"simple-view-container"}>
+            <div id="simple-view-container">
                 <div className="simple-view-left-toolbar">
                     <button
                         key={'basemaps'}
