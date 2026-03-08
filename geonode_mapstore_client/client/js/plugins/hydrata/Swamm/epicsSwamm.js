@@ -484,6 +484,14 @@ export const filterBmpEpic = (action$, store) =>
                     newFilter.filterObj.filterFields.push(createFilterField('status', status?.name));
                 });
             }
+
+            // Remove groupFields that have no filterFields to avoid empty () in CQL
+            // which GeoServer rejects as invalid syntax
+            const usedGroupIds = new Set(newFilter.filterObj.filterFields.map(f => f.groupId));
+            newFilter.filterObj.groupFields = newFilter.filterObj.groupFields.filter(
+                gf => gf.index === 0 || usedGroupIds.has(gf.id)
+            );
+
             const outletFilter = JSON.parse(JSON.stringify(newFilter));
             const footprintFilter = JSON.parse(JSON.stringify(newFilter));
             const watershedFilter = JSON.parse(JSON.stringify(newFilter));
