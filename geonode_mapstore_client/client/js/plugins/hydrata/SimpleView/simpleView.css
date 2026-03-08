@@ -25,7 +25,9 @@
 }
 
 .simple-view-menu-button {
+    position: absolute;
     z-index: 1021;
+    top: 11px;
     width: 85px;
     height: 50px;
     background-color: rgba(0, 60, 136, 0.6);
@@ -37,6 +39,11 @@
     border-radius: 4px;
     color: white;
     text-align: center
+}
+
+/* Inside flex toolbars, buttons flow naturally */
+.simple-view-left-toolbar .simple-view-menu-button {
+    position: static;
 }
 
 .simple-view-right-button {
