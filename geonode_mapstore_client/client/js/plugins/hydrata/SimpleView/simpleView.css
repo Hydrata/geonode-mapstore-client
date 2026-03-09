@@ -340,6 +340,7 @@
     background-color: #335781;
 }
 
+/* Hidden by default in SimpleView; admin drawer toggle overrides via inline style */
 #mapstore-drawermenu {
     display: none;
 }

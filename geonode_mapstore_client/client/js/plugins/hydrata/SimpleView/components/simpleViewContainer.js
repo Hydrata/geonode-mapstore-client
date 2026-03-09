@@ -5,6 +5,10 @@ import {Glyphicon} from 'react-bootstrap';
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {setControlProperty} from '@mapstore/framework/actions/controls';
+import {saveDirectContent} from '@js/actions/gnsave';
+import {canEditResource} from '@js/selectors/resource';
+import {isLoggedIn} from '@mapstore/framework/selectors/security';
+const {setStep: setHGevalStep, reset: resetHGeval} = require('../../HGeval/actionsHGeval');
 
 import {setOpenMenuGroupId, setVisibleIntroduction, setVisibleLegendPanel} from "../actionsSimpleView";
 import "../simpleView.css";
@@ -31,7 +35,16 @@ class SimpleViewContainer extends React.Component {
         toggleSearch: PropTypes.func,
         measureEnabled: PropTypes.bool,
         measurePluginPresent: PropTypes.bool,
-        toggleMeasure: PropTypes.func
+        toggleMeasure: PropTypes.func,
+        canEdit: PropTypes.bool,
+        loggedIn: PropTypes.bool,
+        drawerEnabled: PropTypes.bool,
+        toggleDrawer: PropTypes.func,
+        onSave: PropTypes.func,
+        hgevalPluginPresent: PropTypes.bool,
+        hgevalActive: PropTypes.bool,
+        onSetHGevalStep: PropTypes.func,
+        onResetHGeval: PropTypes.func
     };
 
     static defaultProps = {
@@ -40,6 +53,31 @@ class SimpleViewContainer extends React.Component {
 
     constructor(props) {
         super(props);
+    }
+
+    componentDidMount() {
+        // Task 1: Offset search bar to avoid overlapping right toolbar
+        const searchBar = document.getElementById('search-bar-container');
+        if (searchBar) searchBar.style.right = '65px';
+    }
+
+    componentDidUpdate(prevProps) {
+        // Task 2: Toggle drawer menu visibility for admin users
+        if (prevProps.drawerEnabled !== this.props.drawerEnabled) {
+            const drawer = document.getElementById('mapstore-drawermenu');
+            if (drawer) {
+                drawer.style.display = this.props.drawerEnabled ? 'block' : '';
+            }
+        }
+    }
+
+    componentWillUnmount() {
+        // Reset search bar position
+        const searchBar = document.getElementById('search-bar-container');
+        if (searchBar) searchBar.style.right = '';
+        // Reset drawer display
+        const drawer = document.getElementById('mapstore-drawermenu');
+        if (drawer) drawer.style.display = '';
     }
 
     render() {
@@ -96,6 +134,31 @@ class SimpleViewContainer extends React.Component {
                         title="Legend">
                         <Glyphicon glyph="list" />
                     </button>
+                    {this.props.hgevalPluginPresent ?
+                        <button
+                            className={`simple-view-right-button ${this.props.hgevalActive ? 'active' : ''}`}
+                            onClick={() => this.props.hgevalActive ? this.props.onResetHGeval() : this.props.onSetHGevalStep('selecting')}
+                            title="HGeval Report">
+                            <Glyphicon glyph="tint" />
+                        </button>
+                        : null
+                    }
+                    {this.props.canEdit && this.props.loggedIn ? (
+                        <>
+                            <button
+                                className={`simple-view-right-button ${this.props.drawerEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.toggleDrawer(!this.props.drawerEnabled)}
+                                title="Layer Menu">
+                                <Glyphicon glyph="menu-hamburger" />
+                            </button>
+                            <button
+                                className="simple-view-right-button"
+                                onClick={() => this.props.onSave()}
+                                title="Save">
+                                <Glyphicon glyph="floppy-disk" />
+                            </button>
+                        </>
+                    ) : null}
                 </div>
                 {(() => {
                     switch (this.props?.openMenuGroupId) {
@@ -148,7 +211,12 @@ const mapStateToProps = (state, ownProps) => {
         searchEnabled: state?.controls?.search?.enabled || false,
         searchPluginPresent: !!mapViewerPlugins.find(x => x.name === "Search"),
         measureEnabled: state?.controls?.measure?.enabled || false,
-        measurePluginPresent: !!mapViewerPlugins.find(x => x.name === "Measure")
+        measurePluginPresent: !!mapViewerPlugins.find(x => x.name === "Measure"),
+        canEdit: canEditResource(state),
+        loggedIn: !!isLoggedIn(state),
+        drawerEnabled: state?.controls?.drawer?.enabled || false,
+        hgevalPluginPresent: !!mapViewerPlugins.find(x => x.name === "HGeval"),
+        hgevalActive: !!(state?.hgeval?.step && state?.hgeval?.step !== 'idle')
     };
 };
 
@@ -158,7 +226,11 @@ const mapDispatchToProps = ( dispatch ) => {
         setVisibleIntroduction: (visible) => dispatch(setVisibleIntroduction(visible)),
         setVisibleLegendPanel: (visible) => dispatch(setVisibleLegendPanel(visible)),
         toggleSearch: (enabled) => dispatch(setControlProperty('search', 'enabled', enabled)),
-        toggleMeasure: (enabled) => dispatch(setControlProperty('measure', 'enabled', enabled))
+        toggleMeasure: (enabled) => dispatch(setControlProperty('measure', 'enabled', enabled)),
+        toggleDrawer: (enabled) => dispatch(setControlProperty('drawer', 'enabled', enabled)),
+        onSave: () => dispatch(saveDirectContent()),
+        onSetHGevalStep: (step) => dispatch(setHGevalStep(step)),
+        onResetHGeval: () => dispatch(resetHGeval())
     };
 };
 

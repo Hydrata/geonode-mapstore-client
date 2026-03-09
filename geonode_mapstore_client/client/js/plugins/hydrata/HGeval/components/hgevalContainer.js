@@ -7,13 +7,14 @@ import HGevalProgressIndicator from './hgevalProgressIndicator';
 const HGevalContainer = ({
     step, coordinates, form, reportData, rasterValues, warnings,
     queryProgress, loading, error, validationError, savedReport, isLoggedIn,
-    rasterApiUrl, reportApiUrl,
+    rasterApiUrl, reportApiUrl, hideToolbarButton,
     onSetStep, onSetCoordinates, onUpdateForm, onStartReport,
     onSaveReport, onReset
 }) => {
     if (!isLoggedIn) return null;
 
     if (step === 'idle') {
+        if (hideToolbarButton) return null;
         return (
             <div className="hgeval-toolbar-button">
                 <button
