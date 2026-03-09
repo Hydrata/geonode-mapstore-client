@@ -11,7 +11,10 @@ import {
     HGEVAL_SAVE_SUCCESS,
     HGEVAL_SAVE_ERROR,
     HGEVAL_RESET,
-    HGEVAL_VALIDATION_ERROR
+    HGEVAL_VALIDATION_ERROR,
+    HGEVAL_SIGNUP_AND_SAVE,
+    HGEVAL_SIGNUP_SUCCESS,
+    HGEVAL_SIGNUP_ERROR
 } from "./actionsHGeval";
 
 const initialState = {
@@ -31,7 +34,9 @@ const initialState = {
     loading: false,
     error: null,
     validationError: null,
-    savedReport: null
+    savedReport: null,
+    signupErrors: null,
+    signingUp: false
 };
 
 export default (state = initialState, action) => {
@@ -87,6 +92,12 @@ export default (state = initialState, action) => {
         return { ...state, error: action.error };
     case HGEVAL_VALIDATION_ERROR:
         return { ...state, validationError: action.error };
+    case HGEVAL_SIGNUP_AND_SAVE:
+        return { ...state, signingUp: true, signupErrors: null };
+    case HGEVAL_SIGNUP_SUCCESS:
+        return { ...state, signingUp: false, savedReport: action.report };
+    case HGEVAL_SIGNUP_ERROR:
+        return { ...state, signingUp: false, signupErrors: action.errors };
     case HGEVAL_RESET:
         return { ...initialState };
     default:

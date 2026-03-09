@@ -12,6 +12,9 @@ const HGEVAL_SAVE_SUCCESS = 'HGEVAL_SAVE_SUCCESS';
 const HGEVAL_SAVE_ERROR = 'HGEVAL_SAVE_ERROR';
 const HGEVAL_RESET = 'HGEVAL_RESET';
 const HGEVAL_VALIDATION_ERROR = 'HGEVAL_VALIDATION_ERROR';
+const HGEVAL_SIGNUP_AND_SAVE = 'HGEVAL_SIGNUP_AND_SAVE';
+const HGEVAL_SIGNUP_SUCCESS = 'HGEVAL_SIGNUP_SUCCESS';
+const HGEVAL_SIGNUP_ERROR = 'HGEVAL_SIGNUP_ERROR';
 
 function setStep(step) {
     return { type: HGEVAL_SET_STEP, step };
@@ -69,6 +72,18 @@ function validationError(error) {
     return { type: HGEVAL_VALIDATION_ERROR, error };
 }
 
+function signupAndSave(signupData) {
+    return { type: HGEVAL_SIGNUP_AND_SAVE, signupData };
+}
+
+function signupSuccess(report, accessToken, user) {
+    return { type: HGEVAL_SIGNUP_SUCCESS, report, accessToken, user };
+}
+
+function signupError(errors) {
+    return { type: HGEVAL_SIGNUP_ERROR, errors };
+}
+
 module.exports = {
     HGEVAL_SET_STEP, setStep,
     HGEVAL_SET_COORDINATES, setCoordinates,
@@ -83,5 +98,8 @@ module.exports = {
     HGEVAL_SAVE_SUCCESS, saveSuccess,
     HGEVAL_SAVE_ERROR, saveError,
     HGEVAL_RESET, reset,
-    HGEVAL_VALIDATION_ERROR, validationError
+    HGEVAL_VALIDATION_ERROR, validationError,
+    HGEVAL_SIGNUP_AND_SAVE, signupAndSave,
+    HGEVAL_SIGNUP_SUCCESS, signupSuccess,
+    HGEVAL_SIGNUP_ERROR, signupError
 };

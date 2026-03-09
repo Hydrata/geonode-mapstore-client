@@ -288,6 +288,65 @@
     gap: 8px;
 }
 
+/* Signup form */
+.hgeval-signup-form {
+    background: #f0f7ff;
+    border: 1px solid #bee5eb;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+.hgeval-signup-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px 0;
+}
+
+.hgeval-signup-form .form-group {
+    margin-bottom: 6px;
+}
+
+.hgeval-name-row {
+    display: flex;
+    gap: 6px;
+}
+
+.hgeval-name-row .form-group {
+    flex: 1;
+}
+
+.hgeval-signup-form .btn-block {
+    margin-top: 4px;
+}
+
+.hgeval-field-error {
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.hgeval-login-link {
+    font-size: 11px;
+    color: #777;
+    margin: 8px 0 0 0;
+    text-align: center;
+}
+
+.hgeval-login-link a {
+    color: #337ab7;
+}
+
+@keyframes hgeval-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.hgeval-spin {
+    display: inline-block;
+    animation: hgeval-spin 1s linear infinite;
+}
+
 /* Mobile: full width */
 @media (max-width: 768px) {
     .hgeval-panel {

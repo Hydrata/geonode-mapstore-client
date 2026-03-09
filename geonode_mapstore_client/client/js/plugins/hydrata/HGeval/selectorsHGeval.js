@@ -10,3 +10,5 @@ export const hgevalErrorSelector = (state) => state?.hgeval?.error;
 export const hgevalValidationErrorSelector = (state) => state?.hgeval?.validationError;
 export const hgevalSavedReportSelector = (state) => state?.hgeval?.savedReport;
 export const isUserLoggedIn = (state) => !!state?.security?.user;
+export const hgevalSignupErrorsSelector = (state) => state?.hgeval?.signupErrors;
+export const hgevalSigningUpSelector = (state) => state?.hgeval?.signingUp || false;

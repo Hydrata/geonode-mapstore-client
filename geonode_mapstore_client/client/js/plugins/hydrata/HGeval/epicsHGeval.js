@@ -7,6 +7,7 @@ import {
     HGEVAL_SET_STEP,
     HGEVAL_START_REPORT,
     HGEVAL_SAVE_REPORT,
+    HGEVAL_SIGNUP_AND_SAVE,
     HGEVAL_RESET,
     HGEVAL_REPORT_ERROR,
     setCoordinates,
@@ -17,11 +18,14 @@ import {
     reportError,
     saveSuccess,
     saveError,
+    signupSuccess,
+    signupError,
     validationError,
     setStep
 } from "./actionsHGeval";
 import { VECTOR_LAYERS, TOTAL_QUERIES, NICARAGUA_BOUNDS } from "./utils/layerConfig";
 import { buildWfsContainsQuery } from "./utils/wfsQuery";
+import { downloadReport } from "./components/hgevalReportDisplay";
 
 /**
  * Build auth headers for custom Django API endpoints.
@@ -271,5 +275,58 @@ export const saveReportEpic = (action$, store) =>
                 .map(response => saveSuccess(response.data))
                 .catch(err => Rx.Observable.of(
                     saveError(err?.response?.data?.detail || err?.data?.detail || 'Failed to save report')
+                ));
+        });
+
+/**
+ * Epic: Signup + save report for anonymous users.
+ * After success, triggers download and reloads the page to pick up the new session.
+ */
+export const signupAndSaveEpic = (action$, store) =>
+    action$
+        .ofType(HGEVAL_SIGNUP_AND_SAVE)
+        .switchMap(({ signupData }) => {
+            const state = store.getState();
+            const hgeval = state?.hgeval;
+            const payload = {
+                email: signupData.email,
+                password: signupData.password,
+                first_name: signupData.first_name || '',
+                last_name: signupData.last_name || '',
+                name: hgeval?.form?.name || 'Untitled Report',
+                description: hgeval?.form?.description || '',
+                sector: hgeval?.form?.sector || '',
+                preferred_contact: signupData.email ? 'email' : 'phone',
+                contact_phone_number: hgeval?.form?.contact_phone_number || '',
+                contact_email: signupData.email || hgeval?.form?.contact_email || '',
+                longitude: hgeval?.coordinates?.lon,
+                latitude: hgeval?.coordinates?.lat,
+                report_data: hgeval?.reportData || {},
+                raster_values: hgeval?.rasterValues || {},
+                warnings: hgeval?.warnings || []
+            };
+
+            return Rx.Observable
+                .from(axios.post('/nicp/api/signup-report/', payload))
+                .mergeMap(response => {
+                    const { report } = response.data;
+                    // Download the report HTML before reloading
+                    try {
+                        downloadReport(
+                            hgeval?.coordinates,
+                            { ...hgeval?.form, contact_email: signupData.email },
+                            hgeval?.reportData || {},
+                            hgeval?.rasterValues || {},
+                            hgeval?.warnings || []
+                        );
+                    } catch (e) {
+                        // Download is best-effort; report is saved server-side
+                    }
+                    // Reload after a brief delay to let download start
+                    setTimeout(() => { window.location.reload(); }, 500);
+                    return Rx.Observable.of(signupSuccess(report));
+                })
+                .catch(err => Rx.Observable.of(
+                    signupError(err?.response?.data || { detail: 'Signup failed. Please try again.' })
                 ));
         });

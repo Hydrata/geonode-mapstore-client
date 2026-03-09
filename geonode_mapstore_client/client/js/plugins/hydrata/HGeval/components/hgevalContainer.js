@@ -7,12 +7,11 @@ import HGevalProgressIndicator from './hgevalProgressIndicator';
 const HGevalContainer = ({
     step, coordinates, form, reportData, rasterValues, warnings,
     queryProgress, loading, error, validationError, savedReport, isLoggedIn,
+    signupErrors, signingUp,
     rasterApiUrl, reportApiUrl, hideToolbarButton,
     onSetStep, onSetCoordinates, onUpdateForm, onStartReport,
-    onSaveReport, onReset
+    onSaveReport, onSignupAndSave, onReset
 }) => {
-    if (!isLoggedIn) return null;
-
     if (step === 'idle') {
         if (hideToolbarButton) return null;
         return (
@@ -61,7 +60,11 @@ const HGevalContainer = ({
                         rasterValues={rasterValues}
                         warnings={warnings}
                         savedReport={savedReport}
+                        isLoggedIn={isLoggedIn}
+                        signupErrors={signupErrors}
+                        signingUp={signingUp}
                         onSave={onSaveReport}
+                        onSignupAndSave={onSignupAndSave}
                         onNewReport={onReset}
                         onUpdateForm={onUpdateForm}
                     />

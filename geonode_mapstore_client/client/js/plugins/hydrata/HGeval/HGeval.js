@@ -2,13 +2,14 @@ import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtil
 import { connect } from 'react-redux';
 import hgeval from "./reducersHGeval";
 import HGevalContainer from "./components/hgevalContainer";
-import { startReportEpic, saveReportEpic, mapClickEpic, hgevalMapClickManagerEpic } from "./epicsHGeval";
+import { startReportEpic, saveReportEpic, signupAndSaveEpic, mapClickEpic, hgevalMapClickManagerEpic } from "./epicsHGeval";
 import {
     setStep,
     setCoordinates,
     updateForm,
     startReport,
     saveReport,
+    signupAndSave,
     reset
 } from "./actionsHGeval";
 import {
@@ -23,7 +24,9 @@ import {
     hgevalErrorSelector,
     hgevalValidationErrorSelector,
     hgevalSavedReportSelector,
-    isUserLoggedIn
+    isUserLoggedIn,
+    hgevalSignupErrorsSelector,
+    hgevalSigningUpSelector
 } from "./selectorsHGeval";
 
 import './styles/hgeval.css';
@@ -42,6 +45,8 @@ const ConnectedHGeval = connect(
         validationError: hgevalValidationErrorSelector(state),
         savedReport: hgevalSavedReportSelector(state),
         isLoggedIn: isUserLoggedIn(state),
+        signupErrors: hgevalSignupErrorsSelector(state),
+        signingUp: hgevalSigningUpSelector(state),
         rasterApiUrl: ownProps?.rasterApiUrl || '/nicp/api/raster/',
         reportApiUrl: ownProps?.reportApiUrl || '/nicp/api/reports/'
     }),
@@ -51,6 +56,7 @@ const ConnectedHGeval = connect(
         onUpdateForm: updateForm,
         onStartReport: startReport,
         onSaveReport: saveReport,
+        onSignupAndSave: signupAndSave,
         onReset: reset
     }
 )(HGevalContainer);
@@ -61,6 +67,7 @@ export default createPlugin('HGeval', {
     epics: {
         startReportEpic,
         saveReportEpic,
+        signupAndSaveEpic,
         mapClickEpic,
         hgevalMapClickManagerEpic
     }

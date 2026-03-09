@@ -1,5 +1,6 @@
 import React from 'react';
 import Message from '@mapstore/framework/components/I18N/Message';
+import HGevalSignupForm from './hgevalSignupForm';
 
 const DataRow = ({ label, value, fallback }) => (
     <tr>
@@ -8,7 +9,7 @@ const DataRow = ({ label, value, fallback }) => (
     </tr>
 );
 
-function downloadReport(coordinates, form, reportData, rasterValues, warnings) {
+export function downloadReport(coordinates, form, reportData, rasterValues, warnings) {
     const admin1 = reportData['geonode:admin_level_1'];
     const admin2 = reportData['geonode:admin_level_2'];
     const gwPotential = reportData['geonode:groundwater_potential_01'];
@@ -87,7 +88,8 @@ function downloadReport(coordinates, form, reportData, rasterValues, warnings) {
 
 const HGevalReportDisplay = ({
     coordinates, form, reportData, rasterValues, warnings,
-    savedReport, onSave, onNewReport, onUpdateForm
+    savedReport, isLoggedIn, signupErrors, signingUp,
+    onSave, onSignupAndSave, onNewReport, onUpdateForm
 }) => {
     const admin1 = reportData['geonode:admin_level_1'];
     const admin2 = reportData['geonode:admin_level_2'];
@@ -186,7 +188,7 @@ const HGevalReportDisplay = ({
                 </p>
             </section>
 
-            {!hasContact && (
+            {isLoggedIn && !hasContact && !savedReport && (
                 <div className="hgeval-contact-prompt">
                     <p><Message msgId="hydrata.hgeval.enterContactToDownload" /></p>
                     <div className="hgeval-contact-row">
@@ -209,11 +211,19 @@ const HGevalReportDisplay = ({
                 </div>
             )}
 
+            {!isLoggedIn && !savedReport && (
+                <HGevalSignupForm
+                    signupErrors={signupErrors}
+                    signingUp={signingUp}
+                    onSignupAndSave={onSignupAndSave}
+                />
+            )}
+
             <div className="hgeval-actions">
                 <button className="btn btn-default btn-sm" onClick={onNewReport}>
                     <Message msgId="hydrata.hgeval.newEvaluation" />
                 </button>
-                {!savedReport ? (
+                {isLoggedIn && !savedReport && (
                     <button
                         className="btn btn-primary btn-sm"
                         onClick={handleSaveAndDownload}
@@ -222,7 +232,8 @@ const HGevalReportDisplay = ({
                     >
                         <span className="glyphicon glyphicon-download-alt" /> <Message msgId="hydrata.hgeval.saveAndDownload" />
                     </button>
-                ) : (
+                )}
+                {savedReport && (
                     <div className="hgeval-saved-actions">
                         <span className="text-success">
                             <span className="glyphicon glyphicon-ok" /> <Message msgId="hydrata.hgeval.saved" />
