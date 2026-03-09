@@ -1,10 +1,10 @@
 # Simple workflow for deploying static content to GitHub Pages
-name: Deploy static 5.0.x branch content to Pages
+name: Deploy static 5.x branch content to Pages
 
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ["5.0.x"]
+    branches: ["5.x"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -32,7 +32,7 @@ jobs:
       - name: Checkout 5.0.x
         uses: actions/checkout@v4
         with:
-           ref: 5.0.x
+           ref: 5.x
 
       - name: "Setting up npm"
         uses: actions/setup-node@v4
@@ -50,14 +50,14 @@ jobs:
           unzip artifact.zip
           mv gh-pages/ ../gh-pages
 
-      - name: Build 5.0.x documentation
+      - name: Build 5.x documentation
         run: |
           cd ./geonode_mapstore_client/client/
           npm run docs
           cd ../../
           cp -a ./geonode_mapstore_client/static/fonts/. ./docs/fonts/
-          rm -rf ../gh-pages/5.0.x
-          mv ./docs ../gh-pages/5.0.x
+          rm -rf ../gh-pages/5.x
+          mv ./docs ../gh-pages/5.x
           cd ../
           zip -r artifact.zip gh-pages/
           mv artifact.zip gh-pages/artifact.zip
