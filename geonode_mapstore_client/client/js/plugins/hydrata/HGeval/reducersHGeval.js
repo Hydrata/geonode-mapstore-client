@@ -14,7 +14,11 @@ import {
     HGEVAL_VALIDATION_ERROR,
     HGEVAL_SIGNUP_AND_SAVE,
     HGEVAL_SIGNUP_SUCCESS,
-    HGEVAL_SIGNUP_ERROR
+    HGEVAL_SIGNUP_ERROR,
+    HGEVAL_LOGIN_AND_SAVE,
+    HGEVAL_LOGIN_SUCCESS,
+    HGEVAL_LOGIN_ERROR,
+    HGEVAL_MAP_IMAGE_RESULT
 } from "./actionsHGeval";
 
 const initialState = {
@@ -36,7 +40,10 @@ const initialState = {
     validationError: null,
     savedReport: null,
     signupErrors: null,
-    signingUp: false
+    signingUp: false,
+    loginErrors: null,
+    loggingIn: false,
+    mapImageDataUrl: null
 };
 
 export default (state = initialState, action) => {
@@ -98,6 +105,14 @@ export default (state = initialState, action) => {
         return { ...state, signingUp: false, savedReport: action.report };
     case HGEVAL_SIGNUP_ERROR:
         return { ...state, signingUp: false, signupErrors: action.errors };
+    case HGEVAL_LOGIN_AND_SAVE:
+        return { ...state, loggingIn: true, loginErrors: null };
+    case HGEVAL_LOGIN_SUCCESS:
+        return { ...state, loggingIn: false, savedReport: action.report };
+    case HGEVAL_LOGIN_ERROR:
+        return { ...state, loggingIn: false, loginErrors: action.errors };
+    case HGEVAL_MAP_IMAGE_RESULT:
+        return { ...state, mapImageDataUrl: action.mapImageDataUrl };
     case HGEVAL_RESET:
         return { ...initialState };
     default:

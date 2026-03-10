@@ -7,26 +7,13 @@ import HGevalProgressIndicator from './hgevalProgressIndicator';
 const HGevalContainer = ({
     step, coordinates, form, reportData, rasterValues, warnings,
     queryProgress, loading, error, validationError, savedReport, isLoggedIn,
-    signupErrors, signingUp,
-    rasterApiUrl, reportApiUrl, hideToolbarButton,
+    signupErrors, signingUp, loginErrors, loggingIn, mapImageDataUrl,
+    rasterApiUrl, reportApiUrl,
     onSetStep, onSetCoordinates, onUpdateForm, onStartReport,
-    onSaveReport, onSignupAndSave, onReset
+    onSaveReport, onSignupAndSave, onLoginAndSave, onReset
 }) => {
-    if (step === 'idle') {
-        if (hideToolbarButton) return null;
-        return (
-            <div className="hgeval-toolbar-button">
-                <button
-                    className="btn btn-primary hgeval-start-btn"
-                    onClick={() => onSetStep('selecting')}
-                    title="Evaluate groundwater at a location"
-                >
-                    <span className="glyphicon glyphicon-tint" />
-                    <span className="hgeval-btn-label"> <Message msgId="hydrata.hgeval.hgeval" /></span>
-                </button>
-            </div>
-        );
-    }
+    // Button is now rendered by SimpleView toolbar; nothing to show when idle
+    if (step === 'idle') return null;
 
     return (
         <div className="hgeval-panel">
@@ -63,8 +50,12 @@ const HGevalContainer = ({
                         isLoggedIn={isLoggedIn}
                         signupErrors={signupErrors}
                         signingUp={signingUp}
+                        loginErrors={loginErrors}
+                        loggingIn={loggingIn}
+                        mapImageDataUrl={mapImageDataUrl}
                         onSave={onSaveReport}
                         onSignupAndSave={onSignupAndSave}
+                        onLoginAndSave={onLoginAndSave}
                         onNewReport={onReset}
                         onUpdateForm={onUpdateForm}
                     />

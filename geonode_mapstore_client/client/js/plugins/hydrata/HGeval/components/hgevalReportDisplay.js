@@ -9,7 +9,7 @@ const DataRow = ({ label, value, fallback }) => (
     </tr>
 );
 
-export function downloadReport(coordinates, form, reportData, rasterValues, warnings) {
+export function downloadReport(coordinates, form, reportData, rasterValues, warnings, mapImageDataUrl) {
     const admin1 = reportData['geonode:admin_level_1'];
     const admin2 = reportData['geonode:admin_level_2'];
     const gwPotential = reportData['geonode:groundwater_potential_01'];
@@ -39,6 +39,8 @@ export function downloadReport(coordinates, form, reportData, rasterValues, warn
         + '.disclaimer { background: #f5f5f5; padding: 16px; border-radius: 4px; margin-top: 28px; }\n'
         + '.disclaimer h2 { color: #999; border-color: #ddd; }\n'
         + '.disclaimer p { color: #777; font-style: italic; line-height: 1.5; }\n'
+        + '.map-image { width: 100%; max-width: 600px; border: 1px solid #ddd; border-radius: 4px; margin: 8px 0 16px; display: block; }\n'
+        + '.map-caption { font-size: 11px; color: #999; margin: -12px 0 16px; }\n'
         + '.meta { color: #999; font-size: 12px; margin-top: 32px; border-top: 1px solid #eee; padding-top: 8px; }\n'
         + '@media print { body { padding: 0; } .warning { break-inside: avoid; } }\n'
         + '</style>\n</head><body>\n'
@@ -46,7 +48,12 @@ export function downloadReport(coordinates, form, reportData, rasterValues, warn
         + '<p><strong>Project:</strong> ' + (form?.name || 'Untitled') + '</p>\n'
         + '<p><strong>Description:</strong> ' + (form?.description || '') + '</p>\n'
         + '<p><strong>Sector:</strong> ' + (form?.sector || '') + '</p>\n'
-        + '<h2>Location</h2>\n<table>\n'
+        + '<h2>Location</h2>\n'
+        + (mapImageDataUrl
+            ? '<img class="map-image" src="' + mapImageDataUrl + '" alt="Location map" />\n'
+              + '<p class="map-caption">Map data &copy; MapTiler / OpenStreetMap contributors</p>\n'
+            : '')
+        + '<table>\n'
         + '<tr><td>Latitude</td><td>' + (coordinates?.lat?.toFixed(6) || '') + '\u00B0</td></tr>\n'
         + '<tr><td>Longitude</td><td>' + (coordinates?.lon?.toFixed(6) || '') + '\u00B0</td></tr>\n'
         + '<tr><td>Department</td><td>' + val(admin1?.NAME_1) + '</td></tr>\n'
@@ -89,7 +96,8 @@ export function downloadReport(coordinates, form, reportData, rasterValues, warn
 const HGevalReportDisplay = ({
     coordinates, form, reportData, rasterValues, warnings,
     savedReport, isLoggedIn, signupErrors, signingUp,
-    onSave, onSignupAndSave, onNewReport, onUpdateForm
+    loginErrors, loggingIn, mapImageDataUrl,
+    onSave, onSignupAndSave, onLoginAndSave, onNewReport, onUpdateForm
 }) => {
     const admin1 = reportData['geonode:admin_level_1'];
     const admin2 = reportData['geonode:admin_level_2'];
@@ -104,11 +112,11 @@ const HGevalReportDisplay = ({
 
     const handleSaveAndDownload = () => {
         onSave();
-        downloadReport(coordinates, form, reportData, rasterValues, warnings);
+        downloadReport(coordinates, form, reportData, rasterValues, warnings, mapImageDataUrl);
     };
 
     const handleDownload = () => {
-        downloadReport(coordinates, form, reportData, rasterValues, warnings);
+        downloadReport(coordinates, form, reportData, rasterValues, warnings, mapImageDataUrl);
     };
 
     return (
@@ -215,7 +223,10 @@ const HGevalReportDisplay = ({
                 <HGevalSignupForm
                     signupErrors={signupErrors}
                     signingUp={signingUp}
+                    loginErrors={loginErrors}
+                    loggingIn={loggingIn}
                     onSignupAndSave={onSignupAndSave}
+                    onLoginAndSave={onLoginAndSave}
                 />
             )}
 

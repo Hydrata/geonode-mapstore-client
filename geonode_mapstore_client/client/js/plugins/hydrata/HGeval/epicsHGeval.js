@@ -8,6 +8,7 @@ import {
     HGEVAL_START_REPORT,
     HGEVAL_SAVE_REPORT,
     HGEVAL_SIGNUP_AND_SAVE,
+    HGEVAL_LOGIN_AND_SAVE,
     HGEVAL_RESET,
     HGEVAL_REPORT_ERROR,
     setCoordinates,
@@ -20,8 +21,11 @@ import {
     saveError,
     signupSuccess,
     signupError,
+    loginSuccess,
+    loginError,
     validationError,
-    setStep
+    setStep,
+    mapImageResult
 } from "./actionsHGeval";
 import { VECTOR_LAYERS, TOTAL_QUERIES, NICARAGUA_BOUNDS } from "./utils/layerConfig";
 import { buildWfsContainsQuery } from "./utils/wfsQuery";
@@ -35,6 +39,95 @@ import { downloadReport } from "./components/hgevalReportDisplay";
 function getBearerHeaders() {
     const token = getToken();
     return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+/**
+ * Extract MapTiler API key from localConfig background layers.
+ * The key is injected into terrain layer URLs at deploy time.
+ */
+function getMaptilerKey(state) {
+    const plugins = state?.localConfig?.plugins?.map_viewer || [];
+    for (const p of plugins) {
+        const cfg = p?.cfg;
+        if (cfg?.defaultTerrain?.url) {
+            const match = cfg.defaultTerrain.url.match(/[?&]key=([^&]+)/);
+            if (match) return match[1];
+        }
+    }
+    // Fallback: check background layers in map state
+    const layers = state?.layers?.flat || [];
+    for (const l of layers) {
+        if (l?.url && l.url.includes('maptiler.com') && l.url.includes('key=')) {
+            const match = l.url.match(/[?&]key=([^&]+)/);
+            if (match) return match[1];
+        }
+    }
+    return null;
+}
+
+/**
+ * Fetch a MapTiler static map image and convert to a data URL.
+ * Returns an Observable that emits the mapImageResult action.
+ */
+function fetchMapImage(lon, lat, zoom, state) {
+    const key = getMaptilerKey(state);
+    if (!key) {
+        return Rx.Observable.of(mapImageResult(null));
+    }
+    const mapZoom = Math.min(Math.max(zoom || 12, 8), 16);
+    const url = `https://api.maptiler.com/maps/streets-v2/static/${lon},${lat},${mapZoom}/600x400.png?key=${key}&markers=${lon},${lat},red`;
+
+    return Rx.Observable
+        .from(
+            fetch(url)
+                .then(r => r.blob())
+                .then(blob => new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                }))
+        )
+        .map(dataUrl => mapImageResult(dataUrl))
+        .catch(() => Rx.Observable.of(mapImageResult(null)));
+}
+
+/**
+ * Build the report payload from current hgeval state.
+ */
+function buildReportPayload(hgeval, extraFields) {
+    return {
+        name: hgeval?.form?.name || 'Untitled Report',
+        description: hgeval?.form?.description || '',
+        sector: hgeval?.form?.sector || '',
+        preferred_contact: hgeval?.form?.contact_email ? 'email' : (hgeval?.form?.contact_phone_number ? 'phone' : ''),
+        contact_phone_number: hgeval?.form?.contact_phone_number || '',
+        contact_email: hgeval?.form?.contact_email || '',
+        longitude: hgeval?.coordinates?.lon,
+        latitude: hgeval?.coordinates?.lat,
+        report_data: hgeval?.reportData || {},
+        raster_values: hgeval?.rasterValues || {},
+        warnings: hgeval?.warnings || [],
+        ...extraFields
+    };
+}
+
+/**
+ * Trigger download and page reload after auth+save success.
+ */
+function downloadAndReload(hgeval, contactEmail) {
+    try {
+        downloadReport(
+            hgeval?.coordinates,
+            { ...hgeval?.form, contact_email: contactEmail },
+            hgeval?.reportData || {},
+            hgeval?.rasterValues || {},
+            hgeval?.warnings || [],
+            hgeval?.mapImageDataUrl
+        );
+    } catch (e) {
+        // Download is best-effort; report is saved server-side
+    }
+    setTimeout(() => { window.location.reload(); }, 500);
 }
 
 /**
@@ -151,6 +244,7 @@ export const hgevalMapClickManagerEpic = (action$, store) => {
 
 /**
  * Epic: When HGEVAL_START_REPORT is dispatched, run all WFS queries + raster API in parallel.
+ * After all queries complete, fetches a MapTiler static map image for the report.
  */
 export const startReportEpic = (action$, store) =>
     action$
@@ -222,7 +316,7 @@ export const startReportEpic = (action$, store) =>
                     ]);
                 });
 
-            // Run all queries in parallel, then validate and compute warnings
+            // Run all queries in parallel, then validate, compute warnings, and fetch map image
             return Rx.Observable.merge(...wfsQueries, rasterQuery)
                 .mergeMap(actions => Rx.Observable.from(actions))
                 .concat(
@@ -241,7 +335,15 @@ export const startReportEpic = (action$, store) =>
                         }
 
                         const warnings = computeWarnings(allReportData, allRasterValues);
-                        return Rx.Observable.of(reportComplete(warnings));
+                        // Use current map zoom, default to 12 if too zoomed out
+                        const mapZoom = currentState?.map?.present?.zoom || currentState?.map?.zoom || 12;
+                        const zoom = mapZoom < 8 ? 12 : mapZoom;
+
+                        // Fetch map image in parallel with completing the report
+                        return Rx.Observable.merge(
+                            Rx.Observable.of(reportComplete(warnings)),
+                            fetchMapImage(lon, lat, zoom, currentState)
+                        );
                     })
                 );
         });
@@ -256,19 +358,7 @@ export const saveReportEpic = (action$, store) =>
             const state = store.getState();
             const hgeval = state?.hgeval;
             const reportApiUrl = hgeval?.reportApiUrl || '/nicp/api/reports/';
-            const payload = {
-                name: hgeval?.form?.name || 'Untitled Report',
-                description: hgeval?.form?.description || '',
-                sector: hgeval?.form?.sector || '',
-                preferred_contact: hgeval?.form?.contact_email ? 'email' : (hgeval?.form?.contact_phone_number ? 'phone' : ''),
-                contact_phone_number: hgeval?.form?.contact_phone_number || '',
-                contact_email: hgeval?.form?.contact_email || '',
-                longitude: hgeval?.coordinates?.lon,
-                latitude: hgeval?.coordinates?.lat,
-                report_data: hgeval?.reportData || {},
-                raster_values: hgeval?.rasterValues || {},
-                warnings: hgeval?.warnings || []
-            };
+            const payload = buildReportPayload(hgeval);
 
             return Rx.Observable
                 .from(axios.post(reportApiUrl, payload, { headers: getBearerHeaders() }))
@@ -288,45 +378,50 @@ export const signupAndSaveEpic = (action$, store) =>
         .switchMap(({ signupData }) => {
             const state = store.getState();
             const hgeval = state?.hgeval;
-            const payload = {
+            const payload = buildReportPayload(hgeval, {
                 email: signupData.email,
                 password: signupData.password,
                 first_name: signupData.first_name || '',
                 last_name: signupData.last_name || '',
-                name: hgeval?.form?.name || 'Untitled Report',
-                description: hgeval?.form?.description || '',
-                sector: hgeval?.form?.sector || '',
-                preferred_contact: signupData.email ? 'email' : 'phone',
-                contact_phone_number: hgeval?.form?.contact_phone_number || '',
-                contact_email: signupData.email || hgeval?.form?.contact_email || '',
-                longitude: hgeval?.coordinates?.lon,
-                latitude: hgeval?.coordinates?.lat,
-                report_data: hgeval?.reportData || {},
-                raster_values: hgeval?.rasterValues || {},
-                warnings: hgeval?.warnings || []
-            };
+                contact_email: signupData.email || hgeval?.form?.contact_email || ''
+            });
 
             return Rx.Observable
                 .from(axios.post('/nicp/api/signup-report/', payload))
                 .mergeMap(response => {
                     const { report } = response.data;
-                    // Download the report HTML before reloading
-                    try {
-                        downloadReport(
-                            hgeval?.coordinates,
-                            { ...hgeval?.form, contact_email: signupData.email },
-                            hgeval?.reportData || {},
-                            hgeval?.rasterValues || {},
-                            hgeval?.warnings || []
-                        );
-                    } catch (e) {
-                        // Download is best-effort; report is saved server-side
-                    }
-                    // Reload after a brief delay to let download start
-                    setTimeout(() => { window.location.reload(); }, 500);
+                    downloadAndReload(hgeval, signupData.email);
                     return Rx.Observable.of(signupSuccess(report));
                 })
                 .catch(err => Rx.Observable.of(
                     signupError(err?.response?.data || { detail: 'Signup failed. Please try again.' })
+                ));
+        });
+
+/**
+ * Epic: Login existing user + save report.
+ * After success, triggers download and reloads the page to pick up the session.
+ */
+export const loginAndSaveEpic = (action$, store) =>
+    action$
+        .ofType(HGEVAL_LOGIN_AND_SAVE)
+        .switchMap(({ credentials }) => {
+            const state = store.getState();
+            const hgeval = state?.hgeval;
+            const payload = buildReportPayload(hgeval, {
+                email: credentials.email,
+                password: credentials.password,
+                contact_email: credentials.email || hgeval?.form?.contact_email || ''
+            });
+
+            return Rx.Observable
+                .from(axios.post('/nicp/api/login-report/', payload))
+                .mergeMap(response => {
+                    const { report } = response.data;
+                    downloadAndReload(hgeval, credentials.email);
+                    return Rx.Observable.of(loginSuccess(report));
+                })
+                .catch(err => Rx.Observable.of(
+                    loginError(err?.response?.data || { detail: 'Login failed. Please try again.' })
                 ));
         });

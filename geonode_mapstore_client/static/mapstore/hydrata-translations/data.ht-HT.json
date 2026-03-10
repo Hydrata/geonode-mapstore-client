@@ -317,7 +317,15 @@
                 "saved": "Anrejistre",
                 "sector": "Sektè",
                 "sectorRequired": "Sektè *",
-                "warnings": "Avètisman"
+                "warnings": "Avètisman",
+                "createAccountToSave": "Kreye yon kont pou anrejistre epi telechaje rapò ou a",
+                "logInToSave": "Konekte pou anrejistre epi telechaje rapò ou a",
+                "createAccountAndSave": "Kreye kont epi anrejistre rapò",
+                "logInAndSave": "Konekte epi anrejistre rapò",
+                "alreadyHaveAccount": "Ou gen yon kont deja? Konekte",
+                "needAnAccount": "Bezwen yon kont? Enskri",
+                "creatingAccount": "Kreyasyon kont...",
+                "loggingIn": "Koneksyon..."
             },
             "scenarios": {
                 "delete": "Efase",

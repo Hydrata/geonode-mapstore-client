@@ -317,7 +317,15 @@
                 "saved": "Enregistré",
                 "sector": "Secteur",
                 "sectorRequired": "Secteur *",
-                "warnings": "Avertissements"
+                "warnings": "Avertissements",
+                "createAccountToSave": "Créez un compte pour enregistrer et télécharger votre rapport",
+                "logInToSave": "Connectez-vous pour enregistrer et télécharger votre rapport",
+                "createAccountAndSave": "Créer un compte et enregistrer le rapport",
+                "logInAndSave": "Se connecter et enregistrer le rapport",
+                "alreadyHaveAccount": "Vous avez déjà un compte ? Connectez-vous",
+                "needAnAccount": "Besoin d'un compte ? Inscrivez-vous",
+                "creatingAccount": "Création du compte...",
+                "loggingIn": "Connexion en cours..."
             },
             "scenarios": {
                 "delete": "Supprimer",

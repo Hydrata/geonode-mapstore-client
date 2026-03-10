@@ -71,6 +71,35 @@
     border-color: rgba(255, 255, 255, 0.9);
 }
 
+/* ── HGeval "Generate Report" button (green, wider) ── */
+.simple-view-hgeval-button {
+    background-color: rgba(40, 167, 69, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    color: white;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.simple-view-hgeval-button:hover {
+    background-color: rgba(33, 136, 56, 0.95);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.simple-view-hgeval-button.active {
+    background-color: rgba(30, 126, 52, 1);
+    border-color: rgba(255, 255, 255, 0.9);
+}
+
+.simple-view-hgeval-label {
+    font-weight: 600;
+}
+
 .simple-view-panel {
     position: absolute;
     z-index: 1025;

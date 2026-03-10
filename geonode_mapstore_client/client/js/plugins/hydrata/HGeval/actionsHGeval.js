@@ -15,6 +15,10 @@ const HGEVAL_VALIDATION_ERROR = 'HGEVAL_VALIDATION_ERROR';
 const HGEVAL_SIGNUP_AND_SAVE = 'HGEVAL_SIGNUP_AND_SAVE';
 const HGEVAL_SIGNUP_SUCCESS = 'HGEVAL_SIGNUP_SUCCESS';
 const HGEVAL_SIGNUP_ERROR = 'HGEVAL_SIGNUP_ERROR';
+const HGEVAL_LOGIN_AND_SAVE = 'HGEVAL_LOGIN_AND_SAVE';
+const HGEVAL_LOGIN_SUCCESS = 'HGEVAL_LOGIN_SUCCESS';
+const HGEVAL_LOGIN_ERROR = 'HGEVAL_LOGIN_ERROR';
+const HGEVAL_MAP_IMAGE_RESULT = 'HGEVAL_MAP_IMAGE_RESULT';
 
 function setStep(step) {
     return { type: HGEVAL_SET_STEP, step };
@@ -84,6 +88,22 @@ function signupError(errors) {
     return { type: HGEVAL_SIGNUP_ERROR, errors };
 }
 
+function loginAndSave(credentials) {
+    return { type: HGEVAL_LOGIN_AND_SAVE, credentials };
+}
+
+function loginSuccess(report) {
+    return { type: HGEVAL_LOGIN_SUCCESS, report };
+}
+
+function loginError(errors) {
+    return { type: HGEVAL_LOGIN_ERROR, errors };
+}
+
+function mapImageResult(mapImageDataUrl) {
+    return { type: HGEVAL_MAP_IMAGE_RESULT, mapImageDataUrl };
+}
+
 module.exports = {
     HGEVAL_SET_STEP, setStep,
     HGEVAL_SET_COORDINATES, setCoordinates,
@@ -101,5 +121,9 @@ module.exports = {
     HGEVAL_VALIDATION_ERROR, validationError,
     HGEVAL_SIGNUP_AND_SAVE, signupAndSave,
     HGEVAL_SIGNUP_SUCCESS, signupSuccess,
-    HGEVAL_SIGNUP_ERROR, signupError
+    HGEVAL_SIGNUP_ERROR, signupError,
+    HGEVAL_LOGIN_AND_SAVE, loginAndSave,
+    HGEVAL_LOGIN_SUCCESS, loginSuccess,
+    HGEVAL_LOGIN_ERROR, loginError,
+    HGEVAL_MAP_IMAGE_RESULT, mapImageResult
 };

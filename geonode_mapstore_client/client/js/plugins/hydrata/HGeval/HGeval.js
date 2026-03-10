@@ -2,7 +2,7 @@ import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtil
 import { connect } from 'react-redux';
 import hgeval from "./reducersHGeval";
 import HGevalContainer from "./components/hgevalContainer";
-import { startReportEpic, saveReportEpic, signupAndSaveEpic, mapClickEpic, hgevalMapClickManagerEpic } from "./epicsHGeval";
+import { startReportEpic, saveReportEpic, signupAndSaveEpic, loginAndSaveEpic, mapClickEpic, hgevalMapClickManagerEpic } from "./epicsHGeval";
 import {
     setStep,
     setCoordinates,
@@ -10,6 +10,7 @@ import {
     startReport,
     saveReport,
     signupAndSave,
+    loginAndSave,
     reset
 } from "./actionsHGeval";
 import {
@@ -26,7 +27,10 @@ import {
     hgevalSavedReportSelector,
     isUserLoggedIn,
     hgevalSignupErrorsSelector,
-    hgevalSigningUpSelector
+    hgevalSigningUpSelector,
+    hgevalLoginErrorsSelector,
+    hgevalLoggingInSelector,
+    hgevalMapImageSelector
 } from "./selectorsHGeval";
 
 import './styles/hgeval.css';
@@ -47,6 +51,9 @@ const ConnectedHGeval = connect(
         isLoggedIn: isUserLoggedIn(state),
         signupErrors: hgevalSignupErrorsSelector(state),
         signingUp: hgevalSigningUpSelector(state),
+        loginErrors: hgevalLoginErrorsSelector(state),
+        loggingIn: hgevalLoggingInSelector(state),
+        mapImageDataUrl: hgevalMapImageSelector(state),
         rasterApiUrl: ownProps?.rasterApiUrl || '/nicp/api/raster/',
         reportApiUrl: ownProps?.reportApiUrl || '/nicp/api/reports/'
     }),
@@ -57,6 +64,7 @@ const ConnectedHGeval = connect(
         onStartReport: startReport,
         onSaveReport: saveReport,
         onSignupAndSave: signupAndSave,
+        onLoginAndSave: loginAndSave,
         onReset: reset
     }
 )(HGevalContainer);
@@ -68,6 +76,7 @@ export default createPlugin('HGeval', {
         startReportEpic,
         saveReportEpic,
         signupAndSaveEpic,
+        loginAndSaveEpic,
         mapClickEpic,
         hgevalMapClickManagerEpic
     }

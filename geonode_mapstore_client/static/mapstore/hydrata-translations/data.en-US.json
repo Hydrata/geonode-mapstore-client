@@ -317,7 +317,15 @@
                 "saved": "Saved",
                 "sector": "Sector",
                 "sectorRequired": "Sector *",
-                "warnings": "Warnings"
+                "warnings": "Warnings",
+                "createAccountToSave": "Create an account to save and download your report",
+                "logInToSave": "Log in to save and download your report",
+                "createAccountAndSave": "Create Account & Save Report",
+                "logInAndSave": "Log In & Save Report",
+                "alreadyHaveAccount": "Already have an account? Log in",
+                "needAnAccount": "Need an account? Sign up",
+                "creatingAccount": "Creating account...",
+                "loggingIn": "Logging in..."
             },
             "scenarios": {
                 "delete": "Delete",

@@ -136,10 +136,13 @@ class SimpleViewContainer extends React.Component {
                     </button>
                     {this.props.hgevalPluginPresent ?
                         <button
-                            className={`simple-view-right-button ${this.props.hgevalActive ? 'active' : ''}`}
+                            className={`simple-view-hgeval-button ${this.props.hgevalActive ? 'active' : ''}`}
                             onClick={() => this.props.hgevalActive ? this.props.onResetHGeval() : this.props.onSetHGevalStep('selecting')}
-                            title="HGeval Report">
+                            title="Generate Report">
                             <Glyphicon glyph="tint" />
+                            <span className="simple-view-hgeval-label">
+                                <Message msgId="hydrata.hgeval.generateReport" />
+                            </span>
                         </button>
                         : null
                     }

@@ -317,7 +317,15 @@
                 "saved": "Guardado",
                 "sector": "Sector",
                 "sectorRequired": "Sector *",
-                "warnings": "Advertencias"
+                "warnings": "Advertencias",
+                "createAccountToSave": "Crea una cuenta para guardar y descargar tu informe",
+                "logInToSave": "Inicia sesión para guardar y descargar tu informe",
+                "createAccountAndSave": "Crear cuenta y guardar informe",
+                "logInAndSave": "Iniciar sesión y guardar informe",
+                "alreadyHaveAccount": "¿Ya tienes una cuenta? Inicia sesión",
+                "needAnAccount": "¿Necesitas una cuenta? Regístrate",
+                "creatingAccount": "Creando cuenta...",
+                "loggingIn": "Iniciando sesión..."
             },
             "scenarios": {
                 "delete": "Eliminar",
