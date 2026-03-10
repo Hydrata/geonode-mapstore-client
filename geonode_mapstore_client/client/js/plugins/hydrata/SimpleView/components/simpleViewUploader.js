@@ -230,6 +230,18 @@ class simpleViewUploaderPanel extends React.Component {
                     this.props.setVisibleSimpleViewAttributeForm(true);
                     this.props.createSimpleViewAttributeForm(response?.data);
                     trackEvent('process', `complete`, `simpleview-uploader-complete`);
+                })
+                .catch(error => {
+                    this.props.updateUploadStatus(0);
+                    this.props.show({
+                        "message": "hydrata.simpleView.importFailed",
+                        "title": "hydrata.simpleView.error",
+                        "uid": 1001,
+                        "position": "tc",
+                        "autoDismiss": 10,
+                        "level": "error"
+                    });
+                    trackEvent('process', `error`, `simpleview-uploader-error`);
                 });
         } else {
             const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/importer-create/`;
@@ -253,6 +265,18 @@ class simpleViewUploaderPanel extends React.Component {
                             "position": "tc"
                         });
                     }
+                })
+                .catch(error => {
+                    this.props.updateUploadStatus(0);
+                    this.props.show({
+                        "message": "hydrata.simpleView.importFailed",
+                        "title": "hydrata.simpleView.error",
+                        "uid": 1001,
+                        "position": "tc",
+                        "autoDismiss": 10,
+                        "level": "error"
+                    });
+                    trackEvent('process', `error`, `simpleview-uploader-error`);
                 });
         }
     };

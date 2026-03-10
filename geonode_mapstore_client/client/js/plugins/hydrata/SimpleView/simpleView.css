@@ -239,7 +239,18 @@
 .legend-close {
     position: absolute;
     right: 0;
-    color: red;
+    color: #fff;
+    background-color: #c9544d;
+    border: none;
+    border-radius: 3px;
+    padding: 2px 6px;
+    opacity: 0.9;
+}
+
+.legend-close:hover {
+    opacity: 1;
+    background-color: #b5403a;
+    color: #fff;
 }
 
 .uploader-panel {
