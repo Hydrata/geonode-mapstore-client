@@ -108,6 +108,18 @@ class SimpleViewContainer extends React.Component {
                             }) :
                         null
                     }
+                    {this.props.hgevalPluginPresent ?
+                        <button
+                            className={`simple-view-hgeval-button ${this.props.hgevalActive ? 'active' : ''}`}
+                            onClick={() => this.props.hgevalActive ? this.props.onResetHGeval() : this.props.onSetHGevalStep('selecting')}
+                            title="Generate Report">
+                            <Glyphicon glyph="tint" />
+                            <span className="simple-view-hgeval-label">
+                                <Message msgId="hydrata.hgeval.generateReport" />
+                            </span>
+                        </button>
+                        : null
+                    }
                 </div>
                 <div className="simple-view-right-toolbar">
                     {this.props.searchPluginPresent ?
@@ -134,18 +146,6 @@ class SimpleViewContainer extends React.Component {
                         title="Legend">
                         <Glyphicon glyph="list" />
                     </button>
-                    {this.props.hgevalPluginPresent ?
-                        <button
-                            className={`simple-view-hgeval-button ${this.props.hgevalActive ? 'active' : ''}`}
-                            onClick={() => this.props.hgevalActive ? this.props.onResetHGeval() : this.props.onSetHGevalStep('selecting')}
-                            title="Generate Report">
-                            <Glyphicon glyph="tint" />
-                            <span className="simple-view-hgeval-label">
-                                <Message msgId="hydrata.hgeval.generateReport" />
-                            </span>
-                        </button>
-                        : null
-                    }
                     {this.props.canEdit && this.props.loggedIn ? (
                         <>
                             <button

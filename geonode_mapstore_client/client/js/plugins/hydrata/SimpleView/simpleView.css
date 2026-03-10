@@ -77,11 +77,12 @@
     border: 2px solid rgba(255, 255, 255, 0.5);
     border-radius: 4px;
     color: white;
-    font-size: 13px;
+    font-size: 12px;
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 6px 10px;
+    height: 50px;
+    padding: 3px 10px;
     cursor: pointer;
     white-space: nowrap;
 }
@@ -403,6 +404,12 @@
         padding: 2px 4px;
     }
 
+    .simple-view-hgeval-button {
+        height: 44px;
+        font-size: 11px;
+        padding: 2px 8px;
+    }
+
     .simple-view-right-button {
         width: 36px;
         height: 36px;
@@ -433,6 +440,12 @@
         height: 38px;
         font-size: 10px;
         padding: 2px 3px;
+    }
+
+    .simple-view-hgeval-button {
+        height: 38px;
+        font-size: 10px;
+        padding: 2px 6px;
     }
 
     .simple-view-left-toolbar {
