@@ -27,6 +27,8 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 import ScenarioTableRow from './ScenarioTableRow';
 import {validateScenario} from './scenarioHelpers';
+import {toggleTaskMonitorPanel, expandProcess} from '../../TaskMonitor/actionsTaskMonitor';
+import {getProcessForObject} from '../../TaskMonitor/selectorsTaskMonitor';
 
 class AnugaScenarioMenuClass extends React.Component {
     static propTypes = {
@@ -201,6 +203,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     retryAnugaRun={this.props.retryAnugaRun}
                                     toggleScenarioSelected={this.props.toggleScenarioSelected}
                                     validateScenario={validateScenario}
+                                    openTaskMonitorForRun={this.props.openTaskMonitorForRun}
                                 />
                             ))}
                         </tbody>
@@ -249,7 +252,10 @@ const mapDispatchToProps = ( dispatch ) => {
         retryAnugaRun: (runId) => dispatch(retryAnugaRun(runId)),
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
         toggleScenarioSelected: (scenario) => dispatch(toggleScenarioSelected(scenario)),
-        compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios))
+        compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios)),
+        openTaskMonitorForRun: () => {
+            dispatch(toggleTaskMonitorPanel(true));
+        }
     };
 };
 

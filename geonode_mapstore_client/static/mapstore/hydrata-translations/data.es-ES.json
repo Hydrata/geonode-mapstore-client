@@ -337,6 +337,21 @@
             },
             "swamps": {
                 "refreshMonitoringData": "Actualizar datos de monitoreo"
+            },
+            "taskMonitor": {
+                "title": "Tareas",
+                "log": "Registro",
+                "cancel": "Cancelar",
+                "noProcesses": "No hay tareas para mostrar",
+                "filterActive": "Activas",
+                "filterCompleted": "Completadas",
+                "filterFailed": "Fallidas",
+                "filterAll": "Todas",
+                "statusPending": "Pendiente",
+                "statusRunning": "En ejecución",
+                "statusComplete": "Completo",
+                "statusError": "Error",
+                "statusCancelled": "Cancelada"
             }
         }
     }

@@ -352,7 +352,11 @@ class ScenarioTableRow extends React.Component {
                                 style={{margin: "2px", borderRadius: "2px"}}
                                 onClick={() => {
                                     this.props.selectAnugaScenario(scenario);
-                                    this.props.showAnugaScenarioLog(scenario.id);
+                                    if (this.props.openTaskMonitorForRun) {
+                                        this.props.openTaskMonitorForRun();
+                                    } else {
+                                        this.props.showAnugaScenarioLog(scenario.id);
+                                    }
                                     trackEvent('button', 'click', 'anuga-scenario-menu-view-log');
                                 }}
                             >

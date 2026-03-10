@@ -337,6 +337,21 @@
             },
             "swamps": {
                 "refreshMonitoringData": "Refresh Monitoring Data"
+            },
+            "taskMonitor": {
+                "title": "Tasks",
+                "log": "Log",
+                "cancel": "Cancel",
+                "noProcesses": "No tasks to display",
+                "filterActive": "Active",
+                "filterCompleted": "Completed",
+                "filterFailed": "Failed",
+                "filterAll": "All",
+                "statusPending": "Pending",
+                "statusRunning": "Running",
+                "statusComplete": "Complete",
+                "statusError": "Error",
+                "statusCancelled": "Cancelled"
             }
         }
     }

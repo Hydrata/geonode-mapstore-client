@@ -1973,6 +1973,9 @@
             },
             {
                 "name": "SimpleView"
+            },
+            {
+                "name": "TaskMonitor"
             }
         ],
         "geostory_viewer": [

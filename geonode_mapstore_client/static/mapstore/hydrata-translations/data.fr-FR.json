@@ -337,6 +337,21 @@
             },
             "swamps": {
                 "refreshMonitoringData": "Actualiser les données de surveillance"
+            },
+            "taskMonitor": {
+                "title": "Tâches",
+                "log": "Journal",
+                "cancel": "Annuler",
+                "noProcesses": "Aucune tâche à afficher",
+                "filterActive": "Actives",
+                "filterCompleted": "Terminées",
+                "filterFailed": "Échouées",
+                "filterAll": "Toutes",
+                "statusPending": "En attente",
+                "statusRunning": "En cours",
+                "statusComplete": "Terminé",
+                "statusError": "Erreur",
+                "statusCancelled": "Annulée"
             }
         }
     }

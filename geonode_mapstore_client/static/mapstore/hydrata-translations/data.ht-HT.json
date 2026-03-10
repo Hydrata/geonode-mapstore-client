@@ -337,6 +337,21 @@
             },
             "swamps": {
                 "refreshMonitoringData": "Rafrechi done siveyans"
+            },
+            "taskMonitor": {
+                "title": "Travay",
+                "log": "Jounal",
+                "cancel": "Anile",
+                "noProcesses": "Pa gen travay pou montre",
+                "filterActive": "Aktif",
+                "filterCompleted": "Fini",
+                "filterFailed": "Echwe",
+                "filterAll": "Tout",
+                "statusPending": "Ap tann",
+                "statusRunning": "Ap kouri",
+                "statusComplete": "Fini",
+                "statusError": "Erè",
+                "statusCancelled": "Anile"
             }
         }
     }

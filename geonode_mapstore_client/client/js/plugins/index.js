@@ -509,6 +509,10 @@ export const plugins = {
     HGevalPlugin: toModulePlugin(
         'HGeval',
         () => import(/* webpackChunkName: 'plugins/hgeval-plugin' */ '@js/plugins/hydrata/HGeval/HGeval')
+    ),
+    TaskMonitorPlugin: toModulePlugin(
+        'TaskMonitor',
+        () => import(/* webpackChunkName: 'plugins/taskmonitor-plugin' */ '@js/plugins/hydrata/TaskMonitor/TaskMonitor')
     )
 };
 

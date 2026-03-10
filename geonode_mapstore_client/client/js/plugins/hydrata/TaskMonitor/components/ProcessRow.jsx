@@ -1,0 +1,67 @@
+import React from 'react';
+const PropTypes = require('prop-types');
+import Message from '@mapstore/framework/components/I18N/Message';
+
+const typeIcons = {
+    anuga_run: 'glyphicon-flash',
+    elevation_create: 'glyphicon-signal',
+    swamm_import: 'glyphicon-import',
+    geonode_upload: 'glyphicon-upload',
+    comparison: 'glyphicon-transfer'
+};
+
+const statusBadgeClass = (status) => {
+    switch (status) {
+    case 'running': return 'tm-badge tm-badge-running';
+    case 'pending': return 'tm-badge tm-badge-pending';
+    case 'complete': return 'tm-badge tm-badge-complete';
+    case 'error': return 'tm-badge tm-badge-error';
+    case 'cancelled': return 'tm-badge tm-badge-cancelled';
+    default: return 'tm-badge';
+    }
+};
+
+const statusMsgId = (status) => `hydrata.taskMonitor.status${status.charAt(0).toUpperCase() + status.slice(1)}`;
+
+class ProcessRow extends React.Component {
+    static propTypes = {
+        process: PropTypes.object,
+        expanded: PropTypes.bool,
+        onClick: PropTypes.func
+    };
+
+    render() {
+        const { process, expanded } = this.props;
+        if (!process) return null;
+
+        const icon = typeIcons[process.process_type] || 'glyphicon-cog';
+        const showProgress = process.status === 'running' && process.progress_pct != null;
+
+        return (
+            <div
+                className={`tm-process-row ${expanded ? 'tm-expanded' : ''}`}
+                onClick={() => this.props.onClick(process.id)}
+            >
+                <span className={`glyphicon ${icon} tm-type-icon`} />
+                <div className="tm-row-content">
+                    <div className="tm-row-header">
+                        <span className="tm-process-name">{process.name}</span>
+                        <span className={statusBadgeClass(process.status)}>
+                            <Message msgId={statusMsgId(process.status)} />
+                        </span>
+                    </div>
+                    {process.status_detail ? (
+                        <span className="tm-status-detail">{process.status_detail}</span>
+                    ) : null}
+                    {showProgress ? (
+                        <div className="tm-progress-bar-container">
+                            <div className="tm-progress-bar" style={{width: `${process.progress_pct}%`}} />
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        );
+    }
+}
+
+export default ProcessRow;
