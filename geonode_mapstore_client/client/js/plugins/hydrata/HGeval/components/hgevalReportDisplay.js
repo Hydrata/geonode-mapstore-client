@@ -112,11 +112,13 @@ const HGevalReportDisplay = ({
 
     const handleSaveAndDownload = () => {
         onSave();
-        downloadReport(coordinates, form, reportData, rasterValues, warnings, mapImageDataUrl);
+        // PDF will be available after save via savedReport.id
     };
 
-    const handleDownload = () => {
-        downloadReport(coordinates, form, reportData, rasterValues, warnings, mapImageDataUrl);
+    const handleDownloadPdf = () => {
+        if (savedReport?.id) {
+            window.open(`/nicp/print/${savedReport.id}/download/`, '_blank');
+        }
     };
 
     return (
@@ -249,7 +251,7 @@ const HGevalReportDisplay = ({
                         <span className="text-success">
                             <span className="glyphicon glyphicon-ok" /> <Message msgId="hydrata.hgeval.saved" />
                         </span>
-                        <button className="btn btn-default btn-sm" onClick={handleDownload}>
+                        <button className="btn btn-default btn-sm" onClick={handleDownloadPdf}>
                             <span className="glyphicon glyphicon-download-alt" /> <Message msgId="hydrata.hgeval.download" />
                         </button>
                     </div>

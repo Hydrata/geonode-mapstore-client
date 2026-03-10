@@ -29,7 +29,6 @@ import {
 } from "./actionsHGeval";
 import { VECTOR_LAYERS, TOTAL_QUERIES, NICARAGUA_BOUNDS } from "./utils/layerConfig";
 import { buildWfsContainsQuery } from "./utils/wfsQuery";
-import { downloadReport } from "./components/hgevalReportDisplay";
 
 /**
  * Build auth headers for custom Django API endpoints.
@@ -112,20 +111,11 @@ function buildReportPayload(hgeval, extraFields) {
 }
 
 /**
- * Trigger download and page reload after auth+save success.
+ * Open server-generated PDF in new tab and reload page after auth+save.
  */
-function downloadAndReload(hgeval, contactEmail) {
-    try {
-        downloadReport(
-            hgeval?.coordinates,
-            { ...hgeval?.form, contact_email: contactEmail },
-            hgeval?.reportData || {},
-            hgeval?.rasterValues || {},
-            hgeval?.warnings || [],
-            hgeval?.mapImageDataUrl
-        );
-    } catch (e) {
-        // Download is best-effort; report is saved server-side
+function downloadPdfAndReload(reportId) {
+    if (reportId) {
+        window.open(`/nicp/print/${reportId}/download/`, '_blank');
     }
     setTimeout(() => { window.location.reload(); }, 500);
 }
@@ -390,7 +380,7 @@ export const signupAndSaveEpic = (action$, store) =>
                 .from(axios.post('/nicp/api/signup-report/', payload))
                 .mergeMap(response => {
                     const { report } = response.data;
-                    downloadAndReload(hgeval, signupData.email);
+                    downloadPdfAndReload(report?.id);
                     return Rx.Observable.of(signupSuccess(report));
                 })
                 .catch(err => Rx.Observable.of(
@@ -418,7 +408,7 @@ export const loginAndSaveEpic = (action$, store) =>
                 .from(axios.post('/nicp/api/login-report/', payload))
                 .mergeMap(response => {
                     const { report } = response.data;
-                    downloadAndReload(hgeval, credentials.email);
+                    downloadPdfAndReload(report?.id);
                     return Rx.Observable.of(loginSuccess(report));
                 })
                 .catch(err => Rx.Observable.of(
