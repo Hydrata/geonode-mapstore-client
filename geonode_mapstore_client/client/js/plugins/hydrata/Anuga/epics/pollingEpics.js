@@ -76,6 +76,7 @@ import {
     setSvConfig,
     updateUploadStatus
 } from "../../SimpleView/actionsSimpleView";
+import {TM_SET_PROCESSES} from "../../TaskMonitor/actionsTaskMonitor";
 import {getProjectId} from "../selectorsAnuga";
 
 const addAnugaLayerFromAvailableResponse = (response, store) => {
@@ -160,11 +161,13 @@ export const initAnugaEpic = (action$, store) =>
                 });
         });
 
+// Fix 3: Reduced from 10s to 60s — primary layer addition is now event-driven
+// via taskCompleteLayerEpic. This polling remains as a safety-net fallback.
 export const pollAnugaModelCreationEpic = (action$) =>
     action$
         .ofType(START_ANUGA_MODEL_CREATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 10000)
+            Rx.Observable.timer(0, 60000)
                 .takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
                 .switchMap(() =>
                     Rx.Observable.concat(
@@ -417,3 +420,48 @@ export const addCatchmentEpic = makeAddLayerEpic(ADD_LUMPED_CATCHMENT, 'catchmen
 export const addNodesEpic = makeAddLayerEpic(ADD_NODES, 'nodes');
 export const addLinksEpic = makeAddLayerEpic(ADD_LINKS, 'links');
 export const addComparisonEpic = makeAddLayerEpic(ADD_COMPARISON, 'comparison');
+
+// -- Fix 3: Event-driven layer addition on TaskMonitor completion ----------
+// When a layer_create process completes, dispatch the appropriate add action
+// to fetch available layers for that resource type immediately.
+
+const modelClassToAddAction = {
+    'Boundary': addAnugaBoundary,
+    'Inflow': addAnugaInflow,
+    'Friction': addAnugaFriction,
+    'Structure': addAnugaStructure,
+    'FullMesh': addAnugaFullMesh,
+    'MeshRegion': addAnugaMeshRegion,
+    'Catchment': addCatchment,
+    'Nodes': addNodes,
+    'Links': addLinks
+};
+
+export const taskCompleteLayerEpic = (action$, store) =>
+    action$.ofType(TM_SET_PROCESSES)
+        .switchMap((action) => {
+            const processes = action.processes || [];
+            // Find layer_create processes that just completed
+            const prevById = store.getState()?.taskMonitor?.processes?.byId || {};
+            const prevCompleteIds = new Set(
+                Object.values(prevById)
+                    .filter(p => p.process_type === 'layer_create' && p.status === 'complete')
+                    .map(p => p.id)
+            );
+            const newlyCompleted = processes.filter(
+                p => p.process_type === 'layer_create' &&
+                     p.status === 'complete' &&
+                     !prevCompleteIds.has(p.id)
+            );
+            if (!newlyCompleted.length) return Rx.Observable.empty();
+            const actions = newlyCompleted
+                .map(p => {
+                    const modelClass = p.metadata?.model_class;
+                    const actionCreator = modelClassToAddAction[modelClass];
+                    return actionCreator ? actionCreator() : null;
+                })
+                .filter(Boolean);
+            return actions.length > 0
+                ? Rx.Observable.from(actions)
+                : Rx.Observable.empty();
+        });

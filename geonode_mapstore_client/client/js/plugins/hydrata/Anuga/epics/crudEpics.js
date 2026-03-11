@@ -1,5 +1,6 @@
 import Rx from "rxjs";
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
+import {addLayer} from '../../../../../MapStore2/web/client/actions/layers';
 import {CREATE_NEW_FEATURE} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import * as anugaApi from '../api/anugaApi';
 import {
@@ -53,8 +54,12 @@ import {getAnugaModels, getProjectId} from "../selectorsAnuga";
 import {resourceError} from "@js/actions/gnresource";
 
 // -- Create-resource epics (create + trigger add-layer) --------------------
+// Fix 1: If the POST response includes mapstore_layer data, add the layer
+// directly instead of calling the /available/ endpoint (prevents ghost layers).
+// For async creation (Fix 2), mapstore_layer won't be present — the layer
+// will be added when the TaskMonitor process completes or via fallback polling.
 
-const makeCreateEpic = (actionType, resourceType, titleKey, addAction) => (action$, store) =>
+const makeCreateEpic = (actionType, resourceType, titleKey) => (action$, store) =>
     action$
         .ofType(actionType)
         .switchMap((action) =>
@@ -67,19 +72,33 @@ const makeCreateEpic = (actionType, resourceType, titleKey, addAction) => (actio
                         title: action[titleKey]
                     }
                 ))
-                .catch(() => Rx.Observable.empty())
-                .switchMap(() => Rx.Observable.of(addAction()))
+                .catch(() => Rx.Observable.of(null))
+                .switchMap((response) => {
+                    if (!response) return Rx.Observable.of(setCreatingAnugaLayer(false));
+                    const actions = [initAnuga(), setCreatingAnugaLayer(false)];
+                    const layer = response?.data?.mapstore_layer;
+                    if (layer && store.getState().layers.flat.filter(l => l?.name === layer?.name).length === 0) {
+                        actions.unshift(addLayer(layer));
+                        actions.push(show({
+                            "message": "hydrata.anuga.newLayersMessage",
+                            "title": "hydrata.anuga.newLayersTitle",
+                            "uid": 1000,
+                            "position": "tc"
+                        }));
+                    }
+                    return Rx.Observable.from(actions);
+                })
         );
 
-export const createAnugaBoundaryEpic = makeCreateEpic(CREATE_ANUGA_BOUNDARY, 'boundary', 'boundaryTitle', addAnugaBoundary);
-export const createAnugaFrictionEpic = makeCreateEpic(CREATE_ANUGA_FRICTION, 'friction', 'frictionTitle', addAnugaFriction);
-export const createAnugaInflowEpic = makeCreateEpic(CREATE_ANUGA_INFLOW, 'inflow', 'inflowTitle', addAnugaInflow);
-export const createAnugaStructureEpic = makeCreateEpic(CREATE_ANUGA_STRUCTURE, 'structure', 'structureTitle', addAnugaStructure);
-export const createAnugaMeshRegionEpic = makeCreateEpic(CREATE_ANUGA_MESH_REGION, 'mesh-region', 'meshRegionTitle', addAnugaMeshRegion);
-export const createNetworkEpic = makeCreateEpic(CREATE_NETWORK, 'network', 'networkTitle', addNetwork);
-export const createCatchmentEpic = makeCreateEpic(CREATE_LUMPED_CATCHMENT, 'catchment', 'catchmentTitle', addCatchment);
-export const createNodesEpic = makeCreateEpic(CREATE_NODES, 'nodes', 'nodesTitle', addNodes);
-export const createLinksEpic = makeCreateEpic(CREATE_LINKS, 'links', 'linksTitle', addLinks);
+export const createAnugaBoundaryEpic = makeCreateEpic(CREATE_ANUGA_BOUNDARY, 'boundary', 'boundaryTitle');
+export const createAnugaFrictionEpic = makeCreateEpic(CREATE_ANUGA_FRICTION, 'friction', 'frictionTitle');
+export const createAnugaInflowEpic = makeCreateEpic(CREATE_ANUGA_INFLOW, 'inflow', 'inflowTitle');
+export const createAnugaStructureEpic = makeCreateEpic(CREATE_ANUGA_STRUCTURE, 'structure', 'structureTitle');
+export const createAnugaMeshRegionEpic = makeCreateEpic(CREATE_ANUGA_MESH_REGION, 'mesh-region', 'meshRegionTitle');
+export const createNetworkEpic = makeCreateEpic(CREATE_NETWORK, 'network', 'networkTitle');
+export const createCatchmentEpic = makeCreateEpic(CREATE_LUMPED_CATCHMENT, 'catchment', 'catchmentTitle');
+export const createNodesEpic = makeCreateEpic(CREATE_NODES, 'nodes', 'nodesTitle');
+export const createLinksEpic = makeCreateEpic(CREATE_LINKS, 'links', 'linksTitle');
 
 // -- Scenario CRUD ---------------------------------------------------------
 
