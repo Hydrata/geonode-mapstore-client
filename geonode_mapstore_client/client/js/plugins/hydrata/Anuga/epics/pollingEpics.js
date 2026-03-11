@@ -198,14 +198,23 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     }
                     const elevationLayerData = response.data[0];
                     const hillshadeLayerData = response.data?.[1];
+                    const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];
+                    const elevationExists = currentNames.includes(elevationLayerData?.name);
+                    const hillshadeExists = currentNames.includes(hillshadeLayerData?.name);
+                    // If both layers already loaded (from saved map blob), just stop polling
+                    if (elevationExists && hillshadeExists) {
+                        return Rx.Observable.of(stopAnugaElevationPolling());
+                    }
+                    const layerActions = [];
+                    if (!elevationExists) layerActions.push(Rx.Observable.of(addLayer(elevationLayerData)));
+                    if (!hillshadeExists) layerActions.push(Rx.Observable.of(addLayer(hillshadeLayerData)));
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.of(() => {
                             let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
                             return refreshLayers(wmsLayers);
                         }),
-                        Rx.Observable.of(addLayer(elevationLayerData)),
-                        Rx.Observable.of(addLayer(hillshadeLayerData)),
+                        ...layerActions,
                         Rx.Observable.of(zoomToExtent(
                             response.data[0]?.bbox?.bounds,
                             response.data[0]?.bbox?.crs,
