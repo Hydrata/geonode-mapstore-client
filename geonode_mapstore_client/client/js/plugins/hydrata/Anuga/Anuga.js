@@ -42,7 +42,8 @@ import {
     getAnugaResourcesEpic,
     manageTerrain3DEpic,
     ensureAnugaGroupsEpic,
-    taskCompleteLayerEpic
+    taskCompleteLayerEpic,
+    anugaMapLayerGroupEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -91,6 +92,7 @@ export default createPlugin('Anuga', {
         getAnugaResourcesEpic,
         manageTerrain3DEpic,
         ensureAnugaGroupsEpic,
-        taskCompleteLayerEpic
+        taskCompleteLayerEpic,
+        anugaMapLayerGroupEpic
     }
 });

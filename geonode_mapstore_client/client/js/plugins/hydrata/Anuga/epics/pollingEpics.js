@@ -156,7 +156,8 @@ export const initAnugaEpic = (action$, store) =>
                         setSvConfig(response2.data.simple_view_config)
                     ).concat(
                         Rx.Observable.merge(scenariosFetch, ...resourceObservables),
-                        Rx.Observable.of(startAnugaScenarioPolling())
+                        Rx.Observable.of(startAnugaScenarioPolling()),
+                        Rx.Observable.of(startAnugaModelCreationPolling())
                     );
                 });
         });
@@ -454,13 +455,47 @@ export const taskCompleteLayerEpic = (action$, store) =>
                      !prevCompleteIds.has(p.id)
             );
             if (!newlyCompleted.length) return Rx.Observable.empty();
-            const actions = newlyCompleted
-                .map(p => {
+            const actions = [];
+            newlyCompleted.forEach(p => {
+                // Prefer direct layer config from TM metadata (no /available/ round-trip)
+                if (p.metadata?.mapstore_layer) {
+                    const layerConfig = p.metadata.mapstore_layer;
+                    const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];
+                    if (!currentNames.includes(layerConfig?.name)) {
+                        actions.push(addLayer(layerConfig));
+                        actions.push(show({
+                            "message": "hydrata.anuga.newLayersMessage",
+                            "title": "hydrata.anuga.newLayersTitle",
+                            "uid": 1000,
+                            "position": "tc"
+                        }));
+                    }
+                } else {
+                    // Fallback: trigger /available/ fetch for the resource type
                     const modelClass = p.metadata?.model_class;
                     const actionCreator = modelClassToAddAction[modelClass];
-                    return actionCreator ? actionCreator() : null;
-                })
-                .filter(Boolean);
+                    if (actionCreator) actions.push(actionCreator());
+                }
+            });
+            return actions.length > 0
+                ? Rx.Observable.from(actions)
+                : Rx.Observable.empty();
+        });
+
+// -- MapLayer group assignment: move auto-added MapLayers to correct ANUGA groups --
+export const anugaMapLayerGroupEpic = (action$, store) =>
+    action$
+        .ofType(FIX_ANUGA_GROUPS)
+        .delay(500)  // wait for ensureAnugaGroupsEpic to create group tree
+        .switchMap(() => {
+            const layers = store.getState()?.layers?.flat || [];
+            const actions = [];
+            layers.forEach(layer => {
+                const anugaGroup = layer?.extendedParams?.mapLayer?.extra_params?.anuga_group;
+                if (anugaGroup && layer.group !== anugaGroup) {
+                    actions.push(moveNode(layer.id, anugaGroup, 0));
+                }
+            });
             return actions.length > 0
                 ? Rx.Observable.from(actions)
                 : Rx.Observable.empty();

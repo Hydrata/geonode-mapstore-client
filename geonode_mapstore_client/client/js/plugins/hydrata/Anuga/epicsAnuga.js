@@ -17,7 +17,8 @@ export {
     addLinksEpic,
     addComparisonEpic,
     ensureAnugaGroupsEpic,
-    taskCompleteLayerEpic
+    taskCompleteLayerEpic,
+    anugaMapLayerGroupEpic
 } from './epics/pollingEpics';
 
 export {

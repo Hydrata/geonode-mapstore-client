@@ -678,7 +678,19 @@ export function toMapStoreMapConfig(resource, baseConfig) {
     const addMapLayers = maplayers
         .filter(mLayer => mLayer?.dataset)
         .filter(mLayer => !layers.find(layer => layer.id !== undefined && mLayer?.extra_params?.msId === layer.id))
-        .map(mLayer => resourceToLayerConfig(mLayer?.dataset));
+        .filter(mLayer => !layers.find(layer => layer.name === mLayer?.dataset?.alternate))
+        .map(mLayer => {
+            const layerConfig = resourceToLayerConfig(mLayer?.dataset);
+            // Carry forward anuga_group from MapLayer extra_params for group assignment
+            if (mLayer?.extra_params?.anuga_group) {
+                layerConfig.group = mLayer.extra_params.anuga_group;
+                layerConfig.extendedParams = {
+                    ...layerConfig.extendedParams,
+                    mapLayer: mLayer
+                };
+            }
+            return layerConfig;
+        });
 
     return {
         ...data,
