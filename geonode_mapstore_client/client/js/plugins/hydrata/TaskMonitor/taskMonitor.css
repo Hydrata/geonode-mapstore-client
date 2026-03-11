@@ -2,9 +2,9 @@
 
 #task-monitor-container {
     position: absolute;
-    right: 8px;
-    top: 190px;
-    z-index: 1000;
+    right: 15px;
+    top: 240px;
+    z-index: 1022;
 }
 
 /* Toolbar button */

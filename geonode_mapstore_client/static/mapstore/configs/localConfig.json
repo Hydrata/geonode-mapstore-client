@@ -11,7 +11,7 @@
         "defaultTerrain": {
             "type": "terrain",
             "provider": "cesium",
-            "url": "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=5upc6r2tsUgFRVMWgx5B",
+            "url": "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=MAPTILER_API_KEY_PLACEHOLDER",
             "title": "Global Terrain",
             "group": "background",
             "visibility": true,
@@ -1095,7 +1095,8 @@
                     "withToggle": [
                         "max-width: 768px",
                         "min-width: 768px"
-                    ]
+                    ],
+                    "searchOptions": {}
                 }
             },
             {
@@ -1120,6 +1121,9 @@
             },
             {
                 "name": "Anuga"
+            },
+            {
+                "name": "TaskMonitor"
             },
             {
                 "name": "Hydrology"
@@ -1879,7 +1883,8 @@
                     "withToggle": [
                         "max-width: 768px",
                         "min-width: 768px"
-                    ]
+                    ],
+                    "searchOptions": {}
                 }
             },
             {
@@ -1969,13 +1974,13 @@
                 "name": "Anuga"
             },
             {
+                "name": "TaskMonitor"
+            },
+            {
                 "name": "Hydrology"
             },
             {
                 "name": "SimpleView"
-            },
-            {
-                "name": "TaskMonitor"
             }
         ],
         "geostory_viewer": [
@@ -2603,7 +2608,8 @@
                     "withToggle": [
                         "max-width: 768px",
                         "min-width: 768px"
-                    ]
+                    ],
+                    "searchOptions": {}
                 }
             },
             {
@@ -2735,7 +2741,8 @@
                     "withToggle": [
                         "max-width: 768px",
                         "min-width: 768px"
-                    ]
+                    ],
+                    "searchOptions": {}
                 }
             },
             {
