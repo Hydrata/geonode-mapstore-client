@@ -201,7 +201,11 @@ const mapStateToProps = (state, ownProps) => {
     const projectConfig = state?.simpleView?.config || {};
     // Project overrides site defaults
     const customMenus = projectConfig.customMenus || siteDefaults.customMenus;
-    const menuGroups = state?.layers?.groups?.filter(group => !(customMenus.includes(group.name) || customMenus.includes(group.title)));
+    // When customMenus are set (e.g. ANUGA), the plugin provides its own toolbar —
+    // hide all SimpleView mapped buttons by filtering out everything including Default.
+    const menuGroups = customMenus.length > 0
+        ? []
+        : state?.layers?.groups?.filter(group => !(customMenus.includes(group.name) || customMenus.includes(group.title)));
     const mapViewerPlugins = state?.localConfig?.plugins?.map_viewer || [];
     return {
         menuGroups: menuGroups,
