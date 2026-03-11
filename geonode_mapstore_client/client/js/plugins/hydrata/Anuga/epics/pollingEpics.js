@@ -228,7 +228,7 @@ export const pollAnugaElevationEpic = (action$, store) =>
                             let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
                             return refreshLayers(wmsLayers);
                         }),
-                        Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', store.getState()?.layers.groups.filter(group => group.id === "Input Data")?.[0]?.nodes?.length))
+                        Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', (store.getState()?.layers?.groups || []).filter(group => group != null && group.id === "Input Data")?.[0]?.nodes?.length))
                     );
                 })
         );
