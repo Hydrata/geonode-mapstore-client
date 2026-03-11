@@ -84,7 +84,7 @@ const addAnugaLayerFromAvailableResponse = (response, store) => {
         setCreatingAnugaLayer(false)
     ];
     response.data.map(model => {
-        if (store.getState().layers.flat.filter(layer => layer.name === model?.name).length === 0) {
+        if (store.getState().layers.flat.filter(layer => layer?.name && layer.name === model?.name).length === 0) {
             actions.unshift(addLayer(model));
             actions.push(
                 show({
