@@ -15,7 +15,8 @@ export {
     addCatchmentEpic,
     addNodesEpic,
     addLinksEpic,
-    addComparisonEpic
+    addComparisonEpic,
+    ensureAnugaGroupsEpic
 } from './epics/pollingEpics';
 
 export {

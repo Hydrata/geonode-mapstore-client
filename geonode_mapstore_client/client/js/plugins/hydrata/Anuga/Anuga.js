@@ -40,7 +40,8 @@ import {
     pollComparisonEpic,
     addComparisonEpic,
     getAnugaResourcesEpic,
-    manageTerrain3DEpic
+    manageTerrain3DEpic,
+    ensureAnugaGroupsEpic
 } from "./epicsAnuga";
 
 export default createPlugin('Anuga', {
@@ -87,6 +88,7 @@ export default createPlugin('Anuga', {
         pollComparisonEpic,
         addComparisonEpic,
         getAnugaResourcesEpic,
-        manageTerrain3DEpic
+        manageTerrain3DEpic,
+        ensureAnugaGroupsEpic
     }
 });

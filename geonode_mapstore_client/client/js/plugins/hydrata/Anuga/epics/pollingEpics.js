@@ -1,12 +1,14 @@
 import Rx from "rxjs";
 import {
     addLayer,
+    addGroup,
     removeLayer,
     refreshLayers,
     moveNode
 } from '../../../../../MapStore2/web/client/actions/layers';
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
+import {getNode} from '../../../../../MapStore2/web/client/utils/LayersUtils';
 import {saveDirectContent} from "@js/actions/gnsave";
 import * as anugaApi from '../api/anugaApi';
 import {
@@ -65,7 +67,8 @@ import {
     startAnugaScenarioPolling,
     stopActiveRunPolling,
     updateRunStatus,
-    fixAnugaGroups
+    fixAnugaGroups,
+    FIX_ANUGA_GROUPS
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE_SUCCESS,
@@ -332,6 +335,52 @@ export const pollComparisonEpic = (action$, store) =>
                         Rx.Observable.of(addComparison())
                     ))
         );
+
+// -- Ensure ANUGA group tree exists before layers are added ----------------
+
+const ANUGA_GROUPS = {
+    "Input Data": [
+        "Elevations", "Boundaries", "Structures", "Inflows",
+        "Friction Maps", "Full Mesh", "Mesh Regions",
+        "Catchments", "Nodes", "Links"
+    ],
+    "Results": [
+        "Depth", "Depth Integrated Velocity", "Velocity",
+        "Comparison: Velocity", "Comparison: Depth",
+        "Comparison: Depth Integrated Velocity"
+    ]
+};
+
+export const ensureAnugaGroupsEpic = (action$, store) =>
+    action$
+        .ofType(FIX_ANUGA_GROUPS)
+        .switchMap(() => {
+            const groups = store.getState().layers?.groups || [];
+            const actions = [];
+
+            Object.entries(ANUGA_GROUPS).forEach(([parentName, children]) => {
+                if (!getNode(groups, parentName)) {
+                    actions.push(addGroup(parentName, "", {
+                        id: parentName,
+                        name: parentName,
+                        expanded: true
+                    }));
+                }
+                children.forEach(childName => {
+                    const childId = `${parentName}.${childName}`;
+                    if (!getNode(groups, childId)) {
+                        actions.push(addGroup(childName, parentName, {
+                            id: childId,
+                            name: childName
+                        }));
+                    }
+                });
+            });
+
+            return actions.length > 0
+                ? Rx.Observable.from(actions)
+                : Rx.Observable.empty();
+        });
 
 // -- Add-layer epics (fetch available layers from backend) -----------------
 
