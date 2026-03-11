@@ -210,9 +210,9 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     if (!hillshadeExists) layerActions.push(Rx.Observable.of(addLayer(hillshadeLayerData)));
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
-                        Rx.Observable.of(() => {
-                            let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
-                            return refreshLayers(wmsLayers);
+                        Rx.Observable.defer(() => {
+                            const wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
+                            return Rx.Observable.of(refreshLayers(wmsLayers));
                         }),
                         ...layerActions,
                         Rx.Observable.of(zoomToExtent(
@@ -224,11 +224,15 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         Rx.Observable.of(saveDirectContent()),
                         Rx.Observable.of(initAnuga()),
                         Rx.Observable.of(startAnugaModelCreationPolling()),
-                        Rx.Observable.of(() => {
-                            let wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
-                            return refreshLayers(wmsLayers);
+                        Rx.Observable.defer(() => {
+                            const wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
+                            return Rx.Observable.of(refreshLayers(wmsLayers));
                         }),
-                        Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', (store.getState()?.layers?.groups || []).filter(group => group != null && group.id === "Input Data")?.[0]?.nodes?.length))
+                        Rx.Observable.defer(() => {
+                            const groups = store.getState()?.layers?.groups || [];
+                            const inputDataGroup = groups.find(group => group != null && group.id === "Input Data");
+                            return Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', inputDataGroup?.nodes?.length));
+                        })
                     );
                 })
         );
