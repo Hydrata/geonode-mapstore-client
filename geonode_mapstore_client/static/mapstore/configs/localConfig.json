@@ -11,7 +11,7 @@
         "defaultTerrain": {
             "type": "terrain",
             "provider": "cesium",
-            "url": "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=MAPTILER_API_KEY_PLACEHOLDER",
+            "url": "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=5upc6r2tsUgFRVMWgx5B",
             "title": "Global Terrain",
             "group": "background",
             "visibility": true,

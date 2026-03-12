@@ -192,6 +192,7 @@
             "setMapLikeThumbnail": "Set map thumbnail",
             "thumbnailsaved": "Thumbnail saved",
             "thumbnailRemoved": "Thumbnail removed",
+            "resourceNotFound": "The requested resource was not found",
             "thumbnailnotsaved": "Error thumbnail not saved",
             "info": "Info",
             "attributeName": "Attribute name",

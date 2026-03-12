@@ -132,7 +132,7 @@ function ViewerRoute({
                 allPlugins={plugins}
                 params={params}
             />
-            {loading && Loader && <Loader style={loaderStyle}/>}
+            {loading && !configError && Loader && <Loader style={loaderStyle}/>}
             {configError && <MainEventView msgId={configError}/>}
         </>
     );

@@ -507,9 +507,13 @@ export const gnViewerRequestNewResourceConfig = (action$, store) =>
                 )
             )
                 .catch((error) => {
+                    const status = error?.response?.status || error?.status;
+                    const message = status === 404
+                        ? 'gnviewer.resourceNotFound'
+                        : (error?.data?.detail || error?.statusText || error?.message);
                     return Observable.of(
                         ...getResetActions(),
-                        resourceConfigError(error?.data?.detail || error?.statusText || error?.message)
+                        resourceConfigError(message)
                     );
                 });
         });
@@ -565,9 +569,13 @@ export const gnViewerRequestResourceConfig = (action$, store) =>
                 )
             )
                 .catch((error) => {
+                    const status = error?.response?.status || error?.status;
+                    const message = status === 404
+                        ? 'gnviewer.resourceNotFound'
+                        : (error?.data?.detail || error?.statusText || error?.message);
                     return Observable.of(
                         ...getResetActions(),
-                        resourceConfigError(error?.data?.detail || error?.statusText || error?.message)
+                        resourceConfigError(message)
                     );
                 });
         });
