@@ -212,6 +212,7 @@ describe('SWAMM Epics', () => {
             const emitted = [];
 
             filterBmpEpic(action$, store)
+                .take(3)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -241,6 +242,7 @@ describe('SWAMM Epics', () => {
             const emitted = [];
 
             filterBmpEpic(action$, store)
+                .take(3)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -268,6 +270,7 @@ describe('SWAMM Epics', () => {
             const emitted = [];
 
             filterBmpEpic(action$, store)
+                .take(3)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -283,11 +286,13 @@ describe('SWAMM Epics', () => {
         });
 
         it('should respond to TOGGLE_BMP_STATUS_VISIBILITY', (done) => {
+            // Need 2+ statuses with mixed visibility so the epic includes status filterFields
+            // (epic omits filter when ALL items visible — performance optimization)
             const store = createStoreWithFilters(
                 [{ id: 1, visibility: true }],
                 [{ id: 0, visibility: true }],
                 [],
-                [{ id: 1, name: 'Operational', visibility: true }]
+                [{ id: 1, name: 'Operational', visibility: true }, { id: 2, name: 'Retired', visibility: false }]
             );
             const action$ = mockActions([{
                 type: TOGGLE_BMP_STATUS_VISIBILITY,
@@ -296,6 +301,7 @@ describe('SWAMM Epics', () => {
             const emitted = [];
 
             filterBmpEpic(action$, store)
+                .take(3)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -311,10 +317,11 @@ describe('SWAMM Epics', () => {
         });
 
         it('should respond to TOGGLE_BMP_GROUP_PROFILE_VISIBILITY', (done) => {
+            // Need 2+ groupProfiles with mixed visibility so epic includes group_profile filterFields
             const store = createStoreWithFilters(
                 [{ id: 1, visibility: true }],
                 [{ id: 0, visibility: true }],
-                [{ id: 10, visibility: true, title: 'Group A' }],
+                [{ id: 10, visibility: true, title: 'Group A' }, { id: 20, visibility: false, title: 'Group B' }],
                 []
             );
             const action$ = mockActions([{
@@ -324,6 +331,7 @@ describe('SWAMM Epics', () => {
             const emitted = [];
 
             filterBmpEpic(action$, store)
+                .take(3)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -339,9 +347,10 @@ describe('SWAMM Epics', () => {
         });
 
         it('should respond to TOGGLE_BMP_PRIORITY_VISIBILITY', (done) => {
+            // Need 2+ priorities with mixed visibility so epic includes priority filterFields
             const store = createStoreWithFilters(
                 [{ id: 1, visibility: true }],
-                [{ id: 1, label: 'Critical', visibility: true }],
+                [{ id: 1, label: 'Critical', visibility: true }, { id: 2, label: 'Low', visibility: false }],
                 [],
                 []
             );
@@ -352,6 +361,7 @@ describe('SWAMM Epics', () => {
             const emitted = [];
 
             filterBmpEpic(action$, store)
+                .take(3)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -377,6 +387,7 @@ describe('SWAMM Epics', () => {
             const emitted = [];
 
             filterBmpEpic(action$, store)
+                .take(3)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -423,15 +434,15 @@ describe('SWAMM Epics', () => {
 
     describe('wmsFilterTemplate structure', () => {
         it('filter template has expected groupFields', () => {
-            // Verify the filter template structure that filterBmpEpic uses
-            // by checking emitted actions
+            // Verify the filter template structure that filterBmpEpic uses.
+            // Need items in all 4 categories with mixed visibility so all groupFields survive cleanup.
             const store = {
                 getState: () => ({
                     swamm: {
-                        bmpTypes: [],
-                        priorities: [],
-                        groupProfiles: [],
-                        statuses: [],
+                        bmpTypes: [{ id: 1, visibility: true }, { id: 2, visibility: false }],
+                        priorities: [{ id: 1, visibility: true }, { id: 2, visibility: false }],
+                        groupProfiles: [{ id: 10, visibility: true }, { id: 20, visibility: false }],
+                        statuses: [{ id: 1, name: 'Active', visibility: true }, { id: 2, name: 'Retired', visibility: false }],
                         projectData: {
                             bmp_outlet: { id: 1, name: 'bmp_outlet' },
                             bmp_footprint: { id: 2, name: 'bmp_footprint' },

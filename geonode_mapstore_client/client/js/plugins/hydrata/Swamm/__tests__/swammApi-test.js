@@ -9,7 +9,7 @@ describe('swammApi', () => {
     describe('module exports', () => {
         const expectedFunctions = [
             'getProjectFromMapId', 'getProject', 'getProjectManagerConfig',
-            'getBmpTypes', 'getBmpTypeGroups', 'getGroupProfiles',
+            'getBmpTypes', 'getBmpTypeGroups', 'getGroupProfiles', 'getUserGroupMemberships',
             'getAllBmps', 'getAllBmpsPaginated', 'getBmp', 'createBmp', 'updateBmp', 'deleteBmp',
             'getBmpStatuses', 'getLatestFeatureId',
             'getTargets', 'createTarget', 'updateTarget', 'deleteTarget',
@@ -27,7 +27,7 @@ describe('swammApi', () => {
             const exportedFunctions = Object.keys(swammApi).filter(
                 k => typeof swammApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(23);
+            expect(exportedFunctions.length).toBe(21);
         });
     });
 
