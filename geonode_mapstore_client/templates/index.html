@@ -70,6 +70,14 @@
                                         "titleId": "gnhome.myResources",
                                         "pageSize": 12,
                                         "cardLayoutStyle": "list",
+                                        "metadata": {
+                                            "list": [
+                                                { "path": "name", "target": "header", "width": 30, "labelId": "gnhome.title" },
+                                                { "path": "description", "width": 35, "labelId": "gnhome.description" },
+                                                { "path": "lastUpdate", "type": "date", "format": "MMM Do YY", "width": 20, "labelId": "gnhome.lastUpdate" },
+                                                { "path": "creator", "target": "footer", "width": 15, "labelId": "gnhome.author" }
+                                            ]
+                                        },
                                         "order": {
                                             "defaultLabelId": "resourcesCatalog.orderBy",
                                             "options": [
@@ -79,7 +87,7 @@
                                                 { "label": "Z A", "labelId": "resourcesCatalog.zA", "value": "-name" }
                                             ]
                                         },
-                                        "defaultQuery": {}
+                                        "defaultQuery": { "f": "map" }
                                     }
                                 },
                                 {% endif %}
