@@ -14,8 +14,8 @@ export const getProcessDetail = (processId) =>
 export const cancelProcess = (processId) =>
     axios.post(`/api/v2/tasks/processes/${processId}/cancel/`);
 
-export const getActiveProcesses = () =>
-    axios.get('/api/v2/tasks/active/');
+export const getActiveProcesses = (params = {}) =>
+    axios.get('/api/v2/tasks/active/', { params });
 
-export const getActiveCount = () =>
-    axios.get('/api/v2/tasks/active/count/');
+export const getActiveCount = (params = {}) =>
+    axios.get('/api/v2/tasks/active/count/', { params });

@@ -21,6 +21,7 @@ import {
 } from './actionsTaskMonitor';
 import { LOGIN_SUCCESS } from '@mapstore/framework/actions/security';
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
+import { getProjectId } from '../Anuga/selectorsAnuga';
 
 const ACTIVE_STATES = ['pending', 'running'];
 
@@ -53,11 +54,13 @@ export const pollActiveCountEpic = (action$, store) =>
             Rx.Observable.timer(0, 10000)
                 .takeUntil(action$.ofType(TM_STOP_POLLING))
                 .filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
-                .exhaustMap(() =>
-                    Rx.Observable.from(taskMonitorApi.getActiveCount())
+                .exhaustMap(() => {
+                    const projectId = getProjectId(store.getState());
+                    const params = projectId ? { project_id: projectId } : {};
+                    return Rx.Observable.from(taskMonitorApi.getActiveCount(params))
                         .map(response => setActiveCount(response.data?.count || 0))
-                        .catch(() => Rx.Observable.empty())
-                )
+                        .catch(() => Rx.Observable.empty());
+                })
         );
 
 /**
@@ -77,8 +80,10 @@ export const pollProcessListEpic = (action$, store) =>
                         action$.ofType(TM_TOGGLE_PANEL).filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
                             .merge(action$.ofType(TM_STOP_POLLING))
                     )
-                    .exhaustMap(() =>
-                        Rx.Observable.from(taskMonitorApi.getActiveProcesses())
+                    .exhaustMap(() => {
+                        const projectId = getProjectId(store.getState());
+                        const activeParams = projectId ? { project_id: projectId } : {};
+                        return Rx.Observable.from(taskMonitorApi.getActiveProcesses(activeParams))
                             .concatMap(response => {
                                 const processes = response.data || [];
                                 return Rx.Observable.of(
@@ -94,11 +99,13 @@ export const pollProcessListEpic = (action$, store) =>
                     action$.ofType(TM_TOGGLE_PANEL).filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
                         .merge(action$.ofType(TM_STOP_POLLING))
                 )
-                .exhaustMap(() =>
-                    Rx.Observable.from(taskMonitorApi.getProcesses(params))
+                .exhaustMap(() => {
+                    const projectId = getProjectId(store.getState());
+                    const filteredParams = projectId ? { ...params, project_id: projectId } : params;
+                    return Rx.Observable.from(taskMonitorApi.getProcesses(filteredParams))
                         .map(response => setProcesses(response.data?.results || response.data || []))
-                        .catch(() => Rx.Observable.empty())
-                );
+                        .catch(() => Rx.Observable.empty());
+                });
         });
 
 /**
