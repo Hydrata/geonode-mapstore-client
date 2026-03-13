@@ -91,8 +91,8 @@ export const pollProcessListEpic = (action$, store) =>
                                     setActiveCount(processes.filter(p => ACTIVE_STATES.includes(p.status)).length)
                                 );
                             })
-                            .catch(() => Rx.Observable.empty())
-                    );
+                            .catch(() => Rx.Observable.empty());
+                    });
             }
             return Rx.Observable.timer(0, 3000)
                 .takeUntil(
