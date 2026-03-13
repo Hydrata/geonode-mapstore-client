@@ -35,6 +35,9 @@
                     </div>
                     {% endcomment %}
                     <div class="gn-container">
+                        {% if job_name == 'hydratabase' and user.is_authenticated %}
+                        <div id="gn-home-my-resources-grid"></div>
+                        {% endif %}
                         <div id="gn-home-featured-resources-grid"></div>
                         <div id="gn-home-resources-grid"></div>
                     </div>
@@ -58,6 +61,28 @@
                         const msAPI = event.detail;
                         msAPI.setPluginsConfig((localConfig) => {
                             const plugins = [
+                                {% if job_name == 'hydratabase' and user.is_authenticated %}
+                                {
+                                    "name": "ResourcesGrid",
+                                    "cfg": {
+                                        "id": "my-resources",
+                                        "targetSelector": "#gn-home-my-resources-grid",
+                                        "titleId": "gnhome.myResources",
+                                        "pageSize": 12,
+                                        "cardLayoutStyle": "list",
+                                        "order": {
+                                            "defaultLabelId": "resourcesCatalog.orderBy",
+                                            "options": [
+                                                { "label": "Most recent", "labelId": "resourcesCatalog.mostRecent", "value": "-date" },
+                                                { "label": "Less recent", "labelId": "resourcesCatalog.lessRecent", "value": "date" },
+                                                { "label": "A Z", "labelId": "resourcesCatalog.aZ", "value": "name" },
+                                                { "label": "Z A", "labelId": "resourcesCatalog.zA", "value": "-name" }
+                                            ]
+                                        },
+                                        "defaultQuery": {}
+                                    }
+                                },
+                                {% endif %}
                                 {
                                     "name": "ResourcesGrid",
                                     "cfg": {
