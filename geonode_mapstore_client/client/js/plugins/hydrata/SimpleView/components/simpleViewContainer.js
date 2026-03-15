@@ -53,16 +53,16 @@ class SimpleViewContainer extends React.Component {
 
     constructor(props) {
         super(props);
+        this.state = { saveConfirmVisible: false };
     }
 
     componentDidMount() {
-        // Task 1: Offset search bar to avoid overlapping right toolbar
-        const searchBar = document.getElementById('search-bar-container');
-        if (searchBar) searchBar.style.right = '65px';
+        this.updateWidgetPositions();
     }
 
     componentDidUpdate(prevProps) {
-        // Task 2: Toggle drawer menu visibility for admin users
+        this.updateWidgetPositions();
+        // Toggle drawer menu visibility for admin users
         if (prevProps.drawerEnabled !== this.props.drawerEnabled) {
             const drawer = document.getElementById('mapstore-drawermenu');
             if (drawer) {
@@ -74,10 +74,35 @@ class SimpleViewContainer extends React.Component {
     componentWillUnmount() {
         // Reset search bar position
         const searchBar = document.getElementById('search-bar-container');
-        if (searchBar) searchBar.style.right = '';
+        if (searchBar) {
+            searchBar.style.position = '';
+            searchBar.style.top = '';
+            searchBar.style.right = '';
+            searchBar.style.left = '';
+        }
         // Reset drawer display
         const drawer = document.getElementById('mapstore-drawermenu');
         if (drawer) drawer.style.display = '';
+        // Reset CSS variable
+        document.documentElement.style.removeProperty('--sv-widget-right');
+    }
+
+    updateWidgetPositions() {
+        const rightToolbar = document.querySelector('.simple-view-right-toolbar');
+        if (!rightToolbar) return;
+        // Panels appear to the left of the button column with a gap
+        // Button column: right: 15px, width: 40px → left edge at right: 55px, plus 10px gap = 65px
+        const widgetRight = 15 + 40 + 10; // 65px
+        document.documentElement.style.setProperty('--sv-widget-right', widgetRight + 'px');
+
+        // Position search bar to the left of the right toolbar, top-aligned
+        const searchBar = document.getElementById('search-bar-container');
+        if (searchBar) {
+            searchBar.style.position = 'absolute';
+            searchBar.style.top = '11px';
+            searchBar.style.right = widgetRight + 'px';
+            searchBar.style.left = 'auto';
+        }
     }
 
     render() {
@@ -155,14 +180,34 @@ class SimpleViewContainer extends React.Component {
                                 <Glyphicon glyph="menu-hamburger" />
                             </button>
                             <button
-                                className="simple-view-right-button"
-                                onClick={() => this.props.onSave()}
+                                className={`simple-view-right-button ${this.state.saveConfirmVisible ? 'active' : ''}`}
+                                onClick={() => this.setState({ saveConfirmVisible: !this.state.saveConfirmVisible })}
                                 title="Save">
                                 <Glyphicon glyph="floppy-disk" />
                             </button>
                         </>
                     ) : null}
                 </div>
+                {this.state.saveConfirmVisible ?
+                    <div className="save-confirm-overlay">
+                        <Glyphicon glyph="floppy-disk" style={{fontSize: 14}} />
+                        <span><Message msgId="hydrata.simpleView.saveConfirm" /></span>
+                        <button
+                            className="save-confirm-btn confirm"
+                            onClick={() => {
+                                this.props.onSave();
+                                this.setState({ saveConfirmVisible: false });
+                            }}>
+                            <Message msgId="hydrata.simpleView.save" />
+                        </button>
+                        <button
+                            className="save-confirm-btn cancel"
+                            onClick={() => this.setState({ saveConfirmVisible: false })}>
+                            <Message msgId="hydrata.simpleView.cancel" />
+                        </button>
+                    </div>
+                    : null
+                }
                 {(() => {
                     switch (this.props?.openMenuGroupId) {
                     case null: return null;

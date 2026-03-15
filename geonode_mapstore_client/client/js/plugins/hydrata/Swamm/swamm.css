@@ -508,14 +508,7 @@
     font-size: xxx-large;
 }
 
-.legend-button {
-    top: 11px;
-    left: 620px;
-}
-
-#search-bar-container {
-    left: 20px !important;
-}
+/* Button positioning handled by SimpleView flex toolbar via portals */
 
 /* ── Responsive: Tablet ── */
 @media (max-width: 900px) {

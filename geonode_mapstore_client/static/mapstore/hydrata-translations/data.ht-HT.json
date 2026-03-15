@@ -30,6 +30,8 @@
                 "processingStarted": "Tretman kòmanse",
                 "status": "Estati",
                 "title": "Tit",
+                "save": "Anrejistre",
+                "saveConfirm": "Anrejistre chanjman kat la?",
                 "search": "Rechèch",
                 "measure": "Mezire",
                 "welcomeTitle": "Byenvini sou Hydrata"

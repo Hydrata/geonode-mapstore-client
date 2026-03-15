@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import {connect} from 'react-redux';
 const PropTypes = require('prop-types');
 
@@ -76,107 +77,86 @@ class AnugaContainer extends React.Component {
         }
     }
 
+    renderToolbarButtons() {
+        return (
+            <React.Fragment>
+                <button
+                    key="anuga-input-button"
+                    className={'simple-view-menu-button'}
+                    onClick={() => {
+                        this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
+                        this.props.setOpenMenuGroupId(null);
+                        trackEvent('button', `click`, `anuga-input-menu-toggle`);
+                    }}
+                >
+                    <Message msgId="hydrata.anuga.inputs" />
+                </button>
+                {this.props.canEditAnugaMap && this.props.hasEPSGset ?
+                    <button
+                        key="anuga-scenario-button"
+                        className={'simple-view-menu-button'}
+                        onClick={() => {
+                            this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
+                            this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
+                            this.props.setOpenMenuGroupId(null);
+                            trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.scenarios" />
+                    </button>
+                    : null
+                }
+                {this.props.canViewAnugaMap && this.props.hasEPSGset ?
+                    <button
+                        key="anuga-results-button"
+                        className={'simple-view-menu-button'}
+                        onClick={() => {
+                            this.props.setOpenMenuGroupId('Results');
+                            trackEvent('button', `click`, `anuga-results-menu-toggle`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.results" />
+                    </button>
+                    : null
+                }
+                {this.props.canEditAnugaMap && this.props.hasEPSGset ?
+                    <button
+                        key="anuga-publication-button"
+                        className={'simple-view-menu-button disabled'}
+                        onClick={() => {
+                            this.props.setPublicationPanel(!this.props.showPublicationPanel);
+                            this.props.setOpenMenuGroupId(null);
+                            trackEvent('button', `click`, `anuga-publication-menu-toggle`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.publish" />
+                    </button>
+                    : null
+                }
+            </React.Fragment>
+        );
+    }
+
     render() {
+        const toolbarTarget = typeof document !== 'undefined'
+            ? document.querySelector('.simple-view-left-toolbar')
+            : null;
         return this.props.isAnugaProject ?
             (
                 <div id={"anuga-container"}>
-                    <div id={"anuga-inputs"}>
-                        <button
-                            key="anuga-input-button"
-                            className={'simple-view-menu-button'}
-                            style={{left: 120}}
-                            onClick={() => {
-                                this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
-                                this.props.setOpenMenuGroupId(null);
-                                trackEvent('button', `click`, `anuga-input-menu-toggle`);
-                            }}
-                        >
-                            <Message msgId="hydrata.anuga.inputs" />
-                        </button>
-                    </div>
-                    {
-                        this.props.showAnugaInputMenu ?
-                            <AnugaInputMenu/>
-                            : null
+                    {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
+                    {this.props.showAnugaInputMenu ? <AnugaInputMenu/> : null}
+                    {this.props.canEditAnugaMap && this.props.hasEPSGset && this.props.showAnugaScenarioMenu ?
+                        <AnugaScenarioMenu/> : null
                     }
-                    {
-                        this.props.canEditAnugaMap && this.props.hasEPSGset ?
-                            <div id={"anuga-scenario"}>
-                                <button
-                                    key="anuga-scenario-button"
-                                    className={'simple-view-menu-button'}
-                                    style={{left: 220}}
-                                    onClick={() => {
-                                        this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
-                                        this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
-                                        this.props.setOpenMenuGroupId(null);
-                                        trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
-                                    }}
-                                >
-                                    <Message msgId="hydrata.anuga.scenarios" />
-                                </button>
-                                {
-                                    this.props.showAnugaScenarioMenu ?
-                                        <AnugaScenarioMenu/>
-                                        : null
-                                }
-                            </div>
-                            : null
+                    {this.props.canEditAnugaMap && this.props.hasEPSGset && this.props.showPublicationPanel ?
+                        <PublicationPanel/> : null
                     }
-                    {
-                        this.props.canViewAnugaMap && this.props.hasEPSGset ?
-                            <button
-                                id={'anugaContainer-results-button-01'}
-                                key={`anugaContainer-${this.props.resultsGroup?.title}`}
-                                className={'simple-view-menu-button'}
-                                style={{left: 320}}
-                                onClick={() => {
-                                    this.props.setOpenMenuGroupId('Results');
-                                    trackEvent('button', `click`, `anuga-results-menu-toggle`);
-                                }}
-                            >
-                                <Message msgId="hydrata.anuga.results" />
-                            </button>
-                            : null
+                    {this.props.visibleAnugaScenarioLogId ?
+                        <AnugaScenarioLogViewer logText={this.props.logText}/> : null
                     }
-                    {
-                        this.props.canEditAnugaMap && this.props.hasEPSGset ?
-                            <div id={"publication-panel-container"}>
-                                <button
-                                    key="publication-panel-button"
-                                    className={'simple-view-menu-button disabled'}
-                                    style={{left: 420}}
-                                    onClick={() => {
-                                        this.props.setPublicationPanel(!this.props.showPublicationPanel);
-                                        this.props.setOpenMenuGroupId(null);
-                                        trackEvent('button', `click`, `anuga-publication-menu-toggle`);
-                                    }}
-                                >
-                                    <Message msgId="hydrata.anuga.publish" />
-                                </button>
-                                {
-                                    this.props.showPublicationPanel ?
-                                        <PublicationPanel/>
-                                        : null
-                                }
-                            </div>
-                            : null
-                    }
-                    {
-                        this.props.visibleAnugaScenarioLogId ?
-                            <AnugaScenarioLogViewer logText={this.props.logText}/>
-                            : null
-                    }
-                    {
-                        this.props.visibleAnugaRunMenu ?
-                            <AnugaRunMenu/>
-                            : null
-                    }
-                    {
-                        this.props.showNetworkMenu ?
-                            <NetworkMenu/>
-                            : null
-                    }
+                    {this.props.visibleAnugaRunMenu ? <AnugaRunMenu/> : null}
+                    {this.props.showNetworkMenu ? <NetworkMenu/> : null}
                 </div>
             ) :
             null;

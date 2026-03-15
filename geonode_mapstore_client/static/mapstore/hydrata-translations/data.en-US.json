@@ -30,6 +30,8 @@
                 "processingStarted": "Processing started",
                 "status": "Status",
                 "title": "Title",
+                "save": "Save",
+                "saveConfirm": "Save map changes?",
                 "search": "Search",
                 "measure": "Measure",
                 "welcomeTitle": "Welcome to Hydrata"

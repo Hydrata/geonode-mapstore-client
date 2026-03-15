@@ -30,6 +30,8 @@
                 "processingStarted": "Procesamiento iniciado",
                 "status": "Estado",
                 "title": "Título",
+                "save": "Guardar",
+                "saveConfirm": "¿Guardar cambios del mapa?",
                 "search": "Buscar",
                 "measure": "Medir",
                 "welcomeTitle": "Bienvenido a Hydrata"

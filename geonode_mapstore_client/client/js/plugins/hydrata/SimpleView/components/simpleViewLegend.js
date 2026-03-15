@@ -25,51 +25,50 @@ class simpleViewLegend extends React.Component {
         }
         return (
             <div className={'simple-view-panel legend-panel'}>
-                <div className={"row h4 legend-heading"}>
-                    <Message msgId="hydrata.simpleView.legend" />
-                    <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
-                        onClick={() => this.props.setVisibleLegendPanel(false)}
-                    />
-                </div>
-                {this.props.visibleLayers.map((layer) => {
-                    const legendOverride = this.props.legendOverrides?.filter(override => override?.layerName === layer.name)?.[0];
-                    if (layer.type !== 'wms') {
-                        return null;
-                    }
-                    return legendOverride ?
-                        (
-                            <div key={layer.id} className={"row legend-row"} >
-                                <div className={"col-sm-7 legend-background"} >
-                                    <span className={"legend-image"}>
-                                        <img src={legendOverride?.staticImageFilePath}/>
-                                    </span>
-                                </div>
-                                <div className={"col-sm-5 legend-text-label"}>
-                                    <span className={"h5"}>
-                                        {layer.title}
-                                    </span>
-                                </div>
-                            </div>
-                        ) :
-                        (
-                            <div key={layer.id} className={"legend-row"} >
-                                <div className={"h5 legend-layer-title"}>{layer.title}</div>
-                                <div className={"legend-background"} >
-                                    <Legend
-                                        layer={layer}
-                                        legendHeight={20}
-                                        legendWidth={20}
-                                        legendOptions={"forceLabels:on;fontAntiAliasing:true"}
-                                        style={{maxWidth: "100%"}}
-                                    />
-                                </div>
-                            </div>
-                        );
-                })}
-                <div className={"simple-view-panel-footer"}>
+                <div className="legend-header">
+                    <h4><Message msgId="hydrata.simpleView.legend" /></h4>
                     <button
-                        className={"swamm-button"}
+                        className="legend-close"
+                        onClick={() => this.props.setVisibleLegendPanel(false)}
+                        title="Close"
+                    >&times;</button>
+                </div>
+                <div className="legend-body">
+                    {this.props.visibleLayers.map((layer) => {
+                        const legendOverride = this.props.legendOverrides?.filter(override => override?.layerName === layer.name)?.[0];
+                        if (layer.type !== 'wms') {
+                            return null;
+                        }
+                        return legendOverride ?
+                            (
+                                <div key={layer.id} className={"legend-row"} >
+                                    <div className={"legend-layer-title"}>{layer.title}</div>
+                                    <div className={"legend-background"} >
+                                        <span className={"legend-image"}>
+                                            <img src={legendOverride?.staticImageFilePath}/>
+                                        </span>
+                                    </div>
+                                </div>
+                            ) :
+                            (
+                                <div key={layer.id} className={"legend-row"} >
+                                    <div className={"legend-layer-title"}>{layer.title}</div>
+                                    <div className={"legend-background"} >
+                                        <Legend
+                                            layer={layer}
+                                            legendHeight={20}
+                                            legendWidth={20}
+                                            legendOptions={"forceLabels:on;fontAntiAliasing:true"}
+                                            style={{maxWidth: "100%"}}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                    })}
+                </div>
+                <div className="legend-footer">
+                    <button
+                        className="simple-view-panel-button"
                         onClick={() => this.props.setVisibleLegendPanel(false)}
                     >
                         <Message msgId="hydrata.simpleView.close" />

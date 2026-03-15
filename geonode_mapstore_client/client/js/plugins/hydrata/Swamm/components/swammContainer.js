@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import {connect} from 'react-redux';
 const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
@@ -101,95 +102,78 @@ class SwammContainer extends React.Component {
     componentDidUpdate() {
     }
 
+    renderToolbarButtons() {
+        return (
+            <React.Fragment>
+                <button
+                    key="swamm-bmp-creator-button"
+                    className={'simple-view-menu-button'}
+                    disabled={this.props.vectorDrawActive || this.props.visibleBmpForm}
+                    onClick={() => {
+                        if (this.props.storedBmpForm) {
+                            this.props.showBmpForm();
+                        } else {
+                            this.props.makeBmpForm(this.props.defaultGroupProfile);
+                        }
+                        this.props.setOpenMenuGroupId(null);
+                    }}
+                >
+                    <Message msgId="hydrata.swamm.createBmps" />
+                </button>
+                {this.props.targets?.length ?
+                    <button
+                        key="swamm-bmp-chart-button"
+                        className={'simple-view-menu-button'}
+                        onClick={() => {
+                            this.props.showSwammBmpChart();
+                            this.props.selectSwammTargetId(this.props.defaultTargetId);
+                            this.props.setOpenMenuGroupId(null);
+                        }}
+                    >
+                        <Message msgId="hydrata.swamm.dashboard" />
+                    </button> :
+                    <button
+                        key="swamm-bmp-chart-button"
+                        className={'simple-view-menu-button disabled'}
+                    >
+                        <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
+                    </button>
+                }
+                {this.props.canEditSwammMap ?
+                    <button
+                        key="swamm-input-button"
+                        className={'simple-view-menu-button'}
+                        onClick={() => {
+                            this.props.setSwammInputMenu(!this.props.showSwammInputMenu);
+                            this.props.setOpenMenuGroupId(null);
+                        }}
+                    >
+                        <Message msgId="hydrata.swamm.swammModel" />
+                    </button> : null
+                }
+            </React.Fragment>
+        );
+    }
+
     render() {
+        const toolbarTarget = typeof document !== 'undefined'
+            ? document.querySelector('.simple-view-left-toolbar')
+            : null;
         return (
             <div id={"swamm-container"}>
                 {this.props.isSwammProject ?
                     <React.Fragment>
+                        {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
                         {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.vectorDrawActive ?
-                            <React.Fragment>
-                                <Button
-                                    className={'simple-view-menu-button bmp-progress-button-success'}
-                                    style={{left: 30, top: 80, width: 120, backgroundColor: "darkgreen"}}
-                                    bsStyle={"success"}
-                                    onClick={() => this.props.showBmpForm()}
-                                >
-                                    <Message msgId="hydrata.swamm.bmpInProgress" />
-                                </Button>
-                                <button
-                                    key="swamm-bmp-creator-button"
-                                    className={'simple-view-menu-button'}
-                                    style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                    onClick={() => {
-                                        this.props.showBmpForm();
-                                        this.props.setOpenMenuGroupId(null);
-                                    }}
-                                >
-                                    <Message msgId="hydrata.swamm.createBmps" />
-                                </button>
-                            </React.Fragment>
-                            : this.props.vectorDrawActive ?
-                                <button
-                                    className={'simple-view-menu-button'}
-                                    style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                    disabled
-                                >
-                                    <Message msgId="hydrata.swamm.createBmps" />
-                                </button>
-                                : this.props.visibleBmpForm ?
-                                    <button
-                                        className={'simple-view-menu-button'}
-                                        style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                        disabled
-                                    >
-                                        <Message msgId="hydrata.swamm.createBmps" />
-                                    </button>
-                                    :
-                                    <button
-                                        key="swamm-bmp-creator-button"
-                                        className={'simple-view-menu-button'}
-                                        style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                        onClick={() => {
-                                            this.props.makeBmpForm(this.props.defaultGroupProfile);
-                                            this.props.setOpenMenuGroupId(null);
-                                        }}
-                                    >
-                                        <Message msgId="hydrata.swamm.createBmps" />
-                                    </button>
-                        }
-                        {this.props.targets?.length ?
-                            <button
-                                key="swamm-bmp-chart-button"
-                                className={'simple-view-menu-button'}
-                                style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
-                                onClick={() => {
-                                    this.props.showSwammBmpChart();
-                                    this.props.selectSwammTargetId(this.props.defaultTargetId);
-                                    this.props.setOpenMenuGroupId(null);
-                                }}
+                            <Button
+                                className={'simple-view-menu-button bmp-progress-button-success'}
+                                style={{left: 30, top: 80, width: 120, backgroundColor: "darkgreen"}}
+                                bsStyle={"success"}
+                                onClick={() => this.props.showBmpForm()}
                             >
-                                <Message msgId="hydrata.swamm.dashboard" />
-                            </button> :
-                            <button
-                                key="swamm-bmp-chart-button"
-                                className={'simple-view-menu-button disabled'}
-                                style={{left: (this.props.numberOfMenus + 2) * 100 + 20}}
-                            >
-                                <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
-                            </button>
-                        }
-                        {this.props.canEditSwammMap ?
-                            <button
-                                key="swamm-input-button"
-                                className={'simple-view-menu-button'}
-                                style={{left: 620}}
-                                onClick={() => {
-                                    this.props.setSwammInputMenu(!this.props.showSwammInputMenu);
-                                    this.props.setOpenMenuGroupId(null);
-                                }}
-                            >
-                                <Message msgId="hydrata.swamm.swammModel" />
-                            </button> : null
+                                <Message msgId="hydrata.swamm.bmpInProgress" />
+                            </Button>
+                            : null
                         }
                         {this.props.showSwammInputMenu ?
                             <SwammInputMenu/>

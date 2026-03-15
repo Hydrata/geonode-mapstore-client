@@ -190,36 +190,73 @@
     text-align: left;
 }
 
+/* ── Widget positioning: left of RHS toolbar, top-aligned with search button ── */
+/* --sv-widget-right is set dynamically by SimpleView JS */
+.measure-container {
+    top: 11px !important;
+    right: var(--sv-widget-right, 65px) !important;
+}
+
 .legend-panel {
-    top: 55px;
-    right: 15px;
+    top: 11px;
+    right: var(--sv-widget-right, 65px);
     left: unset;
-    text-align: right;
-    padding-bottom: 20px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    max-height: calc(100vh - 31px);
+    max-width: 280px;
+    min-width: 200px;
+}
+
+.legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+
+.legend-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: white;
+}
+
+.legend-body {
     overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 92%;
-    max-width: 400px;
+    flex: 1;
+    padding: 8px;
 }
 
 .legend-row {
     padding: 10px;
-    margin: -1px 10px -1px 10px;
-    border: 1px solid #ffffffad;
-    border-radius: 3px;
+    margin: 0 0 8px 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.legend-footer {
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
 }
 
 .legend-background {
     background-color: white;
     padding: 3px;
     border-radius: 3px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .legend-image {
     display: block;
-    text-align: center;
-    margin-left: auto;
-    margin-right: auto;
     max-width: 80%;
 }
 
@@ -237,20 +274,35 @@
 }
 
 .legend-close {
-    position: absolute;
-    right: 0;
     color: #fff;
     background-color: #c9544d;
     border: none;
     border-radius: 3px;
-    padding: 2px 6px;
-    opacity: 0.9;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
 .legend-close:hover {
-    opacity: 1;
     background-color: #b5403a;
     color: #fff;
+}
+
+.simple-view-panel-button {
+    padding: 6px 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background-color: rgba(0, 60, 136, 0.7);
+    color: white;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.simple-view-panel-button:hover {
+    background-color: rgba(0, 60, 136, 0.9);
+    border-color: rgba(255, 255, 255, 0.7);
 }
 
 .uploader-panel {
@@ -381,6 +433,49 @@
     background-color: #335781;
 }
 
+/* ── Save confirmation overlay ── */
+.save-confirm-overlay {
+    position: absolute;
+    z-index: 1022;
+    top: 11px;
+    right: var(--sv-widget-right, 65px);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background-color: rgba(0, 60, 136, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 4px;
+    padding: 8px 12px;
+    white-space: nowrap;
+    color: white;
+    font-size: 13px;
+}
+
+.save-confirm-btn {
+    padding: 4px 12px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    font-size: 12px;
+    color: white;
+}
+
+.save-confirm-btn.confirm {
+    background-color: rgba(40, 167, 69, 0.85);
+}
+
+.save-confirm-btn.confirm:hover {
+    background-color: rgba(33, 136, 56, 0.95);
+}
+
+.save-confirm-btn.cancel {
+    background-color: rgba(108, 117, 125, 0.7);
+}
+
+.save-confirm-btn.cancel:hover {
+    background-color: rgba(90, 98, 104, 0.9);
+}
+
 /* Hidden by default in SimpleView; admin drawer toggle overrides via inline style */
 #mapstore-drawermenu {
     display: none;
@@ -428,7 +523,8 @@
     }
 
     .legend-panel {
-        max-width: 300px;
+        max-width: 250px;
+        max-height: calc(100vh - 31px);
     }
 }
 
@@ -477,7 +573,7 @@
 
     .legend-panel {
         max-width: calc(100% - 80px);
-        right: 10px;
+        max-height: calc(100vh - 31px);
     }
 
     .uploader-panel {
