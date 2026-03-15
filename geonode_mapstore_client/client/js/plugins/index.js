@@ -513,6 +513,10 @@ export const plugins = {
     TaskMonitorPlugin: toModulePlugin(
         'TaskMonitor',
         () => import(/* webpackChunkName: 'plugins/taskmonitor-plugin' */ '@js/plugins/hydrata/TaskMonitor/TaskMonitor')
+    ),
+    VectorDrawPlugin: toModulePlugin(
+        'VectorDraw',
+        () => import(/* webpackChunkName: 'plugins/vectordraw-plugin' */ '@js/plugins/hydrata/VectorDraw/VectorDraw')
     )
 };
 
