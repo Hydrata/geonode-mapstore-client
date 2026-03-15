@@ -1111,9 +1111,6 @@
                 "name": "Notifications"
             },
             {
-                "name": "Locate"
-            },
-            {
                 "name": "Legend"
             },
             {
@@ -1127,6 +1124,9 @@
             },
             {
                 "name": "Hydrology"
+            },
+            {
+                "name": "VectorDraw"
             }
         ],
         "dataset_edit_data_viewer": [
@@ -1925,9 +1925,6 @@
                 "name": "Swipe"
             },
             {
-                "name": "Locate"
-            },
-            {
                 "name": "WidgetsBuilder",
                 "cfg": {
                     "disablePluginIf": "{!state('selectedLayerPermissions').includes('download_resourcebase')}"
@@ -1962,9 +1959,6 @@
                 }
             },
             {
-                "name": "SidebarMenu"
-            },
-            {
                 "name": "MetadataExplorer",
                 "cfg": {
                     "wrap": true
@@ -1978,6 +1972,12 @@
             },
             {
                 "name": "Hydrology"
+            },
+            {
+                "name": "Swamm"
+            },
+            {
+                "name": "VectorDraw"
             },
             {
                 "name": "SimpleView"
@@ -2694,9 +2694,6 @@
                 }
             },
             {
-                "name": "Locate"
-            },
-            {
                 "name": "BackgroundSelector",
                 "cfg": {
                     "bottom": 25,
@@ -2808,9 +2805,6 @@
             },
             {
                 "name": "Legend"
-            },
-            {
-                "name": "Locate"
             },
             {
                 "name": "BackgroundSelector",
