@@ -10,7 +10,9 @@ import {
     HIDE_SWAMM_BMP_CHART,
     SHOW_TARGET_FORM,
     HIDE_TARGET_FORM,
-    UPDATE_TARGET_FORM
+    UPDATE_TARGET_FORM,
+    SHOW_BMP_CHOOSER,
+    HIDE_BMP_CHOOSER
 } from "../actionsSwamm";
 
 const uiReducer = (state, action) => {
@@ -50,6 +52,10 @@ const uiReducer = (state, action) => {
                 ...action.kv
             }
         };
+    case SHOW_BMP_CHOOSER:
+        return { bmpChooserCandidates: action.candidates };
+    case HIDE_BMP_CHOOSER:
+        return { bmpChooserCandidates: null };
     default:
         return {};
     }

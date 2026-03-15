@@ -106,6 +106,9 @@ const SET_SWAMM_EROSION_DATA = 'SET_SWAMM_EROSION_DATA';
 
 const APPLY_INITIAL_BMP_FILTER = 'APPLY_INITIAL_BMP_FILTER';
 
+const SHOW_BMP_CHOOSER = 'SHOW_BMP_CHOOSER';
+const HIDE_BMP_CHOOSER = 'HIDE_BMP_CHOOSER';
+
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
 
@@ -572,7 +575,7 @@ const downloadTargetDataSuccess = (data) => {
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Success',
-            autoDismiss: 5,
+            autoDismiss: 3,
             position: 'tc',
             message: `Successfully created *.xlsx file`,
             uid: uuidv1(),
@@ -627,7 +630,7 @@ const submitBmpFormSuccess = (bmp) => {
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Success',
-            autoDismiss: 6,
+            autoDismiss: 3,
             position: 'tc',
             message: `BMP ID: ${bmp.id} saved`,
             uid: uuidv1(),
@@ -686,20 +689,9 @@ const submitBmpForm = (newBmp, projectId) => {
 };
 
 const getBmpFormSuccess = (bmp) => {
-    return (dispatch) => {
-        dispatch({
-            type: SHOW_NOTIFICATION,
-            title: 'Success',
-            autoDismiss: 6,
-            position: 'tc',
-            message: `BMP ID: ${bmp.id} found`,
-            uid: uuidv1(),
-            level: 'success'
-        });
-        dispatch({
-            type: GET_BMP_FORM_SUCCESS,
-            bmp
-        });
+    return {
+        type: GET_BMP_FORM_SUCCESS,
+        bmp
     };
 };
 
@@ -720,7 +712,7 @@ const deleteBmpSuccess = (bmpId) => {
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Delete BMP Success',
-            autoDismiss: 6,
+            autoDismiss: 3,
             position: 'tc',
             message: `Successfully deleted BMP: ${bmpId}`,
             uid: uuidv1(),
@@ -821,7 +813,7 @@ const submitTargetFormSuccess = (target) => {
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Success',
-            autoDismiss: 6,
+            autoDismiss: 3,
             position: 'tc',
             message: `Target: ${target.id} saved`,
             uid: uuidv1(),
@@ -885,7 +877,7 @@ const deleteTargetSuccess = (targetId) => {
         dispatch({
             type: SHOW_NOTIFICATION,
             title: 'Delete Target Success',
-            autoDismiss: 6,
+            autoDismiss: 3,
             position: 'tc',
             message: `Successfully deleted Target: ${targetId}`,
             uid: uuidv1(),
@@ -999,6 +991,9 @@ function setSwammErosionData(data) {
 
 const applyInitialBmpFilter = () => ({ type: APPLY_INITIAL_BMP_FILTER });
 
+const showBmpChooser = (candidates) => ({ type: SHOW_BMP_CHOOSER, candidates });
+const hideBmpChooser = () => ({ type: HIDE_BMP_CHOOSER });
+
 module.exports = {
     INIT_SWAMM, initSwamm,
     SET_SWAMM_PROJECT_DATA, setSwammProjectData,
@@ -1086,5 +1081,7 @@ module.exports = {
     DOWNLOAD_TARGET_DATA, downloadTargetData,
     DOWNLOAD_TARGET_DATA_SUCCESS, downloadTargetDataSuccess,
     DOWNLOAD_TARGET_DATA_ERROR, downloadTargetDataError,
-    APPLY_INITIAL_BMP_FILTER, applyInitialBmpFilter
+    APPLY_INITIAL_BMP_FILTER, applyInitialBmpFilter,
+    SHOW_BMP_CHOOSER, showBmpChooser,
+    HIDE_BMP_CHOOSER, hideBmpChooser
 };
