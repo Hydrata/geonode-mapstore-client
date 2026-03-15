@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 
 const HGevalSignupForm = ({
     signupErrors, signingUp, loginErrors, loggingIn,
     onSignupAndSave, onLoginAndSave
-}) => {
+}, context) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [firstName, setFirstName] = useState('');
@@ -71,7 +73,7 @@ const HGevalSignupForm = ({
                             <input
                                 type="text"
                                 className="form-control input-sm"
-                                placeholder="First name"
+                                placeholder={getMessageById(context.messages, 'hydrata.hgeval.placeholderFirstName')}
                                 value={firstName}
                                 onChange={e => setFirstName(e.target.value)}
                             />
@@ -80,7 +82,7 @@ const HGevalSignupForm = ({
                             <input
                                 type="text"
                                 className="form-control input-sm"
-                                placeholder="Last name"
+                                placeholder={getMessageById(context.messages, 'hydrata.hgeval.placeholderLastName')}
                                 value={lastName}
                                 onChange={e => setLastName(e.target.value)}
                             />
@@ -91,7 +93,7 @@ const HGevalSignupForm = ({
                     <input
                         type="email"
                         className="form-control input-sm"
-                        placeholder="Email *"
+                        placeholder={getMessageById(context.messages, 'hydrata.hgeval.placeholderEmailRequired')}
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                     />
@@ -101,7 +103,10 @@ const HGevalSignupForm = ({
                     <input
                         type="password"
                         className="form-control input-sm"
-                        placeholder={isLogin ? "Password *" : "Password * (min 8 characters)"}
+                        placeholder={isLogin
+                            ? getMessageById(context.messages, 'hydrata.hgeval.placeholderPasswordRequired')
+                            : getMessageById(context.messages, 'hydrata.hgeval.placeholderPasswordMin8')
+                        }
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                     />
@@ -143,6 +148,10 @@ const HGevalSignupForm = ({
             </p>
         </div>
     );
+};
+
+HGevalSignupForm.contextTypes = {
+    messages: PropTypes.object
 };
 
 export default HGevalSignupForm;

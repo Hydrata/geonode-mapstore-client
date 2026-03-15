@@ -1,5 +1,7 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import HGevalSignupForm from './hgevalSignupForm';
 
 const DataRow = ({ label, value, fallback }) => (
@@ -98,7 +100,7 @@ const HGevalReportDisplay = ({
     savedReport, isLoggedIn, signupErrors, signingUp,
     loginErrors, loggingIn, mapImageDataUrl,
     onSave, onSignupAndSave, onLoginAndSave, onNewReport, onUpdateForm
-}) => {
+}, context) => {
     const admin1 = reportData['geonode:admin_level_1'];
     const admin2 = reportData['geonode:admin_level_2'];
     const gwPotential = reportData['geonode:groundwater_potential_01'];
@@ -205,7 +207,7 @@ const HGevalReportDisplay = ({
                         <input
                             type="email"
                             className="form-control input-sm"
-                            placeholder="Email"
+                            placeholder={getMessageById(context.messages, 'hydrata.hgeval.email')}
                             value={form?.contact_email || ''}
                             onChange={(e) => onUpdateForm('contact_email', e.target.value)}
                         />
@@ -213,7 +215,7 @@ const HGevalReportDisplay = ({
                         <input
                             type="tel"
                             className="form-control input-sm"
-                            placeholder="Phone"
+                            placeholder={getMessageById(context.messages, 'hydrata.hgeval.phoneNumber')}
                             value={form?.contact_phone_number || ''}
                             onChange={(e) => onUpdateForm('contact_phone_number', e.target.value)}
                         />
@@ -259,6 +261,10 @@ const HGevalReportDisplay = ({
             </div>
         </div>
     );
+};
+
+HGevalReportDisplay.contextTypes = {
+    messages: PropTypes.object
 };
 
 export default HGevalReportDisplay;

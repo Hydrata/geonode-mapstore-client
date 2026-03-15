@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 
 const SECTOR_OPTIONS = [
-    { value: '', label: 'Select sector...' },
-    { value: 'private_home', label: 'Private Home' },
-    { value: 'construction', label: 'Construction' },
-    { value: 'development', label: 'Development' },
-    { value: 'real_estate', label: 'Real Estate' },
-    { value: 'government', label: 'Government' },
-    { value: 'ngo', label: 'NGO' },
-    { value: 'community', label: 'Community Development' },
-    { value: 'missionary', label: 'Missionary' },
-    { value: 'other', label: 'Other' }
+    { value: '', msgId: 'hydrata.hgeval.sectorSelectPrompt' },
+    { value: 'private_home', msgId: 'hydrata.hgeval.sectorPrivateHome' },
+    { value: 'construction', msgId: 'hydrata.hgeval.sectorConstruction' },
+    { value: 'development', msgId: 'hydrata.hgeval.sectorDevelopment' },
+    { value: 'real_estate', msgId: 'hydrata.hgeval.sectorRealEstate' },
+    { value: 'government', msgId: 'hydrata.hgeval.sectorGovernment' },
+    { value: 'ngo', msgId: 'hydrata.hgeval.sectorNgo' },
+    { value: 'community', msgId: 'hydrata.hgeval.sectorCommunity' },
+    { value: 'missionary', msgId: 'hydrata.hgeval.sectorMissionary' },
+    { value: 'other', msgId: 'hydrata.hgeval.sectorOther' }
 ];
 
 const HGevalInputPanel = ({
     coordinates, form, validationError, error,
     onSetCoordinates, onUpdateForm, onStartReport, onCancel
-}) => {
+}, context) => {
     const [lonStr, setLonStr] = useState(coordinates ? Math.abs(coordinates.lon).toString() : '');
     const [latStr, setLatStr] = useState(coordinates?.lat?.toString() || '');
 
@@ -89,7 +91,7 @@ const HGevalInputPanel = ({
                 <input
                     type="text"
                     className="form-control input-sm"
-                    placeholder="Name for this evaluation"
+                    placeholder={getMessageById(context.messages, 'hydrata.hgeval.placeholderName')}
                     value={form.name}
                     onChange={(e) => onUpdateForm('name', e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -100,7 +102,7 @@ const HGevalInputPanel = ({
                 <textarea
                     className="form-control input-sm"
                     rows="2"
-                    placeholder="Brief description of your project"
+                    placeholder={getMessageById(context.messages, 'hydrata.hgeval.placeholderDescription')}
                     value={form.description}
                     onChange={(e) => onUpdateForm('description', e.target.value)}
                 />
@@ -113,7 +115,7 @@ const HGevalInputPanel = ({
                     onChange={(e) => onUpdateForm('sector', e.target.value)}
                 >
                     {SECTOR_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        <option key={opt.value} value={opt.value}>{getMessageById(context.messages, opt.msgId)}</option>
                     ))}
                 </select>
             </div>
@@ -156,6 +158,10 @@ const HGevalInputPanel = ({
             </div>
         </div>
     );
+};
+
+HGevalInputPanel.contextTypes = {
+    messages: PropTypes.object
 };
 
 export default HGevalInputPanel;
