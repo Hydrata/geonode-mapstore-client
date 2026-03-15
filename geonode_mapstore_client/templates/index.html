@@ -14,6 +14,15 @@
         {% endblock %}
 
         {% block extra_head %}
+            {% if job_name == 'swamm' %}
+                <meta name="description" content="SWAMM - Spatial Watershed Assessment and Management Model. Track and optimize Best Management Practices for watershed conservation.">
+            {% elif job_name == 'sararaportal' %}
+                <meta name="description" content="Republic of Haiti Geology and Hydrogeology - Library and Map Collection. A comprehensive research portal for Haiti's geological data.">
+            {% elif job_name == 'nicp' %}
+                <meta name="description" content="Nicaragua Hydro Portal - Open platform for hydrogeological data and groundwater resource planning in Nicaragua.">
+            {% elif job_name == 'hydratabase' %}
+                <meta name="description" content="Hydrata - Cloud-native hydraulic modeling platform. Run ANUGA flood simulations, manage geospatial data, and collaborate on water infrastructure projects.">
+            {% endif %}
         {% endblock %}
         {% include './geonode-mapstore-client/snippets/umami_tracking.html' %}
     </head>
