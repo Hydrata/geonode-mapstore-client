@@ -13,10 +13,7 @@ import {
     showSwammBmpChart,
     setSwammInputMenu,
     makeBmpForm,
-    setEditingBmpFeatureId,
     selectSwammTargetId,
-    clearDrawingBmpLayerName,
-    clearEditingBmpFeatureId,
     toggleBmpType,
     fetchSwammTargets
 } from "../actionsSwamm";
@@ -27,14 +24,13 @@ import {SwammBmpFilters} from "./swammBmpFilters";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {bmpByUniqueNameSelector, canEditSwammMap, swammModelGroupIdSelector} from "../selectorsSwamm";
-import {setLayer, saveChanges, toggleViewMode} from "../../../../../MapStore2/web/client/actions/featuregrid";
-import {drawStopped} from "../../../../../MapStore2/web/client/actions/draw";
 import {query, toggleSyncWms} from "../../../../../MapStore2/web/client/actions/wfsquery";
 
 import Message from '@mapstore/framework/components/I18N/Message';
 import "../../SimpleView/simpleView.css";
 import "../swamm.css";
 import {SwammInputMenu} from "@js/plugins/hydrata/Swamm/components/swammInputMenu";
+import BmpChooserModal from "./bmpForm/BmpChooserModal";
 
 
 class SwammContainer extends React.Component {
@@ -63,12 +59,7 @@ class SwammContainer extends React.Component {
         showMenuGroup: PropTypes.bool,
         setOpenMenuGroupId: PropTypes.func,
         loadingBmp: PropTypes.bool,
-        saveChanges: PropTypes.func,
-        clearDrawingBmpLayerName: PropTypes.func,
-        clearEditingBmpFeatureId: PropTypes.func,
-        drawingBmpLayerName: PropTypes.string,
-        setEditingBmpFeatureId: PropTypes.func,
-        editingBmpFeatureId: PropTypes.string,
+        vectorDrawActive: PropTypes.bool,
         query: PropTypes.func,
         toggleBmpType: PropTypes.func,
         visibleSwammBmpChart: PropTypes.bool,
@@ -77,9 +68,6 @@ class SwammContainer extends React.Component {
         selectSwammTargetId: PropTypes.func,
         showSwammBmpChart: PropTypes.func,
         bmpByUniqueNameSelector: PropTypes.func,
-        setLayer: PropTypes.func,
-        toggleViewMode: PropTypes.func,
-        drawStopped: PropTypes.func,
         numberOfMenus: PropTypes.number,
         hasPmData: PropTypes.object,
         bmpDataLayer: PropTypes.object,
@@ -118,7 +106,7 @@ class SwammContainer extends React.Component {
             <div id={"swamm-container"}>
                 {this.props.isSwammProject ?
                     <React.Fragment>
-                        {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.drawingBmpLayerName && !this.props.editingBmpFeatureId ?
+                        {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.vectorDrawActive ?
                             <React.Fragment>
                                 <Button
                                     className={'simple-view-menu-button bmp-progress-button-success'}
@@ -140,47 +128,14 @@ class SwammContainer extends React.Component {
                                     <Message msgId="hydrata.swamm.createBmps" />
                                 </button>
                             </React.Fragment>
-                            : this.props.drawingBmpLayerName || this.props.editingBmpFeatureId ?
-                                <React.Fragment>
-                                    <Button
-                                        bsStyle="success"
-                                        className={'simple-view-menu-button bmp-progress-button'}
-                                        style={{left: 30, top: 80, width: 120, backgroundColor: "darkgreen"}}
-                                        onClick={() => {
-                                            this.props.saveChanges();
-                                            this.props.showBmpForm();
-                                        }}
-                                    >
-                                        <Message msgId="hydrata.swamm.saveFeature" />
-                                    </Button>
-                                    <Button
-                                        bsStyle="danger"
-                                        className={'simple-view-menu-button bmp-progress-button'}
-                                        style={{left: 160, top: 80, width: 120, backgroundColor: "darkred"}}
-                                        onClick={() => {
-                                            this.props.showBmpForm();
-                                            this.props.setLayer(null);
-                                            this.props.toggleViewMode();
-                                            this.props.drawStopped();
-                                            this.props.clearDrawingBmpLayerName();
-                                            this.props.clearEditingBmpFeatureId();
-                                        }}
-                                    >
-                                        <Message msgId="hydrata.swamm.cancelFeature" />
-                                    </Button>
-                                    <button
-                                        key="swamm-bmp-creator-button"
-                                        className={'simple-view-menu-button'}
-                                        style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
-                                        onClick={() => {
-                                            this.props.saveChanges();
-                                            this.props.showBmpForm();
-                                            this.props.setOpenMenuGroupId(null);
-                                        }}
-                                    >
-                                        <Message msgId="hydrata.swamm.createBmps" />
-                                    </button>
-                                </React.Fragment>
+                            : this.props.vectorDrawActive ?
+                                <button
+                                    className={'simple-view-menu-button'}
+                                    style={{left: (this.props.numberOfMenus + 1) * 100 + 20}}
+                                    disabled
+                                >
+                                    <Message msgId="hydrata.swamm.createBmps" />
+                                </button>
                                 : this.props.visibleBmpForm ?
                                     <button
                                         className={'simple-view-menu-button'}
@@ -263,6 +218,7 @@ class SwammContainer extends React.Component {
                             </button>
                             : null
                         }
+                        <BmpChooserModal/>
                     </React.Fragment>
                     : null}
             </div>
@@ -291,8 +247,9 @@ const mapStateToProps = (state) => {
         layers: state?.layers,
         visibleBmpForm: state?.swamm?.visibleBmpForm,
         storedBmpForm: state?.swamm?.storedBmpForm,
-        drawingBmpLayerName: state?.swamm?.drawingBmpLayerName,
-        editingBmpFeatureId: state?.swamm?.editingBmpFeatureId,
+        vectorDrawActive: state?.vectorDraw?.phase
+            && state?.vectorDraw?.phase !== 'idle'
+            && state?.vectorDraw?.phase !== 'cancelling',
         visibleSwammBmpChart: state?.swamm?.visibleSwammBmpChart,
         showSwammInputMenu: state?.swamm?.showSwammInputMenu,
         defaultTargetId: state?.swamm?.targets?.[0]?.id || 0,
@@ -316,18 +273,11 @@ const mapDispatchToProps = ( dispatch ) => {
         selectSwammTargetId: (targetId) => dispatch(selectSwammTargetId(targetId)),
         toggleLayer: (layer, isVisible) => dispatch(changeLayerProperties(layer, {visibility: isVisible})),
         showBmpForm: () => dispatch(showBmpForm()),
-        setLayer: (layerName) => dispatch(setLayer(layerName)),
-        setEditingBmpFeatureId: (featureId) => dispatch(setEditingBmpFeatureId(featureId)),
         showSwammBmpChart: () => dispatch(showSwammBmpChart()),
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         makeBmpForm: (bmpTypeId) => dispatch(makeBmpForm(bmpTypeId)),
-        saveChanges: () => dispatch(saveChanges()),
-        clearDrawingBmpLayerName: () => dispatch(clearDrawingBmpLayerName()),
-        clearEditingBmpFeatureId: () => dispatch(clearEditingBmpFeatureId()),
         query: (url, filterObj, queryOptions, reason) => dispatch(query(url, filterObj, queryOptions, reason)),
         toggleBmpType: (bmpType) => dispatch(toggleBmpType(bmpType)),
-        toggleViewMode: () => dispatch(toggleViewMode()),
-        drawStopped: () => dispatch(drawStopped()),
         toggleSyncWms: () => dispatch(toggleSyncWms())
     };
 };

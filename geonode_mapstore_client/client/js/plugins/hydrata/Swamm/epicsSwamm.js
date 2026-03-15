@@ -2,13 +2,6 @@ import Rx from "rxjs";
 import * as swammApi from './api/swammApi';
 import { isInt } from "../Utils/utils";
 import {
-    QUERY_RESULT,
-    query,
-    FEATURE_TYPE_LOADED,
-    FEATURE_TYPE_SELECTED,
-    resetQuery
-} from "../../../../MapStore2/web/client/actions/wfsquery";
-import {
     changeLayerProperties,
     refreshLayerVersion,
     addLayer
@@ -20,17 +13,15 @@ import {
     setSwammProjectData,
     FETCH_PROJECT_MANAGER_CONFIG_SUCCESS,
     DOWNLOAD_BMP_REPORT,
-    clearDrawingBmpLayerName,
     hideLoadingBmp,
     submitBmpForm,
     MAKE_EXISTING_BMP_FORM,
     makeExistingBmpForm,
     updateBmpForm,
     getBmpFormSuccess,
-    clearEditingBmpFeatureId,
     showBmpForm,
     setUpdatingBmp,
-    registerMissingBmpFeatureId,
+    showBmpChooser,
     updateBmpTypeGroups,
     TOGGLE_BMP_TYPE_VISIBILITY,
     TOGGLE_BMP_STATUS_VISIBILITY,
@@ -53,16 +44,6 @@ import {
     setSvConfig
 } from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 
-import {
-    toggleEditMode,
-    toggleViewMode,
-    createNewFeatures,
-    startDrawingFeature,
-    selectFeatures,
-    SAVE_SUCCESS
-} from "../../../../MapStore2/web/client/actions/featuregrid";
-import {drawStopped} from "../../../../MapStore2/web/client/actions/draw";
-import { setHighlightFeaturesPath } from "../../../../MapStore2/web/client/actions/highlight";
 import {closeIdentify, LOAD_FEATURE_INFO} from "../../../../MapStore2/web/client/actions/mapInfo";
 import {
     bmpOutletLayerSelector,
@@ -161,176 +142,85 @@ export const catchBmpFeatureClick = (action$, store) =>
     action$
         .ofType(LOAD_FEATURE_INFO)
         .filter((action) => {
-            let bmpFeatureId = null;
-            if (action?.data?.type === 'FeatureCollection') {
-                action?.data?.features?.map((feature) => {
-                    if (
-                        /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
-                        /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
-                        /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
-                    ) { bmpFeatureId = feature?.properties?.id;}
-                });
-            } else {
-                const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
-                bmpFeatureId = featureIdNumber;
+            if (action?.data?.type !== 'FeatureCollection') {
+                const text = action.data || '';
+                return text.includes('fid = ') && text.includes('the_geom');
             }
-            // return true;
-            return isInt(bmpFeatureId);
-        })
-        .mergeMap((action) => {
-            let bmpFeatureId = null;
-            if (action?.data?.type === 'FeatureCollection') {
-                action?.data?.features?.map((feature) => {
-                    if (
-                        /([a-zA-Z0-9]{3}_){2}outlet/.test(feature.id) ||
-                        /([a-zA-Z0-9]{3}_){2}footprint/.test(feature.id) ||
-                        /([a-zA-Z0-9]{3}_){2}watershed/.test(feature.id)
-                    ) { bmpFeatureId = feature?.properties?.id;}
-                });
-            } else {
-                const featureIdNumber = action.data.substring(action.data.indexOf('fid = ') + 6, action.data.indexOf('the_geom') - 1);
-                bmpFeatureId = featureIdNumber;
-            }
-            const projectId = store.getState()?.swamm?.projectData?.id;
-            return Rx.Observable.from(swammApi.getBmp(projectId, bmpFeatureId))
-                .catch(err => {
-                    console.error('catchBmpFeatureClick: failed to load BMP', err);
-                    return Rx.Observable.empty();
-                });
-        })
-        .mergeMap((response) => Rx.Observable.of(
-            closeIdentify(),
-            getBmpFormSuccess(response.data),
-            makeExistingBmpForm(response.data),
-            setUpdatingBmp(response.data),
-            showBmpForm()
-        ));
-
-export const setCreateBmpDrawingLayerEpic = (action$, store) =>
-    action$
-        .ofType(FEATURE_TYPE_LOADED)
-        .filter((action) => {
-            return action?.typeName?.includes(store.getState()?.swamm?.drawingBmpLayerName);
-        })
-        .flatMap((action) => Rx.Observable.of(
-            query(
-                store.getState()?.gnsettings?.geoserverUrl + '/wfs',
-                {
-                    featureTypeName: action?.typeName,
-                    filterType: 'OGC',
-                    ogcVersion: '1.1.0'
-                },
-                {},
-                'querySetNewBmpLayer'
-            )
-        ));
-
-export const setEditBmpDrawingLayerEpic = (action$, store) =>
-    action$
-        .ofType(FEATURE_TYPE_SELECTED)
-        .filter((action) => {
-            return action?.typeName?.includes(store.getState()?.swamm?.data?.code + '_bmp_');
-        })
-        .flatMap((action) => Rx.Observable.of(
-            query(
-                store.getState()?.gnsettings?.geoserverUrl + '/wfs',
-                {
-                    featureTypeName: action?.typeName,
-                    filterType: 'OGC',
-                    ogcVersion: '1.1.0'
-                },
-                {},
-                'querySetNewBmpLayer'
-            )
-        ));
-
-export const startBmpCreateFeatureEpic = (action$, store) =>
-    action$.ofType(QUERY_RESULT)
-        .filter(() => {
-            return !store.getState()?.swamm?.editingBmpFeatureId;
-        })
-        .filter((action) => {
-            return action?.filterObj?.featureTypeName.includes(store.getState()?.swamm?.drawingBmpLayerName);
-        })
-        .filter(action => {
-            return action?.reason === 'querySetNewBmpLayer';
-        })
-        .flatMap(() => Rx.Observable.of(
-            toggleEditMode(),
-            createNewFeatures([{}]),
-            startDrawingFeature(),
-            setHighlightFeaturesPath('draw.tempFeatures'),
-            hideLoadingBmp()
-        ));
-
-export const startBmpEditFeatureEpic = (action$, store) =>
-    action$.ofType(QUERY_RESULT)
-        .filter(() => {
-            return store.getState()?.swamm?.editingBmpFeatureId;
-        })
-        .filter(action => {
-            return action?.reason === 'querySetNewBmpLayer';
-        })
-        .flatMap(() => Rx.Observable.of(
-            selectFeatures(store.getState()?.query?.result?.features.filter((feature) => feature?.id === store.getState()?.swamm?.editingBmpFeatureId)),
-            toggleEditMode(),
-            hideLoadingBmp(),
-            resetQuery()
-        ));
-
-export const saveBmpCreateFeatureEpic = (action$, store) =>
-    action$.ofType(SAVE_SUCCESS)
-        .filter(() => {
-            return store.getState()?.swamm?.drawingBmpLayerName;
-        })
-        .filter(() => {
-            return !store.getState()?.swamm?.editingBmpFeatureId;
-        })
-        .flatMap(() => Rx.Observable.of(
-            registerMissingBmpFeatureId(store.getState()?.swamm?.drawingBmpLayerName)
-        ));
-
-export const finishBmpCreateFeatureEpic = (action$, store) =>
-    action$.ofType(QUERY_RESULT)
-        .filter(() => {
-            return !store.getState()?.swamm?.editingBmpFeatureId;
-        })
-        .filter(() => {
-            return store.getState()?.swamm?.missingBmpFeatureId;
-        })
-        .mergeMap(() => {
-            const projectId = store.getState()?.swamm?.projectData?.id;
-            const geomType = store.getState()?.swamm?.drawingBmpLayerName?.slice(8);
-            return Rx.Observable.from(
-                swammApi.getLatestFeatureId(projectId, geomType)
+            return (action?.data?.features || []).some(f =>
+                /([a-zA-Z0-9]{3}_){2}(outlet|footprint|watershed)/.test(f.id)
             );
         })
-        .mergeMap((response) => Rx.Observable.of(
-            updateBmpForm(response.data),
-            registerMissingBmpFeatureId(false),
-            drawStopped(),
-            toggleViewMode(),
-            setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
-            resetQuery(),
-            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name?.includes(store.getState()?.swamm?.drawingBmpLayerName))?.[0]?.id),
-            clearDrawingBmpLayerName()
-        ));
+        .switchMap((action) => {
+            // Extract ALL unique BMP IDs from the feature info response
+            const bmpIds = new Set();
+            if (action?.data?.type === 'FeatureCollection') {
+                (action?.data?.features || []).forEach(feature => {
+                    if (/([a-zA-Z0-9]{3}_){2}(outlet|footprint|watershed)/.test(feature.id)) {
+                        if (isInt(feature?.properties?.id)) {
+                            bmpIds.add(feature.properties.id);
+                        }
+                    }
+                });
+            } else {
+                const text = action.data || '';
+                const featureIdNumber = text.substring(text.indexOf('fid = ') + 6, text.indexOf('the_geom') - 1);
+                if (isInt(featureIdNumber)) bmpIds.add(parseInt(featureIdNumber, 10));
+            }
 
-export const saveBmpEditFeatureEpic = (action$, store) =>
-    action$.ofType(SAVE_SUCCESS)
-        .filter(() => {
-            return store.getState()?.swamm?.editingBmpFeatureId;
-        })
-        .flatMap(() => Rx.Observable.of(
-            clearEditingBmpFeatureId(),
-            drawStopped(),
-            toggleViewMode(),
-            setHighlightFeaturesPath('highlight.emptyFeatures'),
-            submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
-            resetQuery(),
-            refreshLayerVersion(store.getState()?.layers?.flat?.filter((layer) => layer?.name?.includes(store.getState()?.swamm?.drawingBmpLayerName))?.[0]?.id),
-            clearDrawingBmpLayerName()
+            if (bmpIds.size === 0) return Rx.Observable.empty();
+
+            const projectId = store.getState()?.swamm?.projectData?.id;
+            const uniqueIds = Array.from(bmpIds);
+
+            // Close Identify immediately
+            return Rx.Observable.of(closeIdentify())
+                .concat(
+                    Rx.Observable.forkJoin(
+                        uniqueIds.map(id => Rx.Observable.from(swammApi.getBmp(projectId, id)).catch(() => Rx.Observable.of(null)))
+                    )
+                        .switchMap((responses) => {
+                            const bmps = responses.filter(r => r?.data).map(r => r.data);
+                            if (bmps.length === 0) return Rx.Observable.empty();
+                            if (bmps.length === 1) {
+                                // Single BMP — open directly
+                                return Rx.Observable.of(
+                                    getBmpFormSuccess(bmps[0]),
+                                    makeExistingBmpForm(bmps[0]),
+                                    setUpdatingBmp(bmps[0]),
+                                    showBmpForm()
+                                );
+                            }
+                            // Multiple BMPs — show chooser
+                            return Rx.Observable.of(showBmpChooser(bmps));
+                        })
+                        .catch(err => {
+                            console.error('catchBmpFeatureClick: failed to load BMPs', err);
+                            return Rx.Observable.empty();
+                        })
+                );
+        });
+
+// VectorDraw callback: handle successful feature save from VectorDraw plugin
+export const vectorDrawSwammCompleteEpic = (action$, store) =>
+    action$.ofType('SWAMM:VECTOR_DRAW_COMPLETE')
+        .switchMap((action) => {
+            const { fid, meta } = action;
+            const fidUpdate = { [meta.geomField]: fid };
+            const updatedForm = { ...meta.storedBmpForm, ...fidUpdate };
+            return Rx.Observable.of(
+                updateBmpForm(fidUpdate),
+                showBmpForm(),
+                submitBmpForm(updatedForm, meta.projectId),
+                hideLoadingBmp()
+            );
+        });
+
+// VectorDraw callback: handle cancel from VectorDraw plugin
+export const vectorDrawSwammCancelEpic = (action$) =>
+    action$.ofType('SWAMM:VECTOR_DRAW_CANCELLED')
+        .switchMap(() => Rx.Observable.of(
+            showBmpForm(),
+            hideLoadingBmp()
         ));
 
 export const autoSaveBmpFormEpic = (action$, store) =>

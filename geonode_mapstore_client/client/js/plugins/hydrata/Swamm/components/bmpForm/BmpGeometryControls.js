@@ -47,7 +47,6 @@ const BmpGeometryControls = ({
                             type={'button'}
                             className={'swamm-button'}
                             onClick={() => {
-                                showLoadingBmp(true);
                                 toggleLayer(bmpOutletLayer?.id, true);
                                 onDrawBmpStep1(bmpOutletLayer?.name, storedBmpForm?.outlet_fid);
                             }}>
@@ -59,7 +58,6 @@ const BmpGeometryControls = ({
                             disabled={(!storedBmpForm?.group_profile_id || !storedBmpForm.bmpName)}
                             className="swamm-button default"
                             onClick={() => {
-                                showLoadingBmp(true);
                                 toggleLayer(bmpOutletLayer?.id, true);
                                 onDrawBmpStep1(bmpOutletLayer?.name, null);
                             }}>
@@ -85,7 +83,6 @@ const BmpGeometryControls = ({
                                 type={'button'}
                                 className={'swamm-button'}
                                 onClick={() => {
-                                    showLoadingBmp(true);
                                     toggleLayer(bmpFootprintLayer?.id, true);
                                     onDrawBmpStep1(bmpFootprintLayer?.name, storedBmpForm?.footprint_fid);
                                 }}
@@ -99,7 +96,6 @@ const BmpGeometryControls = ({
                             className="swamm-button default"
                             style={{backgroundColor: "darkgreen"}}
                             onClick={() => {
-                                showLoadingBmp(true);
                                 toggleLayer(bmpFootprintLayer?.id, true);
                                 onDrawBmpStep1(bmpFootprintLayer?.name);
                             }}
@@ -124,7 +120,6 @@ const BmpGeometryControls = ({
                                 type={'button'}
                                 className={'swamm-button'}
                                 onClick={() => {
-                                    showLoadingBmp(true);
                                     toggleLayer(bmpWatershedLayer?.id, true);
                                     onDrawBmpStep1(bmpWatershedLayer?.name, storedBmpForm?.watershed_fid);
                                 }}
@@ -137,7 +132,6 @@ const BmpGeometryControls = ({
                             className="swamm-button default"
                             style={{backgroundColor: "darkgreen"}}
                             onClick={() => {
-                                showLoadingBmp(true);
                                 toggleLayer(bmpWatershedLayer?.id, true);
                                 onDrawBmpStep1(bmpWatershedLayer?.name);
                             }}

@@ -11,25 +11,15 @@ import {
     updateBmpForm,
     hideLoadingBmp,
     showLoadingBmp,
-    setDrawingBmpLayerName,
     setChangingBmpType,
     setComplexBmpForm,
-    setEditingBmpFeatureId,
-    clearEditingBmpFeatureId,
     deleteBmp,
     setMenuGroup,
     downloadBmpReport
 } from "../../actionsSwamm";
 import {setOpenMenuGroupId} from "../../../SimpleView/actionsSimpleView";
-import {
-    setLayer,
-    toggleEditMode,
-    createNewFeatures,
-    startDrawingFeature,
-    saveChanges
-} from "../../../../../../MapStore2/web/client/actions/featuregrid";
 import { purgeMapInfoResults } from "../../../../../../MapStore2/web/client/actions/mapInfo";
-import {featureTypeSelected, createQuery, query} from "../../../../../../MapStore2/web/client/actions/wfsquery";
+import { startVectorDraw } from "../../../VectorDraw/actionsVectorDraw";
 import {
     bmpByUniqueNameSelector,
     bmpOutletLayerSelector,
@@ -73,18 +63,8 @@ class SwammBmpFormClass extends React.Component {
         makeDefaultsBmpForm: PropTypes.func,
         makeExistingBmpForm: PropTypes.func,
         updateBmpForm: PropTypes.func,
-        setLayer: PropTypes.func,
-        featureTypeSelected: PropTypes.func,
-        toggleEditMode: PropTypes.func,
-        createNewFeatures: PropTypes.func,
-        createQuery: PropTypes.func,
-        startDrawingFeature: PropTypes.func,
-        saveChanges: PropTypes.func,
-        setDrawingBmpLayerName: PropTypes.func,
-        setEditingBmpFeatureId: PropTypes.func,
-        clearEditingBmpFeatureId: PropTypes.func,
+        startVectorDraw: PropTypes.func,
         layers: PropTypes.object,
-        query: PropTypes.func,
         projectId: PropTypes.number,
         purgeMapInfoResults: PropTypes.func,
         bmpUniqueNames: PropTypes.array,
@@ -159,58 +139,7 @@ class SwammBmpFormClass extends React.Component {
                         }}
                     />
                 </div>
-                <div id={"swamm-bmp-form-grid-col-one"}>
-                    <BmpGeometryControls
-                        storedBmpForm={this.props.storedBmpForm}
-                        complexBmpForm={this.props.complexBmpForm}
-                        requiresOutlet={this.props.requiresOutlet}
-                        requiresFootprint={this.props.requiresFootprint}
-                        requiresWatershed={this.props.requiresWatershed}
-                        watershedIsFootprint={this.props.watershedIsFootprint}
-                        changingBmpType={this.props.changingBmpType}
-                        bmpOutletLayer={this.props.bmpOutletLayer}
-                        bmpFootprintLayer={this.props.bmpFootprintLayer}
-                        bmpWatershedLayer={this.props.bmpWatershedLayer}
-                        showLoadingBmp={this.props.showLoadingBmp}
-                        toggleLayer={this.props.toggleLayer}
-                        setChangingBmpType={this.props.setChangingBmpType}
-                        onDrawBmpStep1={(layerName, featureId) => this.drawBmpStep1(layerName, featureId)}
-                    />
-                    <BmpMetadataFields
-                        storedBmpForm={this.props.storedBmpForm}
-                        handleChange={this.handleChange}
-                    >
-                        {this.props.complexBmpForm ?
-                            <BmpOverrideFields
-                                storedBmpForm={this.props.storedBmpForm}
-                                saveableGroupProfiles={this.props.saveableGroupProfiles}
-                                statuses={this.props.statuses}
-                                priorities={this.props.priorities}
-                                handleChange={this.handleChange}
-                                handleGroupProfileChange={this.handleGroupProfileChange}
-                            /> : null
-                        }
-                    </BmpMetadataFields>
-                </div>
-                <div id={"swamm-bmp-form-grid-col-two"}>
-                    {
-                        !this.props.storedBmpForm?.id || this.props.changingBmpType ?
-                            <BmpTypeSelector
-                                bmpTypeGroups={this.props.bmpTypeGroups}
-                                bmpTypes={this.props.bmpTypes}
-                                expandedBmpTypeGroupName={this.props.expandedBmpTypeGroupName}
-                                setExpandedBmpTypeGroupName={this.props.setExpandedBmpTypeGroupName}
-                                changingBmpType={this.props.changingBmpType}
-                                setChangingBmpType={this.props.setChangingBmpType}
-                                handleBmpChange={this.handleBmpChange}
-                            /> :
-                            <BmpReductionDisplay
-                                storedBmpForm={this.props.storedBmpForm}
-                                complexBmpForm={this.props.complexBmpForm}
-                                watershedIsFootprint={this.props.watershedIsFootprint}
-                            />
-                    }
-                </div>
+                {this.renderColumns()}
                 <BmpActionButtons
                     storedBmpForm={this.props.storedBmpForm}
                     complexBmpForm={this.props.complexBmpForm}
@@ -225,6 +154,87 @@ class SwammBmpFormClass extends React.Component {
                     onRefreshBmpLayers={() => this.refreshBmpLayers()}
                 />
             </div>
+        );
+    }
+    renderColumns() {
+        const geometryControls = (
+            <BmpGeometryControls
+                storedBmpForm={this.props.storedBmpForm}
+                complexBmpForm={this.props.complexBmpForm}
+                requiresOutlet={this.props.requiresOutlet}
+                requiresFootprint={this.props.requiresFootprint}
+                requiresWatershed={this.props.requiresWatershed}
+                watershedIsFootprint={this.props.watershedIsFootprint}
+                changingBmpType={this.props.changingBmpType}
+                bmpOutletLayer={this.props.bmpOutletLayer}
+                bmpFootprintLayer={this.props.bmpFootprintLayer}
+                bmpWatershedLayer={this.props.bmpWatershedLayer}
+                showLoadingBmp={this.props.showLoadingBmp}
+                toggleLayer={this.props.toggleLayer}
+                setChangingBmpType={this.props.setChangingBmpType}
+                onDrawBmpStep1={(layerName, featureId) => this.drawBmpStep1(layerName, featureId)}
+            />
+        );
+        const typeOrReduction = !this.props.storedBmpForm?.id || this.props.changingBmpType
+            ? <BmpTypeSelector
+                bmpTypeGroups={this.props.bmpTypeGroups}
+                bmpTypes={this.props.bmpTypes}
+                expandedBmpTypeGroupName={this.props.expandedBmpTypeGroupName}
+                setExpandedBmpTypeGroupName={this.props.setExpandedBmpTypeGroupName}
+                changingBmpType={this.props.changingBmpType}
+                setChangingBmpType={this.props.setChangingBmpType}
+                handleBmpChange={this.handleBmpChange}
+            />
+            : <BmpReductionDisplay
+                storedBmpForm={this.props.storedBmpForm}
+                complexBmpForm={this.props.complexBmpForm}
+                watershedIsFootprint={this.props.watershedIsFootprint}
+            />;
+        const metadataFields = (
+            <BmpMetadataFields
+                storedBmpForm={this.props.storedBmpForm}
+                handleChange={this.handleChange}
+            >
+                {this.props.complexBmpForm ?
+                    <BmpOverrideFields
+                        storedBmpForm={this.props.storedBmpForm}
+                        saveableGroupProfiles={this.props.saveableGroupProfiles}
+                        statuses={this.props.statuses}
+                        priorities={this.props.priorities}
+                        handleChange={this.handleChange}
+                        handleGroupProfileChange={this.handleGroupProfileChange}
+                    /> : null
+                }
+            </BmpMetadataFields>
+        );
+
+        const isExisting = !!this.props.storedBmpForm?.id && !this.props.changingBmpType;
+
+        if (isExisting) {
+            // Editing existing BMP: Col 1 = editable fields + geometry, Col 2 = results
+            return (
+                <React.Fragment>
+                    <div id={"swamm-bmp-form-grid-col-one"}>
+                        {geometryControls}
+                        {metadataFields}
+                    </div>
+                    <div id={"swamm-bmp-form-grid-col-two"}>
+                        {typeOrReduction}
+                    </div>
+                </React.Fragment>
+            );
+        }
+        // Creating new BMP: Col 1 = draw buttons + type selector, Col 2 = metadata
+        return (
+            <React.Fragment>
+                <div id={"swamm-bmp-form-grid-col-one"}>
+                    {geometryControls}
+                    {typeOrReduction}
+                </div>
+                <div id={"swamm-bmp-form-grid-col-two"}>
+                    {metadataFields}
+                </div>
+            </React.Fragment>
         );
     }
     handleChange(event) {
@@ -252,13 +262,28 @@ class SwammBmpFormClass extends React.Component {
     }
     drawBmpStep1(layerName, featureId) {
         this.refreshBmpLayers();
-        this.props.hideBmpForm();
         const targetLayer = this.props.layers?.flat?.filter(layer => layer?.name?.includes(layerName))[0];
-        this.props.setDrawingBmpLayerName(targetLayer?.name);
-        featureId ? this.props.setEditingBmpFeatureId(featureId) : this.props.clearEditingBmpFeatureId();
+        if (!targetLayer) {
+            console.error('BMP draw: layer not found:', layerName);
+            return;
+        }
+        this.props.hideBmpForm();
         this.props.toggleLayer(targetLayer.id, true);
-        this.props.setLayer(targetLayer?.id);
-        this.props.featureTypeSelected(`${window.location.protocol}//${window.location.host}/geoserver/wfs`, targetLayer?.name);
+        this.props.startVectorDraw({
+            layerName: targetLayer.name,
+            geomType: layerName.includes('outlet') ? 'Point' : 'Polygon',
+            featureId: featureId || null,
+            owner: 'swamm',
+            formConfig: null,
+            onComplete: 'SWAMM:VECTOR_DRAW_COMPLETE',
+            onCancel: 'SWAMM:VECTOR_DRAW_CANCELLED',
+            meta: {
+                storedBmpForm: this.props.storedBmpForm,
+                projectId: this.props.projectId,
+                geomField: layerName.includes('outlet') ? 'outlet_fid'
+                    : layerName.includes('footprint') ? 'footprint_fid' : 'watershed_fid'
+            }
+        });
     }
     refreshBmpLayers() {
         this.props.refreshLayerVersion(this.props.bmpOutletLayer?.id);
@@ -324,18 +349,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setChangingBmpType: (changingBmpType) => dispatch(setChangingBmpType(changingBmpType)),
         setExpandedBmpTypeGroupName: (expandedBmpTypeGroupName) => dispatch(setExpandedBmpTypeGroupName(expandedBmpTypeGroupName)),
         setComplexBmpForm: (complexBmpForm) => dispatch(setComplexBmpForm(complexBmpForm)),
-        setLayer: (id) => dispatch(setLayer(id)),
-        setDrawingBmpLayerName: (layerName) => dispatch(setDrawingBmpLayerName(layerName)),
-        setEditingBmpFeatureId: (featureId) => dispatch(setEditingBmpFeatureId(featureId)),
-        clearEditingBmpFeatureId: () => dispatch(clearEditingBmpFeatureId()),
-        featureTypeSelected: (url, typeName) => dispatch(featureTypeSelected(url, typeName)),
-        toggleEditMode: () => dispatch(toggleEditMode()),
         toggleLayer: (layerId, isVisible) => dispatch(changeLayerProperties(layerId, {visibility: isVisible})),
-        createNewFeatures: (features) => dispatch(createNewFeatures(features)),
-        createQuery: (searchUrl, filterObj) => dispatch(createQuery(searchUrl, filterObj)),
-        query: (url, filterObj, queryOptions, reason) => dispatch(query(url, filterObj, queryOptions, reason)),
-        startDrawingFeature: () => dispatch(startDrawingFeature()),
-        saveChanges: () => dispatch(saveChanges()),
+        startVectorDraw: (config) => dispatch(startVectorDraw(config)),
         purgeMapInfoResults: () => dispatch(purgeMapInfoResults()),
         makeExistingBmpForm: (bmp) => dispatch(makeExistingBmpForm(bmp)),
         downloadBmpReport: (bmpId) => dispatch(downloadBmpReport(bmpId)),
