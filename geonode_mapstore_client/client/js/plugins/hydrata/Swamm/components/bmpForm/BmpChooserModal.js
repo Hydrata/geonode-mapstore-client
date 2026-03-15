@@ -40,10 +40,11 @@ const BmpChooserModal = ({ candidates, onSelect, onClose }) => {
                     padding: '8px 12px'
                 }}>
                     <span>Select a BMP</span>
-                    <span
-                        className="btn glyphicon glyphicon-remove legend-close"
+                    <button
+                        className="legend-close"
                         onClick={onClose}
-                    />
+                        style={{position: 'static'}}
+                    >&times;</button>
                 </div>
                 <div style={{ padding: '8px 12px', maxHeight: 300, overflowY: 'auto' }}>
                     {candidates.map(bmp => (

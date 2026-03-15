@@ -274,6 +274,8 @@
 }
 
 .legend-close {
+    position: absolute;
+    right: 0;
     color: #fff;
     background-color: #c9544d;
     border: none;
@@ -282,6 +284,11 @@
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
+}
+
+/* Inside legend header, use flex positioning instead of absolute */
+.legend-header .legend-close {
+    position: static;
     flex-shrink: 0;
 }
 
