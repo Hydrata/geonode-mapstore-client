@@ -10,6 +10,7 @@ const SHOW_ANUGA_RUN_MENU = 'SHOW_ANUGA_RUN_MENU';
 const SHOW_MANAGE_ACCOUNT = 'SHOW_MANAGE_ACCOUNT';
 const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 const FIX_ANUGA_GROUPS = 'FIX_ANUGA_GROUPS';
+const SET_MEMBERSHIP_PANEL = 'SET_MEMBERSHIP_PANEL';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -59,6 +60,10 @@ const showManageAccount = (visible) => {
     return { type: SHOW_MANAGE_ACCOUNT, visible };
 };
 
+function setMembershipPanel(visible) {
+    return { type: SET_MEMBERSHIP_PANEL, visible };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -71,5 +76,6 @@ module.exports = {
     SHOW_ANUGA_RUN_MENU, showAnugaRunMenu,
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
     SHOW_MANAGE_ACCOUNT, showManageAccount,
-    FIX_ANUGA_GROUPS, fixAnugaGroups
+    FIX_ANUGA_GROUPS, fixAnugaGroups,
+    SET_MEMBERSHIP_PANEL, setMembershipPanel
 };

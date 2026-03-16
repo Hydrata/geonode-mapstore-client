@@ -4,6 +4,13 @@ import {
     canEditAnugaMap,
     canManageAnugaMap,
     isOwnerAnugaMap,
+    getProjectMyRole,
+    getProjectVisibility,
+    canCreateScenario,
+    canRunScenario,
+    canManageMembers,
+    getMemberships,
+    getMembershipsLoading,
     selectedScenarios,
     getAnugaModels,
     getScenariosArray,
@@ -15,89 +22,146 @@ import {
 } from '../selectorsAnuga';
 
 describe('Anuga Selectors', () => {
-    describe('Permission Selectors', () => {
-        const createStateWithPermission = (permission) => ({
-            security: { user: { pk: 1 } },
-            gnresource: {
-                compactPermissions: {
-                    users: [{ id: 1, permissions: permission }]
+    describe('Permission Selectors (project-level RBAC via my_role)', () => {
+        const createStateWithRole = (myRole) => ({
+            anuga: {
+                projects: {
+                    data: { id: 1, my_role: myRole, visibility: 'private' }
                 }
             }
         });
 
+        describe('getProjectMyRole', () => {
+            it('should return the role from project data', () => {
+                expect(getProjectMyRole(createStateWithRole('editor'))).toBe('editor');
+            });
+
+            it('should return null when no project data', () => {
+                expect(getProjectMyRole({})).toBe(null);
+            });
+        });
+
+        describe('getProjectVisibility', () => {
+            it('should return visibility from project data', () => {
+                expect(getProjectVisibility(createStateWithRole('owner'))).toBe('private');
+            });
+        });
+
         describe('canViewAnugaMap', () => {
-            it('should return true for view permission', () => {
-                expect(canViewAnugaMap(createStateWithPermission('view'))).toBe(true);
+            it('should return true for any role', () => {
+                expect(canViewAnugaMap(createStateWithRole('viewer'))).toBe(true);
+                expect(canViewAnugaMap(createStateWithRole('contributor'))).toBe(true);
+                expect(canViewAnugaMap(createStateWithRole('editor'))).toBe(true);
+                expect(canViewAnugaMap(createStateWithRole('manager'))).toBe(true);
+                expect(canViewAnugaMap(createStateWithRole('owner'))).toBe(true);
             });
 
-            it('should return true for edit permission', () => {
-                expect(canViewAnugaMap(createStateWithPermission('edit'))).toBe(true);
-            });
-
-            it('should return true for manage permission', () => {
-                expect(canViewAnugaMap(createStateWithPermission('manage'))).toBe(true);
-            });
-
-            it('should return true for owner permission', () => {
-                expect(canViewAnugaMap(createStateWithPermission('owner'))).toBe(true);
-            });
-
-            it('should return false for no permission', () => {
-                expect(canViewAnugaMap(createStateWithPermission('none'))).toBe(false);
+            it('should return false when no role', () => {
+                expect(canViewAnugaMap(createStateWithRole(null))).toBe(false);
+                expect(canViewAnugaMap({})).toBe(false);
             });
         });
 
         describe('canEditAnugaMap', () => {
-            it('should return false for view permission', () => {
-                expect(canEditAnugaMap(createStateWithPermission('view'))).toBe(false);
+            it('should return false for viewer and contributor', () => {
+                expect(canEditAnugaMap(createStateWithRole('viewer'))).toBe(false);
+                expect(canEditAnugaMap(createStateWithRole('contributor'))).toBe(false);
             });
 
-            it('should return true for edit permission', () => {
-                expect(canEditAnugaMap(createStateWithPermission('edit'))).toBe(true);
-            });
-
-            it('should return true for manage permission', () => {
-                expect(canEditAnugaMap(createStateWithPermission('manage'))).toBe(true);
-            });
-
-            it('should return true for owner permission', () => {
-                expect(canEditAnugaMap(createStateWithPermission('owner'))).toBe(true);
+            it('should return true for editor, manager, owner', () => {
+                expect(canEditAnugaMap(createStateWithRole('editor'))).toBe(true);
+                expect(canEditAnugaMap(createStateWithRole('manager'))).toBe(true);
+                expect(canEditAnugaMap(createStateWithRole('owner'))).toBe(true);
             });
         });
 
         describe('canManageAnugaMap', () => {
-            it('should return false for view permission', () => {
-                expect(canManageAnugaMap(createStateWithPermission('view'))).toBe(false);
+            it('should return false for viewer, contributor, editor', () => {
+                expect(canManageAnugaMap(createStateWithRole('viewer'))).toBe(false);
+                expect(canManageAnugaMap(createStateWithRole('contributor'))).toBe(false);
+                expect(canManageAnugaMap(createStateWithRole('editor'))).toBe(false);
             });
 
-            it('should return false for edit permission', () => {
-                expect(canManageAnugaMap(createStateWithPermission('edit'))).toBe(false);
-            });
-
-            it('should return true for manage permission', () => {
-                expect(canManageAnugaMap(createStateWithPermission('manage'))).toBe(true);
-            });
-
-            it('should return true for owner permission', () => {
-                expect(canManageAnugaMap(createStateWithPermission('owner'))).toBe(true);
+            it('should return true for manager and owner', () => {
+                expect(canManageAnugaMap(createStateWithRole('manager'))).toBe(true);
+                expect(canManageAnugaMap(createStateWithRole('owner'))).toBe(true);
             });
         });
 
         describe('isOwnerAnugaMap', () => {
-            it('should return false for view permission', () => {
-                expect(isOwnerAnugaMap(createStateWithPermission('view'))).toBe(false);
+            it('should return false for non-owners', () => {
+                expect(isOwnerAnugaMap(createStateWithRole('viewer'))).toBe(false);
+                expect(isOwnerAnugaMap(createStateWithRole('contributor'))).toBe(false);
+                expect(isOwnerAnugaMap(createStateWithRole('editor'))).toBe(false);
+                expect(isOwnerAnugaMap(createStateWithRole('manager'))).toBe(false);
             });
 
-            it('should return false for edit permission', () => {
-                expect(isOwnerAnugaMap(createStateWithPermission('edit'))).toBe(false);
+            it('should return true for owner', () => {
+                expect(isOwnerAnugaMap(createStateWithRole('owner'))).toBe(true);
+            });
+        });
+
+        describe('canCreateScenario', () => {
+            it('should return false for viewer', () => {
+                expect(canCreateScenario(createStateWithRole('viewer'))).toBe(false);
             });
 
-            it('should return false for manage permission', () => {
-                expect(isOwnerAnugaMap(createStateWithPermission('manage'))).toBe(false);
+            it('should return true for contributor and above', () => {
+                expect(canCreateScenario(createStateWithRole('contributor'))).toBe(true);
+                expect(canCreateScenario(createStateWithRole('editor'))).toBe(true);
+                expect(canCreateScenario(createStateWithRole('manager'))).toBe(true);
+                expect(canCreateScenario(createStateWithRole('owner'))).toBe(true);
+            });
+        });
+
+        describe('canRunScenario', () => {
+            it('should return false for viewer', () => {
+                expect(canRunScenario(createStateWithRole('viewer'))).toBe(false);
             });
 
-            it('should return true for owner permission', () => {
-                expect(isOwnerAnugaMap(createStateWithPermission('owner'))).toBe(true);
+            it('should return true for contributor and above', () => {
+                expect(canRunScenario(createStateWithRole('contributor'))).toBe(true);
+                expect(canRunScenario(createStateWithRole('owner'))).toBe(true);
+            });
+        });
+
+        describe('canManageMembers', () => {
+            it('should return false for viewer, contributor, editor', () => {
+                expect(canManageMembers(createStateWithRole('viewer'))).toBe(false);
+                expect(canManageMembers(createStateWithRole('contributor'))).toBe(false);
+                expect(canManageMembers(createStateWithRole('editor'))).toBe(false);
+            });
+
+            it('should return true for manager and owner', () => {
+                expect(canManageMembers(createStateWithRole('manager'))).toBe(true);
+                expect(canManageMembers(createStateWithRole('owner'))).toBe(true);
+            });
+        });
+
+        describe('getMemberships', () => {
+            it('should return memberships array', () => {
+                const state = {
+                    anuga: { memberships: { data: [{id: 1, username: 'alice'}] } }
+                };
+                expect(getMemberships(state).length).toBe(1);
+                expect(getMemberships(state)[0].username).toBe('alice');
+            });
+
+            it('should return empty array when no memberships', () => {
+                expect(getMemberships({})).toEqual([]);
+            });
+        });
+
+        describe('getMembershipsLoading', () => {
+            it('should return loading state', () => {
+                const state = {
+                    anuga: { memberships: { loading: true } }
+                };
+                expect(getMembershipsLoading(state)).toBe(true);
+            });
+
+            it('should return false by default', () => {
+                expect(getMembershipsLoading({})).toBe(false);
             });
         });
     });

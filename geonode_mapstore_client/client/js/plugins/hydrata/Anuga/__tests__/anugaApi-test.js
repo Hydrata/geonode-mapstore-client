@@ -22,7 +22,10 @@ describe('anugaApi', () => {
             // v2 functions
             'getProjectV2', 'getProjectsV2',
             'getScenariosV2', 'createScenarioV2', 'deleteScenarioV2',
-            'startRun', 'cancelRun', 'retryRun', 'getRunStatus', 'getRun'
+            'startRun', 'cancelRun', 'retryRun', 'getRunStatus', 'getRun',
+            // Membership + visibility
+            'getMemberships', 'addMembership', 'updateMembership', 'deleteMembership',
+            'searchUsers', 'updateProjectVisibility'
         ];
 
         expectedFunctions.forEach(name => {
@@ -31,11 +34,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 25 API functions', () => {
+        it('should export exactly 31 API functions', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(25);
+            expect(exportedFunctions.length).toBe(31);
         });
     });
 
@@ -143,6 +146,31 @@ describe('anugaApi', () => {
         it('getRun takes 1 argument (runId)', () => {
             expect(anugaApi.getRun.length).toBe(1);
         });
+
+        // Membership function signatures
+        it('getMemberships takes 1 argument (projectId)', () => {
+            expect(anugaApi.getMemberships.length).toBe(1);
+        });
+
+        it('addMembership takes 3 arguments (projectId, userId, role)', () => {
+            expect(anugaApi.addMembership.length).toBe(3);
+        });
+
+        it('updateMembership takes 3 arguments (projectId, membershipId, role)', () => {
+            expect(anugaApi.updateMembership.length).toBe(3);
+        });
+
+        it('deleteMembership takes 2 arguments (projectId, membershipId)', () => {
+            expect(anugaApi.deleteMembership.length).toBe(2);
+        });
+
+        it('searchUsers takes 1 argument (query)', () => {
+            expect(anugaApi.searchUsers.length).toBe(1);
+        });
+
+        it('updateProjectVisibility takes 2 arguments (projectId, visibility)', () => {
+            expect(anugaApi.updateProjectVisibility.length).toBe(2);
+        });
     });
 
     // -- Grouping sanity checks -------------------------------------------
@@ -184,6 +212,15 @@ describe('anugaApi', () => {
         it('has compute and publication functions', () => {
             expect(anugaApi.getComputeInstances).toExist();
             expect(anugaApi.createFigure).toExist();
+        });
+
+        it('has membership CRUD functions', () => {
+            expect(anugaApi.getMemberships).toExist();
+            expect(anugaApi.addMembership).toExist();
+            expect(anugaApi.updateMembership).toExist();
+            expect(anugaApi.deleteMembership).toExist();
+            expect(anugaApi.searchUsers).toExist();
+            expect(anugaApi.updateProjectVisibility).toExist();
         });
     });
 });

@@ -11,9 +11,10 @@ import {
     setReviewPanel,
     setPublicationPanel,
     startAnugaScenarioPolling,
-    stopAnugaScenarioPolling
+    stopAnugaScenarioPolling,
+    setMembershipPanel
 } from '../actionsAnuga';
-import {canEditAnugaMap, canViewAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {canEditAnugaMap, canViewAnugaMap, canManageMembers, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
 import {AnugaScenarioMenu} from './anugaScenarioMenu';
@@ -24,6 +25,7 @@ import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {AnugaRunMenu} from "@js/plugins/hydrata/Anuga/components/anugaRunMenu";
+import {MembershipPanel} from "./membershipPanel";
 import {trackEvent} from "@js/utils/analytics";
 
 class AnugaContainer extends React.Component {
@@ -55,6 +57,10 @@ class AnugaContainer extends React.Component {
         visibleAnugaRunMenu: PropTypes.bool,
         canEditAnugaMap: PropTypes.bool,
         canViewAnugaMap: PropTypes.bool,
+        canManageMembers: PropTypes.bool,
+        canCreateScenario: PropTypes.bool,
+        showMembershipPanel: PropTypes.bool,
+        setMembershipPanel: PropTypes.func,
         hasEPSGset: PropTypes.bool,
         resultsGroup: PropTypes.object,
         isAnugaProject: PropTypes.bool
@@ -133,6 +139,20 @@ class AnugaContainer extends React.Component {
                     </button>
                     : null
                 }
+                {this.props.canManageMembers && this.props.hasEPSGset ?
+                    <button
+                        key="anuga-members-button"
+                        className={'simple-view-menu-button'}
+                        onClick={() => {
+                            this.props.setMembershipPanel(!this.props.showMembershipPanel);
+                            this.props.setOpenMenuGroupId(null);
+                            trackEvent('button', `click`, `anuga-membership-panel-toggle`);
+                        }}
+                    >
+                        <Message msgId="hydrata.anuga.members" />
+                    </button>
+                    : null
+                }
             </React.Fragment>
         );
     }
@@ -157,6 +177,7 @@ class AnugaContainer extends React.Component {
                     }
                     {this.props.visibleAnugaRunMenu ? <AnugaRunMenu/> : null}
                     {this.props.showNetworkMenu ? <NetworkMenu/> : null}
+                    {this.props.showMembershipPanel ? <MembershipPanel/> : null}
                 </div>
             ) :
             null;
@@ -190,7 +211,10 @@ const mapStateToProps = (state) => {
         visibleNetworkMenu: state?.anuga?.ui?.visibleNetworkMenu,
         visibleAnugaRunMenu: state?.anuga?.ui?.visibleAnugaRunMenu,
         canEditAnugaMap: canEditAnugaMap(state),
-        canViewAnugaMap: canViewAnugaMap(state)
+        canViewAnugaMap: canViewAnugaMap(state),
+        canManageMembers: canManageMembers(state),
+        canCreateScenario: canCreateScenario(state),
+        showMembershipPanel: state?.anuga?.ui?.showMembershipPanel
     };
 };
 
@@ -204,8 +228,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setPublicationPanel: (visible) => dispatch(setPublicationPanel(visible)),
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
-        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling())
-        // updateCustomEditorsOptions: (payload) => dispatch(updateCustomEditorsOptions(payload))
+        stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
+        setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible))
     };
 };
 

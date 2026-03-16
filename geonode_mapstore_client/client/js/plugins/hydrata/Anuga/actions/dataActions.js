@@ -18,6 +18,15 @@ const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
 const UPDATE_ANUGA_RESOURCES = 'UPDATE_ANUGA_RESOURCES';
 const SET_ANUGA_RESOURCES = 'SET_ANUGA_RESOURCES';
 
+// Membership actions
+const FETCH_MEMBERSHIPS = 'FETCH_MEMBERSHIPS';
+const SET_MEMBERSHIPS = 'SET_MEMBERSHIPS';
+const ADD_MEMBERSHIP_REQUEST = 'ADD_MEMBERSHIP_REQUEST';
+const UPDATE_MEMBERSHIP_REQUEST = 'UPDATE_MEMBERSHIP_REQUEST';
+const DELETE_MEMBERSHIP_REQUEST = 'DELETE_MEMBERSHIP_REQUEST';
+const SET_MEMBERSHIPS_LOADING = 'SET_MEMBERSHIPS_LOADING';
+const UPDATE_PROJECT_VISIBILITY_REQUEST = 'UPDATE_PROJECT_VISIBILITY_REQUEST';
+
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
 }
@@ -94,6 +103,35 @@ function setAnugaResources(data) {
     return { type: SET_ANUGA_RESOURCES, data };
 }
 
+// Membership action creators
+function fetchMemberships() {
+    return { type: FETCH_MEMBERSHIPS };
+}
+
+function setMemberships(data) {
+    return { type: SET_MEMBERSHIPS, data };
+}
+
+function addMembershipRequest(userId, role) {
+    return { type: ADD_MEMBERSHIP_REQUEST, userId, role };
+}
+
+function updateMembershipRequest(membershipId, role) {
+    return { type: UPDATE_MEMBERSHIP_REQUEST, membershipId, role };
+}
+
+function deleteMembershipRequest(membershipId) {
+    return { type: DELETE_MEMBERSHIP_REQUEST, membershipId };
+}
+
+function setMembershipsLoading(loading) {
+    return { type: SET_MEMBERSHIPS_LOADING, loading };
+}
+
+function updateProjectVisibilityRequest(visibility) {
+    return { type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility };
+}
+
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
@@ -113,5 +151,12 @@ module.exports = {
     SET_ANUGA_POLLING_DATA, setAnugaPollingData,
     SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded,
     UPDATE_ANUGA_RESOURCES, updateAnugaResources,
-    SET_ANUGA_RESOURCES, setAnugaResources
+    SET_ANUGA_RESOURCES, setAnugaResources,
+    FETCH_MEMBERSHIPS, fetchMemberships,
+    SET_MEMBERSHIPS, setMemberships,
+    ADD_MEMBERSHIP_REQUEST, addMembershipRequest,
+    UPDATE_MEMBERSHIP_REQUEST, updateMembershipRequest,
+    DELETE_MEMBERSHIP_REQUEST, deleteMembershipRequest,
+    SET_MEMBERSHIPS_LOADING, setMembershipsLoading,
+    UPDATE_PROJECT_VISIBILITY_REQUEST, updateProjectVisibilityRequest
 };

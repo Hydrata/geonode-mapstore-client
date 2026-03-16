@@ -45,6 +45,13 @@ import {
     taskCompleteLayerEpic,
     anugaMapLayerGroupEpic
 } from "./epicsAnuga";
+import {
+    fetchMembershipsEpic,
+    addMembershipEpic,
+    updateMembershipEpic,
+    deleteMembershipEpic,
+    updateProjectVisibilityEpic
+} from "./epics/membershipEpics";
 
 export default createPlugin('Anuga', {
     component: anugaContainer,
@@ -93,6 +100,11 @@ export default createPlugin('Anuga', {
         manageTerrain3DEpic,
         ensureAnugaGroupsEpic,
         taskCompleteLayerEpic,
-        anugaMapLayerGroupEpic
+        anugaMapLayerGroupEpic,
+        fetchMembershipsEpic,
+        addMembershipEpic,
+        updateMembershipEpic,
+        deleteMembershipEpic,
+        updateProjectVisibilityEpic
     }
 });

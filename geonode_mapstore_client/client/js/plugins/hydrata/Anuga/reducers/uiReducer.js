@@ -7,7 +7,8 @@ import {
     SET_PUBLICATION_PANEL,
     SHOW_ANUGA_SCENARIO_LOG,
     SHOW_ANUGA_RUN_MENU,
-    SET_CREATING_ANUGA_LAYER
+    SET_CREATING_ANUGA_LAYER,
+    SET_MEMBERSHIP_PANEL
 } from "../actionsAnuga";
 
 import {
@@ -24,7 +25,8 @@ const initialState = {
     visibleAnugaScenarioLogId: false,
     visibleAnugaRunMenu: false,
     isCreatingAnugaLayer: false,
-    showAddAnugaElevationData: false
+    showAddAnugaElevationData: false,
+    showMembershipPanel: false
 };
 
 export default (state = initialState, action) => {
@@ -104,6 +106,17 @@ export default (state = initialState, action) => {
             showNetworkMenu: false,
             showReviewPanel: false,
             showPublicationPanel: action.visible
+        };
+    case SET_MEMBERSHIP_PANEL:
+        return {
+            ...state,
+            showAnugaInputMenu: false,
+            showAnugaScenarioMenu: false,
+            showAnugaResultMenu: false,
+            showNetworkMenu: false,
+            showReviewPanel: false,
+            showPublicationPanel: false,
+            showMembershipPanel: action.visible
         };
     default:
         return state;

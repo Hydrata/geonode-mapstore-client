@@ -1,23 +1,48 @@
 import {createSelector} from 'reselect';
 
-// -- Permission selectors (unchanged — read from gnresource) ----------------
+// -- Permission selectors (project-level RBAC via my_role) -----------------
 
-const getCurrentUserPerm = (state) => {
-    const currentUserId = state?.security?.user?.pk;
-    return state?.gnresource?.compactPermissions?.users?.filter(user => user.id === currentUserId)[0]?.permissions;
-};
+/**
+ * Returns the current user's role on the active ANUGA project.
+ * Values: "owner" | "manager" | "editor" | "contributor" | "viewer" | null
+ * Source: ProjectSerializer.my_role (computed server-side from ProjectMembership)
+ */
+export const getProjectMyRole = (state) =>
+    state?.anuga?.projects?.data?.my_role || null;
 
+export const getProjectVisibility = (state) =>
+    state?.anuga?.projects?.data?.visibility || null;
+
+// Legacy selectors — now read from project my_role instead of gnresource
 export const canViewAnugaMap = (state) =>
-    ["view", "edit", "manage", "owner"].includes(getCurrentUserPerm(state));
+    getProjectMyRole(state) !== null;
 
 export const canEditAnugaMap = (state) =>
-    ["edit", "manage", "owner"].includes(getCurrentUserPerm(state));
+    ["owner", "manager", "editor"].includes(getProjectMyRole(state));
 
 export const canManageAnugaMap = (state) =>
-    ["manage", "owner"].includes(getCurrentUserPerm(state));
+    ["owner", "manager"].includes(getProjectMyRole(state));
 
 export const isOwnerAnugaMap = (state) =>
-    ["owner"].includes(getCurrentUserPerm(state));
+    getProjectMyRole(state) === "owner";
+
+// New fine-grained selectors for TASK-61
+export const canCreateScenario = (state) =>
+    ["owner", "manager", "editor", "contributor"].includes(getProjectMyRole(state));
+
+export const canRunScenario = (state) =>
+    ["owner", "manager", "editor", "contributor"].includes(getProjectMyRole(state));
+
+export const canManageMembers = (state) =>
+    ["owner", "manager"].includes(getProjectMyRole(state));
+
+// -- Membership selectors --------------------------------------------------
+
+export const getMemberships = (state) =>
+    state?.anuga?.memberships?.data || [];
+
+export const getMembershipsLoading = (state) =>
+    state?.anuga?.memberships?.loading || false;
 
 // -- Scenario selectors (normalized byId/allIds, memoized) ------------------
 

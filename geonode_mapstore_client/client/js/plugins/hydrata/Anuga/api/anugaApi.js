@@ -103,3 +103,25 @@ export const getRunStatus = (runId) =>
 
 export const getRun = (runId) =>
     axios.get(`/api/v2/anuga/runs/${runId}/`);
+
+// -- Memberships ----------------------------------------------------------
+
+export const getMemberships = (projectId) =>
+    axios.get(`/anuga/api/${projectId}/member/`);
+
+export const addMembership = (projectId, userId, role) =>
+    axios.post(`/anuga/api/${projectId}/member/`, { user: userId, role });
+
+export const searchUsers = (query) =>
+    axios.get('/api/v2/users/', { params: { search: query, page_size: 10 } });
+
+export const updateMembership = (projectId, membershipId, role) =>
+    axios.patch(`/anuga/api/${projectId}/member/${membershipId}/`, { role });
+
+export const deleteMembership = (projectId, membershipId) =>
+    axios.delete(`/anuga/api/${projectId}/member/${membershipId}/`);
+
+// -- Project visibility ---------------------------------------------------
+
+export const updateProjectVisibility = (projectId, visibility) =>
+    axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility });
