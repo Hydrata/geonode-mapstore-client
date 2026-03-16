@@ -6,18 +6,9 @@ const BmpOverrideFields = ({
     statuses,
     priorities,
     handleChange,
-    handleGroupProfileChange,
-    updateBmpForm,
-    submitBmpForm,
-    projectId
+    handleGroupProfileChange
 }) => {
     const isManualOverride = !!storedBmpForm?.manual_override_loads;
-
-    const handleResetToCalculated = () => {
-        updateBmpForm({manual_override_loads: false});
-        const resetForm = {...storedBmpForm, manual_override_loads: false};
-        submitBmpForm(resetForm, projectId);
-    };
 
     return (
         <React.Fragment>
@@ -85,37 +76,8 @@ const BmpOverrideFields = ({
                     })}
                 </select>
             </div>
-            {isManualOverride ? (
-                <React.Fragment>
-                    <div style={{
-                        borderLeft: '3px solid #d4a017',
-                        backgroundColor: 'rgba(212, 160, 23, 0.08)',
-                        padding: '6px 10px',
-                        margin: '6px 0',
-                        fontSize: '12px',
-                        color: '#8a6d00',
-                        lineHeight: '1.4'
-                    }}>
-                        Load values are manually overridden. Reduction percentages are disabled.
-                    </div>
-                    <div style={{margin: '4px 0 8px 0'}}>
-                        <button
-                            type="button"
-                            className="swamm-button"
-                            style={{
-                                backgroundColor: '#d4a017',
-                                color: '#fff',
-                                fontSize: '12px',
-                                padding: '4px 10px',
-                                width: '100%'
-                            }}
-                            onClick={handleResetToCalculated}
-                        >
-                            Reset to Calculated Values
-                        </button>
-                    </div>
-                </React.Fragment>
-            ) : null}
+            {!isManualOverride ? (
+            <React.Fragment>
             <div className={"simple-view-panel-item-row"} id="n_surface_red_percent-selector-container">
                 <div>
                   Surface Nitrogen Reduction Percentage
@@ -129,8 +91,6 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
             <div className={"simple-view-panel-item-row"} id="p_surface_red_percent-selector-container">
@@ -146,8 +106,6 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
             <div className={"simple-view-panel-item-row"} id="s_surface_red_percent-selector-container">
@@ -163,8 +121,6 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
             <div className={"simple-view-panel-item-row"} id="n_tiled_red_percent-selector-container">
@@ -180,8 +136,6 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
             <div className={"simple-view-panel-item-row"} id="p_tiled_red_percent-selector-container">
@@ -197,8 +151,6 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
             <div className={"simple-view-panel-item-row"} id="n_erosion_red_percent-selector-container">
@@ -214,8 +166,6 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
             <div className={"simple-view-panel-item-row"} id="p_erosion_red_percent-selector-container">
@@ -231,8 +181,6 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
             <div className={"simple-view-panel-item-row"} id="s_erosion_red_percent-selector-container">
@@ -248,10 +196,10 @@ const BmpOverrideFields = ({
                         : ''}
                     onChange={handleChange}
                     placeholder="---"
-                    disabled={isManualOverride}
-                    style={{opacity: isManualOverride ? 0.5 : 1}}
                 />
             </div>
+            </React.Fragment>
+            ) : null}
             <div className={"simple-view-panel-item-row"} id="override_cost_base-selector-container">
                 <div>
                   Base Cost ($)

@@ -190,6 +190,8 @@ class SwammBmpFormClass extends React.Component {
                 complexBmpForm={this.props.complexBmpForm}
                 watershedIsFootprint={this.props.watershedIsFootprint}
                 updateBmpForm={this.props.updateBmpForm}
+                submitBmpForm={this.props.submitBmpForm}
+                projectId={this.props.projectId}
             />;
         const metadataFields = (
             <BmpMetadataFields
@@ -204,9 +206,6 @@ class SwammBmpFormClass extends React.Component {
                         priorities={this.props.priorities}
                         handleChange={this.handleChange}
                         handleGroupProfileChange={this.handleGroupProfileChange}
-                        updateBmpForm={this.props.updateBmpForm}
-                        submitBmpForm={this.props.submitBmpForm}
-                        projectId={this.props.projectId}
                     /> : null
                 }
             </BmpMetadataFields>

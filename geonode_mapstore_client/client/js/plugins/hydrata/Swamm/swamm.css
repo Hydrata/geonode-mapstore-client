@@ -487,6 +487,26 @@
      margin-bottom: 5px;
 }
 
+/* Results table: remove vertical cell borders, use dark blue hover */
+#swamm-bmp-form-grid-col-two .table-bordered > thead > tr > th,
+#swamm-bmp-form-grid-col-two .table-bordered > tbody > tr > td {
+    border-left: none;
+    border-right: none;
+}
+#swamm-bmp-form-grid-col-two .table-hover > tbody > tr:hover {
+    background-color: rgba(30, 60, 110, 0.6);
+}
+
+/* Hide number input spinners */
+#swamm-bmp-form-panel input[type="number"]::-webkit-inner-spin-button,
+#swamm-bmp-form-panel input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+#swamm-bmp-form-panel input[type="number"] {
+    -moz-appearance: textfield;
+}
+
 /*Override recharts default that causes bar to go grey on hover*/
 .swamm-bmp-chart-bar-group-responsive > div > svg > path {
     fill: none;

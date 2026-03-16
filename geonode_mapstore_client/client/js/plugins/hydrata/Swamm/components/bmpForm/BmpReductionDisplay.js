@@ -54,7 +54,7 @@ const parseFieldName = (fieldName) => {
 
 const PATHWAYS = ['surface', 'tiled', 'erosion'];
 
-const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootprint, updateBmpForm }) => {
+const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootprint, updateBmpForm, submitBmpForm, projectId }) => {
     const [editingCell, setEditingCell] = React.useState(null);
     const [editValue, setEditValue] = React.useState('');
 
@@ -120,11 +120,10 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
 
     const renderEditableCell = (fieldName, value) => {
         const isEditing = editingCell === fieldName;
-        const cellStyle = isOverridden ? { borderLeft: '3px solid #f0ad4e' } : {};
 
         if (isEditing) {
             return (
-                <td style={cellStyle}>
+                <td>
                     <input
                         type="number"
                         value={editValue}
@@ -135,8 +134,8 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                         style={{
                             width: '100%',
                             textAlign: 'right',
-                            background: 'transparent',
-                            border: '1px solid #f0ad4e',
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.5)',
                             color: 'inherit',
                             padding: '1px 4px',
                             fontSize: 'inherit'
@@ -149,10 +148,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
         return (
             <td
                 onClick={() => handleCellClick(fieldName, value)}
-                style={{
-                    cursor: 'pointer',
-                    ...cellStyle
-                }}
+                style={{ cursor: 'pointer' }}
                 title="Click to edit"
             >
                 {value != null ? parseFloat(value.toPrecision(3)) : '\u2014'}
@@ -374,6 +370,38 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                     <p>Updated by: {storedBmpForm?.updated_by} on {new Date(storedBmpForm?.updated_at).toLocaleString()}</p> :
                     null
                 }
+                {isOverridden ? (
+                    <div style={{marginTop: '8px'}}>
+                        <div style={{
+                            borderLeft: '3px solid rgba(255,255,255,0.4)',
+                            backgroundColor: 'rgba(255,255,255,0.06)',
+                            padding: '6px 10px',
+                            margin: '6px 0',
+                            fontSize: '12px',
+                            color: 'rgba(255,255,255,0.7)',
+                            lineHeight: '1.4'
+                        }}>
+                            Load values have been manually overridden. Reduction percentages are disabled.
+                        </div>
+                        <button
+                            type="button"
+                            className="swamm-button"
+                            style={{
+                                fontSize: '12px',
+                                padding: '4px 10px',
+                                width: '100%',
+                                marginLeft: 0,
+                                marginRight: 0
+                            }}
+                            onClick={() => {
+                                updateBmpForm({manual_override_loads: false});
+                                submitBmpForm({...storedBmpForm, manual_override_loads: false}, projectId);
+                            }}
+                        >
+                            Reset to Calculated Values
+                        </button>
+                    </div>
+                ) : null}
             </React.Fragment>
         );
     }
