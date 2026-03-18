@@ -22,7 +22,8 @@ export const canViewSwammMap = (state) => {
 };
 
 export const canEditSwammMap = (state) => {
-    return state?.security?.user?.is_superuser === true;
+    const role = state?.swamm?.projectData?.role;
+    return role === 'manager' || role === 'owner';
 };
 
 export const canManageAnugaMap = (state) => {

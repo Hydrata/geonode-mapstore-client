@@ -64,15 +64,21 @@ class TaskMonitorContainer extends React.Component {
     }
 }
 
-const mapStateToProps = (state) => ({
-    panelOpen: getPanelOpen(state),
-    activeCount: getActiveCount(state),
-    filter: getFilter(state),
-    expandedProcessId: getExpandedProcessId(state),
-    showLog: getShowLog(state),
-    processes: getFilteredProcesses(state),
-    loggedIn: !!state?.security?.user
-});
+const mapStateToProps = (state) => {
+    const loggedIn = !!state?.security?.user;
+    const isSwammMap = !!state?.swamm?.projectData?.id;
+    const swammRole = state?.swamm?.projectData?.role;
+    const isSwammManager = swammRole === 'manager' || swammRole === 'owner';
+    return {
+        panelOpen: getPanelOpen(state),
+        activeCount: getActiveCount(state),
+        filter: getFilter(state),
+        expandedProcessId: getExpandedProcessId(state),
+        showLog: getShowLog(state),
+        processes: getFilteredProcesses(state),
+        loggedIn: isSwammMap ? isSwammManager : loggedIn
+    };
+};
 
 const mapDispatchToProps = (dispatch) => ({
     togglePanel: (open) => dispatch(toggleTaskMonitorPanel(open)),

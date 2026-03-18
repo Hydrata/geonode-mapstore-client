@@ -73,22 +73,36 @@ describe('Swamm Selectors', () => {
         });
 
         describe('canEditSwammMap', () => {
-            it('should return true when user is superuser', () => {
+            it('should return true when user has manager role', () => {
                 const state = {
-                    security: { user: { pk: 1, is_superuser: true } }
+                    swamm: { projectData: { role: 'manager' } }
                 };
                 expect(canEditSwammMap(state)).toBe(true);
             });
 
-            it('should return false when user is not superuser', () => {
+            it('should return true when user has owner role', () => {
                 const state = {
-                    security: { user: { pk: 1, is_superuser: false } }
+                    swamm: { projectData: { role: 'owner' } }
+                };
+                expect(canEditSwammMap(state)).toBe(true);
+            });
+
+            it('should return false when user has editor role', () => {
+                const state = {
+                    swamm: { projectData: { role: 'editor' } }
                 };
                 expect(canEditSwammMap(state)).toBe(false);
             });
 
-            it('should return false when no user', () => {
-                const state = { security: {} };
+            it('should return false when user has viewer role', () => {
+                const state = {
+                    swamm: { projectData: { role: 'viewer' } }
+                };
+                expect(canEditSwammMap(state)).toBe(false);
+            });
+
+            it('should return false when no project data', () => {
+                const state = { swamm: {} };
                 expect(canEditSwammMap(state)).toBe(false);
             });
         });
