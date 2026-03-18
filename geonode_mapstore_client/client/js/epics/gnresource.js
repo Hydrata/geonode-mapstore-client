@@ -508,9 +508,14 @@ export const gnViewerRequestNewResourceConfig = (action$, store) =>
             )
                 .catch((error) => {
                     const status = error?.response?.status || error?.status;
-                    const message = status === 404
-                        ? 'gnviewer.resourceNotFound'
-                        : (error?.data?.detail || error?.statusText || error?.message);
+                    let message;
+                    if (status === 404) {
+                        message = 'gnviewer.resourceNotFound';
+                    } else if (status === 403) {
+                        message = isLoggedIn(store.getState()) ? 'gnviewer.accessDenied' : 'gnviewer.loginRequired';
+                    } else {
+                        message = error?.data?.detail || error?.statusText || error?.message;
+                    }
                     return Observable.of(
                         ...getResetActions(),
                         resourceConfigError(message)
@@ -570,9 +575,14 @@ export const gnViewerRequestResourceConfig = (action$, store) =>
             )
                 .catch((error) => {
                     const status = error?.response?.status || error?.status;
-                    const message = status === 404
-                        ? 'gnviewer.resourceNotFound'
-                        : (error?.data?.detail || error?.statusText || error?.message);
+                    let message;
+                    if (status === 404) {
+                        message = 'gnviewer.resourceNotFound';
+                    } else if (status === 403) {
+                        message = isLoggedIn(store.getState()) ? 'gnviewer.accessDenied' : 'gnviewer.loginRequired';
+                    } else {
+                        message = error?.data?.detail || error?.statusText || error?.message;
+                    }
                     return Observable.of(
                         ...getResetActions(),
                         resourceConfigError(message)
