@@ -8,6 +8,7 @@ import {setControlProperty} from '@mapstore/framework/actions/controls';
 import {saveDirectContent} from '@js/actions/gnsave';
 import {canEditResource} from '@js/selectors/resource';
 import {isLoggedIn} from '@mapstore/framework/selectors/security';
+import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
 const {setStep: setHGevalStep, reset: resetHGeval} = require('../../HGeval/actionsHGeval');
 
 import {setOpenMenuGroupId, setVisibleIntroduction, setVisibleLegendPanel} from "../actionsSimpleView";
@@ -264,7 +265,7 @@ const mapStateToProps = (state, ownProps) => {
         searchPluginPresent: !!mapViewerPlugins.find(x => x.name === "Search"),
         measureEnabled: state?.controls?.measure?.enabled || false,
         measurePluginPresent: !!mapViewerPlugins.find(x => x.name === "Measure"),
-        canEdit: canEditResource(state),
+        canEdit: !!state?.swamm?.projectData?.id ? canEditSwammMap(state) : canEditResource(state),
         loggedIn: !!isLoggedIn(state),
         drawerEnabled: state?.controls?.drawer?.enabled || false,
         hgevalPluginPresent: !!mapViewerPlugins.find(x => x.name === "HGeval"),
