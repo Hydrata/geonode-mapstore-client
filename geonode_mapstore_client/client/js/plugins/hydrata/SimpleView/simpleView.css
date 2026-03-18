@@ -107,6 +107,7 @@
     top: 65px;
     left: 20px;
     min-width: 500px;
+    max-height: calc(100vh - 80px);
     background-color: rgba(0, 60, 136, 0.8);
     border: #ffffff99 solid 1px;
     border-radius: 4px;
@@ -115,6 +116,8 @@
     line-height: 1.5;
     color: white;
     text-align: center;
+    display: flex;
+    flex-direction: column;
 }
 
 .simple-view-panel-item-row {
@@ -158,9 +161,9 @@
 .simple-view-panel-body {
     display: flex;
     flex-direction: row;
-    height: 80%;
-    max-height: 80vh;
-    overflow-y: scroll;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .simple-view-panel-col-one {
@@ -168,7 +171,7 @@
     flex-direction: column;
     margin-right: 20px;
     padding: 10px;
-    max-height: 100%;
+    min-height: 0;
     overflow-y: auto;
     width: 100%;
     min-width: 300px;
@@ -342,6 +345,23 @@
 }
 
 .menu-rows-container {
+}
+
+.subheading-row {
+    display: flex;
+    align-items: center;
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
+.subheading-row .menu-row-glyph {
+    flex-shrink: 0;
+}
+
+.subheading-text {
+    margin: 0;
+    text-align: left;
+    flex: 1;
 }
 
 .menu-row {

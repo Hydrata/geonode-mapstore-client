@@ -10,6 +10,7 @@ import {
     removeNode,
     removeLayer
 } from "../../../../../MapStore2/web/client/actions/layers";
+import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
 import '../simpleView.css';
 import {
     svSelectLayer,
@@ -50,7 +51,8 @@ class MenuRowClass extends React.Component {
         setVisibleUploaderPanel: PropTypes.func,
         selectNode: PropTypes.func,
         lineThrough: PropTypes.bool,
-        importerTargetObjectId: PropTypes.number
+        importerTargetObjectId: PropTypes.number,
+        zoomToLayer: PropTypes.func
     };
 
     constructor(props) {
@@ -81,6 +83,17 @@ class MenuRowClass extends React.Component {
                             trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
                         }}
                     />
+                    {this.props.layer?.bbox?.bounds ?
+                        <span
+                            className={"btn glyphicon menu-row-glyph glyphicon-zoom-to"}
+                            style={{"color": "#4dabf7"}}
+                            onClick={() => {
+                                const {bounds, crs} = this.props.layer.bbox;
+                                this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
+                                trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
+                            }}
+                        /> : null
+                    }
                     {
                         this.props.canEditMap && this.canExportLayer(this.props.layer) ?
                             <React.Fragment>
@@ -160,8 +173,7 @@ class MenuRowClass extends React.Component {
                             /> : null
                     }
                     {
-                        (this.props.layer.opacity === 0 || this.props.layer.opacity) ?
-                            <div
+                        <div
                                 className="mapstore-slider dataset-transparency with-tooltip"
                                 onClick={(e) => { e.stopPropagation();}}
                                 style={
@@ -195,7 +207,7 @@ class MenuRowClass extends React.Component {
                             >
                                 <Slider
                                     step={1}
-                                    start={this.props.layer?.opacity * 100}
+                                    start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
                                     range={{
                                         min: 0,
                                         max: 100
@@ -205,8 +217,7 @@ class MenuRowClass extends React.Component {
                                         trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
                                     }}
                                 />
-                            </div> :
-                            null
+                            </div>
                     }
                 </span>
             </div>
@@ -251,7 +262,8 @@ const mapDispatchToProps = ( dispatch ) => {
         updateLayerTitle: (layer, title) => dispatch(changeLayerProperties(layer, {title: title})),
         refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
         svDownloadLayer: (layer) => dispatch(svDownloadLayer(layer)),
-        setVisibleUploaderPanel: (visible, importerConfigKey, importerTargetObjectId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId))
+        setVisibleUploaderPanel: (visible, importerConfigKey, importerTargetObjectId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId)),
+        zoomToLayer: (extent, crs) => dispatch(zoomToExtent(extent, crs))
     };
 };
 
