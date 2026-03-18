@@ -345,6 +345,9 @@
 }
 
 .menu-rows-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .subheading-row {
@@ -365,8 +368,11 @@
 }
 
 .menu-row {
+    display: flex;
+    align-items: center;
     padding-left: 5px;
     margin: 0;
+    gap: 4px;
 }
 
 .menu-row-header {
@@ -376,9 +382,19 @@
     margin: 0;
 }
 
-.menu-row-button {
-    display: inline-block;
-    vertical-align: middle;
+.menu-row-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    gap: 2px;
+}
+
+.menu-row-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 
@@ -414,11 +430,9 @@
 }
 
 .dataset-transparency {
-    margin-left: 330px;
 }
 
 .data-title-input {
-    float: right;
     margin-top: 0;
     font-size: 12px;
     white-space: nowrap;

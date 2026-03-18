@@ -8,6 +8,9 @@ import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
 import {trackEvent} from "@js/utils/analytics";
 
+const isGlobalExtent = (bounds) =>
+    bounds.minx <= -180 && bounds.miny <= -90 && bounds.maxx >= 180 && bounds.maxy >= 90;
+
 class MenuRowsClass extends React.Component {
     static propTypes = {
         menuGroups: PropTypes.array,
@@ -101,7 +104,7 @@ const mapDispatchToProps = ( dispatch ) => {
             });
         },
         zoomToGroup: (layers) => {
-            const layersWithBbox = layers.filter(l => l.bbox?.bounds);
+            const layersWithBbox = layers.filter(l => l.bbox?.bounds && !isGlobalExtent(l.bbox.bounds));
             if (layersWithBbox.length === 0) return;
             const combined = layersWithBbox.reduce((acc, l) => {
                 const b = l.bbox.bounds;

@@ -27,6 +27,9 @@ import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../Ma
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 
+const isGlobalExtent = (bounds) =>
+    bounds.minx <= -180 && bounds.miny <= -90 && bounds.maxx >= 180 && bounds.maxy >= 90;
+
 class MenuRowClass extends React.Component {
     static propTypes = {
         layer: PropTypes.object,
@@ -65,16 +68,16 @@ class MenuRowClass extends React.Component {
     render() {
         if (!this.props.layer) {
             return (
-                <div className={"row menu-row"}>
-                    <div className={"inline pull-left menu-row-button"}>
+                <div className={"menu-row"}>
+                    <div className={"menu-row-left"}>
                         <div className="h5 menu-row-text"><Message msgId="hydrata.simpleView.noDatasetsYet" /></div>
                     </div>
                 </div>
             );
         }
         return (
-            <div className={"row menu-row"}>
-                <span className={"pull-left menu-row-button"}>
+            <div className={"menu-row"}>
+                <span className={"menu-row-left"}>
                     <span
                         className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                         style={{"color": this.props.layer?.visibility ? "limegreen" : "red"}}
@@ -83,7 +86,7 @@ class MenuRowClass extends React.Component {
                             trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
                         }}
                     />
-                    {this.props.layer?.bbox?.bounds ?
+                    {this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds) ?
                         <span
                             className={"btn glyphicon menu-row-glyph glyphicon-zoom-to"}
                             style={{"color": "#4dabf7"}}
@@ -136,7 +139,7 @@ class MenuRowClass extends React.Component {
                                     id={`input-${this.props.layer.name}`}
                                     key={`input-key-${this.props.layer.name}`}
                                     className={'data-title-input'}
-                                    style={{"width": "160px", "float": "none"}}
+                                    style={{"width": "160px"}}
                                     type={'text'}
                                     value={this.state.newTitle}
                                     onChange={(e) => this.setState({newTitle: e.target.value})}
@@ -144,7 +147,7 @@ class MenuRowClass extends React.Component {
                                 {this.props.layer?.title === this.state.newTitle ? null :
                                     <span
                                         className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk"}
-                                        style={{"color": "limegreen", "float": "right", "marginLeft": "8px"}}
+                                        style={{"color": "limegreen"}}
                                         onClick={
                                             () => {
                                                 this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);
@@ -158,12 +161,12 @@ class MenuRowClass extends React.Component {
                             : <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
                     }
                 </span>
-                <span className={"pull-right menu-row-button"}>
+                <span className={"menu-row-right"}>
                     {
                         (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
                             <span
                                 className={"btn glyphicon menu-row-glyph glyphicon-trash"}
-                                style={{"color": "darkred", "float": "right"}}
+                                style={{"color": "darkred"}}
                                 onClick={() => {
                                     this.props.removeNode(this.props.layer.id, 'layers');
                                     this.props.removeLayer(this.props.layer.id);
@@ -176,34 +179,7 @@ class MenuRowClass extends React.Component {
                         <div
                                 className="mapstore-slider dataset-transparency with-tooltip"
                                 onClick={(e) => { e.stopPropagation();}}
-                                style={
-                                    (this.props.canEditMap && this.canEditLayer(this.props.layer)) ?
-                                        this.props.layer?.title === this.state.newTitle ? {
-                                            "display": "inline-block",
-                                            "float": "right",
-                                            "width": "170px",
-                                            "marginRight": "10px",
-                                            "marginLeft": "10px",
-                                            "marginBottom": "-10px",
-                                            "marginTop": "2px"
-                                        } : {
-                                            "display": "inline-block",
-                                            "float": "right",
-                                            "width": "140px",
-                                            "marginRight": "10px",
-                                            "marginLeft": "10px",
-                                            "marginBottom": "-10px",
-                                            "marginTop": "2px"
-                                        } : {
-                                            "display": "inline-block",
-                                            "float": "right",
-                                            "width": "170px",
-                                            "marginRight": "40px",
-                                            "marginLeft": "10px",
-                                            "marginBottom": "-10px",
-                                            "marginTop": "2px"
-                                        }
-                                }
+                                style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
                             >
                                 <Slider
                                     step={1}
