@@ -228,7 +228,11 @@ const resourceTypes = {
                             ? axios.all([{...resource}, getGeoAppByPk(mapViewers?.pk, {api_preset: 'catalog_list', include: ['data', 'linked_resources']})])
                             : Promise.resolve([{...resource}]);
                     })
-                    .catch(() => null)
+                    .catch((error) => {
+                        const status = error?.response?.status || error?.status;
+                        if (status === 403 || status === 404) throw error;
+                        return null;
+                    })
             ]))
                 .switchMap(([baseConfig, resource]) => {
                     const [mapResource, mapViewerResource] = resource ?? [];
