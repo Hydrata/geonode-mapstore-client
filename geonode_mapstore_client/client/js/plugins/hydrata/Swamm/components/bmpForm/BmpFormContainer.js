@@ -18,6 +18,7 @@ import {
     downloadBmpReport
 } from "../../actionsSwamm";
 import {setOpenMenuGroupId} from "../../../SimpleView/actionsSimpleView";
+import {trackEvent} from "@js/utils/analytics";
 import { purgeMapInfoResults } from "../../../../../../MapStore2/web/client/actions/mapInfo";
 import { startVectorDraw } from "../../../VectorDraw/actionsVectorDraw";
 import {
@@ -262,8 +263,11 @@ class SwammBmpFormClass extends React.Component {
             bmpType => bmpType?.name === fieldValue
         )[0];
         this.props.makeDefaultsBmpForm(selectedBmpType);
+        trackEvent('button', 'click', `bmp-type-select-${fieldValue}`);
     }
     drawBmpStep1(layerName, featureId) {
+        const geomType = layerName.includes('outlet') ? 'outlet' : layerName.includes('footprint') ? 'footprint' : 'watershed';
+        trackEvent('button', 'click', `bmp-geometry-draw-${geomType}`);
         this.refreshBmpLayers();
         const targetLayer = this.props.layers?.flat?.filter(layer => layer?.name?.includes(layerName))[0];
         if (!targetLayer) {

@@ -1,4 +1,5 @@
 import React from "react";
+import {trackEvent} from "@js/utils/analytics";
 
 const BmpActionButtons = ({
     storedBmpForm,
@@ -42,7 +43,10 @@ const BmpActionButtons = ({
                 <button
                     type={'button'}
                     className={'swamm-button'}
-                    onClick={() => { downloadBmpReport(storedBmpForm?.id);}}>
+                    onClick={() => {
+                        downloadBmpReport(storedBmpForm?.id);
+                        trackEvent('button', 'click', `bmp-download-pdf-${storedBmpForm?.id}`);
+                    }}>
                     Make PDF
                 </button>
             </React.Fragment>
@@ -73,6 +77,7 @@ const BmpActionButtons = ({
                 onClick={() => {
                     if (window.confirm('This action can not be undone. Are you sure?')) {
                         deleteBmp(projectId, storedBmpForm?.id);
+                        trackEvent('button', 'click', `bmp-delete-${storedBmpForm?.id}`);
                     }
                 }}>
                 Delete
@@ -86,6 +91,7 @@ const BmpActionButtons = ({
             }}
             onClick={() => {
                 submitBmpForm(storedBmpForm, projectId);
+                trackEvent('button', 'click', storedBmpForm?.id ? `bmp-save-${storedBmpForm.id}` : 'bmp-create');
             }}>
             Save
         </button>

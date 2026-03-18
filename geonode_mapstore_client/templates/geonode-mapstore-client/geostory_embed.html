@@ -14,6 +14,10 @@
         {% block extra_style %}
         {% endblock %}
 
+        {% block extra_head %}
+            {% include './snippets/umami_tracking.html' %}
+        {% endblock %}
+
     </head>
 
     <body class="msgapi ms2" data-ms2-container="ms2" >

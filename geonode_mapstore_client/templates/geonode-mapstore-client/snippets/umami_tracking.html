@@ -32,3 +32,14 @@
     });
 })();
 </script>
+{% if request.user.is_authenticated %}
+<script>
+(function waitForUmami() {
+    if (typeof umami !== 'undefined') {
+        umami.identify({ username: '{{ request.user.username }}' });
+    } else {
+        setTimeout(waitForUmami, 500);
+    }
+})();
+</script>
+{% endif %}
