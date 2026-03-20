@@ -47,8 +47,15 @@ module.exports = (devServerDefault, projectConfig) => {
         },
         proxy: [
             {
+                context: ['/geoserver/**'],
+                target: 'http://localhost:8080',
+                secure: false,
+                changeOrigin: true
+            },
+            {
                 context: [
                     '**',
+                    '!**/geoserver/**',
                     '!**/static/mapstore/configs/**',
                     '!**/static/mapstore/dist/**',
                     '!**/static/mapstore/gn-translations/**',
