@@ -251,7 +251,10 @@ const mapStateToProps = (state, ownProps) => {
     // hide all SimpleView mapped buttons by filtering out everything including Default.
     const menuGroups = customMenus.length > 0
         ? []
-        : state?.layers?.groups?.filter(group => !(customMenus.includes(group.name) || customMenus.includes(group.title)));
+        : state?.layers?.groups?.filter(group =>
+            !(customMenus.includes(group.name) || customMenus.includes(group.title))
+            && group.nodes?.length > 0
+        );
     const mapViewerPlugins = state?.localConfig?.plugins?.map_viewer || [];
     return {
         menuGroups: menuGroups,
