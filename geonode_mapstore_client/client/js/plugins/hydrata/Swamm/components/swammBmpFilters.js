@@ -63,8 +63,14 @@ class SwammBmpFiltersClass extends React.Component {
         const mainPanel = document.querySelector('.simple-view-panel:not(#swamm-bmp-filters)');
         const filterPanel = document.getElementById('swamm-bmp-filters');
         if (mainPanel && filterPanel) {
+            mainPanel.style.borderBottom = 'none';
+            mainPanel.style.borderBottomLeftRadius = '0';
+            mainPanel.style.borderBottomRightRadius = '0';
             const mainRect = mainPanel.getBoundingClientRect();
-            filterPanel.style.top = (mainRect.bottom + 1) + 'px';
+            filterPanel.style.top = mainRect.bottom + 'px';
+            filterPanel.style.borderTop = 'none';
+            filterPanel.style.borderTopLeftRadius = '0';
+            filterPanel.style.borderTopRightRadius = '0';
         }
     }
 
