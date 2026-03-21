@@ -75,6 +75,7 @@ class MenuRowClass extends React.Component {
                 </div>
             );
         }
+        const hasValidBbox = this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds);
         return (
             <div className={"menu-row"}>
                 <span className={"menu-row-left"}>
@@ -86,17 +87,17 @@ class MenuRowClass extends React.Component {
                             trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
                         }}
                     />
-                    {this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds) ?
-                        <span
-                            className={"btn glyphicon menu-row-glyph glyphicon-zoom-to"}
-                            style={{"color": "#4dabf7"}}
-                            onClick={() => {
+                    <span
+                        className={"btn glyphicon menu-row-glyph glyphicon-zoom-to"}
+                        style={{"color": hasValidBbox ? "#4dabf7" : "#999"}}
+                        onClick={() => {
+                            if (hasValidBbox) {
                                 const {bounds, crs} = this.props.layer.bbox;
                                 this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
                                 trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
-                            }}
-                        /> : null
-                    }
+                            }
+                        }}
+                    />
                     {
                         this.props.canEditMap && this.canExportLayer(this.props.layer) ?
                             <React.Fragment>

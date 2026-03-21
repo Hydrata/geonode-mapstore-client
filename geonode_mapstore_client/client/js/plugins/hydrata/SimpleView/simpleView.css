@@ -138,17 +138,20 @@
 }
 
 .simple-view-panel ::-webkit-scrollbar {
-    width: 1em;
-    margin-left: 1em;
-    margin-right: 1em;
-    padding-left: 1em;
-    padding-right: 1em;
+    width: 8px;
+}
+
+.simple-view-panel ::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .simple-view-panel ::-webkit-scrollbar-thumb {
-    background-color: #5178af;
-    outline: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: transparent;
     border-radius: 4px;
+}
+
+.simple-view-panel:hover ::-webkit-scrollbar-thumb {
+    background-color: #5178af;
 }
 
 .simple-view-panel-header {
@@ -348,13 +351,26 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.menu-rows-container:hover {
+    scrollbar-color: #5178af transparent;
 }
 
 .subheading-row {
     display: flex;
     align-items: center;
-    margin-top: 6px;
+    margin-top: 8px;
     margin-bottom: 2px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    padding: 3px 4px;
+}
+
+.subheading-row:first-child {
+    margin-top: 0;
 }
 
 .subheading-row .menu-row-glyph {
@@ -405,6 +421,9 @@
     color: limegreen;
     font-size: 14px;
     padding: 3px 4px;
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .menu-row-text {
