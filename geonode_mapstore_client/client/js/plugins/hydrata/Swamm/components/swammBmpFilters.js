@@ -64,7 +64,7 @@ class SwammBmpFiltersClass extends React.Component {
         const filterPanel = document.getElementById('swamm-bmp-filters');
         if (mainPanel && filterPanel) {
             const mainRect = mainPanel.getBoundingClientRect();
-            filterPanel.style.top = (mainRect.bottom + 5) + 'px';
+            filterPanel.style.top = (mainRect.bottom + 1) + 'px';
         }
     }
 

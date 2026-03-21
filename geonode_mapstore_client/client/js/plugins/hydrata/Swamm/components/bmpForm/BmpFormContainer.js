@@ -84,7 +84,6 @@ class SwammBmpFormClass extends React.Component {
         deleteBmp: PropTypes.func,
         setChangingBmpType: PropTypes.func,
         cppe_url: PropTypes.string,
-        standard_url: PropTypes.string,
         ned_url: PropTypes.string,
         infosheet_url: PropTypes.string,
         downloadBmpReport: PropTypes.func,
@@ -147,7 +146,6 @@ class SwammBmpFormClass extends React.Component {
                     setComplexBmpForm={this.props.setComplexBmpForm}
                     downloadBmpReport={this.props.downloadBmpReport}
                     hideBmpForm={this.props.hideBmpForm}
-                    standard_url={this.props.standard_url}
                     deleteBmp={this.props.deleteBmp}
                     projectId={this.props.projectId}
                     hasGeometry={this.props.hasGeometry}
@@ -329,7 +327,6 @@ const mapStateToProps = (state) => {
         requiresWatershed: state?.swamm?.storedBmpForm?.type_data?.requires_watershed,
         watershedIsFootprint: state?.swamm?.storedBmpForm?.type_data?.watershed_is_footprint,
         cppe_url: state?.swamm?.storedBmpForm?.type_data?.cppe_url,
-        standard_url: state?.swamm?.storedBmpForm?.type_data?.standard_url,
         ned_url: state?.swamm?.storedBmpForm?.type_data?.ned_url,
         infosheet_url: state?.swamm?.storedBmpForm?.type_data?.infosheet_url,
         creatingNewBmp: state?.swamm?.creatingNewBmp,

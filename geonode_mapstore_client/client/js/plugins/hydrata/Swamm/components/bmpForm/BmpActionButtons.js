@@ -7,7 +7,6 @@ const BmpActionButtons = ({
     setComplexBmpForm,
     downloadBmpReport,
     hideBmpForm,
-    standard_url,
     deleteBmp,
     projectId,
     hasGeometry,
@@ -59,13 +58,6 @@ const BmpActionButtons = ({
                 onRefreshBmpLayers();
             }}>
             View Map
-        </button>
-        <button
-            type={'button'}
-            disabled={!!standard_url}
-            className={`swamm-button ${standard_url ? "" : "swamm-button-disabled"}`}
-            onClick={() => window.open(standard_url, "_blank")}>
-            Description
         </button>
         {storedBmpForm?.id ?
             <button
