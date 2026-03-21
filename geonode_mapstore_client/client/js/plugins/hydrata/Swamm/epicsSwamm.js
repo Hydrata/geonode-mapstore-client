@@ -4,7 +4,9 @@ import { isInt } from "../Utils/utils";
 import {
     changeLayerProperties,
     refreshLayerVersion,
-    addLayer
+    addLayer,
+    addGroup,
+    moveNode
 } from "../../../../MapStore2/web/client/actions/layers";
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import { SET_RESOURCE_ID } from '@js/actions/gnresource';
@@ -252,6 +254,35 @@ export const getBmpTypeGroups = (action$, store) =>
                 updateBmpTypeGroups(response.data),
                 setBmpLayers(bmpOutletLayer, bmpFootprintLayer, bmpWatershedLayer)
             );
+        });
+
+export const ensureBmpGeometriesGroupEpic = (action$, store) =>
+    action$.ofType(SET_OPEN_MENU_GROUP_ID)
+        .switchMap(() => {
+            const state = store.getState();
+            const viewBmpGroup = state?.layers?.groups?.find(g => g?.title === "View BMPs" || g?.name === "View BMPs");
+            if (!viewBmpGroup || state?.simpleView?.openMenuGroupId !== viewBmpGroup.id) {
+                return Rx.Observable.empty();
+            }
+            const subGroupId = `${viewBmpGroup.id}.BMP geometries`;
+            const hasSubGroup = viewBmpGroup.nodes?.some(n => typeof n === 'object' && n.id === subGroupId);
+            if (hasSubGroup) {
+                return Rx.Observable.empty();
+            }
+            const bmpLayers = [
+                bmpWatershedLayerSelector(state),
+                bmpFootprintLayerSelector(state),
+                bmpOutletLayerSelector(state)
+            ].filter(Boolean);
+            const actions = [
+                addGroup("BMP geometries", viewBmpGroup.id, {
+                    id: subGroupId,
+                    name: "BMP geometries",
+                    expanded: true
+                }),
+                ...bmpLayers.map((layer, i) => moveNode(layer.id, subGroupId, i))
+            ];
+            return Rx.Observable.from(actions);
         });
 
 

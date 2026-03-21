@@ -52,15 +52,26 @@ class SwammBmpFiltersClass extends React.Component {
     }
 
     componentDidMount() {
+        this.positionPanel();
     }
 
     componentDidUpdate() {
+        this.positionPanel();
+    }
+
+    positionPanel() {
+        const mainPanel = document.querySelector('.simple-view-panel:not(#swamm-bmp-filters)');
+        const filterPanel = document.getElementById('swamm-bmp-filters');
+        if (mainPanel && filterPanel) {
+            const mainRect = mainPanel.getBoundingClientRect();
+            filterPanel.style.top = (mainRect.bottom + 5) + 'px';
+        }
     }
 
     render() {
         return (
             <React.Fragment>
-                <div id={'swamm-bmp-filters'} className={'simple-view-panel'} style={{top: "175px", width: "480px"}}>
+                <div id={'swamm-bmp-filters'} className={'simple-view-panel'} style={{width: "480px"}}>
                     <div className={'menu-rows-container'}>
                         <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
