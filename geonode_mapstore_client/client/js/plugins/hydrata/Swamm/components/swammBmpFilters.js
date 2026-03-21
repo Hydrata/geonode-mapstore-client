@@ -67,7 +67,9 @@ class SwammBmpFiltersClass extends React.Component {
             mainPanel.style.borderBottomLeftRadius = '0';
             mainPanel.style.borderBottomRightRadius = '0';
             const mainRect = mainPanel.getBoundingClientRect();
-            filterPanel.style.top = mainRect.bottom + 'px';
+            const offsetParent = filterPanel.offsetParent;
+            const offsetTop = offsetParent ? offsetParent.getBoundingClientRect().top : 0;
+            filterPanel.style.top = (mainRect.bottom - offsetTop) + 'px';
             filterPanel.style.borderTop = 'none';
             filterPanel.style.borderTopLeftRadius = '0';
             filterPanel.style.borderTopRightRadius = '0';
