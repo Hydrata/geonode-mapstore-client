@@ -1,6 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
+import { ErrorBoundary } from 'react-error-boundary';
 import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData} from "../../actionsSwamm";
 import '../../swamm.css';
 import {CIRCLE_SIZE, POLLUTANTS, CHART_COLOURS} from "./constants";
@@ -8,6 +9,12 @@ import {TargetSelector} from "./TargetSelector";
 import {PollutantCard} from "./PollutantCard";
 import {SummaryTable} from "./SummaryTable";
 import {LegendPanel} from "./LegendPanel";
+
+const DashboardErrorFallback = () => (
+    <div style={{padding: '20px', color: 'white', textAlign: 'center'}}>
+        Dashboard encountered an error. Please try closing and reopening the dashboard.
+    </div>
+);
 
 class SwammBmpChartClass extends React.Component {
     static propTypes = {
@@ -59,43 +66,53 @@ class SwammBmpChartClass extends React.Component {
                     />
                 </div>
                 <div id={"swamm-bmp-chart-body"}>
-                    <TargetSelector
-                        targets={this.props.targets}
-                        selectedTargetId={this.props.selectedTargetId}
-                        selectSwammTargetId={this.props.selectSwammTargetId}
-                        showTargetForm={this.props.showTargetForm}
-                        selectedTarget={this.props.selectedTarget}
-                        bmpFilterMode={this.props.bmpFilterMode}
-                        setBmpFilterMode={this.props.setBmpFilterMode}
-                        downloadTargetData={this.props.downloadTargetData}
-                        projectId={this.props.projectId}
-                    />
-                    <div id={"swamm-bmp-chart-col-two"}>
-                        {
-                            POLLUTANTS.map(pollutant => {
-                                return (
-                                    <PollutantCard
-                                        key={pollutant.name}
-                                        pollutant={pollutant}
+                    {(!this.props.targets || this.props.targets.length === 0) ? (
+                        <div style={{padding: '20px', color: 'white', textAlign: 'center', width: '100%'}}>
+                            No pollutant loading targets configured for this project.
+                        </div>
+                    ) : (
+                        <React.Fragment>
+                            <TargetSelector
+                                targets={this.props.targets}
+                                selectedTargetId={this.props.selectedTargetId}
+                                selectSwammTargetId={this.props.selectSwammTargetId}
+                                showTargetForm={this.props.showTargetForm}
+                                selectedTarget={this.props.selectedTarget}
+                                bmpFilterMode={this.props.bmpFilterMode}
+                                setBmpFilterMode={this.props.setBmpFilterMode}
+                                downloadTargetData={this.props.downloadTargetData}
+                                projectId={this.props.projectId}
+                            />
+                            <ErrorBoundary FallbackComponent={DashboardErrorFallback}>
+                                <div id={"swamm-bmp-chart-col-two"}>
+                                    {
+                                        POLLUTANTS.map(pollutant => {
+                                            return (
+                                                <PollutantCard
+                                                    key={pollutant.name}
+                                                    pollutant={pollutant}
+                                                    selectedTarget={this.props.selectedTarget}
+                                                    rechartsBarData={this.props.rechartsBarData}
+                                                    colours={CHART_COLOURS}
+                                                    circleSize={CIRCLE_SIZE}
+                                                    tooltipKey={this.state.tooltipKey}
+                                                    onTooltipKeyChange={(key) => this.setState({ tooltipKey: key })}
+                                                />
+                                            );
+                                        })
+                                    }
+                                    <SummaryTable
                                         selectedTarget={this.props.selectedTarget}
-                                        rechartsBarData={this.props.rechartsBarData}
-                                        colours={CHART_COLOURS}
-                                        circleSize={CIRCLE_SIZE}
-                                        tooltipKey={this.state.tooltipKey}
-                                        onTooltipKeyChange={(key) => this.setState({ tooltipKey: key })}
                                     />
-                                );
-                            })
-                        }
-                        <SummaryTable
-                            selectedTarget={this.props.selectedTarget}
-                        />
-                    </div>
-                    <LegendPanel
-                        selectedTarget={this.props.selectedTarget}
-                        bmpFilterMode={this.props.bmpFilterMode}
-                        colours={CHART_COLOURS}
-                    />
+                                </div>
+                            </ErrorBoundary>
+                            <LegendPanel
+                                selectedTarget={this.props.selectedTarget}
+                                bmpFilterMode={this.props.bmpFilterMode}
+                                colours={CHART_COLOURS}
+                            />
+                        </React.Fragment>
+                    )}
                 </div>
                 <div id={"swamm-bmp-chart-footer"}>
                     <button
@@ -139,5 +156,6 @@ const SwammBmpChart = connect(mapStateToProps, mapDispatchToProps)(SwammBmpChart
 
 
 export {
-    SwammBmpChart
+    SwammBmpChart,
+    DashboardErrorFallback
 };
