@@ -67,10 +67,6 @@ class SwammBmpChartClass extends React.Component {
                 <div id={"swamm-bmp-chart-header"}>
                     <div>
                         Dashboard: {this.props.selectedTarget?.name}
-                        {' '}
-                        <a href="/docs/" target="_blank" rel="noopener noreferrer" aria-label="Dashboard help" style={{color: 'white', fontSize: 'small'}}>
-                            <span className="glyphicon glyphicon-question-sign" />
-                        </a>
                         <span style={{marginLeft: '20px', fontSize: 'small'}}>
                             <button
                                 className="swamm-button"
@@ -133,11 +129,13 @@ class SwammBmpChartClass extends React.Component {
                             />
                             <ErrorBoundary FallbackComponent={DashboardErrorFallback}>
                                 {isTableView ? (
-                                    <OrgTable
-                                        barChartData={this.props.selectedTarget?.barChartData}
-                                        speedDialData={this.props.selectedTarget?.speedDialData}
-                                        bmpFilterMode={this.props.bmpFilterMode}
-                                    />
+                                    <div id={"swamm-bmp-chart-col-two"}>
+                                        <OrgTable
+                                            barChartData={this.props.selectedTarget?.barChartData}
+                                            speedDialData={this.props.selectedTarget?.speedDialData}
+                                            bmpFilterMode={this.props.bmpFilterMode}
+                                        />
+                                    </div>
                                 ) : (
                                     <div id={"swamm-bmp-chart-col-two"}>
                                         {

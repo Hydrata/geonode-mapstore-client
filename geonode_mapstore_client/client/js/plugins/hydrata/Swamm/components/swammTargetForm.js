@@ -276,7 +276,7 @@ class SwammTargetFormClass extends React.Component {
 
 const mapStateToProps = (state) => {
     const validGroupProfiles = state?.swamm?.groupProfiles?.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug)) || [];
-    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups?.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
+    const viewableGroupProfiles = validGroupProfiles;
     return {
         projectId: state?.swamm?.projectData?.id,
         bmpTypes: state?.swamm?.bmpTypes,
