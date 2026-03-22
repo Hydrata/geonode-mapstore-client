@@ -15,11 +15,15 @@ const TargetSelector = ({
         <div id={"swamm-bmp-chart-targets"}>
             <div className={"swamm-bmp-chart-heading"}>Targets</div>
             {targets.map((target) => {
+                const isSelected = target.id === selectedTargetId;
                 return (
                     <button
+                        key={target.id}
                         className={"swamm-button"}
+                        aria-label={"Select target: " + target.name}
+                        aria-pressed={isSelected}
                         style={{
-                            backgroundColor: target.id === selectedTargetId ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                            backgroundColor: isSelected ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
                         }}
                         onClick={() => selectSwammTargetId(target?.id)}>
                         {target?.name}
@@ -43,33 +47,41 @@ const TargetSelector = ({
             <div className={"swamm-bmp-chart-heading"}>
                 Sort Data By:
             </div>
-            <button
-                className={"swamm-button"}
-                style={{
-                    backgroundColor: bmpFilterMode === 'type' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
-                }}
-                onClick={() => setBmpFilterMode('type')}
-            >
-                BMP Type
-            </button>
-            <button
-                className={"swamm-button"}
-                style={{
-                    backgroundColor: bmpFilterMode === 'status' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
-                }}
-                onClick={() => setBmpFilterMode('status')}
-            >
-                BMP Status
-            </button>
-            <button
-                className={"swamm-button"}
-                style={{
-                    backgroundColor: bmpFilterMode === 'group_profile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
-                }}
-                onClick={() => setBmpFilterMode('group_profile')}
-            >
-                Organization
-            </button>
+            <div role="radiogroup" aria-label="Group data by">
+                <button
+                    className={"swamm-button"}
+                    role="radio"
+                    aria-checked={bmpFilterMode === 'type'}
+                    style={{
+                        backgroundColor: bmpFilterMode === 'type' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                    }}
+                    onClick={() => setBmpFilterMode('type')}
+                >
+                    BMP Type
+                </button>
+                <button
+                    className={"swamm-button"}
+                    role="radio"
+                    aria-checked={bmpFilterMode === 'status'}
+                    style={{
+                        backgroundColor: bmpFilterMode === 'status' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                    }}
+                    onClick={() => setBmpFilterMode('status')}
+                >
+                    BMP Status
+                </button>
+                <button
+                    className={"swamm-button"}
+                    role="radio"
+                    aria-checked={bmpFilterMode === 'group_profile'}
+                    style={{
+                        backgroundColor: bmpFilterMode === 'group_profile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                    }}
+                    onClick={() => setBmpFilterMode('group_profile')}
+                >
+                    Organization
+                </button>
+            </div>
         </div>
         <div id={"swamm-bmp-chart-download"}>
             <div className={"swamm-bmp-chart-heading"}>

@@ -53,6 +53,8 @@ class SwammBmpChartClass extends React.Component {
             <div
                 id={'swamm-bmp-chart-panel'}
                 className={'simple-view-panel menu-rows-container'}
+                role="region"
+                aria-label="SWAMM Dashboard"
             >
                 <div id={"swamm-bmp-chart-header"}>
                     <div>
@@ -60,8 +62,16 @@ class SwammBmpChartClass extends React.Component {
                     </div>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
+                        aria-label="Close dashboard"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                             this.props.hideSwammBmpChart();
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                this.props.hideSwammBmpChart();
+                            }
                         }}
                     />
                 </div>
@@ -117,6 +127,7 @@ class SwammBmpChartClass extends React.Component {
                 <div id={"swamm-bmp-chart-footer"}>
                     <button
                         className={"swamm-button"}
+                        aria-label="Close dashboard"
                         onClick={() => this.props.hideSwammBmpChart()}>
                         Close
                     </button>

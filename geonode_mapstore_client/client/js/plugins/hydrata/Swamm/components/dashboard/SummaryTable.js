@@ -4,7 +4,7 @@ import {formatMoney} from "../../../Utils/utils";
 
 const SummaryTable = ({ selectedTarget }) => (
     <div id={"swamm-bmp-chart-summary"}>
-        <Table bordered condensed hover className={"text-right"}>
+        <Table bordered condensed hover className={"text-right"} aria-label="Dashboard summary">
             <thead>
                 <tr>
                     <th>Summary</th>

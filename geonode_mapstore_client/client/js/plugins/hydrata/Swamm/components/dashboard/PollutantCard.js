@@ -35,6 +35,7 @@ const PollutantCard = ({
     <div
         id={`swamm-bmp-chart-${pollutant.name.toLowerCase()}`}
         className={"swamm-bmp-chart-graph-container"}
+        aria-label={`${pollutant.name} load reduction chart`}
     >
         <div className={"swamm-bmp-chart-heading"}>
             {pollutant.title}

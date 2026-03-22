@@ -1,7 +1,7 @@
 import React from "react";
 
 const LegendPanel = ({ selectedTarget, bmpFilterMode, colours }) => (
-    <div id={"swamm-bmp-chart-col-three"}>
+    <div id={"swamm-bmp-chart-col-three"} aria-label="Chart legend">
         <div className={"swamm-bmp-chart-heading"}>Legend</div>
         <div id={"swamm-bmp-chart-legend-rows"}>
             {
