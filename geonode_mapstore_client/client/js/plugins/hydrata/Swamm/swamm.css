@@ -677,3 +677,18 @@
         top: 120px !important;
     }
 }
+
+/* ── Responsive: Dashboard compact (TASK-320) ── */
+@media (max-width: 768px) {
+    #swamm-bmp-chart-body { flex-direction: column; }
+    #swamm-bmp-chart-col-one { width: 100%; flex-direction: row; flex-wrap: wrap; }
+    #swamm-bmp-chart-col-three { width: 100%; }
+    .swamm-bmp-chart-pie-group { width: 150px; }
+    #swamm-bmp-chart-panel button { min-height: 44px; min-width: 44px; }
+}
+
+@media (max-width: 480px) {
+    #swamm-bmp-chart-panel { width: 100%; height: 100%; }
+    #swamm-bmp-chart-col-three { display: none; }
+    .swamm-bmp-chart-graph-box { flex-direction: column; }
+}
