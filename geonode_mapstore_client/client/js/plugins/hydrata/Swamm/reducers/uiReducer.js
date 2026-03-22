@@ -13,7 +13,8 @@ import {
     UPDATE_TARGET_FORM,
     SHOW_BMP_CHOOSER,
     HIDE_BMP_CHOOSER,
-    SET_DASHBOARD_VIEW
+    SET_DASHBOARD_VIEW,
+    SET_NORMALIZATION_MODE
 } from "../actionsSwamm";
 
 const uiReducer = (state, action) => {
@@ -59,6 +60,8 @@ const uiReducer = (state, action) => {
         return { bmpChooserCandidates: null };
     case SET_DASHBOARD_VIEW:
         return { dashboardView: action.view };
+    case SET_NORMALIZATION_MODE:
+        return { normalizationMode: action.mode };
     default:
         return {};
     }

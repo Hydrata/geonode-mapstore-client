@@ -110,6 +110,7 @@ const SHOW_BMP_CHOOSER = 'SHOW_BMP_CHOOSER';
 const HIDE_BMP_CHOOSER = 'HIDE_BMP_CHOOSER';
 
 const SET_DASHBOARD_VIEW = 'SET_DASHBOARD_VIEW';
+const SET_NORMALIZATION_MODE = 'SET_NORMALIZATION_MODE';
 
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
@@ -998,6 +999,8 @@ const hideBmpChooser = () => ({ type: HIDE_BMP_CHOOSER });
 
 const setDashboardView = (view) => ({ type: SET_DASHBOARD_VIEW, view });
 
+const setNormalizationMode = (mode) => ({ type: SET_NORMALIZATION_MODE, mode });
+
 const DOWNLOAD_SUMMARY_CSV = 'DOWNLOAD_SUMMARY_CSV';
 
 const downloadSummaryCSV = (speedDialData, targetName) => {
@@ -1143,5 +1146,6 @@ module.exports = {
     DOWNLOAD_SUMMARY_CSV, downloadSummaryCSV,
     DOWNLOAD_TARGET_PDF, downloadTargetPdf,
     DOWNLOAD_TARGET_PDF_SUCCESS, DOWNLOAD_TARGET_PDF_ERROR,
-    SET_DASHBOARD_VIEW, setDashboardView
+    SET_DASHBOARD_VIEW, setDashboardView,
+    SET_NORMALIZATION_MODE, setNormalizationMode
 };

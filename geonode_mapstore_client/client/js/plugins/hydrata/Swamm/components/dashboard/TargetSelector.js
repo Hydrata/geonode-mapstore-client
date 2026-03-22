@@ -21,6 +21,8 @@ const TargetSelector = ({
     downloadTargetData,
     downloadSummaryCSV,
     downloadTargetPdf,
+    normalizationMode = 'total',
+    setNormalizationMode,
     projectId
 }) => (
     <div id={"swamm-bmp-chart-col-one"}>
@@ -113,6 +115,32 @@ const TargetSelector = ({
                     </button>
                 </OverlayTrigger>
             </div>
+        </div>
+        <div id={"swamm-bmp-chart-normalize"} style={{marginBottom: '20px'}}>
+            <div className={"swamm-bmp-chart-heading"}>
+                Normalize:
+            </div>
+            <button
+                className={"swamm-button"}
+                style={{ backgroundColor: normalizationMode === 'total' ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.6)' }}
+                onClick={() => setNormalizationMode && setNormalizationMode('total')}
+            >
+                Total
+            </button>
+            <button
+                className={"swamm-button"}
+                style={{ backgroundColor: normalizationMode === 'per_acre' ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.6)' }}
+                onClick={() => setNormalizationMode && setNormalizationMode('per_acre')}
+            >
+                Per Acre
+            </button>
+            <button
+                className={"swamm-button"}
+                style={{ backgroundColor: normalizationMode === 'per_dollar' ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.6)' }}
+                onClick={() => setNormalizationMode && setNormalizationMode('per_dollar')}
+            >
+                Per Dollar
+            </button>
         </div>
         <div id={"swamm-bmp-chart-download"}>
             <div className={"swamm-bmp-chart-heading"}>

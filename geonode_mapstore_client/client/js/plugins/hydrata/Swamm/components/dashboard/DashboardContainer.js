@@ -2,7 +2,7 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import { ErrorBoundary } from 'react-error-boundary';
-import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData, downloadSummaryCSV, downloadTargetPdf, setDashboardView} from "../../actionsSwamm";
+import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData, downloadSummaryCSV, downloadTargetPdf, setDashboardView, setNormalizationMode} from "../../actionsSwamm";
 import '../../swamm.css';
 import {CIRCLE_SIZE, POLLUTANTS, CHART_COLOURS} from "./constants";
 import {TargetSelector} from "./TargetSelector";
@@ -35,6 +35,8 @@ class SwammBmpChartClass extends React.Component {
         downloadTargetPdf: PropTypes.func,
         dashboardView: PropTypes.string,
         setDashboardView: PropTypes.func,
+        normalizationMode: PropTypes.string,
+        setNormalizationMode: PropTypes.func,
         projectId: PropTypes.number
     };
 
@@ -125,6 +127,8 @@ class SwammBmpChartClass extends React.Component {
                                 downloadTargetData={this.props.downloadTargetData}
                                 downloadSummaryCSV={this.props.downloadSummaryCSV}
                                 downloadTargetPdf={this.props.downloadTargetPdf}
+                                normalizationMode={this.props.normalizationMode}
+                                setNormalizationMode={this.props.setNormalizationMode}
                                 projectId={this.props.projectId}
                             />
                             <ErrorBoundary FallbackComponent={DashboardErrorFallback}>
@@ -148,6 +152,7 @@ class SwammBmpChartClass extends React.Component {
                                                         circleSize={CIRCLE_SIZE}
                                                         tooltipKey={this.state.tooltipKey}
                                                         onTooltipKeyChange={(key) => this.setState({ tooltipKey: key })}
+                                                        normalizationMode={this.props.normalizationMode}
                                                     />
                                                 );
                                             })
@@ -194,7 +199,8 @@ const mapStateToProps = (state) => {
         bmpFilterMode: bmpFilterMode,
         visibleTargetForm: state?.swamm.visibleTargetForm,
         projectId: state?.swamm?.projectData?.id,
-        dashboardView: state?.swamm?.dashboardView || 'chart'
+        dashboardView: state?.swamm?.dashboardView || 'chart',
+        normalizationMode: state?.swamm?.normalizationMode || 'total'
     };
 };
 
@@ -207,7 +213,8 @@ const mapDispatchToProps = ( dispatch ) => {
         downloadTargetData: (projectId, targetId) => dispatch(downloadTargetData(projectId, targetId)),
         downloadSummaryCSV: (speedDialData, targetName) => dispatch(downloadSummaryCSV(speedDialData, targetName)),
         downloadTargetPdf: (projectId, targetId) => dispatch(downloadTargetPdf(projectId, targetId)),
-        setDashboardView: (view) => dispatch(setDashboardView(view))
+        setDashboardView: (view) => dispatch(setDashboardView(view)),
+        setNormalizationMode: (mode) => dispatch(setNormalizationMode(mode))
     };
 };
 

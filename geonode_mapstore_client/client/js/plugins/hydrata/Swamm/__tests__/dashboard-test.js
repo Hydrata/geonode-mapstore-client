@@ -4,8 +4,8 @@ import ReactDOM from 'react-dom';
 import { DashboardErrorFallback } from '../components/dashboard/DashboardContainer';
 import { FILTER_TOOLTIPS, DOWNLOAD_TOOLTIP } from '../components/dashboard/TargetSelector';
 import { exportSummaryCSV, formatCurrency } from '../../Utils/utils';
-import { downloadSummaryCSV, downloadTargetPdf, DOWNLOAD_SUMMARY_CSV, DOWNLOAD_TARGET_PDF, SET_DASHBOARD_VIEW, setDashboardView } from '../actionsSwamm';
-import { formatTooltipLabel } from '../components/dashboard/PollutantCard';
+import { downloadSummaryCSV, downloadTargetPdf, DOWNLOAD_SUMMARY_CSV, DOWNLOAD_TARGET_PDF, SET_DASHBOARD_VIEW, setDashboardView, SET_NORMALIZATION_MODE, setNormalizationMode } from '../actionsSwamm';
+import { formatTooltipLabel, normalizeBarData, getNormalizationSuffix } from '../components/dashboard/PollutantCard';
 import { OrgTable } from '../components/dashboard/OrgTable';
 
 describe('SWAMM Dashboard', () => {
@@ -197,6 +197,61 @@ describe('SWAMM Dashboard', () => {
         it('test_org_table_exports', () => {
             expect(OrgTable).toExist();
             expect(typeof OrgTable).toBe('function');
+        });
+    });
+
+    // ── TASK-328: Per Acre / Per Dollar normalization toggle ──
+
+    describe('Normalization mode', () => {
+        it('test_set_normalization_mode_action', () => {
+            const action = setNormalizationMode('per_acre');
+            expect(action.type).toBe(SET_NORMALIZATION_MODE);
+            expect(action.mode).toBe('per_acre');
+
+            const action2 = setNormalizationMode('per_dollar');
+            expect(action2.mode).toBe('per_dollar');
+
+            const action3 = setNormalizationMode('total');
+            expect(action3.mode).toBe('total');
+        });
+
+        it('test_normalization_modes', () => {
+            // Verify all 3 modes produce valid suffix strings
+            expect(getNormalizationSuffix('total')).toBe('');
+            expect(getNormalizationSuffix('per_acre')).toBe(' (per acre)');
+            expect(getNormalizationSuffix('per_dollar')).toBe(' (per $1,000)');
+        });
+
+        it('test_normalize_bar_data_per_acre', () => {
+            const bars = [
+                { label: 'A', total_p_load_reduction: 100, calculated_watershed_area: 10, total_cost: 5000 },
+                { label: 'B', total_p_load_reduction: 50, calculated_watershed_area: 0, total_cost: 2000 }
+            ];
+            const result = normalizeBarData(bars, 'per_acre', 'total_p_load_reduction');
+            // B should be filtered out (0 area)
+            expect(result.length).toBe(1);
+            expect(result[0].label).toBe('A');
+            expect(result[0].total_p_load_reduction).toBe(10); // 100/10
+        });
+
+        it('test_normalize_bar_data_per_dollar', () => {
+            const bars = [
+                { label: 'A', total_p_load_reduction: 100, calculated_watershed_area: 10, total_cost: 5000 },
+                { label: 'B', total_p_load_reduction: 50, calculated_watershed_area: 5, total_cost: 0 }
+            ];
+            const result = normalizeBarData(bars, 'per_dollar', 'total_p_load_reduction');
+            // B should be filtered out (0 cost)
+            expect(result.length).toBe(1);
+            expect(result[0].label).toBe('A');
+            expect(result[0].total_p_load_reduction).toBe(20); // 100/(5000/1000)
+        });
+
+        it('test_normalize_bar_data_total_returns_original', () => {
+            const bars = [
+                { label: 'A', total_p_load_reduction: 100 }
+            ];
+            const result = normalizeBarData(bars, 'total', 'total_p_load_reduction');
+            expect(result).toBe(bars); // Same reference, no transformation
         });
     });
 
