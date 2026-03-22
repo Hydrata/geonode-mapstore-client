@@ -4,7 +4,8 @@ import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 const FILTER_TOOLTIPS = {
     type: "Group chart data by BMP practice type",
     status: "Group chart data by BMP implementation status",
-    group_profile: "Group chart data by implementing organization"
+    group_profile: "Group chart data by implementing organization",
+    swamm_engine: "Group chart data by sub-watershed"
 };
 
 const DOWNLOAD_TOOLTIP = "Download all BMP data as Excel spreadsheet";
@@ -96,6 +97,19 @@ const TargetSelector = ({
                         onClick={() => setBmpFilterMode('group_profile')}
                     >
                         Organization
+                    </button>
+                </OverlayTrigger>
+                <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-subwatershed">{FILTER_TOOLTIPS.swamm_engine}</Tooltip>}>
+                    <button
+                        className={"swamm-button"}
+                        role="radio"
+                        aria-checked={bmpFilterMode === 'swamm_engine'}
+                        style={{
+                            backgroundColor: bmpFilterMode === 'swamm_engine' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                        }}
+                        onClick={() => setBmpFilterMode('swamm_engine')}
+                    >
+                        Sub-Watershed
                     </button>
                 </OverlayTrigger>
             </div>

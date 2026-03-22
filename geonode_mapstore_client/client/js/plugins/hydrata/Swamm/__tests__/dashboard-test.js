@@ -163,4 +163,22 @@ describe('SWAMM Dashboard', () => {
         });
     });
 
+    // ── TASK-326: Sub-watershed filter button ──
+
+    describe('Sub-watershed filter mode', () => {
+        it('test_sub_watershed_filter_mode_constant', () => {
+            // Verify 'swamm_engine' is in FILTER_TOOLTIPS (meaning it's a valid filter mode)
+            expect(FILTER_TOOLTIPS.swamm_engine).toBe('Group chart data by sub-watershed');
+
+            // Verify the TargetSelector source contains the sub-watershed button
+            const fs = require('fs');
+            const path = require('path');
+            const src = fs.readFileSync(
+                path.resolve(__dirname, '../components/dashboard/TargetSelector.js'), 'utf8'
+            );
+            expect(src).toInclude("setBmpFilterMode('swamm_engine')");
+            expect(src).toInclude('Sub-Watershed');
+        });
+    });
+
 });
