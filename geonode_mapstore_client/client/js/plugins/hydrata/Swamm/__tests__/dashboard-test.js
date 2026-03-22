@@ -2,6 +2,7 @@ import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { DashboardErrorFallback } from '../components/dashboard/DashboardContainer';
+import { FILTER_TOOLTIPS, DOWNLOAD_TOOLTIP } from '../components/dashboard/TargetSelector';
 
 describe('SWAMM Dashboard', () => {
 
@@ -60,6 +61,17 @@ describe('SWAMM Dashboard', () => {
 
             // LegendPanel ARIA
             expect(legendPanelSrc).toInclude('aria-label="Chart legend"');
+        });
+    });
+
+    // ── TASK-317: Tooltips and help text ──
+
+    describe('Tooltip text constants', () => {
+        it('test_tooltip_text_constants', () => {
+            expect(FILTER_TOOLTIPS.type).toBe('Group chart data by BMP practice type');
+            expect(FILTER_TOOLTIPS.status).toBe('Group chart data by BMP implementation status');
+            expect(FILTER_TOOLTIPS.group_profile).toBe('Group chart data by implementing organization');
+            expect(DOWNLOAD_TOOLTIP).toBe('Download all BMP data as Excel spreadsheet');
         });
     });
 

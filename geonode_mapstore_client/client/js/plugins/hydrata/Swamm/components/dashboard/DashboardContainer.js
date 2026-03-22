@@ -59,6 +59,10 @@ class SwammBmpChartClass extends React.Component {
                 <div id={"swamm-bmp-chart-header"}>
                     <div>
                         Dashboard: {this.props.selectedTarget?.name}
+                        {' '}
+                        <a href="/docs/" target="_blank" rel="noopener noreferrer" aria-label="Dashboard help" style={{color: 'white', fontSize: 'small'}}>
+                            <span className="glyphicon glyphicon-question-sign" />
+                        </a>
                     </div>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}

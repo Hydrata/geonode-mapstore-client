@@ -1,4 +1,13 @@
 import React from "react";
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+
+const FILTER_TOOLTIPS = {
+    type: "Group chart data by BMP practice type",
+    status: "Group chart data by BMP implementation status",
+    group_profile: "Group chart data by implementing organization"
+};
+
+const DOWNLOAD_TOOLTIP = "Download all BMP data as Excel spreadsheet";
 
 const TargetSelector = ({
     targets,
@@ -48,53 +57,61 @@ const TargetSelector = ({
                 Sort Data By:
             </div>
             <div role="radiogroup" aria-label="Group data by">
-                <button
-                    className={"swamm-button"}
-                    role="radio"
-                    aria-checked={bmpFilterMode === 'type'}
-                    style={{
-                        backgroundColor: bmpFilterMode === 'type' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
-                    }}
-                    onClick={() => setBmpFilterMode('type')}
-                >
-                    BMP Type
-                </button>
-                <button
-                    className={"swamm-button"}
-                    role="radio"
-                    aria-checked={bmpFilterMode === 'status'}
-                    style={{
-                        backgroundColor: bmpFilterMode === 'status' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
-                    }}
-                    onClick={() => setBmpFilterMode('status')}
-                >
-                    BMP Status
-                </button>
-                <button
-                    className={"swamm-button"}
-                    role="radio"
-                    aria-checked={bmpFilterMode === 'group_profile'}
-                    style={{
-                        backgroundColor: bmpFilterMode === 'group_profile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
-                    }}
-                    onClick={() => setBmpFilterMode('group_profile')}
-                >
-                    Organization
-                </button>
+                <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-type">{FILTER_TOOLTIPS.type}</Tooltip>}>
+                    <button
+                        className={"swamm-button"}
+                        role="radio"
+                        aria-checked={bmpFilterMode === 'type'}
+                        style={{
+                            backgroundColor: bmpFilterMode === 'type' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                        }}
+                        onClick={() => setBmpFilterMode('type')}
+                    >
+                        BMP Type
+                    </button>
+                </OverlayTrigger>
+                <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-status">{FILTER_TOOLTIPS.status}</Tooltip>}>
+                    <button
+                        className={"swamm-button"}
+                        role="radio"
+                        aria-checked={bmpFilterMode === 'status'}
+                        style={{
+                            backgroundColor: bmpFilterMode === 'status' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                        }}
+                        onClick={() => setBmpFilterMode('status')}
+                    >
+                        BMP Status
+                    </button>
+                </OverlayTrigger>
+                <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-org">{FILTER_TOOLTIPS.group_profile}</Tooltip>}>
+                    <button
+                        className={"swamm-button"}
+                        role="radio"
+                        aria-checked={bmpFilterMode === 'group_profile'}
+                        style={{
+                            backgroundColor: bmpFilterMode === 'group_profile' ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
+                        }}
+                        onClick={() => setBmpFilterMode('group_profile')}
+                    >
+                        Organization
+                    </button>
+                </OverlayTrigger>
             </div>
         </div>
         <div id={"swamm-bmp-chart-download"}>
             <div className={"swamm-bmp-chart-heading"}>
                 Download target data:
             </div>
-            <button
-                className={"swamm-button"}
-                onClick={() => downloadTargetData(projectId, selectedTargetId)}
-            >
-                *.xlsx
-            </button>
+            <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-download">{DOWNLOAD_TOOLTIP}</Tooltip>}>
+                <button
+                    className={"swamm-button"}
+                    onClick={() => downloadTargetData(projectId, selectedTargetId)}
+                >
+                    *.xlsx
+                </button>
+            </OverlayTrigger>
         </div>
     </div>
 );
 
-export { TargetSelector };
+export { TargetSelector, FILTER_TOOLTIPS, DOWNLOAD_TOOLTIP };
