@@ -132,7 +132,6 @@ class SwammBmpChartClass extends React.Component {
                                     <div id={"swamm-bmp-chart-col-two"}>
                                         <OrgTable
                                             barChartData={this.props.selectedTarget?.barChartData}
-                                            speedDialData={this.props.selectedTarget?.speedDialData}
                                             bmpFilterMode={this.props.bmpFilterMode}
                                         />
                                     </div>

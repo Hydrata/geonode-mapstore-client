@@ -1029,7 +1029,7 @@ const downloadTargetPdf = (projectId, targetId) => {
                 const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
                 const link = document.createElement('a');
                 link.href = url;
-                link.setAttribute('download', response?.headers?.["content-disposition"]?.split('filename=')?.[1] || 'target_report.pdf');
+                link.setAttribute('download', (response?.headers?.["content-disposition"]?.split('filename=')?.[1] || 'target_report.pdf').replace(/"/g, ''));
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
