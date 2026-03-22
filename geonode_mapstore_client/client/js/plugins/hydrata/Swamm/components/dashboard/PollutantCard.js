@@ -2,16 +2,30 @@ import React from "react";
 import {formatMoney} from "../../../Utils/utils";
 const {Cell, BarChart, Bar, PieChart, Pie, ResponsiveContainer, XAxis, YAxis, Tooltip} = require('recharts');
 
+const formatTooltipLabel = (name, value, barEntry, loadKey) => {
+    const reduction = formatMoney(value, 0);
+    if (!barEntry || !barEntry.total_cost || !value) {
+        return `${name} - ${reduction}`;
+    }
+    const costPerUnit = barEntry.total_cost / value;
+    if (loadKey === 'total_s_load_reduction') {
+        return `${name} - ${reduction} tons/yr ($${formatMoney(costPerUnit, 0)}/ton)`;
+    }
+    return `${name} - ${reduction} lbs/yr ($${formatMoney(costPerUnit, 0)}/lb)`;
+};
+
 const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
     if (active && payload && payload.length && tooltipKey) {
         return payload.map(bar => {
             if (bar.dataKey === tooltipKey) {
                 const tooltipKeys = tooltipKey.split('.');
-                const barValue = bar.payload[tooltipKeys[0]][Number(tooltipKeys[1])][tooltipKeys[2]];
+                const barEntry = bar.payload[tooltipKeys[0]][Number(tooltipKeys[1])];
+                const barValue = barEntry[tooltipKeys[2]];
+                const loadKey = tooltipKeys[2];
                 return (
                     <div className="custom-tooltip">
                         <div className="custom-tooltip-label">
-                            {bar?.name} - {formatMoney(barValue, 0)}
+                            {formatTooltipLabel(bar?.name, barValue, barEntry, loadKey)}
                         </div>
                         <br/>
                     </div >
@@ -153,4 +167,4 @@ const PollutantCard = ({
     </div>
 );
 
-export { PollutantCard };
+export { PollutantCard, formatTooltipLabel };

@@ -5,6 +5,7 @@ import { DashboardErrorFallback } from '../components/dashboard/DashboardContain
 import { FILTER_TOOLTIPS, DOWNLOAD_TOOLTIP } from '../components/dashboard/TargetSelector';
 import { exportSummaryCSV, formatCurrency } from '../../Utils/utils';
 import { downloadSummaryCSV, downloadTargetPdf, DOWNLOAD_SUMMARY_CSV, DOWNLOAD_TARGET_PDF } from '../actionsSwamm';
+import { formatTooltipLabel } from '../components/dashboard/PollutantCard';
 
 describe('SWAMM Dashboard', () => {
 
@@ -132,6 +133,33 @@ describe('SWAMM Dashboard', () => {
             expect(formatCurrency(0)).toBe('\u2014');
             expect(formatCurrency(null)).toBe('\u2014');
             expect(formatCurrency(undefined)).toBe('\u2014');
+        });
+    });
+
+    // ── TASK-325: Cost tooltip in bar chart ──
+
+    describe('Bar chart cost tooltip', () => {
+        it('test_tooltip_format_with_cost', () => {
+            const barEntry = { total_cost: 5000, total_p_load_reduction: 100 };
+            const result = formatTooltipLabel('Rain Garden', 100, barEntry, 'total_p_load_reduction');
+            expect(result).toInclude('Rain Garden');
+            expect(result).toInclude('100');
+            expect(result).toInclude('$');
+            expect(result).toInclude('/lb');
+        });
+
+        it('test_tooltip_format_without_cost', () => {
+            const barEntry = { total_cost: 0, total_p_load_reduction: 100 };
+            const result = formatTooltipLabel('Rain Garden', 100, barEntry, 'total_p_load_reduction');
+            expect(result).toBe('Rain Garden - 100');
+            expect(result).toNotInclude('$');
+        });
+
+        it('test_tooltip_format_sediment_shows_ton', () => {
+            const barEntry = { total_cost: 10000, total_s_load_reduction: 50 };
+            const result = formatTooltipLabel('Wetland', 50, barEntry, 'total_s_load_reduction');
+            expect(result).toInclude('/ton');
+            expect(result).toInclude('tons/yr');
         });
     });
 
