@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { DashboardErrorFallback } from '../components/dashboard/DashboardContainer';
 import { FILTER_TOOLTIPS, DOWNLOAD_TOOLTIP } from '../components/dashboard/TargetSelector';
-import { exportSummaryCSV } from '../../Utils/utils';
+import { exportSummaryCSV, formatCurrency } from '../../Utils/utils';
 import { downloadSummaryCSV, downloadTargetPdf, DOWNLOAD_SUMMARY_CSV, DOWNLOAD_TARGET_PDF } from '../actionsSwamm';
 
 describe('SWAMM Dashboard', () => {
@@ -116,6 +116,22 @@ describe('SWAMM Dashboard', () => {
             expect(typeof downloadTargetPdf).toBe('function');
             expect(typeof DOWNLOAD_SUMMARY_CSV).toBe('string');
             expect(typeof DOWNLOAD_TARGET_PDF).toBe('string');
+        });
+    });
+
+    // ── TASK-324: Cost rows in SummaryTable ──
+
+    describe('formatCurrency', () => {
+        it('test_format_currency', () => {
+            const result = formatCurrency(1234.56);
+            expect(result).toInclude('$');
+            expect(result).toInclude('1,235');
+        });
+
+        it('test_format_currency_zero_returns_dash', () => {
+            expect(formatCurrency(0)).toBe('\u2014');
+            expect(formatCurrency(null)).toBe('\u2014');
+            expect(formatCurrency(undefined)).toBe('\u2014');
         });
     });
 

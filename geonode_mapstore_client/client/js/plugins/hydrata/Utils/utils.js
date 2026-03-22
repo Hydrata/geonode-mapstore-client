@@ -34,9 +34,14 @@ function exportSummaryCSV(speedDialData) {
     return rows.map(r => r.join(',')).join('\n');
 }
 
+function formatCurrency(value) {
+    return value ? '$' + formatMoney(value, 0) : '\u2014';
+}
+
 export {
     isInt,
     formatMoney,
     capitalizeFirstLetter,
-    exportSummaryCSV
+    exportSummaryCSV,
+    formatCurrency
 };
