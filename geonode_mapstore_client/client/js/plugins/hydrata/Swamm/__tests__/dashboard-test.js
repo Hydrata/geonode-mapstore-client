@@ -4,8 +4,9 @@ import ReactDOM from 'react-dom';
 import { DashboardErrorFallback } from '../components/dashboard/DashboardContainer';
 import { FILTER_TOOLTIPS, DOWNLOAD_TOOLTIP } from '../components/dashboard/TargetSelector';
 import { exportSummaryCSV, formatCurrency } from '../../Utils/utils';
-import { downloadSummaryCSV, downloadTargetPdf, DOWNLOAD_SUMMARY_CSV, DOWNLOAD_TARGET_PDF } from '../actionsSwamm';
+import { downloadSummaryCSV, downloadTargetPdf, DOWNLOAD_SUMMARY_CSV, DOWNLOAD_TARGET_PDF, SET_DASHBOARD_VIEW, setDashboardView } from '../actionsSwamm';
 import { formatTooltipLabel } from '../components/dashboard/PollutantCard';
+import { OrgTable } from '../components/dashboard/OrgTable';
 
 describe('SWAMM Dashboard', () => {
 
@@ -178,6 +179,24 @@ describe('SWAMM Dashboard', () => {
             );
             expect(src).toInclude("setBmpFilterMode('swamm_engine')");
             expect(src).toInclude('Sub-Watershed');
+        });
+    });
+
+    // ── TASK-327: Organization contribution table ──
+
+    describe('Dashboard view toggle', () => {
+        it('test_set_dashboard_view_action', () => {
+            const action = setDashboardView('table');
+            expect(action.type).toBe(SET_DASHBOARD_VIEW);
+            expect(action.view).toBe('table');
+
+            const chartAction = setDashboardView('chart');
+            expect(chartAction.view).toBe('chart');
+        });
+
+        it('test_org_table_exports', () => {
+            expect(OrgTable).toExist();
+            expect(typeof OrgTable).toBe('function');
         });
     });
 

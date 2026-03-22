@@ -12,7 +12,8 @@ import {
     HIDE_TARGET_FORM,
     UPDATE_TARGET_FORM,
     SHOW_BMP_CHOOSER,
-    HIDE_BMP_CHOOSER
+    HIDE_BMP_CHOOSER,
+    SET_DASHBOARD_VIEW
 } from "../actionsSwamm";
 
 const uiReducer = (state, action) => {
@@ -56,6 +57,8 @@ const uiReducer = (state, action) => {
         return { bmpChooserCandidates: action.candidates };
     case HIDE_BMP_CHOOSER:
         return { bmpChooserCandidates: null };
+    case SET_DASHBOARD_VIEW:
+        return { dashboardView: action.view };
     default:
         return {};
     }
