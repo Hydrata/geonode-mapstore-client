@@ -13,7 +13,7 @@ describe('swammApi', () => {
             'getAllBmps', 'getAllBmpsPaginated', 'getBmp', 'createBmp', 'updateBmp', 'deleteBmp',
             'getBmpStatuses', 'getLatestFeatureId',
             'getTargets', 'createTarget', 'updateTarget', 'deleteTarget',
-            'downloadTargetXlsx',
+            'downloadTargetXlsx', 'downloadTargetPdf',
             'getErosionData'
         ];
 
@@ -23,11 +23,11 @@ describe('swammApi', () => {
             });
         });
 
-        it('should export exactly 23 API functions', () => {
+        it('should export exactly 22 API functions', () => {
             const exportedFunctions = Object.keys(swammApi).filter(
                 k => typeof swammApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(21);
+            expect(exportedFunctions.length).toBe(22);
         });
     });
 
@@ -110,6 +110,10 @@ describe('swammApi', () => {
             expect(swammApi.downloadTargetXlsx.length).toBe(2);
         });
 
+        it('downloadTargetPdf takes 2 arguments (projectId, targetId)', () => {
+            expect(swammApi.downloadTargetPdf.length).toBe(2);
+        });
+
         it('getErosionData takes 1 argument (projectId)', () => {
             expect(swammApi.getErosionData.length).toBe(1);
         });
@@ -140,6 +144,7 @@ describe('swammApi', () => {
             expect(swammApi.updateTarget).toExist();
             expect(swammApi.deleteTarget).toExist();
             expect(swammApi.downloadTargetXlsx).toExist();
+            expect(swammApi.downloadTargetPdf).toExist();
         });
 
         it('has loading data functions', () => {
