@@ -114,6 +114,12 @@ export const downloadTargetXlsx = (projectId, targetId) =>
         { responseType: 'blob' }
     );
 
+export const downloadTargetPdf = (projectId, targetId) =>
+    axios.get(
+        `/swamm/api/${projectId}/pollutant-loading-target/${targetId}/download-pdf/`,
+        { responseType: 'arraybuffer' }
+    );
+
 // ── Loading Data ─────────────────────────────────────────────────────────
 
 export const getErosionData = (projectId) =>

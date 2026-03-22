@@ -22,8 +22,21 @@ function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
+function exportSummaryCSV(speedDialData) {
+    const rows = [
+        ['Metric', 'Phosphorus', 'Nitrogen', 'Sediment', 'Units'],
+        ['Current total untreated pollutant volume', speedDialData.currentPhosphorusLoad, speedDialData.currentNitrogenLoad, speedDialData.currentSedimentLoad, 'units/year'],
+        ['Selected target reduction percentage', (speedDialData.percentPhosphorusReductionTarget * 100).toFixed(0), (speedDialData.percentNitrogenReductionTarget * 100).toFixed(0), (speedDialData.percentSedimentReductionTarget * 100).toFixed(0), '% of total'],
+        ['Selected target load reduction required', speedDialData.targetPhosphorusLoadReductionRequired, speedDialData.targetNitrogenLoadReductionRequired, speedDialData.targetSedimentLoadReductionRequired, 'units/year'],
+        ['Actual pollutant reduction from BMPs', speedDialData.totalBmpPhosphorusReduction, speedDialData.totalBmpNitrogenReduction, speedDialData.totalBmpSedimentReduction, 'units/year'],
+        ['Percentage of target achieved', speedDialData.percentPhosphorusTarget?.[0]?.value || 0, speedDialData.percentNitrogenTarget?.[0]?.value || 0, speedDialData.percentSedimentTarget?.[0]?.value || 0, '%']
+    ];
+    return rows.map(r => r.join(',')).join('\n');
+}
+
 export {
     isInt,
     formatMoney,
-    capitalizeFirstLetter
+    capitalizeFirstLetter,
+    exportSummaryCSV
 };

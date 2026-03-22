@@ -18,6 +18,8 @@ const TargetSelector = ({
     bmpFilterMode,
     setBmpFilterMode,
     downloadTargetData,
+    downloadSummaryCSV,
+    downloadTargetPdf,
     projectId
 }) => (
     <div id={"swamm-bmp-chart-col-one"}>
@@ -108,6 +110,22 @@ const TargetSelector = ({
                     onClick={() => downloadTargetData(projectId, selectedTargetId)}
                 >
                     *.xlsx
+                </button>
+            </OverlayTrigger>
+            <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-csv">Download summary as CSV</Tooltip>}>
+                <button
+                    className={"swamm-button"}
+                    onClick={() => downloadSummaryCSV && downloadSummaryCSV(selectedTarget?.speedDialData, selectedTarget?.name)}
+                >
+                    CSV
+                </button>
+            </OverlayTrigger>
+            <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-pdf">Download target report as PDF</Tooltip>}>
+                <button
+                    className={"swamm-button"}
+                    onClick={() => downloadTargetPdf && downloadTargetPdf(projectId, selectedTargetId)}
+                >
+                    PDF
                 </button>
             </OverlayTrigger>
         </div>

@@ -2,7 +2,7 @@ import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import { ErrorBoundary } from 'react-error-boundary';
-import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData} from "../../actionsSwamm";
+import {hideSwammBmpChart, selectSwammTargetId, setBmpFilterMode, showTargetForm, downloadTargetData, downloadSummaryCSV, downloadTargetPdf} from "../../actionsSwamm";
 import '../../swamm.css';
 import {CIRCLE_SIZE, POLLUTANTS, CHART_COLOURS} from "./constants";
 import {TargetSelector} from "./TargetSelector";
@@ -30,6 +30,8 @@ class SwammBmpChartClass extends React.Component {
         bmpFilterMode: PropTypes.string,
         setBmpFilterMode: PropTypes.func,
         downloadTargetData: PropTypes.func,
+        downloadSummaryCSV: PropTypes.func,
+        downloadTargetPdf: PropTypes.func,
         projectId: PropTypes.number
     };
 
@@ -95,6 +97,8 @@ class SwammBmpChartClass extends React.Component {
                                 bmpFilterMode={this.props.bmpFilterMode}
                                 setBmpFilterMode={this.props.setBmpFilterMode}
                                 downloadTargetData={this.props.downloadTargetData}
+                                downloadSummaryCSV={this.props.downloadSummaryCSV}
+                                downloadTargetPdf={this.props.downloadTargetPdf}
                                 projectId={this.props.projectId}
                             />
                             <ErrorBoundary FallbackComponent={DashboardErrorFallback}>
@@ -163,7 +167,9 @@ const mapDispatchToProps = ( dispatch ) => {
         selectSwammTargetId: (selectedTargetId) => dispatch(selectSwammTargetId(selectedTargetId)),
         setBmpFilterMode: (mode) => dispatch(setBmpFilterMode(mode)),
         showTargetForm: (target) => dispatch(showTargetForm(target)),
-        downloadTargetData: (projectId, targetId) => dispatch(downloadTargetData(projectId, targetId))
+        downloadTargetData: (projectId, targetId) => dispatch(downloadTargetData(projectId, targetId)),
+        downloadSummaryCSV: (speedDialData, targetName) => dispatch(downloadSummaryCSV(speedDialData, targetName)),
+        downloadTargetPdf: (projectId, targetId) => dispatch(downloadTargetPdf(projectId, targetId))
     };
 };
 

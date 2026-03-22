@@ -994,6 +994,58 @@ const applyInitialBmpFilter = () => ({ type: APPLY_INITIAL_BMP_FILTER });
 const showBmpChooser = (candidates) => ({ type: SHOW_BMP_CHOOSER, candidates });
 const hideBmpChooser = () => ({ type: HIDE_BMP_CHOOSER });
 
+const DOWNLOAD_SUMMARY_CSV = 'DOWNLOAD_SUMMARY_CSV';
+
+const downloadSummaryCSV = (speedDialData, targetName) => {
+    const { exportSummaryCSV } = require('../Utils/utils');
+    const csvContent = exportSummaryCSV(speedDialData);
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', (targetName || 'summary') + '.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    return { type: DOWNLOAD_SUMMARY_CSV };
+};
+
+const DOWNLOAD_TARGET_PDF = 'DOWNLOAD_TARGET_PDF';
+const DOWNLOAD_TARGET_PDF_SUCCESS = 'DOWNLOAD_TARGET_PDF_SUCCESS';
+const DOWNLOAD_TARGET_PDF_ERROR = 'DOWNLOAD_TARGET_PDF_ERROR';
+
+const downloadTargetPdf = (projectId, targetId) => {
+    return (dispatch) => {
+        return swammApi.downloadTargetPdf(projectId, targetId).then(
+            response => {
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', response?.headers?.["content-disposition"]?.split('filename=')?.[1] || 'target_report.pdf');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                dispatch({ type: DOWNLOAD_TARGET_PDF_SUCCESS });
+            }
+        ).catch(
+            e => {
+                dispatch({
+                    type: SHOW_NOTIFICATION,
+                    title: 'Failed to download PDF',
+                    autoDismiss: 60,
+                    position: 'tc',
+                    message: `${e?.data}`,
+                    uid: uuidv1(),
+                    level: 'error'
+                });
+                dispatch({ type: DOWNLOAD_TARGET_PDF_ERROR, error: e });
+            }
+        );
+    };
+};
+
 module.exports = {
     INIT_SWAMM, initSwamm,
     SET_SWAMM_PROJECT_DATA, setSwammProjectData,
@@ -1083,5 +1135,8 @@ module.exports = {
     DOWNLOAD_TARGET_DATA_ERROR, downloadTargetDataError,
     APPLY_INITIAL_BMP_FILTER, applyInitialBmpFilter,
     SHOW_BMP_CHOOSER, showBmpChooser,
-    HIDE_BMP_CHOOSER, hideBmpChooser
+    HIDE_BMP_CHOOSER, hideBmpChooser,
+    DOWNLOAD_SUMMARY_CSV, downloadSummaryCSV,
+    DOWNLOAD_TARGET_PDF, downloadTargetPdf,
+    DOWNLOAD_TARGET_PDF_SUCCESS, DOWNLOAD_TARGET_PDF_ERROR
 };

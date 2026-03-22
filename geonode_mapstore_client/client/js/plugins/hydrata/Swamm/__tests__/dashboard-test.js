@@ -3,6 +3,8 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { DashboardErrorFallback } from '../components/dashboard/DashboardContainer';
 import { FILTER_TOOLTIPS, DOWNLOAD_TOOLTIP } from '../components/dashboard/TargetSelector';
+import { exportSummaryCSV } from '../../Utils/utils';
+import { downloadSummaryCSV, downloadTargetPdf, DOWNLOAD_SUMMARY_CSV, DOWNLOAD_TARGET_PDF } from '../actionsSwamm';
 
 describe('SWAMM Dashboard', () => {
 
@@ -72,6 +74,48 @@ describe('SWAMM Dashboard', () => {
             expect(FILTER_TOOLTIPS.status).toBe('Group chart data by BMP implementation status');
             expect(FILTER_TOOLTIPS.group_profile).toBe('Group chart data by implementing organization');
             expect(DOWNLOAD_TOOLTIP).toBe('Download all BMP data as Excel spreadsheet');
+        });
+    });
+
+    // ── TASK-318: CSV/PDF export ──
+
+    describe('Export CSV', () => {
+        const mockSpeedDialData = {
+            currentPhosphorusLoad: 100,
+            currentNitrogenLoad: 200,
+            currentSedimentLoad: 300,
+            percentPhosphorusReductionTarget: 0.25,
+            percentNitrogenReductionTarget: 0.30,
+            percentSedimentReductionTarget: 0.35,
+            targetPhosphorusLoadReductionRequired: 25,
+            targetNitrogenLoadReductionRequired: 60,
+            targetSedimentLoadReductionRequired: 105,
+            totalBmpPhosphorusReduction: 10,
+            totalBmpNitrogenReduction: 20,
+            totalBmpSedimentReduction: 30,
+            percentPhosphorusTarget: [{ value: 40 }],
+            percentNitrogenTarget: [{ value: 33.3 }],
+            percentSedimentTarget: [{ value: 28.6 }]
+        };
+
+        it('test_export_summary_csv_format', () => {
+            const csv = exportSummaryCSV(mockSpeedDialData);
+            const lines = csv.split('\n');
+            expect(lines.length).toBe(6);
+            expect(lines[0]).toBe('Metric,Phosphorus,Nitrogen,Sediment,Units');
+            expect(lines[1]).toInclude('100');
+            expect(lines[1]).toInclude('200');
+            expect(lines[1]).toInclude('300');
+            expect(lines[2]).toInclude('25');
+            expect(lines[2]).toInclude('30');
+            expect(lines[2]).toInclude('35');
+        });
+
+        it('test_download_actions_exist', () => {
+            expect(typeof downloadSummaryCSV).toBe('function');
+            expect(typeof downloadTargetPdf).toBe('function');
+            expect(typeof DOWNLOAD_SUMMARY_CSV).toBe('string');
+            expect(typeof DOWNLOAD_TARGET_PDF).toBe('string');
         });
     });
 
