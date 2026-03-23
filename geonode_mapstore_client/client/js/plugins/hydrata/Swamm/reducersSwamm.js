@@ -14,6 +14,7 @@ const initialState = {
     allBmps: [],
     statuses: [],
     targets: [],
+    swammEngines: [],
     visibleBmpForm: false,
     visibleTargetForm: false,
     creatingNewBmp: false,

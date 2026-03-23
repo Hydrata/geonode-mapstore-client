@@ -14,7 +14,8 @@ import {
     SELECT_SWAMM_TARGET_ID,
     UPDATE_BMP_TYPE_GROUPS,
     SUBMIT_BMP_FORM_SUCCESS,
-    DELETE_BMP_SUCCESS
+    DELETE_BMP_SUCCESS,
+    FETCH_SWAMM_ENGINES_SUCCESS
 } from "../actionsSwamm";
 
 const bmpDataReducer = (state, action) => {
@@ -74,6 +75,8 @@ const bmpDataReducer = (state, action) => {
     }
     case DELETE_BMP_SUCCESS:
         return { allBmps: state.allBmps.filter((bmp) => bmp.id !== action.bmpId) };
+    case FETCH_SWAMM_ENGINES_SUCCESS:
+        return { swammEngines: action.swammEngines };
     default:
         return {};
     }

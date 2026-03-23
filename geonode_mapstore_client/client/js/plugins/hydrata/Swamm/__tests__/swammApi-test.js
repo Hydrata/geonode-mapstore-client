@@ -14,7 +14,8 @@ describe('swammApi', () => {
             'getBmpStatuses', 'getLatestFeatureId',
             'getTargets', 'createTarget', 'updateTarget', 'deleteTarget',
             'downloadTargetXlsx', 'downloadTargetPdf',
-            'getErosionData'
+            'getErosionData',
+            'getEngines'
         ];
 
         expectedFunctions.forEach(name => {
@@ -23,11 +24,11 @@ describe('swammApi', () => {
             });
         });
 
-        it('should export exactly 22 API functions', () => {
+        it('should export exactly 23 API functions', () => {
             const exportedFunctions = Object.keys(swammApi).filter(
                 k => typeof swammApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(22);
+            expect(exportedFunctions.length).toBe(23);
         });
     });
 
@@ -118,6 +119,10 @@ describe('swammApi', () => {
             expect(swammApi.getErosionData.length).toBe(1);
         });
 
+        it('getEngines takes 1 argument (projectId)', () => {
+            expect(swammApi.getEngines.length).toBe(1);
+        });
+
     });
 
     // ── Grouping sanity checks ───────────────────────────────────────
@@ -149,6 +154,7 @@ describe('swammApi', () => {
 
         it('has loading data functions', () => {
             expect(swammApi.getErosionData).toExist();
+            expect(swammApi.getEngines).toExist();
         });
 
         it('has reference data functions', () => {

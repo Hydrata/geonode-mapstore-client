@@ -59,7 +59,8 @@ import {
     CLEAR_TARGET_FORM, clearTargetForm,
     DOWNLOAD_BMP_REPORT, downloadBmpReport,
     SET_SWAMM_INPUT_MENU, setSwammInputMenu,
-    SET_SWAMM_EROSION_DATA, setSwammErosionData
+    SET_SWAMM_EROSION_DATA, setSwammErosionData,
+    FETCH_SWAMM_ENGINES_SUCCESS, fetchSwammEnginesSuccess
 } from '../actionsSwamm';
 
 
@@ -382,6 +383,13 @@ describe('SWAMM Action Creators', () => {
             expect(action.data).toEqual(data);
         });
 
+        it('fetchSwammEnginesSuccess wraps engines', () => {
+            const engines = [{ id: 1, name: 'Engine A' }, { id: 2, name: 'Engine B' }];
+            const action = fetchSwammEnginesSuccess(engines);
+            expect(action.type).toBe(FETCH_SWAMM_ENGINES_SUCCESS);
+            expect(action.swammEngines).toEqual(engines);
+        });
+
     });
 
     // ──────────────────────────────────────────────────────────────────
@@ -604,7 +612,8 @@ describe('SWAMM Action Creators', () => {
                 UPDATE_TARGET_FORM, CLEAR_TARGET_FORM,
                 SET_SWAMM_INPUT_MENU,
                 SET_SWAMM_EROSION_DATA,
-                DOWNLOAD_BMP_REPORT, START_DRAWING_BMP
+                DOWNLOAD_BMP_REPORT, START_DRAWING_BMP,
+                FETCH_SWAMM_ENGINES_SUCCESS
             ];
             constants.forEach((c) => {
                 expect(typeof c).toBe('string');
@@ -633,7 +642,8 @@ describe('SWAMM Action Creators', () => {
                 TOGGLE_BMP_TYPE_VISIBILITY, TOGGLE_BMP_PRIORITY_VISIBILITY,
                 TOGGLE_BMP_GROUP_PROFILE_VISIBILITY, TOGGLE_BMP_STATUS_VISIBILITY,
                 SET_ALL_BMP_TYPES_VISIBILITY,
-                SET_SWAMM_INPUT_MENU
+                SET_SWAMM_INPUT_MENU,
+                FETCH_SWAMM_ENGINES_SUCCESS
             ];
             const unique = new Set(constants);
             expect(unique.size).toBe(constants.length);

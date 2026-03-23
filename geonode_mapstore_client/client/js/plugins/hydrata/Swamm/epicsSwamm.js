@@ -35,6 +35,7 @@ import {
     fetchUserGroupMembershipsSuccess,
     fetchSwammBmpStatusesSuccess,
     fetchSwammTargetsSuccess,
+    fetchSwammEnginesSuccess,
     setSwammErosionData,
     TOGGLE_BMP_TYPE_GROUP,
     APPLY_INITIAL_BMP_FILTER,
@@ -95,7 +96,7 @@ const swammInitFlow = (mapId, store) =>
                     setSvConfig(response2.data?.simple_view_config)
                 ))
                 .catch((err) => { console.warn('initSwammEpic: getProject failed', err); return Rx.Observable.empty(); }),
-            // 7 reference data calls — only need projectId, not project response
+            // 8 reference data calls — only need projectId, not project response
             Rx.Observable.from(swammApi.getBmpTypes(projectId))
                 .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data)))
                 .catch((err) => { console.warn('initSwammEpic: getBmpTypes failed', err); return Rx.Observable.empty(); }),
@@ -116,7 +117,10 @@ const swammInitFlow = (mapId, store) =>
                 .catch((err) => { console.warn('initSwammEpic: getBmpTypeGroups failed', err); return Rx.Observable.empty(); }),
             Rx.Observable.from(swammApi.getErosionData(projectId))
                 .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
-                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); })
+                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); }),
+            Rx.Observable.from(swammApi.getEngines(projectId))
+                .switchMap((r) => Rx.Observable.of(fetchSwammEnginesSuccess(r.data)))
+                .catch((err) => { console.warn('initSwammEpic: getEngines failed', err); return Rx.Observable.empty(); })
         ).concat(
             Rx.Observable.of(applyInitialBmpFilter())
         );

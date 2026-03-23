@@ -86,6 +86,7 @@
         "includeBmpStatuses": "Include these BMP statuses",
         "includeBmpTypes": "Include these BMP types",
         "includeBmpsFromOrganizations": "Include BMPs from these organizations",
+        "includeSubWatersheds": "Include these sub-watersheds",
         "layersAdded": "Layers added",
         "lbsPerYear": "lbs/year",
         "legend": "Legend",

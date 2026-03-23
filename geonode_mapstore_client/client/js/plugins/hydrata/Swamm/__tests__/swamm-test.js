@@ -56,6 +56,7 @@ import {
     SET_SWAMM_INPUT_MENU,
     UPDATE_BMP_TYPE_GROUPS,
     SET_SWAMM_EROSION_DATA,
+    FETCH_SWAMM_ENGINES_SUCCESS,
     DELETE_BMP_SUCCESS,
     setSwammProjectData,
     initSwamm,
@@ -213,6 +214,7 @@ describe('Swamm Plugin', () => {
             allBmps: [],
             statuses: [],
             targets: [],
+            swammEngines: [],
             visibleBmpForm: false,
             visibleTargetForm: false,
             creatingNewBmp: false,
@@ -953,6 +955,15 @@ describe('Swamm Plugin', () => {
                 data: data
             });
             expect(state.erosions).toEqual(data);
+        });
+
+        it('should handle FETCH_SWAMM_ENGINES_SUCCESS', () => {
+            const engines = [{ id: 1, name: 'Engine A' }, { id: 2, name: 'Engine B' }];
+            const state = reducer(initialState, {
+                type: FETCH_SWAMM_ENGINES_SUCCESS,
+                swammEngines: engines
+            });
+            expect(state.swammEngines).toEqual(engines);
         });
 
         // ──────────────────────────────────────────────────────────────

@@ -23,7 +23,8 @@ class SwammTargetFormClass extends React.Component {
         updateTargetForm: PropTypes.func,
         viewableGroupProfiles: PropTypes.array,
         bmpTypes: PropTypes.array,
-        statuses: PropTypes.array
+        statuses: PropTypes.array,
+        swammEngines: PropTypes.array
     };
 
     static defaultProps = {
@@ -213,6 +214,23 @@ class SwammTargetFormClass extends React.Component {
                                 )
                             }
                         </select>
+                        <div className={"swamm-target-form-heading"}>
+                            <Message msgId="hydrata.swamm.includeSubWatersheds" />:
+                        </div>
+                        <select
+                            multiple
+                            name="swamm_engines"
+                            className={"swamm-target-select"}
+                            value={this.props.targetForm?.swamm_engines}
+                            onChange={this.handleMultiSelection}
+                            style={{height: "200px"}}
+                        >
+                            {
+                                this.props.swammEngines?.map((engine) =>
+                                    <option value={engine.id}>{engine.name}</option>
+                                )
+                            }
+                        </select>
                     </div>
                 </div>
                 <div id={"swamm-target-form-footer"}>
@@ -281,6 +299,7 @@ const mapStateToProps = (state) => {
         projectId: state?.swamm?.projectData?.id,
         bmpTypes: state?.swamm?.bmpTypes,
         statuses: state?.swamm?.statuses,
+        swammEngines: state?.swamm?.swammEngines,
         targetForm: state?.swamm?.targetForm || {},
         viewableGroupProfiles: viewableGroupProfiles
     };
