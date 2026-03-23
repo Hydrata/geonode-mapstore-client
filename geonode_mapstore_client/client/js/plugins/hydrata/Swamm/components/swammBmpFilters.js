@@ -275,7 +275,11 @@ class SwammBmpFiltersClass extends React.Component {
 
 const mapStateToProps = (state) => {
     const validGroupProfiles = state?.swamm?.groupProfiles?.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug)) || [];
-    const viewableGroupProfiles = validGroupProfiles.slice().sort((a, b) => a.title.localeCompare(b.title));
+    const bmpGroupProfiles = state?.swamm?.projectData?.bmp_group_profiles;
+    const projectFilteredProfiles = bmpGroupProfiles
+        ? validGroupProfiles.filter(gp => bmpGroupProfiles.some(bgp => bgp.pk === gp.pk))
+        : validGroupProfiles;
+    const viewableGroupProfiles = projectFilteredProfiles.slice().sort((a, b) => a.title.localeCompare(b.title));
     return {
         mapId: state?.swamm?.data?.base_map,
         projectData: state?.swamm?.data,
