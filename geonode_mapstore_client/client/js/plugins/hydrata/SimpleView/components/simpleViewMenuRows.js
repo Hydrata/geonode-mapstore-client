@@ -133,7 +133,8 @@ const mapDispatchToProps = ( dispatch ) => {
                         message: "Layer extents are not available for this group.",
                         title: "Zoom unavailable",
                         uid: "zoom-extent-unavailable",
-                        position: "tc"
+                        position: "tc",
+                        autoDismiss: 6
                     }, "warning"));
                     return;
                 }
@@ -144,6 +145,14 @@ const mapDispatchToProps = ( dispatch ) => {
                     maxy: Math.max(acc.maxy, e.coords[3])
                 }), {minx: Infinity, miny: Infinity, maxx: -Infinity, maxy: -Infinity});
                 dispatch(zoomToExtent([combined.minx, combined.miny, combined.maxx, combined.maxy], valid[0].srid || "EPSG:4326"));
+            }).catch(() => {
+                dispatch(show({
+                    message: "Layer extents are not available for this group.",
+                    title: "Zoom unavailable",
+                    uid: "zoom-extent-unavailable",
+                    position: "tc",
+                    autoDismiss: 6
+                }, "warning"));
             });
         }
     };

@@ -271,7 +271,8 @@ const mapDispatchToProps = ( dispatch ) => {
             message: `Layer extent is not available for "${layerTitle}". The layer bounding box needs to be recalculated in GeoServer.`,
             title: "Zoom unavailable",
             uid: "zoom-extent-unavailable",
-            position: "tc"
+            position: "tc",
+            autoDismiss: 6
         }, "warning"))
     };
 };

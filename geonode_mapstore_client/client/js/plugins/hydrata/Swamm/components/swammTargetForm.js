@@ -1,7 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {ControlLabel, FormControl, FormGroup} from "react-bootstrap";
 import {
     hideTargetForm,
     deleteTarget,
@@ -37,12 +36,6 @@ class SwammTargetFormClass extends React.Component {
         this.state = {
             openSection: 'group_profiles'
         };
-    }
-
-    componentDidMount() {
-    }
-
-    componentDidUpdate() {
     }
 
     render() {
@@ -291,13 +284,6 @@ class SwammTargetFormClass extends React.Component {
             kv = {[fieldName]: parseInt(fieldValue, 10) / 100};
         }
         this.props.updateTargetForm(kv);
-    }
-    validatePercentage(percentageName) {
-        const percentage = this.props.targetForm[percentageName];
-        if (percentage < 1 && percentage > 0) return 'success';
-        if (percentage === 1) return 'warning';
-        if (percentage > 1 || percentage < 0) return 'error';
-        return null;
     }
 }
 
