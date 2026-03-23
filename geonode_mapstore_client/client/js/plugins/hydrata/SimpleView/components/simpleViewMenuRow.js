@@ -24,6 +24,8 @@ import {
 } from '../selectorsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
+import {show} from "../../../../../MapStore2/web/client/actions/notifications";
+import axios from "../../../../../MapStore2/web/client/libs/ajax";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 
@@ -55,7 +57,8 @@ class MenuRowClass extends React.Component {
         selectNode: PropTypes.func,
         lineThrough: PropTypes.bool,
         importerTargetObjectId: PropTypes.number,
-        zoomToLayer: PropTypes.func
+        zoomToLayer: PropTypes.func,
+        showExtentUnavailable: PropTypes.func
     };
 
     constructor(props) {
@@ -89,12 +92,14 @@ class MenuRowClass extends React.Component {
                     />
                     <span
                         className={"btn glyphicon menu-row-glyph glyphicon-zoom-to"}
-                        style={{"color": hasValidBbox ? "#4dabf7" : "#999"}}
+                        style={{"color": "#4dabf7"}}
                         onClick={() => {
                             if (hasValidBbox) {
                                 const {bounds, crs} = this.props.layer.bbox;
                                 this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
                                 trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
+                            } else {
+                                this.fetchAndZoomToLayer();
                             }
                         }}
                     />
@@ -200,6 +205,27 @@ class MenuRowClass extends React.Component {
             </div>
         );
     }
+    fetchAndZoomToLayer = () => {
+        const layerName = this.props.layer?.name?.replace('geonode:', '');
+        if (!layerName) {
+            this.props.showExtentUnavailable(this.props.layer?.title);
+            return;
+        }
+        axios.get(`/api/v2/datasets/?filter{name}=${layerName}`)
+            .then(response => {
+                const extent = response?.data?.datasets?.[0]?.extent;
+                if (extent?.coords && extent.coords.length === 4) {
+                    this.props.zoomToLayer(extent.coords, extent.srid || "EPSG:4326");
+                    trackEvent('button', 'click', `simpleview-menu-row-zoom-to-fallback-${this.props.layer.title}`);
+                } else {
+                    this.props.showExtentUnavailable(this.props.layer?.title);
+                }
+            })
+            .catch(() => {
+                this.props.showExtentUnavailable(this.props.layer?.title);
+            });
+    };
+
     canEditLayer = (layer) => {
         return (layer?.perms?.indexOf("change_dataset_data") > -1 && layer?.perms?.indexOf("change_resourcebase") > -1 );
     };
@@ -240,7 +266,13 @@ const mapDispatchToProps = ( dispatch ) => {
         refreshLayers: (layerArray) => dispatch(refreshLayers(layerArray)),
         svDownloadLayer: (layer) => dispatch(svDownloadLayer(layer)),
         setVisibleUploaderPanel: (visible, importerConfigKey, importerTargetObjectId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, importerTargetObjectId)),
-        zoomToLayer: (extent, crs) => dispatch(zoomToExtent(extent, crs))
+        zoomToLayer: (extent, crs) => dispatch(zoomToExtent(extent, crs)),
+        showExtentUnavailable: (layerTitle) => dispatch(show({
+            message: `Layer extent is not available for "${layerTitle}". The layer bounding box needs to be recalculated in GeoServer.`,
+            title: "Zoom unavailable",
+            uid: "zoom-extent-unavailable",
+            position: "tc"
+        }, "warning"))
     };
 };
 
