@@ -298,6 +298,83 @@
     margin-bottom: 10px;
 }
 
+/* ── Target form accordion (replaces <select multiple>) ── */
+
+.swamm-target-accordion-section {
+    margin-bottom: 4px;
+}
+
+.swamm-target-accordion-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 10px;
+    cursor: pointer;
+    border: 1px solid rgba(53, 133, 176);
+    border-radius: 4px;
+    background-color: rgba(30, 60, 110, 0.5);
+    user-select: none;
+}
+
+.swamm-target-accordion-header:hover {
+    background-color: rgba(30, 60, 110, 0.8);
+}
+
+.swamm-target-accordion-header-open {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.swamm-target-accordion-arrow {
+    margin-right: 8px;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.swamm-target-accordion-title {
+    flex: 1;
+}
+
+.swamm-target-accordion-count {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.swamm-target-accordion-body {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid rgba(53, 133, 176);
+    border-top: none;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    padding: 6px 10px;
+    background-color: rgba(20, 50, 90, 0.4);
+}
+
+.swamm-target-checkbox-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 3px 0;
+    margin: 0;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.swamm-target-checkbox-row input[type="checkbox"] {
+    margin-right: 8px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.swamm-target-checkbox-row span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .custom-tooltip-label {
     color: white;
     background-color: black;

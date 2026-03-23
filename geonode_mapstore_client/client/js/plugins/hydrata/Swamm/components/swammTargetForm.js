@@ -33,8 +33,10 @@ class SwammTargetFormClass extends React.Component {
     constructor(props) {
         super(props);
         this.handleChange = this.handleChange.bind(this);
-        this.handleMultiSelection = this.handleMultiSelection.bind(this);
-        this.state = {};
+        this.handleCheckboxToggle = this.handleCheckboxToggle.bind(this);
+        this.state = {
+            openSection: 'group_profiles'
+        };
     }
 
     componentDidMount() {
@@ -163,74 +165,34 @@ class SwammTargetFormClass extends React.Component {
                         </div>
                     </div>
                     <div id={"swamm-target-form-col-two"}>
-                        <div className={"swamm-target-form-heading"}>
-                            <Message msgId="hydrata.swamm.includeBmpsFromOrganizations" />:
-                        </div>
-                        <select
-                            multiple
-                            name="group_profiles"
-                            className={"swamm-target-select"}
-                            value={this.props.targetForm?.group_profiles}
-                            onChange={this.handleMultiSelection}
-                            style={{height: "200px"}}
-                        >
-                            {
-                                this.props.viewableGroupProfiles?.map((groupProfile) =>
-                                    <option value={groupProfile.pk}>{groupProfile.title}</option>
-                                )
-                            }
-                        </select>
-                        <div className={"swamm-target-form-heading"}>
-                            <Message msgId="hydrata.swamm.includeBmpTypes" />:
-                        </div>
-                        <select
-                            multiple
-                            name="bmp_types"
-                            className={"swamm-target-select"}
-                            value={this.props.targetForm?.bmp_types}
-                            onChange={this.handleMultiSelection}
-                            style={{height: "200px"}}
-                        >
-                            {
-                                this.props.bmpTypes?.map((bmpType) =>
-                                    <option value={bmpType.id}>{bmpType.name}</option>
-                                )
-                            }
-                        </select>
-                        <div className={"swamm-target-form-heading"}>
-                            <Message msgId="hydrata.swamm.includeBmpStatuses" />:
-                        </div>
-                        <select
-                            multiple
-                            name="statuses"
-                            className={"swamm-target-select"}
-                            value={this.props.targetForm?.statuses}
-                            onChange={this.handleMultiSelection}
-                            style={{height: "200px"}}
-                        >
-                            {
-                                this.props.statuses?.map((status) =>
-                                    <option value={status.name}>{status.name}</option>
-                                )
-                            }
-                        </select>
-                        <div className={"swamm-target-form-heading"}>
-                            <Message msgId="hydrata.swamm.includeSubWatersheds" />:
-                        </div>
-                        <select
-                            multiple
-                            name="swamm_engines"
-                            className={"swamm-target-select"}
-                            value={this.props.targetForm?.swamm_engines}
-                            onChange={this.handleMultiSelection}
-                            style={{height: "200px"}}
-                        >
-                            {
-                                this.props.swammEngines?.map((engine) =>
-                                    <option value={engine.id}>{engine.name}</option>
-                                )
-                            }
-                        </select>
+                        {this.renderAccordionSection(
+                            'group_profiles',
+                            'Organizations',
+                            this.props.viewableGroupProfiles || [],
+                            (item) => item.pk,
+                            (item) => item.title
+                        )}
+                        {this.renderAccordionSection(
+                            'bmp_types',
+                            'BMP Types',
+                            this.props.bmpTypes || [],
+                            (item) => item.id,
+                            (item) => item.name
+                        )}
+                        {this.renderAccordionSection(
+                            'statuses',
+                            'Statuses',
+                            this.props.statuses || [],
+                            (item) => item.name,
+                            (item) => item.name
+                        )}
+                        {this.renderAccordionSection(
+                            'swamm_engines',
+                            'Sub-Watersheds',
+                            this.props.swammEngines || [],
+                            (item) => item.id,
+                            (item) => item.name
+                        )}
                     </div>
                 </div>
                 <div id={"swamm-target-form-footer"}>
@@ -268,12 +230,59 @@ class SwammTargetFormClass extends React.Component {
             </div>
         );
     }
-    handleMultiSelection(event) {
-        const fieldName = event.target.name;
-        let fieldValue = Array.from(event.target.selectedOptions, option => option.value);
-        let kv = {[fieldName]: fieldValue};
-        this.props.updateTargetForm(kv);
+    renderAccordionSection(fieldName, title, items, getValueFn, getLabelFn) {
+        const isOpen = this.state.openSection === fieldName;
+        const selectedValues = this.props.targetForm?.[fieldName] || [];
+        const selectedCount = selectedValues.length;
+
+        return (
+            <div className="swamm-target-accordion-section">
+                <div
+                    className={"swamm-target-accordion-header" + (isOpen ? " swamm-target-accordion-header-open" : "")}
+                    onClick={() => this.setState({openSection: isOpen ? null : fieldName})}
+                >
+                    <span className="swamm-target-accordion-arrow">{isOpen ? '\u25BC' : '\u25B6'}</span>
+                    <span className="swamm-target-accordion-title">{title}</span>
+                    <span className="swamm-target-accordion-count">
+                        {selectedCount > 0 ? `(${selectedCount} selected)` : ''}
+                    </span>
+                </div>
+                {isOpen && (
+                    <div className="swamm-target-accordion-body">
+                        {items.map((item) => {
+                            const value = getValueFn(item);
+                            const label = getLabelFn(item);
+                            // eslint-disable-next-line eqeqeq
+                            const isChecked = selectedValues.some(v => v == value);
+                            return (
+                                <label key={value} className="swamm-target-checkbox-row">
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => this.handleCheckboxToggle(fieldName, value, e.target.checked)}
+                                    />
+                                    <span>{label}</span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
     }
+
+    handleCheckboxToggle(fieldName, value, isChecked) {
+        const current = this.props.targetForm?.[fieldName] || [];
+        let updated;
+        if (isChecked) {
+            updated = [...current, value];
+        } else {
+            // eslint-disable-next-line eqeqeq
+            updated = current.filter(v => v != value);
+        }
+        this.props.updateTargetForm({[fieldName]: updated});
+    }
+
     handleChange(event) {
         const fieldName = event.target.name;
         let fieldValue = event.target.value;
