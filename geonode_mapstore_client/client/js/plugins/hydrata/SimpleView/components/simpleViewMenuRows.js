@@ -106,6 +106,14 @@ const mapDispatchToProps = ( dispatch ) => {
             });
         },
         zoomToGroup: (layers) => {
+            const showZoomUnavailable = () => dispatch(show({
+                message: "Layer extents are not available for this group.",
+                title: "Zoom unavailable",
+                uid: "zoom-extent-unavailable",
+                position: "tc",
+                autoDismiss: 6
+            }, "warning"));
+
             const layersWithBbox = layers.filter(l => l.bbox?.bounds && !isGlobalExtent(l.bbox.bounds));
             if (layersWithBbox.length > 0) {
                 const combined = layersWithBbox.reduce((acc, l) => {
@@ -129,13 +137,7 @@ const mapDispatchToProps = ( dispatch ) => {
             )).then(extents => {
                 const valid = extents.filter(e => e?.coords && e.coords.length === 4);
                 if (valid.length === 0) {
-                    dispatch(show({
-                        message: "Layer extents are not available for this group.",
-                        title: "Zoom unavailable",
-                        uid: "zoom-extent-unavailable",
-                        position: "tc",
-                        autoDismiss: 6
-                    }, "warning"));
+                    showZoomUnavailable();
                     return;
                 }
                 const combined = valid.reduce((acc, e) => ({
@@ -145,15 +147,7 @@ const mapDispatchToProps = ( dispatch ) => {
                     maxy: Math.max(acc.maxy, e.coords[3])
                 }), {minx: Infinity, miny: Infinity, maxx: -Infinity, maxy: -Infinity});
                 dispatch(zoomToExtent([combined.minx, combined.miny, combined.maxx, combined.maxy], valid[0].srid || "EPSG:4326"));
-            }).catch(() => {
-                dispatch(show({
-                    message: "Layer extents are not available for this group.",
-                    title: "Zoom unavailable",
-                    uid: "zoom-extent-unavailable",
-                    position: "tc",
-                    autoDismiss: 6
-                }, "warning"));
-            });
+            }).catch(showZoomUnavailable);
         }
     };
 };
