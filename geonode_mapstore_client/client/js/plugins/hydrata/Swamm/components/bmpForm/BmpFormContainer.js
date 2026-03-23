@@ -300,7 +300,7 @@ class SwammBmpFormClass extends React.Component {
 const mapStateToProps = (state) => {
     const membershipSlugs = state?.swamm?.userGroupProfileSlugs || state?.security?.user?.info?.groups || [];
     const validGroupProfiles = state?.swamm?.groupProfiles?.filter(item => !["anonymous", "registered-members", "admin", "swamm-users", "illinois-pork-producers"].includes(item.slug)) || [];
-    const viewableGroupProfiles = validGroupProfiles.filter(item => state?.swamm?.projectData?.permitted_groups?.map(permittedGroup => permittedGroup.pk)?.includes(item.pk));
+    const viewableGroupProfiles = validGroupProfiles;
     const saveableGroupProfiles = viewableGroupProfiles.map(item => {
         item.saveable = membershipSlugs.includes(item?.slug);
         return item;
