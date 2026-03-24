@@ -67,81 +67,79 @@ const BmpGeometryControls = ({
                 </div>
                 : null
         }
-        {
-            requiresFootprint || complexBmpForm ?
-                <div className={"simple-view-panel-item-row"}>
-                    {storedBmpForm?.footprint_fid ?
-                        <React.Fragment>
-                            <div>
-                                Footprint: {
-                                    storedBmpForm?.calculated_footprint_area ?
-                                        storedBmpForm?.calculated_footprint_area?.toFixed(2) + " acres" :
-                                        ' '
-                                }
-                            </div>
-                            <button
-                                type={'button'}
-                                className={'swamm-button'}
-                                onClick={() => {
-                                    toggleLayer(bmpFootprintLayer?.id, true);
-                                    onDrawBmpStep1(bmpFootprintLayer?.name, storedBmpForm?.footprint_fid);
-                                }}
-                            >
-                                Edit Footprint
-                            </button>
-                        </React.Fragment> :
-                        <button
-                            type={'button'}
-                            disabled={(!storedBmpForm?.group_profile_id || !storedBmpForm.bmpName)}
-                            className="swamm-button default"
-                            style={{backgroundColor: "darkgreen"}}
-                            onClick={() => {
-                                toggleLayer(bmpFootprintLayer?.id, true);
-                                onDrawBmpStep1(bmpFootprintLayer?.name);
-                            }}
-                        >
-                            Draw Footprint
-                        </button>
-                    }
-                </div>
-                : null
-        }
-        {
-            (requiresWatershed || complexBmpForm) && !watershedIsFootprint ?
-                <div className={"simple-view-panel-item-row"}>
-                    {storedBmpForm?.watershed_fid ?
-                        <React.Fragment>
-                            <div>
-                                Watershed: {storedBmpForm?.calculated_watershed_area ?
-                                    storedBmpForm?.calculated_watershed_area?.toFixed(2) + " acres" :
-                                    ' '}
-                            </div>
-                            <button
-                                type={'button'}
-                                className={'swamm-button'}
-                                onClick={() => {
-                                    toggleLayer(bmpWatershedLayer?.id, true);
-                                    onDrawBmpStep1(bmpWatershedLayer?.name, storedBmpForm?.watershed_fid);
-                                }}
-                            >
-                                Edit Watershed
-                            </button>
-                        </React.Fragment> :
-                        <button
-                            disabled={(!storedBmpForm?.group_profile_id || !storedBmpForm.bmpName)}
-                            className="swamm-button default"
-                            style={{backgroundColor: "darkgreen"}}
-                            onClick={() => {
-                                toggleLayer(bmpWatershedLayer?.id, true);
-                                onDrawBmpStep1(bmpWatershedLayer?.name);
-                            }}
-                        >
-                            Draw Watershed
-                        </button>
-                    }
-                </div>
-                : null
-        }
+        <div className={"simple-view-panel-item-row"}>
+            {storedBmpForm?.footprint_fid ?
+                <React.Fragment>
+                    <div>
+                        Footprint: {
+                            storedBmpForm?.calculated_footprint_area ?
+                                storedBmpForm?.calculated_footprint_area?.toFixed(2) + " acres" :
+                                ' '
+                        }
+                    </div>
+                    <button
+                        type={'button'}
+                        className={'swamm-button'}
+                        onClick={() => {
+                            toggleLayer(bmpFootprintLayer?.id, true);
+                            onDrawBmpStep1(bmpFootprintLayer?.name, storedBmpForm?.footprint_fid);
+                        }}
+                    >
+                        Edit Footprint
+                    </button>
+                </React.Fragment> :
+                <button
+                    type={'button'}
+                    disabled={!requiresFootprint || !storedBmpForm?.group_profile_id || !storedBmpForm.bmpName}
+                    className="swamm-button default"
+                    style={{backgroundColor: requiresFootprint ? "darkgreen" : undefined}}
+                    title={!requiresFootprint ? "This BMP type does not need a footprint area" : undefined}
+                    onClick={() => {
+                        toggleLayer(bmpFootprintLayer?.id, true);
+                        onDrawBmpStep1(bmpFootprintLayer?.name);
+                    }}
+                >
+                    Draw Footprint
+                </button>
+            }
+        </div>
+        <div className={"simple-view-panel-item-row"}>
+            {storedBmpForm?.watershed_fid ?
+                <React.Fragment>
+                    <div>
+                        Watershed: {storedBmpForm?.calculated_watershed_area ?
+                            storedBmpForm?.calculated_watershed_area?.toFixed(2) + " acres" :
+                            ' '}
+                    </div>
+                    <button
+                        type={'button'}
+                        className={'swamm-button'}
+                        onClick={() => {
+                            toggleLayer(bmpWatershedLayer?.id, true);
+                            onDrawBmpStep1(bmpWatershedLayer?.name, storedBmpForm?.watershed_fid);
+                        }}
+                    >
+                        Edit Watershed
+                    </button>
+                </React.Fragment> :
+                <button
+                    disabled={!requiresWatershed || watershedIsFootprint || !storedBmpForm?.group_profile_id || !storedBmpForm.bmpName}
+                    className="swamm-button default"
+                    style={{backgroundColor: requiresWatershed && !watershedIsFootprint ? "darkgreen" : undefined}}
+                    title={!requiresWatershed
+                        ? "This BMP type does not need a watershed area"
+                        : watershedIsFootprint
+                            ? "This BMP type uses the footprint as the watershed"
+                            : undefined}
+                    onClick={() => {
+                        toggleLayer(bmpWatershedLayer?.id, true);
+                        onDrawBmpStep1(bmpWatershedLayer?.name);
+                    }}
+                >
+                    Draw Watershed
+                </button>
+            }
+        </div>
     </React.Fragment>
 );
 

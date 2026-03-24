@@ -33,6 +33,7 @@ import {BmpMetadataFields} from "./BmpMetadataFields";
 import {BmpOverrideFields} from "./BmpOverrideFields";
 import {BmpTypeSelector} from "./BmpTypeSelector";
 import {BmpReductionDisplay} from "./BmpReductionDisplay";
+import {BmpOrgStatusFields} from "./BmpOrgStatusFields";
 import {BmpActionButtons} from "./BmpActionButtons";
 
 class SwammBmpFormClass extends React.Component {
@@ -192,25 +193,35 @@ class SwammBmpFormClass extends React.Component {
                 submitBmpForm={this.props.submitBmpForm}
                 projectId={this.props.projectId}
             />;
+        const isExisting = !!this.props.storedBmpForm?.id && !this.props.changingBmpType;
+
+        const orgStatusFields = (
+            <BmpOrgStatusFields
+                storedBmpForm={this.props.storedBmpForm}
+                saveableGroupProfiles={this.props.saveableGroupProfiles}
+                statuses={this.props.statuses}
+                handleChange={this.handleChange}
+                handleGroupProfileChange={this.handleGroupProfileChange}
+            />
+        );
+
         const metadataFields = (
             <BmpMetadataFields
                 storedBmpForm={this.props.storedBmpForm}
                 handleChange={this.handleChange}
             >
                 {this.props.complexBmpForm ?
-                    <BmpOverrideFields
-                        storedBmpForm={this.props.storedBmpForm}
-                        saveableGroupProfiles={this.props.saveableGroupProfiles}
-                        statuses={this.props.statuses}
-                        priorities={this.props.priorities}
-                        handleChange={this.handleChange}
-                        handleGroupProfileChange={this.handleGroupProfileChange}
-                    /> : null
+                    <React.Fragment>
+                        {isExisting ? orgStatusFields : null}
+                        <BmpOverrideFields
+                            storedBmpForm={this.props.storedBmpForm}
+                            priorities={this.props.priorities}
+                            handleChange={this.handleChange}
+                        />
+                    </React.Fragment> : null
                 }
             </BmpMetadataFields>
         );
-
-        const isExisting = !!this.props.storedBmpForm?.id && !this.props.changingBmpType;
 
         if (isExisting) {
             // Editing existing BMP: Col 1 = editable fields + geometry, Col 2 = results
@@ -226,10 +237,11 @@ class SwammBmpFormClass extends React.Component {
                 </React.Fragment>
             );
         }
-        // Creating new BMP: Col 1 = draw buttons + type selector, Col 2 = metadata
+        // Creating new BMP: Col 1 = org/status + draw buttons + type selector, Col 2 = metadata
         return (
             <React.Fragment>
                 <div id={"swamm-bmp-form-grid-col-one"}>
+                    {orgStatusFields}
                     {geometryControls}
                     {typeOrReduction}
                 </div>
@@ -313,7 +325,7 @@ const mapStateToProps = (state) => {
         bmpTypeGroups: state?.swamm?.bmpTypeGroups || [],
         expandedBmpTypeGroupName: state?.swamm?.expandedBmpTypeGroupName,
         saveableGroupProfiles: saveableGroupProfiles,
-        statuses: state?.swamm?.statuses,
+        statuses: state?.swamm?.statuses || [],
         priorities: state?.swamm?.priorities,
         thisBmpType: state?.swamm?.bmpTypes?.filter((bmpType) => bmpType.id === state?.swamm?.BmpFormBmpTypeId)[0],
         storedBmpForm: state?.swamm?.storedBmpForm || {},

@@ -99,7 +99,8 @@ const bmpFormReducer = (state, action) => {
             storedBmpForm: null,
             BmpFormBmpTypeId: null,
             visibleBmpForm: false,
-            updatingBmp: null
+            updatingBmp: null,
+            complexBmpForm: false
         };
     case UPDATE_BMP_FORM:
         if (action?.kv?.type_data?.id) {
