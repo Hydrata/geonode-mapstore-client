@@ -114,6 +114,12 @@ const SET_NORMALIZATION_MODE = 'SET_NORMALIZATION_MODE';
 
 const FETCH_SWAMM_ENGINES_SUCCESS = 'FETCH_SWAMM_ENGINES_SUCCESS';
 
+const FETCH_BMP_HISTORY = 'FETCH_BMP_HISTORY';
+const FETCH_BMP_HISTORY_SUCCESS = 'FETCH_BMP_HISTORY_SUCCESS';
+const FETCH_BMP_HISTORY_ERROR = 'FETCH_BMP_HISTORY_ERROR';
+const SHOW_BMP_HISTORY = 'SHOW_BMP_HISTORY';
+const HIDE_BMP_HISTORY = 'HIDE_BMP_HISTORY';
+
 const uuidv1 = require('uuid/v1');
 const { SHOW_NOTIFICATION } = require('../../../../MapStore2/web/client/actions/notifications');
 
@@ -1005,6 +1011,39 @@ const setNormalizationMode = (mode) => ({ type: SET_NORMALIZATION_MODE, mode });
 
 const fetchSwammEnginesSuccess = (swammEngines) => ({ type: FETCH_SWAMM_ENGINES_SUCCESS, swammEngines });
 
+const showBmpHistory = () => ({ type: SHOW_BMP_HISTORY });
+const hideBmpHistory = () => ({ type: HIDE_BMP_HISTORY });
+
+const fetchBmpHistorySuccess = (data, append) => ({
+    type: FETCH_BMP_HISTORY_SUCCESS,
+    records: data.results || data,
+    nextCursor: data.next || null,
+    append
+});
+
+const fetchBmpHistory = (projectId, bmpId, cursor = null) => {
+    return (dispatch) => {
+        dispatch({ type: FETCH_BMP_HISTORY });
+        return swammApi.getBmpHistory(projectId, bmpId, cursor).then(
+            response => {
+                dispatch(fetchBmpHistorySuccess(response.data, !!cursor));
+                dispatch(showBmpHistory());
+            }
+        ).catch(e => {
+            dispatch({
+                type: SHOW_NOTIFICATION,
+                title: 'Load History Error',
+                autoDismiss: 60,
+                position: 'tc',
+                message: 'Failed to load BMP history',
+                uid: uuidv1(),
+                level: 'error'
+            });
+            dispatch({ type: FETCH_BMP_HISTORY_ERROR, error: e });
+        });
+    };
+};
+
 const DOWNLOAD_SUMMARY_CSV = 'DOWNLOAD_SUMMARY_CSV';
 
 const downloadSummaryCSV = (speedDialData, targetName) => {
@@ -1152,5 +1191,9 @@ module.exports = {
     DOWNLOAD_TARGET_PDF_SUCCESS, DOWNLOAD_TARGET_PDF_ERROR,
     SET_DASHBOARD_VIEW, setDashboardView,
     SET_NORMALIZATION_MODE, setNormalizationMode,
-    FETCH_SWAMM_ENGINES_SUCCESS, fetchSwammEnginesSuccess
+    FETCH_SWAMM_ENGINES_SUCCESS, fetchSwammEnginesSuccess,
+    FETCH_BMP_HISTORY, FETCH_BMP_HISTORY_SUCCESS, FETCH_BMP_HISTORY_ERROR,
+    SHOW_BMP_HISTORY, showBmpHistory,
+    HIDE_BMP_HISTORY, hideBmpHistory,
+    fetchBmpHistory
 };

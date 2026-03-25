@@ -15,7 +15,8 @@ import {
     setComplexBmpForm,
     deleteBmp,
     setMenuGroup,
-    downloadBmpReport
+    downloadBmpReport,
+    fetchBmpHistory
 } from "../../actionsSwamm";
 import {setOpenMenuGroupId} from "../../../SimpleView/actionsSimpleView";
 import {trackEvent} from "@js/utils/analytics";
@@ -146,6 +147,7 @@ class SwammBmpFormClass extends React.Component {
                     complexBmpForm={this.props.complexBmpForm}
                     setComplexBmpForm={this.props.setComplexBmpForm}
                     downloadBmpReport={this.props.downloadBmpReport}
+                    fetchBmpHistory={this.props.fetchBmpHistory}
                     hideBmpForm={this.props.hideBmpForm}
                     deleteBmp={this.props.deleteBmp}
                     projectId={this.props.projectId}
@@ -370,6 +372,7 @@ const mapDispatchToProps = ( dispatch ) => {
         purgeMapInfoResults: () => dispatch(purgeMapInfoResults()),
         makeExistingBmpForm: (bmp) => dispatch(makeExistingBmpForm(bmp)),
         downloadBmpReport: (bmpId) => dispatch(downloadBmpReport(bmpId)),
+        fetchBmpHistory: (projectId, bmpId) => dispatch(fetchBmpHistory(projectId, bmpId)),
         refreshLayerVersion: (layer, version) => dispatch(refreshLayerVersion(layer, version))
     };
 };

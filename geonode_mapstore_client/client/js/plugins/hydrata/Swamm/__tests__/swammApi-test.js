@@ -15,6 +15,7 @@ describe('swammApi', () => {
             'getTargets', 'createTarget', 'updateTarget', 'deleteTarget',
             'downloadTargetXlsx', 'downloadTargetPdf',
             'getErosionData',
+            'getBmpHistory',
             'getEngines'
         ];
 
@@ -24,11 +25,11 @@ describe('swammApi', () => {
             });
         });
 
-        it('should export exactly 23 API functions', () => {
+        it('should export exactly 24 API functions', () => {
             const exportedFunctions = Object.keys(swammApi).filter(
                 k => typeof swammApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(23);
+            expect(exportedFunctions.length).toBe(24);
         });
     });
 
@@ -117,6 +118,10 @@ describe('swammApi', () => {
 
         it('getErosionData takes 1 argument (projectId)', () => {
             expect(swammApi.getErosionData.length).toBe(1);
+        });
+
+        it('getBmpHistory takes 2 arguments (projectId, bmpId)', () => {
+            expect(swammApi.getBmpHistory.length).toBe(2);
         });
 
         it('getEngines takes 1 argument (projectId)', () => {

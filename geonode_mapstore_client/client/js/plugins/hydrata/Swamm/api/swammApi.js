@@ -125,6 +125,13 @@ export const downloadTargetPdf = (projectId, targetId) =>
 export const getErosionData = (projectId) =>
     axios.get(`/swamm/api/${projectId}/erosion/`);
 
+// ── BMP History ─────────────────────────────────────────────────────────
+
+export const getBmpHistory = (projectId, bmpId, cursor = null) => {
+    const url = cursor || `/swamm/api/${projectId}/bmps/${bmpId}/history/`;
+    return axios.get(url);
+};
+
 // ── Engines ─────────────────────────────────────────────────────────────
 
 export const getEngines = (projectId) =>

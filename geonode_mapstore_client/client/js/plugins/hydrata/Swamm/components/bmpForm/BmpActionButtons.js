@@ -6,6 +6,7 @@ const BmpActionButtons = ({
     complexBmpForm,
     setComplexBmpForm,
     downloadBmpReport,
+    fetchBmpHistory,
     hideBmpForm,
     deleteBmp,
     projectId,
@@ -47,6 +48,15 @@ const BmpActionButtons = ({
                         trackEvent('button', 'click', `bmp-download-pdf-${storedBmpForm?.id}`);
                     }}>
                     Make PDF
+                </button>
+                <button
+                    type={'button'}
+                    className={'swamm-button'}
+                    onClick={() => {
+                        fetchBmpHistory(projectId, storedBmpForm?.id);
+                        trackEvent('button', 'click', `bmp-history-${storedBmpForm?.id}`);
+                    }}>
+                    History
                 </button>
             </React.Fragment>
             : null}

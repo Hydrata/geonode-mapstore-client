@@ -11,7 +11,12 @@ import {
     SUBMIT_BMP_FORM_ERROR,
     SET_CHANGING_BMP_TYPE,
     SET_COMPLEX_BMP_FORM,
-    SET_EXPANDED_BMP_TYPE_GROUP_NAME
+    SET_EXPANDED_BMP_TYPE_GROUP_NAME,
+    SHOW_BMP_HISTORY,
+    HIDE_BMP_HISTORY,
+    FETCH_BMP_HISTORY,
+    FETCH_BMP_HISTORY_SUCCESS,
+    FETCH_BMP_HISTORY_ERROR
 } from "../actionsSwamm";
 
 const bmpFormReducer = (state, action) => {
@@ -100,7 +105,11 @@ const bmpFormReducer = (state, action) => {
             BmpFormBmpTypeId: null,
             visibleBmpForm: false,
             updatingBmp: null,
-            complexBmpForm: false
+            complexBmpForm: false,
+            visibleBmpHistory: false,
+            bmpHistoryRecords: null,
+            bmpHistoryNextCursor: null,
+            bmpHistoryLoading: false
         };
     case UPDATE_BMP_FORM:
         if (action?.kv?.type_data?.id) {
@@ -130,6 +139,22 @@ const bmpFormReducer = (state, action) => {
         return { complexBmpForm: action.complexBmpForm };
     case SET_EXPANDED_BMP_TYPE_GROUP_NAME:
         return { expandedBmpTypeGroupName: action.expandedBmpTypeGroupName };
+    case SHOW_BMP_HISTORY:
+        return { visibleBmpHistory: true };
+    case HIDE_BMP_HISTORY:
+        return { visibleBmpHistory: false, bmpHistoryRecords: null, bmpHistoryNextCursor: null };
+    case FETCH_BMP_HISTORY:
+        return { bmpHistoryLoading: true };
+    case FETCH_BMP_HISTORY_SUCCESS:
+        return {
+            bmpHistoryLoading: false,
+            bmpHistoryRecords: action.append
+                ? [...(state.bmpHistoryRecords || []), ...action.records]
+                : action.records,
+            bmpHistoryNextCursor: action.nextCursor
+        };
+    case FETCH_BMP_HISTORY_ERROR:
+        return { bmpHistoryLoading: false };
     default:
         return {};
     }

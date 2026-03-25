@@ -32,6 +32,7 @@ import "../../SimpleView/simpleView.css";
 import "../swamm.css";
 import {SwammInputMenu} from "@js/plugins/hydrata/Swamm/components/swammInputMenu";
 import BmpChooserModal from "./bmpForm/BmpChooserModal";
+import BmpHistoryViewer from "./bmpForm/BmpHistoryViewer";
 
 
 class SwammContainer extends React.Component {
@@ -203,6 +204,7 @@ class SwammContainer extends React.Component {
                             : null
                         }
                         <BmpChooserModal/>
+                        <BmpHistoryViewer/>
                     </React.Fragment>
                     : null}
             </div>
