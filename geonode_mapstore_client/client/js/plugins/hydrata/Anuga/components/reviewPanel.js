@@ -10,6 +10,7 @@ import {
 } from "../actionsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 
+// NOTE: this component is not currently rendered by anugaContainer.js
 class ReviewPanelClass extends React.Component {
     static propTypes = {
         setReviewPanel: PropTypes.func
@@ -20,7 +21,7 @@ class ReviewPanelClass extends React.Component {
     render() {
         // console.log('this.state:', this.state)
         return (
-            <div id={'publication-panel'} className={'simple-view-panel'} style={{top: "70px"}}>
+            <div id={'review-panel'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
                         <Message msgId="hydrata.anuga.underDevelopment" />

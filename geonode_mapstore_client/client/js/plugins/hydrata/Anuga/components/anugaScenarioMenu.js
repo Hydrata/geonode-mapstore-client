@@ -83,12 +83,7 @@ class AnugaScenarioMenuClass extends React.Component {
         return (
             <Button
                 bsSize={'medium'}
-                style={{
-                    margin: tabName === 'manage' ? "2px 0 -17px 20px" : "2px 0 -17px 8px",
-                    borderRadius: "6px 6px 0 0",
-                    color: isActive ? "#3363a0" : 'white',
-                    backgroundColor: isActive ? "white" : '#6085b5'
-                }}
+                className={"scenario-tab" + (isActive ? " active" : "")}
                 onClick={() => this.toggleTab(tabName)}
             >
                 <Message msgId={msgId} />
@@ -98,9 +93,9 @@ class AnugaScenarioMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-scenario-menu'} className={'simple-view-panel'} style={{top: "70px"}}>
+            <div id={'anuga-scenario-menu'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
+                    <div className={"row menu-row-header scenario-menu-header"}>
                         <Message msgId="hydrata.anuga.scenarios" />
                         <span id={"scenario-tab-button-group"}>
                             {this.renderTabButton('manage', 'hydrata.anuga.manage')}
@@ -110,7 +105,7 @@ class AnugaScenarioMenuClass extends React.Component {
                         <span id={"new-scenario-button"}>
                             <Button
                                 bsStyle={'success'} bsSize={'xsmall'}
-                                style={{margin: "2px", borderRadius: "2px"}}
+                                className="anuga-btn"
                                 onClick={() => {
                                     this.props.addAnugaScenario();
                                     trackEvent('button', 'click', 'anuga-scenario-menu-new-scenario');
@@ -163,8 +158,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                             <span id={"depth-difference-button"}>
                                                 <Button
                                                     bsStyle={'success'} bsSize={'xsmall'}
-                                                    className={this.props.readyToCompare ? '' : 'disabled'}
-                                                    style={{margin: "2px", borderRadius: "2px"}}
+                                                    className={"anuga-btn" + (this.props.readyToCompare ? '' : ' disabled')}
                                                     onClick={() => {
                                                         this.props.compareScenarios(this.props.selectedScenarios);
                                                         trackEvent('button', 'click', 'anuga-scenario-menu-compare-execute');

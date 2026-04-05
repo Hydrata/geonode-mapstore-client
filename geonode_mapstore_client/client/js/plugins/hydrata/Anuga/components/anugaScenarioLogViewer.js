@@ -27,7 +27,7 @@ class AnugaScenarioLogViewerClass extends React.Component {
     render() {
         return (
             <div id={'anuga-scenario-log-viewer-container'}>
-                <h5 style={{marginLeft: "9px"}}>
+                <h5 className="scenario-log-header">
                     <Message msgId="hydrata.anuga.scenarioPrefix" /> {this.props.selectedScenario?.name}
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
@@ -37,10 +37,10 @@ class AnugaScenarioLogViewerClass extends React.Component {
                         }}
                     />
                 </h5>
-                <pre id={'anuga-scenario-log-viewer'} style={{color: "white", background: "black"}}>
+                <pre id={'anuga-scenario-log-viewer'} className="scenario-log-viewer">
                     {this.props.logText}
                 </pre>
-                <div style={{display: "flex", justifyContent: "flex-end", padding: "10px"}}>
+                <div className="scenario-log-footer">
                     <button
                         className={"btn btn-default"}
                         onClick={() => {

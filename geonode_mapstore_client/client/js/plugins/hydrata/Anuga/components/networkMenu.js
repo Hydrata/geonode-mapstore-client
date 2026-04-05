@@ -38,7 +38,7 @@ class NetworkMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-network-container'} className={'simple-view-panel'} style={{top: "70px", height: "80%", width: "80%"}}>
+            <div id={'anuga-network-container'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"}>
                         <h3><Message msgId="hydrata.anuga.hydrology" /></h3>
@@ -161,8 +161,7 @@ class NetworkMenuClass extends React.Component {
                                                         <Button
                                                             bsStyle={'success'}
                                                             bsSize={'xsmall'}
-                                                            style={{margin: "2px", borderRadius: "2px"}}
-                                                            className={network?.unsaved ? null : 'disabled'}
+                                                            className={"anuga-btn" + (network?.unsaved ? '' : ' disabled')}
                                                             onClick={() => {
                                                                 if (network?.unsaved) {
                                                                     this.props.saveNetwork(network);
@@ -174,7 +173,7 @@ class NetworkMenuClass extends React.Component {
                                                         <Button
                                                             bsStyle={'success'}
                                                             bsSize={'xsmall'}
-                                                            style={{margin: "2px", borderRadius: "2px"}}
+                                                            className="anuga-btn"
                                                             onClick={() => {
                                                                 this.props.runNetwork(network);
                                                             }}

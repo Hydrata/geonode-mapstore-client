@@ -1,3 +1,27 @@
+/* ── Shared theming custom properties ── */
+:root {
+    --sv-button-bg: rgba(0, 60, 136, 0.6);
+    --sv-button-bg-hover: rgba(0, 60, 136, 0.8);
+    --sv-button-bg-active: rgba(0, 60, 136, 0.9);
+    --sv-button-border: rgba(255, 255, 255, 0.5);
+    --sv-button-border-hover: rgba(255, 255, 255, 0.7);
+    --sv-button-border-active: rgba(255, 255, 255, 0.9);
+    --sv-panel-bg: rgba(0, 60, 136, 0.8);
+    --sv-panel-border: rgba(255, 255, 255, 0.6);
+    --sv-glyph-active: limegreen;
+    --sv-glyph-inactive: red;
+    --sv-glyph-partial: orange;
+    --sv-glyph-zoom: #4dabf7;
+    --sv-glyph-edit: grey;
+    --sv-glyph-delete: darkred;
+    --sv-glyph-save: limegreen;
+    --sv-glyph-settings: #325f93;
+    --sv-input-bg: rgba(255, 255, 255, 0.22);
+    --sv-section-border: rgba(255, 255, 255, 0.6);
+    --sv-panel-top: 65px;
+    --sv-panel-top-anuga: 70px;
+}
+
 #mapstore-sidebar-menu-container{
     /*z-index: 1;*/
 }
@@ -30,8 +54,8 @@
     top: 11px;
     width: 85px;
     height: 50px;
-    background-color: rgba(0, 60, 136, 0.6);
-    border-color: rgba(255, 255, 255, 0.7);
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
+    border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
     border-width: 2px;
     padding: 3px 5px;
     font-size: 12px;
@@ -49,8 +73,8 @@
 .simple-view-right-button {
     width: 40px;
     height: 40px;
-    background-color: rgba(0, 60, 136, 0.6);
-    border: 2px solid rgba(255, 255, 255, 0.4);
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
+    border: 2px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
     border-radius: 4px;
     color: white;
     font-size: 16px;
@@ -62,19 +86,19 @@
 }
 
 .simple-view-right-button:hover {
-    background-color: rgba(0, 60, 136, 0.8);
-    border-color: rgba(255, 255, 255, 0.7);
+    background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
 }
 
 .simple-view-right-button.active {
-    background-color: rgba(0, 60, 136, 0.9);
-    border-color: rgba(255, 255, 255, 0.9);
+    background-color: var(--sv-button-bg-active, rgba(0, 60, 136, 0.9));
+    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
 }
 
 /* ── HGeval "Generate Report" button (green, wider) ── */
 .simple-view-hgeval-button {
     background-color: rgba(40, 167, 69, 0.85);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    border: 2px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
     border-radius: 4px;
     color: white;
     font-size: 12px;
@@ -89,12 +113,12 @@
 
 .simple-view-hgeval-button:hover {
     background-color: rgba(33, 136, 56, 0.95);
-    border-color: rgba(255, 255, 255, 0.7);
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
 }
 
 .simple-view-hgeval-button.active {
     background-color: rgba(30, 126, 52, 1);
-    border-color: rgba(255, 255, 255, 0.9);
+    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
 }
 
 .simple-view-hgeval-label {
@@ -104,12 +128,12 @@
 .simple-view-panel {
     position: absolute;
     z-index: 1025;
-    top: 65px;
+    top: var(--sv-panel-top, 65px);
     left: 20px;
     min-width: 500px;
     max-height: calc(100vh - 80px);
-    background-color: rgba(0, 60, 136, 0.8);
-    border: #ffffff99 solid 1px;
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
+    border: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
     padding: 5px 10px;
     font-size: 12px;
@@ -418,13 +442,22 @@
     background: #ffffff;
     border-radius: 3px;
     margin: 2px 5px 4px 0;
-    color: limegreen;
+    color: var(--sv-glyph-active, limegreen);
     font-size: 14px;
     padding: 3px 4px;
     width: 24px;
     text-align: center;
     flex-shrink: 0;
 }
+
+.menu-row-glyph.glyph-active { color: var(--sv-glyph-active, limegreen); }
+.menu-row-glyph.glyph-inactive { color: var(--sv-glyph-inactive, red); }
+.menu-row-glyph.glyph-partial { color: var(--sv-glyph-partial, orange); }
+.menu-row-glyph.glyph-zoom { color: var(--sv-glyph-zoom, #4dabf7); }
+.menu-row-glyph.glyph-edit { color: var(--sv-glyph-edit, grey); }
+.menu-row-glyph.glyph-delete { color: var(--sv-glyph-delete, darkred); }
+.menu-row-glyph.glyph-save { color: var(--sv-glyph-save, limegreen); }
+.menu-row-glyph.glyph-settings { color: var(--sv-glyph-settings, #325f93); }
 
 .menu-row-text {
     font-size: 14px;
@@ -461,7 +494,7 @@
     overflow: hidden;
     border: white;
     text-align: left;
-    background: rgba(255, 255, 255, 0.22);
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.22));
     color: #f4f4f4;
 }
 

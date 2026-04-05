@@ -135,18 +135,17 @@ class AnugaInputMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-input-menu'} className={'simple-view-panel'} style={{top: "70px", width: "560px"}}>
+            <div id={'anuga-input-menu'} className={'simple-view-panel anuga-panel'}>
                 {/* Elevation section — unique (upload button instead of create+input) */}
                 <div
-                    className={'menu-rows-container'}
-                    style={{ border: "1px solid rgba(255, 255, 255, 1)", borderRadius: "3px", margin: "3px 0" }}
+                    className={'menu-rows-container anuga-section'}
                 >
-                    <div className={"row menu-row menu-row-header"} style={{ width: "540px", textAlign: "left", border: "none" }}>
+                    <div className={"row menu-row menu-row-header anuga-section-header"}>
                         <span className="menu-row-text"><Message msgId="hydrata.anuga.elevations" /></span>
                         <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadElevationTooltip" /></Tooltip>}>
                             <span
-                                className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
-                                style={{color: "limegreen", fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
+                                className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-upload"}
+                                style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
                                 onClick={() => {
                                     this.props.setVisibleUploaderPanel(true, "elevation", null);
                                     this.props.startAnugaElevationPolling();
@@ -157,7 +156,7 @@ class AnugaInputMenuClass extends React.Component {
                     </div>
                     {this.props.elevationLayers?.map(elevation => <MenuRow layer={elevation}/>)}
                     {this.props.elevationLayers?.length === 0 ?
-                        <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
+                        <div className={"row menu-row menu-row anuga-section-empty-row"}>
                             <Message msgId="hydrata.anuga.noElevationsAvailable" />
                         </div> : null
                     }
@@ -187,12 +186,12 @@ class AnugaInputMenuClass extends React.Component {
                             trackEventName="anuga-input-menu-create-new-inflow"
                         />
                         {/* Advanced accordion */}
-                        <div className={'menu-rows-container'} style={{ border: "1px solid rgba(255, 255, 255)", borderRadius: "3px", margin: "3px 0" }}>
-                            <div className={"row menu-row menu-row-header"} style={{ width: "540px", textAlign: "left", border: "none" }}>
+                        <div className={'menu-rows-container anuga-section'}>
+                            <div className={"row menu-row menu-row-header anuga-section-header"}>
                                 <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.advanced" /></span>
                                 <span
-                                    className={`btn glyphicon menu-row-glyph ${this.state.showAdvanced ? "glyphicon-chevron-down" : "glyphicon-chevron-right"}`}
-                                    style={{ color: "#325f93", fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
+                                    className={`btn glyphicon menu-row-glyph glyph-settings ${this.state.showAdvanced ? "glyphicon-chevron-down" : "glyphicon-chevron-right"}`}
+                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
                                     onClick={() => {
                                         this.setState(prevState => ({showAdvanced: !prevState.showAdvanced}));
                                         trackEvent('button', 'click', 'anuga-input-menu-show-advanced');
@@ -203,11 +202,10 @@ class AnugaInputMenuClass extends React.Component {
                         {this.state.showAdvanced ?
                             <div id={'advancedInputs'}>
                                 {/* Introduction toggle */}
-                                <div className={'menu-rows-container'} style={{ border: "1px solid rgba(255, 255, 255)", borderRadius: "3px", margin: "3px 0" }}>
-                                    <div className={"row menu-row menu-row-header"} style={{ width: "540px", textAlign: "left", border: "none" }}>
+                                <div className={'menu-rows-container anuga-section'}>
+                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
                                         <span
-                                            className={"btn glyphicon menu-row-glyph " + (this.props.visibleIntroduction ? "glyphicon-ok" : "glyphicon-remove")}
-                                            style={{color: this.props.visibleIntroduction ? "limegreen" : "red"}}
+                                            className={"btn glyphicon menu-row-glyph " + (this.props.visibleIntroduction ? "glyph-active glyphicon-ok" : "glyph-inactive glyphicon-remove")}
                                             onClick={() => {
                                                 this.props.setVisibleIntroduction(!this.props.visibleIntroduction);
                                                 trackEvent('button', 'click', 'anuga-input-menu-show-introduction');
@@ -217,13 +215,13 @@ class AnugaInputMenuClass extends React.Component {
                                     </div>
                                 </div>
                                 {/* Full Mesh — read-only, no create button */}
-                                <div className={'menu-rows-container'} style={{ border: "1px solid rgba(255, 255, 255)", borderRadius: "3px", margin: "3px 0" }}>
-                                    <div className={"row menu-row menu-row-header"} style={{ width: "540px", textAlign: "left", border: "none" }}>
+                                <div className={'menu-rows-container anuga-section'}>
+                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
                                         <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.fullMesh" /></span>
                                     </div>
                                     {this.props.fullMeshLayers?.map(fullMesh => <MenuRow layer={fullMesh}/>)}
                                     {this.props.fullMeshLayers?.length === 0 ?
-                                        <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
+                                        <div className={"row menu-row menu-row anuga-section-empty-row"}>
                                             <Message msgId="hydrata.anuga.meshWillAppear" />
                                         </div> : null
                                     }
@@ -263,17 +261,15 @@ class AnugaInputMenuClass extends React.Component {
                                 />
                                 {/* Networks section — header + sub-sections in one container */}
                                 <div
-                                    className={'menu-rows-container'}
-                                    style={{ border: "1px solid rgba(255, 255, 255)", borderRadius: "3px", margin: "3px 0" }}
+                                    className={'menu-rows-container anuga-section'}
                                 >
                                     <div
-                                        className={"row menu-row menu-row-header"}
-                                        style={{ width: "540px", textAlign: "left", border: "none" }}
+                                        className={"row menu-row menu-row-header anuga-section-header"}
                                     >
                                         <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.networks" /></span>
                                         <span
-                                            className={'btn glyphicon menu-row-glyph glyphicon-cog'}
-                                            style={{ color: "#325f93", fontSize: "smaller", textAlign: "right", marginLeft: "8px", float: "left" }}
+                                            className={'btn glyphicon menu-row-glyph glyph-settings glyphicon-cog'}
+                                            style={{ fontSize: "smaller", textAlign: "right", marginLeft: "8px", float: "left" }}
                                             onClick={() => {
                                                 this.props.setNetworkMenu(true);
                                                 this.props.setAnugaInputMenu(false);
@@ -283,8 +279,8 @@ class AnugaInputMenuClass extends React.Component {
                                         {this.props.canEditAnugaMap ?
                                             <React.Fragment>
                                                 <span
-                                                    className={`btn glyphicon menu-row-glyph glyphicon-plus${this.state.networkTitle ? "" : " disabled"}`}
-                                                    style={{ color: "limegreen", fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
+                                                    className={`btn glyphicon menu-row-glyph glyph-active glyphicon-plus${this.state.networkTitle ? "" : " disabled"}`}
+                                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
                                                     onClick={() => {
                                                         this.createAndReset(this.props.createNetwork, 'networkTitle');
                                                         trackEvent('button', 'click', 'anuga-input-menu-create-network');
@@ -292,7 +288,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 />
                                                 {this.props.isCreatingAnugaLayer ?
                                                     <span>
-                                                        <Spinner color="white" style={{display: "inline-block", position: "absolute", right: "45px"}} spinnerName="circle" noFadeIn/>
+                                                        <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
                                                     </span> :
                                                     <input
                                                         id="network-input"

@@ -23,25 +23,18 @@ const InputSection = ({
     extraHeaderContent
 }) => (
     <div
-        className={'menu-rows-container'}
-        style={{
-            border: "1px solid rgba(255, 255, 255)",
-            borderRadius: "3px",
-            margin: "3px 0"
-        }}
+        className={'menu-rows-container anuga-section'}
     >
         <div
-            className={"row menu-row menu-row-header"}
-            style={{ width: "540px", textAlign: "left", border: "none" }}
+            className={"row menu-row menu-row-header anuga-section-header"}
         >
             <span className="pull-left menu-row-text"><Message msgId={titleMsgId} /></span>
             {extraHeaderContent}
             {canEdit ?
                 <React.Fragment>
                     <span
-                        className={`btn glyphicon menu-row-glyph glyphicon-plus${titleValue ? "" : " disabled"}`}
+                        className={`btn glyphicon menu-row-glyph glyph-active glyphicon-plus${titleValue ? "" : " disabled"}`}
                         style={{
-                            color: "limegreen",
                             fontSize: "smaller",
                             textAlign: "right",
                             marginRight: "8px",
@@ -54,7 +47,7 @@ const InputSection = ({
                     />
                     {isCreating ?
                         <span>
-                            <Spinner color="white" style={{display: "inline-block", position: "absolute", right: "45px"}} spinnerName="circle" noFadeIn/>
+                            <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
                         </span> :
                         <input
                             id={inputId}
@@ -71,7 +64,7 @@ const InputSection = ({
         </div>
         {layers?.map(layer => <MenuRow key={layer?.name || layer?.id} layer={layer}/>)}
         {layers?.length === 0 ?
-            <div className={"row menu-row menu-row"} style={{width: "540px", textAlign: "left", border: "none"}}>
+            <div className={"row menu-row menu-row anuga-section-empty-row"}>
                 <Message msgId={emptyMsgId} />
             </div>
             : null

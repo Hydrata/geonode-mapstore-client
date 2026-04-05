@@ -102,14 +102,14 @@ class ScenarioTableRow extends React.Component {
         case 'building':
             return (
                 <td>
-                    <span className="glyphicon glyphicon-refresh glyphicon-spin" style={{marginRight: 4}} />
+                    <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
                     <Message msgId="hydrata.anuga.statusBuilding" />
                 </td>
             );
         case 'queued':
             return (
                 <td>
-                    <span className="glyphicon glyphicon-refresh glyphicon-spin" style={{marginRight: 4}} />
+                    <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
                     <Message msgId="hydrata.anuga.statusQueued" />
                 </td>
             );
@@ -131,20 +131,20 @@ class ScenarioTableRow extends React.Component {
         case 'processing':
             return (
                 <td>
-                    <span className="glyphicon glyphicon-refresh glyphicon-spin" style={{marginRight: 4}} />
+                    <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
                     <Message msgId="hydrata.anuga.statusProcessing" />
                 </td>
             );
         case 'complete':
             return (
-                <td style={{color: '#5cb85c'}}>
-                    <span className="glyphicon glyphicon-ok" style={{marginRight: 4}} />
+                <td className="status-complete">
+                    <span className="glyphicon glyphicon-ok status-icon" />
                     <Message msgId="hydrata.anuga.statusComplete" />
                 </td>
             );
         case 'error':
             return (
-                <td style={{color: '#d9534f'}}>
+                <td className="status-error">
                     <Message msgId="hydrata.anuga.statusError" />
                     {latestRun?.error_message ?
                         <span title={latestRun.error_message} style={{fontSize: 10, marginLeft: 4}}>
@@ -155,7 +155,7 @@ class ScenarioTableRow extends React.Component {
             );
         case 'cancelled':
             return (
-                <td style={{color: '#888'}}>
+                <td className="status-cancelled">
                     <Message msgId="hydrata.anuga.statusCancelled" />
                 </td>
             );
@@ -175,7 +175,7 @@ class ScenarioTableRow extends React.Component {
             return (
                 <Button
                     bsStyle={'success'} bsSize={'xsmall'}
-                    style={{margin: "2px", borderRadius: "2px"}}
+                    className="anuga-btn"
                     onClick={() => {
                         this.props.setAnugaScenarioMenu(false);
                         this.props.selectAnugaScenario(scenario);
@@ -191,7 +191,7 @@ class ScenarioTableRow extends React.Component {
                 <Button
                     download href={scenario?.latest_run?.s3_package_url}
                     bsStyle={'success'} bsSize={'xsmall'}
-                    style={{margin: "2px", borderRadius: "2px"}}
+                    className="anuga-btn"
                     onClick={() => trackEvent('button', 'click', 'anuga-scenario-menu-download')}
                 >
                     <span className="glyphicon glyphicon-download" aria-hidden="true" />
@@ -201,7 +201,7 @@ class ScenarioTableRow extends React.Component {
             return (
                 <Button
                     bsStyle={'warning'} bsSize={'xsmall'}
-                    style={{margin: "2px", borderRadius: "2px"}}
+                    className="anuga-btn"
                     onClick={() => {
                         if (scenario?.latest_run?.id && this.props.retryAnugaRun) {
                             this.props.retryAnugaRun(scenario.latest_run.id);
@@ -216,7 +216,7 @@ class ScenarioTableRow extends React.Component {
             return (
                 <Button
                     bsStyle={'success'} bsSize={'xsmall'}
-                    style={{margin: "2px", borderRadius: "2px"}}
+                    className="anuga-btn"
                     onClick={() => {
                         this.props.setAnugaScenarioMenu(false);
                         this.props.selectAnugaScenario(scenario);
@@ -234,8 +234,7 @@ class ScenarioTableRow extends React.Component {
             return (
                 <Button
                     bsStyle={'success'} bsSize={'xsmall'}
-                    className={'disabled'}
-                    style={{margin: "2px", borderRadius: "2px"}}
+                    className="anuga-btn disabled"
                 >
                     <span className="glyphicon glyphicon-refresh glyphicon-spin" aria-hidden="true" />
                 </Button>
@@ -244,8 +243,7 @@ class ScenarioTableRow extends React.Component {
             return (
                 <Button
                     bsStyle={'success'} bsSize={'xsmall'}
-                    className={'disabled'}
-                    style={{margin: "2px", borderRadius: "2px"}}
+                    className="anuga-btn disabled"
                     onClick={() => trackEvent('button', 'click', 'anuga-scenario-menu-run')}
                 >
                     <Message msgId="hydrata.anuga.run" />
@@ -291,8 +289,7 @@ class ScenarioTableRow extends React.Component {
                             <td>
                                 <Button
                                     bsStyle={'success'} bsSize={'xsmall'}
-                                    style={{margin: "2px", borderRadius: "2px"}}
-                                    className={isUnsaved ? null : 'disabled'}
+                                    className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
                                     onClick={() => {
                                         if (this.props.validateScenario?.(scenario) !== false) {
                                             this.buildScenario();
@@ -312,8 +309,7 @@ class ScenarioTableRow extends React.Component {
                         <td>
                             <input
                                 id={'resolution'} key={`resolution-${scenario.id}`}
-                                type={"number"} className={'scenario-input'}
-                                style={{width: '80px'}}
+                                type={"number"} className={'scenario-input scenario-input-narrow'}
                                 value={scenario?.resolution}
                                 onChange={this.handleNumberChange}
                             />
@@ -321,8 +317,7 @@ class ScenarioTableRow extends React.Component {
                         <td>
                             <input
                                 id={'duration'} key={`duration-${scenario.id}`}
-                                type={"text"} className={'scenario-input'}
-                                style={{width: '80px'}}
+                                type={"text"} className={'scenario-input scenario-input-narrow'}
                                 value={scenario.tempTimeString || toHHMM(scenario.duration)}
                                 onChange={this.handleTimeChange}
                                 onBlur={this.handleTimeBlur}
@@ -332,8 +327,7 @@ class ScenarioTableRow extends React.Component {
                         <td>
                             <Button
                                 bsStyle={'success'} bsSize={'xsmall'}
-                                style={{margin: "2px", borderRadius: "2px"}}
-                                className={isUnsaved ? null : 'disabled'}
+                                className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
                                 onClick={() => {
                                     if (this.props.validateScenario?.(scenario) !== false) {
                                         this.buildScenario();
@@ -349,7 +343,7 @@ class ScenarioTableRow extends React.Component {
                         <td>
                             <Button
                                 bsStyle={'info'} bsSize={'xsmall'}
-                                style={{margin: "2px", borderRadius: "2px"}}
+                                className="anuga-btn"
                                 onClick={() => {
                                     this.props.selectAnugaScenario(scenario);
                                     if (this.props.openTaskMonitorForRun) {
@@ -366,7 +360,7 @@ class ScenarioTableRow extends React.Component {
                         <td>
                             <Button
                                 bsStyle={'danger'} bsSize={'xsmall'}
-                                style={{margin: "2px", borderRadius: "2px", backgroundColor: "#622b2b"}}
+                                className="anuga-btn-delete"
                                 onClick={
                                     isCancellable ?
                                         () => {
@@ -394,11 +388,7 @@ class ScenarioTableRow extends React.Component {
                     <React.Fragment>
                         <td>
                             <span
-                                className={"btn glyphicon menu-row-glyph " + (scenario?.selected ? "glyphicon-ok" : "glyphicon-remove")}
-                                style={{
-                                    color: scenario?.selected ? "limegreen" : "red",
-                                    fontSize: "10px"
-                                }}
+                                className={"btn glyphicon menu-row-glyph scenario-compare-glyph " + (scenario?.selected ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive")}
                                 onClick={() => {
                                     this.props.toggleScenarioSelected(scenario);
                                     trackEvent('button', 'click', `anuga-scenario-menu-select-scenario-${scenario?.name}`);

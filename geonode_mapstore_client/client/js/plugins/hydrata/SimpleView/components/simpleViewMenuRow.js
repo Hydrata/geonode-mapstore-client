@@ -83,16 +83,14 @@ class MenuRowClass extends React.Component {
             <div className={"menu-row"}>
                 <span className={"menu-row-left"}>
                     <span
-                        className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                        style={{"color": this.props.layer?.visibility ? "limegreen" : "red"}}
+                        className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive")}
                         onClick={() => {
                             this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
                             trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
                         }}
                     />
                     <span
-                        className={"btn glyphicon menu-row-glyph glyphicon-zoom-to"}
-                        style={{"color": "#4dabf7"}}
+                        className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
                         onClick={() => {
                             if (hasValidBbox) {
                                 const {bounds, crs} = this.props.layer.bbox;
@@ -107,16 +105,14 @@ class MenuRowClass extends React.Component {
                         this.props.canEditMap && this.canExportLayer(this.props.layer) ?
                             <React.Fragment>
                                 <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-download"}
-                                    style={{"color": "limegreen"}}
+                                    className={"btn glyphicon menu-row-glyph glyphicon-download glyph-active"}
                                     onClick={() => {
                                         this.props.svDownloadLayer(this.props.layer);
                                         trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
                                     }}
                                 />
                                 <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-upload"}
-                                    style={{"color": "limegreen"}}
+                                    className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
                                     onClick={() => {
                                         this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
                                         trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
@@ -129,8 +125,7 @@ class MenuRowClass extends React.Component {
                         this.props.canEditMap && this.canEditLayer(this.props.layer) ?
                             <React.Fragment>
                                 <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-pencil"}
-                                    style={{"color": "grey"}}
+                                    className={"btn glyphicon menu-row-glyph glyphicon-pencil glyph-edit"}
                                     onClick={() => {
                                         this.props.closeFeatureGrid();
                                         this.props.selectFeatures([]);
@@ -152,8 +147,7 @@ class MenuRowClass extends React.Component {
                                 />
                                 {this.props.layer?.title === this.state.newTitle ? null :
                                     <span
-                                        className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk"}
-                                        style={{"color": "limegreen"}}
+                                        className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk glyph-save"}
                                         onClick={
                                             () => {
                                                 this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);
@@ -171,8 +165,7 @@ class MenuRowClass extends React.Component {
                     {
                         (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
                             <span
-                                className={"btn glyphicon menu-row-glyph glyphicon-trash"}
-                                style={{"color": "darkred"}}
+                                className={"btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"}
                                 onClick={() => {
                                     this.props.removeNode(this.props.layer.id, 'layers');
                                     this.props.removeLayer(this.props.layer.id);

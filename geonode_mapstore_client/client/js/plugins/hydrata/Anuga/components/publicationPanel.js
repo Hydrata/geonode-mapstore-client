@@ -33,9 +33,9 @@ class PublicationPanelClass extends React.Component {
     render() {
         // console.log('this.state:', this.state)
         return (
-            <div id={'publication-panel'} className={'simple-view-panel'} style={{top: "70px"}}>
+            <div id={'publication-panel'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row"} style={{height: "20px", textAlign: "left", fontSize: "large"}}>
+                    <div className={"row publication-close-row"}>
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={
@@ -48,12 +48,12 @@ class PublicationPanelClass extends React.Component {
                     </div>
                     {
                         this.props.publications?.map(publication =>
-                            <div className={"row menu-row-header"} style={{height: "40px", textAlign: "left", fontSize: "large"}}>
-                                <span style={{lineHeight: "40px"}}><Message msgId="hydrata.anuga.publishPrefix" /> {publication?.geostory?.title}</span>
+                            <div className={"row menu-row-header publication-row"}>
+                                <span className="publication-title"><Message msgId="hydrata.anuga.publishPrefix" /> {publication?.geostory?.title}</span>
                                 <Button
                                     bsStyle={'success'}
                                     bsSize={'xlarge'}
-                                    style={{marginTop: "4px", borderRadius: "2px", "float": "right", display: "inlineBlock"}}
+                                    className="publication-edit-btn"
                                     onClick={() => {
                                         window.open(publication?.geostory?.detail_url, '_blank');
                                         trackEvent('button', `click`, `anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
@@ -61,7 +61,7 @@ class PublicationPanelClass extends React.Component {
                                 >
                                     <Message msgId="hydrata.anuga.editPublication" />
                                 </Button>
-                                <h3 style={{display: "inlineBlock"}}>
+                                <h3 className="publication-figures-heading">
                                     <Message msgId="hydrata.anuga.figures" />
                                 </h3>
                                 {
@@ -69,7 +69,7 @@ class PublicationPanelClass extends React.Component {
                                         <Button
                                             bsStyle={'success'}
                                             bsSize={'xsmall'}
-                                            style={{borderRadius: "2px", marginTop: "5px", display: "block", width: "375px", textAlign: "left"}}
+                                            className="publication-figure-btn"
                                             onClick={() => {
                                                 window.open(figure?.detail_url, '_blank');
                                                 trackEvent('button', `click`, `anuga-publication-menu-open-figure-${figure?.title}`);
@@ -79,12 +79,11 @@ class PublicationPanelClass extends React.Component {
                                         </Button>
                                     )
                                 }
-                                <div style={{borderTop: "2px solid #ffffffad", paddingTop: "15px", marginTop: "5px", marginBottom: "10px"}}>
+                                <div className="publication-create-figure">
                                     <input
                                         id={'figure-input'}
                                         key={'figure-input'}
-                                        className={'data-title-input'}
-                                        style={{width: "375px", marginTop: "3px", marginRight: "5px", "float": "left"}}
+                                        className={'data-title-input publication-figure-input'}
                                         type={'text'}
                                         value={this.state.figureTitle}
                                         onChange={(e) => this.setState({figureTitle: e.target.value})}
@@ -92,7 +91,7 @@ class PublicationPanelClass extends React.Component {
                                     <Button
                                         bsStyle={'success'}
                                         bsSize={'xsmall'}
-                                        style={{margin: "2px", borderRadius: "2px", "float": "left"}}
+                                        className="publication-create-btn"
                                         onClick={() => {
                                             this.props.createFigure(this.state.figureTitle, publication.id);
                                             this.setState({figureTitle: ''});

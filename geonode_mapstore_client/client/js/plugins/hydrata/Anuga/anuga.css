@@ -1,3 +1,20 @@
+.anuga-panel {
+    top: var(--sv-panel-top-anuga, 70px);
+}
+
+#anuga-input-menu {
+    width: 560px;
+}
+
+#anuga-network-container {
+    width: 80%;
+    height: 80%;
+}
+
+#membership-panel {
+    min-width: 400px;
+}
+
 #anuga-container {
     width:100%;
     height:100%;
@@ -167,7 +184,6 @@
     margin: 0 0 10px;
     font-size: 12px;
     z-index: 2000;
-    top: 80px;
     min-width: 800px;
     min-height: 600px;
     color: white;
@@ -237,6 +253,34 @@
     text-align: center;
 }
 
+/* ── TASK-423: Consolidated ANUGA InputMenu / InputSection layout classes ── */
+
+.anuga-section {
+    border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    border-radius: 3px;
+    margin: 3px 0;
+}
+
+.anuga-section-header {
+    width: 540px;
+    text-align: left;
+    border: none;
+}
+
+.anuga-section-empty-row {
+    width: 540px;
+    text-align: left;
+    border: none;
+}
+
+.anuga-spinner {
+    display: inline-block;
+    position: absolute;
+    right: 45px;
+}
+
+/* ── End TASK-423 ── */
+
 /*#identify-container {*/
 /*    display:none;*/
 /*}*/
@@ -250,3 +294,262 @@ div that holds the feature-grid */
 /*main > div[style*="1030"]:not([id]):not([role]):not([class]) {*/
 /*    display: none;*/
 /*}*/
+
+/* ── TASK-424: Consolidated RunMenu/ScenarioMenu/NetworkMenu inline styles ── */
+
+.anuga-btn {
+    margin: 2px;
+    border-radius: 2px;
+}
+
+.anuga-btn-delete {
+    margin: 2px;
+    border-radius: 2px;
+    background-color: #622b2b;
+}
+
+.scenario-tab {
+    margin: 2px 0 -17px 8px;
+    border-radius: 6px 6px 0 0;
+    color: white;
+    background-color: #6085b5;
+}
+
+.scenario-tab:first-child {
+    margin-left: 20px;
+}
+
+.scenario-tab.active {
+    color: #3363a0;
+    background-color: white;
+}
+
+.scenario-menu-header {
+    height: 40px;
+    text-align: left;
+    font-size: large;
+}
+
+.scenario-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px 10px 10px;
+}
+
+.scenario-log-viewer {
+    color: white;
+    background: black;
+}
+
+.scenario-log-header {
+    margin-left: 9px;
+}
+
+.scenario-log-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px;
+}
+
+.scenario-input-narrow {
+    width: 80px;
+}
+
+.status-icon {
+    margin-right: 4px;
+}
+
+.status-complete {
+    color: #5cb85c;
+}
+
+.status-error {
+    color: #d9534f;
+}
+
+.status-cancelled {
+    color: #888;
+}
+
+.scenario-compare-glyph {
+    font-size: 10px;
+}
+
+.run-menu-th-name {
+    width: 200px;
+    text-align: left;
+}
+
+.run-menu-th-backend {
+    width: 120px;
+}
+
+.run-menu-th-action {
+    width: 80px;
+}
+
+.run-menu-td-name {
+    text-align: left;
+}
+
+/* ── End TASK-424 ── */
+
+/* ── TASK-425: Consolidated MembershipPanel / PublicationPanel styles ── */
+
+/* -- Role badges (membership panel) -- */
+
+.badge-role {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: white;
+}
+
+.badge-owner {
+    background-color: #337ab7;
+}
+
+.badge-manager {
+    background-color: #5cb85c;
+}
+
+.badge-editor {
+    background-color: #f0ad4e;
+}
+
+.badge-viewer {
+    background-color: #777;
+}
+
+/* -- Membership panel sections -- */
+
+.membership-visibility {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    margin-bottom: 8px;
+}
+
+.membership-visibility-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.membership-section-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.membership-add-form {
+    border-top: 2px solid rgba(255, 255, 255, 0.15);
+    padding-top: 10px;
+    margin-top: 5px;
+}
+
+.membership-add-form-row {
+    display: flex;
+    gap: 4px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.membership-search-results {
+    margin-top: 4px;
+    max-height: 120px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.membership-search-result {
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.membership-search-result:hover {
+    background-color: rgba(51, 122, 183, 0.15);
+}
+
+.membership-role-select {
+    width: auto;
+    min-width: 90px;
+}
+
+.membership-btn-remove {
+    border-radius: 2px;
+    background-color: #622b2b;
+}
+
+.membership-btn-sm {
+    border-radius: 2px;
+    margin-top: 2px;
+}
+
+.membership-search-input {
+    width: 160px;
+}
+
+.membership-header-row {
+    height: 40px;
+    text-align: left;
+    font-size: large;
+}
+
+/* -- Publication panel styles -- */
+
+.publication-close-row {
+    height: 20px;
+    text-align: left;
+    font-size: large;
+}
+
+.publication-row {
+    height: 40px;
+    text-align: left;
+    font-size: large;
+}
+
+.publication-title {
+    line-height: 40px;
+}
+
+.publication-edit-btn {
+    margin-top: 4px;
+    border-radius: 2px;
+    float: right;
+    display: inline-block;
+}
+
+.publication-figures-heading {
+    display: inline-block;
+}
+
+.publication-figure-btn {
+    border-radius: 2px;
+    margin-top: 5px;
+    display: block;
+    width: 375px;
+    text-align: left;
+}
+
+.publication-create-figure {
+    border-top: 2px solid #ffffffad;
+    padding-top: 15px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+.publication-figure-input {
+    width: 375px;
+    margin-top: 3px;
+    margin-right: 5px;
+    float: left;
+}
+
+.publication-create-btn {
+    margin: 2px;
+    border-radius: 2px;
+    float: left;
+}
+
+/* ── End TASK-425 ── */

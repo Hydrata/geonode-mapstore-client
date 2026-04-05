@@ -44,7 +44,7 @@ class AnugaRunMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-run-menu-container'} className={'simple-view-panel'} style={{top: "70px"}}>
+            <div id={'anuga-run-menu-container'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
                     <div className={"row menu-row-header"}>
                         <span
@@ -59,15 +59,15 @@ class AnugaRunMenuClass extends React.Component {
                             <Table className={"run-server-table"}>
                                 <thead>
                                     <tr className={"run-server-table-header"}>
-                                        <th style={{width: "200px", textAlign: "left"}}><Message msgId="hydrata.anuga.runScenario" /></th>
-                                        <th style={{width: "120px"}}><Message msgId="hydrata.anuga.computeBackend" /></th>
-                                        <th style={{width: "80px"}}><Message msgId="hydrata.anuga.run" /></th>
-                                        <th style={{width: "80px"}}><Message msgId="hydrata.anuga.download" /></th>
+                                        <th className="run-menu-th-name"><Message msgId="hydrata.anuga.runScenario" /></th>
+                                        <th className="run-menu-th-backend"><Message msgId="hydrata.anuga.computeBackend" /></th>
+                                        <th className="run-menu-th-action"><Message msgId="hydrata.anuga.run" /></th>
+                                        <th className="run-menu-th-action"><Message msgId="hydrata.anuga.download" /></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr className={"run-server-table-row"} style={{marginTop: "15px"}}>
-                                        <td style={{'textAlign': 'left'}}>{this.props.selectedScenario.name}</td>
+                                        <td className="run-menu-td-name">{this.props.selectedScenario.name}</td>
                                         <td>
                                             <select
                                                 className={'scenario-select'}
@@ -83,7 +83,7 @@ class AnugaRunMenuClass extends React.Component {
                                             <Button
                                                 bsStyle={'success'}
                                                 bsSize={'xsmall'}
-                                                style={{margin: "2px", borderRadius: "2px"}}
+                                                className="anuga-btn"
                                                 onClick={() => {
                                                     this.props.runAnugaScenario(this.props.selectedScenario, this.state.computeBackend);
                                                     this.props.showAnugaRunMenu(false);
@@ -101,7 +101,7 @@ class AnugaRunMenuClass extends React.Component {
                                                 href={this.props.selectedScenario?.latest_run?.s3_package_url}
                                                 bsStyle={'success'}
                                                 bsSize={'xsmall'}
-                                                style={{margin: "2px", borderRadius: "2px"}}
+                                                className="anuga-btn"
                                                 onClick={() => {
                                                     trackEvent('button', `click`, `anuga-run-menu-download-${this.props.selectedScenario.name}`);
                                                 }}
@@ -115,11 +115,11 @@ class AnugaRunMenuClass extends React.Component {
                         </div>
                     </div>
                 </div>
-                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 10px 10px 10px"}}>
+                <div className="scenario-footer">
                     <Button
                         bsStyle={'success'}
                         bsSize={'small'}
-                        style={{borderRadius: "2px"}}
+                        className="anuga-btn"
                         onClick={() => {
                             this.props.showManageAccount(true);
                             this.props.showAnugaRunMenu(false);
@@ -131,7 +131,7 @@ class AnugaRunMenuClass extends React.Component {
                     <Button
                         bsStyle={'default'}
                         bsSize={'small'}
-                        style={{borderRadius: "2px"}}
+                        className="anuga-btn"
                         onClick={() => {
                             this.props.showAnugaRunMenu(false);
                             this.props.setAnugaScenarioMenu(true);

@@ -57,16 +57,14 @@ class MenuRowsClass extends React.Component {
                         <React.Fragment key={subHeading}>
                             <div className="subheading-row">
                                 <span
-                                    className={"btn glyphicon menu-row-glyph " + (allVisible ? "glyphicon-ok" : noneVisible ? "glyphicon-remove" : "glyphicon-minus")}
-                                    style={{"color": allVisible ? "limegreen" : noneVisible ? "red" : "orange"}}
+                                    className={"btn glyphicon menu-row-glyph " + (allVisible ? "glyphicon-ok glyph-active" : noneVisible ? "glyphicon-remove glyph-inactive" : "glyphicon-minus glyph-partial")}
                                     onClick={() => {
                                         this.props.toggleGroupVisibility(groupLayers, !allVisible);
                                         trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${allVisible ? 'off' : 'on'}`);
                                     }}
                                 />
                                 <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-zoom-to"}
-                                    style={{"color": "#4dabf7"}}
+                                    className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
                                     onClick={() => {
                                         this.props.zoomToGroup(groupLayers);
                                         trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);

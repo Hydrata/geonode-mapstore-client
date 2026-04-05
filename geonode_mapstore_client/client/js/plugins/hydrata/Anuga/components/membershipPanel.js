@@ -123,17 +123,17 @@ class MembershipPanelClass extends React.Component {
     renderVisibilitySection() {
         if (!this.props.canManage) return null;
         return (
-            <div style={{padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.15)', marginBottom: 8}}>
-                <div style={{fontWeight: 'bold', marginBottom: 4}}>
+            <div className="membership-visibility">
+                <div className="membership-section-title">
                     <Message msgId="hydrata.anuga.projectVisibility" />
                 </div>
-                <div style={{display: 'flex', gap: 8}}>
+                <div className="membership-visibility-buttons">
                     {VISIBILITY_OPTIONS.map(opt => (
                         <Button
                             key={opt.value}
                             bsSize="xsmall"
                             bsStyle={this.props.visibility === opt.value ? 'primary' : 'default'}
-                            style={{borderRadius: 2}}
+                            className="membership-btn-sm"
                             onClick={() => this.handleVisibilityChange(opt.value)}
                         >
                             {opt.label}
@@ -149,13 +149,7 @@ class MembershipPanelClass extends React.Component {
             <tr>
                 <td>{this.props.ownerUsername}</td>
                 <td>
-                    <span style={{
-                        padding: '2px 6px',
-                        borderRadius: 3,
-                        fontSize: 11,
-                        backgroundColor: '#337ab7',
-                        color: 'white'
-                    }}>
+                    <span className="badge-role badge-owner">
                         Owner
                     </span>
                 </td>
@@ -172,8 +166,7 @@ class MembershipPanelClass extends React.Component {
                     {this.props.canManage ? (
                         <select
                             value={membership.role}
-                            className="scenario-select"
-                            style={{width: 'auto', minWidth: 90}}
+                            className="scenario-select membership-role-select"
                             onChange={(e) => this.handleRoleChange(membership.id, e.target.value)}
                         >
                             {ROLES.map(r => (
@@ -181,13 +174,7 @@ class MembershipPanelClass extends React.Component {
                             ))}
                         </select>
                     ) : (
-                        <span style={{
-                            padding: '2px 6px',
-                            borderRadius: 3,
-                            fontSize: 11,
-                            backgroundColor: membership.role >= 4 ? '#5cb85c' : membership.role >= 3 ? '#f0ad4e' : '#777',
-                            color: 'white'
-                        }}>
+                        <span className={`badge-role ${membership.role >= 4 ? 'badge-manager' : membership.role >= 3 ? 'badge-editor' : 'badge-viewer'}`}>
                             {membership.role_label}
                         </span>
                     )}
@@ -197,7 +184,7 @@ class MembershipPanelClass extends React.Component {
                         <Button
                             bsStyle="danger"
                             bsSize="xsmall"
-                            style={{borderRadius: 2, backgroundColor: '#622b2b'}}
+                            className="membership-btn-remove"
                             onClick={() => this.handleRemoveMember(membership.id, membership.username)}
                         >
                             <span className="glyphicon glyphicon-trash" aria-hidden="true" />
@@ -211,15 +198,14 @@ class MembershipPanelClass extends React.Component {
     renderAddMemberSection() {
         if (!this.props.canManage) return null;
         return (
-            <div style={{borderTop: '2px solid rgba(255,255,255,0.15)', paddingTop: 10, marginTop: 5}}>
-                <div style={{fontWeight: 'bold', marginBottom: 4}}>
+            <div className="membership-add-form">
+                <div className="membership-section-title">
                     <Message msgId="hydrata.anuga.addMember" />
                 </div>
-                <div style={{display: 'flex', gap: 4, alignItems: 'flex-start', flexWrap: 'wrap'}}>
+                <div className="membership-add-form-row">
                     <input
                         type="text"
-                        className="data-title-input"
-                        style={{width: 160}}
+                        className="data-title-input membership-search-input"
                         placeholder="Search users..."
                         value={this.state.searchQuery}
                         onChange={(e) => this.setState({searchQuery: e.target.value})}
@@ -227,15 +213,14 @@ class MembershipPanelClass extends React.Component {
                     />
                     <Button
                         bsSize="xsmall"
-                        style={{borderRadius: 2, marginTop: 2}}
+                        className="membership-btn-sm"
                         onClick={this.searchUsers}
                         disabled={this.state.searching}
                     >
                         <span className="glyphicon glyphicon-search" />
                     </Button>
                     <select
-                        className="scenario-select"
-                        style={{width: 'auto', minWidth: 90}}
+                        className="scenario-select membership-role-select"
                         value={this.state.newRole}
                         onChange={(e) => this.setState({newRole: parseInt(e.target.value, 10)})}
                     >
@@ -246,7 +231,7 @@ class MembershipPanelClass extends React.Component {
                     <Button
                         bsStyle="success"
                         bsSize="xsmall"
-                        style={{borderRadius: 2, marginTop: 2}}
+                        className="membership-btn-sm"
                         disabled={!this.state.selectedUser}
                         onClick={this.handleAddMember}
                     >
@@ -254,22 +239,13 @@ class MembershipPanelClass extends React.Component {
                     </Button>
                 </div>
                 {this.state.searchResults.length > 0 ? (
-                    <div style={{
-                        marginTop: 4,
-                        maxHeight: 120,
-                        overflowY: 'auto',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        borderRadius: 3
-                    }}>
+                    <div className="membership-search-results">
                         {this.state.searchResults.map(user => (
                             <div
                                 key={user.pk}
-                                style={{
-                                    padding: '4px 8px',
-                                    cursor: 'pointer',
-                                    backgroundColor: this.state.selectedUser?.pk === user.pk
-                                        ? 'rgba(51,122,183,0.3)' : 'transparent'
-                                }}
+                                className="membership-search-result"
+                                style={this.state.selectedUser?.pk === user.pk
+                                    ? {backgroundColor: 'rgba(51,122,183,0.3)'} : undefined}
                                 onClick={() => this.setState({selectedUser: user, searchQuery: user.username})}
                             >
                                 {user.username}
@@ -286,9 +262,9 @@ class MembershipPanelClass extends React.Component {
 
     render() {
         return (
-            <div id="membership-panel" className="simple-view-panel" style={{top: "70px", minWidth: 400}}>
+            <div id="membership-panel" className="simple-view-panel anuga-panel">
                 <div className="menu-rows-container">
-                    <div className="row menu-row-header" style={{height: 40, textAlign: "left", fontSize: "large"}}>
+                    <div className="row menu-row-header membership-header-row">
                         <Message msgId="hydrata.anuga.members" />
                         <span
                             className="btn glyphicon glyphicon-remove legend-close"
