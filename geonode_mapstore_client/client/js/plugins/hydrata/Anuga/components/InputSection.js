@@ -64,7 +64,7 @@ const InputSection = ({
         </div>
         {layers?.map(layer => <MenuRow key={layer?.name || layer?.id} layer={layer}/>)}
         {layers?.length === 0 ?
-            <div className={"row menu-row menu-row anuga-section-empty-row"}>
+            <div className={"row menu-row anuga-section-empty-row"}>
                 <Message msgId={emptyMsgId} />
             </div>
             : null

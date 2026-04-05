@@ -156,7 +156,7 @@ class AnugaInputMenuClass extends React.Component {
                     </div>
                     {this.props.elevationLayers?.map(elevation => <MenuRow layer={elevation}/>)}
                     {this.props.elevationLayers?.length === 0 ?
-                        <div className={"row menu-row menu-row anuga-section-empty-row"}>
+                        <div className={"row menu-row anuga-section-empty-row"}>
                             <Message msgId="hydrata.anuga.noElevationsAvailable" />
                         </div> : null
                     }
@@ -221,7 +221,7 @@ class AnugaInputMenuClass extends React.Component {
                                     </div>
                                     {this.props.fullMeshLayers?.map(fullMesh => <MenuRow layer={fullMesh}/>)}
                                     {this.props.fullMeshLayers?.length === 0 ?
-                                        <div className={"row menu-row menu-row anuga-section-empty-row"}>
+                                        <div className={"row menu-row anuga-section-empty-row"}>
                                             <Message msgId="hydrata.anuga.meshWillAppear" />
                                         </div> : null
                                     }
