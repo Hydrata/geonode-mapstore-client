@@ -21,6 +21,31 @@ fs.moveSync(path.resolve(appDirectory, distDirectory, 'web-ifc'), path.resolve(a
 message.title('copy ifc files in dist folder');
 fs.moveSync(path.resolve(appDirectory, distDirectory, 'ms-translations'), path.resolve(appDirectory, staticPath, 'ms-translations'), { overwrite: true });
 message.title('copy ms-translations from MapStore Core');
+
+// Generate stub hydrata-translations for any locales present in ms-translations
+// but missing from hydrata-translations, preventing 404s on page load
+const msTransDir = path.resolve(appDirectory, staticPath, 'ms-translations');
+const hydrataTransDir = path.resolve(appDirectory, staticPath, 'hydrata-translations');
+if (fs.existsSync(msTransDir) && fs.existsSync(hydrataTransDir)) {
+    const msLocaleFiles = fs.readdirSync(msTransDir).filter(f => f.startsWith('data.') && f.endsWith('.json'));
+    let stubCount = 0;
+    msLocaleFiles.forEach(filename => {
+        const hydrataFile = path.resolve(hydrataTransDir, filename);
+        if (!fs.existsSync(hydrataFile)) {
+            // Extract locale code from filename: data.xx-XX.json -> xx-XX
+            const locale = filename.replace('data.', '').replace('.json', '');
+            const stub = { locale, messages: {} };
+            fs.writeFileSync(hydrataFile, JSON.stringify(stub, null, 2) + '\n');
+            stubCount++;
+        }
+    });
+    if (stubCount > 0) {
+        message.title(`generated ${stubCount} stub hydrata-translation files for missing locales`);
+    } else {
+        message.title('all hydrata-translation locales already present');
+    }
+}
+
 fs.moveSync(path.resolve(appDirectory, distDirectory), path.resolve(appDirectory, staticPath, distDirectory), { overwrite: true });
 message.title('copy dist folder to static/mapstore directory');
 
