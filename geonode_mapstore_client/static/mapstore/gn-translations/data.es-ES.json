@@ -26,7 +26,9 @@
             }
         },
         "gnhome": {
-            "description": "<h1>GeoNode</h1><p>compartir datos y mapas geoespaciales.</p>",
+            "title": "Título",
+            "description": "Descripción",
+            "lastUpdate": "Última actualización",
             "orderBy": "Ordenar por",
             "mostRecent": "Más reciente",
             "lessRecent": "Menos reciente",
