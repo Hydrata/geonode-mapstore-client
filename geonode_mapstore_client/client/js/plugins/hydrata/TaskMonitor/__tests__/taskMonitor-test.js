@@ -248,21 +248,58 @@ describe('TaskMonitor', () => {
             expect(state).toBe(initialState);
         });
 
-        it('should replace all processes on TM_SET_PROCESSES (not merge)', () => {
+        it('should drop processes not in new list and merge existing ones on TM_SET_PROCESSES', () => {
             const initialState = {
-                byId: { 1: { id: 1, status: 'running' } },
-                allIds: [1],
+                byId: {
+                    1: { id: 1, status: 'running', subtasks: [{ id: 10 }] },
+                    2: { id: 2, status: 'pending' }
+                },
+                allIds: [1, 2],
                 activeCount: 1,
                 lastFetched: null
             };
             const state = processReducer(initialState, {
                 type: TM_SET_PROCESSES,
-                processes: [{ id: 2, status: 'pending' }]
+                processes: [{ id: 2, status: 'complete' }, { id: 3, status: 'running' }]
             });
-            // Process 1 should be gone — SET_PROCESSES replaces entirely
+            // Process 1 should be gone — not in new list
             expect(state.byId[1]).toBe(undefined);
-            expect(state.byId[2].status).toBe('pending');
-            expect(state.allIds).toEqual([2]);
+            // Process 2 should have updated status from poll
+            expect(state.byId[2].status).toBe('complete');
+            // Process 3 is new
+            expect(state.byId[3].status).toBe('running');
+            expect(state.allIds).toEqual([2, 3]);
+        });
+
+        it('should preserve subtasks and log from TM_UPDATE_PROCESS when TM_SET_PROCESSES fires', () => {
+            // Simulate: detail fetch populated subtasks + log via TM_UPDATE_PROCESS
+            const stateAfterDetail = processReducer(
+                {
+                    byId: { 1: { id: 1, status: 'running', progress_pct: 50 } },
+                    allIds: [1],
+                    activeCount: 1,
+                    lastFetched: null
+                },
+                {
+                    type: TM_UPDATE_PROCESS,
+                    process: { id: 1, status: 'running', progress_pct: 50, subtasks: [{ id: 10, name: 'mesh' }], log: 'Step 1 done' }
+                }
+            );
+            expect(stateAfterDetail.byId[1].subtasks.length).toBe(1);
+            expect(stateAfterDetail.byId[1].log).toBe('Step 1 done');
+
+            // Now the 3-second poll fires TM_SET_PROCESSES with list data (no subtasks/log)
+            const stateAfterPoll = processReducer(stateAfterDetail, {
+                type: TM_SET_PROCESSES,
+                processes: [{ id: 1, status: 'running', progress_pct: 75 }]
+            });
+            // Poll data wins for shared fields
+            expect(stateAfterPoll.byId[1].progress_pct).toBe(75);
+            expect(stateAfterPoll.byId[1].status).toBe('running');
+            // Detail-only fields preserved
+            expect(stateAfterPoll.byId[1].subtasks).toEqual([{ id: 10, name: 'mesh' }]);
+            expect(stateAfterPoll.byId[1].log).toBe('Step 1 done');
+            expect(stateAfterPoll.allIds).toEqual([1]);
         });
     });
 

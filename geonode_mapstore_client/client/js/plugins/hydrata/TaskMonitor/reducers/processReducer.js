@@ -18,7 +18,8 @@ export default (state = initialState, action) => {
         const byId = {};
         const allIds = [];
         (action.processes || []).forEach(p => {
-            byId[p.id] = p;
+            const existing = state.byId[p.id];
+            byId[p.id] = existing ? { ...existing, ...p } : p;
             allIds.push(p.id);
         });
         return {

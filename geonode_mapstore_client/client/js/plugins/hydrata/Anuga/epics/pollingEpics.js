@@ -256,7 +256,11 @@ export const pollAnugaElevationEpic = (action$, store) =>
                         Rx.Observable.defer(() => {
                             const groups = store.getState()?.layers?.groups || [];
                             const inputDataGroup = groups.find(group => group != null && group.id === "Input Data");
-                            return Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', inputDataGroup?.nodes?.length));
+                            if (inputDataGroup && inputDataGroup.nodes) {
+                                return Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', inputDataGroup.nodes.length));
+                            }
+                            console.warn('[ANUGA] Skipping moveNode: Input Data group not ready');
+                            return Rx.Observable.empty();
                         })
                     );
                 })
