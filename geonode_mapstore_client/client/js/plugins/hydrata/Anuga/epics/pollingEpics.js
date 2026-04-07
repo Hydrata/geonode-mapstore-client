@@ -7,7 +7,7 @@ import {
     moveNode
 } from '../../../../../MapStore2/web/client/actions/layers';
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
-import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
+import {zoomToExtent, CHANGE_MAP_VIEW} from "../../../../../MapStore2/web/client/actions/map";
 import {getNode} from '../../../../../MapStore2/web/client/utils/LayersUtils';
 import {saveDirectContent} from "@js/actions/gnsave";
 import * as anugaApi from '../api/anugaApi';
@@ -212,6 +212,11 @@ export const pollAnugaElevationEpic = (action$, store) =>
                     const layerActions = [];
                     if (!elevationExists) layerActions.push(Rx.Observable.of(addLayer(elevationLayerData)));
                     if (!hillshadeExists) layerActions.push(Rx.Observable.of(addLayer(hillshadeLayerData)));
+                    // Detect whether this is the first elevation (no prior
+                    // elevation layers in the map). Only auto-zoom + save on
+                    // the first upload so subsequent re-uploads don't hijack
+                    // the user's current view.
+                    const isFirstElevation = !elevationExists && !hillshadeExists;
                     return Rx.Observable.concat(
                         Rx.Observable.of(stopAnugaElevationPolling()),
                         Rx.Observable.defer(() => {
@@ -219,13 +224,29 @@ export const pollAnugaElevationEpic = (action$, store) =>
                             return Rx.Observable.of(refreshLayers(wmsLayers));
                         }),
                         ...layerActions,
-                        Rx.Observable.of(zoomToExtent(
-                            response.data[0]?.bbox?.bounds,
-                            response.data[0]?.bbox?.crs,
-                            20
-                        )),
+                        // Auto-zoom to the elevation extent on first upload,
+                        // then wait for the map view to update in Redux before
+                        // saving so the saved map blob captures the new
+                        // center/zoom instead of the default global view.
+                        ...(isFirstElevation && response.data[0]?.bbox?.bounds
+                            ? [
+                                Rx.Observable.of(zoomToExtent(
+                                    response.data[0].bbox.bounds,
+                                    response.data[0].bbox.crs,
+                                    20
+                                )),
+                                // Wait for OpenLayers to finish the zoom
+                                // animation and fire CHANGE_MAP_VIEW, which
+                                // updates the Redux map state. Fall back to a
+                                // 2s timer so we never block indefinitely —
+                                // whichever fires first triggers the save.
+                                Rx.Observable.race(
+                                    action$.ofType(CHANGE_MAP_VIEW).take(1),
+                                    Rx.Observable.timer(2000)
+                                ).take(1).mapTo(saveDirectContent())
+                            ]
+                            : [Rx.Observable.of(saveDirectContent())]),
                         Rx.Observable.of(updateUploadStatus('Complete')),
-                        Rx.Observable.of(saveDirectContent()),
                         Rx.Observable.of(initAnuga()),
                         Rx.Observable.of(startAnugaModelCreationPolling()),
                         Rx.Observable.defer(() => {
