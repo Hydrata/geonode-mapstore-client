@@ -703,13 +703,19 @@
                 "name": "SaveAs",
                 "cfg": {
                     "disablePermission": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Save",
                 "cfg": {
                     "disablePermission": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "ResourceDetails",
@@ -724,7 +730,10 @@
                 "name": "DeleteResource",
                 "cfg": {
                     "redirectTo": "/"
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "DownloadResource",
@@ -796,7 +805,10 @@
                 }
             },
             {
-                "name": "Measure"
+                "name": "Measure",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Print",
@@ -826,7 +838,10 @@
                             }
                         ]
                     }
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "PrintScale",
@@ -1293,7 +1308,10 @@
                 "cfg": {
                     "className": "gn-apply-settings",
                     "variant": "default"
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "TOCItemsSettings",
@@ -1401,7 +1419,10 @@
                         "referentials": [],
                         "defaultReferentialName": ""
                     }
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "DownloadResource",
@@ -1518,7 +1539,10 @@
                 "name": "DeleteResource",
                 "cfg": {
                     "redirectTo": "/"
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "mandatory": true,
@@ -1590,7 +1614,10 @@
                 }
             },
             {
-                "name": "Measure"
+                "name": "Measure",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Print",
@@ -1620,7 +1647,10 @@
                             }
                         ]
                     }
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "PrintScale",
@@ -1943,7 +1973,10 @@
                 "name": "SaveAs",
                 "cfg": {
                     "disablePermission": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Notifications"
@@ -1965,7 +1998,10 @@
                 "name": "Save",
                 "cfg": {
                     "disablePermission": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "AddGroup"
@@ -1995,7 +2031,10 @@
                 "name": "MetadataExplorer",
                 "cfg": {
                     "wrap": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Anuga"
@@ -2114,7 +2153,10 @@
                 "name": "DeleteResource",
                 "cfg": {
                     "redirectTo": "/"
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "GeoStory",
@@ -2191,10 +2233,16 @@
                 "name": "Save",
                 "cfg": {
                     "disablePermission": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
-                "name": "SaveAs"
+                "name": "SaveAs",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Sync"
@@ -2308,13 +2356,22 @@
                 "name": "DeleteResource",
                 "cfg": {
                     "redirectTo": "/"
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
-                "name": "Save"
+                "name": "Save",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
-                "name": "SaveAs"
+                "name": "SaveAs",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "MediaViewer"
@@ -2427,13 +2484,22 @@
                 "name": "DeleteResource",
                 "cfg": {
                     "redirectTo": "/"
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
-                "name": "Save"
+                "name": "Save",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
-                "name": "SaveAs"
+                "name": "SaveAs",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Sync"
@@ -3257,19 +3323,28 @@
                 }
             },
             {
-                "name": "Save"
+                "name": "Save",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "SaveAs",
                 "cfg": {
                     "closeOnSave": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "DeleteResource",
                 "cfg": {
                     "redirectTo": false
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "DownloadResource"
@@ -3379,7 +3454,10 @@
                 "name": "DeleteResource",
                 "cfg": {
                     "redirectTo": "/"
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Notifications"
@@ -3388,10 +3466,16 @@
                 "name": "Save",
                 "cfg": {
                     "disablePermission": true
-                }
+                },
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
-                "name": "SaveAs"
+                "name": "SaveAs",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "ContextCreator",
