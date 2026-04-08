@@ -66,6 +66,18 @@
                         // enable dropdown functionalities
                         $('.dropdown-toggle').dropdown();
                     </script>
+                    <script type="text/javascript">
+                        (function() {
+                            function toggleFooterOnMap() {
+                                var footer = document.querySelector('.gn-footer');
+                                if (!footer) return;
+                                var hash = window.location.hash || '';
+                                footer.style.display = hash.match(/^#\/map\//) ? 'none' : '';
+                            }
+                            window.addEventListener('DOMContentLoaded', toggleFooterOnMap);
+                            window.addEventListener('hashchange', toggleFooterOnMap);
+                        })();
+                    </script>
                 {% endblock %}
             </div>
         </div>

@@ -52,17 +52,22 @@
     position: absolute;
     z-index: 1021;
     top: 11px;
-    width: 85px;
+    width: 50px;
     height: 50px;
     background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
     border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
     border-width: 2px;
-    padding: 3px 5px;
-    font-size: 12px;
-    line-height: 1.3;
+    padding: 3px;
+    font-size: 11px;
+    line-height: 1.2;
     border-radius: 4px;
     color: white;
-    text-align: center
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    word-break: break-word;
 }
 
 /* Inside flex toolbars, buttons flow naturally */
@@ -101,12 +106,12 @@
     border: 2px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
     border-radius: 4px;
     color: white;
-    font-size: 12px;
+    font-size: 11px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     height: 50px;
-    padding: 3px 10px;
+    padding: 3px 8px;
     cursor: pointer;
     white-space: nowrap;
 }
@@ -438,16 +443,21 @@
 }
 
 
-.menu-row-glyph {
+span.menu-row-glyph {
     background: #ffffff;
     border-radius: 3px;
-    margin: 2px 5px 4px 0;
+    margin: 2px 2px 2px 0;
     color: var(--sv-glyph-active, limegreen);
     font-size: 14px;
-    padding: 3px 4px;
+    padding: 0;
     width: 24px;
+    height: 24px;
+    min-height: 0;
     text-align: center;
+    line-height: 24px;
     flex-shrink: 0;
+    box-sizing: border-box;
+    cursor: pointer;
 }
 
 .menu-row-glyph.glyph-active { color: var(--sv-glyph-active, limegreen); }
@@ -597,16 +607,16 @@
     }
 
     .simple-view-menu-button {
-        width: 75px;
+        width: 44px;
         height: 44px;
-        font-size: 11px;
-        padding: 2px 4px;
+        font-size: 10px;
+        padding: 2px;
     }
 
     .simple-view-hgeval-button {
         height: 44px;
-        font-size: 11px;
-        padding: 2px 8px;
+        font-size: 10px;
+        padding: 2px 6px;
     }
 
     .simple-view-right-button {
@@ -636,10 +646,10 @@
     }
 
     .simple-view-menu-button {
-        width: 65px;
+        width: 38px;
         height: 38px;
-        font-size: 10px;
-        padding: 2px 3px;
+        font-size: 9px;
+        padding: 2px;
     }
 
     .simple-view-hgeval-button {
