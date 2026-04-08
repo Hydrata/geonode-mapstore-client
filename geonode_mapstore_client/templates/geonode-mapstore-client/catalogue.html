@@ -76,6 +76,8 @@
                             }
                             window.addEventListener('DOMContentLoaded', toggleFooterOnMap);
                             window.addEventListener('hashchange', toggleFooterOnMap);
+                            // Retry after React renders .gn-footer on direct map links
+                            setTimeout(toggleFooterOnMap, 2000);
                         })();
                     </script>
                 {% endblock %}

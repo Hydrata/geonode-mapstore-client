@@ -18,6 +18,7 @@
     --sv-glyph-settings: #325f93;
     --sv-input-bg: rgba(255, 255, 255, 0.22);
     --sv-section-border: rgba(255, 255, 255, 0.6);
+    --sv-icon-size: 24px;
     --sv-panel-top: 65px;
     --sv-panel-top-anuga: 70px;
 }
@@ -52,22 +53,17 @@
     position: absolute;
     z-index: 1021;
     top: 11px;
-    width: 50px;
+    width: 85px;
     height: 50px;
     background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
     border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
     border-width: 2px;
-    padding: 3px;
-    font-size: 11px;
-    line-height: 1.2;
+    padding: 3px 5px;
+    font-size: 12px;
+    line-height: 1.3;
     border-radius: 4px;
     color: white;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    word-break: break-word;
+    text-align: center
 }
 
 /* Inside flex toolbars, buttons flow naturally */
@@ -106,12 +102,12 @@
     border: 2px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
     border-radius: 4px;
     color: white;
-    font-size: 11px;
+    font-size: 12px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     height: 50px;
-    padding: 3px 8px;
+    padding: 3px 10px;
     cursor: pointer;
     white-space: nowrap;
 }
@@ -315,10 +311,14 @@
     background-color: #c9544d;
     border: none;
     border-radius: 3px;
-    padding: 2px 8px;
+    width: var(--sv-icon-size);
+    height: var(--sv-icon-size);
+    padding: 0;
     cursor: pointer;
     font-size: 14px;
-    line-height: 1;
+    line-height: var(--sv-icon-size);
+    text-align: center;
+    box-sizing: border-box;
 }
 
 /* Inside legend header, use flex positioning instead of absolute */
@@ -450,14 +450,16 @@ span.menu-row-glyph {
     color: var(--sv-glyph-active, limegreen);
     font-size: 14px;
     padding: 0;
-    width: 24px;
-    height: 24px;
-    min-height: 0;
+    width: var(--sv-icon-size) !important;
+    height: var(--sv-icon-size) !important;
     text-align: center;
-    line-height: 24px;
-    flex-shrink: 0;
+    line-height: var(--sv-icon-size);
+    flex: 0 0 var(--sv-icon-size);
     box-sizing: border-box;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .menu-row-glyph.glyph-active { color: var(--sv-glyph-active, limegreen); }
@@ -607,16 +609,16 @@ span.menu-row-glyph {
     }
 
     .simple-view-menu-button {
-        width: 44px;
+        width: 75px;
         height: 44px;
-        font-size: 10px;
-        padding: 2px;
+        font-size: 11px;
+        padding: 2px 4px;
     }
 
     .simple-view-hgeval-button {
         height: 44px;
-        font-size: 10px;
-        padding: 2px 6px;
+        font-size: 11px;
+        padding: 2px 8px;
     }
 
     .simple-view-right-button {
@@ -646,10 +648,10 @@ span.menu-row-glyph {
     }
 
     .simple-view-menu-button {
-        width: 38px;
+        width: 65px;
         height: 38px;
-        font-size: 9px;
-        padding: 2px;
+        font-size: 10px;
+        padding: 2px 3px;
     }
 
     .simple-view-hgeval-button {
