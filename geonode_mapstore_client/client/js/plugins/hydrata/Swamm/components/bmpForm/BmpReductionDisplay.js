@@ -106,7 +106,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
 
     const handleCellClick = (fieldName, value) => {
         setEditingCell(fieldName);
-        setEditValue(value != null ? value.toString() : '0');
+        setEditValue(value != null ? parseFloat(value.toPrecision(3)).toString() : '0');
     };
 
     const handleKeyDown = (e, fieldName) => {
