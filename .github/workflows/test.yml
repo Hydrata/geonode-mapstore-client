@@ -7,7 +7,12 @@ on:
   # Triggers the workflow pull request events but only for the 5.0.x branch
   pull_request:
     branches: [ 5.x ]
-    paths: 
+    paths:
+      - "geonode_mapstore_client/client/**"
+
+  push:
+    branches: [ 5.x ]
+    paths:
       - "geonode_mapstore_client/client/**"
 
   # Allows you to run this workflow manually from the Actions tab
