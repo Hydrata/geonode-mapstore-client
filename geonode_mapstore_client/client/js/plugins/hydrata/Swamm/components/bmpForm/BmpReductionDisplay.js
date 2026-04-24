@@ -1,5 +1,12 @@
 import React from "react";
 import {Table} from "react-bootstrap";
+import {
+    isFieldPinned,
+    parseLoadReductionFieldName,
+    recomputeTotalsForPollutant,
+    buildUnpinAllUpdates,
+    PATHWAYS
+} from "../../utils/bmpPreviewMath";
 
 /**
  * Build the field name for a given pathway, pollutant, and metric.
@@ -32,7 +39,7 @@ const getTotalFieldName = (pollutant, metric) => {
  * e.g. "erosion_new_s_load" -> { pathway: "erosion", pollutant: "s", metric: "new" }
  */
 const parseFieldName = (fieldName) => {
-    const pathways = ['surface', 'tiled', 'erosion'];
+    const pathways = PATHWAYS;
     for (const pathway of pathways) {
         if (!fieldName.startsWith(pathway + '_')) continue;
         const rest = fieldName.slice(pathway.length + 1);
@@ -52,20 +59,38 @@ const parseFieldName = (fieldName) => {
     return null;
 };
 
-const PATHWAYS = ['surface', 'tiled', 'erosion'];
+const PINNED_BORDER = '3px solid rgba(120,220,180,0.6)';
+const PINNED_TOOLTIP = 'Load manually set. Enter a new percentage to recalculate.';
 
 const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootprint, updateBmpForm, submitBmpForm, projectId }) => {
     const [editingCell, setEditingCell] = React.useState(null);
     const [editValue, setEditValue] = React.useState('');
 
-    const isOverridden = storedBmpForm?.manual_override_loads;
-
     const commitEdit = (fieldName) => {
         if (!editingCell) return; // Guard against double-commit (Enter fires onKeyDown then unmount fires onBlur)
         const numVal = parseFloat(editValue) || 0;
-        const updates = { [fieldName]: numVal, manual_override_loads: true };
+
+        // Unchanged-value guard: if the new value equals the stored value at
+        // the same displayed precision, skip ALL dispatch. This prevents a
+        // blur-without-change from accidentally pinning the cell.
+        const original = storedBmpForm?.[fieldName];
+        const originalDisplayed = original != null
+            ? parseFloat(original.toPrecision(3))
+            : 0;
+        if (numVal === originalDisplayed) {
+            setEditingCell(null);
+            return;
+        }
 
         const parsed = parseFieldName(fieldName);
+        const isLoadReduction = parsed && parsed.metric === 'reduction';
+
+        // For load_reduction cells: pin via the paired _manual field.
+        // For previous_load / new_load cells: keep the legacy direct-edit behavior.
+        const updates = isLoadReduction
+            ? { [fieldName + '_manual']: numVal }
+            : { [fieldName]: numVal };
+
         if (parsed) {
             const { pathway, pollutant, metric } = parsed;
 
@@ -74,30 +99,28 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                 const prevField = getFieldName(pathway, pollutant, 'previous');
                 const redField = getFieldName(pathway, pollutant, 'reduction');
                 const newField = getFieldName(pathway, pollutant, 'new');
-                const prevVal = metric === 'previous' ? numVal : (storedBmpForm?.[prevField] || 0);
-                const redVal = metric === 'reduction' ? numVal : (storedBmpForm?.[redField] || 0);
+                const prevVal = metric === 'previous'
+                    ? numVal
+                    : (storedBmpForm?.[prevField] || 0);
+                // When editing reduction, the effective reduction is the new
+                // _manual value we just set. For previous edits we use the
+                // existing effective reduction (manual if pinned, else calculated).
+                let redVal;
+                if (metric === 'reduction') {
+                    redVal = numVal;
+                } else {
+                    const manualRed = storedBmpForm?.[redField + '_manual'];
+                    redVal = (manualRed !== null && manualRed !== undefined)
+                        ? manualRed
+                        : (storedBmpForm?.[redField] || 0);
+                }
                 updates[newField] = prevVal - redVal;
             }
 
-            // Recalculate totals for this pollutant/metric
-            // Also recalculate total for 'new' if we changed previous or reduction
-            const metricsToRecalc = metric === 'previous' || metric === 'reduction'
-                ? [metric, 'new']
-                : [metric];
-
-            for (const m of metricsToRecalc) {
-                const totalField = getTotalFieldName(pollutant, m);
-                let total = 0;
-                for (const pw of PATHWAYS) {
-                    const pwField = getFieldName(pw, pollutant, m);
-                    if (updates[pwField] !== undefined) {
-                        total += updates[pwField];
-                    } else {
-                        total += (storedBmpForm?.[pwField] || 0);
-                    }
-                }
-                updates[totalField] = total;
-            }
+            // Recompute totals for this pollutant using the shared helper.
+            // It knows how to read effective values (updates > stored _manual > stored calculated).
+            const totals = recomputeTotalsForPollutant(storedBmpForm, pollutant, updates);
+            Object.assign(updates, totals);
         }
 
         updateBmpForm(updates);
@@ -120,6 +143,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
 
     const renderEditableCell = (fieldName, value) => {
         const isEditing = editingCell === fieldName;
+        const pinned = isFieldPinned(storedBmpForm, fieldName);
 
         if (isEditing) {
             return (
@@ -145,13 +169,31 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
             );
         }
 
+        // For pinned cells, use the stored _manual value (that's what is
+        // effectively active). Pure display — editing still opens against
+        // the _manual value via handleCellClick below.
+        const displayValue = pinned
+            ? storedBmpForm[fieldName + '_manual']
+            : value;
+
+        const cellStyle = pinned
+            ? { cursor: 'pointer', borderLeft: PINNED_BORDER }
+            : { cursor: 'pointer' };
+
         return (
             <td
-                onClick={() => handleCellClick(fieldName, value)}
-                style={{ cursor: 'pointer' }}
-                title="Click to edit"
+                onClick={() => handleCellClick(fieldName, displayValue)}
+                style={cellStyle}
+                title={pinned ? PINNED_TOOLTIP : 'Click to edit'}
             >
-                {value != null ? parseFloat(value.toPrecision(3)) : '\u2014'}
+                {displayValue != null ? parseFloat(displayValue.toPrecision(3)) : '—'}
+                {pinned && (
+                    <span
+                        className="glyphicon glyphicon-lock"
+                        style={{ marginLeft: 4, fontSize: '0.85em', opacity: 0.8 }}
+                        aria-hidden="true"
+                    />
+                )}
             </td>
         );
     };
@@ -159,9 +201,16 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
     const renderTotalCell = (fieldName) => {
         const val = storedBmpForm?.[fieldName];
         return (
-            <td>{val != null ? parseFloat(val.toPrecision(3)) : '\u2014'}</td>
+            <td>{val != null ? parseFloat(val.toPrecision(3)) : '—'}</td>
         );
     };
+
+    // Any cell pinned => show the reset button
+    const hasAnyPinned = PATHWAYS.some(pw =>
+        ['n', 'p', 's'].some(pol =>
+            isFieldPinned(storedBmpForm, `${pw}_${pol}_load_reduction`)
+        )
+    );
 
     if (complexBmpForm) {
         return (
@@ -207,7 +256,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_previous_n_load / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>lbs/<wbr/>year</td>
@@ -222,7 +271,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_n_load_reduction / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>lbs/<wbr/>year</td>
@@ -237,7 +286,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_new_n_load / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>lbs/<wbr/>year</td>
@@ -252,7 +301,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_previous_p_load / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>lbs/<wbr/>year</td>
@@ -267,7 +316,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_p_load_reduction / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>lbs/<wbr/>year</td>
@@ -282,7 +331,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_new_p_load / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>lbs/<wbr/>year</td>
@@ -297,7 +346,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_previous_s_load / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>tons/<wbr/>year</td>
@@ -312,7 +361,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_s_load_reduction / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>tons/<wbr/>year</td>
@@ -327,7 +376,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             {watershedIsFootprint ?
                                 <td>{storedBmpForm?.calculated_footprint_area
                                     ? parseFloat((storedBmpForm?.total_new_s_load / storedBmpForm?.calculated_footprint_area).toPrecision(3))
-                                    : '\u2014'}</td>
+                                    : '—'}</td>
                                 : null
                             }
                             <td className={"text-left"}>tons/<wbr/>year</td>
@@ -370,19 +419,8 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                     <p>Updated by: {storedBmpForm?.updated_by} on {new Date(storedBmpForm?.updated_at).toLocaleString()}</p> :
                     null
                 }
-                {isOverridden ? (
+                {hasAnyPinned ? (
                     <div style={{marginTop: '8px'}}>
-                        <div style={{
-                            borderLeft: '3px solid rgba(255,255,255,0.4)',
-                            backgroundColor: 'rgba(255,255,255,0.06)',
-                            padding: '6px 10px',
-                            margin: '6px 0',
-                            fontSize: '12px',
-                            color: 'rgba(255,255,255,0.7)',
-                            lineHeight: '1.4'
-                        }}>
-                            Load values have been manually overridden. Reduction percentages are disabled.
-                        </div>
                         <button
                             type="button"
                             className="swamm-button"
@@ -394,8 +432,9 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                                 marginRight: 0
                             }}
                             onClick={() => {
-                                updateBmpForm({manual_override_loads: false});
-                                submitBmpForm({...storedBmpForm, manual_override_loads: false}, projectId);
+                                const unpinUpdates = buildUnpinAllUpdates();
+                                updateBmpForm(unpinUpdates);
+                                submitBmpForm({...storedBmpForm, ...unpinUpdates}, projectId);
                             }}
                         >
                             Reset to Calculated Values
