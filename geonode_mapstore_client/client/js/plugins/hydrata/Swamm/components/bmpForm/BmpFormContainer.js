@@ -219,6 +219,7 @@ class SwammBmpFormClass extends React.Component {
                             storedBmpForm={this.props.storedBmpForm}
                             priorities={this.props.priorities}
                             handleChange={this.handleChange}
+                            updateBmpForm={this.props.updateBmpForm}
                         />
                     </React.Fragment> : null
                 }
