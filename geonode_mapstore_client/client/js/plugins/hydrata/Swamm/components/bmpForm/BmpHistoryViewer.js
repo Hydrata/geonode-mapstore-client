@@ -64,6 +64,49 @@ const formatValue = (val) => {
     return String(val);
 };
 
+/**
+ * Given an override_flags_snapshot object of shape {surface_n: true, tiled_p: false, ...},
+ * render one chip per truthy flag. Keys that don't match the pathway-pollutant
+ * pattern are skipped. Returns null if the snapshot is missing or no chips to show.
+ */
+const OverrideFlagChips = ({ flags }) => {
+    if (!flags || typeof flags !== 'object') return null;
+    const POLLUTANT_LABELS = { n: 'N', p: 'P', s: 'S' };
+    const PATHWAY_LABELS = { surface: 'surface', tiled: 'tiled', erosion: 'gully' };
+    const chips = Object.entries(flags)
+        .filter(([, v]) => !!v)
+        .map(([key]) => {
+            const parts = key.split('_');
+            if (parts.length !== 2) return null;
+            const [pathway, pollutant] = parts;
+            if (!PATHWAY_LABELS[pathway] || !POLLUTANT_LABELS[pollutant]) return null;
+            return {
+                key,
+                label: `${PATHWAY_LABELS[pathway]}-${POLLUTANT_LABELS[pollutant]}`
+            };
+        })
+        .filter(Boolean);
+    if (chips.length === 0) return null;
+    return (
+        <span style={{ marginLeft: 8, display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+            {chips.map(chip => (
+                <span
+                    key={chip.key}
+                    style={{
+                        fontSize: '0.8em',
+                        padding: '1px 6px',
+                        borderRadius: 3,
+                        backgroundColor: 'rgba(120,220,180,0.25)',
+                        border: '1px solid rgba(120,220,180,0.5)'
+                    }}
+                >
+                    {chip.label}
+                </span>
+            ))}
+        </span>
+    );
+};
+
 const SnapshotTable = ({ data, labels }) => {
     if (!data || typeof data !== 'object') return null;
     const entries = Object.entries(data).filter(([k]) => labels[k]);
@@ -104,7 +147,10 @@ const HistoryRecord = ({ record, expanded, onToggle }) => (
             <div>
                 <div style={{ marginBottom: 2 }}>
                     <strong>{formatTimestamp(record.timestamp)}</strong>
-                    {record.manual_override_loads &&
+                    {record.override_flags_snapshot ? (
+                        <OverrideFlagChips flags={record.override_flags_snapshot} />
+                    ) : (
+                        record.manual_override_loads &&
                         <span style={{
                             marginLeft: 8,
                             fontSize: '0.8em',
@@ -113,7 +159,7 @@ const HistoryRecord = ({ record, expanded, onToggle }) => (
                             backgroundColor: 'rgba(255,165,0,0.3)',
                             border: '1px solid rgba(255,165,0,0.5)'
                         }}>manual override</span>
-                    }
+                    )}
                 </div>
                 <div style={{ fontSize: '0.85em', opacity: 0.7 }}>
                     {record.reason_display || record.reason || 'Unknown reason'}
