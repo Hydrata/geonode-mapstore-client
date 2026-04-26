@@ -101,7 +101,7 @@ const BmpGeometryControls = ({
                                 onDrawBmpStep1(bmpFootprintLayer?.name);
                             }}
                         >
-                            Draw Footprint
+                            {requiresFootprint ? "Draw Footprint" : "Footprint not used"}
                         </button>
                     }
                 </div>
@@ -138,7 +138,7 @@ const BmpGeometryControls = ({
                                 onDrawBmpStep1(bmpWatershedLayer?.name);
                             }}
                         >
-                            Draw Watershed
+                            {requiresWatershed && !watershedIsFootprint ? "Draw Watershed" : "Watershed not used"}
                         </button>
                     }
                 </div>

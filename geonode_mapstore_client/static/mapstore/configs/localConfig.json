@@ -20,7 +20,7 @@
         "defaultTerrain": {
             "type": "terrain",
             "provider": "cesium",
-            "url": "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=MAPTILER_API_KEY_PLACEHOLDER",
+            "url": "https://api.maptiler.com/tiles/terrain-quantized-mesh-v2/?key=5upc6r2tsUgFRVMWgx5B",
             "title": "Global Terrain",
             "group": "background",
             "visibility": true,
@@ -111,12 +111,8 @@
             "path": "gnresource.selectedLayerDataset"
         },
         {
-            "name": "anugaProjectData",
-            "path": "anuga.projectData"
-        },
-        {
-            "name": "hydrologyTimeSeriess",
-            "path": "hydrology.timeSeriess"
+            "name": "swammProjectData",
+            "path": "swamm.projectData"
         }
     ],
     "projectionDefs": [],
@@ -217,12 +213,6 @@
             },
             {
                 "name": "Notifications"
-            },
-            {
-                "name": "Timeline"
-            },
-            {
-                "name": "Playback"
             }
         ],
         "map_preview": [
@@ -283,12 +273,6 @@
                 "cfg": {
                     "containerPosition": "footer"
                 }
-            },
-            {
-                "name": "Timeline"
-            },
-            {
-                "name": "Playback"
             }
         ],
         "dataset_embed": [
@@ -369,12 +353,6 @@
             },
             {
                 "name": "Notifications"
-            },
-            {
-                "name": "Timeline"
-            },
-            {
-                "name": "Playback"
             }
         ],
         "map_embed": [
@@ -472,12 +450,6 @@
                         "width": 350
                     }
                 }
-            },
-            {
-                "name": "Timeline"
-            },
-            {
-                "name": "Playback"
             }
         ],
         "geostory_embed": [
@@ -701,21 +673,21 @@
             },
             {
                 "name": "SaveAs",
-                "cfg": {
-                    "disablePermission": true
-                },
                 "hideFrom": [
                     "SidebarMenu"
-                ]
+                ],
+                "cfg": {
+                    "disablePermission": true
+                }
             },
             {
                 "name": "Save",
-                "cfg": {
-                    "disablePermission": true
-                },
                 "hideFrom": [
                     "SidebarMenu"
-                ]
+                ],
+                "cfg": {
+                    "disablePermission": true
+                }
             },
             {
                 "name": "ResourceDetails",
@@ -812,6 +784,9 @@
             },
             {
                 "name": "Print",
+                "hideFrom": [
+                    "SidebarMenu"
+                ],
                 "cfg": {
                     "useFixedScales": true,
                     "outputFormatOptions": {
@@ -838,10 +813,7 @@
                             }
                         ]
                     }
-                },
-                "hideFrom": [
-                    "SidebarMenu"
-                ]
+                }
             },
             {
                 "name": "PrintScale",
@@ -926,12 +898,6 @@
                         "alwaysVisible": true
                     }
                 }
-            },
-            {
-                "name": "Timeline"
-            },
-            {
-                "name": "Playback"
             },
             {
                 "name": "IsoDownload"
@@ -1143,16 +1109,10 @@
                 "name": "Legend"
             },
             {
-                "name": "SidebarMenu"
-            },
-            {
-                "name": "Anuga"
+                "name": "Swamm"
             },
             {
                 "name": "TaskMonitor"
-            },
-            {
-                "name": "Hydrology"
             }
         ],
         "dataset_edit_data_viewer": [
@@ -1322,7 +1282,10 @@
                 }
             },
             {
-                "name": "StyleEditor"
+                "name": "StyleEditor",
+                "hideFrom": [
+                    "SidebarMenu"
+                ]
             },
             {
                 "name": "Identify",
@@ -1620,107 +1583,6 @@
                 ]
             },
             {
-                "name": "Print",
-                "cfg": {
-                    "useFixedScales": true,
-                    "outputFormatOptions": {
-                        "allowedFormats": [
-                            {
-                                "value": "pdf",
-                                "name": "PDF"
-                            },
-                            {
-                                "value": "png",
-                                "name": "PNG"
-                            },
-                            {
-                                "value": "jpg",
-                                "name": "JPEG"
-                            },
-                            {
-                                "value": "gif",
-                                "name": "GIF"
-                            },
-                            {
-                                "value": "tiff",
-                                "name": "TIFF"
-                            }
-                        ]
-                    }
-                },
-                "hideFrom": [
-                    "SidebarMenu"
-                ]
-            },
-            {
-                "name": "PrintScale",
-                "override": {
-                    "Print": {
-                        "position": 4
-                    }
-                }
-            },
-            {
-                "name": "PrintGraticule",
-                "override": {
-                    "Print": {
-                        "position": 5
-                    }
-                },
-                "cfg": {
-                    "frame": 0.07,
-                    "style": {
-                        "color": "#000000",
-                        "weight": 1,
-                        "lineDash": [
-                            0.5,
-                            4
-                        ],
-                        "opacity": 0.5
-                    },
-                    "frameStyle": {
-                        "color": "#000000",
-                        "weight": 1,
-                        "fillColor": "#FFFFFF"
-                    },
-                    "labelXStyle": {
-                        "color": "#000000",
-                        "font": "sans-serif",
-                        "fontWeight": "bold",
-                        "fontSize": "20",
-                        "labelOutlineColor": "#FFFFFF",
-                        "labelOutlineWidth": 2
-                    },
-                    "labelYStyle": {
-                        "color": "#000000",
-                        "font": "sans-serif",
-                        "fontWeight": "bold",
-                        "fontSize": "20",
-                        "labelOutlineColor": "#FFFFFF",
-                        "labelOutlineWidth": 2,
-                        "rotation": 90,
-                        "verticalAlign": "top",
-                        "textAlign": "center"
-                    }
-                }
-            },
-            {
-                "name": "PrintAuthor",
-                "override": {
-                    "Print": {
-                        "position": 6
-                    }
-                }
-            },
-            {
-                "name": "PrintCopyright",
-                "override": {
-                    "Print": {
-                        "position": 7
-                    }
-                }
-            },
-            {
                 "name": "ZoomAll",
                 "override": {
                     "Toolbar": {
@@ -1743,12 +1605,6 @@
                         "alwaysVisible": true
                     }
                 }
-            },
-            {
-                "name": "Timeline"
-            },
-            {
-                "name": "Playback"
             },
             {
                 "name": "LayerDownload",
@@ -1882,44 +1738,6 @@
                 }
             },
             {
-                "name": "QueryPanel",
-                "cfg": {
-                    "activateQueryTool": true,
-                    "spatialOperations": [
-                        {
-                            "id": "INTERSECTS",
-                            "name": "queryform.spatialfilter.operations.intersects"
-                        },
-                        {
-                            "id": "CONTAINS",
-                            "name": "queryform.spatialfilter.operations.contains"
-                        },
-                        {
-                            "id": "WITHIN",
-                            "name": "queryform.spatialfilter.operations.within"
-                        }
-                    ],
-                    "spatialMethodOptions": [
-                        {
-                            "id": "Viewport",
-                            "name": "queryform.spatialfilter.methods.viewport"
-                        },
-                        {
-                            "id": "BBOX",
-                            "name": "queryform.spatialfilter.methods.box"
-                        },
-                        {
-                            "id": "Circle",
-                            "name": "queryform.spatialfilter.methods.circle"
-                        },
-                        {
-                            "id": "Polygon",
-                            "name": "queryform.spatialfilter.methods.poly"
-                        }
-                    ]
-                }
-            },
-            {
                 "name": "MousePosition",
                 "cfg": {
                     "editCRS": true,
@@ -1971,12 +1789,12 @@
             {
                 "mandatory": true,
                 "name": "SaveAs",
-                "cfg": {
-                    "disablePermission": true
-                },
                 "hideFrom": [
                     "SidebarMenu"
-                ]
+                ],
+                "cfg": {
+                    "disablePermission": true
+                }
             },
             {
                 "name": "Notifications"
@@ -1988,31 +1806,17 @@
                 "name": "Locate"
             },
             {
-                "name": "WidgetsBuilder",
-                "cfg": {
-                    "disablePluginIf": "{!state('selectedLayerPermissions').includes('download_resourcebase')}"
-                }
-            },
-            {
                 "mandatory": true,
                 "name": "Save",
-                "cfg": {
-                    "disablePermission": true
-                },
                 "hideFrom": [
                     "SidebarMenu"
-                ]
+                ],
+                "cfg": {
+                    "disablePermission": true
+                }
             },
             {
                 "name": "AddGroup"
-            },
-            {
-                "name": "Annotations",
-                "cfg": {
-                    "measurementAnnotationEdit": false,
-                    "geodesic": false,
-                    "symbolsPath": "/static/mapstore/symbols/"
-                }
             },
             {
                 "mandatory": true,
@@ -2020,24 +1824,21 @@
             },
             {
                 "name": "StyleEditor",
+                "hideFrom": [
+                    "SidebarMenu"
+                ],
                 "cfg": {
                     "enableEditDefaultStyle": false
                 }
             },
             {
-                "name": "SidebarMenu"
-            },
-            {
                 "name": "MetadataExplorer",
-                "cfg": {
-                    "wrap": true
-                },
                 "hideFrom": [
                     "SidebarMenu"
-                ]
-            },
-            {
-                "name": "Anuga"
+                ],
+                "cfg": {
+                    "wrap": true
+                }
             },
             {
                 "name": "Swamm"
@@ -2047,9 +1848,6 @@
             },
             {
                 "name": "TaskMonitor"
-            },
-            {
-                "name": "Hydrology"
             },
             {
                 "name": "SimpleView"
