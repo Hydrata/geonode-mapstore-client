@@ -412,6 +412,24 @@
     flex: 1;
 }
 
+.subheading-text-clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.subheading-text-clickable:hover {
+    text-decoration: underline;
+}
+
+.menu-row-glyph.glyph-collapse {
+    color: #ffffff;
+    background: transparent;
+}
+
+.menu-row-glyph.glyph-collapse:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
 .menu-row {
     display: flex;
     align-items: center;
