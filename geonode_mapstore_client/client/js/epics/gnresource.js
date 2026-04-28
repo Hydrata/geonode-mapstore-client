@@ -230,6 +230,15 @@ const resourceTypes = {
                     })
                     .catch((error) => {
                         const status = error?.response?.status || error?.status;
+                        // 401 = present-but-invalid session (return-visit with expired sessionid).
+                        // Frontend can't recover; redirect to login with ?next= so the user
+                        // lands back on this map after authenticating. 403 stays on the in-app
+                        // path (handled below as 'loginRequired'/'accessDenied').
+                        if (status === 401) {
+                            const nextUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+                            window.location.href = `/account/login/?next=${encodeURIComponent(nextUrl)}`;
+                            return null;
+                        }
                         if (status === 403 || status === 404) throw error;
                         return null;
                     })
