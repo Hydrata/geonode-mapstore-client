@@ -681,9 +681,15 @@ export function toMapStoreMapConfig(resource, baseConfig) {
         .filter(mLayer => !layers.find(layer => layer.name === mLayer?.dataset?.alternate))
         .map(mLayer => {
             const layerConfig = resourceToLayerConfig(mLayer?.dataset);
-            // Carry forward anuga_group from MapLayer extra_params for group assignment
+            // Carry MapLayer-level overrides forward: current_style for the
+            // active style and extra_params.anuga_group for the TOC group.
+            if (mLayer?.current_style && layerConfig?.type === 'wms') {
+                layerConfig.style = mLayer.current_style;
+            }
             if (mLayer?.extra_params?.anuga_group) {
                 layerConfig.group = mLayer.extra_params.anuga_group;
+            }
+            if (mLayer?.current_style || mLayer?.extra_params?.anuga_group) {
                 layerConfig.extendedParams = {
                     ...layerConfig.extendedParams,
                     mapLayer: mLayer
