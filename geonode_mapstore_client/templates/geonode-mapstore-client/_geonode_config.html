@@ -162,6 +162,14 @@
                 },
                 useAuthenticationRules: true,
                 authenticationRules: [
+                    // NAIP cascade-WMS is anon-WMS-allowed via GeoFence; skipping
+                    // access_token lets tiles share nginx + GWC cache across users.
+                    // Method 'none' is unrecognized → addAuthenticationParameter()
+                    // falls through default and returns parameters unchanged.
+                    {
+                        urlPattern: geoServerPublicLocation + '.*naip_conus',
+                        method: 'none'
+                    },
                     {
                         urlPattern: geoServerPublicLocation + '.*',
                         authkeyParamName: 'access_token',
