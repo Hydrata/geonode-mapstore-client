@@ -53,16 +53,13 @@ import {
     setPublicationData,
     setCreatingAnugaLayer,
     setComparisonData,
-    START_ANUGA_ELEVATION_POLLING,
     START_ANUGA_MODEL_CREATION_POLLING,
     START_ANUGA_SCENARIO_POLLING,
-    STOP_ANUGA_ELEVATION_POLLING,
     STOP_ANUGA_MODEL_CREATION_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
     STOP_COMPARISON_POLLING,
     START_ACTIVE_RUN_POLLING,
     STOP_ACTIVE_RUN_POLLING,
-    stopAnugaElevationPolling,
     startAnugaModelCreationPolling,
     startAnugaScenarioPolling,
     stopActiveRunPolling,
@@ -183,87 +180,6 @@ export const pollAnugaModelCreationEpic = (action$) =>
                         Rx.Observable.of(addNodes()),
                         Rx.Observable.of(addLinks())
                     ))
-        );
-
-export const pollAnugaElevationEpic = (action$, store) =>
-    action$
-        .ofType(START_ANUGA_ELEVATION_POLLING)
-        .switchMap(() =>
-            Rx.Observable.timer(0, 6000)
-                .takeUntil(action$.ofType(STOP_ANUGA_ELEVATION_POLLING))
-                .switchMap(() =>
-                    Rx.Observable
-                        .from(anugaApi.getAvailableLayers(getProjectId(store.getState()), 'elevation'))
-                        .catch(() => Rx.Observable.empty())
-                )
-                .switchMap(response => {
-                    if (response.data?.length < 2) {
-                        return Rx.Observable.empty();
-                    }
-                    const elevationLayerData = response.data[0];
-                    const hillshadeLayerData = response.data?.[1];
-                    const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];
-                    const elevationExists = currentNames.includes(elevationLayerData?.name);
-                    const hillshadeExists = currentNames.includes(hillshadeLayerData?.name);
-                    // If both layers already loaded (from saved map blob), just stop polling
-                    if (elevationExists && hillshadeExists) {
-                        return Rx.Observable.of(stopAnugaElevationPolling());
-                    }
-                    const layerActions = [];
-                    if (!elevationExists) layerActions.push(Rx.Observable.of(addLayer(elevationLayerData)));
-                    if (!hillshadeExists) layerActions.push(Rx.Observable.of(addLayer(hillshadeLayerData)));
-                    // Detect whether this is the first elevation (no prior
-                    // elevation layers in the map). Only auto-zoom + save on
-                    // the first upload so subsequent re-uploads don't hijack
-                    // the user's current view.
-                    const isFirstElevation = !elevationExists && !hillshadeExists;
-                    return Rx.Observable.concat(
-                        Rx.Observable.of(stopAnugaElevationPolling()),
-                        Rx.Observable.defer(() => {
-                            const wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
-                            return Rx.Observable.of(refreshLayers(wmsLayers));
-                        }),
-                        ...layerActions,
-                        // Auto-zoom to the elevation extent on first upload,
-                        // then wait for the map view to update in Redux before
-                        // saving so the saved map blob captures the new
-                        // center/zoom instead of the default global view.
-                        ...(isFirstElevation && response.data[0]?.bbox?.bounds
-                            ? [
-                                Rx.Observable.of(zoomToExtent(
-                                    response.data[0].bbox.bounds,
-                                    response.data[0].bbox.crs,
-                                    20
-                                )),
-                                // Wait for OpenLayers to finish the zoom
-                                // animation and fire CHANGE_MAP_VIEW, which
-                                // updates the Redux map state. Fall back to a
-                                // 2s timer so we never block indefinitely —
-                                // whichever fires first triggers the save.
-                                Rx.Observable.race(
-                                    action$.ofType(CHANGE_MAP_VIEW).take(1),
-                                    Rx.Observable.timer(2000)
-                                ).take(1).mapTo(saveDirectContent())
-                            ]
-                            : [Rx.Observable.of(saveDirectContent())]),
-                        Rx.Observable.of(updateUploadStatus('Complete')),
-                        Rx.Observable.of(initAnuga()),
-                        Rx.Observable.of(startAnugaModelCreationPolling()),
-                        Rx.Observable.defer(() => {
-                            const wmsLayers = store.getState()?.layers?.flat?.filter((layer) => layer.type === 'wms' && layer.group !== 'background') || [];
-                            return Rx.Observable.of(refreshLayers(wmsLayers));
-                        }),
-                        Rx.Observable.defer(() => {
-                            const groups = store.getState()?.layers?.groups || [];
-                            const inputDataGroup = groups.find(group => group != null && group.id === "Input Data");
-                            if (inputDataGroup && inputDataGroup.nodes) {
-                                return Rx.Observable.of(moveNode('Input Data.Elevations', 'Input Data', inputDataGroup.nodes.length));
-                            }
-                            console.warn('[ANUGA] Skipping moveNode: Input Data group not ready');
-                            return Rx.Observable.empty();
-                        })
-                    );
-                })
         );
 
 const isScenarioLoaded = (scenario, state) => {
@@ -463,49 +379,107 @@ const modelClassToAddAction = {
     'Links': addLinks
 };
 
-export const taskCompleteLayerEpic = (action$, store) =>
-    action$.ofType(TM_SET_PROCESSES)
+// Multi-layer elevation handoff. Adds DEM + hillshade together, then runs
+// the post-add chain (refresh, first-upload zoom + save race, group placement,
+// status update, model-creation polling kickoff). Driven by Process metadata
+// stamped by the create_elevation_gn_layer celery task.
+const buildElevationAddSequence = (metadata, action$, store) => {
+    const layers = Array.isArray(metadata?.mapstore_layers) ? metadata.mapstore_layers : [];
+    const isFirstUpload = !!metadata?.is_first_upload;
+    const firstLayer = layers[0];
+    const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];
+    const newLayers = layers.filter(l => l?.name && !currentNames.includes(l.name));
+    if (!newLayers.length) {
+        return Rx.Observable.empty();
+    }
+    return Rx.Observable.concat(
+        Rx.Observable.defer(() => {
+            const wmsLayers = store.getState()?.layers?.flat?.filter(l => l?.type === 'wms' && l?.group !== 'background') || [];
+            return Rx.Observable.of(refreshLayers(wmsLayers));
+        }),
+        ...newLayers.map(l => Rx.Observable.of(addLayer(l))),
+        Rx.Observable.of(show({
+            "message": "hydrata.anuga.newLayersMessage",
+            "title": "hydrata.anuga.newLayersTitle",
+            "uid": 1000,
+            "position": "tc"
+        })),
+        ...(isFirstUpload && firstLayer?.bbox?.bounds
+            ? [
+                Rx.Observable.of(zoomToExtent(firstLayer.bbox.bounds, firstLayer.bbox.crs, 20)),
+                // Wait for OpenLayers CHANGE_MAP_VIEW so the saved blob captures
+                // the new center/zoom; fall back to a 2s timer.
+                Rx.Observable.race(
+                    action$.ofType(CHANGE_MAP_VIEW).take(1),
+                    Rx.Observable.timer(2000)
+                ).take(1).mapTo(saveDirectContent())
+            ]
+            : [Rx.Observable.of(saveDirectContent())]),
+        Rx.Observable.of(updateUploadStatus('Complete')),
+        Rx.Observable.of(initAnuga()),
+        Rx.Observable.of(startAnugaModelCreationPolling()),
+        Rx.Observable.defer(() => {
+            const wmsLayers = store.getState()?.layers?.flat?.filter(l => l?.type === 'wms' && l?.group !== 'background') || [];
+            return Rx.Observable.of(refreshLayers(wmsLayers));
+        })
+    );
+    // Note: legacy pollAnugaElevationEpic dispatched moveNode here to push the
+    // Elevations sub-group to the end of Input Data, but that call passed
+    // `nodes.length` as the insert index when the source was already in the
+    // target's nodes — moveNode then injected a null at the old position,
+    // crashing the TOC with "Cannot read properties of undefined (reading
+    // 'nodes')". `addLayer` with `group: 'Input Data.Elevations'` already
+    // routes the layer into the right sub-group via the ADD_LAYER reducer,
+    // so the explicit moveNode is unnecessary.
+};
+
+const isLayerCompletionType = pt => pt === 'layer_create' || pt === 'elevation_create';
+
+// Per-instance set of completion IDs we've already dispatched addLayer for.
+// store.getState() inside the epic returns POST-reduce state, so a prev/new
+// byId diff is always empty. A closure-scoped Set gives us a stable
+// "have I handled this completion yet" signal independent of reducer timing.
+// Reset on page reload (single epic instance per app boot), which is fine
+// because MapLayer auto-injection on reload re-populates layers.flat.
+export const taskCompleteLayerEpic = (action$, store) => {
+    const handledCompletionIds = new Set();
+    return action$.ofType(TM_SET_PROCESSES)
         .switchMap((action) => {
             const processes = action.processes || [];
-            // Find layer_create processes that just completed
-            const prevById = store.getState()?.taskMonitor?.processes?.byId || {};
-            const prevCompleteIds = new Set(
-                Object.values(prevById)
-                    .filter(p => p.process_type === 'layer_create' && p.status === 'complete')
-                    .map(p => p.id)
-            );
             const newlyCompleted = processes.filter(
-                p => p.process_type === 'layer_create' &&
+                p => isLayerCompletionType(p.process_type) &&
                      p.status === 'complete' &&
-                     !prevCompleteIds.has(p.id)
+                     !handledCompletionIds.has(p.id)
             );
             if (!newlyCompleted.length) return Rx.Observable.empty();
-            const actions = [];
+            newlyCompleted.forEach(p => handledCompletionIds.add(p.id));
+            const observables = [];
             newlyCompleted.forEach(p => {
-                // Prefer direct layer config from TM metadata (no /available/ round-trip)
-                if (p.metadata?.mapstore_layer) {
+                if (p.process_type === 'elevation_create' && Array.isArray(p.metadata?.mapstore_layers)) {
+                    observables.push(buildElevationAddSequence(p.metadata, action$, store));
+                } else if (p.metadata?.mapstore_layer) {
                     const layerConfig = p.metadata.mapstore_layer;
                     const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];
                     if (!currentNames.includes(layerConfig?.name)) {
-                        actions.push(addLayer(layerConfig));
-                        actions.push(show({
+                        observables.push(Rx.Observable.of(addLayer(layerConfig)));
+                        observables.push(Rx.Observable.of(show({
                             "message": "hydrata.anuga.newLayersMessage",
                             "title": "hydrata.anuga.newLayersTitle",
                             "uid": 1000,
                             "position": "tc"
-                        }));
+                        })));
                     }
                 } else {
-                    // Fallback: trigger /available/ fetch for the resource type
                     const modelClass = p.metadata?.model_class;
                     const actionCreator = modelClassToAddAction[modelClass];
-                    if (actionCreator) actions.push(actionCreator());
+                    if (actionCreator) observables.push(Rx.Observable.of(actionCreator()));
                 }
             });
-            return actions.length > 0
-                ? Rx.Observable.from(actions)
+            return observables.length > 0
+                ? Rx.Observable.concat(...observables)
                 : Rx.Observable.empty();
         });
+};
 
 // -- MapLayer group assignment: move auto-added MapLayers to correct ANUGA groups --
 export const anugaMapLayerGroupEpic = (action$, store) =>

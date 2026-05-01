@@ -29,8 +29,6 @@ import {
     createNodes,
     createLinks,
     setCreatingAnugaLayer,
-    startAnugaElevationPolling,
-    stopAnugaElevationPolling,
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
     setNetworkMenu,
@@ -69,8 +67,6 @@ class AnugaInputMenuClass extends React.Component {
         catchmentLayers: PropTypes.array,
         nodesLayers: PropTypes.array,
         linksLayers: PropTypes.array,
-        startAnugaElevationPolling: PropTypes.func,
-        stopAnugaElevationPolling: PropTypes.func,
         startAnugaModelCreationPolling: PropTypes.func,
         stopAnugaModelCreationPolling: PropTypes.func,
         isCreatingAnugaLayer: PropTypes.bool,
@@ -119,14 +115,6 @@ class AnugaInputMenuClass extends React.Component {
         };
     }
 
-    componentDidMount() {
-        this.props.startAnugaElevationPolling();
-    }
-
-    componentWillUnmount() {
-        this.props.stopAnugaElevationPolling();
-    }
-
     createAndReset = (createFn, titleKey) => {
         this.props.setCreatingAnugaLayer(true);
         createFn(this.state[titleKey]);
@@ -148,7 +136,6 @@ class AnugaInputMenuClass extends React.Component {
                                 style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
                                 onClick={() => {
                                     this.props.setVisibleUploaderPanel(true, "elevation", null);
-                                    this.props.startAnugaElevationPolling();
                                     trackEvent('button', 'click', 'anuga-input-menu-show-elevation-uploader');
                                 }}
                             />
@@ -370,8 +357,6 @@ const mapDispatchToProps = ( dispatch ) => {
         addNetwork: () => dispatch(addNetwork()),
         addNodes: () => dispatch(addNodes()),
         addLinks: () => dispatch(addLinks()),
-        startAnugaElevationPolling: () => dispatch(startAnugaElevationPolling()),
-        stopAnugaElevationPolling: () => dispatch(stopAnugaElevationPolling()),
         startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
         stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
         setVisibleUploaderPanel: (visible, importerConfigKey, layerId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, layerId)),

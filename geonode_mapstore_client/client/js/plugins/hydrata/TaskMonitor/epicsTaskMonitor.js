@@ -45,7 +45,9 @@ export const autoStartTaskMonitorEpic = (action$) =>
         .map(() => startTaskMonitorPolling());
 
 /**
- * Count poller — runs when panel is closed, 10s interval.
+ * Closed-panel poller — 10s interval. Fetches the recent process list (not
+ * just the count) so taskCompleteLayerEpic can react to async layer-creation
+ * completions even when the panel is closed.
  */
 export const pollActiveCountEpic = (action$, store) =>
     action$
@@ -56,9 +58,16 @@ export const pollActiveCountEpic = (action$, store) =>
                 .filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
                 .exhaustMap(() => {
                     const projectId = getProjectId(store.getState());
-                    const params = projectId ? { project_id: projectId } : {};
-                    return Rx.Observable.from(taskMonitorApi.getActiveCount(params))
-                        .map(response => setActiveCount(response.data?.count || 0))
+                    const params = projectId ? { project_id: projectId, limit: 10 } : { limit: 10 };
+                    return Rx.Observable.from(taskMonitorApi.getProcesses(params))
+                        .concatMap(response => {
+                            const processes = response.data?.results || response.data || [];
+                            const activeCount = processes.filter(p => ACTIVE_STATES.includes(p.status)).length;
+                            return Rx.Observable.of(
+                                setProcesses(processes),
+                                setActiveCount(activeCount)
+                            );
+                        })
                         .catch(() => Rx.Observable.empty());
                 })
         );
@@ -73,7 +82,9 @@ export const pollProcessListEpic = (action$, store) =>
         .switchMap(() => {
             const filter = store.getState()?.taskMonitor?.ui?.filter || 'active';
             const params = filterToParams(filter);
-            // For 'active' filter, fetch both pending and running
+            // For 'active' filter, fetch the recent process list (not just
+            // currently-active) so taskCompleteLayerEpic can see completion
+            // transitions. UI filters by status for display.
             if (filter === 'active') {
                 return Rx.Observable.timer(0, 3000)
                     .takeUntil(
@@ -82,10 +93,10 @@ export const pollProcessListEpic = (action$, store) =>
                     )
                     .exhaustMap(() => {
                         const projectId = getProjectId(store.getState());
-                        const activeParams = projectId ? { project_id: projectId } : {};
-                        return Rx.Observable.from(taskMonitorApi.getActiveProcesses(activeParams))
+                        const recentParams = projectId ? { project_id: projectId, limit: 10 } : { limit: 10 };
+                        return Rx.Observable.from(taskMonitorApi.getProcesses(recentParams))
                             .concatMap(response => {
-                                const processes = response.data || [];
+                                const processes = response.data?.results || response.data || [];
                                 return Rx.Observable.of(
                                     setProcesses(processes),
                                     setActiveCount(processes.filter(p => ACTIVE_STATES.includes(p.status)).length)

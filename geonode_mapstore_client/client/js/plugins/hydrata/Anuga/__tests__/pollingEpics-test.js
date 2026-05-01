@@ -2,7 +2,6 @@ import expect from 'expect';
 import Rx from 'rxjs';
 import {
     pollAnugaModelCreationEpic,
-    pollAnugaElevationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
     pollComparisonEpic,
@@ -15,8 +14,6 @@ import {
 import {
     START_ANUGA_MODEL_CREATION_POLLING,
     STOP_ANUGA_MODEL_CREATION_POLLING,
-    START_ANUGA_ELEVATION_POLLING,
-    STOP_ANUGA_ELEVATION_POLLING,
     START_ANUGA_SCENARIO_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
     ADD_ANUGA_BOUNDARY,
@@ -155,71 +152,6 @@ describe('Polling Epics', () => {
                         done();
                     }
                 );
-        });
-    });
-
-    describe('pollAnugaElevationEpic', () => {
-        it('should listen for START_ANUGA_ELEVATION_POLLING', (done) => {
-            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION' }]);
-            const store = { getState: () => ({ anuga: { projects: { data: { id: 1 } } } }) };
-            const emitted = [];
-
-            pollAnugaElevationEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        expect(emitted.length).toBe(0);
-                        done();
-                    }
-                );
-        });
-
-        it('should stop on STOP_ANUGA_ELEVATION_POLLING', (done) => {
-            const { subject, action$ } = liveActions();
-            const store = { getState: () => ({ anuga: { projects: { data: { id: 1 } } }, layers: { flat: [] } }) };
-            const emitted = [];
-
-            const sub = pollAnugaElevationEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({ type: START_ANUGA_ELEVATION_POLLING });
-            // Stop immediately
-            setTimeout(() => {
-                subject.next({ type: STOP_ANUGA_ELEVATION_POLLING });
-                setTimeout(() => {
-                    // Should have stopped (no infinite polling)
-                    sub.unsubscribe();
-                    done();
-                }, 200);
-            }, 50);
-        });
-
-        it('should emit empty when API returns fewer than 2 layers', (done) => {
-            // This test verifies the response.data?.length < 2 guard
-            // Since API calls go to localhost (no server), the catch block returns empty
-            const { subject, action$ } = liveActions();
-            const store = { getState: () => ({ anuga: { projects: { data: { id: 1 } } }, layers: { flat: [] } }) };
-            const emitted = [];
-
-            const sub = pollAnugaElevationEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({ type: START_ANUGA_ELEVATION_POLLING });
-
-            setTimeout(() => {
-                // API returns error (no server) -> catch -> empty, so nothing emitted
-                expect(emitted.length).toBe(0);
-                subject.next({ type: STOP_ANUGA_ELEVATION_POLLING });
-                sub.unsubscribe();
-                done();
-            }, 200);
         });
     });
 
@@ -523,16 +455,10 @@ describe('Polling Epics', () => {
             });
         });
 
-        it('should skip when no newly completed layer_create processes', (done) => {
+        it('should not re-emit for a process id already handled in this session', (done) => {
             const store = {
                 getState: () => ({
-                    taskMonitor: {
-                        processes: {
-                            byId: {
-                                101: { id: 101, process_type: 'layer_create', status: 'complete' }
-                            }
-                        }
-                    },
+                    taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [] }
                 })
             };
@@ -545,14 +471,174 @@ describe('Polling Epics', () => {
                     err => done(err)
                 );
 
-            // Process 101 is already complete in the store, so it's not "newly" completed
+            const tickProcess = {
+                id: 'dedup-test-1',
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: { name: 'geonode:bdy_dedup', type: 'wms', url: '/geoserver/wms' }
+                }
+            };
+
+            // First emit dispatches addLayer + show
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            setTimeout(() => {
+                const after_first = emitted.length;
+                // Second emit (same process id) must be a no-op
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                setTimeout(() => {
+                    expect(after_first).toBe(2);
+                    expect(emitted.length).toBe(after_first);
+                    sub.unsubscribe();
+                    done();
+                }, 100);
+            }, 100);
+        });
+
+        it('should add elevation DEM + hillshade and run full post-add chain (is_first_upload=false)', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err)
+                );
+
             subject.next({
                 type: TM_SET_PROCESSES,
                 processes: [{
-                    id: 101,
-                    process_type: 'layer_create',
+                    id: 'ele-not-first',
+                    process_type: 'elevation_create',
                     status: 'complete',
-                    metadata: { model_class: 'Boundary', mapstore_layer: { name: 'geonode:bdy_test' } }
+                    metadata: {
+                        target_group: 'Input Data.Elevations',
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_99_dem', type: 'wms', url: '/geoserver/ows', bbox: { bounds: { minx: 0, miny: 0, maxx: 1, maxy: 1 }, crs: 'EPSG:4326' } },
+                            { name: 'geonode:ele_99_hillshade', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                const types = emitted.map(a => a.type);
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(2);
+                expect(adds[0].layer.name).toBe('geonode:ele_99_dem');
+                expect(adds[1].layer.name).toBe('geonode:ele_99_hillshade');
+                // Full post-add chain (no zoom because is_first_upload=false)
+                expect(types).toContain('REFRESH_LAYERS');
+                expect(types).toContain('SHOW_NOTIFICATION');
+                expect(types).toContain('GEONODE:SAVE_DIRECT_CONTENT');
+                expect(types).toContain('UPDATE_UPLOAD_STATUS');
+                expect(types).toContain('INIT_ANUGA');
+                expect(types).toContain('START_ANUGA_MODEL_CREATION_POLLING');
+                // Bookend refreshes (before + after)
+                expect(types.filter(t => t === 'REFRESH_LAYERS').length).toBe(2);
+                // No zoom — first-upload-only branch
+                expect(types).toNotContain('ZOOM_TO_EXTENT');
+                sub.unsubscribe();
+                done();
+            }, 300);
+        });
+
+        it('should zoom + race-save when is_first_upload=true (race resolved by CHANGE_MAP_VIEW)', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err)
+                );
+
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'ele-first',
+                    process_type: 'elevation_create',
+                    status: 'complete',
+                    metadata: {
+                        is_first_upload: true,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_first_dem', type: 'wms', url: '/geoserver/ows', bbox: { bounds: { minx: 10, miny: 20, maxx: 11, maxy: 21 }, crs: 'EPSG:4326' } },
+                            { name: 'geonode:ele_first_hs', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                }]
+            });
+
+            // Resolve the race fast by emitting CHANGE_MAP_VIEW
+            setTimeout(() => {
+                subject.next({ type: 'CHANGE_MAP_VIEW' });
+            }, 50);
+
+            setTimeout(() => {
+                const types = emitted.map(a => a.type);
+                expect(types).toContain('ZOOM_TO_EXTENT');
+                const zoom = emitted.find(a => a.type === 'ZOOM_TO_EXTENT');
+                expect(zoom.extent.minx).toBe(10);
+                expect(zoom.crs).toBe('EPSG:4326');
+                expect(types).toContain('GEONODE:SAVE_DIRECT_CONTENT');
+                // Save must come after zoom in the action stream
+                const zoomIdx = types.indexOf('ZOOM_TO_EXTENT');
+                const saveIdx = types.indexOf('GEONODE:SAVE_DIRECT_CONTENT');
+                expect(saveIdx).toBeGreaterThan(zoomIdx);
+                sub.unsubscribe();
+                done();
+            }, 300);
+        });
+
+        it('should be a no-op when all elevation layers are already in flat (page-reload case)', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: {
+                        flat: [
+                            { name: 'geonode:ele_already_dem' },
+                            { name: 'geonode:ele_already_hs' }
+                        ],
+                        groups: []
+                    }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err)
+                );
+
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'ele-already',
+                    process_type: 'elevation_create',
+                    status: 'complete',
+                    metadata: {
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_already_dem', type: 'wms', url: '/geoserver/ows' },
+                            { name: 'geonode:ele_already_hs', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
                 }]
             });
 

@@ -2,7 +2,6 @@
 export {
     initAnugaEpic,
     pollAnugaModelCreationEpic,
-    pollAnugaElevationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
     pollComparisonEpic,
