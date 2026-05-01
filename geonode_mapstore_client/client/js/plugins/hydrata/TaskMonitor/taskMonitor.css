@@ -51,8 +51,24 @@
 
 .tm-close-btn {
     cursor: pointer;
-    font-size: 14px;
-    padding: 4px;
+    font-size: 12px;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    color: #fff;
+    background-color: #d9534f;
+    border: none;
+    border-radius: 3px;
+    flex: 0 0 auto;
+    display: inline-block;
+    align-self: flex-start;
+}
+
+.tm-close-btn:hover {
+    background-color: #c9302c;
+    color: #fff;
 }
 
 /* Filter bar */

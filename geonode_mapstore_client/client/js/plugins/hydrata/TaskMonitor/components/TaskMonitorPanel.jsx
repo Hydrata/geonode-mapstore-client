@@ -35,7 +35,7 @@ class TaskMonitorPanel extends React.Component {
                         <Message msgId="hydrata.taskMonitor.title" />
                     </h5>
                     <span
-                        className="btn glyphicon glyphicon-remove tm-close-btn"
+                        className="glyphicon glyphicon-remove tm-close-btn"
                         onClick={onClose}
                     />
                 </div>

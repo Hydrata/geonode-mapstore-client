@@ -9,6 +9,7 @@ import {
     setVisibleSimpleViewAttributeForm,
     createSimpleViewAttributeForm
 } from "../actionsSimpleView";
+import {toggleTaskMonitorPanel} from "../../TaskMonitor/actionsTaskMonitor";
 
 import '../simpleView.css';
 import {Countdown} from "./simpleViewCountdown";
@@ -39,7 +40,8 @@ class simpleViewUploaderPanel extends React.Component {
         createSimpleViewAttributeForm: PropTypes.func,
         show: PropTypes.func,
         importerConfigKey: PropTypes.string,
-        importerTargetObjectId: PropTypes.number
+        importerTargetObjectId: PropTypes.number,
+        toggleTaskMonitorPanel: PropTypes.func
     };
 
     constructor(props) {
@@ -155,15 +157,15 @@ class simpleViewUploaderPanel extends React.Component {
                     </Dropzone>
                 }
                 <div className={"simple-view-panel-footer"}>
-                    <button
-                        className={"swamm-button"}
+                    <Button
+                        bsStyle="danger"
                         onClick={() => {
                             this.props.setVisibleUploaderPanel(false);
                             trackEvent('button', `click`, `simpleview-uploader-close-footer`);
                         }}
                     >
                         <Message msgId="hydrata.simpleView.close" />
-                    </button>
+                    </Button>
                 </div>
             </div> :
             null;
@@ -264,6 +266,10 @@ class simpleViewUploaderPanel extends React.Component {
                             "uid": 1000,
                             "position": "tc"
                         });
+                        this.setState({uploaderFiles: [], newTitle: null});
+                        this.props.setVisibleUploaderPanel(false);
+                        this.props.toggleTaskMonitorPanel(true);
+                        trackEvent('process', `handoff`, `simpleview-uploader-celery-handoff`);
                     }
                 })
                 .catch(error => {
@@ -306,7 +312,8 @@ const mapDispatchToProps = ( dispatch ) => {
         updateUploadStatus: (status) => dispatch(updateUploadStatus(status)),
         setVisibleSimpleViewAttributeForm: (visible) => dispatch(setVisibleSimpleViewAttributeForm(visible)),
         createSimpleViewAttributeForm: (form, simpleViewImporterSessionId) => dispatch(createSimpleViewAttributeForm(form, simpleViewImporterSessionId)),
-        show: (object, level) => dispatch(show(object, level))
+        show: (object, level) => dispatch(show(object, level)),
+        toggleTaskMonitorPanel: (open) => dispatch(toggleTaskMonitorPanel(open))
     };
 };
 
