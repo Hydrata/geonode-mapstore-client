@@ -19,7 +19,7 @@ import axios from "../../../../../MapStore2/web/client/libs/ajax";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 
-class simpleViewUploaderPanel extends React.Component {
+export class simpleViewUploaderPanel extends React.Component {
     static propTypes = {
         setVisibleUploaderPanel: PropTypes.func,
         updateUploaderFile: PropTypes.func,
@@ -107,6 +107,7 @@ class simpleViewUploaderPanel extends React.Component {
                                                         style={{'borderRadius': '3px'}}
                                                         bsSize={'small'}
                                                         bsStyle={'success'}
+                                                        disabled={!this.props?.config?.app_name || !this.props?.projectId || !this.props?.importerConfigKey}
                                                     >
                                                         <Message msgId="hydrata.simpleView.begin" />
                                                     </Button> :
@@ -201,6 +202,31 @@ class simpleViewUploaderPanel extends React.Component {
     };
 
     uploadFile = (files) => {
+        // TASK-599: Guard against `/undefined/` URL corruption.
+        // Real users hit `PUT /undefined/api/<id>/erosion/importer-create/` 404s when
+        // `importerConfigKey` resolved to a key (e.g. "erosion") that has no entry in
+        // `state.simpleView.config.importer_config`, leaving `this.props.config` undefined
+        // and `${this.props?.config?.app_name}` stringifying to the literal "undefined".
+        // Bail before building the URL or hitting the network.
+        if (!this.props?.config?.app_name || !this.props?.projectId || !this.props?.importerConfigKey) {
+            // eslint-disable-next-line no-console
+            console.warn('simpleViewUploader: refusing to upload — missing config/project/importerConfigKey', {
+                hasConfig: !!this.props?.config,
+                appName: this.props?.config?.app_name,
+                projectId: this.props?.projectId,
+                importerConfigKey: this.props?.importerConfigKey
+            });
+            this.props.show?.({
+                "message": "hydrata.simpleView.importFailed",
+                "title": "hydrata.simpleView.error",
+                "uid": 1002,
+                "position": "tc",
+                "autoDismiss": 10,
+                "level": "error"
+            });
+            trackEvent('process', `error`, `simpleview-uploader-missing-config`);
+            return;
+        }
         const formData = new FormData();
         files.map(file => {
             formData.append(file.extension, file);
@@ -302,7 +328,7 @@ class simpleViewUploaderPanel extends React.Component {
 // even after the user switched to their own project — backend then returns 403.
 // Falls back to the legacy stashed value only when no active project is loaded
 // (e.g. catalogue page); in that case the upload Begin button is disabled by
-// the existing `!this.props?.projectId` guard, so the user cannot
+// the existing `!this.props?.projectId` guard at line 110, so the user cannot
 // fire a request to /undefined/.
 export const getActiveProjectId = (state) => {
     const config = state?.simpleView?.config?.importer_config?.[state?.simpleView?.importerConfigKey];
