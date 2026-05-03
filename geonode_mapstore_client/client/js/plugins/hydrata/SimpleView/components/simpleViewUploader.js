@@ -294,13 +294,38 @@ class simpleViewUploaderPanel extends React.Component {
     };
 }
 
+// TASK-600: Bind projectId to the *active* project for the current app
+// (ANUGA: state.anuga.projects.data.id, SWAMM: state.swamm.projectData.id),
+// not state.simpleView.config.project_id which gets stashed at first config
+// load and never refreshes when the user navigates between projects. The
+// stashed id was causing PUTs against a stale project (e.g. demo project 378)
+// even after the user switched to their own project — backend then returns 403.
+// Falls back to the legacy stashed value only when no active project is loaded
+// (e.g. catalogue page); in that case the upload Begin button is disabled by
+// the existing `!this.props?.projectId` guard, so the user cannot
+// fire a request to /undefined/.
+export const getActiveProjectId = (state) => {
+    const config = state?.simpleView?.config?.importer_config?.[state?.simpleView?.importerConfigKey];
+    const appName = config?.app_name;
+    if (appName === 'anuga') {
+        return state?.anuga?.projects?.data?.id || state?.simpleView?.config?.project_id || null;
+    }
+    if (appName === 'swamm') {
+        return state?.swamm?.projectData?.id || state?.simpleView?.config?.project_id || null;
+    }
+    // Unknown app — fall back to the legacy stashed project id. Cross-app
+    // contexts (catalogue, gn admin, etc.) should never reach this branch
+    // with a valid app_name set, so we keep behaviour identical to pre-fix.
+    return state?.simpleView?.config?.project_id || null;
+};
+
 const mapStateToProps = (state) => {
     return {
         visibleUploaderPanel: state?.simpleView?.visibleUploaderPanel,
         importerConfigKey: state?.simpleView?.importerConfigKey,
         config: state?.simpleView?.config?.importer_config?.[state?.simpleView?.importerConfigKey],
         serverUrl: state?.gnsettings?.geonodeUrl,
-        projectId: state?.simpleView?.config?.project_id,
+        projectId: getActiveProjectId(state),
         uploadStatus: state?.simpleView?.uploadStatus || 0,
         importerTargetObjectId: state?.simpleView?.importerTargetObjectId
     };
