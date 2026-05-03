@@ -6,6 +6,7 @@ import {
     pollComparisonEpic,
     prePopulateAnugaFeatureGridWithDefaults
 } from '../epicsAnuga';
+import { __setVisibilityForTests } from '../epics/pollingEpics';
 import {
     INIT_ANUGA,
     START_ANUGA_MODEL_CREATION_POLLING,
@@ -90,6 +91,11 @@ describe('ANUGA Epics', () => {
     });
 
     describe('pollAnugaModelCreationEpic', () => {
+        // TASK-603: inject the visibility$ test seam so the gate in the
+        // production epic does not suppress the timer.
+        beforeEach(() => __setVisibilityForTests(new Rx.BehaviorSubject(true)));
+        afterEach(() => __setVisibilityForTests(null));
+
         it('should emit add-layer actions when polling starts', (done) => {
             const subject = new Rx.Subject();
             const action$ = subject.asObservable();

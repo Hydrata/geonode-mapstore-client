@@ -76,6 +76,38 @@ import {
 import {TM_SET_PROCESSES} from "../../TaskMonitor/actionsTaskMonitor";
 import {getProjectId} from "../selectorsAnuga";
 
+// TASK-603: Page Visibility gate. When the catalogue tab is hidden the
+// browser will keep timer-based polling subscriptions alive but the user
+// gains no value from the work. Real-user incident (gabriela.garcia@wkcgroup.com,
+// 2026-04-22): a tab abandoned with the catalogue open polled for ~19h and
+// produced ~30k wasted requests. We gate the catalogue init + model-creation
+// polls here so the timers themselves stop while hidden and resume within one
+// cycle of the next visibilitychange. We use `document.visibilityState !==
+// 'hidden'` (not the legacy `document.hidden` boolean) for strictness, and
+// `startWith(null)` so the gate fires immediately at subscription time rather
+// than waiting for the first visibilitychange.
+//
+// Scope (deliberate): scenario/elevation/taskMonitor polls are NOT gated —
+// they have their own start/stop semantics and are tracked under separate
+// optimisation tasks.
+//
+// Test seam: `__visibilityForTests$` lets unit tests inject a Subject so they
+// can drive isVisible deterministically without monkey-patching
+// document.visibilityState (which sits behind a non-configurable native
+// accessor in Chromium and isn't reliably overridable from user code). When
+// set, it overrides the live DOM-driven stream. Tests must reset to null
+// in afterEach to avoid leaking across the suite.
+let __visibilityForTests$ = null;
+export const __setVisibilityForTests = (subj) => { __visibilityForTests$ = subj; };
+const _domVisibility$ = (typeof document !== 'undefined' && document.addEventListener)
+    ? Rx.Observable.fromEvent(document, 'visibilitychange')
+        .startWith(null)
+        .map(() => document.visibilityState !== 'hidden')
+    : Rx.Observable.of(true);
+const visibility$ = Rx.Observable.defer(
+    () => __visibilityForTests$ || _domVisibility$
+);
+
 const addAnugaLayerFromAvailableResponse = (response, store) => {
     if (response.data?.length === 0) {
         return Rx.Observable.empty();
@@ -126,6 +158,14 @@ export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA, UPDATE_DATASET_TITLE_SUCCESS)
         .filter(() => store.getState().gnresource.id)
+        // TASK-603: drop init catalogue project-poll when tab is hidden.
+        // Use withLatestFrom rather than switchMap-on-visibility$ here because
+        // initAnugaEpic is action-driven (one-shot per action), not timer-driven.
+        // If the user fires INIT_ANUGA while hidden we simply skip the catalogue
+        // refresh — the next INIT_ANUGA after the tab becomes visible will run.
+        .withLatestFrom(visibility$)
+        .filter(([_, isVisible]) => isVisible)
+        .map(([action]) => action)
         .switchMap(() =>
             Rx.Observable.from(anugaApi.getProjectFromMapId(store.getState().gnresource.id))
                 .catch(() => Rx.Observable.empty())
@@ -161,25 +201,44 @@ export const initAnugaEpic = (action$, store) =>
 
 // Fix 3: Reduced from 10s to 60s — primary layer addition is now event-driven
 // via taskCompleteLayerEpic. This polling remains as a safety-net fallback.
+//
+// TASK-603: visibility gate. visibility$ emits true/false on subscribe and
+// every visibilitychange. We switchMap on every emission so transitioning
+// to hidden tears down the inner timer (no wasted requests in the
+// background) and transitioning to visible re-subscribes timer(0, ...)
+// which fires immediately — polling resumes within one cycle (AC #2).
+// Using switchMap rather than filter is deliberate: filter would keep the
+// timer running and only drop the resulting fetches, whereas switchMap
+// actually stops the timer subscription while hidden.
+//
+// Note: when isVisible=false the inner stream is `Rx.Observable.never()`
+// rather than `empty()` — empty completes synchronously and some RxJS 5
+// switchMap paths can drop the next outer emission if the previous inner
+// completes before the outer next arrives. `never()` keeps the inner
+// subscription alive (no emissions) until visibility$ emits the next value
+// and switchMap unsubscribes it.
 export const pollAnugaModelCreationEpic = (action$) =>
     action$
         .ofType(START_ANUGA_MODEL_CREATION_POLLING)
         .switchMap(() =>
-            Rx.Observable.timer(0, 60000)
-                .takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
-                .switchMap(() =>
-                    Rx.Observable.concat(
-                        Rx.Observable.of(addAnugaBoundary()),
-                        Rx.Observable.of(addAnugaFriction()),
-                        Rx.Observable.of(addAnugaStructure()),
-                        Rx.Observable.of(addAnugaInflow()),
-                        Rx.Observable.of(addAnugaFullMesh()),
-                        Rx.Observable.of(addAnugaMeshRegion()),
-                        Rx.Observable.of(addNetwork()),
-                        Rx.Observable.of(addCatchment()),
-                        Rx.Observable.of(addNodes()),
-                        Rx.Observable.of(addLinks())
-                    ))
+            visibility$.switchMap(isVisible =>
+                isVisible
+                    ? Rx.Observable.timer(0, 60000)
+                        .switchMap(() =>
+                            Rx.Observable.concat(
+                                Rx.Observable.of(addAnugaBoundary()),
+                                Rx.Observable.of(addAnugaFriction()),
+                                Rx.Observable.of(addAnugaStructure()),
+                                Rx.Observable.of(addAnugaInflow()),
+                                Rx.Observable.of(addAnugaFullMesh()),
+                                Rx.Observable.of(addAnugaMeshRegion()),
+                                Rx.Observable.of(addNetwork()),
+                                Rx.Observable.of(addCatchment()),
+                                Rx.Observable.of(addNodes()),
+                                Rx.Observable.of(addLinks())
+                            ))
+                    : Rx.Observable.never()
+            ).takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
         );
 
 const isScenarioLoaded = (scenario, state) => {

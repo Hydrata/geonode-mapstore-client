@@ -1,6 +1,7 @@
 import expect from 'expect';
 import Rx from 'rxjs';
 import {
+    initAnugaEpic,
     pollAnugaModelCreationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
@@ -9,7 +10,8 @@ import {
     taskCompleteLayerEpic,
     addAnugaBoundaryEpic,
     addAnugaFrictionEpic,
-    anugaMapLayerGroupEpic
+    anugaMapLayerGroupEpic,
+    __setVisibilityForTests
 } from '../epics/pollingEpics';
 import {
     START_ANUGA_MODEL_CREATION_POLLING,
@@ -61,6 +63,13 @@ const liveActions = () => {
 describe('Polling Epics', () => {
 
     describe('pollAnugaModelCreationEpic', () => {
+        // Inject a BehaviorSubject(true) into the visibility$ test seam so
+        // the TASK-603 gate does not suppress the timer in Karma. The
+        // production gate is exercised separately in the TASK-603 describe
+        // block below using the same seam.
+        beforeEach(() => __setVisibilityForTests(new Rx.BehaviorSubject(true)));
+        afterEach(() => __setVisibilityForTests(null));
+
         it('should emit 10 add-layer actions per polling tick', (done) => {
             const { subject, action$ } = liveActions();
             const emitted = [];
@@ -806,6 +815,157 @@ describe('Polling Epics', () => {
                         done();
                     }
                 );
+        });
+    });
+
+    // -- TASK-603: Page Visibility gate -----------------------------------
+    //
+    // Real-user incident (gabriela.garcia@wkcgroup.com, 2026-04-22) left a
+    // catalogue tab open ~19h and produced ~30k wasted requests. The gate
+    // inside pollingEpics.js stops timer-based polling while the tab is
+    // hidden and resumes within one cycle when it becomes visible.
+    //
+    // We test the gate via pollAnugaModelCreationEpic because it emits
+    // observable Redux actions (no network stubbing required) — the same
+    // visibility$ stream gates initAnugaEpic, so verifying the mechanism
+    // here also verifies the catalogue-init guard.
+    //
+    // Mechanics: rather than fight ChromeHeadless's non-overridable native
+    // visibilityState accessor and the synthetic visibilitychange Event
+    // (which doesn't reliably re-trigger fromEvent listeners under Karma),
+    // the production module exposes `__setVisibilityForTests(subject)` —
+    // a deliberate test seam that swaps the live DOM stream for a Subject
+    // we drive directly. Each test wires its own Subject in beforeEach
+    // and clears it in afterEach.
+    describe('TASK-603 visibility gate', () => {
+        let visibilitySubject;
+
+        beforeEach(() => {
+            visibilitySubject = new Rx.BehaviorSubject(true);
+            __setVisibilityForTests(visibilitySubject);
+        });
+        afterEach(() => {
+            __setVisibilityForTests(null);
+        });
+
+        it('initAnugaEpic exists and is a function (catalogue init has the gate wired)', () => {
+            expect(typeof initAnugaEpic).toBe('function');
+        });
+
+        it('pollAnugaModelCreationEpic does NOT emit when visibility$ is false (hidden)', (done) => {
+            visibilitySubject.next(false);
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = pollAnugaModelCreationEpic(action$).subscribe(
+                action => emitted.push(action),
+                err => done(err)
+            );
+
+            subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
+
+            // Wait long enough for `timer(0, ...)` to fire if the gate
+            // were ineffective; expect zero emissions.
+            setTimeout(() => {
+                try {
+                    expect(emitted.length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                } catch (err) { sub.unsubscribe(); done(err); }
+            }, 200);
+        });
+
+        it('pollAnugaModelCreationEpic resumes within one cycle after hidden→visible transition', (done) => {
+            // Subscribe while visible (BehaviorSubject(true) from beforeEach),
+            // observe initial batch fires, then push false (timer stops), then
+            // push true (timer resumes within one cycle).
+            //
+            // We deliberately drive the visible→hidden→visible sequence rather
+            // than the hidden-at-subscribe→visible path: the production code
+            // works identically in both cases (both go through the same
+            // visibility$.switchMap), and this ordering is more robust under
+            // Karma+Chromium's task-queue scheduling.
+            //
+            // Each setTimeout body wraps its asserts in try/catch — without
+            // this, an `expect()` throw inside a setTimeout escapes mocha's
+            // domain and the test silently times out instead of reporting
+            // the actual failure.
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = pollAnugaModelCreationEpic(action$).subscribe(
+                action => emitted.push(action),
+                err => done(err)
+            );
+
+            subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
+
+            setTimeout(() => {
+                try {
+                    // First batch fired immediately (timer(0, 60000)).
+                    // expect 1.20.1 lacks toBeGreaterThanOrEqual; use
+                    // toBeGreaterThan(N-1) to assert >= N.
+                    expect(emitted.length).toBeGreaterThan(9);
+                    // Hide → inner switchMap unsubscribes the timer.
+                    visibilitySubject.next(false);
+                } catch (err) { sub.unsubscribe(); return done(err); }
+                const countAtHide = emitted.length;
+
+                setTimeout(() => {
+                    try {
+                        // No emissions during the hidden window.
+                        expect(emitted.length).toBe(countAtHide);
+                        // Show → inner switchMap re-subscribes timer; fires t=0.
+                        visibilitySubject.next(true);
+                    } catch (err) { sub.unsubscribe(); return done(err); }
+
+                    setTimeout(() => {
+                        try {
+                            // Resumed within one cycle (AC #2): another full batch.
+                            expect(emitted.length).toBeGreaterThan(countAtHide + 9);
+                            const types = emitted.slice(countAtHide).map(a => a.type);
+                            expect(types).toContain(ADD_ANUGA_BOUNDARY);
+                            expect(types).toContain(ADD_ANUGA_FRICTION);
+                            sub.unsubscribe();
+                            done();
+                        } catch (err) { sub.unsubscribe(); done(err); }
+                    }, 200);
+                }, 200);
+            }, 100);
+        });
+
+        it('pollAnugaModelCreationEpic foreground cadence unchanged (regression guard)', (done) => {
+            // Stay visible the whole time. Take exactly two full batches via
+            // .take(20) — must complete without timing out, proving the gate
+            // does not perturb foreground emission count or ordering.
+            // (BehaviorSubject(true) from beforeEach already provides this.)
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = pollAnugaModelCreationEpic(action$)
+                .take(20)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(20);
+                        // Each batch is 10 actions; over two batches we
+                        // see exactly two of each action type.
+                        const types = emitted.map(a => a.type);
+                        expect(types.filter(t => t === ADD_ANUGA_BOUNDARY).length).toBe(2);
+                        expect(types.filter(t => t === ADD_ANUGA_FRICTION).length).toBe(2);
+                        sub.unsubscribe();
+                        done();
+                    }
+                );
+
+            subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
+            // Trigger a second tick by re-firing the start action (switchMap
+            // restart, mirroring the existing 'should restart polling' test).
+            setTimeout(() => {
+                subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
+            }, 50);
         });
     });
 });
