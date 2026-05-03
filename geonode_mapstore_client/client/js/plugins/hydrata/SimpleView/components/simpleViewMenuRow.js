@@ -40,6 +40,7 @@ class MenuRowClass extends React.Component {
         setOpacity: PropTypes.func,
         setOpenMenuGroupId: PropTypes.func,
         canEditMap: PropTypes.bool,
+        canUploadErosion: PropTypes.bool,
         editLayer: PropTypes.func,
         featureTypeSelected: PropTypes.func,
         browseData: PropTypes.func,
@@ -111,13 +112,23 @@ class MenuRowClass extends React.Component {
                                         trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
                                     }}
                                 />
-                                <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
-                                    onClick={() => {
-                                        this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
-                                        trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
-                                    }}
-                                />
+                                {
+                                    // TASK-602: erosion is a SWAMM-only feature. Hide the upload
+                                    // button when running on hydratabase (hydrata.com), where the
+                                    // hardcoded "erosion" importerConfigKey has no matching entry
+                                    // in the AnugaProject.simple_view_config.importer_config (which
+                                    // only contains "elevation"). On hydratabase this button always
+                                    // dispatched a useless action and confused users.
+                                    this.props.canUploadErosion ? (
+                                        <span
+                                            className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
+                                            onClick={() => {
+                                                this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
+                                                trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
+                                            }}
+                                        />
+                                    ) : null
+                                }
                             </React.Fragment>
                             : null
                     }
@@ -236,8 +247,14 @@ const mapStateToProps = (state) => {
     // TODO: move this check to within localConfig.json
     const excludedSites = ["placeholder.com"];
     const isExcludedSite = excludedSites.map(site => !state?.gnsettings?.geonodeUrl.includes(site)).includes(false);
+    // TASK-602: erosion upload is a SWAMM-only feature. Gate on JOB_NAME so that
+    // hydrata.com (jobName='hydratabase') and other non-swamm sites don't render
+    // the orphan upload glyph. jobName is injected into geoNodeSettings by the
+    // hydrata `_geonode_config.html` template (see hydrata.context_processors.job_name).
+    const jobName = state?.gnsettings?.jobName;
     return {
-        canEditMap: !isExcludedSite && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase')
+        canEditMap: !isExcludedSite && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase'),
+        canUploadErosion: jobName === 'swamm'
     };
 };
 
