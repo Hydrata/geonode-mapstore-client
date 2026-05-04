@@ -4,9 +4,6 @@
 {% get_settings as settings %}
 
 {% if not request.user.is_authenticated %}
-    {% if settings.ACCOUNT_OPEN_SIGNUP and not settings.READ_ONLY %}
-        <li><a href="/account/signup/?next=/" class="nav-link btn btn-default">Register</a></li>
-    {% endif %}
     <li><a id="sign-in" href="/account/login/?next=/" class="nav-link btn btn-default">Sign in</a></li>
 {% else %}
     <li>
