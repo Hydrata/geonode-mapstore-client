@@ -88,7 +88,7 @@ class AnugaContainer extends React.Component {
             <React.Fragment>
                 <button
                     key="anuga-input-button"
-                    className={'simple-view-menu-button'}
+                    className={`simple-view-menu-button ${this.props.showAnugaInputMenu ? 'active' : ''}`}
                     onClick={() => {
                         this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
                         this.props.setOpenMenuGroupId(null);
@@ -100,7 +100,7 @@ class AnugaContainer extends React.Component {
                 {this.props.canEditAnugaMap && this.props.hasEPSGset ?
                     <button
                         key="anuga-scenario-button"
-                        className={'simple-view-menu-button'}
+                        className={`simple-view-menu-button ${this.props.showAnugaScenarioMenu ? 'active' : ''}`}
                         onClick={() => {
                             this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
                             this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
@@ -115,7 +115,7 @@ class AnugaContainer extends React.Component {
                 {this.props.canViewAnugaMap && this.props.hasEPSGset ?
                     <button
                         key="anuga-results-button"
-                        className={'simple-view-menu-button'}
+                        className={`simple-view-menu-button ${this.props.openMenuGroupId === 'Results' ? 'active' : ''}`}
                         onClick={() => {
                             this.props.setOpenMenuGroupId('Results');
                             trackEvent('button', `click`, `anuga-results-menu-toggle`);
@@ -128,7 +128,7 @@ class AnugaContainer extends React.Component {
                 {this.props.canEditAnugaMap && this.props.hasEPSGset ?
                     <button
                         key="anuga-publication-button"
-                        className={'simple-view-menu-button disabled'}
+                        className={`simple-view-menu-button disabled ${this.props.showPublicationPanel ? 'active' : ''}`}
                         onClick={() => {
                             this.props.setPublicationPanel(!this.props.showPublicationPanel);
                             this.props.setOpenMenuGroupId(null);
@@ -142,7 +142,7 @@ class AnugaContainer extends React.Component {
                 {this.props.canManageMembers && this.props.hasEPSGset ?
                     <button
                         key="anuga-members-button"
-                        className={'simple-view-menu-button'}
+                        className={`simple-view-menu-button ${this.props.showMembershipPanel ? 'active' : ''}`}
                         onClick={() => {
                             this.props.setMembershipPanel(!this.props.showMembershipPanel);
                             this.props.setOpenMenuGroupId(null);

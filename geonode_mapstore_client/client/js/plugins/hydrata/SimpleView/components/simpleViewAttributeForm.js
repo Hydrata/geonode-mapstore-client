@@ -232,8 +232,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                 >
                     <button
                         type={'button'}
-                        className={'swamm-button'}
-                        style={{backgroundColor: "darkred"}}
+                        className={'swamm-button sv-cancel-btn'}
                         onClick={() => {
                             this.props.setVisibleSimpleViewAttributeForm(false);
                         }}>

@@ -159,7 +159,7 @@ export class simpleViewUploaderPanel extends React.Component {
                 }
                 <div className={"simple-view-panel-footer"}>
                     <Button
-                        bsStyle="danger"
+                        bsStyle="default"
                         onClick={() => {
                             this.props.setVisibleUploaderPanel(false);
                             trackEvent('button', `click`, `simpleview-uploader-close-footer`);

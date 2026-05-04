@@ -96,9 +96,9 @@ class MenuRowsClass extends React.Component {
             );
         }
         const subHeadings = this.props.layerSubheadings || [];
-        // If there are no real sub-groups (single un-named group, or only one sub-heading),
-        // render flat — no collapse affordance, preserves prior look.
-        const hasMultipleSubgroups = subHeadings.length > 1;
+        // Experiment 2026-05-04 (option B): always show collapse chevron, regardless
+        // of subheading count. Previous gate was `subHeadings.length > 1`.
+        const hasMultipleSubgroups = subHeadings.length >= 1;
         return (
             <div className={'menu-rows-container'}>
                 {subHeadings.map(subHeading => {

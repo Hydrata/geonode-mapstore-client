@@ -71,6 +71,11 @@
     position: static;
 }
 
+.simple-view-menu-button.active {
+    background-color: rgba(30, 126, 52, 0.7);
+    border-color: rgba(255, 255, 255, 0.9);
+}
+
 .simple-view-right-button {
     width: 40px;
     height: 40px;
@@ -92,8 +97,8 @@
 }
 
 .simple-view-right-button.active {
-    background-color: var(--sv-button-bg-active, rgba(0, 60, 136, 0.9));
-    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
+    background-color: rgba(30, 126, 52, 0.7);
+    border-color: rgba(255, 255, 255, 0.9);
 }
 
 /* ── HGeval "Generate Report" button (green, wider) ── */
@@ -171,12 +176,8 @@
 }
 
 .simple-view-panel ::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    border-radius: 4px;
-}
-
-.simple-view-panel:hover ::-webkit-scrollbar-thumb {
     background-color: #5178af;
+    border-radius: 4px;
 }
 
 .simple-view-panel-header {
@@ -215,6 +216,26 @@
     flex-direction: row-reverse;
     flex-shrink: 0;
     margin-top: auto;
+}
+
+.simple-view-panel-footer button {
+    min-width: 120px;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.sv-cancel-btn,
+.simple-view-panel-footer .btn-default {
+    background-color: rgba(108, 117, 125, 0.7) !important;
+}
+
+.sv-cancel-btn:hover,
+.sv-cancel-btn:focus,
+.simple-view-panel-footer .btn-default:hover,
+.simple-view-panel-footer .btn-default:focus {
+    background-color: rgba(90, 98, 104, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.6);
+    color: white;
 }
 
 #simple-view-editor > * {
@@ -380,11 +401,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-}
-
-.menu-rows-container:hover {
     scrollbar-color: #5178af transparent;
 }
 

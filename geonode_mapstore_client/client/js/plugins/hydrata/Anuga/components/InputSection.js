@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 const PropTypes = require('prop-types');
 const Spinner = require('react-spinkit');
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
@@ -8,6 +8,10 @@ import {trackEvent} from "@js/utils/analytics";
 /**
  * Reusable presentational component for an input-data section.
  * Renders: section header + create button + title input + spinner + layer list + empty message.
+ *
+ * Create flow: input is hidden by default. Clicking the "+" reveals the input
+ * and morphs the button into a "save" (✓) glyph. Pressing Enter or clicking
+ * the save glyph submits; the input then collapses again.
  */
 const InputSection = ({
     titleMsgId,
@@ -20,57 +24,121 @@ const InputSection = ({
     canEdit,
     inputId,
     trackEventName,
-    extraHeaderContent
-}) => (
-    <div
-        className={'menu-rows-container anuga-section'}
-    >
+    extraHeaderContent,
+    collapsed = false,
+    onToggleCollapse
+}) => {
+    const collapsible = !!onToggleCollapse;
+    const [inputVisible, setInputVisible] = useState(false);
+
+    // When a create completes (isCreating returns false after being true),
+    // collapse the input. Track previous isCreating value.
+    const wasCreating = React.useRef(false);
+    useEffect(() => {
+        if (wasCreating.current && !isCreating) {
+            setInputVisible(false);
+        }
+        wasCreating.current = isCreating;
+    }, [isCreating]);
+
+    const submit = () => {
+        if (!titleValue) return;
+        onCreate();
+        trackEvent('button', 'click', trackEventName);
+    };
+
+    const handlePlusClick = () => {
+        if (!inputVisible) {
+            setInputVisible(true);
+        } else if (titleValue) {
+            submit();
+        } else {
+            // Save clicked with empty input → collapse, treat as cancel.
+            setInputVisible(false);
+        }
+    };
+
+    return (
         <div
-            className={"row menu-row menu-row-header anuga-section-header"}
+            className={'menu-rows-container anuga-section'}
         >
-            <span className="pull-left menu-row-text"><Message msgId={titleMsgId} /></span>
-            {extraHeaderContent}
-            {canEdit ?
-                <React.Fragment>
-                    <span
-                        className={`btn glyphicon menu-row-glyph glyph-active glyphicon-plus${titleValue ? "" : " disabled"}`}
-                        style={{
-                            fontSize: "smaller",
-                            textAlign: "right",
-                            marginRight: "8px",
-                            float: "right"
-                        }}
-                        onClick={() => {
-                            onCreate();
-                            trackEvent('button', 'click', trackEventName);
-                        }}
-                    />
-                    {isCreating ?
-                        <span>
-                            <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
-                        </span> :
-                        <input
-                            id={inputId}
-                            key={inputId}
-                            className={'data-title-input'}
-                            style={{marginTop: "3px", marginRight: "5px"}}
-                            type={'text'}
-                            value={titleValue}
-                            onChange={(e) => onTitleChange(e.target.value)}
+            <div
+                className={"row menu-row menu-row-header anuga-section-header"}
+            >
+                <span
+                    className={"pull-left menu-row-text" + (collapsible ? " anuga-section-header-clickable" : "")}
+                    onClick={collapsible ? onToggleCollapse : undefined}
+                    role={collapsible ? "button" : undefined}
+                    tabIndex={collapsible ? 0 : undefined}
+                    onKeyDown={collapsible ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onToggleCollapse();
+                        }
+                    } : undefined}
+                    aria-expanded={collapsible ? !collapsed : undefined}
+                ><Message msgId={titleMsgId} /></span>
+                {extraHeaderContent}
+                {canEdit ?
+                    <React.Fragment>
+                        <span
+                            className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            style={{
+                                fontSize: "smaller",
+                                textAlign: "right",
+                                marginRight: "8px",
+                                float: "right"
+                            }}
+                            onClick={handlePlusClick}
+                            aria-label={inputVisible ? "Save" : "Add new"}
                         />
-                    }
-                </React.Fragment> : null
+                        {isCreating ?
+                            <span>
+                                <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
+                            </span> :
+                            inputVisible ?
+                                <input
+                                    id={inputId}
+                                    key={inputId}
+                                    className={'data-title-input'}
+                                    style={{marginTop: "3px", marginRight: "5px"}}
+                                    type={'text'}
+                                    value={titleValue}
+                                    onChange={(e) => onTitleChange(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            submit();
+                                        } else if (e.key === 'Escape') {
+                                            e.preventDefault();
+                                            onTitleChange('');
+                                            setInputVisible(false);
+                                        }
+                                    }}
+                                    autoFocus
+                                /> : null
+                        }
+                    </React.Fragment> : null
+                }
+                {collapsible && (
+                    <span
+                        className={`btn glyphicon menu-row-glyph glyph-collapse ${collapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                        style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
+                        onClick={onToggleCollapse}
+                        aria-label={collapsed ? "Expand section" : "Collapse section"}
+                    />
+                )}
+            </div>
+            {!collapsed && layers?.map(layer => <MenuRow key={layer?.name || layer?.id} layer={layer}/>)}
+            {!collapsed && layers?.length === 0 ?
+                <div className={"row menu-row anuga-section-empty-row"}>
+                    <Message msgId={emptyMsgId} />
+                </div>
+                : null
             }
         </div>
-        {layers?.map(layer => <MenuRow key={layer?.name || layer?.id} layer={layer}/>)}
-        {layers?.length === 0 ?
-            <div className={"row menu-row anuga-section-empty-row"}>
-                <Message msgId={emptyMsgId} />
-            </div>
-            : null
-        }
-    </div>
-);
+    );
+};
 
 InputSection.propTypes = {
     titleMsgId: PropTypes.string.isRequired,
@@ -83,7 +151,9 @@ InputSection.propTypes = {
     canEdit: PropTypes.bool,
     inputId: PropTypes.string,
     trackEventName: PropTypes.string,
-    extraHeaderContent: PropTypes.node
+    extraHeaderContent: PropTypes.node,
+    collapsed: PropTypes.bool,
+    onToggleCollapse: PropTypes.func
 };
 
 export default InputSection;

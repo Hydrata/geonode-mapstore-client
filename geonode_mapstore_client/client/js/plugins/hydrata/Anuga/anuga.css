@@ -267,6 +267,24 @@
     border: none;
 }
 
+.anuga-section-header-clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.anuga-section-header-clickable:hover {
+    text-decoration: underline;
+}
+
+/* Vertically align labels and action columns across all Anuga Inputs sections.
+   The label gets a min-width so the first action button always starts at the
+   same x-position (and a second/third action button alongside also lines up
+   row-to-row, provided sections share the same button order). */
+.anuga-section-header .menu-row-text {
+    min-width: 120px;
+    flex-shrink: 0;
+}
+
 .anuga-section-empty-row {
     width: 540px;
     text-align: left;
@@ -430,9 +448,39 @@ div that holds the feature-grid */
     margin-bottom: 8px;
 }
 
-.membership-visibility-buttons {
+.membership-visibility-options {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.membership-visibility-option-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.membership-visibility-btn {
+    flex: 0 0 150px;
+    width: 150px;
+    max-width: 150px;
+    box-sizing: border-box;
+}
+
+.membership-visibility-btn.active,
+.membership-visibility-btn.active:hover,
+.membership-visibility-btn.active:focus,
+.membership-visibility-btn.active:active {
+    background-color: rgba(30, 126, 52, 0.7);
+    border-color: rgba(255, 255, 255, 0.9);
+    color: white;
+}
+
+.membership-visibility-desc {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: left;
 }
 
 .membership-section-title {

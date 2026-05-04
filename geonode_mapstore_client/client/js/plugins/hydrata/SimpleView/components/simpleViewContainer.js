@@ -112,7 +112,7 @@ class SimpleViewContainer extends React.Component {
                 <div className="simple-view-left-toolbar">
                     <button
                         key={'basemaps'}
-                        className={'simple-view-menu-button'}
+                        className={`simple-view-menu-button ${this.props.openMenuGroupId === this.props.baseMapMenuGroup?.id ? 'active' : ''}`}
                         onClick={() => {this.props.setOpenMenuGroupId(this.props.baseMapMenuGroup?.id);}}>
                         <Message msgId="hydrata.simpleView.baseMaps" />
                     </button>
@@ -123,7 +123,7 @@ class SimpleViewContainer extends React.Component {
                                     <button
                                         id={`simpleViewContainer-mapped-button-${menu?.name}-${menu?.title}`}
                                         key={`simpleViewContainer-mapped-button-${menu?.name}-${menu?.title}`}
-                                        className={'simple-view-menu-button'}
+                                        className={`simple-view-menu-button ${this.props.openMenuGroupId === menu?.id ? 'active' : ''}`}
                                         onClick={() => {
                                             this.props.setOpenMenuGroupId(menu?.id);
                                             trackEvent('component_setOpenMenuGroupId', `action_${menu?.title}`, `name_${menu?.title}`);
@@ -178,7 +178,7 @@ class SimpleViewContainer extends React.Component {
                                 className={`simple-view-right-button ${this.props.drawerEnabled ? 'active' : ''}`}
                                 onClick={() => this.props.toggleDrawer(!this.props.drawerEnabled)}
                                 title="Layer Menu">
-                                <Glyphicon glyph="menu-hamburger" />
+                                <Glyphicon glyph="1-layer" />
                             </button>
                             <button
                                 className={`simple-view-right-button ${this.state.saveConfirmVisible ? 'active' : ''}`}

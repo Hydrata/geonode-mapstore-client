@@ -5,8 +5,7 @@ const PropTypes = require('prop-types');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
-    setVisibleUploaderPanel,
-    setVisibleIntroduction
+    setVisibleUploaderPanel
 } from "../../SimpleView/actionsSimpleView";
 import {
     addAnugaBoundary,
@@ -91,9 +90,7 @@ class AnugaInputMenuClass extends React.Component {
         catchmentModels: PropTypes.array,
         nodesModels: PropTypes.array,
         linksModels: PropTypes.array,
-        setAnugaInputMenu: PropTypes.func,
-        visibleIntroduction: PropTypes.bool,
-        setVisibleIntroduction: PropTypes.func
+        setAnugaInputMenu: PropTypes.func
     };
 
     static defaultProps = {}
@@ -101,8 +98,16 @@ class AnugaInputMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            visibleIntroduction: true,
             showAdvanced: false,
+            elevationsCollapsed: true,
+            boundariesCollapsed: true,
+            inflowsCollapsed: true,
+            fullMeshCollapsed: true,
+            meshRegionsCollapsed: true,
+            frictionCollapsed: true,
+            structuresCollapsed: true,
+            networksCollapsed: true,
+            networkInputVisible: false,
             boundaryTitle: '',
             frictionTitle: '',
             inflowTitle: '',
@@ -115,10 +120,38 @@ class AnugaInputMenuClass extends React.Component {
         };
     }
 
+    componentDidUpdate(prevProps) {
+        // After a create completes (isCreatingAnugaLayer flips true → false), collapse
+        // the networks input back to its default hidden state.
+        if (prevProps.isCreatingAnugaLayer && !this.props.isCreatingAnugaLayer && this.state.networkInputVisible) {
+            this.setState({networkInputVisible: false});
+        }
+    }
+
     createAndReset = (createFn, titleKey) => {
         this.props.setCreatingAnugaLayer(true);
         createFn(this.state[titleKey]);
         this.setState({[titleKey]: ''});
+    }
+
+    toggleSection = (sectionId) => {
+        const key = `${sectionId}Collapsed`;
+        this.setState((prev) => {
+            const next = !prev[key];
+            trackEvent('button', 'click', `anuga-input-menu-toggle-${sectionId}-${next ? 'collapsed' : 'expanded'}`);
+            return {[key]: next};
+        });
+    }
+
+    handleNetworkPlusClick = () => {
+        if (!this.state.networkInputVisible) {
+            this.setState({networkInputVisible: true});
+        } else if (this.state.networkTitle) {
+            this.createAndReset(this.props.createNetwork, 'networkTitle');
+            trackEvent('button', 'click', 'anuga-input-menu-create-network');
+        } else {
+            this.setState({networkInputVisible: false});
+        }
     }
 
     render() {
@@ -129,7 +162,19 @@ class AnugaInputMenuClass extends React.Component {
                     className={'menu-rows-container anuga-section'}
                 >
                     <div className={"row menu-row menu-row-header anuga-section-header"}>
-                        <span className="menu-row-text"><Message msgId="hydrata.anuga.elevations" /></span>
+                        <span
+                            className="menu-row-text anuga-section-header-clickable"
+                            onClick={() => this.toggleSection('elevations')}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    this.toggleSection('elevations');
+                                }
+                            }}
+                            aria-expanded={!this.state.elevationsCollapsed}
+                        ><Message msgId="hydrata.anuga.elevations" /></span>
                         <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadElevationTooltip" /></Tooltip>}>
                             <span
                                 className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-upload"}
@@ -140,9 +185,15 @@ class AnugaInputMenuClass extends React.Component {
                                 }}
                             />
                         </OverlayTrigger>
+                        <span
+                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.elevationsCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
+                            onClick={() => this.toggleSection('elevations')}
+                            aria-label={this.state.elevationsCollapsed ? "Expand section" : "Collapse section"}
+                        />
                     </div>
-                    {this.props.elevationLayers?.map(elevation => <MenuRow layer={elevation}/>)}
-                    {this.props.elevationLayers?.length === 0 ?
+                    {!this.state.elevationsCollapsed && this.props.elevationLayers?.map(elevation => <MenuRow layer={elevation}/>)}
+                    {!this.state.elevationsCollapsed && this.props.elevationLayers?.length === 0 ?
                         <div className={"row menu-row anuga-section-empty-row"}>
                             <Message msgId="hydrata.anuga.noElevationsAvailable" />
                         </div> : null
@@ -160,6 +211,8 @@ class AnugaInputMenuClass extends React.Component {
                             canEdit={this.props.canEditAnugaMap}
                             inputId="boundary-input"
                             trackEventName="anuga-input-menu-create-new-boundary"
+                            collapsed={this.state.boundariesCollapsed}
+                            onToggleCollapse={() => this.toggleSection('boundaries')}
                         />
                         <InputSection
                             titleMsgId="hydrata.anuga.inflows"
@@ -171,6 +224,8 @@ class AnugaInputMenuClass extends React.Component {
                             canEdit={this.props.canEditAnugaMap}
                             inputId="inflow-input"
                             trackEventName="anuga-input-menu-create-new-inflow"
+                            collapsed={this.state.inflowsCollapsed}
+                            onToggleCollapse={() => this.toggleSection('inflows')}
                         />
                         {/* Advanced accordion */}
                         <div className={'menu-rows-container anuga-section'}>
@@ -188,26 +243,31 @@ class AnugaInputMenuClass extends React.Component {
                         </div>
                         {this.state.showAdvanced ?
                             <div id={'advancedInputs'}>
-                                {/* Introduction toggle */}
-                                <div className={'menu-rows-container anuga-section'}>
-                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
-                                        <span
-                                            className={"btn glyphicon menu-row-glyph " + (this.props.visibleIntroduction ? "glyph-active glyphicon-ok" : "glyph-inactive glyphicon-remove")}
-                                            onClick={() => {
-                                                this.props.setVisibleIntroduction(!this.props.visibleIntroduction);
-                                                trackEvent('button', 'click', 'anuga-input-menu-show-introduction');
-                                            }}
-                                        />
-                                        <span className="menu-row-text"><Message msgId="hydrata.anuga.introduction" /></span>
-                                    </div>
-                                </div>
                                 {/* Full Mesh — read-only, no create button */}
                                 <div className={'menu-rows-container anuga-section'}>
                                     <div className={"row menu-row menu-row-header anuga-section-header"}>
-                                        <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.fullMesh" /></span>
+                                        <span
+                                            className="menu-row-text anuga-section-header-clickable"
+                                            onClick={() => this.toggleSection('fullMesh')}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    this.toggleSection('fullMesh');
+                                                }
+                                            }}
+                                            aria-expanded={!this.state.fullMeshCollapsed}
+                                        ><Message msgId="hydrata.anuga.fullMesh" /></span>
+                                        <span
+                                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.fullMeshCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
+                                            onClick={() => this.toggleSection('fullMesh')}
+                                            aria-label={this.state.fullMeshCollapsed ? "Expand section" : "Collapse section"}
+                                        />
                                     </div>
-                                    {this.props.fullMeshLayers?.map(fullMesh => <MenuRow layer={fullMesh}/>)}
-                                    {this.props.fullMeshLayers?.length === 0 ?
+                                    {!this.state.fullMeshCollapsed && this.props.fullMeshLayers?.map(fullMesh => <MenuRow layer={fullMesh}/>)}
+                                    {!this.state.fullMeshCollapsed && this.props.fullMeshLayers?.length === 0 ?
                                         <div className={"row menu-row anuga-section-empty-row"}>
                                             <Message msgId="hydrata.anuga.meshWillAppear" />
                                         </div> : null
@@ -223,6 +283,8 @@ class AnugaInputMenuClass extends React.Component {
                                     canEdit={this.props.canEditAnugaMap}
                                     inputId="mesh-region-input"
                                     trackEventName="anuga-input-menu-create-mesh-region"
+                                    collapsed={this.state.meshRegionsCollapsed}
+                                    onToggleCollapse={() => this.toggleSection('meshRegions')}
                                 />
                                 <InputSection
                                     titleMsgId="hydrata.anuga.frictionMaps"
@@ -234,6 +296,8 @@ class AnugaInputMenuClass extends React.Component {
                                     canEdit={this.props.canEditAnugaMap}
                                     inputId="friction-input"
                                     trackEventName="anuga-input-menu-create-friction"
+                                    collapsed={this.state.frictionCollapsed}
+                                    onToggleCollapse={() => this.toggleSection('friction')}
                                 />
                                 <InputSection
                                     titleMsgId="hydrata.anuga.structures"
@@ -245,6 +309,8 @@ class AnugaInputMenuClass extends React.Component {
                                     canEdit={this.props.canEditAnugaMap}
                                     inputId="structure-input"
                                     trackEventName="anuga-input-menu-create-structure"
+                                    collapsed={this.state.structuresCollapsed}
+                                    onToggleCollapse={() => this.toggleSection('structures')}
                                 />
                                 {/* Networks section — header + sub-sections in one container */}
                                 <div
@@ -253,10 +319,22 @@ class AnugaInputMenuClass extends React.Component {
                                     <div
                                         className={"row menu-row menu-row-header anuga-section-header"}
                                     >
-                                        <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.networks" /></span>
+                                        <span
+                                            className="menu-row-text anuga-section-header-clickable"
+                                            onClick={() => this.toggleSection('networks')}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    this.toggleSection('networks');
+                                                }
+                                            }}
+                                            aria-expanded={!this.state.networksCollapsed}
+                                        ><Message msgId="hydrata.anuga.networks" /></span>
                                         <span
                                             className={'btn glyphicon menu-row-glyph glyph-settings glyphicon-cog'}
-                                            style={{ fontSize: "smaller", textAlign: "right", marginLeft: "8px", float: "left" }}
+                                            style={{ fontSize: "smaller", textAlign: "right" }}
                                             onClick={() => {
                                                 this.props.setNetworkMenu(true);
                                                 this.props.setAnugaInputMenu(false);
@@ -266,42 +344,61 @@ class AnugaInputMenuClass extends React.Component {
                                         {this.props.canEditAnugaMap ?
                                             <React.Fragment>
                                                 <span
-                                                    className={`btn glyphicon menu-row-glyph glyph-active glyphicon-plus${this.state.networkTitle ? "" : " disabled"}`}
+                                                    className={`btn glyphicon menu-row-glyph glyph-active ${this.state.networkInputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                                                     style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
-                                                    onClick={() => {
-                                                        this.createAndReset(this.props.createNetwork, 'networkTitle');
-                                                        trackEvent('button', 'click', 'anuga-input-menu-create-network');
-                                                    }}
+                                                    onClick={this.handleNetworkPlusClick}
+                                                    aria-label={this.state.networkInputVisible ? "Save" : "Add new"}
                                                 />
                                                 {this.props.isCreatingAnugaLayer ?
                                                     <span>
                                                         <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
                                                     </span> :
-                                                    <input
-                                                        id="network-input"
-                                                        key="network-input"
-                                                        className={'data-title-input'}
-                                                        style={{marginTop: "3px", marginRight: "5px"}}
-                                                        type={'text'}
-                                                        value={this.state.networkTitle}
-                                                        onChange={(e) => this.setState({networkTitle: e.target.value})}
-                                                    />
+                                                    this.state.networkInputVisible ?
+                                                        <input
+                                                            id="network-input"
+                                                            key="network-input"
+                                                            className={'data-title-input'}
+                                                            style={{marginTop: "3px", marginRight: "5px"}}
+                                                            type={'text'}
+                                                            value={this.state.networkTitle}
+                                                            onChange={(e) => this.setState({networkTitle: e.target.value})}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && this.state.networkTitle) {
+                                                                    e.preventDefault();
+                                                                    this.handleNetworkPlusClick();
+                                                                } else if (e.key === 'Escape') {
+                                                                    e.preventDefault();
+                                                                    this.setState({networkTitle: '', networkInputVisible: false});
+                                                                }
+                                                            }}
+                                                            autoFocus
+                                                        /> : null
                                                 }
                                             </React.Fragment> : null
                                         }
+                                        <span
+                                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.networksCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
+                                            onClick={() => this.toggleSection('networks')}
+                                            aria-label={this.state.networksCollapsed ? "Expand section" : "Collapse section"}
+                                        />
                                     </div>
-                                    <div className={'menu-row-mini-container'}>
-                                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
-                                        {this.props.catchmentLayers?.map(catchment => <MenuRow layer={catchment}/>)}
-                                    </div>
-                                    <div className={'menu-row-mini-container'}>
-                                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
-                                        {this.props.nodesLayers?.map(nodes => <MenuRow layer={nodes}/>)}
-                                    </div>
-                                    <div className={'menu-row-mini-container'}>
-                                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
-                                        {this.props.linksLayers?.map(links => <MenuRow layer={links}/>)}
-                                    </div>
+                                    {!this.state.networksCollapsed ?
+                                        <React.Fragment>
+                                            <div className={'menu-row-mini-container'}>
+                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
+                                                {this.props.catchmentLayers?.map(catchment => <MenuRow layer={catchment}/>)}
+                                            </div>
+                                            <div className={'menu-row-mini-container'}>
+                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
+                                                {this.props.nodesLayers?.map(nodes => <MenuRow layer={nodes}/>)}
+                                            </div>
+                                            <div className={'menu-row-mini-container'}>
+                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
+                                                {this.props.linksLayers?.map(links => <MenuRow layer={links}/>)}
+                                            </div>
+                                        </React.Fragment> : null
+                                    }
                                 </div>
                             </div> : null
                         }
@@ -338,8 +435,7 @@ const mapStateToProps = (state) => {
         nodesModels: state?.anuga?.resources?.nodes,
         linksModels: state?.anuga?.resources?.links,
         isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer,
-        canEditAnugaMap: canEditAnugaMap(state),
-        visibleIntroduction: state?.simpleView?.visibleIntroduction
+        canEditAnugaMap: canEditAnugaMap(state)
     };
 };
 
@@ -366,8 +462,7 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
-        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle)),
-        setVisibleIntroduction: (visible) => dispatch(setVisibleIntroduction(visible))
+        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle))
     };
 };
 

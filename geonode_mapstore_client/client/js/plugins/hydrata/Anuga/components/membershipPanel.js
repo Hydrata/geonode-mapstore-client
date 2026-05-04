@@ -127,17 +127,18 @@ class MembershipPanelClass extends React.Component {
                 <div className="membership-section-title">
                     <Message msgId="hydrata.anuga.projectVisibility" />
                 </div>
-                <div className="membership-visibility-buttons">
+                <div className="membership-visibility-options">
                     {VISIBILITY_OPTIONS.map(opt => (
-                        <Button
-                            key={opt.value}
-                            bsSize="xsmall"
-                            bsStyle={this.props.visibility === opt.value ? 'primary' : 'default'}
-                            className="membership-btn-sm"
-                            onClick={() => this.handleVisibilityChange(opt.value)}
-                        >
-                            {opt.label}
-                        </Button>
+                        <div key={opt.value} className="membership-visibility-option-row">
+                            <Button
+                                bsSize="xsmall"
+                                className={`membership-btn-sm membership-visibility-btn ${this.props.visibility === opt.value ? 'active' : ''}`}
+                                onClick={() => this.handleVisibilityChange(opt.value)}
+                            >
+                                {opt.label}
+                            </Button>
+                            <span className="membership-visibility-desc">{opt.description}</span>
+                        </div>
                     ))}
                 </div>
             </div>

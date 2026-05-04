@@ -155,7 +155,7 @@
         "watersheds": "Watersheds"
       },
       "anuga": {
-        "addMember": "Add Member",
+        "addMember": "Add Members",
         "addMemberButton": "Add",
         "advanced": "Advanced",
         "availableHours": "Available Hours",
@@ -198,7 +198,7 @@
         "manageAccount": "Manage Account",
         "memberRole": "Role",
         "memberUser": "User",
-        "members": "Members",
+        "members": "Permissions",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "Mesh will appear here when a Scenario is built.",
         "method": "Method",
