@@ -121,10 +121,17 @@ class AnugaInputMenuClass extends React.Component {
     }
 
     componentDidUpdate(prevProps) {
-        // After a create completes (isCreatingAnugaLayer flips true → false), collapse
-        // the networks input back to its default hidden state.
-        if (prevProps.isCreatingAnugaLayer && !this.props.isCreatingAnugaLayer && this.state.networkInputVisible) {
+        // `isCreatingAnugaLayer` is shared across sections; only collapse the
+        // networks input if *this* section initiated the create (didNetworkSubmit
+        // is set in handleNetworkPlusClick before createAndReset).
+        if (
+            prevProps.isCreatingAnugaLayer &&
+            !this.props.isCreatingAnugaLayer &&
+            this.state.networkInputVisible &&
+            this.didNetworkSubmit
+        ) {
             this.setState({networkInputVisible: false});
+            this.didNetworkSubmit = false;
         }
     }
 
@@ -147,6 +154,7 @@ class AnugaInputMenuClass extends React.Component {
         if (!this.state.networkInputVisible) {
             this.setState({networkInputVisible: true});
         } else if (this.state.networkTitle) {
+            this.didNetworkSubmit = true;
             this.createAndReset(this.props.createNetwork, 'networkTitle');
             trackEvent('button', 'click', 'anuga-input-menu-create-network');
         } else {
@@ -345,7 +353,7 @@ class AnugaInputMenuClass extends React.Component {
                                             <React.Fragment>
                                                 <span
                                                     className={`btn glyphicon menu-row-glyph glyph-active ${this.state.networkInputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
-                                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
+                                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px" }}
                                                     onClick={this.handleNetworkPlusClick}
                                                     aria-label={this.state.networkInputVisible ? "Save" : "Add new"}
                                                 />

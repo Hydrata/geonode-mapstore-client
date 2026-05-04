@@ -24,25 +24,30 @@ const InputSection = ({
     canEdit,
     inputId,
     trackEventName,
-    extraHeaderContent,
     collapsed = false,
     onToggleCollapse
 }) => {
     const collapsible = !!onToggleCollapse;
     const [inputVisible, setInputVisible] = useState(false);
 
-    // When a create completes (isCreating returns false after being true),
-    // collapse the input. Track previous isCreating value.
+    // `isCreating` is shared across all sections (one global flag), so its
+    // true→false transition fires for every mounted InputSection. Without
+    // this guard, completing a create in one section would also collapse the
+    // input on any other section that happened to be open. `didSubmit` flips
+    // true only when *this* section called `submit()`, scoping the auto-collapse.
     const wasCreating = React.useRef(false);
+    const didSubmit = React.useRef(false);
     useEffect(() => {
-        if (wasCreating.current && !isCreating) {
+        if (wasCreating.current && !isCreating && didSubmit.current) {
             setInputVisible(false);
+            didSubmit.current = false;
         }
         wasCreating.current = isCreating;
     }, [isCreating]);
 
     const submit = () => {
         if (!titleValue) return;
+        didSubmit.current = true;
         onCreate();
         trackEvent('button', 'click', trackEventName);
     };
@@ -78,7 +83,6 @@ const InputSection = ({
                     } : undefined}
                     aria-expanded={collapsible ? !collapsed : undefined}
                 ><Message msgId={titleMsgId} /></span>
-                {extraHeaderContent}
                 {canEdit ?
                     <React.Fragment>
                         <span
@@ -151,7 +155,6 @@ InputSection.propTypes = {
     canEdit: PropTypes.bool,
     inputId: PropTypes.string,
     trackEventName: PropTypes.string,
-    extraHeaderContent: PropTypes.node,
     collapsed: PropTypes.bool,
     onToggleCollapse: PropTypes.func
 };
