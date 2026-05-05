@@ -11,7 +11,9 @@ import Router, { withRoutes } from '@js/components/Router';
 import MainLoader from '@js/components/MainLoader';
 import { connect } from 'react-redux';
 import { getConfigProp, setConfigProp } from '@mapstore/framework/utils/ConfigUtils';
-import { loadPrintCapabilities } from '@mapstore/framework/actions/print';
+// loadPrintCapabilities import removed (TASK-673 D1.5): MapFish-Print is not
+// installed in the Hydrata fleet, so /geoserver/pdf/info.json returns 404.
+// See the initialActions block below for context.
 import StandardApp from '@mapstore/framework/components/app/StandardApp';
 import geostory from '@mapstore/framework/reducers/geostory';
 import withExtensions from '@mapstore/framework/components/app/withExtensions';
@@ -205,8 +207,14 @@ getEndpoints()
                         initialActions: [
                         // add some settings in the global state to make them accessible in the monitor state
                         // later we could use expression in localConfig
-                            updateGeoNodeSettings.bind(null, settings),
-                            loadPrintCapabilities.bind(null, getConfigProp('printUrl'))
+                            updateGeoNodeSettings.bind(null, settings)
+                            // TASK-673 D1.5 (B5 C5): loadPrintCapabilities removed.
+                            // The Hydrata fleet does not ship MapFish-Print; every
+                            // /geoserver/pdf/info.json request returns 404. The
+                            // Print plugin's `disablePluginIf` hides the UI when
+                            // print.capabilities is unset, so removing the probe
+                            // is observably equivalent to the prior 404 path
+                            // minus 11 dead requests per page on cold-anon.
                         ]
                     },
                     withExtensions(StandardApp));
