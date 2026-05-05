@@ -1,4 +1,20 @@
 <style>
+    /*
+     * TASK-673 D1.7 (B5 S4): pre-reserve viewport-minus-header height for the
+     * loader container so the spinner-to-React-tree swap doesn't trigger CLS.
+     * Cold-anon CLS was 0.90 (BAD per Web Vitals); the shift fired at ~+5031ms
+     * when the React tree mounted with a ~vh-sized layout while the loader had
+     * been sitting at ~auto height.
+     *
+     * 56px is the gn-main-header default; the JS-driven .gn-main-header-placeholder
+     * adjusts at runtime if a larger navbar renders. Using calc(100vh - 56px) as
+     * the floor is conservative — the React tree typically requests a similar
+     * footprint, so no observable layout movement when it mounts.
+     */
+    #ms-container {
+        min-height: calc(100vh - 56px);
+        position: relative;
+    }
     .gn-main-event-container {
         position: absolute;
         top: 0;
@@ -54,4 +70,35 @@
             transform: rotate(360deg);
         }
     }
+    /*
+     * TASK-673 D1.7 (B5 S4): when arriving at a /catalogue/#/map/<id> URL the
+     * footer was visible at first paint, then hidden at DOMContentLoaded by
+     * the toggleFooterOnMap script at the bottom of catalogue.html — that
+     * second-stage hide caused the React tree to shift up by the footer height.
+     * Pre-hiding via :has() at parse time eliminates the shift. The 2s-delayed
+     * fallback in catalogue.html still runs (covers older browsers that don't
+     * yet apply :has() to root attributes set by the script below).
+     */
+    html.gn-on-map-route .gn-footer {
+        display: none !important;
+    }
 </style>
+<script>
+    /*
+     * TASK-673 D1.7 (B5 S4): set a root class BEFORE first paint based on the
+     * URL hash so the .gn-footer hide rule above applies before any layout pass.
+     * Mirror of the toggleFooterOnMap function in catalogue.html — keep in sync.
+     */
+    (function () {
+        try {
+            var isMapRoute = (window.location.hash || '').match(/^#\/map\//);
+            if (isMapRoute) {
+                document.documentElement.classList.add('gn-on-map-route');
+            }
+            window.addEventListener('hashchange', function () {
+                var onMap = (window.location.hash || '').match(/^#\/map\//);
+                document.documentElement.classList.toggle('gn-on-map-route', !!onMap);
+            });
+        } catch (e) {}
+    })();
+</script>
