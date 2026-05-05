@@ -184,8 +184,19 @@ export function setupConfiguration({
 }) {
     const { query } = url.parse(window.location.href, true);
     // set the extensions path before get the localConfig
-    // so it's possible to override in a custom project
-    setConfigProp('extensionsRegistry', '/client/extensions');
+    // so it's possible to override in a custom project.
+    //
+    // TASK-673 D1.8 (B5 S1): pre-resolve the language code into the URL so we
+    // skip Django's LocaleMiddleware 302 -> /en-us/client/extensions on every
+    // cold load. Saved ~1.9s on the cold critical path (B1 #4, 2026-05-05;
+    // 1559ms 302 + 307ms target = 1866ms × 10/10 trials). Falls back to the
+    // unprefixed path when languageCode isn't exposed (older _geonode_config).
+    const __geoNodeConfig = (typeof window !== 'undefined' && window.__GEONODE_CONFIG__) || {};
+    const __langCode = (__geoNodeConfig.languageCode || '').replace('_', '-').toLowerCase();
+    const __extensionsPath = __langCode
+        ? `/${__langCode}/client/extensions`
+        : '/client/extensions';
+    setConfigProp('extensionsRegistry', __extensionsPath);
     const {
         supportedLocales: defaultSupportedLocales,
         ...config
