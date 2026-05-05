@@ -19,7 +19,7 @@ import {
     cancelProcessResult,
     startTaskMonitorPolling
 } from './actionsTaskMonitor';
-import { LOGIN_SUCCESS } from '@mapstore/framework/actions/security';
+import { LOGIN_SUCCESS, SESSION_VALID } from '@mapstore/framework/actions/security';
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
 import { getProjectId } from '../Anuga/selectorsAnuga';
 
@@ -37,10 +37,21 @@ const filterToParams = (filter) => {
 
 /**
  * Auto-start polling on login or ANUGA init.
+ *
+ * TASK-673 D1.4 (B5 C3): for anon users, polling produces dead 401s on
+ * /api/v2/tasks/processes/ which contend for HTTP/2 stream slots during the
+ * cold critical path (B1 #6, B2 H3, 2026-05-05). Gate on state.security.user
+ * so the timer never starts for anon. We listen to SESSION_VALID and
+ * LOGIN_SUCCESS in addition to INIT_ANUGA: SESSION_VALID is the action that
+ * fires after the on-page-load auth check completes for an already-signed-in
+ * session; without it, INIT_ANUGA can fire before security state is hydrated
+ * for refresh of an authed page. Ordering check is via state.security.user
+ * present in the filter — the first action that finds a user wins (.take(1)).
  */
-export const autoStartTaskMonitorEpic = (action$) =>
+export const autoStartTaskMonitorEpic = (action$, store) =>
     action$
-        .ofType(LOGIN_SUCCESS, INIT_ANUGA)
+        .ofType(LOGIN_SUCCESS, SESSION_VALID, INIT_ANUGA)
+        .filter(() => !!store.getState()?.security?.user)
         .take(1)
         .map(() => startTaskMonitorPolling());
 
@@ -48,6 +59,10 @@ export const autoStartTaskMonitorEpic = (action$) =>
  * Closed-panel poller — 10s interval. Fetches the recent process list (not
  * just the count) so taskCompleteLayerEpic can react to async layer-creation
  * completions even when the panel is closed.
+ *
+ * TASK-673 D1.4 (B5 C3): defense-in-depth — even if TM_START_POLLING fires
+ * for an anon user, the timer will skip individual ticks while no security
+ * user is present, preventing 401 noise.
  */
 export const pollActiveCountEpic = (action$, store) =>
     action$
@@ -56,6 +71,7 @@ export const pollActiveCountEpic = (action$, store) =>
             Rx.Observable.timer(0, 10000)
                 .takeUntil(action$.ofType(TM_STOP_POLLING))
                 .filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
+                .filter(() => !!store.getState()?.security?.user)
                 .exhaustMap(() => {
                     const projectId = getProjectId(store.getState());
                     const params = projectId ? { project_id: projectId, limit: 10 } : { limit: 10 };
@@ -79,6 +95,7 @@ export const pollProcessListEpic = (action$, store) =>
     action$
         .ofType(TM_TOGGLE_PANEL, TM_SET_FILTER)
         .filter(() => store.getState()?.taskMonitor?.ui?.panelOpen)
+        .filter(() => !!store.getState()?.security?.user)
         .switchMap(() => {
             const filter = store.getState()?.taskMonitor?.ui?.filter || 'active';
             const params = filterToParams(filter);

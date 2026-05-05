@@ -509,11 +509,18 @@ describe('TaskMonitor', () => {
     // =========================================================================
     describe('epics', () => {
         describe('autoStartTaskMonitorEpic', () => {
-            it('should dispatch startTaskMonitorPolling on LOGIN_SUCCESS', (done) => {
+            // TASK-673 D1.4: autoStart now requires a security.user gate to
+            // suppress the polling timer for anon users. Tests pass a stubbed
+            // store that exposes state.security.user; anon-user tests stub it
+            // to null/undefined.
+            const authStore = { getState: () => ({ security: { user: { username: 'alice', pk: 1 } } }) };
+            const anonStore = { getState: () => ({ security: { user: null } }) };
+
+            it('should dispatch startTaskMonitorPolling on LOGIN_SUCCESS (auth)', (done) => {
                 const action$ = mockActions([{ type: LOGIN_SUCCESS }]);
                 const emitted = [];
 
-                autoStartTaskMonitorEpic(action$)
+                autoStartTaskMonitorEpic(action$, authStore)
                     .subscribe(
                         action => emitted.push(action),
                         err => done(err),
@@ -525,11 +532,11 @@ describe('TaskMonitor', () => {
                     );
             });
 
-            it('should dispatch startTaskMonitorPolling on INIT_ANUGA', (done) => {
+            it('should dispatch startTaskMonitorPolling on INIT_ANUGA (auth)', (done) => {
                 const action$ = mockActions([{ type: 'INIT_ANUGA' }]);
                 const emitted = [];
 
-                autoStartTaskMonitorEpic(action$)
+                autoStartTaskMonitorEpic(action$, authStore)
                     .subscribe(
                         action => emitted.push(action),
                         err => done(err),
@@ -548,7 +555,7 @@ describe('TaskMonitor', () => {
                 ]);
                 const emitted = [];
 
-                autoStartTaskMonitorEpic(action$)
+                autoStartTaskMonitorEpic(action$, authStore)
                     .subscribe(
                         action => emitted.push(action),
                         err => done(err),
@@ -563,7 +570,28 @@ describe('TaskMonitor', () => {
                 const action$ = mockActions([{ type: 'SOMETHING_ELSE' }]);
                 const emitted = [];
 
-                autoStartTaskMonitorEpic(action$)
+                autoStartTaskMonitorEpic(action$, authStore)
+                    .take(1)
+                    .timeout(300)
+                    .subscribe(
+                        action => emitted.push(action),
+                        () => {
+                            expect(emitted.length).toBe(0);
+                            done();
+                        },
+                        () => done()
+                    );
+            });
+
+            it('should NOT emit for anon user even when LOGIN_SUCCESS/INIT_ANUGA fire', (done) => {
+                // TASK-673 D1.4 (B5 C3): anon must never trigger polling.
+                const action$ = mockActions([
+                    { type: LOGIN_SUCCESS },
+                    { type: 'INIT_ANUGA' }
+                ]);
+                const emitted = [];
+
+                autoStartTaskMonitorEpic(action$, anonStore)
                     .take(1)
                     .timeout(300)
                     .subscribe(
@@ -578,11 +606,16 @@ describe('TaskMonitor', () => {
         });
 
         describe('pollActiveCountEpic', () => {
+            // TASK-673 D1.4 (B5 C3): include security.user so the defense-in-depth
+            // user gate doesn't suppress these tests.
+            const authUser = { username: 'alice', pk: 1 };
+
             it('should start polling on TM_START_POLLING when panel is closed', (done) => {
                 const { subject, action$ } = liveActions();
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false } }
+                        taskMonitor: { ui: { panelOpen: false } },
+                        security: { user: authUser }
                     })
                 };
                 const emitted = [];
@@ -606,7 +639,8 @@ describe('TaskMonitor', () => {
                 const { subject, action$ } = liveActions();
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true } }
+                        taskMonitor: { ui: { panelOpen: true } },
+                        security: { user: authUser }
                     })
                 };
                 const emitted = [];
@@ -631,7 +665,8 @@ describe('TaskMonitor', () => {
                 const { subject, action$ } = liveActions();
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false } }
+                        taskMonitor: { ui: { panelOpen: false } },
+                        security: { user: authUser }
                     })
                 };
                 const emitted = [];
@@ -656,7 +691,8 @@ describe('TaskMonitor', () => {
                 const action$ = mockActions([{ type: 'UNRELATED' }]);
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false } }
+                        taskMonitor: { ui: { panelOpen: false } },
+                        security: { user: authUser }
                     })
                 };
                 const emitted = [];
@@ -671,14 +707,45 @@ describe('TaskMonitor', () => {
                         }
                     );
             });
+
+            it('should NOT poll for anon user even on TM_START_POLLING', (done) => {
+                // TASK-673 D1.4 (B5 C3): defense-in-depth.
+                const { subject, action$ } = liveActions();
+                const store = {
+                    getState: () => ({
+                        taskMonitor: { ui: { panelOpen: false } },
+                        security: { user: null }
+                    })
+                };
+                const emitted = [];
+
+                const sub = pollActiveCountEpic(action$, store)
+                    .subscribe(
+                        action => emitted.push(action),
+                        err => done(err)
+                    );
+
+                subject.next({ type: TM_START_POLLING });
+
+                setTimeout(() => {
+                    expect(emitted.length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                }, 200);
+            });
         });
 
         describe('pollProcessListEpic', () => {
+            // TASK-673 D1.4 (B5 C3): include security.user so the defense-in-depth
+            // user gate doesn't suppress these tests.
+            const authUser = { username: 'alice', pk: 1 };
+
             it('should start polling on TM_TOGGLE_PANEL when panel is open', (done) => {
                 const { subject, action$ } = liveActions();
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } }
+                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                        security: { user: authUser }
                     })
                 };
                 const emitted = [];
@@ -702,7 +769,8 @@ describe('TaskMonitor', () => {
                 const action$ = mockActions([{ type: TM_TOGGLE_PANEL }]);
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false, filter: 'active' } }
+                        taskMonitor: { ui: { panelOpen: false, filter: 'active' } },
+                        security: { user: authUser }
                     })
                 };
                 const emitted = [];
@@ -722,7 +790,8 @@ describe('TaskMonitor', () => {
                 const { subject, action$ } = liveActions();
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true, filter: 'completed' } }
+                        taskMonitor: { ui: { panelOpen: true, filter: 'completed' } },
+                        security: { user: authUser }
                     })
                 };
                 const emitted = [];
@@ -745,7 +814,30 @@ describe('TaskMonitor', () => {
                 const action$ = mockActions([{ type: 'UNRELATED' }]);
                 const store = {
                     getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } }
+                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                        security: { user: authUser }
+                    })
+                };
+                const emitted = [];
+
+                pollProcessListEpic(action$, store)
+                    .subscribe(
+                        action => emitted.push(action),
+                        err => done(err),
+                        () => {
+                            expect(emitted.length).toBe(0);
+                            done();
+                        }
+                    );
+            });
+
+            it('should NOT poll for anon user even when panel is open', (done) => {
+                // TASK-673 D1.4 (B5 C3): defense-in-depth.
+                const action$ = mockActions([{ type: TM_TOGGLE_PANEL }]);
+                const store = {
+                    getState: () => ({
+                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                        security: { user: null }
                     })
                 };
                 const emitted = [];
