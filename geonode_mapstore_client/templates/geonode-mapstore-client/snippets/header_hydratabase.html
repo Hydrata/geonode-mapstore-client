@@ -4,6 +4,12 @@
     <link rel="preconnect" href="https://api.maptiler.com">
     <link href="{% static 'hydratabase/css/geonode-navbar-fixes.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <link href="{% static 'hydratabase/css/hydratabase_base.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
+    {# TASK-673 D1.6 (B5 S5): hydratabase_home.css + home-page SEO/JSON-LD #}
+    {# only loaded on the homepage (show_hero is True). On /catalogue/ it #}
+    {# was loading 360 lines of home-page styling (#new-project-form, hero, #}
+    {# pricing cards) plus FAQ JSON-LD + og:url=hydrata.com/ which fight #}
+    {# with the catalogue's own SEO. Saved ~50-150ms FCP per cold load. #}
+    {% if show_hero %}
     <link href="{% static 'hydratabase/css/hydratabase_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <meta property="og:type" content="website"/>
     <meta property="og:title" content="Hydrata — Professional Flood Modelling, Simplified"/>
@@ -94,6 +100,7 @@
       ]
     }
     </script>
+    {% endif %}
 {% endblock extra_head %}
 
 <header class="gn-main-header  hydratabase-dummy-class-header_hydratabase">
