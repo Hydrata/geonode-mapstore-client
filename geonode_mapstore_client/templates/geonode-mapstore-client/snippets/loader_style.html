@@ -6,13 +6,22 @@
      * when the React tree mounted with a ~vh-sized layout while the loader had
      * been sitting at ~auto height.
      *
+     * Scoped to map routes only: on the homepage / catalogue, the React tree
+     * may render an empty (display:none) ResourcesGrid when a site has no
+     * featured resources, leaving #ms-container vh-tall and blank. The CLS
+     * issue was specific to /catalogue/#/map/<id>, so the gn-on-map-route
+     * class (set pre-paint by the script below) bounds the rule there.
+     *
      * 56px is the gn-main-header default; the JS-driven .gn-main-header-placeholder
      * adjusts at runtime if a larger navbar renders. Using calc(100vh - 56px) as
      * the floor is conservative — the React tree typically requests a similar
      * footprint, so no observable layout movement when it mounts.
      */
-    #ms-container {
+    html.gn-on-map-route #ms-container {
         min-height: calc(100vh - 56px);
+        position: relative;
+    }
+    #ms-container {
         position: relative;
     }
     .gn-main-event-container {
