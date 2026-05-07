@@ -357,8 +357,10 @@ class MembershipPanelClass extends React.Component {
 const _deriveCanAdd = (memberships, myRole) => {
     if (myRole === 'owner' || myRole === 'manager') return true;
     if (!Array.isArray(memberships)) return false;
+    // V2P-22 AC#4: use .includes() in component code; .indexOf() is reserved
+    // for the V2P-02 helpers in selectorsAnuga.js (test files exempt).
     return memberships.some((m) =>
-        Array.isArray(m?.perms) && m.perms.indexOf('change_resourcebase_permissions') !== -1
+        Array.isArray(m?.perms) && m.perms.includes('change_resourcebase_permissions')
     );
 };
 

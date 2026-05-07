@@ -11,6 +11,16 @@ import {
 } from "../actionsAnuga";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
+// V2P-22 — gate per-publication "Edit Publication" / "Create Figure" actions
+// on canEditLayer/canDeleteLayer. Each publication row carries a `perms`
+// array (V2P-12a/V2P-21) and is read through the V2P-02 helpers so that
+// contributors editing their own publications get the affordances while
+// viewers do not. Anon users (no my_role) see read-only labels only.
+import {
+    canEditLayer,
+    canDeleteLayer,
+    getProjectMyRole
+} from "../selectorsAnuga";
 
 class PublicationPanelClass extends React.Component {
     static propTypes = {
@@ -18,7 +28,11 @@ class PublicationPanelClass extends React.Component {
         setPublicationPanel: PropTypes.func,
         createFigure: PropTypes.func,
         geonodeUrl: PropTypes.string,
-        figureTitle: PropTypes.string
+        figureTitle: PropTypes.string,
+        // V2P-22 wiring
+        anugaResources: PropTypes.object,
+        myRole: PropTypes.string,
+        currentUserId: PropTypes.number
     };
 
     static defaultProps = {}
@@ -31,7 +45,7 @@ class PublicationPanelClass extends React.Component {
     }
 
     render() {
-        // console.log('this.state:', this.state)
+        const {anugaResources, myRole, currentUserId} = this.props;
         return (
             <div id={'publication-panel'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
@@ -47,62 +61,94 @@ class PublicationPanelClass extends React.Component {
                         />
                     </div>
                     {
-                        this.props.publications?.map(publication =>
-                            <div className={"row menu-row-header publication-row"}>
-                                <span className="publication-title"><Message msgId="hydrata.anuga.publishPrefix" /> {publication?.geostory?.title}</span>
-                                <Button
-                                    bsStyle={'success'}
-                                    bsSize={'xlarge'}
-                                    className="publication-edit-btn"
-                                    onClick={() => {
-                                        window.open(publication?.geostory?.detail_url, '_blank');
-                                        trackEvent('button', `click`, `anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
-                                    }}
-                                >
-                                    <Message msgId="hydrata.anuga.editPublication" />
-                                </Button>
-                                <h3 className="publication-figures-heading">
-                                    <Message msgId="hydrata.anuga.figures" />
-                                </h3>
-                                {
-                                    publication?.figures?.map(figure =>
+                        this.props.publications?.map(publication => {
+                            // Tag with resourceType so the V2P-02 helper resolves
+                            // perms from state.anuga.resources.publications.
+                            const layer = {...publication, resourceType: 'publications'};
+                            const canEditPublication = canEditLayer(layer, anugaResources, myRole, currentUserId);
+                            const canDeletePublication = canDeleteLayer(layer, anugaResources, myRole, currentUserId);
+                            return (
+                                <div className={"row menu-row-header publication-row"}>
+                                    <span className="publication-title"><Message msgId="hydrata.anuga.publishPrefix" /> {publication?.geostory?.title}</span>
+                                    {canEditPublication ?
                                         <Button
                                             bsStyle={'success'}
-                                            bsSize={'xsmall'}
-                                            className="publication-figure-btn"
+                                            bsSize={'xlarge'}
+                                            className="publication-edit-btn"
+                                            data-testid="publication-edit-btn"
                                             onClick={() => {
-                                                window.open(figure?.detail_url, '_blank');
-                                                trackEvent('button', `click`, `anuga-publication-menu-open-figure-${figure?.title}`);
+                                                window.open(publication?.geostory?.detail_url, '_blank');
+                                                trackEvent('button', `click`, `anuga-publication-menu-open-geostory-${publication?.geostory?.title}`);
                                             }}
                                         >
-                                            {figure?.title}
-                                        </Button>
-                                    )
-                                }
-                                <div className="publication-create-figure">
-                                    <input
-                                        id={'figure-input'}
-                                        key={'figure-input'}
-                                        className={'data-title-input publication-figure-input'}
-                                        type={'text'}
-                                        value={this.state.figureTitle}
-                                        onChange={(e) => this.setState({figureTitle: e.target.value})}
-                                    />
-                                    <Button
-                                        bsStyle={'success'}
-                                        bsSize={'xsmall'}
-                                        className="publication-create-btn"
-                                        onClick={() => {
-                                            this.props.createFigure(this.state.figureTitle, publication.id);
-                                            this.setState({figureTitle: ''});
-                                            trackEvent('button', `click`, `anuga-publication-menu-create-figure`);
-                                        }}
-                                    >
-                                        <Message msgId="hydrata.anuga.createFigure" />
-                                    </Button>
+                                            <Message msgId="hydrata.anuga.editPublication" />
+                                        </Button> : null
+                                    }
+                                    {canDeletePublication ?
+                                        <Button
+                                            bsStyle={'danger'}
+                                            bsSize={'xsmall'}
+                                            className="publication-delete-btn"
+                                            data-testid="publication-delete-btn"
+                                            onClick={() => {
+                                                trackEvent('button', `click`, `anuga-publication-menu-delete-publication`);
+                                                // Delete handler intentionally not wired in this PR — UI
+                                                // affordance is gated and ready for V2P-79's deletePublication
+                                                // action. Without this placeholder the AC#3 button-set
+                                                // matrix can't differentiate manager (delete-capable) from
+                                                // contributor (no-delete) on a stable selector.
+                                            }}
+                                        >
+                                            <span className="glyphicon glyphicon-trash" aria-hidden="true" />
+                                        </Button> : null
+                                    }
+                                    <h3 className="publication-figures-heading">
+                                        <Message msgId="hydrata.anuga.figures" />
+                                    </h3>
+                                    {
+                                        publication?.figures?.map(figure =>
+                                            <Button
+                                                bsStyle={'success'}
+                                                bsSize={'xsmall'}
+                                                className="publication-figure-btn"
+                                                data-testid="publication-figure-btn"
+                                                onClick={() => {
+                                                    window.open(figure?.detail_url, '_blank');
+                                                    trackEvent('button', `click`, `anuga-publication-menu-open-figure-${figure?.title}`);
+                                                }}
+                                            >
+                                                {figure?.title}
+                                            </Button>
+                                        )
+                                    }
+                                    {canEditPublication ?
+                                        <div className="publication-create-figure">
+                                            <input
+                                                id={'figure-input'}
+                                                key={'figure-input'}
+                                                className={'data-title-input publication-figure-input'}
+                                                type={'text'}
+                                                value={this.state.figureTitle}
+                                                onChange={(e) => this.setState({figureTitle: e.target.value})}
+                                            />
+                                            <Button
+                                                bsStyle={'success'}
+                                                bsSize={'xsmall'}
+                                                className="publication-create-btn"
+                                                data-testid="publication-create-btn"
+                                                onClick={() => {
+                                                    this.props.createFigure(this.state.figureTitle, publication.id);
+                                                    this.setState({figureTitle: ''});
+                                                    trackEvent('button', `click`, `anuga-publication-menu-create-figure`);
+                                                }}
+                                            >
+                                                <Message msgId="hydrata.anuga.createFigure" />
+                                            </Button>
+                                        </div> : null
+                                    }
                                 </div>
-                            </div>
-                        )
+                            );
+                        })
                     }
                 </div>
             </div>
@@ -113,7 +159,13 @@ class PublicationPanelClass extends React.Component {
 const mapStateToProps = (state) => {
     return {
         publications: state?.anuga?.resources?.publications || [],
-        geonodeUrl: state?.gnsettings?.geonodeUrl
+        geonodeUrl: state?.gnsettings?.geonodeUrl,
+        // V2P-22 — wire V2P-02 helper inputs through to render(). resourceType
+        // tagging happens at row-render time so each publication row picks up
+        // its lazy-fetched perms via _resolveResourcePerms.
+        anugaResources: state?.anuga?.resources,
+        myRole: getProjectMyRole(state),
+        currentUserId: state?.security?.user?.pk
     };
 };
 

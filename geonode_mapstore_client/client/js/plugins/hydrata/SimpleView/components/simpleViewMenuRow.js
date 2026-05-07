@@ -253,7 +253,10 @@ class MenuRowClass extends React.Component {
         // Selector enforces role + ownership; AND with change_dataset_data
         // because feature-table write is a separate Django-Guardian perm
         // that role-only callers shouldn't bypass on WMS-only layers.
-        if (!(layer?.perms?.indexOf("change_dataset_data") > -1)) return false;
+        // V2P-22: switched .indexOf > -1 to .includes per AC#4 (no
+        // perms.indexOf in component code; helpers in selectorsAnuga.js
+        // remain on indexOf).
+        if (!layer?.perms?.includes("change_dataset_data")) return false;
         return canEditLayerSelector(layer, undefined, this.props.myRole, this.props.currentUserId);
     };
 
@@ -265,8 +268,9 @@ class MenuRowClass extends React.Component {
         // Narrower than canDownloadLayerSelector's authenticated-default —
         // SimpleView only shows the download glyph when the explicit
         // download_resourcebase perm is on the layer (matches V2P-01 spread).
+        // V2P-22: switched .indexOf > -1 to .includes per AC#4.
         return canDownloadLayerSelector(layer, undefined, this.props.myRole, this.props.currentUserId)
-            && (layer?.perms?.indexOf("download_resourcebase") > -1);
+            && layer?.perms?.includes("download_resourcebase");
     };
 }
 
