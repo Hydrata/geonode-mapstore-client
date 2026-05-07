@@ -443,6 +443,130 @@ describe('Test Resource Utils', () => {
         );
     });
 
+    // V2P-01b — retroactive coverage for V2P-01's spread at line ~661.
+    // The merge path in toMapStoreMapConfig used to drop mapLayer.dataset.perms
+    // when reconciling saved blob layers with their MapLayer entries; the
+    // sibling addMapLayers path (via resourceToLayerConfig) DID propagate perms,
+    // producing an inconsistent layer.perms presence depending on which path
+    // the layer took. V2P-01 added a one-line conditional spread to the merge
+    // path; these tests pin its exact contract: propagate when present, omit
+    // (don't write null) when missing.
+    describe('toMapStoreMapConfig perms propagation (V2P-01)', () => {
+        const baseConfig = {
+            map: {
+                layers: [
+                    { type: 'osm', source: 'osm', group: 'background', visibility: true }
+                ]
+            }
+        };
+        it('propagates perms from mapLayer.dataset onto the matched blob layer', () => {
+            const resource = {
+                maplayers: [
+                    {
+                        pk: 10,
+                        extra_params: { msId: '03' },
+                        dataset: {
+                            pk: 1,
+                            perms: ['view_resourcebase', 'change_resourcebase', 'delete_resourcebase']
+                        }
+                    }
+                ],
+                data: {
+                    map: {
+                        layers: [
+                            {
+                                id: '03',
+                                type: 'wms',
+                                name: 'geonode:layer',
+                                url: 'geoserver/wms'
+                            }
+                        ]
+                    }
+                }
+            };
+            const result = toMapStoreMapConfig(resource, baseConfig);
+            const merged = result.map.layers.find(l => l.id === '03');
+            expect(merged).toBeTruthy();
+            expect(merged.perms).toEqual(['view_resourcebase', 'change_resourcebase', 'delete_resourcebase']);
+        });
+
+        it('omits perms key when mapLayer.dataset.perms is null (no null overwrite)', () => {
+            const resource = {
+                maplayers: [
+                    {
+                        pk: 10,
+                        extra_params: { msId: '03' },
+                        dataset: { pk: 1, perms: null }
+                    }
+                ],
+                data: {
+                    map: {
+                        layers: [
+                            { id: '03', type: 'wms', name: 'geonode:layer', url: 'geoserver/wms' }
+                        ]
+                    }
+                }
+            };
+            const result = toMapStoreMapConfig(resource, baseConfig);
+            const merged = result.map.layers.find(l => l.id === '03');
+            // Conditional spread: `&&` short-circuits on null, so the key is
+            // never set on the merged layer. NOT toBe(null) — the key is absent.
+            expect(merged).toBeTruthy();
+            expect(merged.perms).toBe(undefined);
+        });
+
+        it('omits perms key when mapLayer.dataset.perms is an empty array (falsy short-circuit)', () => {
+            // [] is truthy in JS, so an empty perms array WILL propagate.
+            // This pins the truthy-check semantics of the spread for downstream
+            // helpers that treat [] as "denied everything".
+            const resource = {
+                maplayers: [
+                    {
+                        pk: 10,
+                        extra_params: { msId: '03' },
+                        dataset: { pk: 1, perms: [] }
+                    }
+                ],
+                data: {
+                    map: {
+                        layers: [
+                            { id: '03', type: 'wms', name: 'geonode:layer', url: 'geoserver/wms' }
+                        ]
+                    }
+                }
+            };
+            const result = toMapStoreMapConfig(resource, baseConfig);
+            const merged = result.map.layers.find(l => l.id === '03');
+            expect(merged).toBeTruthy();
+            expect(merged.perms).toEqual([]);
+        });
+
+        it('keeps blob layer unchanged when mapLayer.dataset is absent', () => {
+            // Defence in depth: dataset itself missing should not crash and
+            // should not invent a perms key.
+            const resource = {
+                maplayers: [
+                    {
+                        pk: 10,
+                        extra_params: { msId: '03' }
+                        // no dataset key
+                    }
+                ],
+                data: {
+                    map: {
+                        layers: [
+                            { id: '03', type: 'wms', name: 'geonode:layer', url: 'geoserver/wms' }
+                        ]
+                    }
+                }
+            };
+            const result = toMapStoreMapConfig(resource, baseConfig);
+            const merged = result.map.layers.find(l => l.id === '03');
+            expect(merged).toBeTruthy();
+            expect(merged.perms).toBe(undefined);
+        });
+    });
+
     it('transform a resource to a mapstore map config with featureinfo template', () => {
         const template = '<div>LAYER<div/>';
         const resource = {

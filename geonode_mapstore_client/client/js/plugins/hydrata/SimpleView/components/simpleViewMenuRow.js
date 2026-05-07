@@ -25,6 +25,12 @@ import {show} from "../../../../../MapStore2/web/client/actions/notifications";
 import axios from "../../../../../MapStore2/web/client/libs/ajax";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
+import {
+    canEditLayer as canEditLayerSelector,
+    canDeleteLayer as canDeleteLayerSelector,
+    canDownloadLayer as canDownloadLayerSelector,
+    getProjectMyRole
+} from '../../Anuga/selectorsAnuga';
 
 const isGlobalExtent = (bounds) =>
     bounds.minx <= -180 && bounds.miny <= -90 && bounds.maxx >= 180 && bounds.maxy >= 90;
@@ -56,7 +62,10 @@ class MenuRowClass extends React.Component {
         lineThrough: PropTypes.bool,
         importerTargetObjectId: PropTypes.number,
         zoomToLayer: PropTypes.func,
-        showExtentUnavailable: PropTypes.func
+        showExtentUnavailable: PropTypes.func,
+        // V2P-02 — wired from mapStateToProps via getProjectMyRole + state.security.user.pk
+        myRole: PropTypes.string,
+        currentUserId: PropTypes.number
     };
 
     constructor(props) {
@@ -228,16 +237,36 @@ class MenuRowClass extends React.Component {
             });
     };
 
+    // V2P-02 — these delegate to the pure helpers in selectorsAnuga.js so the
+    // role + ownership rules stay consistent with canEditScenarioByRole and
+    // are exercised by selectorsAnuga-test.js. Two narrowing extras kept as
+    // local AND-checks here:
+    //  - canEditLayer also requires `change_dataset_data` (write to feature
+    //    table) on top of `change_resourcebase`. This is the hard constraint
+    //    for the Edit-glyph: WMS-only layers with no editable feature table
+    //    must not show the pencil even if the user can rename the dataset.
+    //  - canExportLayer is download-only and intentionally narrower than the
+    //    selector's authenticated-can-download rule: SimpleView gates the
+    //    glyph on the explicit download_resourcebase grant only.
+    // Project my_role + currentUserId are wired in via mapStateToProps below.
     canEditLayer = (layer) => {
-        return (layer?.perms?.indexOf("change_dataset_data") > -1 && layer?.perms?.indexOf("change_resourcebase") > -1 );
+        // Selector enforces role + ownership; AND with change_dataset_data
+        // because feature-table write is a separate Django-Guardian perm
+        // that role-only callers shouldn't bypass on WMS-only layers.
+        if (!(layer?.perms?.indexOf("change_dataset_data") > -1)) return false;
+        return canEditLayerSelector(layer, undefined, this.props.myRole, this.props.currentUserId);
     };
 
     canDeleteLayer = (layer) => {
-        return (layer?.perms?.indexOf("delete_resourcebase") > -1);
+        return canDeleteLayerSelector(layer, undefined, this.props.myRole, this.props.currentUserId);
     };
 
     canExportLayer = (layer) => {
-        return (layer?.perms?.indexOf("download_resourcebase") > -1);
+        // Narrower than canDownloadLayerSelector's authenticated-default —
+        // SimpleView only shows the download glyph when the explicit
+        // download_resourcebase perm is on the layer (matches V2P-01 spread).
+        return canDownloadLayerSelector(layer, undefined, this.props.myRole, this.props.currentUserId)
+            && (layer?.perms?.indexOf("download_resourcebase") > -1);
     };
 }
 
@@ -252,7 +281,13 @@ const mapStateToProps = (state) => {
     const jobName = state?.gnsettings?.jobName;
     return {
         canEditMap: !isExcludedSite && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase'),
-        canUploadErosion: jobName === 'swamm'
+        canUploadErosion: jobName === 'swamm',
+        // V2P-02 — wire role + currentUserId through to the per-layer
+        // permission helpers so contributors see Edit on their own layers
+        // and editors+ see it on all layers, even when layer.perms is sparse
+        // (e.g. lazy-fetched datasets pre-V2P-21).
+        myRole: getProjectMyRole(state),
+        currentUserId: state?.security?.user?.pk
     };
 };
 

@@ -19,7 +19,13 @@ import {
     getSelectedScenario,
     getProjectData,
     getProjectId,
-    getActiveRuns
+    getActiveRuns,
+    canEditLayer,
+    canDeleteLayer,
+    canDownloadLayer,
+    canEditLayerSelector,
+    canDeleteLayerSelector,
+    canDownloadLayerSelector
 } from '../selectorsAnuga';
 
 describe('Anuga Selectors', () => {
@@ -434,6 +440,176 @@ describe('Anuga Selectors', () => {
             };
             const result = getAnugaModels(state);
             expect(result).toEqual([]);
+        });
+    });
+
+    // V2P-02 — per-layer permission helpers (canEditLayer, canDeleteLayer,
+    // canDownloadLayer) plus their state-shaped wrappers. Read order is:
+    //   state.anuga.resources[type] (lazy-fetched) -> layer.perms (V2P-01 spread)
+    //   -> project my_role.
+    // ANY level granting the perm is enough — owners must never be locked out
+    // by a transient lookup miss. Contributor+ownership rule mirrors
+    // canEditScenarioByRole and extends to nested resources.
+    describe('Per-layer permission helpers (V2P-02)', () => {
+        describe('canEditLayer (pure)', () => {
+            it('returns true when layer.perms includes change_resourcebase (any role)', () => {
+                const layer = { perms: ['view_resourcebase', 'change_resourcebase'] };
+                expect(canEditLayer(layer, undefined, 'viewer', 1)).toBe(true);
+                expect(canEditLayer(layer, undefined, null, null)).toBe(true);
+            });
+
+            it('returns true for editor / manager / owner regardless of layer.perms', () => {
+                const layer = { perms: [] };
+                expect(canEditLayer(layer, undefined, 'editor', 1)).toBe(true);
+                expect(canEditLayer(layer, undefined, 'manager', 1)).toBe(true);
+                expect(canEditLayer(layer, undefined, 'owner', 1)).toBe(true);
+            });
+
+            it('AC#2 — falls back to my_role when state.anuga.resources is undefined (no lazy-fetch lockout)', () => {
+                const layer = { id: 1, resourceType: 'boundaries', perms: [] };
+                expect(canEditLayer(layer, undefined, 'editor', 1)).toBe(true);
+                expect(canEditLayer(layer, undefined, 'owner', 1)).toBe(true);
+            });
+
+            it('AC#6 — contributor can edit only their own layer', () => {
+                const myLayer = { perms: [], owner: 5 };
+                const otherLayer = { perms: [], owner: 99 };
+                expect(canEditLayer(myLayer, undefined, 'contributor', 5)).toBe(true);
+                expect(canEditLayer(otherLayer, undefined, 'contributor', 5)).toBe(false);
+            });
+
+            it('viewer cannot edit a layer with no explicit perms', () => {
+                const layer = { perms: ['view_resourcebase'] };
+                expect(canEditLayer(layer, undefined, 'viewer', 1)).toBe(false);
+            });
+
+            it('reads state.anuga.resources first when the matching id is present', () => {
+                // Important: state.anuga.resources.{type} is an ARRAY per
+                // resourcesReducer.js, not a byId map.
+                const layer = { id: 5, resourceType: 'boundaries', perms: [] };
+                const anugaResources = {
+                    boundaries: [{ id: 5, perms: ['change_resourcebase'] }]
+                };
+                expect(canEditLayer(layer, anugaResources, 'viewer', 1)).toBe(true);
+            });
+
+            it('falls back to layer.perms when matching id is missing in resources slice', () => {
+                const layer = { id: 99, resourceType: 'boundaries', perms: ['change_resourcebase'] };
+                const anugaResources = { boundaries: [{ id: 5, perms: [] }] };
+                expect(canEditLayer(layer, anugaResources, 'viewer', 1)).toBe(true);
+            });
+
+            it('contributor cannot edit when currentUserId is missing', () => {
+                const layer = { perms: [], owner: 5 };
+                expect(canEditLayer(layer, undefined, 'contributor', null)).toBe(false);
+                expect(canEditLayer(layer, undefined, 'contributor', undefined)).toBe(false);
+            });
+
+            it('handles null/undefined layer without crashing', () => {
+                expect(canEditLayer(undefined, undefined, 'editor', 1)).toBe(true);
+                expect(canEditLayer(null, undefined, 'viewer', 1)).toBe(false);
+            });
+        });
+
+        describe('canDeleteLayer (pure)', () => {
+            it('returns true when layer.perms includes delete_resourcebase', () => {
+                const layer = { perms: ['delete_resourcebase'] };
+                expect(canDeleteLayer(layer, undefined, 'viewer', 1)).toBe(true);
+            });
+
+            it('returns true for editor / manager / owner', () => {
+                const layer = { perms: [] };
+                expect(canDeleteLayer(layer, undefined, 'editor', 1)).toBe(true);
+                expect(canDeleteLayer(layer, undefined, 'manager', 1)).toBe(true);
+                expect(canDeleteLayer(layer, undefined, 'owner', 1)).toBe(true);
+            });
+
+            it('viewer cannot delete', () => {
+                const layer = { perms: ['view_resourcebase'] };
+                expect(canDeleteLayer(layer, undefined, 'viewer', 1)).toBe(false);
+            });
+
+            it('contributor can delete their own layer (ownership extension)', () => {
+                const myLayer = { perms: [], owner: 5 };
+                const otherLayer = { perms: [], owner: 99 };
+                expect(canDeleteLayer(myLayer, undefined, 'contributor', 5)).toBe(true);
+                expect(canDeleteLayer(otherLayer, undefined, 'contributor', 5)).toBe(false);
+            });
+
+            it('reads state.anuga.resources first when available', () => {
+                const layer = { id: 5, resourceType: 'inflows', perms: [] };
+                const anugaResources = {
+                    inflows: [{ id: 5, perms: ['delete_resourcebase'] }]
+                };
+                expect(canDeleteLayer(layer, anugaResources, 'viewer', 1)).toBe(true);
+            });
+        });
+
+        describe('canDownloadLayer (pure)', () => {
+            it('returns true when layer.perms includes download_resourcebase (even anon)', () => {
+                const layer = { perms: ['download_resourcebase'] };
+                expect(canDownloadLayer(layer, undefined, null, null)).toBe(true);
+                expect(canDownloadLayer(layer, undefined, 'anonymous', null)).toBe(true);
+            });
+
+            it('any authenticated role can download by default', () => {
+                const layer = { perms: [] };
+                expect(canDownloadLayer(layer, undefined, 'viewer', 1)).toBe(true);
+                expect(canDownloadLayer(layer, undefined, 'contributor', 1)).toBe(true);
+                expect(canDownloadLayer(layer, undefined, 'editor', 1)).toBe(true);
+                expect(canDownloadLayer(layer, undefined, 'owner', 1)).toBe(true);
+            });
+
+            it('anon cannot download when no explicit perm is granted', () => {
+                const layer = { perms: [] };
+                expect(canDownloadLayer(layer, undefined, null, null)).toBe(false);
+                expect(canDownloadLayer(layer, undefined, 'anonymous', null)).toBe(false);
+            });
+        });
+
+        describe('owner role passes every gate', () => {
+            it('owner can edit / delete / download any layer', () => {
+                const layer = { perms: [] };
+                expect(canEditLayer(layer, undefined, 'owner', 1)).toBe(true);
+                expect(canDeleteLayer(layer, undefined, 'owner', 1)).toBe(true);
+                expect(canDownloadLayer(layer, undefined, 'owner', 1)).toBe(true);
+            });
+        });
+
+        describe('state-shaped wrappers (canEditLayerSelector etc.)', () => {
+            const buildState = (myRole, currentUserPk, anugaResources) => ({
+                anuga: {
+                    projects: { data: { id: 1, my_role: myRole } },
+                    resources: anugaResources
+                },
+                security: { user: { pk: currentUserPk } }
+            });
+
+            it('canEditLayerSelector pulls myRole + currentUserId from state', () => {
+                const state = buildState('contributor', 7);
+                expect(canEditLayerSelector(state, { perms: [], owner: 7 })).toBe(true);
+                expect(canEditLayerSelector(state, { perms: [], owner: 99 })).toBe(false);
+            });
+
+            it('canDeleteLayerSelector reads from state.anuga.resources when available', () => {
+                const state = buildState('viewer', 1, {
+                    boundaries: [{ id: 3, perms: ['delete_resourcebase'] }]
+                });
+                const layer = { id: 3, resourceType: 'boundaries', perms: [] };
+                expect(canDeleteLayerSelector(state, layer)).toBe(true);
+            });
+
+            it('canDownloadLayerSelector grants any authenticated role', () => {
+                const state = buildState('viewer', 1);
+                expect(canDownloadLayerSelector(state, { perms: [] })).toBe(true);
+            });
+
+            it('handles empty state gracefully (no role => deny edit/delete, allow download via perm only)', () => {
+                expect(canEditLayerSelector({}, { perms: [] })).toBe(false);
+                expect(canDeleteLayerSelector({}, { perms: [] })).toBe(false);
+                expect(canDownloadLayerSelector({}, { perms: ['download_resourcebase'] })).toBe(true);
+                expect(canDownloadLayerSelector({}, { perms: [] })).toBe(false);
+            });
         });
     });
 });

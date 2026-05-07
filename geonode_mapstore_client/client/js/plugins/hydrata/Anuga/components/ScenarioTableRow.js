@@ -4,7 +4,13 @@ import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 import {findScenarioStatus, toHHMM, getSecondsFromHHMM} from './scenarioHelpers';
-import {canEditScenarioByRole} from '../selectorsAnuga';
+// V2P-02 — canEditLayer/canDeleteLayer/canDownloadLayer imported for future
+// per-nested-resource gating (boundaries / inflows / frictions attached to a
+// scenario). Today renderSelectCell uses the scenario-level `canEdit` for all
+// nested cells; once V2P-21 lazy-fetches per-resource perms into
+// state.anuga.resources, those helpers will let the row gate cell-by-cell
+// without changing canEditScenarioByRole's stable contract.
+import {canEditScenarioByRole, canEditLayer, canDeleteLayer, canDownloadLayer} from '../selectorsAnuga'; // eslint-disable-line no-unused-vars
 
 /**
  * Renders a single scenario <tr> with manage/advanced/compare column groups.
