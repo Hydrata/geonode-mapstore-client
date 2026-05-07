@@ -658,6 +658,7 @@ export function toMapStoreMapConfig(resource, baseConfig) {
             if (mapLayer) {
                 return {
                     ...layer,
+                    ...(mapLayer?.dataset?.perms && { perms: mapLayer.dataset.perms }),
                     ...(layer.type === 'wms' && {
                         style: mapLayer.current_style || layer.style || ''
                     }),
