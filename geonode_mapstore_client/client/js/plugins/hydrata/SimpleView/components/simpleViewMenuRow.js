@@ -187,23 +187,24 @@ class MenuRowClass extends React.Component {
                     }
                     {
                         <div
-                                className="mapstore-slider dataset-transparency with-tooltip"
-                                onClick={(e) => { e.stopPropagation();}}
-                                style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
-                            >
-                                <Slider
-                                    step={1}
-                                    start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
-                                    range={{
-                                        min: 0,
-                                        max: 100
-                                    }}
-                                    onChange={(values) => {
-                                        this.props.setOpacity(this.props.layer?.id, values);
-                                        trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
-                                    }}
-                                />
-                            </div>
+                            className="mapstore-slider dataset-transparency with-tooltip"
+                            onClick={(e) => { e.stopPropagation();}}
+                            style={{ width: "150px", marginRight: "10px" }}
+                        >
+                            <Slider
+                                step={1}
+                                // eslint-disable-next-line no-eq-null, eqeqeq -- "!= null" intentionally matches both null and undefined
+                                start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
+                                range={{
+                                    min: 0,
+                                    max: 100
+                                }}
+                                onChange={(values) => {
+                                    this.props.setOpacity(this.props.layer?.id, values);
+                                    trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
+                                }}
+                            />
+                        </div>
                     }
                 </span>
             </div>
