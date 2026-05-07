@@ -15,10 +15,11 @@ import {
 import {
     getMemberships,
     getMembershipsLoading,
-    canManageMembers,
     isOwnerAnugaMap,
     getProjectVisibility,
-    getProjectMyRole
+    getProjectMyRole,
+    canEditLayer,
+    canDeleteLayer
 } from "../selectorsAnuga";
 import {trackEvent} from "@js/utils/analytics";
 import * as anugaApi from '../api/anugaApi';
@@ -41,10 +42,21 @@ class MembershipPanelClass extends React.Component {
     static propTypes = {
         memberships: PropTypes.array,
         loading: PropTypes.bool,
-        canManage: PropTypes.bool,
+        // V2P-24 — coarse `canManage` replaced with per-row gates derived from
+        // each membership row's `perms` (V2P-14 SerializerMethodField). The
+        // panel-level `canAdd` controls the Add-member affordance and the
+        // Visibility section, derived from project-level role + any row whose
+        // perms include `change_resourcebase_permissions` (V2P-30 grants this
+        // to org-owners-without-explicit-membership via Role.MANAGER).
+        canAdd: PropTypes.bool,
+        // V2P-24 — when /my-perms/ failed AND a row's perms wasn't fetched
+        // through MembershipSerializerV2, the panel falls back to a read-only
+        // member list. NEVER empty — owners must still see who's a member.
+        permsLoadFailed: PropTypes.bool,
         isOwner: PropTypes.bool,
         visibility: PropTypes.string,
         myRole: PropTypes.string,
+        currentUserId: PropTypes.number,
         ownerUsername: PropTypes.string,
         setMembershipPanel: PropTypes.func,
         fetchMemberships: PropTypes.func,
@@ -124,7 +136,10 @@ class MembershipPanelClass extends React.Component {
     }
 
     renderVisibilitySection() {
-        if (!this.props.canManage) return null;
+        // V2P-24 — gate on `canAdd` (panel-level manage capability) AND not in
+        // the perms-load-failed read-only fallback. Visibility is a destructive
+        // owner/manager action; suppress it when we can't trust per-row perms.
+        if (!this.props.canAdd || this.props.permsLoadFailed) return null;
         return (
             <div className="membership-visibility">
                 <div className="membership-section-title">
@@ -150,7 +165,7 @@ class MembershipPanelClass extends React.Component {
 
     renderOwnerRow() {
         return (
-            <tr>
+            <tr className="membership-owner-row">
                 <td>{this.props.ownerUsername}</td>
                 <td>
                     <span className="badge-role badge-owner">
@@ -163,14 +178,26 @@ class MembershipPanelClass extends React.Component {
     }
 
     renderMemberRow(membership) {
+        // V2P-24 — per-row gating. Each membership row carries its own `perms`
+        // array (V2P-14 SerializerMethodField on MembershipSerializerV2),
+        // describing what the CURRENT user can do TO that row. canEditLayer /
+        // canDeleteLayer (V2P-02 helpers) read membership.perms first, then
+        // fall back to myRole — owners/managers/editors always pass.
+        //
+        // permsLoadFailed=true forces a read-only render: rows still show
+        // (V2P-15 contract: never empty), but no role-change select / no
+        // remove button. The owner can still SEE who's a member.
+        const {permsLoadFailed, myRole, currentUserId} = this.props;
+        const canChangeRole = !permsLoadFailed && canEditLayer(membership, undefined, myRole, currentUserId);
+        const canRemove = !permsLoadFailed && canDeleteLayer(membership, undefined, myRole, currentUserId);
         return (
-            <tr key={membership.id}>
+            <tr key={membership.id} className="membership-member-row">
                 <td>{membership.username}</td>
                 <td>
-                    {this.props.canManage ? (
+                    {canChangeRole ? (
                         <select
                             value={membership.role}
-                            className="scenario-select membership-role-select"
+                            className="scenario-select membership-role-select change-role-btn"
                             onChange={(e) => this.handleRoleChange(membership.id, e.target.value)}
                         >
                             {ROLES.map(r => (
@@ -184,11 +211,11 @@ class MembershipPanelClass extends React.Component {
                     )}
                 </td>
                 <td>
-                    {this.props.canManage ? (
+                    {canRemove ? (
                         <Button
                             bsStyle="danger"
                             bsSize="xsmall"
-                            className="membership-btn-remove"
+                            className="membership-btn-remove remove-member-btn"
                             onClick={() => this.handleRemoveMember(membership.id, membership.username)}
                         >
                             <span className="glyphicon glyphicon-trash" aria-hidden="true" />
@@ -200,9 +227,13 @@ class MembershipPanelClass extends React.Component {
     }
 
     renderAddMemberSection() {
-        if (!this.props.canManage) return null;
+        // V2P-24 — gate on `canAdd` (panel-level — derived in mapStateToProps
+        // from project my_role + any membership row's
+        // `change_resourcebase_permissions` perm) AND not in the
+        // perms-load-failed read-only fallback.
+        if (!this.props.canAdd || this.props.permsLoadFailed) return null;
         return (
-            <div className="membership-add-form">
+            <div className="membership-add-form add-member">
                 <div className="membership-section-title">
                     <Message msgId="hydrata.anuga.addMember" />
                 </div>
@@ -235,7 +266,7 @@ class MembershipPanelClass extends React.Component {
                     <Button
                         bsStyle="success"
                         bsSize="xsmall"
-                        className="membership-btn-sm"
+                        className="membership-btn-sm add-member-submit-btn"
                         disabled={!this.state.selectedUser}
                         onClick={this.handleAddMember}
                     >
@@ -278,6 +309,17 @@ class MembershipPanelClass extends React.Component {
                             }}
                         />
                     </div>
+                    {/*
+                      V2P-24 read-only fallback banner — when permsLoadFailed=true
+                      (V2P-20 /my-perms/ retry exhausted) the panel still renders
+                      the row list but suppresses Add/Change/Remove affordances.
+                      Owners must still SEE who's a member after a transient 5xx.
+                    */}
+                    {this.props.permsLoadFailed ? (
+                        <div className="alert alert-warning membership-perms-warning">
+                            <Message msgId="hydrata.anuga.permsUnavailable.message" />
+                        </div>
+                    ) : null}
                     {this.renderVisibilitySection()}
                     <Table className="scenario-table">
                         <thead>
@@ -299,15 +341,52 @@ class MembershipPanelClass extends React.Component {
     }
 }
 
-const mapStateToProps = (state) => ({
-    memberships: getMemberships(state),
-    loading: getMembershipsLoading(state),
-    canManage: canManageMembers(state),
-    isOwner: isOwnerAnugaMap(state),
-    visibility: getProjectVisibility(state),
-    myRole: getProjectMyRole(state),
-    ownerUsername: state?.anuga?.projects?.data?.owner_username || 'owner'
-});
+/**
+ * V2P-24 — derive the panel-level Add capability.
+ *
+ * Read order:
+ *  1. project my_role === owner|manager → grant (legacy and most common).
+ *  2. ANY membership row whose perms include
+ *     `change_resourcebase_permissions` → grant (V2P-30 case: org-owner with no
+ *     explicit ProjectMembership row, but get_user_role returns Role.MANAGER
+ *     so MembershipSerializerV2.get_perms grants the manage perm).
+ *
+ * Returning false otherwise. Note this is a panel-level gate; per-row gates
+ * still apply to Change-role / Remove buttons via canEditLayer / canDeleteLayer.
+ */
+const _deriveCanAdd = (memberships, myRole) => {
+    if (myRole === 'owner' || myRole === 'manager') return true;
+    if (!Array.isArray(memberships)) return false;
+    return memberships.some((m) =>
+        Array.isArray(m?.perms) && m.perms.indexOf('change_resourcebase_permissions') !== -1
+    );
+};
+
+const mapStateToProps = (state) => {
+    const memberships = getMemberships(state);
+    const myRole = getProjectMyRole(state);
+    return {
+        memberships,
+        loading: getMembershipsLoading(state),
+        // V2P-24 — coarse `canManageMembers` gate replaced with per-row gating
+        // + a derived panel-level `canAdd` for the Add-member affordance.
+        canAdd: _deriveCanAdd(memberships, myRole),
+        // V2P-24 — read-only fallback flag set by V2P-20 /my-perms/ failure.
+        // Lives at state.anuga.resources.permsLoadFailed per V2P-21's reducer.
+        // Falls back to state.anuga.permsLoadFailed for forward-compat with the
+        // V2P-23 fixture and any future reducer relocation.
+        permsLoadFailed: state?.anuga?.resources?.permsLoadFailed === true
+            || state?.anuga?.permsLoadFailed === true,
+        isOwner: isOwnerAnugaMap(state),
+        visibility: getProjectVisibility(state),
+        myRole,
+        // V2P-24 — currentUserId is required by the V2P-02 helpers' Contributor
+        // ownership rule. Pulled from the same security slice the helpers'
+        // state-shaped wrappers use (canEditLayerSelector et al).
+        currentUserId: state?.security?.user?.pk || null,
+        ownerUsername: state?.anuga?.projects?.data?.owner_username || 'owner'
+    };
+};
 
 const mapDispatchToProps = (dispatch) => ({
     setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible)),
