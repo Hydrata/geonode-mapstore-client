@@ -42,7 +42,9 @@ import {
     manageTerrain3DEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
-    anugaMapLayerGroupEpic
+    anugaMapLayerGroupEpic,
+    triggerFetchMyPermsOnInitEpic,
+    fetchMyPermsEpic
 } from "./epicsAnuga";
 import {
     fetchMembershipsEpic,
@@ -103,6 +105,8 @@ export default createPlugin('Anuga', {
         addMembershipEpic,
         updateMembershipEpic,
         deleteMembershipEpic,
-        updateProjectVisibilityEpic
+        updateProjectVisibilityEpic,
+        triggerFetchMyPermsOnInitEpic,
+        fetchMyPermsEpic
     }
 });

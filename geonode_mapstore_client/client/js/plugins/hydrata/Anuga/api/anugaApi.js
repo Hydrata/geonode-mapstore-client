@@ -76,6 +76,12 @@ export const getProjectV2 = (projectId) =>
 export const getProjectsV2 = (pageSize = 100, page = 1) =>
     axios.get('/api/v2/anuga/projects/', { params: { page_size: pageSize, page } });
 
+// V2P-21 — batch perm fetch for the whole project. Backend caches with
+// Cache-Control: private, max-age=60. See V2P-20 endpoint at
+// /opt/hydrata/apps/gn_anuga/api_v2.py::ProjectViewSetV2.my_perms.
+export const getMyPerms = (projectId) =>
+    axios.get(`/api/v2/anuga/projects/${projectId}/my-perms/`);
+
 // -- v2 Scenarios ---------------------------------------------------------
 
 export const getScenariosV2 = (projectId) =>

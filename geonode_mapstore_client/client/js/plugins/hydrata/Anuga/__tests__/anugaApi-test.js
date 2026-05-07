@@ -25,7 +25,9 @@ describe('anugaApi', () => {
             'startRun', 'cancelRun', 'retryRun', 'getRunStatus', 'getRun',
             // Membership + visibility
             'getMemberships', 'addMembership', 'updateMembership', 'deleteMembership',
-            'searchUsers', 'updateProjectVisibility'
+            'searchUsers', 'updateProjectVisibility',
+            // V2P-21 — batch perm fetch
+            'getMyPerms'
         ];
 
         expectedFunctions.forEach(name => {
@@ -34,11 +36,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 31 API functions', () => {
+        it('should export exactly 32 API functions', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(31);
+            expect(exportedFunctions.length).toBe(32);
         });
     });
 
@@ -168,6 +170,10 @@ describe('anugaApi', () => {
             expect(anugaApi.searchUsers.length).toBe(1);
         });
 
+        it('getMyPerms takes 1 argument (projectId)', () => {
+            expect(anugaApi.getMyPerms.length).toBe(1);
+        });
+
         it('updateProjectVisibility takes 2 arguments (projectId, visibility)', () => {
             expect(anugaApi.updateProjectVisibility.length).toBe(2);
         });
@@ -221,6 +227,10 @@ describe('anugaApi', () => {
             expect(anugaApi.deleteMembership).toExist();
             expect(anugaApi.searchUsers).toExist();
             expect(anugaApi.updateProjectVisibility).toExist();
+        });
+
+        it('has V2P-21 batch perm fetch function', () => {
+            expect(anugaApi.getMyPerms).toExist();
         });
     });
 });

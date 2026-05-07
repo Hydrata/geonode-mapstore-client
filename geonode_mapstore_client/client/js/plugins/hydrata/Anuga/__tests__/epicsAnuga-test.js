@@ -330,4 +330,364 @@ describe('ANUGA Epics', () => {
                 );
         });
     });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // V2P-21 — lazy-fetch my_perms on Anuga panel open
+    // ─────────────────────────────────────────────────────────────────────
+    describe('V2P-21 triggerFetchMyPermsOnInitEpic', () => {
+        const {
+            triggerFetchMyPermsOnInitEpic,
+            __resetPermsCacheForTests
+        } = require('../epics/permsEpics');
+        const {
+            FETCH_MY_PERMS,
+            SET_ANUGA_PROJECT_DATA
+        } = require('../actionsAnuga');
+
+        beforeEach(() => __resetPermsCacheForTests());
+
+        it('emits FETCH_MY_PERMS when INIT_ANUGA fires and project id known', (done) => {
+            const store = {
+                getState: () => ({
+                    anuga: { projects: { data: { id: 42 } } }
+                })
+            };
+            const action$ = mockActions([{ type: INIT_ANUGA }]);
+            const emitted = [];
+
+            triggerFetchMyPermsOnInitEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(FETCH_MY_PERMS);
+                        expect(emitted[0].projectId).toBe(42);
+                        done();
+                    }
+                );
+        });
+
+        it('emits FETCH_MY_PERMS on SET_ANUGA_PROJECT_DATA when project id arrives', (done) => {
+            const store = {
+                getState: () => ({
+                    anuga: { projects: { data: { id: 99 } } }
+                })
+            };
+            const action$ = mockActions([{ type: SET_ANUGA_PROJECT_DATA, data: { id: 99 } }]);
+            const emitted = [];
+
+            triggerFetchMyPermsOnInitEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(FETCH_MY_PERMS);
+                        expect(emitted[0].projectId).toBe(99);
+                        done();
+                    }
+                );
+        });
+
+        it('does NOT emit when project id is null (anuga panel never opened)', (done) => {
+            const store = {
+                getState: () => ({
+                    anuga: { projects: { data: null } }
+                })
+            };
+            const action$ = mockActions([{ type: INIT_ANUGA }]);
+            const emitted = [];
+
+            triggerFetchMyPermsOnInitEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+
+        // AC#1 — TASK-658 perf budget regression guard.
+        // Cold-anon median interactive_s = 13.60s; an eager perm fetch on map
+        // init would push past the 14.28s 5% budget. INIT_ANUGA fires from
+        // AnugaContainer's componentDidUpdate (= panel open) — NOT from the
+        // mapstore map-init action chain. We assert that none of the typical
+        // map-init actions trigger this epic.
+        it('REGRESSION GUARD: does NOT fetch on map-init actions (TASK-658)', (done) => {
+            const store = {
+                getState: () => ({
+                    // Project IS loaded (so the projectId guard wouldn't suppress)
+                    anuga: { projects: { data: { id: 42 } } }
+                })
+            };
+            // These are common map-init / map-render actions from MapStore2.
+            // None of them should produce a FETCH_MY_PERMS dispatch.
+            const action$ = mockActions([
+                { type: 'MAP_CONFIG_LOADED' },
+                { type: 'CHANGE_MAP_VIEW' },
+                { type: 'MAP_INFO_LOAD_START' },
+                { type: 'LAYER_LOAD' },
+                { type: 'CHANGE_LAYER_PROPERTIES' },
+                { type: 'INIT_LAYER' },
+                { type: 'CHANGE_MOUSE_POINTER' },
+                { type: 'MAP_BOUNDING_BOX_CHANGED' }
+            ]);
+            const emitted = [];
+
+            triggerFetchMyPermsOnInitEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        // Critical assertion — zero fetches on any map-init action.
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+
+        it('dedupes consecutive triggers for the same project id', (done) => {
+            const store = {
+                getState: () => ({
+                    anuga: { projects: { data: { id: 42 } } }
+                })
+            };
+            // 3 INIT_ANUGA in a row + 2 SET_ANUGA_PROJECT_DATA — distinctUntilChanged
+            // should collapse them to a single emission since project id is constant.
+            const action$ = mockActions([
+                { type: INIT_ANUGA },
+                { type: SET_ANUGA_PROJECT_DATA, data: { id: 42 } },
+                { type: INIT_ANUGA },
+                { type: SET_ANUGA_PROJECT_DATA, data: { id: 42 } },
+                { type: INIT_ANUGA }
+            ]);
+            const emitted = [];
+
+            triggerFetchMyPermsOnInitEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        // distinctUntilChanged on the projectId stream collapses the run.
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].projectId).toBe(42);
+                        done();
+                    }
+                );
+        });
+    });
+
+    describe('V2P-21 fetchMyPermsEpic', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            fetchMyPermsEpic,
+            __resetPermsCacheForTests,
+            __setNowForTests
+        } = require('../epics/permsEpics');
+        const {
+            FETCH_MY_PERMS,
+            SET_ANUGA_RESOURCE_PERMS,
+            SET_PERMS_LOAD_FAILED
+        } = require('../actionsAnuga');
+
+        let mockAxios;
+
+        beforeEach(() => {
+            __resetPermsCacheForTests();
+            __setNowForTests(null);  // restore real clock
+            mockAxios = new MockAdapter(axios);
+        });
+
+        afterEach(() => {
+            mockAxios.restore();
+        });
+
+        it('dispatches SET_ANUGA_RESOURCE_PERMS on successful fetch', (done) => {
+            const payload = {
+                my_role: 'editor',
+                visibility: 'private',
+                scenarios: { 1: ['view_resourcebase', 'change_resourcebase'] },
+                elevations: {},
+                boundaries: { 7: ['view_resourcebase'] }
+            };
+            mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(200, payload);
+
+            const action$ = mockActions([{ type: FETCH_MY_PERMS, projectId: 42 }]);
+            const emitted = [];
+
+            fetchMyPermsEpic(action$)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_ANUGA_RESOURCE_PERMS);
+                        expect(emitted[0].payload).toEqual(payload);
+                        done();
+                    }
+                );
+        });
+
+        it('retries once on 5xx then succeeds', (done) => {
+            // First call: 503. Second call: 200.
+            let callCount = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/77/my-perms/').reply(() => {
+                callCount += 1;
+                if (callCount === 1) return [503, { detail: 'Service Unavailable' }];
+                return [200, { my_role: 'viewer', visibility: 'public', scenarios: {} }];
+            });
+
+            const action$ = mockActions([{ type: FETCH_MY_PERMS, projectId: 77 }]);
+            const emitted = [];
+
+            fetchMyPermsEpic(action$)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(callCount).toBe(2);
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_ANUGA_RESOURCE_PERMS);
+                        done();
+                    }
+                );
+        });
+
+        it('surfaces toast + permsLoadFailed=true on 2nd failure (final 5xx)', (done) => {
+            mockAxios.onGet('/api/v2/anuga/projects/88/my-perms/').reply(500, { detail: 'boom' });
+
+            const action$ = mockActions([{ type: FETCH_MY_PERMS, projectId: 88 }]);
+            const emitted = [];
+
+            fetchMyPermsEpic(action$)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        // Two emissions: setPermsLoadFailed + show notification
+                        expect(emitted.length).toBe(2);
+                        expect(emitted[0].type).toBe(SET_PERMS_LOAD_FAILED);
+                        expect(emitted[0].failed).toBe(true);
+                        // Notifications action type is 'NOTIFICATIONS:SHOW_NOTIFICATION'
+                        // (via MapStore2 notifications.show)
+                        expect(typeof emitted[1].type).toBe('string');
+                        expect(emitted[1].type.indexOf('NOTIFICATION') !== -1).toBe(true);
+                        done();
+                    }
+                );
+        }, 6000);  // long-ish timeout — retry adds 1s backoff before the second 500
+
+        it('does NOT retry on 4xx (e.g. 404 anon-on-private)', function _t(done) {
+            this.timeout(8000);
+            // axios-mock-adapter 1.16.0 produces an Error with `error.response`
+            // set when validateStatus rejects. We surface a 404 here.
+            mockAxios.onGet('/api/v2/anuga/projects/99/my-perms/').reply(404, { detail: 'Not Found' });
+
+            const action$ = mockActions([{ type: FETCH_MY_PERMS, projectId: 99 }]);
+            const emitted = [];
+            const sub = fetchMyPermsEpic(action$)
+                .take(2)
+                .subscribe(
+                    (action) => emitted.push(action),
+                    (err) => done(new Error(`subscribe error: ${err && err.message}`)),
+                    () => {
+                        try {
+                            // mockAxios.history.get records every matched
+                            // request — assert we hit the network exactly once.
+                            // (4xx is non-retryable per V2P-21 spec; only 5xx /
+                            // network errors get the 1-retry treatment.)
+                            expect(mockAxios.history.get.length).toBe(1);
+                            // Final-failure path emits 2 actions:
+                            //   [SET_PERMS_LOAD_FAILED, NOTIFICATIONS:SHOW_NOTIFICATION]
+                            expect(emitted.length).toBe(2);
+                            expect(emitted[0].type).toBe(SET_PERMS_LOAD_FAILED);
+                            expect(emitted[0].failed).toBe(true);
+                            done();
+                        } catch (e) {
+                            done(e);
+                        }
+                        if (sub) sub.unsubscribe();
+                    }
+                );
+        });
+
+        it('dedupes within the 30s cache window', (done) => {
+            // Pin clock so window math is deterministic.
+            let nowMs = 1700000000000;
+            __setNowForTests(() => nowMs);
+
+            let callCount = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/55/my-perms/').reply(() => {
+                callCount += 1;
+                return [200, { my_role: 'editor', visibility: 'private', scenarios: {} }];
+            });
+
+            const action$ = mockActions([
+                { type: FETCH_MY_PERMS, projectId: 55 },
+                // 2nd call 10s later — well within 30s window
+                { type: FETCH_MY_PERMS, projectId: 55 }
+            ]);
+            // Advance the clock between the two emissions a bit — 10s.
+            // (We can't drive the inner setTimeout, but the dedupe check uses
+            // _now() at the FETCH_MY_PERMS handler, so by re-stubbing _now
+            // before the second action we simulate elapsed time.)
+            // Since mockActions emits both in the same setTimeout(0), the
+            // dedupe will short-circuit the 2nd one because nowMs hasn't
+            // advanced by 30s.
+            const emitted = [];
+
+            fetchMyPermsEpic(action$)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        // Only one HTTP call, only one SET emission
+                        expect(callCount).toBe(1);
+                        expect(emitted.length).toBe(1);
+                        expect(emitted[0].type).toBe(SET_ANUGA_RESOURCE_PERMS);
+                        done();
+                    }
+                );
+        });
+
+        it('refetches after dedupe window expires (>30s)', (done) => {
+            // Pin clock; advance past 30s on the second action.
+            let nowMs = 1700000000000;
+            __setNowForTests(() => nowMs);
+
+            let callCount = 0;
+            mockAxios.onGet('/api/v2/anuga/projects/56/my-perms/').reply(() => {
+                callCount += 1;
+                return [200, { my_role: 'editor', visibility: 'private', scenarios: {} }];
+            });
+
+            const subject = new Rx.Subject();
+            const action$ = subject.asObservable();
+            action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+            const emitted = [];
+
+            fetchMyPermsEpic(action$)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        expect(callCount).toBe(2);
+                        expect(emitted.length).toBe(2);
+                        done();
+                    }
+                );
+
+            // First emission, then advance clock past 30s, then second emission.
+            setTimeout(() => subject.next({ type: FETCH_MY_PERMS, projectId: 56 }), 0);
+            setTimeout(() => {
+                nowMs += 31000;  // advance 31s past the cache window
+                subject.next({ type: FETCH_MY_PERMS, projectId: 56 });
+                subject.complete();
+            }, 50);
+        });
+    });
 });

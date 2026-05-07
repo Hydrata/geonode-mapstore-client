@@ -513,4 +513,176 @@ describe('Anuga Plugin', () => {
             expect(state.runs.byId[42].eta_seconds).toBe(120);
         });
     });
+
+    // V2P-21 — lazy-fetch my_perms on Anuga panel open
+    describe('V2P-21 action creators', () => {
+        const {
+            FETCH_MY_PERMS,
+            SET_ANUGA_RESOURCE_PERMS,
+            SET_PERMS_LOAD_FAILED,
+            fetchMyPerms,
+            setAnugaResourcePerms,
+            setPermsLoadFailed
+        } = require('../actionsAnuga');
+
+        it('fetchMyPerms creates {type, projectId}', () => {
+            const action = fetchMyPerms(42);
+            expect(action.type).toBe(FETCH_MY_PERMS);
+            expect(action.projectId).toBe(42);
+        });
+
+        it('setAnugaResourcePerms creates {type, payload}', () => {
+            const payload = { my_role: 'editor', visibility: 'private', scenarios: { 1: ['view_resourcebase'] } };
+            const action = setAnugaResourcePerms(payload);
+            expect(action.type).toBe(SET_ANUGA_RESOURCE_PERMS);
+            expect(action.payload).toEqual(payload);
+        });
+
+        it('setPermsLoadFailed creates {type, failed}', () => {
+            const action = setPermsLoadFailed(true);
+            expect(action.type).toBe(SET_PERMS_LOAD_FAILED);
+            expect(action.failed).toBe(true);
+        });
+    });
+
+    describe('V2P-21 reducer SET_ANUGA_RESOURCE_PERMS', () => {
+        const { SET_ANUGA_RESOURCE_PERMS, SET_PERMS_LOAD_FAILED, setAnugaResourcePerms } = require('../actionsAnuga');
+
+        it('populates state.anuga.resources.scenarios as array of {id, perms}', () => {
+            const state = reducer(undefined, setAnugaResourcePerms({
+                my_role: 'editor',
+                visibility: 'private',
+                scenarios: { 1: ['view_resourcebase', 'change_resourcebase'] },
+                elevations: { 5: ['view_resourcebase'] }
+            }));
+            // V2P-02 reading convention: state.anuga.resources.<type> is an array
+            expect(Array.isArray(state.resources.scenarios)).toBe(true);
+            expect(state.resources.scenarios).toEqual([
+                { id: 1, perms: ['view_resourcebase', 'change_resourcebase'] }
+            ]);
+            expect(state.resources.elevations).toEqual([
+                { id: 5, perms: ['view_resourcebase'] }
+            ]);
+        });
+
+        it('preserves existing entry fields when merging perms', () => {
+            // Boundary list-endpoint loaded first with title + name
+            let state = reducer(undefined, {
+                type: 'SET_ANUGA_BOUNDARY_DATA',
+                data: [{ id: 7, title: 'Inflow North', name: 'bdy_north' }]
+            });
+            // Then my-perms arrives with perms for that boundary
+            state = reducer(state, setAnugaResourcePerms({
+                boundaries: { 7: ['view_resourcebase', 'change_resourcebase'] }
+            }));
+            // All original fields preserved + perms added
+            expect(state.resources.boundaries.length).toBe(1);
+            expect(state.resources.boundaries[0].id).toBe(7);
+            expect(state.resources.boundaries[0].title).toBe('Inflow North');
+            expect(state.resources.boundaries[0].name).toBe('bdy_north');
+            expect(state.resources.boundaries[0].perms).toEqual(['view_resourcebase', 'change_resourcebase']);
+        });
+
+        it('stub-creates entries for ids in payload but not in existing state', () => {
+            // No prior boundary data — perms-only payload
+            const state = reducer(undefined, setAnugaResourcePerms({
+                boundaries: { 99: ['view_resourcebase'] }
+            }));
+            // Should create stub {id, perms}
+            expect(state.resources.boundaries).toEqual([
+                { id: 99, perms: ['view_resourcebase'] }
+            ]);
+        });
+
+        it('maps BE kebab-case keys to FE camelCase (mesh-regions -> meshRegions)', () => {
+            const state = reducer(undefined, setAnugaResourcePerms({
+                'mesh-regions': { 11: ['view_resourcebase'] },
+                'full-meshes': { 22: ['view_resourcebase'] },
+                'compute-instances': {}  // always {} per V2P-20 contract
+            }));
+            expect(state.resources.meshRegions).toEqual([
+                { id: 11, perms: ['view_resourcebase'] }
+            ]);
+            expect(state.resources.fullMeshes).toEqual([
+                { id: 22, perms: ['view_resourcebase'] }
+            ]);
+            // computeInstances starts as [] in initial state and stays []
+            // because the BE payload key was empty.
+            expect(state.resources.computeInstances).toEqual([]);
+        });
+
+        it('skips members and runs (they live in their own reducers)', () => {
+            const stateBefore = reducer(undefined, { type: 'UNKNOWN' });
+            const state = reducer(undefined, setAnugaResourcePerms({
+                members: { 1: ['view_resourcebase'] },
+                runs: { 2: ['view_resourcebase'] }
+            }));
+            // resources slice should be unchanged for these keys (no 'members'
+            // / 'runs' key created on the resources slice).
+            expect(state.resources.members).toBe(undefined);
+            expect(state.resources.runs).toBe(undefined);
+            // memberships + runs sub-reducers untouched
+            expect(state.memberships).toEqual(stateBefore.memberships);
+            expect(state.runs).toEqual(stateBefore.runs);
+        });
+
+        it('ignores my_role and visibility top-level keys (not resource_types)', () => {
+            const state = reducer(undefined, setAnugaResourcePerms({
+                my_role: 'editor',
+                visibility: 'public',
+                boundaries: { 1: ['view_resourcebase'] }
+            }));
+            // No bogus my_role / visibility keys appear on resources
+            expect(state.resources.my_role).toBe(undefined);
+            expect(state.resources.visibility).toBe(undefined);
+            // boundaries still populated correctly
+            expect(state.resources.boundaries).toEqual([
+                { id: 1, perms: ['view_resourcebase'] }
+            ]);
+        });
+
+        it('clears permsLoadFailed flag on a successful set', () => {
+            // Start with a failed state
+            let state = reducer(undefined, { type: SET_PERMS_LOAD_FAILED, failed: true });
+            expect(state.resources.permsLoadFailed).toBe(true);
+            // Successful payload clears it
+            state = reducer(state, setAnugaResourcePerms({ scenarios: {} }));
+            expect(state.resources.permsLoadFailed).toBe(false);
+        });
+
+        it('handles empty {} payload gracefully (V2P-15 anon-on-public contract)', () => {
+            // Anon hitting public project: my_role=null + every type as {}
+            const state = reducer(undefined, setAnugaResourcePerms({
+                my_role: null,
+                visibility: 'public',
+                scenarios: {},
+                elevations: {},
+                boundaries: {}
+            }));
+            // Initial state arrays preserved (empty), no stubs created
+            expect(state.resources.scenarios).toEqual([]);
+            expect(state.resources.elevations).toEqual([]);
+            expect(state.resources.boundaries).toEqual([]);
+            expect(state.resources.permsLoadFailed).toBe(false);
+        });
+
+        it('handles undefined / null payload defensively', () => {
+            // Should not throw
+            const state = reducer(undefined, { type: SET_ANUGA_RESOURCE_PERMS, payload: undefined });
+            expect(state.resources.permsLoadFailed).toBe(false);
+        });
+
+        it('SET_PERMS_LOAD_FAILED toggles flag without touching resource arrays', () => {
+            // First populate some resources
+            let state = reducer(undefined, {
+                type: 'SET_ANUGA_BOUNDARY_DATA',
+                data: [{ id: 1, title: 'Boundary 1' }]
+            });
+            // Then fail
+            state = reducer(state, { type: SET_PERMS_LOAD_FAILED, failed: true });
+            expect(state.resources.permsLoadFailed).toBe(true);
+            // Existing data preserved
+            expect(state.resources.boundaries).toEqual([{ id: 1, title: 'Boundary 1' }]);
+        });
+    });
 });

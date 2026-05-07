@@ -27,6 +27,16 @@ const DELETE_MEMBERSHIP_REQUEST = 'DELETE_MEMBERSHIP_REQUEST';
 const SET_MEMBERSHIPS_LOADING = 'SET_MEMBERSHIPS_LOADING';
 const UPDATE_PROJECT_VISIBILITY_REQUEST = 'UPDATE_PROJECT_VISIBILITY_REQUEST';
 
+// V2P-21 — lazy-fetch my_perms on Anuga panel open
+// Trigger: FETCH_MY_PERMS dispatched by initAnugaEpic (= AnugaContainer mount = panel open).
+// Success: SET_ANUGA_RESOURCE_PERMS feeds state.anuga.resources.<type>[i].perms
+//          which V2P-02 helpers (canEditLayer/canDeleteLayer/canDownloadLayer) read.
+// Failure: SET_PERMS_LOAD_FAILED toggles a flag; V2P-02 helpers must continue
+//          to fall back to project my_role rather than denying everything.
+const FETCH_MY_PERMS = 'ANUGA:FETCH_MY_PERMS';
+const SET_ANUGA_RESOURCE_PERMS = 'ANUGA:SET_ANUGA_RESOURCE_PERMS';
+const SET_PERMS_LOAD_FAILED = 'ANUGA:SET_PERMS_LOAD_FAILED';
+
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
 }
@@ -132,6 +142,21 @@ function updateProjectVisibilityRequest(visibility) {
     return { type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility };
 }
 
+// V2P-21 action creators
+function fetchMyPerms(projectId) {
+    return { type: FETCH_MY_PERMS, projectId };
+}
+
+function setAnugaResourcePerms(payload) {
+    // payload shape from /api/v2/anuga/projects/<pid>/my-perms/:
+    //   { my_role, visibility, scenarios: {<id>: [perms]}, elevations: {...}, ... }
+    return { type: SET_ANUGA_RESOURCE_PERMS, payload };
+}
+
+function setPermsLoadFailed(failed) {
+    return { type: SET_PERMS_LOAD_FAILED, failed };
+}
+
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
@@ -158,5 +183,8 @@ module.exports = {
     UPDATE_MEMBERSHIP_REQUEST, updateMembershipRequest,
     DELETE_MEMBERSHIP_REQUEST, deleteMembershipRequest,
     SET_MEMBERSHIPS_LOADING, setMembershipsLoading,
-    UPDATE_PROJECT_VISIBILITY_REQUEST, updateProjectVisibilityRequest
+    UPDATE_PROJECT_VISIBILITY_REQUEST, updateProjectVisibilityRequest,
+    FETCH_MY_PERMS, fetchMyPerms,
+    SET_ANUGA_RESOURCE_PERMS, setAnugaResourcePerms,
+    SET_PERMS_LOAD_FAILED, setPermsLoadFailed
 };

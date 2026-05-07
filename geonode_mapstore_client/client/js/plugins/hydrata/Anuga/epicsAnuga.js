@@ -48,3 +48,9 @@ export {
 export {
     manageTerrain3DEpic
 } from './epics/terrainEpics';
+
+// V2P-21 — lazy-fetch my_perms on Anuga panel open (INIT_ANUGA trigger).
+export {
+    triggerFetchMyPermsOnInitEpic,
+    fetchMyPermsEpic
+} from './epics/permsEpics';
