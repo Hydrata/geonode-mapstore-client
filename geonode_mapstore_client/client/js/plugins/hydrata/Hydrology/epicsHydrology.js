@@ -26,9 +26,30 @@ import {
 } from "../Hydrology/actionsHydrology";
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 
+// V2P-79 / V2P-77 — V1 hydrology routes were /anuga/api/{pid}/<endpoint>/
+// where <endpoint> was 'time-series' / 'temporal-pattern' / 'idf-table'
+// (singular, the V1 route segments). V2 paths nest under projects with
+// pluralised segments per /opt/hydrata/apps/gn_anuga/urls.py:
+//   * /api/v2/anuga/projects/{pid}/idf-tables/
+//   * /api/v2/anuga/projects/{pid}/time-series/        (already plural)
+//   * /api/v2/anuga/projects/{pid}/temporal-patterns/
+//
+// Action `activeHydrologyPage` historically carries the V1 route segment
+// (also matches the per-page UI tab). Map at the API boundary so callers
+// stay unchanged.
+const V1_TO_V2_HYDROLOGY = {
+    'time-series': 'time-series',
+    'temporal-pattern': 'temporal-patterns',
+    'idf-table': 'idf-tables'
+};
+
+const v2Hydrology = (page) => V1_TO_V2_HYDROLOGY[page] || page;
+
 async function fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction) {
     try {
-        const response = await axios.get(`/anuga/api/${projectId}/${endpoint}/`);
+        const response = await axios.get(
+            `/api/v2/anuga/projects/${projectId}/${v2Hydrology(endpoint)}/`
+        );
         return dispatchFunction(response.data);
     } catch (error) {
         return errorFunction(error);
@@ -123,7 +144,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
             if (typeof action.item?.id === 'number' || typeof action.item?.id === 'string' && !isNaN(Number(action.item?.id))) {
                 return Rx.Observable.from(
                     axios.patch(
-                        `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`,
+                        `/api/v2/anuga/projects/${projectId}/${v2Hydrology(action.activeHydrologyPage)}/${action.item.id}/`,
                         postData
                     )
                 )
@@ -150,7 +171,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
             }
             return Rx.Observable.from(
                 axios.post(
-                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/`,
+                    `/api/v2/anuga/projects/${projectId}/${v2Hydrology(action.activeHydrologyPage)}/`,
                     postData
                 )
             )
@@ -184,7 +205,7 @@ export const deleteHydrologyItemEpic = (action$, store) =>
             const projectId = store.getState()?.anuga?.projectData?.id;
             return Rx.Observable.from(
                 axios.delete(
-                    `/anuga/api/${projectId}/${action.activeHydrologyPage}/${action.item.id}/`
+                    `/api/v2/anuga/projects/${projectId}/${v2Hydrology(action.activeHydrologyPage)}/${action.item.id}/`
                 )
             )
                 .mergeMap(() =>

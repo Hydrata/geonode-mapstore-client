@@ -108,32 +108,11 @@ const visibility$ = Rx.Observable.defer(
     () => __visibilityForTests$ || _domVisibility$
 );
 
-const addAnugaLayerFromAvailableResponse = (response, store) => {
-    if (response.data?.length === 0) {
-        return Rx.Observable.empty();
-    }
-    let actions = [
-        initAnuga(),
-        setCreatingAnugaLayer(false)
-    ];
-    response.data.map(model => {
-        if (store.getState().layers.flat.filter(layer => layer?.name && layer.name === model?.name).length === 0) {
-            actions.unshift(addLayer(model));
-            actions.push(
-                show({
-                    "message": "hydrata.anuga.newLayersMessage",
-                    "title": "hydrata.anuga.newLayersTitle",
-                    "uid": 1000,
-                    "position": "tc"
-                })
-            );
-        }
-    });
-    return Rx.Observable.from(actions);
-};
-
-// Resource endpoints that stay on v1 (no v2 equivalent)
-const v1ResourceEndpoints = [
+// V2P-79 — resource endpoint catalogue. Each entry is a (V1) type identifier
+// recognised by anugaApi.getResourceList; the helper translates the type to
+// its V2 plural URL segment internally (see V2_PLURAL in api/anugaApi.js).
+// All paths now hit /api/v2/anuga/projects/{pid}/{plural}/ on the BE.
+const resourceEndpoints = [
     {endpoint: 'boundary', action: setAnugaBoundaryData},
     {endpoint: 'elevation', action: setAnugaElevationData},
     {endpoint: 'inflow', action: setAnugaInflowData},
@@ -149,7 +128,7 @@ const v1ResourceEndpoints = [
     {endpoint: 'publication', action: setPublicationData}
 ];
 
-const fetchV1Endpoint = (endpoint, projectId) => Rx.Observable
+const fetchResourceEndpoint = (endpoint, projectId) => Rx.Observable
     .from(anugaApi.getResourceList(projectId, endpoint))
     .catch(() => Rx.Observable.of({data: {}}))
     .switchMap(response => Rx.Observable.of(response.data));
@@ -182,9 +161,9 @@ export const initAnugaEpic = (action$, store) =>
                         .catch(() => Rx.Observable.of({data: []}))
                         .map(resp => setAnugaScenarioData(resp.data));
 
-                    // v1 resource fetches
-                    const resourceObservables = v1ResourceEndpoints.map(
-                        ({endpoint, action}) => fetchV1Endpoint(endpoint, projectId).map(action)
+                    // V2P-79: resource fetches now go through V2 plural routes.
+                    const resourceObservables = resourceEndpoints.map(
+                        ({endpoint, action}) => fetchResourceEndpoint(endpoint, projectId).map(action)
                     );
 
                     return Rx.Observable.of(
@@ -199,44 +178,33 @@ export const initAnugaEpic = (action$, store) =>
                 });
         });
 
-// Fix 3: Reduced from 10s to 60s — primary layer addition is now event-driven
-// via taskCompleteLayerEpic. This polling remains as a safety-net fallback.
+// V2P-79: model-creation polling fans out add-layer actions every 60s as a
+// safety-net for layer addition. Pre-V2P-79 those add-actions hit V1
+// `/available/` endpoints to discover new layers; V2 has no `/available/`
+// route — layer addition is now driven by:
+//   * `taskCompleteLayerEpic` (event-driven, on TaskMonitor process completion)
+//   * MapLayer auto-injection at map-load (extra_params.anuga_group)
+//   * `addLayer(response.data.mapstore_layer)` inside makeCreateEpic
 //
-// TASK-603: visibility gate. visibility$ emits true/false on subscribe and
-// every visibilitychange. We switchMap on every emission so transitioning
-// to hidden tears down the inner timer (no wasted requests in the
-// background) and transitioning to visible re-subscribes timer(0, ...)
-// which fires immediately — polling resumes within one cycle (AC #2).
-// Using switchMap rather than filter is deliberate: filter would keep the
-// timer running and only drop the resulting fetches, whereas switchMap
-// actually stops the timer subscription while hidden.
+// Per V2P-79 spec ("Remove /available/ polling — replaced by MapLayer
+// system") we still listen for START_ANUGA_MODEL_CREATION_POLLING so the
+// initAnuga chain doesn't surface an unhandled-action warning, but we no
+// longer fan out the legacy add-actions. takeUntil retained for parity
+// with the prior cancellation contract.
 //
-// Note: when isVisible=false the inner stream is `Rx.Observable.never()`
-// rather than `empty()` — empty completes synchronously and some RxJS 5
-// switchMap paths can drop the next outer emission if the previous inner
-// completes before the outer next arrives. `never()` keeps the inner
-// subscription alive (no emissions) until visibility$ emits the next value
-// and switchMap unsubscribes it.
+// TASK-603 visibility gate retained around the future-poll site so a
+// re-introduction of polling here remains tab-aware by default.
 export const pollAnugaModelCreationEpic = (action$) =>
     action$
         .ofType(START_ANUGA_MODEL_CREATION_POLLING)
         .switchMap(() =>
             visibility$.switchMap(isVisible =>
                 isVisible
-                    ? Rx.Observable.timer(0, 60000)
-                        .switchMap(() =>
-                            Rx.Observable.concat(
-                                Rx.Observable.of(addAnugaBoundary()),
-                                Rx.Observable.of(addAnugaFriction()),
-                                Rx.Observable.of(addAnugaStructure()),
-                                Rx.Observable.of(addAnugaInflow()),
-                                Rx.Observable.of(addAnugaFullMesh()),
-                                Rx.Observable.of(addAnugaMeshRegion()),
-                                Rx.Observable.of(addNetwork()),
-                                Rx.Observable.of(addCatchment()),
-                                Rx.Observable.of(addNodes()),
-                                Rx.Observable.of(addLinks())
-                            ))
+                    // V2P-79: previous V1 `/available/` fan-out removed.
+                    // The MapLayer + taskCompleteLayerEpic chain is now the
+                    // single source of layer-injection; this poll has no
+                    // remaining work to do.
+                    ? Rx.Observable.empty()
                     : Rx.Observable.never()
             ).takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
         );
@@ -399,28 +367,36 @@ export const ensureAnugaGroupsEpic = (action$, store) =>
                 : Rx.Observable.empty();
         });
 
-// -- Add-layer epics (fetch available layers from backend) -----------------
-
-const makeAddLayerEpic = (actionType, resourceType) => (action$, store) =>
+// -- Add-layer epics (V2P-79: no-op stubs) ---------------------------------
+//
+// Pre-V2P-79 these epics fetched `/anuga/api/{pid}/{type}/available/` and
+// dispatched addLayer() for each candidate. V2 has no /available/ route —
+// per V2P-79 spec the layer-picker is replaced by:
+//   * `taskCompleteLayerEpic` (event-driven on TaskMonitor completion)
+//   * MapLayer auto-injection (anuga_group extra_param at load time)
+//   * `addLayer(response.data.mapstore_layer)` inside makeCreateEpic
+//
+// We retain each epic name so Anuga.js plugin registration stays atomic
+// and dispatchers (pollAnugaModelCreationEpic, taskCompleteLayerEpic,
+// pollComparisonEpic, anugaInputMenu) don't surface unhandled-action
+// warnings if they fire the action. The epics now match the action type
+// but emit nothing — the legacy "fetch available layers and inject" work
+// has already happened by the time these fire in V2.
+const noOpEpic = (actionType) => (action$) =>
     action$
         .ofType(actionType)
-        .switchMap(() =>
-            Rx.Observable
-                .from(anugaApi.getAvailableLayers(getProjectId(store.getState()), resourceType))
-                .catch(() => Rx.Observable.empty())
-                .switchMap((response) => addAnugaLayerFromAvailableResponse(response, store))
-        );
+        .switchMap(() => Rx.Observable.empty());
 
-export const addAnugaBoundaryEpic = makeAddLayerEpic(ADD_ANUGA_BOUNDARY, 'boundary');
-export const addAnugaFrictionEpic = makeAddLayerEpic(ADD_ANUGA_FRICTION, 'friction');
-export const addAnugaInflowEpic = makeAddLayerEpic(ADD_ANUGA_INFLOW, 'inflow');
-export const addAnugaStructureEpic = makeAddLayerEpic(ADD_ANUGA_STRUCTURE, 'structure');
-export const addAnugaFullMeshEpic = makeAddLayerEpic(ADD_ANUGA_FULL_MESH, 'full-mesh');
-export const addAnugaMeshRegionEpic = makeAddLayerEpic(ADD_ANUGA_MESH_REGION, 'mesh-region');
-export const addCatchmentEpic = makeAddLayerEpic(ADD_LUMPED_CATCHMENT, 'catchment');
-export const addNodesEpic = makeAddLayerEpic(ADD_NODES, 'nodes');
-export const addLinksEpic = makeAddLayerEpic(ADD_LINKS, 'links');
-export const addComparisonEpic = makeAddLayerEpic(ADD_COMPARISON, 'comparison');
+export const addAnugaBoundaryEpic = noOpEpic(ADD_ANUGA_BOUNDARY);
+export const addAnugaFrictionEpic = noOpEpic(ADD_ANUGA_FRICTION);
+export const addAnugaInflowEpic = noOpEpic(ADD_ANUGA_INFLOW);
+export const addAnugaStructureEpic = noOpEpic(ADD_ANUGA_STRUCTURE);
+export const addAnugaFullMeshEpic = noOpEpic(ADD_ANUGA_FULL_MESH);
+export const addAnugaMeshRegionEpic = noOpEpic(ADD_ANUGA_MESH_REGION);
+export const addCatchmentEpic = noOpEpic(ADD_LUMPED_CATCHMENT);
+export const addNodesEpic = noOpEpic(ADD_NODES);
+export const addLinksEpic = noOpEpic(ADD_LINKS);
+export const addComparisonEpic = noOpEpic(ADD_COMPARISON);
 
 // -- Fix 3: Event-driven layer addition on TaskMonitor completion ----------
 // When a layer_create process completes, dispatch the appropriate add action

@@ -7,19 +7,22 @@ describe('anugaApi', () => {
     // -- Module exports ---------------------------------------------------
 
     describe('module exports', () => {
+        // V2P-79 cutover: getAvailableLayers dropped per spec
+        // ("Remove /available/ polling, replaced by MapLayer system").
+        // Surface count: 31 (was 32).
         const expectedFunctions = [
-            // v1 functions (kept for input-data CRUD)
+            // CRUD helpers (now route through V2 internally)
             'getProjectFromMapId', 'getProjects',
-            'createResource', 'getAvailableLayers', 'getResourceList', 'updateResourceTitle',
+            'createResource', 'getResourceList', 'updateResourceTitle',
             'createScenario', 'updateScenario', 'deleteScenario',
             'compareScenarios',
             'runNetwork',
             'getComputeInstances',
             'createFigure',
             'searchDataset',
-            // v1 generic PATCH
+            // generic PATCH
             'updateResource',
-            // v2 functions
+            // v2-named helpers (kept for explicit V2 callers)
             'getProjectV2', 'getProjectsV2',
             'getScenariosV2', 'createScenarioV2', 'deleteScenarioV2',
             'startRun', 'cancelRun', 'retryRun', 'getRunStatus', 'getRun',
@@ -36,11 +39,15 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 32 API functions', () => {
+        it('should export exactly 31 API functions (V2P-79: dropped getAvailableLayers)', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(32);
+            expect(exportedFunctions.length).toBe(31);
+        });
+
+        it('V2P-79: getAvailableLayers is no longer exported', () => {
+            expect(typeof anugaApi.getAvailableLayers).toBe('undefined');
         });
     });
 
@@ -57,10 +64,6 @@ describe('anugaApi', () => {
 
         it('createResource takes 3 arguments (projectId, type, data)', () => {
             expect(anugaApi.createResource.length).toBe(3);
-        });
-
-        it('getAvailableLayers takes 2 arguments (projectId, type)', () => {
-            expect(anugaApi.getAvailableLayers.length).toBe(2);
         });
 
         it('getResourceList takes 2 arguments (projectId, type)', () => {
@@ -190,8 +193,8 @@ describe('anugaApi', () => {
         });
 
         it('has generic resource functions', () => {
+            // V2P-79: getAvailableLayers dropped per spec.
             expect(anugaApi.createResource).toExist();
-            expect(anugaApi.getAvailableLayers).toExist();
             expect(anugaApi.getResourceList).toExist();
             expect(anugaApi.updateResourceTitle).toExist();
             expect(anugaApi.updateResource).toExist();
@@ -231,6 +234,232 @@ describe('anugaApi', () => {
 
         it('has V2P-21 batch perm fetch function', () => {
             expect(anugaApi.getMyPerms).toExist();
+        });
+    });
+
+    // -- V2P-79 V1 → V2 cutover regression guards -----------------------
+    //
+    // These tests assert the cutover invariant: anugaApi.js MUST NOT issue
+    // axios calls against /anuga/api/ (the V1 path), with one documented
+    // exception for `createResource` of boundary/friction/inflow — V2 did
+    // not ship POST endpoints for those three sub-resources (see
+    // V1_CREATE_ONLY_TYPES rationale in api/anugaApi.js).
+    //
+    // Approach: mock axios via axios-mock-adapter (already a test dep, used
+    // by V2P-21 fetchMyPermsEpic tests) and call each helper. We verify
+    // each helper hits the expected URL — this catches any regression that
+    // would re-introduce a V1 path.
+    describe('V2P-79 V1->V2 cutover regression guards', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        let mockAxios;
+
+        beforeEach(() => {
+            mockAxios = new MockAdapter(axios);
+            // Reply 200 with empty body to every URL — we only care about
+            // recording the request URL.
+            mockAxios.onAny().reply(200, {});
+        });
+
+        afterEach(() => {
+            mockAxios.restore();
+        });
+
+        // Helper: pull the recorded URL for the most recent matching method.
+        const lastUrl = (verb) => {
+            const log = mockAxios.history[verb];
+            return log.length ? log[log.length - 1].url : null;
+        };
+
+        it('getProjectFromMapId hits V2 /api/v2/anuga/projects/from-map/', (done) => {
+            anugaApi.getProjectFromMapId(42).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/from-map/');
+                done();
+            }).catch(done);
+        });
+
+        it('getProjects hits V2 /api/v2/anuga/projects/', (done) => {
+            anugaApi.getProjects().then(() => {
+                // parseDevHostname may pass the path through verbatim in tests.
+                const url = lastUrl('get');
+                expect(url.indexOf('/api/v2/anuga/projects/')).toBeGreaterThan(-1);
+                expect(url.indexOf('/anuga/api/')).toBe(-1);
+                done();
+            }).catch(done);
+        });
+
+        it('getResourceList for "boundary" hits V2 /boundaries/ (plural-mapped)', (done) => {
+            anugaApi.getResourceList(7, 'boundary').then(() => {
+                expect(lastUrl('get')).toBe('/api/v2/anuga/projects/7/boundaries/');
+                done();
+            }).catch(done);
+        });
+
+        it('getResourceList for "mesh-region" hits V2 /mesh-regions/', (done) => {
+            anugaApi.getResourceList(7, 'mesh-region').then(() => {
+                expect(lastUrl('get')).toBe('/api/v2/anuga/projects/7/mesh-regions/');
+                done();
+            }).catch(done);
+        });
+
+        it('getResourceList for "publication" hits V2 /publications/', (done) => {
+            anugaApi.getResourceList(7, 'publication').then(() => {
+                expect(lastUrl('get')).toBe('/api/v2/anuga/projects/7/publications/');
+                done();
+            }).catch(done);
+        });
+
+        it('updateResourceTitle hits V2 plural path', (done) => {
+            anugaApi.updateResourceTitle(7, 'structure', 99, 'newTitle').then(() => {
+                expect(lastUrl('patch')).toBe('/api/v2/anuga/projects/7/structures/99/');
+                done();
+            }).catch(done);
+        });
+
+        it('updateResource hits V2 plural path', (done) => {
+            anugaApi.updateResource(7, 'network', 5, {x: 1}).then(() => {
+                expect(lastUrl('patch')).toBe('/api/v2/anuga/projects/7/networks/5/');
+                done();
+            }).catch(done);
+        });
+
+        it('createScenario hits V2 /scenarios/ (alias for V2)', (done) => {
+            anugaApi.createScenario(7, {name: 'test'}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/scenarios/');
+                done();
+            }).catch(done);
+        });
+
+        it('updateScenario PATCHes V2 /scenarios/{id}/', (done) => {
+            anugaApi.updateScenario(7, 99, {name: 'x'}).then(() => {
+                expect(lastUrl('patch')).toBe('/api/v2/anuga/projects/7/scenarios/99/');
+                done();
+            }).catch(done);
+        });
+
+        it('deleteScenario hits V2 /scenarios/{id}/', (done) => {
+            anugaApi.deleteScenario(7, 99).then(() => {
+                expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/scenarios/99/');
+                done();
+            }).catch(done);
+        });
+
+        it('compareScenarios hits V2 CompareView and translates payload shape', (done) => {
+            anugaApi.compareScenarios(7, [{id: 11}, {id: 22}]).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/scenarios/compare/');
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body.scenario_one_id).toBe(11);
+                expect(body.scenario_two_id).toBe(22);
+                done();
+            }).catch(done);
+        });
+
+        it('runNetwork hits V2 /networks/{id}/run/', (done) => {
+            anugaApi.runNetwork(7, 5, {}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/networks/5/run/');
+                done();
+            }).catch(done);
+        });
+
+        it('getComputeInstances hits V2 global /compute-instances/', (done) => {
+            anugaApi.getComputeInstances(7).then(() => {
+                expect(lastUrl('get')).toBe('/api/v2/anuga/compute-instances/');
+                done();
+            }).catch(done);
+        });
+
+        it('createFigure hits V2 /publications/{id}/create-figure/', (done) => {
+            anugaApi.createFigure(7, 99, 'fig').then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/publications/99/create-figure/');
+                done();
+            }).catch(done);
+        });
+
+        it('memberships CRUD all hit V2 /members/ (plural per V2P-722)', (done) => {
+            Promise.all([
+                anugaApi.getMemberships(7),
+                anugaApi.addMembership(7, 1, 2),
+                anugaApi.updateMembership(7, 99, 3),
+                anugaApi.deleteMembership(7, 99)
+            ]).then(() => {
+                expect(mockAxios.history.get.slice(-1)[0].url).toBe(
+                    '/api/v2/anuga/projects/7/members/');
+                expect(mockAxios.history.post.slice(-1)[0].url).toBe(
+                    '/api/v2/anuga/projects/7/members/');
+                expect(mockAxios.history.patch.slice(-1)[0].url).toBe(
+                    '/api/v2/anuga/projects/7/members/99/');
+                expect(mockAxios.history.delete.slice(-1)[0].url).toBe(
+                    '/api/v2/anuga/projects/7/members/99/');
+                done();
+            }).catch(done);
+        });
+
+        // --- V1 holdout invariant: createResource for boundary/friction/inflow ---
+        // V2 did not ship POST endpoints for these three. They remain on V1
+        // until V2P-80 (or a successor task) provides V2 create. Any other
+        // type MUST route through V2.
+
+        it('createResource for "boundary" stays on V1 (V2 has no POST)', (done) => {
+            anugaApi.createResource(7, 'boundary', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/anuga/api/7/boundary/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "friction" stays on V1 (V2 has no POST)', (done) => {
+            anugaApi.createResource(7, 'friction', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/anuga/api/7/friction/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "inflow" stays on V1 (V2 has no POST)', (done) => {
+            anugaApi.createResource(7, 'inflow', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/anuga/api/7/inflow/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "structure" routes to V2 /structures/', (done) => {
+            anugaApi.createResource(7, 'structure', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/structures/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "mesh-region" routes to V2 /mesh-regions/', (done) => {
+            anugaApi.createResource(7, 'mesh-region', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/mesh-regions/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "network" routes to V2 /networks/', (done) => {
+            anugaApi.createResource(7, 'network', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/networks/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "catchment" routes to V2 /catchments/', (done) => {
+            anugaApi.createResource(7, 'catchment', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/catchments/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "nodes" routes to V2 /nodes/', (done) => {
+            anugaApi.createResource(7, 'nodes', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/nodes/');
+                done();
+            }).catch(done);
+        });
+
+        it('createResource for "links" routes to V2 /links/', (done) => {
+            anugaApi.createResource(7, 'links', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/links/');
+                done();
+            }).catch(done);
         });
     });
 });

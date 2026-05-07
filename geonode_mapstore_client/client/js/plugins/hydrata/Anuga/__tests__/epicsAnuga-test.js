@@ -85,35 +85,33 @@ describe('ANUGA Epics', () => {
 
     describe('pollAnugaModelCreationEpic', () => {
         // TASK-603: inject the visibility$ test seam so the gate in the
-        // production epic does not suppress the timer.
+        // production epic does not suppress the inner observable.
         beforeEach(() => __setVisibilityForTests(new Rx.BehaviorSubject(true)));
         afterEach(() => __setVisibilityForTests(null));
 
-        it('should emit add-layer actions when polling starts', (done) => {
+        // V2P-79: this epic no longer fans out add-layer actions. Layer
+        // addition is event-driven via taskCompleteLayerEpic + MapLayer
+        // auto-injection. We assert no emissions to lock the V2P-79 contract.
+        it('V2P-79: emits no actions when polling starts (no V1 fan-out)', (done) => {
             const subject = new Rx.Subject();
             const action$ = subject.asObservable();
             action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
 
             const emitted = [];
             const sub = pollAnugaModelCreationEpic(action$)
-                .take(10)
                 .subscribe(
                     action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        // Should emit 10 add-layer actions (boundary, friction, structure, etc.)
-                        expect(emitted.length).toBe(10);
-                        done();
-                    }
+                    err => done(err)
                 );
 
             subject.next({ type: START_ANUGA_MODEL_CREATION_POLLING });
 
-            // Stop after first batch
             setTimeout(() => {
+                expect(emitted.length).toBe(0);
                 subject.next({ type: STOP_ANUGA_MODEL_CREATION_POLLING });
                 sub.unsubscribe();
-            }, 100);
+                done();
+            }, 200);
         });
     });
 

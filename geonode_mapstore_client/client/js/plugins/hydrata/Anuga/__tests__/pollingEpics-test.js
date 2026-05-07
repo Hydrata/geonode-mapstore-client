@@ -64,43 +64,20 @@ describe('Polling Epics', () => {
 
     describe('pollAnugaModelCreationEpic', () => {
         // Inject a BehaviorSubject(true) into the visibility$ test seam so
-        // the TASK-603 gate does not suppress the timer in Karma. The
-        // production gate is exercised separately in the TASK-603 describe
-        // block below using the same seam.
+        // the TASK-603 gate does not suppress the timer in Karma.
         beforeEach(() => __setVisibilityForTests(new Rx.BehaviorSubject(true)));
         afterEach(() => __setVisibilityForTests(null));
 
-        it('should emit 10 add-layer actions per polling tick', (done) => {
-            const { subject, action$ } = liveActions();
-            const emitted = [];
+        // V2P-79: pre-cutover behaviour was a 60s timer that fanned out 10
+        // add-layer actions every tick. Those actions then triggered V1
+        // /available/ fetches. V2 has no /available/ route — the layer
+        // picker is now driven by taskCompleteLayerEpic + MapLayer
+        // auto-injection, so this poll has no remaining work to do.
+        // We retain the epic name so START_ANUGA_MODEL_CREATION_POLLING
+        // dispatchers (initAnugaEpic, taskCompleteLayerEpic) don't surface
+        // unhandled-action warnings.
 
-            const sub = pollAnugaModelCreationEpic(action$)
-                .take(10)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        expect(emitted.length).toBe(10);
-                        // Check all expected action types are emitted
-                        const types = emitted.map(a => a.type);
-                        expect(types).toContain(ADD_ANUGA_BOUNDARY);
-                        expect(types).toContain(ADD_ANUGA_FRICTION);
-                        expect(types).toContain(ADD_ANUGA_STRUCTURE);
-                        expect(types).toContain(ADD_ANUGA_INFLOW);
-                        expect(types).toContain(ADD_ANUGA_FULL_MESH);
-                        expect(types).toContain(ADD_ANUGA_MESH_REGION);
-                        expect(types).toContain(ADD_LUMPED_CATCHMENT);
-                        expect(types).toContain(ADD_NODES);
-                        expect(types).toContain(ADD_LINKS);
-                        sub.unsubscribe();
-                        done();
-                    }
-                );
-
-            subject.next({ type: START_ANUGA_MODEL_CREATION_POLLING });
-        });
-
-        it('should stop polling on STOP_ANUGA_MODEL_CREATION_POLLING', (done) => {
+        it('V2P-79: emits no actions on START (no V1 fan-out anymore)', (done) => {
             const { subject, action$ } = liveActions();
             const emitted = [];
 
@@ -112,40 +89,46 @@ describe('Polling Epics', () => {
 
             subject.next({ type: START_ANUGA_MODEL_CREATION_POLLING });
 
-            // Stop after first batch of 10
             setTimeout(() => {
-                const countBefore = emitted.length;
-                subject.next({ type: STOP_ANUGA_MODEL_CREATION_POLLING });
-                // Wait a bit to verify no more emissions
-                setTimeout(() => {
-                    expect(emitted.length).toBe(countBefore);
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 100);
+                // Per V2P-79: zero emissions. Layer addition is handled by
+                // taskCompleteLayerEpic + MapLayer auto-injection.
+                expect(emitted.length).toBe(0);
+                // Sanity: none of the legacy add-actions are present.
+                const types = emitted.map(a => a.type);
+                expect(types).toNotContain(ADD_ANUGA_BOUNDARY);
+                expect(types).toNotContain(ADD_ANUGA_FRICTION);
+                expect(types).toNotContain(ADD_ANUGA_STRUCTURE);
+                expect(types).toNotContain(ADD_ANUGA_INFLOW);
+                expect(types).toNotContain(ADD_ANUGA_FULL_MESH);
+                expect(types).toNotContain(ADD_ANUGA_MESH_REGION);
+                expect(types).toNotContain(ADD_LUMPED_CATCHMENT);
+                expect(types).toNotContain(ADD_NODES);
+                expect(types).toNotContain(ADD_LINKS);
+                sub.unsubscribe();
+                done();
+            }, 200);
         });
 
-        it('should restart polling on new START action (switchMap)', (done) => {
+        it('V2P-79: STOP action still terminates the inner observable cleanly', (done) => {
             const { subject, action$ } = liveActions();
             const emitted = [];
 
             const sub = pollAnugaModelCreationEpic(action$)
-                .take(20) // two ticks worth
                 .subscribe(
                     action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        expect(emitted.length).toBe(20);
-                        sub.unsubscribe();
-                        done();
-                    }
+                    err => done(err)
                 );
 
             subject.next({ type: START_ANUGA_MODEL_CREATION_POLLING });
-            // Second start should switchMap (restart)
             setTimeout(() => {
-                subject.next({ type: START_ANUGA_MODEL_CREATION_POLLING });
-            }, 50);
+                subject.next({ type: STOP_ANUGA_MODEL_CREATION_POLLING });
+                setTimeout(() => {
+                    // Always 0 — stop is idempotent in the no-op case.
+                    expect(emitted.length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                }, 100);
+            }, 100);
         });
 
         it('should not emit for unrelated actions', (done) => {
@@ -836,7 +819,19 @@ describe('Polling Epics', () => {
     // a deliberate test seam that swaps the live DOM stream for a Subject
     // we drive directly. Each test wires its own Subject in beforeEach
     // and clears it in afterEach.
-    describe('TASK-603 visibility gate', () => {
+    describe('TASK-603 visibility gate (V2P-79 reframe)', () => {
+        // V2P-79: pollAnugaModelCreationEpic was previously the canonical
+        // proof point for the visibility gate because it dispatched 10
+        // observable add-actions per tick. With V2P-79 the inner observable
+        // is now empty (no V1 /available/ fan-out) so emissions can no
+        // longer be used as the gate-state signal.
+        //
+        // The visibility$ Subject seam itself is still wired and still
+        // gates `initAnugaEpic` (where the gate has functional impact today).
+        // We retain the seam round-trip test below; the more elaborate
+        // "resumes within one cycle" assertion has been retired with the
+        // legacy emission contract it observed.
+
         let visibilitySubject;
 
         beforeEach(() => {
@@ -851,45 +846,20 @@ describe('Polling Epics', () => {
             expect(typeof initAnugaEpic).toBe('function');
         });
 
-        it('pollAnugaModelCreationEpic does NOT emit when visibility$ is false (hidden)', (done) => {
-            visibilitySubject.next(false);
-
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = pollAnugaModelCreationEpic(action$).subscribe(
-                action => emitted.push(action),
-                err => done(err)
-            );
-
-            subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
-
-            // Wait long enough for `timer(0, ...)` to fire if the gate
-            // were ineffective; expect zero emissions.
-            setTimeout(() => {
-                try {
-                    expect(emitted.length).toBe(0);
-                    sub.unsubscribe();
-                    done();
-                } catch (err) { sub.unsubscribe(); done(err); }
-            }, 200);
+        it('__setVisibilityForTests seam accepts a Subject and resets to null', () => {
+            // Seam-existence guard. The gate continues to be exercised
+            // in production by the catalogue init flow.
+            const subj = new Rx.BehaviorSubject(true);
+            __setVisibilityForTests(subj);
+            __setVisibilityForTests(null);
+            // No throw === pass.
+            expect(typeof __setVisibilityForTests).toBe('function');
         });
 
-        it('pollAnugaModelCreationEpic resumes within one cycle after hidden→visible transition', (done) => {
-            // Subscribe while visible (BehaviorSubject(true) from beforeEach),
-            // observe initial batch fires, then push false (timer stops), then
-            // push true (timer resumes within one cycle).
-            //
-            // We deliberately drive the visible→hidden→visible sequence rather
-            // than the hidden-at-subscribe→visible path: the production code
-            // works identically in both cases (both go through the same
-            // visibility$.switchMap), and this ordering is more robust under
-            // Karma+Chromium's task-queue scheduling.
-            //
-            // Each setTimeout body wraps its asserts in try/catch — without
-            // this, an `expect()` throw inside a setTimeout escapes mocha's
-            // domain and the test silently times out instead of reporting
-            // the actual failure.
+        it('pollAnugaModelCreationEpic emits nothing whether visibility=true or false (V2P-79 no-op)', (done) => {
+            // Pre-V2P-79: 10 actions/tick when visible, 0 when hidden.
+            // Post-V2P-79: 0 in both cases — the inner observable is empty.
+            // Either toggle => zero emissions.
             const { subject, action$ } = liveActions();
             const emitted = [];
 
@@ -901,70 +871,18 @@ describe('Polling Epics', () => {
             subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
 
             setTimeout(() => {
-                try {
-                    // First batch fired immediately (timer(0, 60000)).
-                    // expect 1.20.1 lacks toBeGreaterThanOrEqual; use
-                    // toBeGreaterThan(N-1) to assert >= N.
-                    expect(emitted.length).toBeGreaterThan(9);
-                    // Hide → inner switchMap unsubscribes the timer.
-                    visibilitySubject.next(false);
-                } catch (err) { sub.unsubscribe(); done(err); return; }
-                const countAtHide = emitted.length;
-
+                visibilitySubject.next(false);
                 setTimeout(() => {
-                    try {
-                        // No emissions during the hidden window.
-                        expect(emitted.length).toBe(countAtHide);
-                        // Show → inner switchMap re-subscribes timer; fires t=0.
-                        visibilitySubject.next(true);
-                    } catch (err) { sub.unsubscribe(); done(err); return; }
-
+                    visibilitySubject.next(true);
                     setTimeout(() => {
                         try {
-                            // Resumed within one cycle (AC #2): another full batch.
-                            expect(emitted.length).toBeGreaterThan(countAtHide + 9);
-                            const types = emitted.slice(countAtHide).map(a => a.type);
-                            expect(types).toContain(ADD_ANUGA_BOUNDARY);
-                            expect(types).toContain(ADD_ANUGA_FRICTION);
+                            expect(emitted.length).toBe(0);
                             sub.unsubscribe();
                             done();
                         } catch (err) { sub.unsubscribe(); done(err); }
-                    }, 200);
-                }, 200);
+                    }, 100);
+                }, 100);
             }, 100);
-        });
-
-        it('pollAnugaModelCreationEpic foreground cadence unchanged (regression guard)', (done) => {
-            // Stay visible the whole time. Take exactly two full batches via
-            // .take(20) — must complete without timing out, proving the gate
-            // does not perturb foreground emission count or ordering.
-            // (BehaviorSubject(true) from beforeEach already provides this.)
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = pollAnugaModelCreationEpic(action$)
-                .take(20)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        expect(emitted.length).toBe(20);
-                        // Each batch is 10 actions; over two batches we
-                        // see exactly two of each action type.
-                        const types = emitted.map(a => a.type);
-                        expect(types.filter(t => t === ADD_ANUGA_BOUNDARY).length).toBe(2);
-                        expect(types.filter(t => t === ADD_ANUGA_FRICTION).length).toBe(2);
-                        sub.unsubscribe();
-                        done();
-                    }
-                );
-
-            subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
-            // Trigger a second tick by re-firing the start action (switchMap
-            // restart, mirroring the existing 'should restart polling' test).
-            setTimeout(() => {
-                subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
-            }, 50);
         });
     });
 });

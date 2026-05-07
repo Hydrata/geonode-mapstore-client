@@ -174,14 +174,18 @@ export const saveAnugaScenarioEpic = (action$, store) =>
             const scenario = {...action.scenario, log: action.scenario.log || 'anuga log'};
             const projectId = getProjectId(store.getState());
             if (scenario.id) {
-                // Existing scenario — keep v1 update (v2 has no update endpoint)
+                // V2P-79 / V2P-72 — existing scenario PATCH now hits V2.
+                // anugaApi.updateScenario routes to /api/v2/anuga/projects/{pid}/scenarios/{id}/
+                // (PATCH partial_update). ScenarioUpdateSerializerV2 limits the
+                // writable surface; trailing read-only fields (e.g. log) are
+                // ignored server-side without raising.
                 return Rx.Observable.from(
                     anugaApi.updateScenario(projectId, scenario.id, scenario)
                         .then(response => saveAnugaScenarioSuccess(response.data))
                         .catch(error => saveAnugaScenarioError(error))
                 );
             }
-            // New scenario — use v2 create
+            // V2P-79: new scenario creation routes to V2 via createScenarioV2.
             return Rx.Observable.from(
                 anugaApi.createScenarioV2(projectId, scenario)
                     .then(response => saveAnugaScenarioSuccess(response.data))
