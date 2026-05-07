@@ -4,6 +4,7 @@ import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 import {findScenarioStatus, toHHMM, getSecondsFromHHMM} from './scenarioHelpers';
+import {canEditScenarioByRole} from '../selectorsAnuga';
 
 /**
  * Renders a single scenario <tr> with manage/advanced/compare column groups.
@@ -33,7 +34,10 @@ class ScenarioTableRow extends React.Component {
         cancelAnugaRun: PropTypes.func.isRequired,
         retryAnugaRun: PropTypes.func,
         toggleScenarioSelected: PropTypes.func.isRequired,
-        validateScenario: PropTypes.func
+        validateScenario: PropTypes.func,
+        canRunScenario: PropTypes.bool,
+        myRole: PropTypes.string,
+        currentUserId: PropTypes.number
     };
 
     handleTextChange = (e) => {
@@ -73,7 +77,7 @@ class ScenarioTableRow extends React.Component {
         trackEvent('button', 'click', 'anuga-scenario-menu-build');
     }
 
-    renderSelectCell(id, value, options) {
+    renderSelectCell(id, value, options, disabled) {
         const {scenario} = this.props;
         return (
             <td>
@@ -82,6 +86,7 @@ class ScenarioTableRow extends React.Component {
                     key={`${id}-${scenario.id}`}
                     value={value}
                     className={'scenario-select'}
+                    disabled={disabled}
                     onChange={this.handleIntChange}
                 >
                     <option value={""}>-</option>
@@ -90,6 +95,27 @@ class ScenarioTableRow extends React.Component {
                     ))}
                 </select>
             </td>
+        );
+    }
+
+    renderOwnershipBadge() {
+        const {scenario, currentUserId} = this.props;
+        if (!scenario?.id) return null;
+        const ownerId = scenario.created_by;
+        if (ownerId == null) return null;
+        if (currentUserId != null && ownerId === currentUserId) {
+            return (
+                <span className="scenario-ownership-badge scenario-ownership-mine">
+                    <Message msgId="hydrata.anuga.yourScenario" />
+                </span>
+            );
+        }
+        const username = scenario.created_by_username;
+        if (!username) return null;
+        return (
+            <span className="scenario-ownership-badge scenario-ownership-other">
+                <Message msgId="hydrata.anuga.createdByPrefix" /> {username}
+            </span>
         );
     }
 
@@ -168,10 +194,11 @@ class ScenarioTableRow extends React.Component {
     }
 
     renderRunButton() {
-        const {scenario} = this.props;
+        const {scenario, canRunScenario} = this.props;
         const status = findScenarioStatus(scenario);
         switch (status) {
         case 'built':
+            if (!canRunScenario) return null;
             return (
                 <Button
                     bsStyle={'success'} bsSize={'xsmall'}
@@ -198,6 +225,7 @@ class ScenarioTableRow extends React.Component {
                 </Button>
             );
         case 'error':
+            if (!canRunScenario) return null;
             return (
                 <Button
                     bsStyle={'warning'} bsSize={'xsmall'}
@@ -213,6 +241,7 @@ class ScenarioTableRow extends React.Component {
                 </Button>
             );
         case 'cancelled':
+            if (!canRunScenario) return null;
             return (
                 <Button
                     bsStyle={'success'} bsSize={'xsmall'}
@@ -253,13 +282,17 @@ class ScenarioTableRow extends React.Component {
     }
 
     render() {
-        const {scenario, scenarioTableTabs} = this.props;
+        const {scenario, scenarioTableTabs, myRole, currentUserId, canRunScenario} = this.props;
         const showManage = scenarioTableTabs?.includes('manage');
         const showAdvanced = scenarioTableTabs?.includes('advanced');
         const showCompare = scenarioTableTabs?.includes('compare');
         const isUnsaved = scenario.unsaved;
         const status = findScenarioStatus(scenario);
         const isCancellable = ['queued', 'computing', 'building'].includes(status);
+        const canEdit = canEditScenarioByRole(myRole, currentUserId, scenario?.created_by);
+        const canCancelRun = isCancellable && canRunScenario;
+        const canDeleteScenario = !isCancellable && canEdit;
+        const showDeleteButton = canCancelRun || canDeleteScenario;
 
         return (
             <tr className={'scenario-table-row'}>
@@ -269,24 +302,69 @@ class ScenarioTableRow extends React.Component {
                         id={'name'} key={`name-${scenario.id}`}
                         type={"text"} className={'scenario-input'}
                         value={scenario.name}
+                        readOnly={!canEdit}
                         onChange={this.handleTextChange}
                     />
+                    {this.renderOwnershipBadge()}
                 </td>
                 {showManage ?
                     <React.Fragment>
-                        {this.renderSelectCell('elevation', scenario?.elevation, this.props.elevations)}
-                        {this.renderSelectCell('boundary', scenario?.boundary, this.props.boundaries)}
-                        {this.renderSelectCell('inflow', scenario?.inflow, this.props.inflows)}
+                        {this.renderSelectCell('elevation', scenario?.elevation, this.props.elevations, !canEdit)}
+                        {this.renderSelectCell('boundary', scenario?.boundary, this.props.boundaries, !canEdit)}
+                        {this.renderSelectCell('inflow', scenario?.inflow, this.props.inflows, !canEdit)}
                     </React.Fragment> : null
                 }
                 {showAdvanced ?
                     <React.Fragment>
-                        {this.renderSelectCell('friction', scenario?.friction, this.props.frictions)}
-                        {this.renderSelectCell('structure', scenario?.structure, this.props.structures)}
-                        {this.renderSelectCell('mesh_region', scenario?.mesh_region, this.props.meshRegions)}
-                        {this.renderSelectCell('network', scenario?.network, this.props.networks)}
+                        {this.renderSelectCell('friction', scenario?.friction, this.props.frictions, !canEdit)}
+                        {this.renderSelectCell('structure', scenario?.structure, this.props.structures, !canEdit)}
+                        {this.renderSelectCell('mesh_region', scenario?.mesh_region, this.props.meshRegions, !canEdit)}
+                        {this.renderSelectCell('network', scenario?.network, this.props.networks, !canEdit)}
                         {!showManage ?
                             <td>
+                                {canEdit ?
+                                    <Button
+                                        bsStyle={'success'} bsSize={'xsmall'}
+                                        className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
+                                        onClick={() => {
+                                            if (this.props.validateScenario?.(scenario) !== false) {
+                                                this.buildScenario();
+                                            } else {
+                                                window.alert("Scenario is not valid");
+                                            }
+                                        }}
+                                    >
+                                        <Message msgId="hydrata.anuga.build" />
+                                    </Button> : null
+                                }
+                            </td> : null
+                        }
+                    </React.Fragment> : null
+                }
+                {showManage ?
+                    <React.Fragment>
+                        <td>
+                            <input
+                                id={'resolution'} key={`resolution-${scenario.id}`}
+                                type={"number"} className={'scenario-input scenario-input-narrow'}
+                                value={scenario?.resolution}
+                                readOnly={!canEdit}
+                                onChange={this.handleNumberChange}
+                            />
+                        </td>
+                        <td>
+                            <input
+                                id={'duration'} key={`duration-${scenario.id}`}
+                                type={"text"} className={'scenario-input scenario-input-narrow'}
+                                value={scenario.tempTimeString || toHHMM(scenario.duration)}
+                                readOnly={!canEdit}
+                                onChange={this.handleTimeChange}
+                                onBlur={this.handleTimeBlur}
+                            />
+                        </td>
+                        {this.renderStatusCell()}
+                        <td>
+                            {canEdit ?
                                 <Button
                                     bsStyle={'success'} bsSize={'xsmall'}
                                     className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
@@ -299,45 +377,8 @@ class ScenarioTableRow extends React.Component {
                                     }}
                                 >
                                     <Message msgId="hydrata.anuga.build" />
-                                </Button>
-                            </td> : null
-                        }
-                    </React.Fragment> : null
-                }
-                {showManage ?
-                    <React.Fragment>
-                        <td>
-                            <input
-                                id={'resolution'} key={`resolution-${scenario.id}`}
-                                type={"number"} className={'scenario-input scenario-input-narrow'}
-                                value={scenario?.resolution}
-                                onChange={this.handleNumberChange}
-                            />
-                        </td>
-                        <td>
-                            <input
-                                id={'duration'} key={`duration-${scenario.id}`}
-                                type={"text"} className={'scenario-input scenario-input-narrow'}
-                                value={scenario.tempTimeString || toHHMM(scenario.duration)}
-                                onChange={this.handleTimeChange}
-                                onBlur={this.handleTimeBlur}
-                            />
-                        </td>
-                        {this.renderStatusCell()}
-                        <td>
-                            <Button
-                                bsStyle={'success'} bsSize={'xsmall'}
-                                className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
-                                onClick={() => {
-                                    if (this.props.validateScenario?.(scenario) !== false) {
-                                        this.buildScenario();
-                                    } else {
-                                        window.alert("Scenario is not valid");
-                                    }
-                                }}
-                            >
-                                <Message msgId="hydrata.anuga.build" />
-                            </Button>
+                                </Button> : null
+                            }
                         </td>
                         <td>{this.renderRunButton()}</td>
                         <td>
@@ -358,29 +399,31 @@ class ScenarioTableRow extends React.Component {
                             </Button>
                         </td>
                         <td>
-                            <Button
-                                bsStyle={'danger'} bsSize={'xsmall'}
-                                className="anuga-btn-delete"
-                                onClick={
-                                    isCancellable ?
-                                        () => {
-                                            trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
-                                            if (confirm('Cancel Run?')) {
-                                                trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run-confirm');
-                                                this.props.cancelAnugaRun(scenario?.latest_run?.id);
+                            {showDeleteButton ?
+                                <Button
+                                    bsStyle={'danger'} bsSize={'xsmall'}
+                                    className="anuga-btn-delete"
+                                    onClick={
+                                        isCancellable ?
+                                            () => {
+                                                trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
+                                                if (confirm('Cancel Run?')) {
+                                                    trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run-confirm');
+                                                    this.props.cancelAnugaRun(scenario?.latest_run?.id);
+                                                }
+                                            } :
+                                            () => {
+                                                trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
+                                                if (confirm('Delete Scenario?')) {
+                                                    this.props.deleteAnugaScenario(scenario);
+                                                    trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario-confirm');
+                                                }
                                             }
-                                        } :
-                                        () => {
-                                            trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
-                                            if (confirm('Delete Scenario?')) {
-                                                this.props.deleteAnugaScenario(scenario);
-                                                trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario-confirm');
-                                            }
-                                        }
-                                }
-                            >
-                                <span className={isCancellable ? "glyphicon glyphicon-ban-circle" : "glyphicon glyphicon-trash"} aria-hidden="true" />
-                            </Button>
+                                    }
+                                >
+                                    <span className={isCancellable ? "glyphicon glyphicon-ban-circle" : "glyphicon glyphicon-trash"} aria-hidden="true" />
+                                </Button> : null
+                            }
                         </td>
                     </React.Fragment> : null
                 }

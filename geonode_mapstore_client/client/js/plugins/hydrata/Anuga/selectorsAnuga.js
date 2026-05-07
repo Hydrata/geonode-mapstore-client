@@ -26,7 +26,6 @@ export const canManageAnugaMap = (state) =>
 export const isOwnerAnugaMap = (state) =>
     getProjectMyRole(state) === "owner";
 
-// New fine-grained selectors for TASK-61
 export const canCreateScenario = (state) =>
     ["owner", "manager", "editor", "contributor"].includes(getProjectMyRole(state));
 
@@ -35,6 +34,28 @@ export const canRunScenario = (state) =>
 
 export const canManageMembers = (state) =>
     ["owner", "manager"].includes(getProjectMyRole(state));
+
+/**
+ * Pure helper — same logic as canEditScenario without a state dependency.
+ * Useful in connected components that already have role + user pk as props,
+ * so each row can decide without forcing re-renders via fresh closures.
+ */
+export const canEditScenarioByRole = (role, currentUserId, scenarioOwnerId) => {
+    if (["owner", "manager", "editor"].includes(role)) return true;
+    if (role === "contributor") {
+        if (scenarioOwnerId == null) return true;
+        return currentUserId != null && scenarioOwnerId === currentUserId;
+    }
+    return false;
+};
+
+/**
+ * Editor+ can edit any scenario; Contributor can edit only scenarios they created.
+ * scenarioOwnerId is the Scenario.created_by user pk from the V2 serializer.
+ * Pass null/undefined for unsaved scenarios — Contributor is treated as the implicit creator.
+ */
+export const canEditScenario = (state, scenarioOwnerId) =>
+    canEditScenarioByRole(getProjectMyRole(state), state?.security?.user?.pk, scenarioOwnerId);
 
 // -- Membership selectors --------------------------------------------------
 

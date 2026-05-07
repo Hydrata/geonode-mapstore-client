@@ -9,6 +9,7 @@ import {
     canCreateScenario,
     canRunScenario,
     canManageMembers,
+    canEditScenario,
     getMemberships,
     getMembershipsLoading,
     selectedScenarios,
@@ -135,6 +136,46 @@ describe('Anuga Selectors', () => {
             it('should return true for manager and owner', () => {
                 expect(canManageMembers(createStateWithRole('manager'))).toBe(true);
                 expect(canManageMembers(createStateWithRole('owner'))).toBe(true);
+            });
+        });
+
+        describe('canEditScenario', () => {
+            const createState = (role, currentUserPk) => ({
+                anuga: { projects: { data: { id: 1, my_role: role } } },
+                security: { user: { pk: currentUserPk } }
+            });
+
+            it('should return false for viewer regardless of ownership', () => {
+                expect(canEditScenario(createState('viewer', 7), 7)).toBe(false);
+                expect(canEditScenario(createState('viewer', 7), null)).toBe(false);
+            });
+
+            it('should return true for editor, manager, owner regardless of ownership', () => {
+                expect(canEditScenario(createState('editor', 7), 99)).toBe(true);
+                expect(canEditScenario(createState('manager', 7), 99)).toBe(true);
+                expect(canEditScenario(createState('owner', 7), 99)).toBe(true);
+            });
+
+            it('should return true for contributor on their own scenario', () => {
+                expect(canEditScenario(createState('contributor', 7), 7)).toBe(true);
+            });
+
+            it('should return false for contributor on someone elses scenario', () => {
+                expect(canEditScenario(createState('contributor', 7), 99)).toBe(false);
+            });
+
+            it('should return true for contributor on unsaved scenario (null owner)', () => {
+                expect(canEditScenario(createState('contributor', 7), null)).toBe(true);
+                expect(canEditScenario(createState('contributor', 7), undefined)).toBe(true);
+            });
+
+            it('should return false for contributor when current user pk is missing', () => {
+                expect(canEditScenario(createState('contributor', undefined), 7)).toBe(false);
+            });
+
+            it('should return false when no role', () => {
+                expect(canEditScenario({}, 7)).toBe(false);
+                expect(canEditScenario(createState(null, 7), 7)).toBe(false);
             });
         });
 

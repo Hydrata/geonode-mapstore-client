@@ -97,7 +97,7 @@ class AnugaContainer extends React.Component {
                 >
                     <Message msgId="hydrata.anuga.inputs" />
                 </button>
-                {this.props.canEditAnugaMap && this.props.hasEPSGset ?
+                {this.props.canViewAnugaMap && this.props.hasEPSGset ?
                     <button
                         key="anuga-scenario-button"
                         className={`simple-view-menu-button ${this.props.showAnugaScenarioMenu ? 'active' : ''}`}
@@ -166,7 +166,7 @@ class AnugaContainer extends React.Component {
                 <div id={"anuga-container"}>
                     {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
                     {this.props.showAnugaInputMenu ? <AnugaInputMenu/> : null}
-                    {this.props.canEditAnugaMap && this.props.hasEPSGset && this.props.showAnugaScenarioMenu ?
+                    {this.props.canViewAnugaMap && this.props.hasEPSGset && this.props.showAnugaScenarioMenu ?
                         <AnugaScenarioMenu/> : null
                     }
                     {this.props.canEditAnugaMap && this.props.hasEPSGset && this.props.showPublicationPanel ?

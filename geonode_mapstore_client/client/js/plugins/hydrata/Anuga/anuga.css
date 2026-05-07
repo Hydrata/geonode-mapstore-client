@@ -601,3 +601,21 @@ div that holds the feature-grid */
 }
 
 /* ── End TASK-425 ── */
+
+/* TASK-61: ownership badge on scenario rows */
+.scenario-ownership-badge {
+    display: block;
+    font-size: 10px;
+    line-height: 1.2;
+    margin-top: 2px;
+    opacity: 0.75;
+}
+
+.scenario-ownership-mine {
+    color: #5cb85c;
+}
+
+.scenario-ownership-other {
+    color: #aaa;
+    font-style: italic;
+}

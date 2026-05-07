@@ -22,7 +22,7 @@ import {
     compareScenarios
 } from "../actionsAnuga";
 
-import {selectedScenarios} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {selectedScenarios, canCreateScenario, canRunScenario, getProjectMyRole} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 import ScenarioTableRow from './ScenarioTableRow';
@@ -57,7 +57,11 @@ class AnugaScenarioMenuClass extends React.Component {
         toggleScenarioSelected: PropTypes.func,
         selectedScenarios: PropTypes.array,
         compareScenarios: PropTypes.func,
-        readyToCompare: PropTypes.number
+        readyToCompare: PropTypes.number,
+        canCreateScenario: PropTypes.bool,
+        canRunScenario: PropTypes.bool,
+        myRole: PropTypes.string,
+        currentUserId: PropTypes.number
     };
 
     static defaultProps = {}
@@ -102,18 +106,20 @@ class AnugaScenarioMenuClass extends React.Component {
                             {this.renderTabButton('advanced', 'hydrata.anuga.advanced')}
                             {this.renderTabButton('compare', 'hydrata.anuga.compare')}
                         </span>
-                        <span id={"new-scenario-button"}>
-                            <Button
-                                bsStyle={'success'} bsSize={'xsmall'}
-                                className="anuga-btn"
-                                onClick={() => {
-                                    this.props.addAnugaScenario();
-                                    trackEvent('button', 'click', 'anuga-scenario-menu-new-scenario');
-                                }}
-                            >
-                                <Message msgId="hydrata.anuga.newScenario" />
-                            </Button>
-                        </span>
+                        {this.props.canCreateScenario ?
+                            <span id={"new-scenario-button"}>
+                                <Button
+                                    bsStyle={'success'} bsSize={'xsmall'}
+                                    className="anuga-btn"
+                                    onClick={() => {
+                                        this.props.addAnugaScenario();
+                                        trackEvent('button', 'click', 'anuga-scenario-menu-new-scenario');
+                                    }}
+                                >
+                                    <Message msgId="hydrata.anuga.newScenario" />
+                                </Button>
+                            </span> : null
+                        }
                         <span
                             className={"btn glyphicon glyphicon-remove legend-close"}
                             onClick={() => {
@@ -198,6 +204,9 @@ class AnugaScenarioMenuClass extends React.Component {
                                     toggleScenarioSelected={this.props.toggleScenarioSelected}
                                     validateScenario={validateScenario}
                                     openTaskMonitorForRun={this.props.openTaskMonitorForRun}
+                                    canRunScenario={this.props.canRunScenario}
+                                    myRole={this.props.myRole}
+                                    currentUserId={this.props.currentUserId}
                                 />
                             ))}
                         </tbody>
@@ -226,7 +235,11 @@ const mapStateToProps = (state) => {
         inflows: state?.anuga?.resources?.inflows,
         structures: state?.anuga?.resources?.structures,
         meshRegions: state?.anuga?.resources?.meshRegions,
-        networks: state?.anuga?.resources?.networks
+        networks: state?.anuga?.resources?.networks,
+        canCreateScenario: canCreateScenario(state),
+        canRunScenario: canRunScenario(state),
+        myRole: getProjectMyRole(state),
+        currentUserId: state?.security?.user?.pk
     };
 };
 
