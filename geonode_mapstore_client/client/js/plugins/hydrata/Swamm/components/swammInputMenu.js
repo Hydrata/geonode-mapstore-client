@@ -29,7 +29,7 @@ class SwammInputMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            showAdvanced: false,
+            showAdvanced: false
         };
     }
 
@@ -187,7 +187,7 @@ class SwammInputMenuClass extends React.Component {
                             }}
                         />
                     </div>
-            </div>
+                </div>
                 <UploaderPanel />
             </div>
         );

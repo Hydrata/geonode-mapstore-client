@@ -1,7 +1,5 @@
 import React from "react";
 import ForceGraph3D from "react-force-graph-3d";
-import {CSS2DRenderer} from "three-css2drender";
-import * as THREE from 'three';
 const PropTypes = require('prop-types');
 import {connect} from "react-redux";
 import '../scenarios.css';
@@ -57,7 +55,7 @@ class DagContainerClass extends React.PureComponent {
                     //     nodeEl.className = 'node-label';
                     //     return new THREE.CSS2DObject(nodeEl);
                     // }}
-                    onNodeClick={node => {
+                    onNodeClick={_node => {
                     }}
                     // nodeThreeObjectExtend
                     linkColor={'red'}
@@ -73,7 +71,7 @@ class DagContainerClass extends React.PureComponent {
         );
     }
 
-    handleChange = (e) => {
+    handleChange = (_e) => {
     }
 }
 
@@ -123,7 +121,7 @@ const mapStateToProps = (state) => {
     };
 };
 
-const mapDispatchToProps = ( dispatch ) => {
+const mapDispatchToProps = ( _dispatch ) => {
     return {
     };
 };

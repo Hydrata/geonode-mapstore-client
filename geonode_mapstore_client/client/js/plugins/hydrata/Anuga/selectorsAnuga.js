@@ -43,7 +43,9 @@ export const canManageMembers = (state) =>
 export const canEditScenarioByRole = (role, currentUserId, scenarioOwnerId) => {
     if (["owner", "manager", "editor"].includes(role)) return true;
     if (role === "contributor") {
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         if (scenarioOwnerId == null) return true;
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         return currentUserId != null && scenarioOwnerId === currentUserId;
     }
     return false;

@@ -77,7 +77,9 @@ class Dag extends React.PureComponent {
     }
 
     render() {
-        const simulation = d3.forceSimulation(this.props.data.nodes)
+        // The simulation has side effects (forces are applied via .on('tick', this.onTick))
+        // even though the returned simulation object is not retained.
+        d3.forceSimulation(this.props.data.nodes)
             .force("link", d3.forceLink(this.props.data.links).id(d => d.id))
             .force('charge', d3.forceManyBody().strength(-30))
             .force('center', d3.forceCenter(this.props.width / 2, this.props.height / 2))

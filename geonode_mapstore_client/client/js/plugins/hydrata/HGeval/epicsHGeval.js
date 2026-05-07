@@ -126,9 +126,11 @@ function downloadPdfAndReload(reportId) {
 function computeWarnings(reportData, rasterVals) {
     const warnings = [];
 
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
     if (rasterVals?.precip_driest_quarter != null && rasterVals.precip_driest_quarter < 100) {
         warnings.push(`The driest quarter has only ${rasterVals.precip_driest_quarter}mm of rainfall. Seasonal water shortages may affect groundwater recharge.`);
     }
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
     if (rasterVals?.precip_annual != null && rasterVals.precip_annual < 750) {
         warnings.push('Total annual precipitation is less than 750mm. Low rainfall may limit groundwater availability.');
     }
@@ -152,6 +154,7 @@ function computeWarnings(reportData, rasterVals) {
         warnings.push('This location appears to be on a ridge or near a hilltop. Groundwater levels may be deeper than average.');
     }
 
+    // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
     if (reportData['geonode:islands_01']?.OBJECTID != null) {
         warnings.push('This location is on an island. Freshwater resources may be limited and vulnerable to saltwater intrusion.');
     }
@@ -197,6 +200,7 @@ export const mapClickEpic = (action$, store) =>
     action$
         .ofType(CLICK_ON_MAP)
         .filter(() => store.getState()?.hgeval?.step === 'selecting')
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         .filter(({ point }) => point?.latlng?.lng != null && point?.latlng?.lat != null)
         .map(({ point }) => setCoordinates(point.latlng.lng, point.latlng.lat));
 

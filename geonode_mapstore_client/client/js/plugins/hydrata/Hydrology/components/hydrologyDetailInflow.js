@@ -12,15 +12,15 @@ import {
 
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
-import moment from "moment";
 import Message from '@mapstore/framework/components/I18N/Message';
 
 
+// eslint-disable-next-line no-shadow -- prop intentionally named after the action creator (mapDispatchToProps shorthand)
 const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData }) => {
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
     const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
-    const [gridOptions, setGridOptions] = useState({
+    const [gridOptions] = useState({
         headerAutoHeight: true,
         headerHeight: 50
     });
@@ -30,7 +30,7 @@ const HydrologyDetailInflow = ({ activeHydrologyItem, updateTimeSeriesRowData })
         setChartData(activeHydrologyItem?.getChartData());
     }, [activeHydrologyItem]);
 
-    const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
+    const [, setWindowWidth] = React.useState(window.innerWidth);
     const handleWindowResize = () => {
         setWindowWidth(window.innerWidth);
     };

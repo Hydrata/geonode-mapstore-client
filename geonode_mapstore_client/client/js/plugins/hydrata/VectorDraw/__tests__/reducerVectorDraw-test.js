@@ -42,8 +42,8 @@ describe('VectorDraw Reducer', () => {
             formConfig: {
                 title: 'Test',
                 fields: [
-                    { name: 'location', type: 'select', default: 'External' },
-                    { name: 'value', type: 'number', default: 42 },
+                    { name: 'location', type: 'select', "default": 'External' },
+                    { name: 'value', type: 'number', "default": 42 },
                     { name: 'notes', type: 'text' }
                 ]
             }

@@ -11,7 +11,7 @@ import axios from '../../../../MapStore2/web/client/libs/ajax';
  * @param {object} properties - Key-value pairs for feature attributes
  * @returns {Promise<string|null>} The FID of the inserted feature
  */
-export const wfstInsert = async (wfsUrl, typeName, geometry, properties) => {
+export const wfstInsert = async(wfsUrl, typeName, geometry, properties) => {
     const describe = await describeFeatureType(wfsUrl, typeName);
     const builder = requestBuilder(describe);
 
@@ -54,7 +54,7 @@ export const wfstInsert = async (wfsUrl, typeName, geometry, properties) => {
  * @param {object} properties - Key-value pairs for feature attributes
  * @returns {Promise<string>} The feature ID
  */
-export const wfstUpdate = async (wfsUrl, typeName, featureId, geometry, properties) => {
+export const wfstUpdate = async(wfsUrl, typeName, featureId, geometry, properties) => {
     const describe = await describeFeatureType(wfsUrl, typeName);
     const builder = requestBuilder(describe);
 
@@ -82,7 +82,7 @@ export const wfstUpdate = async (wfsUrl, typeName, featureId, geometry, properti
  * @param {string} featureId - The feature ID
  * @returns {Promise<object>} GeoJSON feature
  */
-export const loadFeature = async (wfsUrl, typeName, featureId) => {
+export const loadFeature = async(wfsUrl, typeName, featureId) => {
     const result = await getFeatureSimple(wfsUrl, {
         typeName: typeName,
         featureID: featureId,

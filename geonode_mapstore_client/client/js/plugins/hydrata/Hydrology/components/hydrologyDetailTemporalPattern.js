@@ -48,8 +48,9 @@ const columns = [
     })
 ];
 
+// eslint-disable-next-line no-shadow -- prop intentionally named after the action creator (mapDispatchToProps shorthand)
 const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRowData }) => {
-    const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
+    const [, setWindowWidth] = React.useState(window.innerWidth);
     const handleWindowResize = () => {
         setWindowWidth(window.innerWidth);
     };
@@ -60,7 +61,7 @@ const HydrologyTemporalPattern = ({ activeHydrologyItem, updateTemporalPatternRo
         };
     }, []);
     // Table
-    const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
+    const [_columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
     const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
     useEffect(() => {

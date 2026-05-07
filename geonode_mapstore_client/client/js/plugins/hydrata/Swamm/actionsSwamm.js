@@ -90,7 +90,6 @@ const UPDATE_BMP_FORM = 'UPDATE_BMP_FORM';
 const SET_DRAWING_BMP_LAYER_NAME = 'SET_DRAWING_BMP_LAYER_NAME';
 const START_DRAWING_BMP = 'START_DRAWING_BMP';
 const CLEAR_DRAWING_BMP_LAYER_NAME = 'CLEAR_DRAWING_BMP_LAYER_NAME';
-const CREATE_BMP_FEATURE_ID = 'CREATE_BMP_FEATURE_ID';
 const REGISTER_MISSING_BMP_FEATURE_ID = 'REGISTER_MISSING_BMP_FEATURE_ID';
 const SET_EDITING_BMP_FEATURE_ID = 'SET_EDITING_BMP_FEATURE_ID';
 const CLEAR_EDITING_BMP_FEATURE_ID = 'CLEAR_EDITING_BMP_FEATURE_ID';
@@ -581,7 +580,7 @@ const fetchSwammTargets = (projectId) => {
     };
 };
 
-const downloadTargetDataSuccess = (data) => {
+const downloadTargetDataSuccess = (_data) => {
     return (dispatch) => {
         dispatch({
             type: SHOW_NOTIFICATION,
@@ -757,7 +756,7 @@ const deleteBmpError = (e) => {
 const deleteBmp = (mapId, bmpId) => {
     return (dispatch) => {
         return swammApi.deleteBmp(mapId, bmpId).then(
-            response => {
+            _response => {
                 dispatch(deleteBmpSuccess(bmpId));
                 dispatch(hideBmpForm());
                 dispatch(clearBmpForm());
@@ -922,7 +921,7 @@ const deleteTargetError = (e) => {
 const deleteTarget = (projectId, targetId) => {
     return (dispatch) => {
         return swammApi.deleteTarget(projectId, targetId).then(
-            response => {
+            _response => {
                 dispatch(deleteTargetSuccess(targetId));
                 dispatch(fetchSwammTargets(projectId));
                 dispatch(hideTargetForm());

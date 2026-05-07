@@ -3,7 +3,7 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import {Grid, Col, Row, Button, Carousel, CarouselItem} from "react-bootstrap";
 import moment from 'moment';
-const {LineChart, Line, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip} = require('recharts');
+const {LineChart, Line, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip} = require('recharts');
 import {setVisibleSwampsChart,
     setSelectedSwampId,
     clearSelectedSwamp,
@@ -259,17 +259,3 @@ const SwampsChart = connect(mapStateToProps, mapDispatchToProps)(SwampsChartClas
 
 
 export default SwampsChart;
-
-
-class CustomizedAxisTick extends React.PureComponent {
-    render() {
-        const { x, y, stroke, payload } = this.props;
-        return (
-            <g transform={`translate(${x},${y})`}>
-                <text x={100} y={10} dy={0} textAnchor="end" fill="#666" transform="rotate(-90)">
-                    {payload.value}
-                </text>
-            </g>
-        );
-    }
-}

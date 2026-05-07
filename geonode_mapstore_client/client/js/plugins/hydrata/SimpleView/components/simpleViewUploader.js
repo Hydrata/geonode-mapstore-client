@@ -1,7 +1,7 @@
 import React from 'react';
 import { connect } from 'react-redux';
 const PropTypes = require('prop-types');
-import { Glyphicon, Table, Button, ProgressBar, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Glyphicon, Table, Button, ProgressBar } from 'react-bootstrap';
 import Dropzone from 'react-dropzone';
 import {
     setVisibleUploaderPanel,
@@ -122,7 +122,7 @@ export class simpleViewUploaderPanel extends React.Component {
                                 </tr>) )
                             }
                         </tbody>
-                    </Table>:
+                    </Table> :
                     <Dropzone
                         key="dropzone"
                         rejectClassName="alert-danger"
@@ -259,7 +259,7 @@ export class simpleViewUploaderPanel extends React.Component {
                     this.props.createSimpleViewAttributeForm(response?.data);
                     trackEvent('process', `complete`, `simpleview-uploader-complete`);
                 })
-                .catch(error => {
+                .catch(_error => {
                     this.props.updateUploadStatus(0);
                     this.props.show({
                         "message": "hydrata.simpleView.importFailed",
@@ -298,7 +298,7 @@ export class simpleViewUploaderPanel extends React.Component {
                         trackEvent('process', `handoff`, `simpleview-uploader-celery-handoff`);
                     }
                 })
-                .catch(error => {
+                .catch(_error => {
                     this.props.updateUploadStatus(0);
                     this.props.show({
                         "message": "hydrata.simpleView.importFailed",

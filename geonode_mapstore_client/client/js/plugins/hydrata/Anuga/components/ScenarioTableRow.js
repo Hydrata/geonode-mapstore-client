@@ -102,7 +102,9 @@ class ScenarioTableRow extends React.Component {
         const {scenario, currentUserId} = this.props;
         if (!scenario?.id) return null;
         const ownerId = scenario.created_by;
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         if (ownerId == null) return null;
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         if (currentUserId != null && ownerId === currentUserId) {
             return (
                 <span className="scenario-ownership-badge scenario-ownership-mine">
@@ -330,6 +332,7 @@ class ScenarioTableRow extends React.Component {
                                             if (this.props.validateScenario?.(scenario) !== false) {
                                                 this.buildScenario();
                                             } else {
+                                                // eslint-disable-next-line no-alert -- intentional user-facing validation message
                                                 window.alert("Scenario is not valid");
                                             }
                                         }}
@@ -372,6 +375,7 @@ class ScenarioTableRow extends React.Component {
                                         if (this.props.validateScenario?.(scenario) !== false) {
                                             this.buildScenario();
                                         } else {
+                                            // eslint-disable-next-line no-alert -- intentional user-facing validation message
                                             window.alert("Scenario is not valid");
                                         }
                                     }}
@@ -407,6 +411,7 @@ class ScenarioTableRow extends React.Component {
                                         isCancellable ?
                                             () => {
                                                 trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
+                                                // eslint-disable-next-line no-alert -- intentional user confirmation
                                                 if (confirm('Cancel Run?')) {
                                                     trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run-confirm');
                                                     this.props.cancelAnugaRun(scenario?.latest_run?.id);
@@ -414,6 +419,7 @@ class ScenarioTableRow extends React.Component {
                                             } :
                                             () => {
                                                 trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
+                                                // eslint-disable-next-line no-alert -- intentional user confirmation
                                                 if (confirm('Delete Scenario?')) {
                                                     this.props.deleteAnugaScenario(scenario);
                                                     trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario-confirm');

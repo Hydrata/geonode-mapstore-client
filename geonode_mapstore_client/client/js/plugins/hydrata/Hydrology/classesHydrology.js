@@ -331,19 +331,19 @@ export class IdfTable {
     }
 
 
-    addDuration(minutes)  {
+    addDuration(_minutes)  {
         return null;
     }
 
-    removeDuration(minutes)  {
+    removeDuration(_minutes)  {
         return null;
     }
 
-    addFrequency(label, ari) {
+    addFrequency(_label, _ari) {
         return null;
     }
 
-    removeFrequency(ariOrLabel) {
+    removeFrequency(_ariOrLabel) {
         return null;
     }
 

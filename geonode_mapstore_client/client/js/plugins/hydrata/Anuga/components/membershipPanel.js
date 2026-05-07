@@ -66,6 +66,7 @@ class MembershipPanelClass extends React.Component {
     }
 
     componentDidMount() {
+        // eslint-disable-next-line react/no-did-mount-set-state -- intentional reset of transient form state on (re)mount
         this.setState({searchQuery: '', searchResults: [], selectedUser: null, newRole: 1});
         this.props.fetchMemberships();
     }
@@ -104,6 +105,7 @@ class MembershipPanelClass extends React.Component {
     }
 
     handleRemoveMember = (membershipId, username) => {
+        // eslint-disable-next-line no-alert -- intentional user confirmation
         if (confirm(`Remove ${username} from project?`)) {
             this.props.deleteMembershipRequest(membershipId);
             trackEvent('button', 'click', 'membership-remove-member');
@@ -112,6 +114,7 @@ class MembershipPanelClass extends React.Component {
 
     handleVisibilityChange = (newVisibility) => {
         if (newVisibility === 'public' && this.props.visibility !== 'public') {
+            // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
             if (!confirm('This will expose all project data to anonymous users. Continue?')) {
                 return;
             }

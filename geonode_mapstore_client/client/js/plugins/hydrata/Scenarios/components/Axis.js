@@ -24,14 +24,16 @@ class Axis extends React.Component {
         const {type, scale} = this.props;
 
         switch (type) {
-            case "Top":
-                return {x: scale.range()[1] + 20, y: 0};
-            case "Right":
-                return {x: 20, y: 0};
-            case "Bottom":
-                return {x: scale.range()[1] + 25, y: 25};
-            case "Left":
-                return {x: -25, y: 0};
+        case "Top":
+            return {x: scale.range()[1] + 20, y: 0};
+        case "Right":
+            return {x: 20, y: 0};
+        case "Bottom":
+            return {x: scale.range()[1] + 25, y: 25};
+        case "Left":
+            return {x: -25, y: 0};
+        default:
+            return {x: 0, y: 0};
         }
     }
 

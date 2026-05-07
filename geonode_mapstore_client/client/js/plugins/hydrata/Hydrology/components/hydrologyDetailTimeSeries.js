@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
@@ -74,6 +74,7 @@ const columns = [
 ];
 
 
+// eslint-disable-next-line no-shadow -- props intentionally named after action creators (mapDispatchToProps shorthand)
 const HydrologyTimeSeries = ({ activeHydrologyItem, replaceTimeSeriesRowData, updateTimeSeriesRowData }) => {
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);

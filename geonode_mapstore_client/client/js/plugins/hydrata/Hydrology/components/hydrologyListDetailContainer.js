@@ -156,6 +156,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                         className={"hydrology-button"}
                         style={{backgroundColor: "darkred"}}
                         onClick={() => {
+                            // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
                             if (window.confirm('This action can not be undone. Are you sure?')) {
                                 this.props.deleteHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem);
                             }

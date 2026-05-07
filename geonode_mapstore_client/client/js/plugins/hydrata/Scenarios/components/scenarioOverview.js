@@ -211,6 +211,7 @@ class ScenarioOverviewClass extends React.Component {
                                     <Button
                                         bsStyle="danger"
                                         bsSize="xsmall"
+                                        // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
                                         onClick={() => {if (window.confirm('Are you sure?')) { this.props.deleteScenario(this.props.mapId, scen);}}}
                                         style={{'borderRadius': '3px', 'opacity': 0.7}}
                                         className={scen.unsaved ? 'disabled' : null}

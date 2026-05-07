@@ -5,10 +5,7 @@ import {Modal, Button} from "react-bootstrap";
 import ReactDataGrid from 'react-data-grid';
 import { Filters } from "react-data-grid-addons";
 const {
-    NumericFilter,
-    AutoCompleteFilter,
-    MultiSelectFilter,
-    SingleSelectFilter
+    NumericFilter
 } = Filters;
 
 import Message from '@mapstore/framework/components/I18N/Message';
@@ -76,7 +73,7 @@ class SwammDataGridClass extends React.Component {
             </Modal>
         );
     }
-    handleChange(event) {
+    handleChange(_event) {
     }
 
     columnDefaults = {

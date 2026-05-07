@@ -75,6 +75,7 @@ const BmpOverrideFields = ({
         const reductionField = `${pathway}_${pollutant}_load_reduction`;
         const isPinned = isFieldPinned(storedBmpForm, reductionField);
         const storedValue = storedBmpForm?.[percentFieldName];
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         const displayValue = storedValue != null
             ? parseFloat(storedValue).toFixed(0)
             : '';

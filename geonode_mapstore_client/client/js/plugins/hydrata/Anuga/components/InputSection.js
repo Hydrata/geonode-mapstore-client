@@ -91,7 +91,7 @@ const InputSection = ({
                                 fontSize: "smaller",
                                 textAlign: "right",
                                 marginRight: "8px",
-                                float: "right"
+                                "float": "right"
                             }}
                             onClick={handlePlusClick}
                             aria-label={inputVisible ? "Save" : "Add new"}

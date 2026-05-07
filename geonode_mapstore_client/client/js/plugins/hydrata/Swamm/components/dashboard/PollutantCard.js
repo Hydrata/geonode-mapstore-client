@@ -41,7 +41,7 @@ const getNormalizationSuffix = (normalizationMode) => {
     return '';
 };
 
-const CustomTooltipTwo = ({ active, payload, label, tooltipKey }) => {
+const CustomTooltipTwo = ({ active, payload, label: _label, tooltipKey }) => {
     if (active && payload && payload.length && tooltipKey) {
         return payload.map(bar => {
             if (bar.dataKey === tooltipKey) {

@@ -127,14 +127,14 @@ const HGevalSignupForm = ({
                                 ? <Message msgId="hydrata.hgeval.loggingIn" />
                                 : <Message msgId="hydrata.hgeval.creatingAccount" />
                             }
-                          </span>
+                        </span>
                         : <span>
                             <span className="glyphicon glyphicon-download-alt" />{' '}
                             {isLogin
                                 ? <Message msgId="hydrata.hgeval.logInAndSave" />
                                 : <Message msgId="hydrata.hgeval.createAccountAndSave" />
                             }
-                          </span>
+                        </span>
                     }
                 </button>
             </form>

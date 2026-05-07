@@ -1,7 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-const Spinner = require('react-spinkit');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {

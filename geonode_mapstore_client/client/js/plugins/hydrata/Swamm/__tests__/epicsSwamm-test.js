@@ -3,12 +3,10 @@ import Rx from 'rxjs';
 import {
     initSwammEpic,
     catchBmpFeatureClick,
-    filterBmpEpic,
-    downloadBmpReportEpic
+    filterBmpEpic
 } from '../epicsSwamm';
 import {
     INIT_SWAMM,
-    SET_SWAMM_PROJECT_DATA,
     TOGGLE_BMP_TYPE_VISIBILITY,
     TOGGLE_BMP_STATUS_VISIBILITY,
     SET_ALL_BMP_TYPES_VISIBILITY,
@@ -145,13 +143,13 @@ describe('SWAMM Epics', () => {
             // easily mock axios in this context, we just verify the filter passes
             // by checking the observable doesn't immediately complete empty.
             // The actual HTTP call will fail but that's OK for this filter test.
-            let filterPassed = false;
+            let _filterPassed = false;
 
             catchBmpFeatureClick(action$, store)
                 .take(1)
                 .timeout(1000)
                 .subscribe(
-                    () => { filterPassed = true; },
+                    () => { _filterPassed = true; },
                     () => {
                         // Error from axios call means filter DID pass
                         // This is the expected path in a unit test without HTTP mock

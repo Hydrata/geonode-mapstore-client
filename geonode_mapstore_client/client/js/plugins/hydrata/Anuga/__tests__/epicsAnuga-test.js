@@ -10,15 +10,8 @@ import { __setVisibilityForTests } from '../epics/pollingEpics';
 import {
     INIT_ANUGA,
     START_ANUGA_MODEL_CREATION_POLLING,
-    STOP_ANUGA_MODEL_CREATION_POLLING,
-    CANCEL_ANUGA_RUN,
-    RETRY_ANUGA_RUN,
-    RUN_ANUGA_SCENARIO,
-    SAVE_NETWORK
+    STOP_ANUGA_MODEL_CREATION_POLLING
 } from '../actionsAnuga';
-import {
-    START_ACTIVE_RUN_POLLING
-} from '../actions/pollingActions';
 import { SET_OPEN_MENU_GROUP_ID } from '../../SimpleView/actionsSimpleView';
 import { CREATE_NEW_FEATURE } from '../../../../../MapStore2/web/client/actions/featuregrid';
 import {

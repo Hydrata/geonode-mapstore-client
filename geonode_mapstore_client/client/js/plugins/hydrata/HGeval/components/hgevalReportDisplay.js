@@ -60,7 +60,9 @@ export function downloadReport(coordinates, form, reportData, rasterValues, warn
         + '<tr><td>Longitude</td><td>' + (coordinates?.lon?.toFixed(6) || '') + '\u00B0</td></tr>\n'
         + '<tr><td>Department</td><td>' + val(admin1?.NAME_1) + '</td></tr>\n'
         + '<tr><td>Municipality</td><td>' + val(admin2?.NAME_2) + '</td></tr>\n'
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         + '<tr><td>Elevation</td><td>' + (rasterValues?.elevation != null ? rasterValues.elevation + ' m' : 'Data not available') + '</td></tr>\n'
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         + (island?.OBJECTID != null ? '<tr><td>Island</td><td>' + (island?.name || 'Yes') + '</td></tr>\n' : '')
         + '</table>\n'
         + '<h2>Groundwater Assessment</h2>\n<table>\n'
@@ -72,7 +74,9 @@ export function downloadReport(coordinates, form, reportData, rasterValues, warn
         + '<tr><td>Aquifer Type</td><td>' + val(geology?.EN_Hyd_Env) + '</td></tr>\n'
         + '</table>\n'
         + '<h2>Rainfall</h2>\n<table>\n'
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         + '<tr><td>Annual Precipitation</td><td>' + (rasterValues?.precip_annual != null ? rasterValues.precip_annual + ' mm' : 'Data not available') + '</td></tr>\n'
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         + '<tr><td>Driest Quarter Precipitation</td><td>' + (rasterValues?.precip_driest_quarter != null ? rasterValues.precip_driest_quarter + ' mm' : 'Data not available') + '</td></tr>\n'
         + '</table>\n'
         + warningsHtml
@@ -98,7 +102,7 @@ export function downloadReport(coordinates, form, reportData, rasterValues, warn
 const HGevalReportDisplay = ({
     coordinates, form, reportData, rasterValues, warnings,
     savedReport, isLoggedIn, signupErrors, signingUp,
-    loginErrors, loggingIn, mapImageDataUrl,
+    loginErrors, loggingIn, mapImageDataUrl: _mapImageDataUrl,
     onSave, onSignupAndSave, onLoginAndSave, onNewReport, onUpdateForm
 }, context) => {
     const admin1 = reportData['geonode:admin_level_1'];
@@ -137,10 +141,12 @@ const HGevalReportDisplay = ({
                         <DataRow label={<Message msgId="hydrata.hgeval.department" />} value={admin1?.NAME_1} />
                         <DataRow label={<Message msgId="hydrata.hgeval.municipality" />} value={admin2?.NAME_2} />
                         <DataRow label={<Message msgId="hydrata.hgeval.elevation" />} value={
+                            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
                             rasterValues?.elevation != null
                                 ? `${rasterValues.elevation} m`
                                 : null
                         } />
+                        {/* eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom */}
                         {island?.OBJECTID != null && (
                             <DataRow label={<Message msgId="hydrata.hgeval.island" />} value={island?.name || 'Yes'} />
                         )}
@@ -167,11 +173,13 @@ const HGevalReportDisplay = ({
                 <table className="table table-condensed">
                     <tbody>
                         <DataRow label={<Message msgId="hydrata.hgeval.annualPrecipitation" />} value={
+                            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
                             rasterValues?.precip_annual != null
                                 ? `${rasterValues.precip_annual} mm`
                                 : null
                         } />
                         <DataRow label={<Message msgId="hydrata.hgeval.driestQuarterPrecipitation" />} value={
+                            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
                             rasterValues?.precip_driest_quarter != null
                                 ? `${rasterValues.precip_driest_quarter} mm`
                                 : null

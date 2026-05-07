@@ -19,9 +19,6 @@ import {
     svDownloadLayer,
     setVisibleUploaderPanel
 } from '../actionsSimpleView';
-import {
-    getOpinionatedObjectIdFromLayerId
-} from '../selectorsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import {show} from "../../../../../MapStore2/web/client/actions/notifications";
@@ -187,23 +184,24 @@ class MenuRowClass extends React.Component {
                     }
                     {
                         <div
-                                className="mapstore-slider dataset-transparency with-tooltip"
-                                onClick={(e) => { e.stopPropagation();}}
-                                style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
-                            >
-                                <Slider
-                                    step={1}
-                                    start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
-                                    range={{
-                                        min: 0,
-                                        max: 100
-                                    }}
-                                    onChange={(values) => {
-                                        this.props.setOpacity(this.props.layer?.id, values);
-                                        trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
-                                    }}
-                                />
-                            </div>
+                            className="mapstore-slider dataset-transparency with-tooltip"
+                            onClick={(e) => { e.stopPropagation();}}
+                            style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
+                        >
+                            <Slider
+                                step={1}
+                                // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+                                start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
+                                range={{
+                                    min: 0,
+                                    max: 100
+                                }}
+                                onChange={(values) => {
+                                    this.props.setOpacity(this.props.layer?.id, values);
+                                    trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
+                                }}
+                            />
+                        </div>
                     }
                 </span>
             </div>

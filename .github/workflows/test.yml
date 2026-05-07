@@ -1,10 +1,9 @@
 # GeoNode Client 5.x CI (tests)
 #
 # Runs lint and Karma in separate jobs so that a lint regression cannot
-# block the unit-test merge gate. Lint is currently advisory-only (180+
-# pre-existing violations across js/plugins/hydrata/* surfaced when push:
-# trigger was added in commit bee3e6571 / TASK-505); a follow-on task tracks
-# clearing the backlog and flipping `continue-on-error` back off.
+# block the unit-test merge gate. Lint is scoped to js/plugins/hydrata/* —
+# upstream MapStore2 / GeoNode-stock code is intentionally excluded to avoid
+# manufacturing merge conflicts on every upstream sync.
 
 name: GeoNode Client 5.x CI (tests)
 
@@ -23,11 +22,8 @@ on:
 
 jobs:
   lint:
-    name: ESLint (advisory)
+    name: ESLint
     runs-on: ubuntu-latest
-    # Advisory until the historical violation backlog is cleared. This job
-    # produces a signal but does not gate merges.
-    continue-on-error: true
     env:
       working-directory: ./geonode_mapstore_client/client
     steps:

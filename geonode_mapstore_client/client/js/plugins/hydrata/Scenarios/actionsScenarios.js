@@ -146,7 +146,7 @@ const runScenario = (mapId, scenario) => {
     return (dispatch) => {
         return axios.post(`/scenarios/api/${mapId}/${scenario.slug}/${scenario.id}/run/`, scenario
         ).then(
-            response => {
+            _response => {
                 dispatch(runScenarioSuccess(scenario));
                 dispatch(fetchScenarioOverview(mapId, scenario.slug));
             }
@@ -177,7 +177,7 @@ const deleteScenario = (mapId, scenario) => {
     return (dispatch) => {
         return axios.delete(`/scenarios/api/${mapId}/${scenario.slug}/${scenario.id}/`, scenario
         ).then(
-            response => {
+            _response => {
                 dispatch(deleteScenarioSuccess(scenario));
             }
         ).catch(

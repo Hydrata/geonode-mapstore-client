@@ -1,7 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Table, Button, OverlayTrigger, Tooltip} from "react-bootstrap";
+import {Button} from "react-bootstrap";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';

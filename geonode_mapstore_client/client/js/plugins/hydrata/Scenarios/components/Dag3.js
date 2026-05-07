@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from 'react-dom';
-import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import * as d3 from "d3";
 import Axis from "./Axis";
@@ -65,10 +64,10 @@ class Node extends React.Component {
             .data(this.props.node)
             .select('circle')
             .attr("r", (d) => d?.size)
-            .attr("transform", (d) => {
+            .attr("transform", (_d) => {
                 return "translate(" + Math.random() * 100 + ", " + Math.random() * 100 + ")";
             });
-            // .call(enterNode);
+        // .call(enterNode);
     }
     componentDidUpdate() {
         this.d3Node
@@ -77,7 +76,7 @@ class Node extends React.Component {
                 return "translate(" + d?.x + "," + d?.y + ")";
             }
             );
-            // .call(updateNode);
+        // .call(updateNode);
     }
     render() {
         return (
@@ -98,7 +97,7 @@ class Link extends React.Component {
             .select(ReactDOM.findDOMNode(this))
             .data(this.props.link)
             .attr("stroke-width", (d) => d?.size);
-            // .call(enterLink);
+        // .call(enterLink);
     }
     componentDidUpdate() {
         this.d3Link
@@ -107,7 +106,7 @@ class Link extends React.Component {
             .attr("y1", (d) => d?.source.y)
             .attr("x2", (d) => d?.target.x)
             .attr("y2", (d) => d?.target.y);
-            // .call(updateLink);
+        // .call(updateLink);
     }
     render() {
         return (
@@ -131,7 +130,7 @@ export default class Dag3 extends React.Component {
         this.d3Graph
             .selectAll('.node')
             .merge(this.d3Graph)
-            .attr("transform", (d) => {
+            .attr("transform", (_d) => {
                 return "translate(" + Math.random() * width + ", " + Math.random() * height + ")";
             })
             .selectAll('.link')
@@ -140,7 +139,7 @@ export default class Dag3 extends React.Component {
             .attr("y1", (d) => d?.source.y)
             .attr("x2", (d) => d?.target.x)
             .attr("y2", (d) => d?.target.y);
-            // .call(updateGraph);
+        // .call(updateGraph);
     };
     state = {
         xScale: d3

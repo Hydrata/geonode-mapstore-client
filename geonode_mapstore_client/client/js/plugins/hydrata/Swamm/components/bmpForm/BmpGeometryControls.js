@@ -7,11 +7,11 @@ const BmpGeometryControls = ({
     requiresFootprint,
     requiresWatershed,
     watershedIsFootprint,
-    changingBmpType,
+    changingBmpType: _changingBmpType,
     bmpOutletLayer,
     bmpFootprintLayer,
     bmpWatershedLayer,
-    showLoadingBmp,
+    showLoadingBmp: _showLoadingBmp,
     toggleLayer,
     setChangingBmpType,
     onDrawBmpStep1
@@ -27,6 +27,7 @@ const BmpGeometryControls = ({
                         type={'button'}
                         className={'swamm-button'}
                         onClick={() => {
+                            // eslint-disable-next-line no-alert -- intentional user confirmation
                             if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
                                 setChangingBmpType(true);
                             }

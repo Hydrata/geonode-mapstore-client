@@ -36,6 +36,7 @@ class ProcessRow extends React.Component {
         if (!process) return null;
 
         const icon = typeIcons[process.process_type] || 'glyphicon-cog';
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         const showProgress = process.status === 'running' && process.progress_pct != null;
 
         return (

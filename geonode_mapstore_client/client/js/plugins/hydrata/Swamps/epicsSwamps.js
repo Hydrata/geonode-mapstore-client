@@ -80,7 +80,7 @@ export const queryLayerAttributesToStoreStep2 = (action$, store) =>
             }
             return null;
         })
-        .mergeMap((action) => Rx.Observable.of(
+        .mergeMap((_action) => Rx.Observable.of(
             query(
                 store.getState()?.gnsettings?.geoserverUrl + '/ows',
                 {

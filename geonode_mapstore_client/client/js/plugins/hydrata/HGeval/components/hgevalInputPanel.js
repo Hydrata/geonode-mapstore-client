@@ -25,6 +25,7 @@ const HGevalInputPanel = ({
 
     // Sync coordinates from map clicks into local input state
     useEffect(() => {
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         if (coordinates?.lon != null && coordinates?.lat != null) {
             setLonStr(Math.abs(coordinates.lon).toFixed(6));
             setLatStr(coordinates.lat.toFixed(6));

@@ -27,8 +27,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 import ScenarioTableRow from './ScenarioTableRow';
 import {validateScenario} from './scenarioHelpers';
-import {toggleTaskMonitorPanel, expandProcess} from '../../TaskMonitor/actionsTaskMonitor';
-import {getProcessForObject} from '../../TaskMonitor/selectorsTaskMonitor';
+import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 
 class AnugaScenarioMenuClass extends React.Component {
     static propTypes = {

@@ -24,7 +24,7 @@ import {SwammBmpChart} from "./swammBmpChart";
 import {SwammBmpFilters} from "./swammBmpFilters";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
-import {bmpByUniqueNameSelector, canEditSwammMap, swammModelGroupIdSelector} from "../selectorsSwamm";
+import {bmpByUniqueNameSelector, canEditSwammMap} from "../selectorsSwamm";
 import {query, toggleSyncWms} from "../../../../../MapStore2/web/client/actions/wfsquery";
 
 import Message from '@mapstore/framework/components/I18N/Message';

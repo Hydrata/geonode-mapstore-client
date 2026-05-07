@@ -13,6 +13,19 @@
     },
     "globals": {
       "__MAPSTORE_PROJECT_CONFIG__": false
+    },
+    "rules": {
+      "no-unused-vars": [
+        2,
+        {
+          "vars": "local",
+          "args": "after-used",
+          "ignoreRestSiblings": true,
+          "argsIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "caughtErrorsIgnorePattern": "^_"
+        }
+      ]
     }
   },
   "scripts": {
@@ -22,7 +35,8 @@
     "test": "karma start karma.conf.single-run.js --colors",
     "test:upstream": "mapstore-project test",
     "test:watch": "mapstore-project test:watch",
-    "lint": "eslint js --ext .jsx,.js --fix",
+    "lint": "eslint js/plugins/hydrata --ext .jsx,.js",
+    "lint:fix": "eslint js/plugins/hydrata --ext .jsx,.js --fix",
     "docs": "jsdoc -r js/plugins js/utils/AppUtils.js ./README.md -d ../../docs -u ../../tutorials -t ./docs-template"
   },
   "author": "GeoSolutions",

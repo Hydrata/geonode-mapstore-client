@@ -4,17 +4,18 @@ function isInt(value) {
 
 function formatMoney(amount, decimalCount = 2, decimal = ".", thousands = ",") {
     try {
-        decimalCount = Math.abs(decimalCount);
-        decimalCount = isNaN(decimalCount) ? 2 : decimalCount;
+        const absDecimalCount = isNaN(Math.abs(decimalCount)) ? 2 : Math.abs(decimalCount);
 
         const negativeSign = amount < 0 ? "-" : "";
 
-        let i = parseInt(amount = Math.abs(Number(amount) || 0).toFixed(decimalCount)).toString();
-        let j = (i.length > 3) ? i.length % 3 : 0;
+        const absAmount = Math.abs(Number(amount) || 0).toFixed(absDecimalCount);
+        const i = parseInt(absAmount, 10).toString();
+        const j = (i.length > 3) ? i.length % 3 : 0;
 
-        return negativeSign + (j ? i.substr(0, j) + thousands : '') + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + thousands) + (decimalCount ? decimal + Math.abs(amount - i).toFixed(decimalCount).slice(2) : "");
+        return negativeSign + (j ? i.substr(0, j) + thousands : '') + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + thousands) + (absDecimalCount ? decimal + Math.abs(absAmount - i).toFixed(absDecimalCount).slice(2) : "");
     } catch (e) {
         console.error(e);
+        return "";
     }
 }
 

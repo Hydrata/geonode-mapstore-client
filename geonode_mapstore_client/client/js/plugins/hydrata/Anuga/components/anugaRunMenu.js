@@ -1,7 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-const Spinner = require('react-spinkit');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -13,7 +12,6 @@ import {
     showManageAccount
 } from "../actionsAnuga";
 import {Table, Button} from "react-bootstrap";
-import {formatMoney} from "@js/plugins/hydrata/Utils/utils";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 

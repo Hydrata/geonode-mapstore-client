@@ -6,10 +6,10 @@ import HGevalProgressIndicator from './hgevalProgressIndicator';
 
 const HGevalContainer = ({
     step, coordinates, form, reportData, rasterValues, warnings,
-    queryProgress, loading, error, validationError, savedReport, isLoggedIn,
+    queryProgress, loading: _loading, error, validationError, savedReport, isLoggedIn,
     signupErrors, signingUp, loginErrors, loggingIn, mapImageDataUrl,
-    rasterApiUrl, reportApiUrl,
-    onSetStep, onSetCoordinates, onUpdateForm, onStartReport,
+    rasterApiUrl: _rasterApiUrl, reportApiUrl: _reportApiUrl,
+    onSetStep: _onSetStep, onSetCoordinates, onUpdateForm, onStartReport,
     onSaveReport, onSignupAndSave, onLoginAndSave, onReset
 }) => {
     // Button is now rendered by SimpleView toolbar; nothing to show when idle

@@ -77,6 +77,7 @@ const BmpActionButtons = ({
                     backgroundColor: "darkred"
                 }}
                 onClick={() => {
+                    // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
                     if (window.confirm('This action can not be undone. Are you sure?')) {
                         deleteBmp(projectId, storedBmpForm?.id);
                         trackEvent('button', 'click', `bmp-delete-${storedBmpForm?.id}`);

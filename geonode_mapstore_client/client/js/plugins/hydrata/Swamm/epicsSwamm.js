@@ -3,12 +3,9 @@ import * as swammApi from './api/swammApi';
 import { isInt } from "../Utils/utils";
 import {
     changeLayerProperties,
-    refreshLayerVersion,
-    addLayer,
     addGroup,
     moveNode
 } from "../../../../MapStore2/web/client/actions/layers";
-import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import { SET_RESOURCE_ID } from '@js/actions/gnresource';
 import {
     INIT_SWAMM,
@@ -55,26 +52,6 @@ import {
 } from "@js/plugins/hydrata/Swamm/selectorsSwamm";
 
 
-const addLayerFromGeonodeResponse = (layerToAdd, store, group) => {
-    let actions = [];
-    if (store.getState().layers.flat.filter(layer => layer?.name === layerToAdd?.name).length === 0) {
-        layerToAdd.visibility = true;
-        layerToAdd.opacity = 1;
-        layerToAdd.group = group;
-        actions.push(addLayer(layerToAdd));
-        actions.push(
-            show({
-                "message": "hydrata.swamm.bmpLayersAdded",
-                "title": "hydrata.swamm.layersAdded",
-                "uid": 1000,
-                "position": "tc"
-            })
-        );
-    }
-    return Rx.Observable.from(actions);
-};
-
-
 // Shared init logic — used by both primary and fallback triggers
 const swammInitFlow = (mapId, store) =>
     Rx.Observable.from(
@@ -84,47 +61,47 @@ const swammInitFlow = (mapId, store) =>
                 return { status: 999 };
             })
     )
-    .filter(response1 => response1?.status <= 400)
-    .filter(() => !!store.getState()?.security?.user)
-    .switchMap(response1 => {
-        const projectId = response1.data.projectId;
-        return Rx.Observable.merge(
+        .filter(response1 => response1?.status <= 400)
+        .filter(() => !!store.getState()?.security?.user)
+        .switchMap(response1 => {
+            const projectId = response1.data.projectId;
+            return Rx.Observable.merge(
             // Project details — runs in parallel with reference data
-            Rx.Observable.from(swammApi.getProject(projectId))
-                .switchMap(response2 => Rx.Observable.of(
-                    setSwammProjectData(response2.data),
-                    setSvConfig(response2.data?.simple_view_config)
-                ))
-                .catch((err) => { console.warn('initSwammEpic: getProject failed', err); return Rx.Observable.empty(); }),
-            // 8 reference data calls — only need projectId, not project response
-            Rx.Observable.from(swammApi.getBmpTypes(projectId))
-                .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data)))
-                .catch((err) => { console.warn('initSwammEpic: getBmpTypes failed', err); return Rx.Observable.empty(); }),
-            Rx.Observable.from(swammApi.getGroupProfiles())
-                .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles)))
-                .catch((err) => { console.warn('initSwammEpic: getGroupProfiles failed', err); return Rx.Observable.empty(); }),
-            Rx.Observable.from(swammApi.getUserGroupMemberships())
-                .switchMap((r) => Rx.Observable.of(fetchUserGroupMembershipsSuccess(r.data?.group_profile_slugs)))
-                .catch((err) => { console.warn('initSwammEpic: getUserGroupMemberships failed', err); return Rx.Observable.empty(); }),
-            Rx.Observable.from(swammApi.getBmpStatuses(projectId))
-                .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data)))
-                .catch((err) => { console.warn('initSwammEpic: getBmpStatuses failed', err); return Rx.Observable.empty(); }),
-            Rx.Observable.from(swammApi.getTargets(projectId))
-                .switchMap((r) => Rx.Observable.of(fetchSwammTargetsSuccess(r.data)))
-                .catch((err) => { console.warn('initSwammEpic: getTargets failed', err); return Rx.Observable.empty(); }),
-            Rx.Observable.from(swammApi.getBmpTypeGroups(projectId))
-                .switchMap((r) => Rx.Observable.of(updateBmpTypeGroups(r.data)))
-                .catch((err) => { console.warn('initSwammEpic: getBmpTypeGroups failed', err); return Rx.Observable.empty(); }),
-            Rx.Observable.from(swammApi.getErosionData(projectId))
-                .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
-                .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); }),
-            Rx.Observable.from(swammApi.getEngines(projectId))
-                .switchMap((r) => Rx.Observable.of(fetchSwammEnginesSuccess(r.data)))
-                .catch((err) => { console.warn('initSwammEpic: getEngines failed', err); return Rx.Observable.empty(); })
-        ).concat(
-            Rx.Observable.of(applyInitialBmpFilter())
-        );
-    });
+                Rx.Observable.from(swammApi.getProject(projectId))
+                    .switchMap(response2 => Rx.Observable.of(
+                        setSwammProjectData(response2.data),
+                        setSvConfig(response2.data?.simple_view_config)
+                    ))
+                    .catch((err) => { console.warn('initSwammEpic: getProject failed', err); return Rx.Observable.empty(); }),
+                // 8 reference data calls — only need projectId, not project response
+                Rx.Observable.from(swammApi.getBmpTypes(projectId))
+                    .switchMap((r) => Rx.Observable.of(fetchSwammBmpTypesSuccess(r.data)))
+                    .catch((err) => { console.warn('initSwammEpic: getBmpTypes failed', err); return Rx.Observable.empty(); }),
+                Rx.Observable.from(swammApi.getGroupProfiles())
+                    .switchMap((r) => Rx.Observable.of(fetchGroupProfilesSuccess(r.data?.group_profiles)))
+                    .catch((err) => { console.warn('initSwammEpic: getGroupProfiles failed', err); return Rx.Observable.empty(); }),
+                Rx.Observable.from(swammApi.getUserGroupMemberships())
+                    .switchMap((r) => Rx.Observable.of(fetchUserGroupMembershipsSuccess(r.data?.group_profile_slugs)))
+                    .catch((err) => { console.warn('initSwammEpic: getUserGroupMemberships failed', err); return Rx.Observable.empty(); }),
+                Rx.Observable.from(swammApi.getBmpStatuses(projectId))
+                    .switchMap((r) => Rx.Observable.of(fetchSwammBmpStatusesSuccess(r.data)))
+                    .catch((err) => { console.warn('initSwammEpic: getBmpStatuses failed', err); return Rx.Observable.empty(); }),
+                Rx.Observable.from(swammApi.getTargets(projectId))
+                    .switchMap((r) => Rx.Observable.of(fetchSwammTargetsSuccess(r.data)))
+                    .catch((err) => { console.warn('initSwammEpic: getTargets failed', err); return Rx.Observable.empty(); }),
+                Rx.Observable.from(swammApi.getBmpTypeGroups(projectId))
+                    .switchMap((r) => Rx.Observable.of(updateBmpTypeGroups(r.data)))
+                    .catch((err) => { console.warn('initSwammEpic: getBmpTypeGroups failed', err); return Rx.Observable.empty(); }),
+                Rx.Observable.from(swammApi.getErosionData(projectId))
+                    .switchMap((r) => Rx.Observable.of(setSwammErosionData(r.data)))
+                    .catch((err) => { console.warn('initSwammEpic: getErosionData failed', err); return Rx.Observable.empty(); }),
+                Rx.Observable.from(swammApi.getEngines(projectId))
+                    .switchMap((r) => Rx.Observable.of(fetchSwammEnginesSuccess(r.data)))
+                    .catch((err) => { console.warn('initSwammEpic: getEngines failed', err); return Rx.Observable.empty(); })
+            ).concat(
+                Rx.Observable.of(applyInitialBmpFilter())
+            );
+        });
 
 // Primary trigger: fires early on SET_RESOURCE_ID (~3.3s instead of ~6.8s)
 export const initSwammEpic = (action$, store) =>
@@ -207,7 +184,7 @@ export const catchBmpFeatureClick = (action$, store) =>
         });
 
 // VectorDraw callback: handle successful feature save from VectorDraw plugin
-export const vectorDrawSwammCompleteEpic = (action$, store) =>
+export const vectorDrawSwammCompleteEpic = (action$, _store) =>
     action$.ofType('SWAMM:VECTOR_DRAW_COMPLETE')
         .switchMap((action) => {
             const { fid, meta } = action;
@@ -237,7 +214,7 @@ export const autoSaveBmpFormEpic = (action$, store) =>
         )
         .flatMap(() => {
             return Rx.Observable.of(
-                submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id),
+                submitBmpForm(store.getState()?.swamm?.storedBmpForm, store.getState()?.swamm?.projectData?.id)
             );
         });
 

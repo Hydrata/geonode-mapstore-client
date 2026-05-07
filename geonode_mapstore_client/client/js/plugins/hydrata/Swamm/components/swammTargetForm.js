@@ -64,7 +64,7 @@ class SwammTargetFormClass extends React.Component {
                             <div
                                 style={{marginRight: "15px"}}
                             >
-                             <Message msgId="hydrata.swamm.targetName" />:
+                                <Message msgId="hydrata.swamm.targetName" />:
                             </div>
                             <input
                                 type="text"
@@ -80,7 +80,7 @@ class SwammTargetFormClass extends React.Component {
                         </div>
                         <div className={"swamm-target-row"}>
                             <div>
-                              <Message msgId="hydrata.swamm.description" />:
+                                <Message msgId="hydrata.swamm.description" />:
                             </div>
                         </div>
                         <div className={"swamm-target-row"}>
@@ -102,7 +102,7 @@ class SwammTargetFormClass extends React.Component {
                                 <div
                                     style={{width: "90px"}}
                                 >
-                                  <Message msgId="hydrata.swamm.nitrogen" />:
+                                    <Message msgId="hydrata.swamm.nitrogen" />:
                                 </div>
                                 <input
                                     type="number"
@@ -121,7 +121,7 @@ class SwammTargetFormClass extends React.Component {
                                 <div
                                     style={{width: "90px"}}
                                 >
-                                  <Message msgId="hydrata.swamm.phosphorus" />:
+                                    <Message msgId="hydrata.swamm.phosphorus" />:
                                 </div>
                                 <input
                                     type="number"
@@ -140,7 +140,7 @@ class SwammTargetFormClass extends React.Component {
                                 <div
                                     style={{width: "90px"}}
                                 >
-                                  <Message msgId="hydrata.swamm.sediment" />:
+                                    <Message msgId="hydrata.swamm.sediment" />:
                                 </div>
                                 <input
                                     type="number"
@@ -210,6 +210,7 @@ class SwammTargetFormClass extends React.Component {
                                 className={"swamm-button"}
                                 style={{backgroundColor: "darkred"}}
                                 onClick={() => {
+                                    // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
                                     if (window.confirm('This action can not be undone. Are you sure?')) {
                                         this.props.deleteTarget(this.props.projectId, this.props.targetForm?.id);
                                     }

@@ -4,15 +4,6 @@ import {addLayer} from '../../../../../MapStore2/web/client/actions/layers';
 import {CREATE_NEW_FEATURE} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import * as anugaApi from '../api/anugaApi';
 import {
-    addAnugaBoundary,
-    addAnugaInflow,
-    addAnugaFriction,
-    addAnugaStructure,
-    addAnugaMeshRegion,
-    addNetwork,
-    addCatchment,
-    addNodes,
-    addLinks,
     CANCEL_ANUGA_RUN,
     RETRY_ANUGA_RUN,
     SAVE_NETWORK,
@@ -115,7 +106,7 @@ export const deleteAnugaScenarioEpic = (action$, store) =>
 
 // Bug #2 fix: restructured so runAnugaScenarioSuccess dispatch is emitted
 // into the observable chain (previously swallowed by .then inside .concatMap)
-export const runAnugaScenarioEpic = (action$, store) =>
+export const runAnugaScenarioEpic = (action$, _store) =>
     action$
         .ofType(RUN_ANUGA_SCENARIO)
         .concatMap((action) =>
@@ -339,7 +330,7 @@ export const updateAnugaModelTitle = (action$, store) =>
 
 // -- Resources list --------------------------------------------------------
 
-export const getAnugaResourcesEpic = (action$, {getState = () => {}}) =>
+export const getAnugaResourcesEpic = (action$, {getState: _getState = () => {}}) =>
     action$.ofType(UPDATE_ANUGA_RESOURCES)
         .switchMap(() => {
             return Rx.Observable.defer(

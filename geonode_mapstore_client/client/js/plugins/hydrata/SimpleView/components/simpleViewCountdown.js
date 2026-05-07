@@ -12,6 +12,7 @@ export class Countdown extends React.Component {
     componentDidMount() {
         this.startTimer();
         let timeLeftVar = this.secondsToTime(this.state.seconds);
+        // eslint-disable-next-line react/no-did-mount-set-state -- one-shot derived state for initial display; no re-render loop
         this.setState({time: timeLeftVar});
     }
 

@@ -2,7 +2,6 @@ import React from "react";
 import {Table} from "react-bootstrap";
 import {
     isFieldPinned,
-    parseLoadReductionFieldName,
     recomputeTotalsForPollutant,
     buildUnpinAllUpdates,
     PATHWAYS
@@ -18,18 +17,6 @@ const getFieldName = (pathway, pollutant, metric) => {
     if (metric === 'previous') return `${pathway}_previous_${pollutant}_load`;
     if (metric === 'reduction') return `${pathway}_${pollutant}_load_reduction`;
     return `${pathway}_new_${pollutant}_load`;
-};
-
-/**
- * Build the total field name for a given pollutant and metric.
- * Previous: total_previous_{pollutant}_load
- * Reduction: total_{pollutant}_load_reduction
- * New: total_new_{pollutant}_load
- */
-const getTotalFieldName = (pollutant, metric) => {
-    if (metric === 'previous') return `total_previous_${pollutant}_load`;
-    if (metric === 'reduction') return `total_${pollutant}_load_reduction`;
-    return `total_new_${pollutant}_load`;
 };
 
 /**
@@ -74,6 +61,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
         // the same displayed precision, skip ALL dispatch. This prevents a
         // blur-without-change from accidentally pinning the cell.
         const original = storedBmpForm?.[fieldName];
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         const originalDisplayed = original != null
             ? parseFloat(original.toPrecision(3))
             : 0;
@@ -129,6 +117,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
 
     const handleCellClick = (fieldName, value) => {
         setEditingCell(fieldName);
+        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         setEditValue(value != null ? parseFloat(value.toPrecision(3)).toString() : '0');
     };
 
@@ -186,6 +175,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                 style={cellStyle}
                 title={pinned ? PINNED_TOOLTIP : 'Click to edit'}
             >
+                {/* eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom */}
                 {displayValue != null ? parseFloat(displayValue.toPrecision(3)) : '—'}
                 {pinned && (
                     <span
@@ -201,6 +191,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
     const renderTotalCell = (fieldName) => {
         const val = storedBmpForm?.[fieldName];
         return (
+            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
             <td>{val != null ? parseFloat(val.toPrecision(3)) : '—'}</td>
         );
     };

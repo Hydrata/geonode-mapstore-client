@@ -7,9 +7,6 @@ import {fetchScenariosConfig, toggleScenarioManager, showScenarioOverview, hideS
 import {ScenarioOverview} from "./scenarioOverview";
 import Message from '@mapstore/framework/components/I18N/Message';
 
-// eslint-disable-next-line camelcase
-const menuGroupsSelector = (state) => state?.projectManager?.data?.map_store_menu_groups || [];
-
 const panelStyle = {
     position: "absolute",
     zIndex: 1021,

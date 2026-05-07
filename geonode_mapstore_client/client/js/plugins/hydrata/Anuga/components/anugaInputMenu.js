@@ -24,9 +24,6 @@ import {
     createAnugaStructure,
     createAnugaMeshRegion,
     createNetwork,
-    createCatchment,
-    createNodes,
-    createLinks,
     setCreatingAnugaLayer,
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
@@ -130,6 +127,7 @@ class AnugaInputMenuClass extends React.Component {
             this.state.networkInputVisible &&
             this.didNetworkSubmit
         ) {
+            // eslint-disable-next-line react/no-did-update-set-state -- gated transition: only fires when `isCreatingAnugaLayer` flips false AFTER a local submit; bounded by didNetworkSubmit guard
             this.setState({networkInputVisible: false});
             this.didNetworkSubmit = false;
         }
@@ -241,7 +239,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.advanced" /></span>
                                 <span
                                     className={`btn glyphicon menu-row-glyph glyph-settings ${this.state.showAdvanced ? "glyphicon-chevron-down" : "glyphicon-chevron-right"}`}
-                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px", float: "right" }}
+                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px", "float": "right" }}
                                     onClick={() => {
                                         this.setState(prevState => ({showAdvanced: !prevState.showAdvanced}));
                                         trackEvent('button', 'click', 'anuga-input-menu-show-advanced');

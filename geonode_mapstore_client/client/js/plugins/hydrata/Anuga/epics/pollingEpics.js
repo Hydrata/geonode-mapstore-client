@@ -340,7 +340,7 @@ export const pollActiveRunStatusEpic = (action$) =>
                 });
         });
 
-export const pollComparisonEpic = (action$, store) =>
+export const pollComparisonEpic = (action$, _store) =>
     action$
         .ofType(SET_OPEN_MENU_GROUP_ID)
         .filter(action => action?.openMenuGroupId === 'Results')

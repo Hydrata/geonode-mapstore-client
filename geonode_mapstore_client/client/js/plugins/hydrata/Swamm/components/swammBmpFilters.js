@@ -269,7 +269,7 @@ class SwammBmpFiltersClass extends React.Component {
         );
     }
 
-    handleChange(event) {
+    handleChange(_event) {
     }
 }
 

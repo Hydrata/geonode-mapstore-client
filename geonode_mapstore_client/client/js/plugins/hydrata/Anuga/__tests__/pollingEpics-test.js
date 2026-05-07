@@ -319,7 +319,6 @@ describe('Polling Epics', () => {
                         // Should add parent groups + child groups
                         expect(emitted.length).toBeGreaterThan(0);
                         // Check at least the parent groups are added
-                        const groupNames = emitted.map(a => a.group || a.id);
                         expect(emitted.some(a => a.id === 'Input Data' || a.group === 'Input Data')).toBe(true);
                         done();
                     }
@@ -493,12 +492,12 @@ describe('Polling Epics', () => {
             // First emit dispatches addLayer + show
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
             setTimeout(() => {
-                const after_first = emitted.length;
+                const afterFirst = emitted.length;
                 // Second emit (same process id) must be a no-op
                 subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
                 setTimeout(() => {
-                    expect(after_first).toBe(2);
-                    expect(emitted.length).toBe(after_first);
+                    expect(afterFirst).toBe(2);
+                    expect(emitted.length).toBe(afterFirst);
                     sub.unsubscribe();
                     done();
                 }, 100);
@@ -909,7 +908,7 @@ describe('Polling Epics', () => {
                     expect(emitted.length).toBeGreaterThan(9);
                     // Hide → inner switchMap unsubscribes the timer.
                     visibilitySubject.next(false);
-                } catch (err) { sub.unsubscribe(); return done(err); }
+                } catch (err) { sub.unsubscribe(); done(err); return; }
                 const countAtHide = emitted.length;
 
                 setTimeout(() => {
@@ -918,7 +917,7 @@ describe('Polling Epics', () => {
                         expect(emitted.length).toBe(countAtHide);
                         // Show → inner switchMap re-subscribes timer; fires t=0.
                         visibilitySubject.next(true);
-                    } catch (err) { sub.unsubscribe(); return done(err); }
+                    } catch (err) { sub.unsubscribe(); done(err); return; }
 
                     setTimeout(() => {
                         try {

@@ -1,6 +1,7 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect} from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
+// eslint-disable-next-line import/named -- LabelList is exported by recharts but resolver/version mismatch trips static analyzer; runtime works
 import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, LabelList, Tooltip, ResponsiveContainer} from 'recharts';
 import {
     setActiveHydrologyItem,
@@ -111,6 +112,7 @@ const columns = [
     })
 ];
 
+// eslint-disable-next-line no-shadow -- prop intentionally named after the action creator (mapDispatchToProps shorthand)
 const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
     const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
     const handleWindowResize = () => {
@@ -124,7 +126,7 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }) => {
     }, []);
     const flexDirection = windowWidth < 1800 ? 'column' : 'row';
     // Table
-    const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
+    const [_columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
     const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
     useEffect(() => {

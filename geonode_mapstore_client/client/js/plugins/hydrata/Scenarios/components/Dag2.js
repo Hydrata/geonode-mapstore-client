@@ -1,5 +1,4 @@
 import React from "react";
-import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 import * as d3 from "d3";
 
@@ -41,13 +40,13 @@ class Dag extends React.PureComponent {
             <g transform={`translate(${x}, ${y})`}>
                 {this.props?.data?.map(
                     (obj) => {
-                        const x = Math.random();
-                        const y = Math.random();
+                        const cx = Math.random();
+                        const cy = Math.random();
                         return (
                             <React.Fragment>
                                 <circle
-                                    cx={xScale(x)}
-                                    cy={yScale(y)}
+                                    cx={xScale(cx)}
+                                    cy={yScale(cy)}
                                     fill={'yellow'}
                                     r="5"
                                 />
