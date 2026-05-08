@@ -506,6 +506,36 @@ span.menu-row-glyph {
 .menu-row-glyph.glyph-delete { color: var(--sv-glyph-delete, darkred); }
 .menu-row-glyph.glyph-save { color: var(--sv-glyph-save, limegreen); }
 .menu-row-glyph.glyph-settings { color: var(--sv-glyph-settings, #325f93); }
+.menu-row-glyph.glyph-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* V2P-714 — inline cascade-delete error rendered under the row when the BE
+   returns 409 ACTIVE_REFERENCES (blocked by active scenarios) or any other
+   delete failure. */
+.menu-row-delete-error {
+    flex-basis: 100%;
+    margin-top: 2px;
+    padding: 4px 8px;
+    background: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
+    border-left: 3px solid var(--sv-delete-error-border, #dc3545);
+    color: var(--sv-delete-error-color, #842029);
+    font-size: 12px;
+    border-radius: 2px;
+}
+.menu-row-delete-error-message {
+    font-weight: 500;
+}
+.menu-row-delete-error-list {
+    margin: 4px 0 0 16px;
+    padding: 0;
+    list-style: disc;
+}
+.menu-row-delete-error-list li {
+    margin: 0;
+}
 
 .menu-row-text {
     font-size: 14px;

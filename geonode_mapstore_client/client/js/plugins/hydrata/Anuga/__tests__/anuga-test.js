@@ -685,4 +685,178 @@ describe('Anuga Plugin', () => {
             expect(state.resources.boundaries).toEqual([{ id: 1, title: 'Boundary 1' }]);
         });
     });
+
+    // V2P-714 — cascade-delete dataset rows
+    describe('V2P-714 cascade-delete action creators', () => {
+        const {
+            DELETE_ELEVATION,
+            DELETE_ELEVATION_SUCCESS,
+            DELETE_ELEVATION_BLOCKED,
+            DELETE_ELEVATION_ERROR,
+            DELETE_BOUNDARY,
+            DELETE_BOUNDARY_SUCCESS,
+            DELETE_BOUNDARY_BLOCKED,
+            DELETE_BOUNDARY_ERROR,
+            DELETE_FRICTION,
+            DELETE_FRICTION_SUCCESS,
+            DELETE_FRICTION_BLOCKED,
+            DELETE_FRICTION_ERROR,
+            DELETE_INFLOW,
+            DELETE_INFLOW_SUCCESS,
+            DELETE_INFLOW_BLOCKED,
+            DELETE_INFLOW_ERROR,
+            deleteElevation,
+            deleteElevationSuccess,
+            deleteElevationBlocked,
+            deleteElevationError,
+            deleteBoundary,
+            deleteBoundarySuccess,
+            deleteBoundaryBlocked,
+            deleteBoundaryError,
+            deleteFriction,
+            deleteFrictionSuccess,
+            deleteFrictionBlocked,
+            deleteFrictionError,
+            deleteInflow,
+            deleteInflowSuccess,
+            deleteInflowBlocked,
+            deleteInflowError
+        } = require('../actionsAnuga');
+
+        it('deleteElevation creates {type, projectId, id, layerId}', () => {
+            const a = deleteElevation(7, 99, 'l1');
+            expect(a.type).toBe(DELETE_ELEVATION);
+            expect(a.projectId).toBe(7);
+            expect(a.id).toBe(99);
+            expect(a.layerId).toBe('l1');
+        });
+        it('deleteElevationSuccess creates {type, id, layerId}', () => {
+            const a = deleteElevationSuccess(99, 'l1');
+            expect(a.type).toBe(DELETE_ELEVATION_SUCCESS);
+            expect(a.id).toBe(99);
+            expect(a.layerId).toBe('l1');
+        });
+        it('deleteElevationBlocked carries blocking + message', () => {
+            const a = deleteElevationBlocked(99, [{type: 'scenario', id: 1, name: 'A', state: 'computing'}], 'cannot delete');
+            expect(a.type).toBe(DELETE_ELEVATION_BLOCKED);
+            expect(a.id).toBe(99);
+            expect(a.blocking).toEqual([{type: 'scenario', id: 1, name: 'A', state: 'computing'}]);
+            expect(a.message).toBe('cannot delete');
+        });
+        it('deleteElevationError carries error', () => {
+            const a = deleteElevationError(99, {status: 500, data: {}});
+            expect(a.type).toBe(DELETE_ELEVATION_ERROR);
+            expect(a.id).toBe(99);
+            expect(a.error.status).toBe(500);
+        });
+
+        it('deleteBoundary actions are typed distinctly', () => {
+            expect(deleteBoundary(1, 2).type).toBe(DELETE_BOUNDARY);
+            expect(deleteBoundarySuccess(2).type).toBe(DELETE_BOUNDARY_SUCCESS);
+            expect(deleteBoundaryBlocked(2, [], '').type).toBe(DELETE_BOUNDARY_BLOCKED);
+            expect(deleteBoundaryError(2, {}).type).toBe(DELETE_BOUNDARY_ERROR);
+        });
+        it('deleteFriction actions are typed distinctly', () => {
+            expect(deleteFriction(1, 2).type).toBe(DELETE_FRICTION);
+            expect(deleteFrictionSuccess(2).type).toBe(DELETE_FRICTION_SUCCESS);
+            expect(deleteFrictionBlocked(2, [], '').type).toBe(DELETE_FRICTION_BLOCKED);
+            expect(deleteFrictionError(2, {}).type).toBe(DELETE_FRICTION_ERROR);
+        });
+        it('deleteInflow actions are typed distinctly', () => {
+            expect(deleteInflow(1, 2).type).toBe(DELETE_INFLOW);
+            expect(deleteInflowSuccess(2).type).toBe(DELETE_INFLOW_SUCCESS);
+            expect(deleteInflowBlocked(2, [], '').type).toBe(DELETE_INFLOW_BLOCKED);
+            expect(deleteInflowError(2, {}).type).toBe(DELETE_INFLOW_ERROR);
+        });
+    });
+
+    describe('V2P-714 cascade-delete reducer', () => {
+        // SET_* constants come from the top-of-file imports; redeclaring here
+        // would shadow them.
+        const {
+            DELETE_ELEVATION,
+            DELETE_ELEVATION_SUCCESS,
+            DELETE_ELEVATION_BLOCKED,
+            DELETE_ELEVATION_ERROR,
+            DELETE_BOUNDARY_SUCCESS,
+            DELETE_FRICTION_SUCCESS,
+            DELETE_INFLOW_SUCCESS
+        } = require('../actionsAnuga');
+
+        const seed = (type, slot, data) => reducer(undefined, { type, [slot]: data });
+
+        it('DELETE_ELEVATION marks deleting:true on the target row', () => {
+            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [
+                { id: 1, title: 'A' }, { id: 2, title: 'B' }
+            ]);
+            state = reducer(state, { type: DELETE_ELEVATION, projectId: 7, id: 1, layerId: 'l1' });
+            expect(state.resources.elevations[0].deleting).toBe(true);
+            expect(state.resources.elevations[1].deleting).toBe(undefined);
+        });
+
+        it('DELETE_ELEVATION_SUCCESS removes the row by id', () => {
+            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [
+                { id: 1, title: 'A' }, { id: 2, title: 'B' }
+            ]);
+            state = reducer(state, { type: DELETE_ELEVATION_SUCCESS, id: 1 });
+            expect(state.resources.elevations.length).toBe(1);
+            expect(state.resources.elevations[0].id).toBe(2);
+        });
+
+        it('DELETE_ELEVATION_BLOCKED stamps blockingError with blocking list', () => {
+            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [{ id: 1, title: 'A' }]);
+            state = reducer(state, {
+                type: DELETE_ELEVATION_BLOCKED,
+                id: 1,
+                message: 'Cannot delete: scenario X references this',
+                blocking: [{ type: 'scenario', id: 11, name: 'X', state: 'computing' }]
+            });
+            const row = state.resources.elevations[0];
+            expect(row.deleting).toBe(false);
+            expect(row.blockingError.message).toBe('Cannot delete: scenario X references this');
+            expect(row.blockingError.blocking.length).toBe(1);
+            expect(row.blockingError.blocking[0].name).toBe('X');
+            expect(row.deleteError).toBe(null);
+        });
+
+        it('DELETE_ELEVATION_ERROR stamps deleteError', () => {
+            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [{ id: 1, title: 'A' }]);
+            state = reducer(state, {
+                type: DELETE_ELEVATION_ERROR,
+                id: 1,
+                error: { status: 500, data: { detail: 'boom' } }
+            });
+            const row = state.resources.elevations[0];
+            expect(row.deleting).toBe(false);
+            expect(row.blockingError).toBe(null);
+            expect(row.deleteError.status).toBe(500);
+        });
+
+        it('DELETE_BOUNDARY_SUCCESS removes from boundaries slot only', () => {
+            let state = seed(SET_ANUGA_BOUNDARY_DATA, 'data', [
+                { id: 1, title: 'A' }, { id: 2, title: 'B' }
+            ]);
+            state = reducer(state, { type: DELETE_BOUNDARY_SUCCESS, id: 2 });
+            expect(state.resources.boundaries.length).toBe(1);
+            expect(state.resources.boundaries[0].id).toBe(1);
+        });
+
+        it('DELETE_FRICTION_SUCCESS removes from frictions slot only', () => {
+            let state = seed(SET_ANUGA_FRICTION_DATA, 'data', [{ id: 5, title: 'F' }]);
+            state = reducer(state, { type: DELETE_FRICTION_SUCCESS, id: 5 });
+            expect(state.resources.frictions).toEqual([]);
+        });
+
+        it('DELETE_INFLOW_SUCCESS removes from inflows slot only', () => {
+            let state = seed(SET_ANUGA_INFLOW_DATA, 'data', [{ id: 7, title: 'I' }]);
+            state = reducer(state, { type: DELETE_INFLOW_SUCCESS, id: 7 });
+            expect(state.resources.inflows).toEqual([]);
+        });
+
+        it('SUCCESS for a missing id leaves the slot unchanged', () => {
+            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [{ id: 1, title: 'A' }]);
+            state = reducer(state, { type: DELETE_ELEVATION_SUCCESS, id: 999 });
+            expect(state.resources.elevations.length).toBe(1);
+        });
+    });
 });

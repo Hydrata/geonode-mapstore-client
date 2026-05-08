@@ -29,8 +29,31 @@ import {
     canEditLayer as canEditLayerSelector,
     canDeleteLayer as canDeleteLayerSelector,
     canDownloadLayer as canDownloadLayerSelector,
-    getProjectMyRole
+    getProjectMyRole,
+    getProjectId
 } from '../../Anuga/selectorsAnuga';
+import {
+    deleteElevation,
+    deleteBoundary,
+    deleteFriction,
+    deleteInflow
+} from '../../Anuga/actionsAnuga';
+
+// V2P-714 — derive the AnugaModel dataset type from layer.group.
+// Group names are set by the BE (gn_anuga/utils.py::get_anuga_group +
+// anuga_map_config.json). Returns one of:
+//   'elevation' | 'boundary' | 'friction' | 'inflow' | null
+// Other Input Data types (structures, mesh-regions, full-mesh, catchments,
+// nodes, links) deliberately return null — V2P-714 only ships cascade-delete
+// for the four elevation/boundary/friction/inflow dataset types whose
+// post_delete signals are wired in Phases 1+2.
+const _GROUP_TO_DELETE_TYPE = {
+    'Input Data.Elevations': 'elevation',
+    'Input Data.Boundaries': 'boundary',
+    'Input Data.Friction Maps': 'friction',
+    'Input Data.Inflows': 'inflow'
+};
+const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
 const isGlobalExtent = (bounds) =>
     bounds.minx <= -180 && bounds.miny <= -90 && bounds.maxx >= 180 && bounds.maxy >= 90;
@@ -65,7 +88,15 @@ class MenuRowClass extends React.Component {
         showExtentUnavailable: PropTypes.func,
         // V2P-02 — wired from mapStateToProps via getProjectMyRole + state.security.user.pk
         myRole: PropTypes.string,
-        currentUserId: PropTypes.number
+        currentUserId: PropTypes.number,
+        // V2P-714 — cascade-delete plumbing
+        projectId: PropTypes.number,
+        deleteRow: PropTypes.object,  // {id, deleting, blockingError, deleteError}
+        deleteSliceRows: PropTypes.array,
+        deleteElevation: PropTypes.func,
+        deleteBoundary: PropTypes.func,
+        deleteFriction: PropTypes.func,
+        deleteInflow: PropTypes.func
     };
 
     constructor(props) {
@@ -182,15 +213,15 @@ class MenuRowClass extends React.Component {
                     {
                         (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
                             <span
-                                className={"btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"}
-                                onClick={() => {
-                                    this.props.removeNode(this.props.layer.id, 'layers');
-                                    this.props.removeLayer(this.props.layer.id);
-                                    this.props.refreshlayerVersion(this.props.layer.id);
-                                    trackEvent('button', `click`, `simpleview-menu-row-delete-${this.props.layer.title}`);
-                                }}
+                                className={
+                                    "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
+                                    + (this.props.deleteRow?.deleting ? " glyph-disabled" : "")
+                                }
+                                onClick={this.props.deleteRow?.deleting ? undefined : this.handleDeleteClick}
+                                aria-disabled={this.props.deleteRow?.deleting ? true : undefined}
                             /> : null
                     }
+                    {this.renderDeleteFeedback()}
                     {
                         <div
                             className="mapstore-slider dataset-transparency with-tooltip"
@@ -237,6 +268,121 @@ class MenuRowClass extends React.Component {
             });
     };
 
+    // V2P-714 — confirm + dispatch the right cascade-delete action based on
+    // layer.group. For non-cascade types (structures / catchments / nodes
+    // etc.) we fall back to the legacy redux-only path so this change is
+    // a strict superset of behaviour for the 4 typed datasets and a no-op
+    // elsewhere.
+    handleDeleteClick = () => {
+        const layer = this.props.layer;
+        if (!layer) return;
+        const datasetType = getDeleteDatasetType(layer);
+        const datasetId = this.getDatasetIdForLayer(layer);
+        // eslint-disable-next-line no-alert -- intentional user confirmation, matches Hydrata house style (ScenarioTableRow / scenarioOverview)
+        if (!confirm(`Delete "${layer.title}"? This cannot be undone.`)) {
+            return;
+        }
+        trackEvent('button', `click`, `simpleview-menu-row-delete-${layer.title}`);
+        if (datasetType && datasetId !== null && this.props.projectId) {
+            const dispatcher = {
+                elevation: this.props.deleteElevation,
+                boundary: this.props.deleteBoundary,
+                friction: this.props.deleteFriction,
+                inflow: this.props.deleteInflow
+            }[datasetType];
+            if (dispatcher) {
+                dispatcher(this.props.projectId, datasetId, layer.id);
+                return;
+            }
+        }
+        // Legacy path for non-cascade types (structures, catchments, etc.):
+        // Redux-only removal. Backend cascade for these types lands in a
+        // future task (V2P-714 only covers the four cascade-clean types).
+        this.props.removeNode(layer.id, 'layers');
+        this.props.removeLayer(layer.id);
+        this.props.refreshlayerVersion(layer.id);
+    };
+
+    // V2P-714 — resolve the AnugaModel pk from a MapStore layer. The
+    // `state.anuga.resources.<type>` rows carry the pk we need; we match by
+    // gn_layer (matches DatasetSerializer.pk attached to the layer) or by
+    // layer.id (when the row was stub-created via V2P-21 perms-merge).
+    getDatasetIdForLayer = (layer) => {
+        const datasetType = getDeleteDatasetType(layer);
+        if (!datasetType) return null;
+        const sliceKey = {
+            elevation: 'elevations',
+            boundary: 'boundaries',
+            friction: 'frictions',
+            inflow: 'inflows'
+        }[datasetType];
+        const rows = this.props.deleteSliceRows || [];
+        // Prefer matching on gn_layer (the AnugaModel.gn_layer FK to GeoNode
+        // Dataset.pk, which is also the MapStore layer id once V2P-78
+        // sync ran). Fall back to layer.extendedParams?.mapLayer?.dataset?.pk
+        // and finally to a name-based search on layer.name.
+        const layerPk = layer?.extendedParams?.mapLayer?.dataset?.pk
+            ?? layer?.dataset?.pk
+            ?? null;
+        for (const row of rows) {
+            if (!row) continue;
+            if (layerPk !== null && row.gn_layer === layerPk) return row.id;
+            if (layerPk !== null && row.gn_layer_id === layerPk) return row.id;
+            // name-based fallback: layer.name="geonode:ele_xxxx" and row.gn_layer_name carries the same alternate
+            if (layer?.name && row.gn_layer_name && layer.name.endsWith(row.gn_layer_name)) return row.id;
+        }
+        // Last resort: if there's only one row in the slice and the type
+        // matched, return that row's id. This protects against schema drift
+        // where neither gn_layer nor gn_layer_name made it onto the row.
+        if (rows.length === 1 && rows[0]?.id !== undefined) return rows[0].id;
+        // Eslint avoidance — sliceKey is read for symbolic completeness; the
+        // resolution above already used the correct slice via
+        // mapStateToProps. Return null when nothing matched.
+        void sliceKey;
+        return null;
+    };
+
+    renderDeleteFeedback = () => {
+        const row = this.props.deleteRow;
+        if (!row) return null;
+        if (row.blockingError) {
+            const blocking = Array.isArray(row.blockingError.blocking) ? row.blockingError.blocking : [];
+            const fallbackMsg = blocking.length > 0
+                ? `Cannot delete: ${blocking.length} active scenario${blocking.length === 1 ? '' : 's'} reference${blocking.length === 1 ? 's' : ''} this dataset.`
+                : 'Cannot delete: this dataset is referenced by active scenarios.';
+            return (
+                <div className="menu-row-delete-error" role="alert">
+                    <div className="menu-row-delete-error-message">
+                        {row.blockingError.message || fallbackMsg}
+                    </div>
+                    {blocking.length > 0 ? (
+                        <ul className="menu-row-delete-error-list">
+                            {blocking.map((b, i) => (
+                                <li key={`${b?.type || 'scenario'}-${b?.id || i}`}>
+                                    {b?.name || `Scenario ${b?.id}`}
+                                    {b?.state ? ` (${b.state})` : ''}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </div>
+            );
+        }
+        if (row.deleteError) {
+            const status = row.deleteError?.status;
+            let msg = 'Delete failed. Please try again.';
+            if (status === 401 || status === 403) {
+                msg = 'You do not have permission to delete this dataset.';
+            }
+            return (
+                <div className="menu-row-delete-error" role="alert">
+                    <div className="menu-row-delete-error-message">{msg}</div>
+                </div>
+            );
+        }
+        return null;
+    };
+
     // V2P-02 — these delegate to the pure helpers in selectorsAnuga.js so the
     // role + ownership rules stay consistent with canEditScenarioByRole and
     // are exercised by selectorsAnuga-test.js. Two narrowing extras kept as
@@ -274,7 +420,7 @@ class MenuRowClass extends React.Component {
     };
 }
 
-const mapStateToProps = (state) => {
+const mapStateToProps = (state, ownProps) => {
     // TODO: move this check to within localConfig.json
     const excludedSites = ["placeholder.com"];
     const isExcludedSite = excludedSites.map(site => !state?.gnsettings?.geonodeUrl.includes(site)).includes(false);
@@ -283,6 +429,37 @@ const mapStateToProps = (state) => {
     // the orphan upload glyph. jobName is injected into geoNodeSettings by the
     // hydrata `_geonode_config.html` template (see hydrata.context_processors.job_name).
     const jobName = state?.gnsettings?.jobName;
+    // V2P-714 — surface the matching anuga.resources slice and per-row
+    // delete state for the trash button to consume.
+    const layer = ownProps?.layer;
+    const datasetType = layer ? getDeleteDatasetType(layer) : null;
+    const sliceKey = {
+        elevation: 'elevations',
+        boundary: 'boundaries',
+        friction: 'frictions',
+        inflow: 'inflows'
+    }[datasetType];
+    const sliceRows = sliceKey ? (state?.anuga?.resources?.[sliceKey] || []) : [];
+    // Match the row by gn_layer first, then by name fallback (mirrors the
+    // logic in getDatasetIdForLayer so reducer-stamped state shows up here).
+    let deleteRow = null;
+    if (sliceRows.length > 0) {
+        const layerPk = layer?.extendedParams?.mapLayer?.dataset?.pk
+            ?? layer?.dataset?.pk
+            ?? null;
+        for (const row of sliceRows) {
+            if (!row) continue;
+            if (layerPk !== null && (row.gn_layer === layerPk || row.gn_layer_id === layerPk)) {
+                deleteRow = row;
+                break;
+            }
+            if (layer?.name && row.gn_layer_name && layer.name.endsWith(row.gn_layer_name)) {
+                deleteRow = row;
+                break;
+            }
+        }
+        if (!deleteRow && sliceRows.length === 1) deleteRow = sliceRows[0];
+    }
     return {
         canEditMap: !isExcludedSite && state?.gnresource?.initialResource?.perms?.includes('change_resourcebase'),
         canUploadErosion: jobName === 'swamm',
@@ -291,7 +468,11 @@ const mapStateToProps = (state) => {
         // and editors+ see it on all layers, even when layer.perms is sparse
         // (e.g. lazy-fetched datasets pre-V2P-21).
         myRole: getProjectMyRole(state),
-        currentUserId: state?.security?.user?.pk
+        currentUserId: state?.security?.user?.pk,
+        // V2P-714 — cascade-delete plumbing
+        projectId: getProjectId(state),
+        deleteSliceRows: sliceRows,
+        deleteRow
     };
 };
 
@@ -320,7 +501,12 @@ const mapDispatchToProps = ( dispatch ) => {
             uid: "zoom-extent-unavailable",
             position: "tc",
             autoDismiss: 6
-        }, "warning"))
+        }, "warning")),
+        // V2P-714 — cascade-delete dispatchers
+        deleteElevation: (projectId, id, layerId) => dispatch(deleteElevation(projectId, id, layerId)),
+        deleteBoundary: (projectId, id, layerId) => dispatch(deleteBoundary(projectId, id, layerId)),
+        deleteFriction: (projectId, id, layerId) => dispatch(deleteFriction(projectId, id, layerId)),
+        deleteInflow: (projectId, id, layerId) => dispatch(deleteInflow(projectId, id, layerId))
     };
 };
 
@@ -328,5 +514,8 @@ const MenuRow = connect(mapStateToProps, mapDispatchToProps)(MenuRowClass);
 
 
 export {
-    MenuRow
+    MenuRow,
+    // V2P-714 — exposed for unit tests so the layer.group → dataset-type
+    // mapping can be exercised without standing up a Provider tree.
+    getDeleteDatasetType
 };

@@ -30,7 +30,9 @@ describe('anugaApi', () => {
             'getMemberships', 'addMembership', 'updateMembership', 'deleteMembership',
             'searchUsers', 'updateProjectVisibility',
             // V2P-21 — batch perm fetch
-            'getMyPerms'
+            'getMyPerms',
+            // V2P-714 — cascade-delete dataset rows
+            'deleteElevationV2', 'deleteBoundaryV2', 'deleteFrictionV2', 'deleteInflowV2'
         ];
 
         expectedFunctions.forEach(name => {
@@ -39,11 +41,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 31 API functions (V2P-79: dropped getAvailableLayers)', () => {
+        it('should export exactly 35 API functions (V2P-79: -1 dropped getAvailableLayers; V2P-714: +4 cascade deletes)', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(31);
+            expect(exportedFunctions.length).toBe(35);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -179,6 +181,20 @@ describe('anugaApi', () => {
 
         it('updateProjectVisibility takes 2 arguments (projectId, visibility)', () => {
             expect(anugaApi.updateProjectVisibility.length).toBe(2);
+        });
+
+        // V2P-714 — cascade-delete signatures
+        it('deleteElevationV2 takes 2 arguments (projectId, elevationId)', () => {
+            expect(anugaApi.deleteElevationV2.length).toBe(2);
+        });
+        it('deleteBoundaryV2 takes 2 arguments (projectId, boundaryId)', () => {
+            expect(anugaApi.deleteBoundaryV2.length).toBe(2);
+        });
+        it('deleteFrictionV2 takes 2 arguments (projectId, frictionId)', () => {
+            expect(anugaApi.deleteFrictionV2.length).toBe(2);
+        });
+        it('deleteInflowV2 takes 2 arguments (projectId, inflowId)', () => {
+            expect(anugaApi.deleteInflowV2.length).toBe(2);
         });
     });
 
@@ -458,6 +474,35 @@ describe('anugaApi', () => {
         it('createResource for "links" routes to V2 /links/', (done) => {
             anugaApi.createResource(7, 'links', {project: 7, title: 'x'}).then(() => {
                 expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/links/');
+                done();
+            }).catch(done);
+        });
+
+        // V2P-714 — cascade-delete dataset DELETE wrappers
+        it('deleteElevationV2 hits V2 /elevations/{id}/', (done) => {
+            anugaApi.deleteElevationV2(7, 99).then(() => {
+                expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/elevations/99/');
+                done();
+            }).catch(done);
+        });
+
+        it('deleteBoundaryV2 hits V2 /boundaries/{id}/', (done) => {
+            anugaApi.deleteBoundaryV2(7, 99).then(() => {
+                expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/boundaries/99/');
+                done();
+            }).catch(done);
+        });
+
+        it('deleteFrictionV2 hits V2 /frictions/{id}/', (done) => {
+            anugaApi.deleteFrictionV2(7, 99).then(() => {
+                expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/frictions/99/');
+                done();
+            }).catch(done);
+        });
+
+        it('deleteInflowV2 hits V2 /inflows/{id}/', (done) => {
+            anugaApi.deleteInflowV2(7, 99).then(() => {
+                expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/inflows/99/');
                 done();
             }).catch(done);
         });

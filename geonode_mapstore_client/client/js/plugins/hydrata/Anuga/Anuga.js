@@ -44,7 +44,11 @@ import {
     taskCompleteLayerEpic,
     anugaMapLayerGroupEpic,
     triggerFetchMyPermsOnInitEpic,
-    fetchMyPermsEpic
+    fetchMyPermsEpic,
+    deleteElevationEpic,
+    deleteBoundaryEpic,
+    deleteFrictionEpic,
+    deleteInflowEpic
 } from "./epicsAnuga";
 import {
     fetchMembershipsEpic,
@@ -107,6 +111,10 @@ export default createPlugin('Anuga', {
         deleteMembershipEpic,
         updateProjectVisibilityEpic,
         triggerFetchMyPermsOnInitEpic,
-        fetchMyPermsEpic
+        fetchMyPermsEpic,
+        deleteElevationEpic,
+        deleteBoundaryEpic,
+        deleteFrictionEpic,
+        deleteInflowEpic
     }
 });

@@ -688,4 +688,196 @@ describe('ANUGA Epics', () => {
             }, 50);
         });
     });
+
+    describe('V2P-714 cascade-delete epics', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            deleteElevationEpic,
+            deleteBoundaryEpic,
+            deleteFrictionEpic,
+            deleteInflowEpic
+        } = require('../epics/crudEpics');
+        const {
+            DELETE_ELEVATION,
+            DELETE_ELEVATION_SUCCESS,
+            DELETE_ELEVATION_BLOCKED,
+            DELETE_ELEVATION_ERROR,
+            DELETE_BOUNDARY,
+            DELETE_FRICTION,
+            DELETE_INFLOW
+        } = require('../actionsAnuga');
+
+        const REMOVE_NODE = 'REMOVE_NODE';
+        const REMOVE_LAYER = 'REMOVE_LAYER';
+
+        const storeWithProjectId = (id) => ({
+            getState: () => ({ anuga: { projects: { data: { id } } } })
+        });
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('deleteElevationEpic: 204 -> SUCCESS + removeNode + removeLayer', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(204);
+            const action$ = mockActions([{
+                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteElevationEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(3);
+                    expect(emitted[0].type).toBe(DELETE_ELEVATION_SUCCESS);
+                    expect(emitted[0].id).toBe(99);
+                    expect(emitted[1].type).toBe(REMOVE_NODE);
+                    expect(emitted[2].type).toBe(REMOVE_LAYER);
+                    done();
+                });
+        });
+
+        it('deleteElevationEpic: 409 ACTIVE_REFERENCES -> BLOCKED with blocking list', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(409, {
+                error_code: 'ACTIVE_REFERENCES',
+                message: 'Cannot delete: 2 active scenarios reference this elevation',
+                blocking: [
+                    { type: 'scenario', id: 11, name: 'Scenario A', state: 'computing' },
+                    { type: 'scenario', id: 12, name: 'Scenario B', state: 'queued' }
+                ]
+            });
+            const action$ = mockActions([{
+                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteElevationEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(DELETE_ELEVATION_BLOCKED);
+                    expect(emitted[0].id).toBe(99);
+                    expect(emitted[0].blocking.length).toBe(2);
+                    expect(emitted[0].blocking[0].name).toBe('Scenario A');
+                    expect(emitted[0].message).toBe('Cannot delete: 2 active scenarios reference this elevation');
+                    done();
+                });
+        });
+
+        it('deleteElevationEpic: 500 -> ERROR (no SUCCESS)', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(500, { detail: 'boom' });
+            const action$ = mockActions([{
+                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteElevationEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(DELETE_ELEVATION_ERROR);
+                    expect(emitted[0].id).toBe(99);
+                    expect(emitted[0].error.status).toBe(500);
+                    done();
+                });
+        });
+
+        it('deleteElevationEpic: 403 -> ERROR (caller distinguishes via .status)', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(403, { detail: 'forbidden' });
+            const action$ = mockActions([{
+                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteElevationEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(DELETE_ELEVATION_ERROR);
+                    expect(emitted[0].error.status).toBe(403);
+                    done();
+                });
+        });
+
+        it('deleteElevationEpic: 409 without ACTIVE_REFERENCES error_code -> ERROR (not BLOCKED)', (done) => {
+            // Defensive: we only treat 409 as "blocked by scenarios" when the
+            // BE explicitly tags error_code:ACTIVE_REFERENCES. Other 409s
+            // should fall through to the generic error path.
+            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(409, { detail: 'conflict' });
+            const action$ = mockActions([{
+                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteElevationEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(DELETE_ELEVATION_ERROR);
+                    done();
+                });
+        });
+
+        it('deleteElevationEpic: success without layerId emits only SUCCESS', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(204);
+            const action$ = mockActions([{
+                type: DELETE_ELEVATION, projectId: 7, id: 99
+            }]);
+            const emitted = [];
+            deleteElevationEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(DELETE_ELEVATION_SUCCESS);
+                    done();
+                });
+        });
+
+        it('deleteBoundaryEpic hits /boundaries/ (URL parity)', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/boundaries/12/').reply(204);
+            const action$ = mockActions([{
+                type: DELETE_BOUNDARY, projectId: 7, id: 12, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteBoundaryEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/7/boundaries/12/');
+                    expect(emitted.length).toBe(3);
+                    done();
+                });
+        });
+
+        it('deleteFrictionEpic hits /frictions/ (URL parity)', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/frictions/13/').reply(204);
+            const action$ = mockActions([{
+                type: DELETE_FRICTION, projectId: 7, id: 13, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteFrictionEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/7/frictions/13/');
+                    expect(emitted.length).toBe(3);
+                    done();
+                });
+        });
+
+        it('deleteInflowEpic hits /inflows/ (URL parity)', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/inflows/14/').reply(204);
+            const action$ = mockActions([{
+                type: DELETE_INFLOW, projectId: 7, id: 14, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteInflowEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/7/inflows/14/');
+                    expect(emitted.length).toBe(3);
+                    done();
+                });
+        });
+
+        it('falls back to projectId from store when not in action', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/42/elevations/99/').reply(204);
+            const action$ = mockActions([{
+                // no projectId on action — epic should resolve from store
+                type: DELETE_ELEVATION, id: 99, layerId: 'l1'
+            }]);
+            const emitted = [];
+            deleteElevationEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/42/elevations/99/');
+                    expect(emitted[0].type).toBe(DELETE_ELEVATION_SUCCESS);
+                    done();
+                });
+        });
+    });
 });

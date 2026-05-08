@@ -37,6 +37,30 @@ const FETCH_MY_PERMS = 'ANUGA:FETCH_MY_PERMS';
 const SET_ANUGA_RESOURCE_PERMS = 'ANUGA:SET_ANUGA_RESOURCE_PERMS';
 const SET_PERMS_LOAD_FAILED = 'ANUGA:SET_PERMS_LOAD_FAILED';
 
+// V2P-714 — cascade-delete dataset rows (elevation/boundary/friction/inflow).
+// Each type has 4 actions: start, success (204), blocked (409 with blocking
+// scenarios list), error (other failures). Per-type because the reducer
+// targets distinct slots (state.anuga.resources.{elevations,boundaries,...}).
+const DELETE_ELEVATION = 'ANUGA:DELETE_ELEVATION';
+const DELETE_ELEVATION_SUCCESS = 'ANUGA:DELETE_ELEVATION_SUCCESS';
+const DELETE_ELEVATION_BLOCKED = 'ANUGA:DELETE_ELEVATION_BLOCKED';
+const DELETE_ELEVATION_ERROR = 'ANUGA:DELETE_ELEVATION_ERROR';
+
+const DELETE_BOUNDARY = 'ANUGA:DELETE_BOUNDARY';
+const DELETE_BOUNDARY_SUCCESS = 'ANUGA:DELETE_BOUNDARY_SUCCESS';
+const DELETE_BOUNDARY_BLOCKED = 'ANUGA:DELETE_BOUNDARY_BLOCKED';
+const DELETE_BOUNDARY_ERROR = 'ANUGA:DELETE_BOUNDARY_ERROR';
+
+const DELETE_FRICTION = 'ANUGA:DELETE_FRICTION';
+const DELETE_FRICTION_SUCCESS = 'ANUGA:DELETE_FRICTION_SUCCESS';
+const DELETE_FRICTION_BLOCKED = 'ANUGA:DELETE_FRICTION_BLOCKED';
+const DELETE_FRICTION_ERROR = 'ANUGA:DELETE_FRICTION_ERROR';
+
+const DELETE_INFLOW = 'ANUGA:DELETE_INFLOW';
+const DELETE_INFLOW_SUCCESS = 'ANUGA:DELETE_INFLOW_SUCCESS';
+const DELETE_INFLOW_BLOCKED = 'ANUGA:DELETE_INFLOW_BLOCKED';
+const DELETE_INFLOW_ERROR = 'ANUGA:DELETE_INFLOW_ERROR';
+
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
 }
@@ -157,6 +181,60 @@ function setPermsLoadFailed(failed) {
     return { type: SET_PERMS_LOAD_FAILED, failed };
 }
 
+// V2P-714 action creators. `id` is the AnugaModel pk (Elevation.id, etc.);
+// `layerId` is the MapStore layer id used by removeNode/removeLayer.
+function deleteElevation(projectId, id, layerId) {
+    return { type: DELETE_ELEVATION, projectId, id, layerId };
+}
+function deleteElevationSuccess(id, layerId) {
+    return { type: DELETE_ELEVATION_SUCCESS, id, layerId };
+}
+function deleteElevationBlocked(id, blocking, message) {
+    return { type: DELETE_ELEVATION_BLOCKED, id, blocking, message };
+}
+function deleteElevationError(id, error) {
+    return { type: DELETE_ELEVATION_ERROR, id, error };
+}
+
+function deleteBoundary(projectId, id, layerId) {
+    return { type: DELETE_BOUNDARY, projectId, id, layerId };
+}
+function deleteBoundarySuccess(id, layerId) {
+    return { type: DELETE_BOUNDARY_SUCCESS, id, layerId };
+}
+function deleteBoundaryBlocked(id, blocking, message) {
+    return { type: DELETE_BOUNDARY_BLOCKED, id, blocking, message };
+}
+function deleteBoundaryError(id, error) {
+    return { type: DELETE_BOUNDARY_ERROR, id, error };
+}
+
+function deleteFriction(projectId, id, layerId) {
+    return { type: DELETE_FRICTION, projectId, id, layerId };
+}
+function deleteFrictionSuccess(id, layerId) {
+    return { type: DELETE_FRICTION_SUCCESS, id, layerId };
+}
+function deleteFrictionBlocked(id, blocking, message) {
+    return { type: DELETE_FRICTION_BLOCKED, id, blocking, message };
+}
+function deleteFrictionError(id, error) {
+    return { type: DELETE_FRICTION_ERROR, id, error };
+}
+
+function deleteInflow(projectId, id, layerId) {
+    return { type: DELETE_INFLOW, projectId, id, layerId };
+}
+function deleteInflowSuccess(id, layerId) {
+    return { type: DELETE_INFLOW_SUCCESS, id, layerId };
+}
+function deleteInflowBlocked(id, blocking, message) {
+    return { type: DELETE_INFLOW_BLOCKED, id, blocking, message };
+}
+function deleteInflowError(id, error) {
+    return { type: DELETE_INFLOW_ERROR, id, error };
+}
+
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
@@ -186,5 +264,22 @@ module.exports = {
     UPDATE_PROJECT_VISIBILITY_REQUEST, updateProjectVisibilityRequest,
     FETCH_MY_PERMS, fetchMyPerms,
     SET_ANUGA_RESOURCE_PERMS, setAnugaResourcePerms,
-    SET_PERMS_LOAD_FAILED, setPermsLoadFailed
+    SET_PERMS_LOAD_FAILED, setPermsLoadFailed,
+    // V2P-714 — cascade-delete dataset rows
+    DELETE_ELEVATION, deleteElevation,
+    DELETE_ELEVATION_SUCCESS, deleteElevationSuccess,
+    DELETE_ELEVATION_BLOCKED, deleteElevationBlocked,
+    DELETE_ELEVATION_ERROR, deleteElevationError,
+    DELETE_BOUNDARY, deleteBoundary,
+    DELETE_BOUNDARY_SUCCESS, deleteBoundarySuccess,
+    DELETE_BOUNDARY_BLOCKED, deleteBoundaryBlocked,
+    DELETE_BOUNDARY_ERROR, deleteBoundaryError,
+    DELETE_FRICTION, deleteFriction,
+    DELETE_FRICTION_SUCCESS, deleteFrictionSuccess,
+    DELETE_FRICTION_BLOCKED, deleteFrictionBlocked,
+    DELETE_FRICTION_ERROR, deleteFrictionError,
+    DELETE_INFLOW, deleteInflow,
+    DELETE_INFLOW_SUCCESS, deleteInflowSuccess,
+    DELETE_INFLOW_BLOCKED, deleteInflowBlocked,
+    DELETE_INFLOW_ERROR, deleteInflowError
 };

@@ -15,7 +15,23 @@ import {
     UPDATE_COMPUTE_INSTANCE_SUCCESS,
     UPDATE_NETWORK,
     SET_ANUGA_RESOURCE_PERMS,
-    SET_PERMS_LOAD_FAILED
+    SET_PERMS_LOAD_FAILED,
+    DELETE_ELEVATION,
+    DELETE_ELEVATION_SUCCESS,
+    DELETE_ELEVATION_BLOCKED,
+    DELETE_ELEVATION_ERROR,
+    DELETE_BOUNDARY,
+    DELETE_BOUNDARY_SUCCESS,
+    DELETE_BOUNDARY_BLOCKED,
+    DELETE_BOUNDARY_ERROR,
+    DELETE_FRICTION,
+    DELETE_FRICTION_SUCCESS,
+    DELETE_FRICTION_BLOCKED,
+    DELETE_FRICTION_ERROR,
+    DELETE_INFLOW,
+    DELETE_INFLOW_SUCCESS,
+    DELETE_INFLOW_BLOCKED,
+    DELETE_INFLOW_ERROR
 } from "../actionsAnuga";
 
 // V2P-21 — map BE (kebab-case) resource_type keys to FE (camelCase plural)
@@ -62,6 +78,33 @@ const initialState = {
     comparisons: [],
     computeInstances: []
 };
+
+// V2P-714 helpers — mutate per-row delete state without dropping the row.
+function _markDeleting(rows, id) {
+    return (rows || []).map(r => r?.id === id
+        ? { ...r, deleting: true, blockingError: null, deleteError: null }
+        : r
+    );
+}
+
+function _markBlocked(rows, id, message, blocking) {
+    return (rows || []).map(r => r?.id === id
+        ? {
+            ...r,
+            deleting: false,
+            blockingError: { message: message || '', blocking: Array.isArray(blocking) ? blocking : [] },
+            deleteError: null
+        }
+        : r
+    );
+}
+
+function _markError(rows, id, error) {
+    return (rows || []).map(r => r?.id === id
+        ? { ...r, deleting: false, blockingError: null, deleteError: error || { message: 'Delete failed' } }
+        : r
+    );
+}
 
 export default (state = initialState, action) => {
     switch (action.type) {
@@ -162,6 +205,42 @@ export default (state = initialState, action) => {
     }
     case SET_PERMS_LOAD_FAILED:
         return { ...state, permsLoadFailed: !!action.failed };
+    // V2P-714 — cascade-delete dataset rows. Each pair is (start, success,
+    // blocked, error). On start we set deleting:true on the row. On success
+    // we drop the row entirely; on blocked/error we clear deleting and stamp
+    // a per-row error so the SimpleView row component can render inline.
+    case DELETE_ELEVATION:
+        return { ...state, elevations: _markDeleting(state.elevations, action.id) };
+    case DELETE_ELEVATION_SUCCESS:
+        return { ...state, elevations: (state.elevations || []).filter(r => r?.id !== action.id) };
+    case DELETE_ELEVATION_BLOCKED:
+        return { ...state, elevations: _markBlocked(state.elevations, action.id, action.message, action.blocking) };
+    case DELETE_ELEVATION_ERROR:
+        return { ...state, elevations: _markError(state.elevations, action.id, action.error) };
+    case DELETE_BOUNDARY:
+        return { ...state, boundaries: _markDeleting(state.boundaries, action.id) };
+    case DELETE_BOUNDARY_SUCCESS:
+        return { ...state, boundaries: (state.boundaries || []).filter(r => r?.id !== action.id) };
+    case DELETE_BOUNDARY_BLOCKED:
+        return { ...state, boundaries: _markBlocked(state.boundaries, action.id, action.message, action.blocking) };
+    case DELETE_BOUNDARY_ERROR:
+        return { ...state, boundaries: _markError(state.boundaries, action.id, action.error) };
+    case DELETE_FRICTION:
+        return { ...state, frictions: _markDeleting(state.frictions, action.id) };
+    case DELETE_FRICTION_SUCCESS:
+        return { ...state, frictions: (state.frictions || []).filter(r => r?.id !== action.id) };
+    case DELETE_FRICTION_BLOCKED:
+        return { ...state, frictions: _markBlocked(state.frictions, action.id, action.message, action.blocking) };
+    case DELETE_FRICTION_ERROR:
+        return { ...state, frictions: _markError(state.frictions, action.id, action.error) };
+    case DELETE_INFLOW:
+        return { ...state, inflows: _markDeleting(state.inflows, action.id) };
+    case DELETE_INFLOW_SUCCESS:
+        return { ...state, inflows: (state.inflows || []).filter(r => r?.id !== action.id) };
+    case DELETE_INFLOW_BLOCKED:
+        return { ...state, inflows: _markBlocked(state.inflows, action.id, action.message, action.blocking) };
+    case DELETE_INFLOW_ERROR:
+        return { ...state, inflows: _markError(state.inflows, action.id, action.error) };
     default:
         return state;
     }

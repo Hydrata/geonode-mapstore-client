@@ -1,6 +1,6 @@
 import Rx from "rxjs";
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
-import {addLayer} from '../../../../../MapStore2/web/client/actions/layers';
+import {addLayer, removeLayer, removeNode} from '../../../../../MapStore2/web/client/actions/layers';
 import {CREATE_NEW_FEATURE} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import * as anugaApi from '../api/anugaApi';
 import {
@@ -36,7 +36,24 @@ import {
     compareScenariosSuccess,
     UPDATE_ANUGA_RESOURCES,
     setAnugaResources,
-    startActiveRunPolling
+    startActiveRunPolling,
+    // V2P-714 — cascade-delete dataset rows
+    DELETE_ELEVATION,
+    DELETE_BOUNDARY,
+    DELETE_FRICTION,
+    DELETE_INFLOW,
+    deleteElevationSuccess,
+    deleteElevationBlocked,
+    deleteElevationError,
+    deleteBoundarySuccess,
+    deleteBoundaryBlocked,
+    deleteBoundaryError,
+    deleteFrictionSuccess,
+    deleteFrictionBlocked,
+    deleteFrictionError,
+    deleteInflowSuccess,
+    deleteInflowBlocked,
+    deleteInflowError
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE
@@ -355,3 +372,80 @@ export const getAnugaResourcesEpic = (action$, {getState: _getState = () => {}})
                     );
                 }).startWith(setAnugaResources({loading: true}));
         });
+
+// -- V2P-714: cascade-delete dataset rows ----------------------------------
+// One epic per type. Each calls the V2 DELETE endpoint, then on:
+//   * 204 → dispatch typeSuccess + removeNode + removeLayer
+//   * 409 → typeBlocked with the BE-supplied blocking-scenarios array
+//   * other → typeError
+//
+// Error shape gotcha: MapStore2 libs/ajax.js:158 interceptor rewrites axios
+// rejections so the canonical access is err.status / err.data, not
+// err.response.status / err.response.data. We check both forms defensively
+// because axios-mock-adapter (used by the API regression suite) preserves
+// the err.response.* shape.
+const _readErrStatus = (err) => err?.status ?? err?.response?.status;
+const _readErrData = (err) => err?.data ?? err?.response?.data ?? {};
+
+const makeDeleteEpic = (
+    actionType, apiFn, successAction, blockedAction, errorAction
+) => (action$, store) =>
+    action$
+        .ofType(actionType)
+        .switchMap((action) => {
+            const projectId = action.projectId || getProjectId(store.getState());
+            return Rx.Observable.defer(
+                () => apiFn(projectId, action.id)
+            )
+                .switchMap(() => Rx.Observable.of(
+                    successAction(action.id, action.layerId),
+                    ...(action.layerId ? [
+                        removeNode(action.layerId, 'layers'),
+                        removeLayer(action.layerId)
+                    ] : [])
+                ))
+                .catch((err) => {
+                    const status = _readErrStatus(err);
+                    const data = _readErrData(err);
+                    if (status === 409 && data?.error_code === 'ACTIVE_REFERENCES') {
+                        return Rx.Observable.of(blockedAction(
+                            action.id,
+                            Array.isArray(data.blocking) ? data.blocking : [],
+                            data.message || ''
+                        ));
+                    }
+                    return Rx.Observable.of(errorAction(action.id, {status, data}));
+                });
+        });
+
+export const deleteElevationEpic = makeDeleteEpic(
+    DELETE_ELEVATION,
+    anugaApi.deleteElevationV2,
+    deleteElevationSuccess,
+    deleteElevationBlocked,
+    deleteElevationError
+);
+
+export const deleteBoundaryEpic = makeDeleteEpic(
+    DELETE_BOUNDARY,
+    anugaApi.deleteBoundaryV2,
+    deleteBoundarySuccess,
+    deleteBoundaryBlocked,
+    deleteBoundaryError
+);
+
+export const deleteFrictionEpic = makeDeleteEpic(
+    DELETE_FRICTION,
+    anugaApi.deleteFrictionV2,
+    deleteFrictionSuccess,
+    deleteFrictionBlocked,
+    deleteFrictionError
+);
+
+export const deleteInflowEpic = makeDeleteEpic(
+    DELETE_INFLOW,
+    anugaApi.deleteInflowV2,
+    deleteInflowSuccess,
+    deleteInflowBlocked,
+    deleteInflowError
+);

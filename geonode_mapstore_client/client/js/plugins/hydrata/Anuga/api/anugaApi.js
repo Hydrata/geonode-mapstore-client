@@ -113,6 +113,23 @@ export const updateScenario = (projectId, scenarioId, scenario) =>
 export const deleteScenario = (projectId, scenarioId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/`);
 
+// V2P-714: V2 DELETE wrappers for the 4 cascade-delete dataset types.
+// Backend signals cascade-clean GeoNode Dataset, GeoServer layer, GeoFence
+// rules, S3 TIFs. Returns 204 on success; 409 with {error_code:
+// 'ACTIVE_REFERENCES', blocking: [...]} if active scenarios reference the
+// dataset; 403 for viewers; 401 for anonymous.
+export const deleteElevationV2 = (projectId, elevationId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/elevations/${elevationId}/`);
+
+export const deleteBoundaryV2 = (projectId, boundaryId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/boundaries/${boundaryId}/`);
+
+export const deleteFrictionV2 = (projectId, frictionId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/frictions/${frictionId}/`);
+
+export const deleteInflowV2 = (projectId, inflowId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/inflows/${inflowId}/`);
+
 // V2P-79 / V2P-72: V1 POST /anuga/api/{pid}/scenario/compare/
 //      → V2 POST /api/v2/anuga/projects/{pid}/scenarios/compare/ (CompareView).
 // Body shape now {scenario_one_id, scenario_two_id} per V2 contract.

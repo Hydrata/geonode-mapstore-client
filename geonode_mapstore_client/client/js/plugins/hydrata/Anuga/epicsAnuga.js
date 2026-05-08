@@ -42,7 +42,12 @@ export {
     createFigureEpic,
     prePopulateAnugaFeatureGridWithDefaults,
     updateAnugaModelTitle,
-    getAnugaResourcesEpic
+    getAnugaResourcesEpic,
+    // V2P-714 — cascade-delete dataset rows (elevation/boundary/friction/inflow)
+    deleteElevationEpic,
+    deleteBoundaryEpic,
+    deleteFrictionEpic,
+    deleteInflowEpic
 } from './epics/crudEpics';
 
 export {
