@@ -25,7 +25,17 @@ const testWebpackPath = path.join(
 
 module.exports = function karmaConfig(config) {
     const code = [projectJSPath, frameworkPath];
-    process.env.BABEL_ENV = 'test';
+    // Coverage instrumentation is opt-in: BABEL_ENV='test' triggers the
+    // env.test.plugins=['istanbul'] block in MapStore2/build/babel.config.js.
+    // Default `npm test` skips it (-25 to -45% runtime, no ~18MB coverage HTML).
+    //
+    // CONTRACT: depends on MapStore2/build/babel.config.js exposing
+    // env.test.plugins=['istanbul']. If that block moves upstream, this gate
+    // becomes a silent no-op — the assert in step 3 below will catch it
+    // when COVERAGE=1 is set.
+    if (process.env.COVERAGE === '1') {
+        process.env.BABEL_ENV = 'test';
+    }
 
     const testConfig = getTestConfig({
         files: [testWebpackPath],
@@ -54,6 +64,19 @@ module.exports = function karmaConfig(config) {
     // 2. Ensure sha256 hash function (required for Node >= 17).
     testConfig.webpack.output = testConfig.webpack.output || {};
     testConfig.webpack.output.hashFunction = 'sha256';
+
+    // 3. Drop the 'coverage' reporter when not running with COVERAGE=1.
+    if (process.env.COVERAGE !== '1') {
+        testConfig.reporters = testConfig.reporters.filter(r => r !== 'coverage');
+    }
+
+    // 3a. Tripwire: if COVERAGE=1 was requested but the upstream config no
+    //     longer ships a 'coverage' reporter, fail loud rather than silently
+    //     producing zero-coverage output. Catches future drift in the
+    //     @mapstore/project testConfig contract.
+    if (process.env.COVERAGE === '1' && !testConfig.reporters.includes('coverage')) {
+        throw new Error("COVERAGE=1 set but 'coverage' reporter missing from testConfig — check @mapstore/project testConfig.js and MapStore2/build/babel.config.js env.test.plugins.");
+    }
 
     config.set(testConfig);
 };
