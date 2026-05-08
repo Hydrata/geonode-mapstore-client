@@ -106,5 +106,31 @@ module.exports = function karmaConfig(config) {
     // 7. Quieter slow-test threshold.
     testConfig.reportSlowerThan = 500;
 
+    // 8. Webpack devtool: line-accurate stack traces, ~15-25% faster on warm runs.
+    testConfig.webpack.devtool = 'eval-cheap-module-source-map';
+
+    // 9. Babel-loader: cache transforms + retarget to the headless-Chrome we
+    //    actually run in. The upstream rule at testConfig.webpack.module.rules
+    //    currently sets only { configFile }; we extend rather than replace.
+    const jsRule = testConfig.webpack.module.rules.find(
+        r => r && r.test && r.test.toString() === '/\\.jsx?$/'
+    );
+    if (!jsRule || !jsRule.use || !jsRule.use[0]) {
+        throw new Error('karma.conf.single-run.js: js/jsx rule layout changed upstream — re-audit testConfig.js before proceeding.');
+    }
+    jsRule.use[0].options = Object.assign({}, jsRule.use[0].options, {
+        cacheDirectory: true,
+        cacheCompression: false,
+        targets: { chrome: '120' }
+    });
+
+    // 10. IgnorePlugin: drop moment locales (~70 unused files) and MapStore2
+    //     test-resources (4MB+ of fixtures).
+    const webpack = require('webpack');
+    testConfig.webpack.plugins = (testConfig.webpack.plugins || []).concat([
+        new webpack.IgnorePlugin({ resourceRegExp: /^\.\/locale$/, contextRegExp: /moment$/ }),
+        new webpack.IgnorePlugin({ resourceRegExp: /MapStore2[\\/]web[\\/]client[\\/]test-resources[\\/]/ })
+    ]);
+
     config.set(testConfig);
 };
