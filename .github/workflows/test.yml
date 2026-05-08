@@ -79,17 +79,21 @@ jobs:
         with:
           node-version: 20
 
-      - name: "Cache node modules"
+      - name: "Cache node modules (npm)"
         uses: actions/cache@v4
-        env:
-          cache-name: cache-node-modules
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('geonode_mapstore_client/client/package.json') }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+            ${{ runner.os }}-npm-
+
+      - name: "Cache karma-webpack"
+        uses: actions/cache@v4
+        with:
+          path: geonode_mapstore_client/client/node_modules/.cache/karma-webpack
+          key: ${{ runner.os }}-karma-webpack-${{ hashFiles('geonode_mapstore_client/client/karma.conf.single-run.js', 'geonode_mapstore_client/client/package.json', 'geonode_mapstore_client/client/MapStore2/build/babel.config.js') }}
+          restore-keys: |
+            ${{ runner.os }}-karma-webpack-
 
       - name: "Run npm install"
         run: npm install
