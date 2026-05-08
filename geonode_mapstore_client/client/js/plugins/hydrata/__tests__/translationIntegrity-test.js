@@ -1,9 +1,6 @@
 import expect from 'expect';
 
-const enData = require('../../../../../static/mapstore/hydrata-translations/data.en-US.json');
-const frData = require('../../../../../static/mapstore/hydrata-translations/data.fr-FR.json');
-const esData = require('../../../../../static/mapstore/hydrata-translations/data.es-ES.json');
-const htData = require('../../../../../static/mapstore/hydrata-translations/data.ht-HT.json');
+const { enData, frData, esData, htData } = require('../../../__tests__/fixtures/translations');
 
 const LOCALES = ['en-US', 'fr-FR', 'es-ES', 'ht-HT'];
 const PLUGINS = ['simpleView', 'swamm', 'anuga', 'hydrology', 'hgeval', 'scenarios', 'swamps'];

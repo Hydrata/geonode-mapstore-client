@@ -1,23 +1,6 @@
 import expect from 'expect';
 
-const enData = require('../../../../../../static/mapstore/hydrata-translations/data.en-US.json');
-const esData = require('../../../../../../static/mapstore/hydrata-translations/data.es-ES.json');
-
-function flattenMessages(obj, prefix) {
-    let result = {};
-    Object.keys(obj).forEach(key => {
-        const fullKey = prefix ? `${prefix}.${key}` : key;
-        if (typeof obj[key] === 'object' && obj[key] !== null) {
-            Object.assign(result, flattenMessages(obj[key], fullKey));
-        } else {
-            result[fullKey] = obj[key];
-        }
-    });
-    return result;
-}
-
-const enMessages = flattenMessages(enData.messages);
-const esMessages = flattenMessages(esData.messages);
+const { enMessages, esMessages } = require('../../../../__tests__/fixtures/translations');
 
 describe('Hydrology i18n', () => {
     it('all hydrology msgIds exist in en-US translation file', () => {
