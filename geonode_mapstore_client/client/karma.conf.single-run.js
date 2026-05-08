@@ -78,5 +78,33 @@ module.exports = function karmaConfig(config) {
         throw new Error("COVERAGE=1 set but 'coverage' reporter missing from testConfig — check @mapstore/project testConfig.js and MapStore2/build/babel.config.js env.test.plugins.");
     }
 
+    // 4. CI-friendly Chrome launcher with sandbox flags + larger timeouts.
+    //    Adds --no-sandbox/--disable-gpu/--disable-dev-shm-usage so the
+    //    karma-chrome-launcher 3.1.1 disconnect bug doesn't fire under load.
+    testConfig.customLaunchers = {
+        ChromeHeadlessCI: {
+            base: 'ChromeHeadless',
+            flags: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+        }
+    };
+    testConfig.browsers = ['ChromeHeadlessCI'];
+
+    // 5. Wider timeouts: cold compile + slow CI runners can exceed 30s.
+    testConfig.browserNoActivityTimeout = 120000;
+    testConfig.captureTimeout = 120000;
+    testConfig.browserDisconnectTolerance = 2;
+
+    // 6. Trim never-used karma plugins (firefox, coveralls, junit are
+    //    registered by the upstream config but no reporter or browser uses them).
+    testConfig.plugins = testConfig.plugins.filter(p => {
+        if (typeof p === 'string') {
+            return !['karma-coveralls', 'karma-junit-reporter', 'karma-firefox-launcher'].includes(p);
+        }
+        return true; // keep `require()`d plugins (karma-chrome-launcher object)
+    });
+
+    // 7. Quieter slow-test threshold.
+    testConfig.reportSlowerThan = 500;
+
     config.set(testConfig);
 };
