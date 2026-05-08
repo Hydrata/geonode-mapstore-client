@@ -470,6 +470,22 @@ const buildElevationAddSequence = (metadata, action$, store) => {
 
 const isLayerCompletionType = pt => pt === 'layer_create' || pt === 'elevation_create';
 
+// V2P-714 follow-up: a completed elevation_create process is "orphaned" if
+// the user has since deleted the underlying Elevation row. Replaying its
+// addLayer side-effect on page reload would re-inject a layer whose
+// backing GeoNode Dataset is 404 (cascade-cleaned). We detect orphans by
+// looking up the metadata's elevation_id in state.anuga.resources.elevations;
+// when state isn't loaded yet (Array.isArray check), we defer rather than
+// over-filter, preserving the save-failure-recovery semantic.
+const isOrphanedCompletion = (process, state) => {
+    if (process.process_type !== 'elevation_create') return false;
+    const elevationId = process.metadata?.elevation_id;
+    if (elevationId == null) return false;
+    const elevations = state?.anuga?.resources?.elevations;
+    if (!Array.isArray(elevations)) return false;
+    return !elevations.some(e => e?.id === elevationId);
+};
+
 // Per-instance set of completion IDs we've already dispatched addLayer for.
 // store.getState() inside the epic returns POST-reduce state, so a prev/new
 // byId diff is always empty. A closure-scoped Set gives us a stable
@@ -481,13 +497,18 @@ export const taskCompleteLayerEpic = (action$, store) => {
     return action$.ofType(TM_SET_PROCESSES)
         .switchMap((action) => {
             const processes = action.processes || [];
-            const newlyCompleted = processes.filter(
+            const candidates = processes.filter(
                 p => isLayerCompletionType(p.process_type) &&
                      p.status === 'complete' &&
                      !handledCompletionIds.has(p.id)
             );
+            if (!candidates.length) return Rx.Observable.empty();
+            // Mark all candidates handled (including orphans we'll skip) so we
+            // don't re-check them on every subsequent poll.
+            candidates.forEach(p => handledCompletionIds.add(p.id));
+            const state = store.getState();
+            const newlyCompleted = candidates.filter(p => !isOrphanedCompletion(p, state));
             if (!newlyCompleted.length) return Rx.Observable.empty();
-            newlyCompleted.forEach(p => handledCompletionIds.add(p.id));
             const observables = [];
             newlyCompleted.forEach(p => {
                 if (p.process_type === 'elevation_create' && Array.isArray(p.metadata?.mapstore_layers)) {

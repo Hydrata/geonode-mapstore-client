@@ -734,6 +734,186 @@ describe('Polling Epics', () => {
                 done();
             }, 200);
         });
+
+        // V2P-714 follow-up: orphan elevation_create filtering. After a user
+        // deletes an Elevation row, its elevation_create Process record is
+        // still in TaskMonitor's list. On page reload, replaying the addLayer
+        // side-effect would re-inject layers whose backing GeoNode Dataset is
+        // 404 (cascade-cleaned by the post_delete signal). The filter
+        // suppresses replay when state.anuga.resources.elevations is loaded
+        // and the elevation_id is absent.
+        it('should skip elevation_create when elevation_id is gone from state.anuga.resources.elevations', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: { resources: { elevations: [{ id: 7 }, { id: 8 }] } }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err)
+                );
+
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'orphan-ele-6',
+                    process_type: 'elevation_create',
+                    status: 'complete',
+                    metadata: {
+                        elevation_id: 6,
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_6_dem', type: 'wms', url: '/geoserver/ows' },
+                            { name: 'geonode:ele_6_hs', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                expect(emitted.length).toBe(0);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('should process elevation_create when elevation_id IS present in state.anuga.resources.elevations', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: { resources: { elevations: [{ id: 11 }, { id: 12 }] } }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err)
+                );
+
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'live-ele-12',
+                    process_type: 'elevation_create',
+                    status: 'complete',
+                    metadata: {
+                        elevation_id: 12,
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_12_dem', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                expect(adds[0].layer.name).toBe('geonode:ele_12_dem');
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('should NOT filter when state.anuga.resources is undefined (defer rather than over-filter)', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] }
+                    // anuga state intentionally absent
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err)
+                );
+
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'unloaded-state',
+                    process_type: 'elevation_create',
+                    status: 'complete',
+                    metadata: {
+                        elevation_id: 99,
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_99_dem', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                }]
+            });
+
+            setTimeout(() => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('should mark orphan completions as handled so subsequent emissions are no-ops', (done) => {
+            // Even though the orphan is skipped, it should be added to the
+            // handledCompletionIds set; otherwise we'd re-check it on every
+            // poll and bake in the orphan-existence check on hot-path tick.
+            // We assert by flipping the resource state between emissions:
+            // first emit with empty elevations -> skipped + handled;
+            // second emit with the elevation present -> still skipped because
+            // handled, NOT re-evaluated.
+            let resources = { elevations: [] };
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: { resources }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err)
+                );
+
+            const tickProcess = {
+                id: 'orphan-then-revived',
+                process_type: 'elevation_create',
+                status: 'complete',
+                metadata: {
+                    elevation_id: 42,
+                    is_first_upload: false,
+                    mapstore_layers: [{ name: 'geonode:ele_42_dem', type: 'wms', url: '/geoserver/ows' }]
+                }
+            };
+
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            setTimeout(() => {
+                expect(emitted.length).toBe(0);  // first emit: orphan, skipped
+                resources = { elevations: [{ id: 42 }] };  // resource "revived"
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                setTimeout(() => {
+                    expect(emitted.length).toBe(0);  // still no-op: id was handled
+                    sub.unsubscribe();
+                    done();
+                }, 100);
+            }, 100);
+        });
     });
 
     describe('makeAddLayerEpic instances', () => {
