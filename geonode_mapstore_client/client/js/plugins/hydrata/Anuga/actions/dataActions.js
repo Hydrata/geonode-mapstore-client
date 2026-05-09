@@ -186,7 +186,7 @@ function setPermsLoadFailed(failed) {
 // (utm + hillshade), Boundary/Friction/Inflow have 1.
 const _toLayerIds = (v) => {
     if (Array.isArray(v)) return v.filter(Boolean);
-    if (v == null || v === '') return [];
+    if (v === null || v === undefined || v === '') return [];
     return [v];
 };
 function deleteTerrain(projectId, id, layerIds) {

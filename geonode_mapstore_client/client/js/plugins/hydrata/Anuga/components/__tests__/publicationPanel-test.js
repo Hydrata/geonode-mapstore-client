@@ -89,12 +89,12 @@ describe('V2P-22 publicationPanel role-gated buttons', () => {
     // 'figure' is the only always-on button (read action) and appears 2x per
     // publication. 'edit'/'delete'/'create' are the role-gated ones.
     const expectedButtonSets = {
-        owner:       ['create', 'delete', 'edit', 'figure', 'figure'],
-        manager:     ['create', 'delete', 'edit', 'figure', 'figure'],
-        editor:      ['create', 'delete', 'edit', 'figure', 'figure'],
+        owner: ['create', 'delete', 'edit', 'figure', 'figure'],
+        manager: ['create', 'delete', 'edit', 'figure', 'figure'],
+        editor: ['create', 'delete', 'edit', 'figure', 'figure'],
         contributor: ['create', 'edit', 'figure', 'figure'],  // change_resourcebase grant via ROLE_PERMS, but no delete_resourcebase
-        viewer:      ['figure', 'figure'],  // ROLE_PERMS = [view, download] — neither edit nor delete
-        anon:        ['figure', 'figure']   // myRole=null, all gates closed
+        viewer: ['figure', 'figure'],  // ROLE_PERMS = [view, download] — neither edit nor delete
+        anon: ['figure', 'figure']   // myRole=null, all gates closed
     };
 
     beforeEach(() => {

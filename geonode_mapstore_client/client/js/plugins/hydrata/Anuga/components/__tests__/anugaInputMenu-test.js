@@ -75,12 +75,12 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
     // are in every render and thus orthogonal to the gate.
     const expectedCreateButtons = {
         // canEditAnugaMap === [owner, manager, editor]
-        owner:       ['boundary-create', 'inflow-create'],
-        manager:     ['boundary-create', 'inflow-create'],
-        editor:      ['boundary-create', 'inflow-create'],
+        owner: ['boundary-create', 'inflow-create'],
+        manager: ['boundary-create', 'inflow-create'],
+        editor: ['boundary-create', 'inflow-create'],
         contributor: [],  // canEditAnugaMap excludes contributor (writes only to own resources via Scenario flow)
-        viewer:      [],
-        anon:        []
+        viewer: [],
+        anon: []
     };
 
     beforeEach(() => {

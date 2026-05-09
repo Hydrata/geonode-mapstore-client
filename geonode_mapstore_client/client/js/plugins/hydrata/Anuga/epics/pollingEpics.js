@@ -28,7 +28,6 @@ import {
     addAnugaStructure,
     addAnugaFullMesh,
     addAnugaMeshRegion,
-    addNetwork,
     addCatchment,
     addNodes,
     addLinks,
@@ -51,7 +50,6 @@ import {
     setAnugaScenarioResultsLoaded,
     setAnugaStructureData,
     setPublicationData,
-    setCreatingAnugaLayer,
     setComparisonData,
     START_ANUGA_MODEL_CREATION_POLLING,
     START_ANUGA_SCENARIO_POLLING,
@@ -513,7 +511,7 @@ const orphanStatus = (process, state, refreshAttempted) => {
     // (a) Legacy procs: no terrain_id stamped → can't verify, treat as
     // orphaned. Marking handled prevents perpetual re-injection on
     // every page-load poll.
-    if (terrainId == null) return 'orphaned';
+    if (terrainId === null || terrainId === undefined) return 'orphaned';
     const resources = state?.anuga?.resources;
     // (b) Resources slice not yet loaded → defer. The terrainLoaded
     // flag is stamped by SET_ANUGA_TERRAIN_DATA; while it's false the
@@ -578,7 +576,8 @@ export const taskCompleteLayerEpic = (action$, store) => {
             const refreshNeeded = classified.filter(c => {
                 if (c.status !== 'unknown') return false;
                 if (c.process.process_type !== 'terrain_create') return false;
-                if (c.process.metadata?.terrain_id == null) return false;
+                const tid = c.process.metadata?.terrain_id;
+                if (tid === null || tid === undefined) return false;
                 return state?.anuga?.resources?.terrainLoaded === true;
             });
             refreshNeeded.forEach(c => refreshAttempted.add(c.process.id));
