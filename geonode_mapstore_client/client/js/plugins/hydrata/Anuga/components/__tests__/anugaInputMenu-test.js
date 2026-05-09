@@ -66,7 +66,7 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
 
     // EXACT button set per role (top-level sections only, advanced collapsed).
     // Buttons present at the section header are:
-    //   - elevation upload glyph (.glyphicon-upload, ALWAYS present — no role gate)
+    //   - terrain upload glyph (.glyphicon-upload, ALWAYS present — no role gate)
     //   - boundaries "+" / "✓" create button (canEditAnugaMap gate)
     //   - inflows "+" / "✓" create button (canEditAnugaMap gate)
     //   - "showAdvanced" cog glyph (always present — no role gate)
@@ -138,9 +138,9 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
         });
     });
 
-    it('elevation upload glyph always renders independent of role (panel-level upload)', () => {
+    it('terrain upload glyph always renders independent of role (panel-level upload)', () => {
         return mountMenu({ role: 'viewer', layerCount: 0 }).then(() => {
-            // The elevations section's upload glyph is ALWAYS present, by
+            // The terrain section's upload glyph is ALWAYS present, by
             // design (read-only viewers can navigate to the uploader form;
             // the form itself enforces the perm via canEditMap on submit).
             // Re-read this assertion every change to InputSection's gate.

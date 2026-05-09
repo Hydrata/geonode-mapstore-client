@@ -90,8 +90,8 @@ describe('simpleViewUploader (TASK-599 /undefined/ URL guard)', () => {
                 visibleUploaderPanel
                 serverUrl="https://hydrata.com/"
                 projectId={42}
-                importerConfigKey="elevation"
-                config={{ app_name: 'anuga', title: 'Elevation', filetype: 'tif' }}
+                importerConfigKey="terrain"
+                config={{ app_name: 'anuga', title: 'Terrain', filetype: 'tif' }}
                 setVisibleUploaderPanel={noop}
                 updateUploadStatus={noop}
                 setVisibleSimpleViewAttributeForm={noop}
@@ -111,7 +111,7 @@ describe('simpleViewUploader (TASK-599 /undefined/ URL guard)', () => {
             expect(url).toNotInclude('/undefined/');
             expect(url).toNotInclude('undefined');
             // Correct shape for the importer-create endpoint.
-            expect(url).toBe('https://hydrata.com/anuga/api/42/elevation/importer-create/');
+            expect(url).toBe('https://hydrata.com/anuga/api/42/terrain/importer-create/');
             done();
         }, 50);
     });
@@ -153,8 +153,8 @@ describe('simpleViewUploader (TASK-599 /undefined/ URL guard)', () => {
                 visibleUploaderPanel
                 serverUrl="https://hydrata.com/"
                 projectId={42}
-                importerConfigKey="elevation"
-                config={{ app_name: 'anuga', title: 'Elevation', filetype: 'tif' }}
+                importerConfigKey="terrain"
+                config={{ app_name: 'anuga', title: 'Terrain', filetype: 'tif' }}
                 setVisibleUploaderPanel={noop}
                 updateUploadStatus={noop}
                 setVisibleSimpleViewAttributeForm={noop}
@@ -179,7 +179,7 @@ describe('simpleViewUploader (TASK-599 /undefined/ URL guard)', () => {
                 visibleUploaderPanel
                 serverUrl="https://hydrata.com/"
                 projectId={undefined}
-                importerConfigKey="elevation"
+                importerConfigKey="terrain"
                 config={{ app_name: 'anuga' }}
                 setVisibleUploaderPanel={noop}
                 updateUploadStatus={noop}

@@ -33,7 +33,7 @@ import {
     getProjectId
 } from '../../Anuga/selectorsAnuga';
 import {
-    deleteElevation,
+    deleteTerrain,
     deleteBoundary,
     deleteFriction,
     deleteInflow
@@ -42,15 +42,15 @@ import {
 // V2P-714 — derive the AnugaModel dataset type from layer.group.
 // Group names are set by the BE (gn_anuga/utils.py::get_anuga_group +
 // anuga_map_config.json). Returns one of:
-//   'elevation' | 'boundary' | 'friction' | 'inflow' | null
+//   'terrain' | 'boundary' | 'friction' | 'inflow' | null
 // Other Input Data types (structures, mesh-regions, full-mesh, catchments,
 // nodes, links) deliberately return null — V2P-714 only ships cascade-delete
-// for the four elevation/boundary/friction/inflow dataset types whose
+// for the four terrain/boundary/friction/inflow dataset types whose
 // post_delete signals are wired in Phases 1+2.
 const _GROUP_TO_DELETE_TYPE = {
-    'Input Data.Elevations': 'elevation',
+    'Input Data.Terrain': 'terrain',
     'Input Data.Boundaries': 'boundary',
-    'Input Data.Friction Maps': 'friction',
+    'Input Data.Friction': 'friction',
     'Input Data.Inflows': 'inflow'
 };
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
@@ -93,7 +93,7 @@ class MenuRowClass extends React.Component {
         projectId: PropTypes.number,
         deleteRow: PropTypes.object,  // {id, deleting, blockingError, deleteError}
         deleteSliceRows: PropTypes.array,
-        deleteElevation: PropTypes.func,
+        deleteTerrain: PropTypes.func,
         deleteBoundary: PropTypes.func,
         deleteFriction: PropTypes.func,
         deleteInflow: PropTypes.func
@@ -154,7 +154,7 @@ class MenuRowClass extends React.Component {
                                     // button when running on hydratabase (hydrata.com), where the
                                     // hardcoded "erosion" importerConfigKey has no matching entry
                                     // in the AnugaProject.simple_view_config.importer_config (which
-                                    // only contains "elevation"). On hydratabase this button always
+                                    // only contains "terrain"). On hydratabase this button always
                                     // dispatched a useless action and confused users.
                                     this.props.canUploadErosion ? (
                                         <span
@@ -285,7 +285,7 @@ class MenuRowClass extends React.Component {
         trackEvent('button', `click`, `simpleview-menu-row-delete-${layer.title}`);
         if (datasetType && datasetId !== null && this.props.projectId) {
             const dispatcher = {
-                elevation: this.props.deleteElevation,
+                terrain: this.props.deleteTerrain,
                 boundary: this.props.deleteBoundary,
                 friction: this.props.deleteFriction,
                 inflow: this.props.deleteInflow
@@ -311,7 +311,7 @@ class MenuRowClass extends React.Component {
         const datasetType = getDeleteDatasetType(layer);
         if (!datasetType) return null;
         const sliceKey = {
-            elevation: 'elevations',
+            terrain: 'terrain',
             boundary: 'boundaries',
             friction: 'frictions',
             inflow: 'inflows'
@@ -434,7 +434,7 @@ const mapStateToProps = (state, ownProps) => {
     const layer = ownProps?.layer;
     const datasetType = layer ? getDeleteDatasetType(layer) : null;
     const sliceKey = {
-        elevation: 'elevations',
+        terrain: 'terrain',
         boundary: 'boundaries',
         friction: 'frictions',
         inflow: 'inflows'
@@ -503,7 +503,7 @@ const mapDispatchToProps = ( dispatch ) => {
             autoDismiss: 6
         }, "warning")),
         // V2P-714 — cascade-delete dispatchers
-        deleteElevation: (projectId, id, layerId) => dispatch(deleteElevation(projectId, id, layerId)),
+        deleteTerrain: (projectId, id, layerId) => dispatch(deleteTerrain(projectId, id, layerId)),
         deleteBoundary: (projectId, id, layerId) => dispatch(deleteBoundary(projectId, id, layerId)),
         deleteFriction: (projectId, id, layerId) => dispatch(deleteFriction(projectId, id, layerId)),
         deleteInflow: (projectId, id, layerId) => dispatch(deleteInflow(projectId, id, layerId))

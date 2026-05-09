@@ -36,7 +36,7 @@ import {
     INIT_ANUGA,
     initAnuga,
     setAnugaBoundaryData,
-    setAnugaElevationData,
+    setAnugaTerrainData,
     setAnugaFrictionData,
     setAnugaInflowData,
     setAnugaFullMeshData,
@@ -87,7 +87,7 @@ import {getProjectId} from "../selectorsAnuga";
 // `startWith(null)` so the gate fires immediately at subscription time rather
 // than waiting for the first visibilitychange.
 //
-// Scope (deliberate): scenario/elevation/taskMonitor polls are NOT gated —
+// Scope (deliberate): scenario/terrain/taskMonitor polls are NOT gated —
 // they have their own start/stop semantics and are tracked under separate
 // optimisation tasks.
 //
@@ -114,7 +114,7 @@ const visibility$ = Rx.Observable.defer(
 // All paths now hit /api/v2/anuga/projects/{pid}/{plural}/ on the BE.
 const resourceEndpoints = [
     {endpoint: 'boundary', action: setAnugaBoundaryData},
-    {endpoint: 'elevation', action: setAnugaElevationData},
+    {endpoint: 'terrain', action: setAnugaTerrainData},
     {endpoint: 'inflow', action: setAnugaInflowData},
     {endpoint: 'structure', action: setAnugaStructureData},
     {endpoint: 'friction', action: setAnugaFrictionData},
@@ -325,8 +325,8 @@ export const pollComparisonEpic = (action$, _store) =>
 
 const ANUGA_GROUPS = {
     "Input Data": [
-        "Elevations", "Boundaries", "Structures", "Inflows",
-        "Friction Maps", "Full Mesh", "Mesh Regions",
+        "Terrain", "Boundaries", "Structures", "Inflows",
+        "Friction", "Full Mesh", "Mesh Regions",
         "Catchments", "Nodes", "Links"
     ],
     "Results": [
@@ -414,11 +414,11 @@ const modelClassToAddAction = {
     'Links': addLinks
 };
 
-// Multi-layer elevation handoff. Adds DEM + hillshade together, then runs
+// Multi-layer terrain handoff. Adds DEM + hillshade together, then runs
 // the post-add chain (refresh, first-upload zoom + save race, group placement,
 // status update, model-creation polling kickoff). Driven by Process metadata
-// stamped by the create_elevation_gn_layer celery task.
-const buildElevationAddSequence = (metadata, action$, store) => {
+// stamped by the create_terrain_gn_layer celery task.
+const buildTerrainAddSequence = (metadata, action$, store) => {
     const layers = Array.isArray(metadata?.mapstore_layers) ? metadata.mapstore_layers : [];
     const isFirstUpload = !!metadata?.is_first_upload;
     const firstLayer = layers[0];
@@ -458,32 +458,32 @@ const buildElevationAddSequence = (metadata, action$, store) => {
             return Rx.Observable.of(refreshLayers(wmsLayers));
         })
     );
-    // Note: legacy pollAnugaElevationEpic dispatched moveNode here to push the
-    // Elevations sub-group to the end of Input Data, but that call passed
+    // Note: legacy pollAnugaTerrainEpic dispatched moveNode here to push the
+    // Terrain sub-group to the end of Input Data, but that call passed
     // `nodes.length` as the insert index when the source was already in the
     // target's nodes — moveNode then injected a null at the old position,
     // crashing the TOC with "Cannot read properties of undefined (reading
-    // 'nodes')". `addLayer` with `group: 'Input Data.Elevations'` already
+    // 'nodes')". `addLayer` with `group: 'Input Data.Terrain'` already
     // routes the layer into the right sub-group via the ADD_LAYER reducer,
     // so the explicit moveNode is unnecessary.
 };
 
-const isLayerCompletionType = pt => pt === 'layer_create' || pt === 'elevation_create';
+const isLayerCompletionType = pt => pt === 'layer_create' || pt === 'terrain_create';
 
-// V2P-714 follow-up: a completed elevation_create process is "orphaned" if
-// the user has since deleted the underlying Elevation row. Replaying its
+// V2P-714 follow-up: a completed terrain_create process is "orphaned" if
+// the user has since deleted the underlying Terrain row. Replaying its
 // addLayer side-effect on page reload would re-inject a layer whose
 // backing GeoNode Dataset is 404 (cascade-cleaned). We detect orphans by
-// looking up the metadata's elevation_id in state.anuga.resources.elevations;
+// looking up the metadata's terrain_id in state.anuga.resources.terrain;
 // when state isn't loaded yet (Array.isArray check), we defer rather than
 // over-filter, preserving the save-failure-recovery semantic.
 const isOrphanedCompletion = (process, state) => {
-    if (process.process_type !== 'elevation_create') return false;
-    const elevationId = process.metadata?.elevation_id;
-    if (elevationId == null) return false;
-    const elevations = state?.anuga?.resources?.elevations;
-    if (!Array.isArray(elevations)) return false;
-    return !elevations.some(e => e?.id === elevationId);
+    if (process.process_type !== 'terrain_create') return false;
+    const terrainId = process.metadata?.terrain_id;
+    if (terrainId == null) return false;
+    const terrain = state?.anuga?.resources?.terrain;
+    if (!Array.isArray(terrain)) return false;
+    return !terrain.some(e => e?.id === terrainId);
 };
 
 // Per-instance set of completion IDs we've already dispatched addLayer for.
@@ -511,8 +511,8 @@ export const taskCompleteLayerEpic = (action$, store) => {
             if (!newlyCompleted.length) return Rx.Observable.empty();
             const observables = [];
             newlyCompleted.forEach(p => {
-                if (p.process_type === 'elevation_create' && Array.isArray(p.metadata?.mapstore_layers)) {
-                    observables.push(buildElevationAddSequence(p.metadata, action$, store));
+                if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
+                    observables.push(buildTerrainAddSequence(p.metadata, action$, store));
                 } else if (p.metadata?.mapstore_layer) {
                     const layerConfig = p.metadata.mapstore_layer;
                     const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];

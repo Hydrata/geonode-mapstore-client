@@ -40,7 +40,7 @@ function makeScenario({ id = 1, ownerId = SELF, status = 'created' } = {}) {
         name: `scenario_${id}`,
         created_by: ownerId,
         created_by_username: ownerId === SELF ? 'me' : `user_${ownerId}`,
-        elevation: 1,
+        terrain: 1,
         boundary: null,
         inflow: null,
         friction: null,
@@ -84,7 +84,7 @@ describe('V2P-22 ScenarioTableRow per-role exact-button-set', () => {
                 <ScenarioTableRow
                     scenario={makeScenario({ ownerId: scenarioOwnerId })}
                     scenarioTableTabs={['manage']}
-                    elevations={[]} boundaries={[]} inflows={[]}
+                    terrain={[]} boundaries={[]} inflows={[]}
                     frictions={[]} structures={[]} meshRegions={[]} networks={[]}
                     updateAnugaScenario={() => {}}
                     saveAnugaScenario={() => {}}

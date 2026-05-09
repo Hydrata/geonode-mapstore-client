@@ -38,13 +38,13 @@ import {
     setAnugaResources,
     startActiveRunPolling,
     // V2P-714 — cascade-delete dataset rows
-    DELETE_ELEVATION,
+    DELETE_TERRAIN,
     DELETE_BOUNDARY,
     DELETE_FRICTION,
     DELETE_INFLOW,
-    deleteElevationSuccess,
-    deleteElevationBlocked,
-    deleteElevationError,
+    deleteTerrainSuccess,
+    deleteTerrainBlocked,
+    deleteTerrainError,
     deleteBoundarySuccess,
     deleteBoundaryBlocked,
     deleteBoundaryError,
@@ -418,12 +418,12 @@ const makeDeleteEpic = (
                 });
         });
 
-export const deleteElevationEpic = makeDeleteEpic(
-    DELETE_ELEVATION,
-    anugaApi.deleteElevationV2,
-    deleteElevationSuccess,
-    deleteElevationBlocked,
-    deleteElevationError
+export const deleteTerrainEpic = makeDeleteEpic(
+    DELETE_TERRAIN,
+    anugaApi.deleteTerrainV2,
+    deleteTerrainSuccess,
+    deleteTerrainBlocked,
+    deleteTerrainError
 );
 
 export const deleteBoundaryEpic = makeDeleteEpic(

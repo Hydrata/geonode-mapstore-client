@@ -84,7 +84,7 @@ export default (state = initialState, action) => {
                     computed_status: "created",
                     project: action.projectId || null,
                     boundary: "",
-                    elevation: "",
+                    terrain: "",
                     log: "log placeholder",
                     unsaved: false,
                     selected: false

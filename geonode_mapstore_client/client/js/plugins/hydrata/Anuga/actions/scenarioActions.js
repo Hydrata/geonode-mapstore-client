@@ -1,7 +1,7 @@
 const {SHOW_NOTIFICATION} = require("../../../../../MapStore2/web/client/actions/notifications");
 const uuidv1 = require('uuid/v1');
 
-const CREATE_ANUGA_ELEVATION_FROM_LAYER = 'CREATE_ANUGA_ELEVATION_FROM_LAYER';
+const CREATE_ANUGA_TERRAIN_FROM_LAYER = 'CREATE_ANUGA_TERRAIN_FROM_LAYER';
 const ADD_ANUGA_SCENARIO = 'ADD_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO = 'RUN_ANUGA_SCENARIO';
 const RUN_ANUGA_SCENARIO_SUCCESS = 'RUN_ANUGA_SCENARIO_SUCCESS';
@@ -19,8 +19,8 @@ const UPDATE_NETWORK = 'UPDATE_NETWORK';
 const SAVE_NETWORK = 'SAVE_NETWORK';
 const SELECT_ANUGA_SCENARIO = 'SELECT_ANUGA_SCENARIO';
 
-function createAnugaElevationFromLayer(pk, title) {
-    return { type: CREATE_ANUGA_ELEVATION_FROM_LAYER, pk, title };
+function createAnugaTerrainFromLayer(pk, title) {
+    return { type: CREATE_ANUGA_TERRAIN_FROM_LAYER, pk, title };
 }
 
 function addAnugaScenario() {
@@ -149,7 +149,7 @@ const selectAnugaScenario = (scenario) => {
 };
 
 module.exports = {
-    CREATE_ANUGA_ELEVATION_FROM_LAYER, createAnugaElevationFromLayer,
+    CREATE_ANUGA_TERRAIN_FROM_LAYER, createAnugaTerrainFromLayer,
     ADD_ANUGA_SCENARIO, addAnugaScenario,
     SAVE_ANUGA_SCENARIO, saveAnugaScenario,
     SAVE_ANUGA_SCENARIO_SUCCESS, saveAnugaScenarioSuccess,

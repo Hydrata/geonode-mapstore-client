@@ -20,7 +20,7 @@ class NetworkMenuClass extends React.Component {
         nodes: PropTypes.array,
         links: PropTypes.array,
         inflows: PropTypes.array,
-        elevations: PropTypes.array,
+        terrain: PropTypes.array,
         networks: PropTypes.array
     };
 
@@ -53,7 +53,7 @@ class NetworkMenuClass extends React.Component {
                                     <tr className={"network-table-header"}>
                                         <th><Message msgId="hydrata.anuga.id" /></th>
                                         <th><Message msgId="hydrata.anuga.name" /></th>
-                                        <th><Message msgId="hydrata.anuga.elevation" /></th>
+                                        <th><Message msgId="hydrata.anuga.terrain" /></th>
                                         <th><Message msgId="hydrata.anuga.nodes" /></th>
                                         <th><Message msgId="hydrata.anuga.links" /></th>
                                         <th><Message msgId="hydrata.anuga.method" /></th>
@@ -72,18 +72,18 @@ class NetworkMenuClass extends React.Component {
                                                     </td>
                                                     <td>
                                                         <select
-                                                            id={'elevation'}
-                                                            key={`elevation-${network.id}`}
-                                                            value={network?.elevation}
+                                                            id={'terrain'}
+                                                            key={`terrain-${network.id}`}
+                                                            value={network?.terrain}
                                                             className={'scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
                                                             {
-                                                                this.props.elevations?.map((elevation) => {
+                                                                this.props.terrain?.map((terrain) => {
                                                                     return (
-                                                                        <option key={elevation?.id}
-                                                                            value={elevation?.id}>{elevation?.title}</option>
+                                                                        <option key={terrain?.id}
+                                                                            value={terrain?.id}>{terrain?.title}</option>
                                                                     );
                                                                 })
                                                             }
@@ -222,7 +222,7 @@ const mapStateToProps = (state) => {
     let networks = (state?.anuga?.resources?.networks || []).slice().sort((a, b) => a.id - b.id);
     return {
         networks: networks,
-        elevations: state?.anuga?.resources?.elevations,
+        terrain: state?.anuga?.resources?.terrain,
         nodes: state?.anuga?.resources?.nodes,
         links: state?.anuga?.resources?.links,
         inflows: state?.anuga?.resources?.inflows

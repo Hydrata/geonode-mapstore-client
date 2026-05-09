@@ -65,7 +65,7 @@ function createMockStore({ role = 'viewer', layerCount = 2, permsLoadFailed = fa
                 }
             },
             resources: {
-                elevations: [],
+                terrain: [],
                 boundaries: [],
                 frictions: [],
                 inflows: [],

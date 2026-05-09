@@ -45,7 +45,7 @@ import {
     anugaMapLayerGroupEpic,
     triggerFetchMyPermsOnInitEpic,
     fetchMyPermsEpic,
-    deleteElevationEpic,
+    deleteTerrainEpic,
     deleteBoundaryEpic,
     deleteFrictionEpic,
     deleteInflowEpic
@@ -112,7 +112,7 @@ export default createPlugin('Anuga', {
         updateProjectVisibilityEpic,
         triggerFetchMyPermsOnInitEpic,
         fetchMyPermsEpic,
-        deleteElevationEpic,
+        deleteTerrainEpic,
         deleteBoundaryEpic,
         deleteFrictionEpic,
         deleteInflowEpic

@@ -11,8 +11,8 @@ const SET_LUMPED_CATCHMENT_DATA = 'SET_LUMPED_CATCHMENT_DATA';
 const SET_ANUGA_NODES_DATA = 'SET_ANUGA_NODES_DATA';
 const SET_ANUGA_LINKS_DATA = 'SET_ANUGA_LINKS_DATA';
 const SET_PUBLICATION_DATA = 'SET_PUBLICATION_DATA';
-const SET_ANUGA_ELEVATION_DATA = 'SET_ANUGA_ELEVATION_DATA';
-const SET_ADD_ANUGA_ELEVATION_DATA = 'SET_ADD_ANUGA_ELEVATION_DATA';
+const SET_ANUGA_TERRAIN_DATA = 'SET_ANUGA_TERRAIN_DATA';
+const SET_ADD_ANUGA_TERRAIN_DATA = 'SET_ADD_ANUGA_TERRAIN_DATA';
 const SET_ANUGA_POLLING_DATA = 'SET_ANUGA_POLLING_DATA';
 const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
 const UPDATE_ANUGA_RESOURCES = 'UPDATE_ANUGA_RESOURCES';
@@ -37,14 +37,14 @@ const FETCH_MY_PERMS = 'ANUGA:FETCH_MY_PERMS';
 const SET_ANUGA_RESOURCE_PERMS = 'ANUGA:SET_ANUGA_RESOURCE_PERMS';
 const SET_PERMS_LOAD_FAILED = 'ANUGA:SET_PERMS_LOAD_FAILED';
 
-// V2P-714 — cascade-delete dataset rows (elevation/boundary/friction/inflow).
+// V2P-714 — cascade-delete dataset rows (terrain/boundary/friction/inflow).
 // Each type has 4 actions: start, success (204), blocked (409 with blocking
 // scenarios list), error (other failures). Per-type because the reducer
-// targets distinct slots (state.anuga.resources.{elevations,boundaries,...}).
-const DELETE_ELEVATION = 'ANUGA:DELETE_ELEVATION';
-const DELETE_ELEVATION_SUCCESS = 'ANUGA:DELETE_ELEVATION_SUCCESS';
-const DELETE_ELEVATION_BLOCKED = 'ANUGA:DELETE_ELEVATION_BLOCKED';
-const DELETE_ELEVATION_ERROR = 'ANUGA:DELETE_ELEVATION_ERROR';
+// targets distinct slots (state.anuga.resources.{terrain,boundaries,...}).
+const DELETE_TERRAIN = 'ANUGA:DELETE_TERRAIN';
+const DELETE_TERRAIN_SUCCESS = 'ANUGA:DELETE_TERRAIN_SUCCESS';
+const DELETE_TERRAIN_BLOCKED = 'ANUGA:DELETE_TERRAIN_BLOCKED';
+const DELETE_TERRAIN_ERROR = 'ANUGA:DELETE_TERRAIN_ERROR';
 
 const DELETE_BOUNDARY = 'ANUGA:DELETE_BOUNDARY';
 const DELETE_BOUNDARY_SUCCESS = 'ANUGA:DELETE_BOUNDARY_SUCCESS';
@@ -113,12 +113,12 @@ function setPublicationData(data) {
     return { type: SET_PUBLICATION_DATA, data };
 }
 
-function setAnugaElevationData(data) {
-    return { type: SET_ANUGA_ELEVATION_DATA, data };
+function setAnugaTerrainData(data) {
+    return { type: SET_ANUGA_TERRAIN_DATA, data };
 }
 
-function setAddAnugaElevation(visible) {
-    return { type: SET_ADD_ANUGA_ELEVATION_DATA, visible };
+function setAddAnugaTerrainData(visible) {
+    return { type: SET_ADD_ANUGA_TERRAIN_DATA, visible };
 }
 
 function setAnugaPollingData(scenarios) {
@@ -173,7 +173,7 @@ function fetchMyPerms(projectId) {
 
 function setAnugaResourcePerms(payload) {
     // payload shape from /api/v2/anuga/projects/<pid>/my-perms/:
-    //   { my_role, visibility, scenarios: {<id>: [perms]}, elevations: {...}, ... }
+    //   { my_role, visibility, scenarios: {<id>: [perms]}, terrain: {...}, ... }
     return { type: SET_ANUGA_RESOURCE_PERMS, payload };
 }
 
@@ -181,19 +181,19 @@ function setPermsLoadFailed(failed) {
     return { type: SET_PERMS_LOAD_FAILED, failed };
 }
 
-// V2P-714 action creators. `id` is the AnugaModel pk (Elevation.id, etc.);
+// V2P-714 action creators. `id` is the AnugaModel pk (Terrain.id, etc.);
 // `layerId` is the MapStore layer id used by removeNode/removeLayer.
-function deleteElevation(projectId, id, layerId) {
-    return { type: DELETE_ELEVATION, projectId, id, layerId };
+function deleteTerrain(projectId, id, layerId) {
+    return { type: DELETE_TERRAIN, projectId, id, layerId };
 }
-function deleteElevationSuccess(id, layerId) {
-    return { type: DELETE_ELEVATION_SUCCESS, id, layerId };
+function deleteTerrainSuccess(id, layerId) {
+    return { type: DELETE_TERRAIN_SUCCESS, id, layerId };
 }
-function deleteElevationBlocked(id, blocking, message) {
-    return { type: DELETE_ELEVATION_BLOCKED, id, blocking, message };
+function deleteTerrainBlocked(id, blocking, message) {
+    return { type: DELETE_TERRAIN_BLOCKED, id, blocking, message };
 }
-function deleteElevationError(id, error) {
-    return { type: DELETE_ELEVATION_ERROR, id, error };
+function deleteTerrainError(id, error) {
+    return { type: DELETE_TERRAIN_ERROR, id, error };
 }
 
 function deleteBoundary(projectId, id, layerId) {
@@ -249,8 +249,8 @@ module.exports = {
     SET_ANUGA_NODES_DATA, setAnugaNodesData,
     SET_ANUGA_LINKS_DATA, setAnugaLinksData,
     SET_PUBLICATION_DATA, setPublicationData,
-    SET_ANUGA_ELEVATION_DATA, setAnugaElevationData,
-    SET_ADD_ANUGA_ELEVATION_DATA, setAddAnugaElevation,
+    SET_ANUGA_TERRAIN_DATA, setAnugaTerrainData,
+    SET_ADD_ANUGA_TERRAIN_DATA, setAddAnugaTerrainData,
     SET_ANUGA_POLLING_DATA, setAnugaPollingData,
     SET_ANUGA_SCENARIO_IS_LOADED, setAnugaScenarioResultsLoaded,
     UPDATE_ANUGA_RESOURCES, updateAnugaResources,
@@ -266,10 +266,10 @@ module.exports = {
     SET_ANUGA_RESOURCE_PERMS, setAnugaResourcePerms,
     SET_PERMS_LOAD_FAILED, setPermsLoadFailed,
     // V2P-714 — cascade-delete dataset rows
-    DELETE_ELEVATION, deleteElevation,
-    DELETE_ELEVATION_SUCCESS, deleteElevationSuccess,
-    DELETE_ELEVATION_BLOCKED, deleteElevationBlocked,
-    DELETE_ELEVATION_ERROR, deleteElevationError,
+    DELETE_TERRAIN, deleteTerrain,
+    DELETE_TERRAIN_SUCCESS, deleteTerrainSuccess,
+    DELETE_TERRAIN_BLOCKED, deleteTerrainBlocked,
+    DELETE_TERRAIN_ERROR, deleteTerrainError,
     DELETE_BOUNDARY, deleteBoundary,
     DELETE_BOUNDARY_SUCCESS, deleteBoundarySuccess,
     DELETE_BOUNDARY_BLOCKED, deleteBoundaryBlocked,

@@ -102,7 +102,7 @@ export const getSelectedScenario = (state) => {
 // -- Resource selectors (read from anuga.resources) -------------------------
 
 const modelTypesToApiName = {
-    elevations: 'elevation',
+    terrain: 'terrain',
     boundaries: 'boundary',
     frictions: 'friction',
     inflows: 'inflow',
@@ -157,7 +157,7 @@ export const getProjectId = (state) => state?.anuga?.projects?.data?.id || null;
 // IMPORTANT: state.anuga.resources is shaped as `{type: [array, ...]}` per
 // resourcesReducer.js, NOT a byId map. We .find() by id when a resource
 // type is supplied. The conventional `resourceType` keys live in
-// modelTypesToApiName (elevations, boundaries, frictions, inflows,
+// modelTypesToApiName (terrain, boundaries, frictions, inflows,
 // meshRegions, structures, catchments, nodes, links).
 
 const _resolveResourcePerms = (layer, anugaResources) => {

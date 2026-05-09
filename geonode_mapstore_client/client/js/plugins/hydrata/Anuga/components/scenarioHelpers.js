@@ -47,7 +47,7 @@ export const validateScenario = (scenario) => {
     if (!(scenario?.name?.length > 0)) {
         return false;
     }
-    if (!scenario?.elevation) {
+    if (!scenario?.terrain) {
         return false;
     }
     if (!scenario?.inflow) {

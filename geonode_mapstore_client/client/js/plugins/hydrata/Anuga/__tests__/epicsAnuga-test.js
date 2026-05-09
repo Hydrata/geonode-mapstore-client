@@ -509,7 +509,7 @@ describe('ANUGA Epics', () => {
                 my_role: 'editor',
                 visibility: 'private',
                 scenarios: { 1: ['view_resourcebase', 'change_resourcebase'] },
-                elevations: {},
+                terrain: {},
                 boundaries: { 7: ['view_resourcebase'] }
             };
             mockAxios.onGet('/api/v2/anuga/projects/42/my-perms/').reply(200, payload);
@@ -693,16 +693,16 @@ describe('ANUGA Epics', () => {
         const MockAdapter = require('axios-mock-adapter');
         const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
         const {
-            deleteElevationEpic,
+            deleteTerrainEpic,
             deleteBoundaryEpic,
             deleteFrictionEpic,
             deleteInflowEpic
         } = require('../epics/crudEpics');
         const {
-            DELETE_ELEVATION,
-            DELETE_ELEVATION_SUCCESS,
-            DELETE_ELEVATION_BLOCKED,
-            DELETE_ELEVATION_ERROR,
+            DELETE_TERRAIN,
+            DELETE_TERRAIN_SUCCESS,
+            DELETE_TERRAIN_BLOCKED,
+            DELETE_TERRAIN_ERROR,
             DELETE_BOUNDARY,
             DELETE_FRICTION,
             DELETE_INFLOW
@@ -719,16 +719,16 @@ describe('ANUGA Epics', () => {
         beforeEach(() => { mockAxios = new MockAdapter(axios); });
         afterEach(() => { mockAxios.restore(); });
 
-        it('deleteElevationEpic: 204 -> SUCCESS + removeNode + removeLayer', (done) => {
-            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(204);
+        it('deleteTerrainEpic: 204 -> SUCCESS + removeNode + removeLayer', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(204);
             const action$ = mockActions([{
-                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+                type: DELETE_TERRAIN, projectId: 7, id: 99, layerId: 'l1'
             }]);
             const emitted = [];
-            deleteElevationEpic(action$, storeWithProjectId(7))
+            deleteTerrainEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(emitted.length).toBe(3);
-                    expect(emitted[0].type).toBe(DELETE_ELEVATION_SUCCESS);
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_SUCCESS);
                     expect(emitted[0].id).toBe(99);
                     expect(emitted[1].type).toBe(REMOVE_NODE);
                     expect(emitted[2].type).toBe(REMOVE_LAYER);
@@ -736,89 +736,89 @@ describe('ANUGA Epics', () => {
                 });
         });
 
-        it('deleteElevationEpic: 409 ACTIVE_REFERENCES -> BLOCKED with blocking list', (done) => {
-            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(409, {
+        it('deleteTerrainEpic: 409 ACTIVE_REFERENCES -> BLOCKED with blocking list', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(409, {
                 error_code: 'ACTIVE_REFERENCES',
-                message: 'Cannot delete: 2 active scenarios reference this elevation',
+                message: 'Cannot delete: 2 active scenarios reference this terrain',
                 blocking: [
                     { type: 'scenario', id: 11, name: 'Scenario A', state: 'computing' },
                     { type: 'scenario', id: 12, name: 'Scenario B', state: 'queued' }
                 ]
             });
             const action$ = mockActions([{
-                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+                type: DELETE_TERRAIN, projectId: 7, id: 99, layerId: 'l1'
             }]);
             const emitted = [];
-            deleteElevationEpic(action$, storeWithProjectId(7))
+            deleteTerrainEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(emitted.length).toBe(1);
-                    expect(emitted[0].type).toBe(DELETE_ELEVATION_BLOCKED);
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_BLOCKED);
                     expect(emitted[0].id).toBe(99);
                     expect(emitted[0].blocking.length).toBe(2);
                     expect(emitted[0].blocking[0].name).toBe('Scenario A');
-                    expect(emitted[0].message).toBe('Cannot delete: 2 active scenarios reference this elevation');
+                    expect(emitted[0].message).toBe('Cannot delete: 2 active scenarios reference this terrain');
                     done();
                 });
         });
 
-        it('deleteElevationEpic: 500 -> ERROR (no SUCCESS)', (done) => {
-            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(500, { detail: 'boom' });
+        it('deleteTerrainEpic: 500 -> ERROR (no SUCCESS)', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(500, { detail: 'boom' });
             const action$ = mockActions([{
-                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+                type: DELETE_TERRAIN, projectId: 7, id: 99, layerId: 'l1'
             }]);
             const emitted = [];
-            deleteElevationEpic(action$, storeWithProjectId(7))
+            deleteTerrainEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(emitted.length).toBe(1);
-                    expect(emitted[0].type).toBe(DELETE_ELEVATION_ERROR);
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_ERROR);
                     expect(emitted[0].id).toBe(99);
                     expect(emitted[0].error.status).toBe(500);
                     done();
                 });
         });
 
-        it('deleteElevationEpic: 403 -> ERROR (caller distinguishes via .status)', (done) => {
-            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(403, { detail: 'forbidden' });
+        it('deleteTerrainEpic: 403 -> ERROR (caller distinguishes via .status)', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(403, { detail: 'forbidden' });
             const action$ = mockActions([{
-                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+                type: DELETE_TERRAIN, projectId: 7, id: 99, layerId: 'l1'
             }]);
             const emitted = [];
-            deleteElevationEpic(action$, storeWithProjectId(7))
+            deleteTerrainEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(emitted.length).toBe(1);
-                    expect(emitted[0].type).toBe(DELETE_ELEVATION_ERROR);
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_ERROR);
                     expect(emitted[0].error.status).toBe(403);
                     done();
                 });
         });
 
-        it('deleteElevationEpic: 409 without ACTIVE_REFERENCES error_code -> ERROR (not BLOCKED)', (done) => {
+        it('deleteTerrainEpic: 409 without ACTIVE_REFERENCES error_code -> ERROR (not BLOCKED)', (done) => {
             // Defensive: we only treat 409 as "blocked by scenarios" when the
             // BE explicitly tags error_code:ACTIVE_REFERENCES. Other 409s
             // should fall through to the generic error path.
-            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(409, { detail: 'conflict' });
+            mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(409, { detail: 'conflict' });
             const action$ = mockActions([{
-                type: DELETE_ELEVATION, projectId: 7, id: 99, layerId: 'l1'
+                type: DELETE_TERRAIN, projectId: 7, id: 99, layerId: 'l1'
             }]);
             const emitted = [];
-            deleteElevationEpic(action$, storeWithProjectId(7))
+            deleteTerrainEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(emitted.length).toBe(1);
-                    expect(emitted[0].type).toBe(DELETE_ELEVATION_ERROR);
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_ERROR);
                     done();
                 });
         });
 
-        it('deleteElevationEpic: success without layerId emits only SUCCESS', (done) => {
-            mockAxios.onDelete('/api/v2/anuga/projects/7/elevations/99/').reply(204);
+        it('deleteTerrainEpic: success without layerId emits only SUCCESS', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(204);
             const action$ = mockActions([{
-                type: DELETE_ELEVATION, projectId: 7, id: 99
+                type: DELETE_TERRAIN, projectId: 7, id: 99
             }]);
             const emitted = [];
-            deleteElevationEpic(action$, storeWithProjectId(7))
+            deleteTerrainEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(emitted.length).toBe(1);
-                    expect(emitted[0].type).toBe(DELETE_ELEVATION_SUCCESS);
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_SUCCESS);
                     done();
                 });
         });
@@ -866,16 +866,16 @@ describe('ANUGA Epics', () => {
         });
 
         it('falls back to projectId from store when not in action', (done) => {
-            mockAxios.onDelete('/api/v2/anuga/projects/42/elevations/99/').reply(204);
+            mockAxios.onDelete('/api/v2/anuga/projects/42/terrain/99/').reply(204);
             const action$ = mockActions([{
                 // no projectId on action — epic should resolve from store
-                type: DELETE_ELEVATION, id: 99, layerId: 'l1'
+                type: DELETE_TERRAIN, id: 99, layerId: 'l1'
             }]);
             const emitted = [];
-            deleteElevationEpic(action$, storeWithProjectId(42))
+            deleteTerrainEpic(action$, storeWithProjectId(42))
                 .subscribe(a => emitted.push(a), done, () => {
-                    expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/42/elevations/99/');
-                    expect(emitted[0].type).toBe(DELETE_ELEVATION_SUCCESS);
+                    expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/42/terrain/99/');
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_SUCCESS);
                     done();
                 });
         });

@@ -4,7 +4,7 @@
  * Bug: the upload glyph next to each layer was hardcoded to dispatch
  *   setVisibleUploaderPanel(true, "erosion", layer?.importerTargetObjectId)
  * which is a SWAMM-only flow. On hydratabase (hydrata.com), AnugaProjects only
- * have an "elevation" entry in their simple_view_config.importer_config, so the
+ * have a "terrain" entry in their simple_view_config.importer_config, so the
  * click resolved to an undefined config and produced /undefined/api/.../erosion/...
  * URLs in production (TASK-599 added the /undefined/ guard; this test verifies
  * the orphan button is no longer rendered in the first place).

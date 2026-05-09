@@ -43,8 +43,8 @@ export {
     prePopulateAnugaFeatureGridWithDefaults,
     updateAnugaModelTitle,
     getAnugaResourcesEpic,
-    // V2P-714 — cascade-delete dataset rows (elevation/boundary/friction/inflow)
-    deleteElevationEpic,
+    // V2P-714 — cascade-delete dataset rows (terrain/boundary/friction/inflow)
+    deleteTerrainEpic,
     deleteBoundaryEpic,
     deleteFrictionEpic,
     deleteInflowEpic

@@ -19,7 +19,7 @@
  *   idf-tables      -> idfTables
  *   time-series     -> timeSeries
  *   temporal-patterns -> temporalPatterns
- * Straight-through types (no mapping needed): scenarios, elevations, boundaries,
+ * Straight-through types (no mapping needed): scenarios, terrain, boundaries,
  * inflows, frictions, structures, networks, catchments, nodes, links, comparisons,
  * publications.
  *
@@ -44,7 +44,7 @@ export const ROLE_PERMS = {
 // 'computeInstances' is listed but always gets empty perms (V2P-12b).
 const RESOURCE_TYPES = [
     'scenarios',
-    'elevations',
+    'terrain',
     'boundaries',
     'inflows',
     'frictions',

@@ -15,7 +15,7 @@ describe('V2P-23 makeAnugaResourceState', () => {
 
             // Every expected type key must be present
             expect(result.scenarios).toBeA('array');
-            expect(result.elevations).toBeA('array');
+            expect(result.terrain).toBeA('array');
             expect(result.boundaries).toBeA('array');
             expect(result.inflows).toBeA('array');
             expect(result.frictions).toBeA('array');
@@ -35,7 +35,7 @@ describe('V2P-23 makeAnugaResourceState', () => {
 
             // Array length matches requested count
             expect(result.scenarios.length).toBe(count);
-            expect(result.elevations.length).toBe(count);
+            expect(result.terrain.length).toBe(count);
 
             if (count > 0) {
                 // IDs are 1-based integers
@@ -62,13 +62,13 @@ describe('V2P-23 makeAnugaResourceState', () => {
     it('returns fresh arrays so mutations on one type do not leak to another', () => {
         const result = makeAnugaResourceState('editor', 1);
         result.scenarios[0].perms.push('mutated');
-        expect(result.elevations[0].perms).toNotContain('mutated');
+        expect(result.terrain[0].perms).toNotContain('mutated');
     });
 
     it('unknown role returns empty perms', () => {
         const result = makeAnugaResourceState('bogus', 1);
         expect(result.scenarios[0].perms).toEqual([]);
-        expect(result.elevations[0].perms).toEqual([]);
+        expect(result.terrain[0].perms).toEqual([]);
     });
 
     it('computeInstances always has empty perms regardless of role', () => {

@@ -9,7 +9,7 @@ import {
 import { VISUALIZATION_MODE_CHANGED } from '../../../../../MapStore2/web/client/actions/maptype';
 import { isCesium } from '../../../../../MapStore2/web/client/selectors/maptype';
 import { getConfigProp } from '../../../../../MapStore2/web/client/utils/ConfigUtils';
-import { SET_ANUGA_ELEVATION_DATA } from '../actionsAnuga';
+import { SET_ANUGA_TERRAIN_DATA } from '../actionsAnuga';
 
 const TERRAIN_MAPTILER_ID = 'terrain-maptiler';
 const TERRAIN_DEM_ID = 'terrain-dem';
@@ -58,18 +58,18 @@ const buildDemTerrain = (layer) => {
 /**
  * Find the best DEM layer from the current map layers.
  * Priority:
- *   1. ANUGA elevation layer (group === 'Input Data.Elevations')
+ *   1. ANUGA terrain layer (group === 'Input Data.Terrain')
  *   2. Any visible layer with "DEM" in title (largest bbox area)
  */
 const findBestDemLayer = (state) => {
     const layers = state?.layers?.flat || [];
 
-    // Priority 1: ANUGA elevation layers
-    const anugaElevations = layers.filter(
-        l => l.type === 'wms' && l.group === 'Input Data.Elevations'
+    // Priority 1: ANUGA terrain layers
+    const anugaTerrain = layers.filter(
+        l => l.type === 'wms' && l.group === 'Input Data.Terrain'
     );
-    if (anugaElevations.length > 0) {
-        return anugaElevations[0];
+    if (anugaTerrain.length > 0) {
+        return anugaTerrain[0];
     }
 
     // Priority 2: Any layer with "DEM" in title, pick largest bbox area
@@ -149,10 +149,10 @@ const reconcileTerrain = (state) => {
 
 /**
  * Epic: manage terrain layers when switching to 3D mode.
- * Triggers on visualization mode change, layer add/remove, and ANUGA elevation data load.
+ * Triggers on visualization mode change, layer add/remove, and ANUGA terrain data load.
  */
 export const manageTerrain3DEpic = (action$, store) =>
-    action$.ofType(VISUALIZATION_MODE_CHANGED, ADD_LAYER, REMOVE_LAYER, SET_ANUGA_ELEVATION_DATA)
+    action$.ofType(VISUALIZATION_MODE_CHANGED, ADD_LAYER, REMOVE_LAYER, SET_ANUGA_TERRAIN_DATA)
         .debounceTime(300)
         .switchMap((action) => {
             const state = store.getState();

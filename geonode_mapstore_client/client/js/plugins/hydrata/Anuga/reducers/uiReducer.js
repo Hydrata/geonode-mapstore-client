@@ -25,7 +25,7 @@ const initialState = {
     visibleAnugaScenarioLogId: false,
     visibleAnugaRunMenu: false,
     isCreatingAnugaLayer: false,
-    showAddAnugaElevationData: false,
+    showAddAnugaTerrainData: false,
     showMembershipPanel: false
 };
 

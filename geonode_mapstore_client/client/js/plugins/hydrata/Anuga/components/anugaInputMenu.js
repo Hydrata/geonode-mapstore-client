@@ -44,7 +44,7 @@ class AnugaInputMenuClass extends React.Component {
         projectData: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
         anugaGroupLength: PropTypes.number,
-        elevationLayers: PropTypes.array,
+        terrainLayers: PropTypes.array,
         boundaryLayers: PropTypes.array,
         createAnugaBoundary: PropTypes.func,
         createAnugaFriction: PropTypes.func,
@@ -77,7 +77,7 @@ class AnugaInputMenuClass extends React.Component {
         addCatchment: PropTypes.func,
         addNodes: PropTypes.func,
         addLinks: PropTypes.func,
-        elevationModels: PropTypes.array,
+        terrainModels: PropTypes.array,
         boundaryModels: PropTypes.array,
         frictionModels: PropTypes.array,
         inflowModels: PropTypes.array,
@@ -96,7 +96,7 @@ class AnugaInputMenuClass extends React.Component {
         super(props);
         this.state = {
             showAdvanced: false,
-            elevationsCollapsed: true,
+            terrainCollapsed: true,
             boundariesCollapsed: true,
             inflowsCollapsed: true,
             fullMeshCollapsed: true,
@@ -163,45 +163,45 @@ class AnugaInputMenuClass extends React.Component {
     render() {
         return (
             <div id={'anuga-input-menu'} className={'simple-view-panel anuga-panel'}>
-                {/* Elevation section — unique (upload button instead of create+input) */}
+                {/* Terrain section — unique (upload button instead of create+input) */}
                 <div
                     className={'menu-rows-container anuga-section'}
                 >
                     <div className={"row menu-row menu-row-header anuga-section-header"}>
                         <span
                             className="menu-row-text anuga-section-header-clickable"
-                            onClick={() => this.toggleSection('elevations')}
+                            onClick={() => this.toggleSection('terrain')}
                             role="button"
                             tabIndex={0}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
-                                    this.toggleSection('elevations');
+                                    this.toggleSection('terrain');
                                 }
                             }}
-                            aria-expanded={!this.state.elevationsCollapsed}
-                        ><Message msgId="hydrata.anuga.elevations" /></span>
-                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadElevationTooltip" /></Tooltip>}>
+                            aria-expanded={!this.state.terrainCollapsed}
+                        ><Message msgId="hydrata.anuga.terrain" /></span>
+                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
                             <span
                                 className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-upload"}
                                 style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
                                 onClick={() => {
-                                    this.props.setVisibleUploaderPanel(true, "elevation", null);
-                                    trackEvent('button', 'click', 'anuga-input-menu-show-elevation-uploader');
+                                    this.props.setVisibleUploaderPanel(true, "terrain", null);
+                                    trackEvent('button', 'click', 'anuga-input-menu-show-terrain-uploader');
                                 }}
                             />
                         </OverlayTrigger>
                         <span
-                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.elevationsCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.terrainCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
                             style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
-                            onClick={() => this.toggleSection('elevations')}
-                            aria-label={this.state.elevationsCollapsed ? "Expand section" : "Collapse section"}
+                            onClick={() => this.toggleSection('terrain')}
+                            aria-label={this.state.terrainCollapsed ? "Expand section" : "Collapse section"}
                         />
                     </div>
-                    {!this.state.elevationsCollapsed && this.props.elevationLayers?.map(elevation => <MenuRow layer={elevation}/>)}
-                    {!this.state.elevationsCollapsed && this.props.elevationLayers?.length === 0 ?
+                    {!this.state.terrainCollapsed && this.props.terrainLayers?.map(terrain => <MenuRow layer={terrain}/>)}
+                    {!this.state.terrainCollapsed && this.props.terrainLayers?.length === 0 ?
                         <div className={"row menu-row anuga-section-empty-row"}>
-                            <Message msgId="hydrata.anuga.noElevationsAvailable" />
+                            <Message msgId="hydrata.anuga.noTerrainAvailable" />
                         </div> : null
                     }
                 </div>
@@ -293,7 +293,7 @@ class AnugaInputMenuClass extends React.Component {
                                     onToggleCollapse={() => this.toggleSection('meshRegions')}
                                 />
                                 <InputSection
-                                    titleMsgId="hydrata.anuga.frictionMaps"
+                                    titleMsgId="hydrata.anuga.friction"
                                     layers={this.props.frictionLayers}
                                     titleValue={this.state.frictionTitle}
                                     onTitleChange={(v) => this.setState({frictionTitle: v})}
@@ -410,7 +410,7 @@ class AnugaInputMenuClass extends React.Component {
                         }
                     </React.Fragment> : null
                 }
-                <UploaderPanel fileType={'elevation'}/>
+                <UploaderPanel fileType={'terrain'}/>
             </div>
         );
     }
@@ -419,10 +419,10 @@ class AnugaInputMenuClass extends React.Component {
 const mapStateToProps = (state) => {
     return {
         projectData: state?.anuga?.projects?.data,
-        elevationLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Elevations'),
+        terrainLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Terrain'),
         boundaryLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
         inflowLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
-        frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Maps'),
+        frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction'),
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Mesh'),
         meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
@@ -430,7 +430,7 @@ const mapStateToProps = (state) => {
         catchmentLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Catchments'),
         nodesLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Nodes'),
         linksLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Links'),
-        elevationModels: state?.anuga?.resources?.elevations,
+        terrainModels: state?.anuga?.resources?.terrain,
         boundaryModels: state?.anuga?.resources?.boundaries,
         inflowModels: state?.anuga?.resources?.inflows,
         frictionModels: state?.anuga?.resources?.frictions,

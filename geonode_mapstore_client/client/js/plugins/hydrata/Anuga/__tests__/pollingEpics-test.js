@@ -312,11 +312,11 @@ describe('Polling Epics', () => {
             // Build a state where all groups already exist
             const allGroups = [
                 { id: 'Input Data', nodes: [
-                    { id: 'Input Data.Elevations' },
+                    { id: 'Input Data.Terrain' },
                     { id: 'Input Data.Boundaries' },
                     { id: 'Input Data.Structures' },
                     { id: 'Input Data.Inflows' },
-                    { id: 'Input Data.Friction Maps' },
+                    { id: 'Input Data.Friction' },
                     { id: 'Input Data.Full Mesh' },
                     { id: 'Input Data.Mesh Regions' },
                     { id: 'Input Data.Catchments' },
@@ -487,7 +487,7 @@ describe('Polling Epics', () => {
             }, 100);
         });
 
-        it('should add elevation DEM + hillshade and run full post-add chain (is_first_upload=false)', (done) => {
+        it('should add terrain DEM + hillshade and run full post-add chain (is_first_upload=false)', (done) => {
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
@@ -507,10 +507,10 @@ describe('Polling Epics', () => {
                 type: TM_SET_PROCESSES,
                 processes: [{
                     id: 'ele-not-first',
-                    process_type: 'elevation_create',
+                    process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
-                        target_group: 'Input Data.Elevations',
+                        target_group: 'Input Data.Terrain',
                         is_first_upload: false,
                         mapstore_layers: [
                             { name: 'geonode:ele_99_dem', type: 'wms', url: '/geoserver/ows', bbox: { bounds: { minx: 0, miny: 0, maxx: 1, maxy: 1 }, crs: 'EPSG:4326' } },
@@ -562,7 +562,7 @@ describe('Polling Epics', () => {
                 type: TM_SET_PROCESSES,
                 processes: [{
                     id: 'ele-first',
-                    process_type: 'elevation_create',
+                    process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
                         is_first_upload: true,
@@ -595,7 +595,7 @@ describe('Polling Epics', () => {
             }, 300);
         });
 
-        it('should be a no-op when all elevation layers are already in flat (page-reload case)', (done) => {
+        it('should be a no-op when all terrain layers are already in flat (page-reload case)', (done) => {
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
@@ -621,7 +621,7 @@ describe('Polling Epics', () => {
                 type: TM_SET_PROCESSES,
                 processes: [{
                     id: 'ele-already',
-                    process_type: 'elevation_create',
+                    process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
                         is_first_upload: false,
@@ -735,19 +735,19 @@ describe('Polling Epics', () => {
             }, 200);
         });
 
-        // V2P-714 follow-up: orphan elevation_create filtering. After a user
-        // deletes an Elevation row, its elevation_create Process record is
+        // V2P-714 follow-up: orphan terrain_create filtering. After a user
+        // deletes a Terrain row, its terrain_create Process record is
         // still in TaskMonitor's list. On page reload, replaying the addLayer
         // side-effect would re-inject layers whose backing GeoNode Dataset is
         // 404 (cascade-cleaned by the post_delete signal). The filter
-        // suppresses replay when state.anuga.resources.elevations is loaded
-        // and the elevation_id is absent.
-        it('should skip elevation_create when elevation_id is gone from state.anuga.resources.elevations', (done) => {
+        // suppresses replay when state.anuga.resources.terrain is loaded
+        // and the terrain_id is absent.
+        it('should skip terrain_create when terrain_id is gone from state.anuga.resources.terrain', (done) => {
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    anuga: { resources: { elevations: [{ id: 7 }, { id: 8 }] } }
+                    anuga: { resources: { terrain: [{ id: 7 }, { id: 8 }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -763,10 +763,10 @@ describe('Polling Epics', () => {
                 type: TM_SET_PROCESSES,
                 processes: [{
                     id: 'orphan-ele-6',
-                    process_type: 'elevation_create',
+                    process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
-                        elevation_id: 6,
+                        terrain_id: 6,
                         is_first_upload: false,
                         mapstore_layers: [
                             { name: 'geonode:ele_6_dem', type: 'wms', url: '/geoserver/ows' },
@@ -783,12 +783,12 @@ describe('Polling Epics', () => {
             }, 200);
         });
 
-        it('should process elevation_create when elevation_id IS present in state.anuga.resources.elevations', (done) => {
+        it('should process terrain_create when terrain_id IS present in state.anuga.resources.terrain', (done) => {
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    anuga: { resources: { elevations: [{ id: 11 }, { id: 12 }] } }
+                    anuga: { resources: { terrain: [{ id: 11 }, { id: 12 }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -804,10 +804,10 @@ describe('Polling Epics', () => {
                 type: TM_SET_PROCESSES,
                 processes: [{
                     id: 'live-ele-12',
-                    process_type: 'elevation_create',
+                    process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
-                        elevation_id: 12,
+                        terrain_id: 12,
                         is_first_upload: false,
                         mapstore_layers: [
                             { name: 'geonode:ele_12_dem', type: 'wms', url: '/geoserver/ows' }
@@ -846,10 +846,10 @@ describe('Polling Epics', () => {
                 type: TM_SET_PROCESSES,
                 processes: [{
                     id: 'unloaded-state',
-                    process_type: 'elevation_create',
+                    process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
-                        elevation_id: 99,
+                        terrain_id: 99,
                         is_first_upload: false,
                         mapstore_layers: [
                             { name: 'geonode:ele_99_dem', type: 'wms', url: '/geoserver/ows' }
@@ -871,10 +871,10 @@ describe('Polling Epics', () => {
             // handledCompletionIds set; otherwise we'd re-check it on every
             // poll and bake in the orphan-existence check on hot-path tick.
             // We assert by flipping the resource state between emissions:
-            // first emit with empty elevations -> skipped + handled;
-            // second emit with the elevation present -> still skipped because
+            // first emit with empty terrain -> skipped + handled;
+            // second emit with the terrain present -> still skipped because
             // handled, NOT re-evaluated.
-            let resources = { elevations: [] };
+            let resources = { terrain: [] };
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
@@ -893,10 +893,10 @@ describe('Polling Epics', () => {
 
             const tickProcess = {
                 id: 'orphan-then-revived',
-                process_type: 'elevation_create',
+                process_type: 'terrain_create',
                 status: 'complete',
                 metadata: {
-                    elevation_id: 42,
+                    terrain_id: 42,
                     is_first_upload: false,
                     mapstore_layers: [{ name: 'geonode:ele_42_dem', type: 'wms', url: '/geoserver/ows' }]
                 }
@@ -905,7 +905,7 @@ describe('Polling Epics', () => {
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
             setTimeout(() => {
                 expect(emitted.length).toBe(0);  // first emit: orphan, skipped
-                resources = { elevations: [{ id: 42 }] };  // resource "revived"
+                resources = { terrain: [{ id: 42 }] };  // resource "revived"
                 subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
                 setTimeout(() => {
                     expect(emitted.length).toBe(0);  // still no-op: id was handled

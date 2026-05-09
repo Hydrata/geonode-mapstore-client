@@ -13,7 +13,7 @@ import {
     SET_ANUGA_INFLOW_DATA,
     SET_ANUGA_FRICTION_DATA,
     SET_ANUGA_BOUNDARY_DATA,
-    SET_ANUGA_ELEVATION_DATA,
+    SET_ANUGA_TERRAIN_DATA,
     SET_CREATING_ANUGA_LAYER,
     ADD_ANUGA_SCENARIO,
     SELECT_ANUGA_SCENARIO,
@@ -468,13 +468,13 @@ describe('Anuga Plugin', () => {
             expect(state.resources.boundaries).toEqual(boundaries);
         });
 
-        it('should handle SET_ANUGA_ELEVATION_DATA', () => {
-            const elevations = [{ id: 1, name: 'Elevation 1' }];
+        it('should handle SET_ANUGA_TERRAIN_DATA', () => {
+            const terrain = [{ id: 1, name: 'Terrain 1' }];
             const state = reducer(undefined, {
-                type: SET_ANUGA_ELEVATION_DATA,
-                data: elevations
+                type: SET_ANUGA_TERRAIN_DATA,
+                data: terrain
             });
-            expect(state.resources.elevations).toEqual(elevations);
+            expect(state.resources.terrain).toEqual(terrain);
         });
     });
 
@@ -553,14 +553,14 @@ describe('Anuga Plugin', () => {
                 my_role: 'editor',
                 visibility: 'private',
                 scenarios: { 1: ['view_resourcebase', 'change_resourcebase'] },
-                elevations: { 5: ['view_resourcebase'] }
+                terrain: { 5: ['view_resourcebase'] }
             }));
             // V2P-02 reading convention: state.anuga.resources.<type> is an array
             expect(Array.isArray(state.resources.scenarios)).toBe(true);
             expect(state.resources.scenarios).toEqual([
                 { id: 1, perms: ['view_resourcebase', 'change_resourcebase'] }
             ]);
-            expect(state.resources.elevations).toEqual([
+            expect(state.resources.terrain).toEqual([
                 { id: 5, perms: ['view_resourcebase'] }
             ]);
         });
@@ -656,12 +656,12 @@ describe('Anuga Plugin', () => {
                 my_role: null,
                 visibility: 'public',
                 scenarios: {},
-                elevations: {},
+                terrain: {},
                 boundaries: {}
             }));
             // Initial state arrays preserved (empty), no stubs created
             expect(state.resources.scenarios).toEqual([]);
-            expect(state.resources.elevations).toEqual([]);
+            expect(state.resources.terrain).toEqual([]);
             expect(state.resources.boundaries).toEqual([]);
             expect(state.resources.permsLoadFailed).toBe(false);
         });
@@ -689,10 +689,10 @@ describe('Anuga Plugin', () => {
     // V2P-714 — cascade-delete dataset rows
     describe('V2P-714 cascade-delete action creators', () => {
         const {
-            DELETE_ELEVATION,
-            DELETE_ELEVATION_SUCCESS,
-            DELETE_ELEVATION_BLOCKED,
-            DELETE_ELEVATION_ERROR,
+            DELETE_TERRAIN,
+            DELETE_TERRAIN_SUCCESS,
+            DELETE_TERRAIN_BLOCKED,
+            DELETE_TERRAIN_ERROR,
             DELETE_BOUNDARY,
             DELETE_BOUNDARY_SUCCESS,
             DELETE_BOUNDARY_BLOCKED,
@@ -705,10 +705,10 @@ describe('Anuga Plugin', () => {
             DELETE_INFLOW_SUCCESS,
             DELETE_INFLOW_BLOCKED,
             DELETE_INFLOW_ERROR,
-            deleteElevation,
-            deleteElevationSuccess,
-            deleteElevationBlocked,
-            deleteElevationError,
+            deleteTerrain,
+            deleteTerrainSuccess,
+            deleteTerrainBlocked,
+            deleteTerrainError,
             deleteBoundary,
             deleteBoundarySuccess,
             deleteBoundaryBlocked,
@@ -723,29 +723,29 @@ describe('Anuga Plugin', () => {
             deleteInflowError
         } = require('../actionsAnuga');
 
-        it('deleteElevation creates {type, projectId, id, layerId}', () => {
-            const a = deleteElevation(7, 99, 'l1');
-            expect(a.type).toBe(DELETE_ELEVATION);
+        it('deleteTerrain creates {type, projectId, id, layerId}', () => {
+            const a = deleteTerrain(7, 99, 'l1');
+            expect(a.type).toBe(DELETE_TERRAIN);
             expect(a.projectId).toBe(7);
             expect(a.id).toBe(99);
             expect(a.layerId).toBe('l1');
         });
-        it('deleteElevationSuccess creates {type, id, layerId}', () => {
-            const a = deleteElevationSuccess(99, 'l1');
-            expect(a.type).toBe(DELETE_ELEVATION_SUCCESS);
+        it('deleteTerrainSuccess creates {type, id, layerId}', () => {
+            const a = deleteTerrainSuccess(99, 'l1');
+            expect(a.type).toBe(DELETE_TERRAIN_SUCCESS);
             expect(a.id).toBe(99);
             expect(a.layerId).toBe('l1');
         });
-        it('deleteElevationBlocked carries blocking + message', () => {
-            const a = deleteElevationBlocked(99, [{type: 'scenario', id: 1, name: 'A', state: 'computing'}], 'cannot delete');
-            expect(a.type).toBe(DELETE_ELEVATION_BLOCKED);
+        it('deleteTerrainBlocked carries blocking + message', () => {
+            const a = deleteTerrainBlocked(99, [{type: 'scenario', id: 1, name: 'A', state: 'computing'}], 'cannot delete');
+            expect(a.type).toBe(DELETE_TERRAIN_BLOCKED);
             expect(a.id).toBe(99);
             expect(a.blocking).toEqual([{type: 'scenario', id: 1, name: 'A', state: 'computing'}]);
             expect(a.message).toBe('cannot delete');
         });
-        it('deleteElevationError carries error', () => {
-            const a = deleteElevationError(99, {status: 500, data: {}});
-            expect(a.type).toBe(DELETE_ELEVATION_ERROR);
+        it('deleteTerrainError carries error', () => {
+            const a = deleteTerrainError(99, {status: 500, data: {}});
+            expect(a.type).toBe(DELETE_TERRAIN_ERROR);
             expect(a.id).toBe(99);
             expect(a.error.status).toBe(500);
         });
@@ -774,10 +774,10 @@ describe('Anuga Plugin', () => {
         // SET_* constants come from the top-of-file imports; redeclaring here
         // would shadow them.
         const {
-            DELETE_ELEVATION,
-            DELETE_ELEVATION_SUCCESS,
-            DELETE_ELEVATION_BLOCKED,
-            DELETE_ELEVATION_ERROR,
+            DELETE_TERRAIN,
+            DELETE_TERRAIN_SUCCESS,
+            DELETE_TERRAIN_BLOCKED,
+            DELETE_TERRAIN_ERROR,
             DELETE_BOUNDARY_SUCCESS,
             DELETE_FRICTION_SUCCESS,
             DELETE_INFLOW_SUCCESS
@@ -785,33 +785,33 @@ describe('Anuga Plugin', () => {
 
         const seed = (type, slot, data) => reducer(undefined, { type, [slot]: data });
 
-        it('DELETE_ELEVATION marks deleting:true on the target row', () => {
-            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [
+        it('DELETE_TERRAIN marks deleting:true on the target row', () => {
+            let state = seed(SET_ANUGA_TERRAIN_DATA, 'data', [
                 { id: 1, title: 'A' }, { id: 2, title: 'B' }
             ]);
-            state = reducer(state, { type: DELETE_ELEVATION, projectId: 7, id: 1, layerId: 'l1' });
-            expect(state.resources.elevations[0].deleting).toBe(true);
-            expect(state.resources.elevations[1].deleting).toBe(undefined);
+            state = reducer(state, { type: DELETE_TERRAIN, projectId: 7, id: 1, layerId: 'l1' });
+            expect(state.resources.terrain[0].deleting).toBe(true);
+            expect(state.resources.terrain[1].deleting).toBe(undefined);
         });
 
-        it('DELETE_ELEVATION_SUCCESS removes the row by id', () => {
-            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [
+        it('DELETE_TERRAIN_SUCCESS removes the row by id', () => {
+            let state = seed(SET_ANUGA_TERRAIN_DATA, 'data', [
                 { id: 1, title: 'A' }, { id: 2, title: 'B' }
             ]);
-            state = reducer(state, { type: DELETE_ELEVATION_SUCCESS, id: 1 });
-            expect(state.resources.elevations.length).toBe(1);
-            expect(state.resources.elevations[0].id).toBe(2);
+            state = reducer(state, { type: DELETE_TERRAIN_SUCCESS, id: 1 });
+            expect(state.resources.terrain.length).toBe(1);
+            expect(state.resources.terrain[0].id).toBe(2);
         });
 
-        it('DELETE_ELEVATION_BLOCKED stamps blockingError with blocking list', () => {
-            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [{ id: 1, title: 'A' }]);
+        it('DELETE_TERRAIN_BLOCKED stamps blockingError with blocking list', () => {
+            let state = seed(SET_ANUGA_TERRAIN_DATA, 'data', [{ id: 1, title: 'A' }]);
             state = reducer(state, {
-                type: DELETE_ELEVATION_BLOCKED,
+                type: DELETE_TERRAIN_BLOCKED,
                 id: 1,
                 message: 'Cannot delete: scenario X references this',
                 blocking: [{ type: 'scenario', id: 11, name: 'X', state: 'computing' }]
             });
-            const row = state.resources.elevations[0];
+            const row = state.resources.terrain[0];
             expect(row.deleting).toBe(false);
             expect(row.blockingError.message).toBe('Cannot delete: scenario X references this');
             expect(row.blockingError.blocking.length).toBe(1);
@@ -819,14 +819,14 @@ describe('Anuga Plugin', () => {
             expect(row.deleteError).toBe(null);
         });
 
-        it('DELETE_ELEVATION_ERROR stamps deleteError', () => {
-            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [{ id: 1, title: 'A' }]);
+        it('DELETE_TERRAIN_ERROR stamps deleteError', () => {
+            let state = seed(SET_ANUGA_TERRAIN_DATA, 'data', [{ id: 1, title: 'A' }]);
             state = reducer(state, {
-                type: DELETE_ELEVATION_ERROR,
+                type: DELETE_TERRAIN_ERROR,
                 id: 1,
                 error: { status: 500, data: { detail: 'boom' } }
             });
-            const row = state.resources.elevations[0];
+            const row = state.resources.terrain[0];
             expect(row.deleting).toBe(false);
             expect(row.blockingError).toBe(null);
             expect(row.deleteError.status).toBe(500);
@@ -854,9 +854,9 @@ describe('Anuga Plugin', () => {
         });
 
         it('SUCCESS for a missing id leaves the slot unchanged', () => {
-            let state = seed(SET_ANUGA_ELEVATION_DATA, 'data', [{ id: 1, title: 'A' }]);
-            state = reducer(state, { type: DELETE_ELEVATION_SUCCESS, id: 999 });
-            expect(state.resources.elevations.length).toBe(1);
+            let state = seed(SET_ANUGA_TERRAIN_DATA, 'data', [{ id: 1, title: 'A' }]);
+            state = reducer(state, { type: DELETE_TERRAIN_SUCCESS, id: 999 });
+            expect(state.resources.terrain.length).toBe(1);
         });
     });
 });

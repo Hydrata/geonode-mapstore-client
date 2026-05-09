@@ -22,7 +22,7 @@ import {parseDevHostname} from "@js/utils/APIUtils";
 // + PATCH partial_update — no POST create. createResource() falls back to
 // V1 for those three; every other helper (list / patch / delete) routes V2.
 const V2_PLURAL = {
-    elevation: 'elevations',
+    terrain: 'terrain',
     boundary: 'boundaries',
     friction: 'frictions',
     inflow: 'inflows',
@@ -104,7 +104,7 @@ export const createScenario = (projectId, scenario) =>
 // V2P-79 / V2P-72: V1 PUT → V2 PATCH for partial-update semantics. V2 also
 // supports PUT, but switching to PATCH avoids accidental field nulling when
 // callers don't include all required-on-write fields. ScenarioUpdateSerializerV2
-// limits the writable fields to {name, elevation, boundary, friction, inflow,
+// limits the writable fields to {name, terrain, boundary, friction, inflow,
 // structure, mesh_region, network, resolution, duration}.
 export const updateScenario = (projectId, scenarioId, scenario) =>
     axios.patch(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/`, scenario);
@@ -118,8 +118,8 @@ export const deleteScenario = (projectId, scenarioId) =>
 // rules, S3 TIFs. Returns 204 on success; 409 with {error_code:
 // 'ACTIVE_REFERENCES', blocking: [...]} if active scenarios reference the
 // dataset; 403 for viewers; 401 for anonymous.
-export const deleteElevationV2 = (projectId, elevationId) =>
-    axios.delete(`/api/v2/anuga/projects/${projectId}/elevations/${elevationId}/`);
+export const deleteTerrainV2 = (projectId, terrainId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/`);
 
 export const deleteBoundaryV2 = (projectId, boundaryId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/boundaries/${boundaryId}/`);

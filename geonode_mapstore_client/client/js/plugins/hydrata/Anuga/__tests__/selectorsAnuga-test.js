@@ -374,7 +374,7 @@ describe('Anuga Selectors', () => {
             const state = {
                 anuga: {
                     resources: {
-                        elevations: [{ id: 1, name: 'Elevation 1' }],
+                        terrain: [{ id: 1, name: 'Terrain 1' }],
                         boundaries: [{ id: 2, name: 'Boundary 1' }],
                         frictions: [],
                         inflows: [{ id: 3, name: 'Inflow 1' }],
@@ -388,7 +388,7 @@ describe('Anuga Selectors', () => {
             };
             const result = getAnugaModels(state);
             expect(result.length).toBe(3);
-            expect(result[0].apiKey).toBe('elevation');
+            expect(result[0].apiKey).toBe('terrain');
             expect(result[1].apiKey).toBe('boundary');
             expect(result[2].apiKey).toBe('inflow');
         });
@@ -397,7 +397,7 @@ describe('Anuga Selectors', () => {
             const state = {
                 anuga: {
                     resources: {
-                        elevations: [{ id: 1 }],
+                        terrain: [{ id: 1 }],
                         boundaries: [{ id: 2 }],
                         frictions: [{ id: 3 }],
                         inflows: [{ id: 4 }],
@@ -411,7 +411,7 @@ describe('Anuga Selectors', () => {
             };
             const result = getAnugaModels(state);
             const apiKeys = result.map(m => m.apiKey);
-            expect(apiKeys).toContain('elevation');
+            expect(apiKeys).toContain('terrain');
             expect(apiKeys).toContain('boundary');
             expect(apiKeys).toContain('friction');
             expect(apiKeys).toContain('inflow');
@@ -426,7 +426,7 @@ describe('Anuga Selectors', () => {
             const state = {
                 anuga: {
                     resources: {
-                        elevations: [],
+                        terrain: [],
                         boundaries: [],
                         frictions: [],
                         inflows: [],

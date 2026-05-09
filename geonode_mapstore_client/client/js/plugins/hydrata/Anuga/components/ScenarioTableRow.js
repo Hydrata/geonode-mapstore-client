@@ -21,7 +21,7 @@ class ScenarioTableRow extends React.Component {
         scenario: PropTypes.object.isRequired,
         scenarioTableTabs: PropTypes.array.isRequired,
         // Data lists for select dropdowns
-        elevations: PropTypes.array,
+        terrain: PropTypes.array,
         boundaries: PropTypes.array,
         inflows: PropTypes.array,
         frictions: PropTypes.array,
@@ -317,7 +317,7 @@ class ScenarioTableRow extends React.Component {
                 </td>
                 {showManage ?
                     <React.Fragment>
-                        {this.renderSelectCell('elevation', scenario?.elevation, this.props.elevations, !canEdit)}
+                        {this.renderSelectCell('terrain', scenario?.terrain, this.props.terrain, !canEdit)}
                         {this.renderSelectCell('boundary', scenario?.boundary, this.props.boundaries, !canEdit)}
                         {this.renderSelectCell('inflow', scenario?.inflow, this.props.inflows, !canEdit)}
                     </React.Fragment> : null

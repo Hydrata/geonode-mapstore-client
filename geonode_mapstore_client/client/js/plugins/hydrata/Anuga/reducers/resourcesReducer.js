@@ -1,5 +1,5 @@
 import {
-    SET_ANUGA_ELEVATION_DATA,
+    SET_ANUGA_TERRAIN_DATA,
     SET_ANUGA_BOUNDARY_DATA,
     SET_ANUGA_FRICTION_DATA,
     SET_ANUGA_INFLOW_DATA,
@@ -16,10 +16,10 @@ import {
     UPDATE_NETWORK,
     SET_ANUGA_RESOURCE_PERMS,
     SET_PERMS_LOAD_FAILED,
-    DELETE_ELEVATION,
-    DELETE_ELEVATION_SUCCESS,
-    DELETE_ELEVATION_BLOCKED,
-    DELETE_ELEVATION_ERROR,
+    DELETE_TERRAIN,
+    DELETE_TERRAIN_SUCCESS,
+    DELETE_TERRAIN_BLOCKED,
+    DELETE_TERRAIN_ERROR,
     DELETE_BOUNDARY,
     DELETE_BOUNDARY_SUCCESS,
     DELETE_BOUNDARY_BLOCKED,
@@ -38,7 +38,7 @@ import {
 // reducer slot names. Backend returns mesh-regions/full-meshes/compute-instances/
 // idf-tables/time-series/temporal-patterns; FE state uses meshRegions/fullMeshes/
 // computeInstances. Anything not in this table gets passed through verbatim
-// (so 'scenarios', 'elevations', 'boundaries', etc. just-work).
+// (so 'scenarios', 'terrain', 'boundaries', etc. just-work).
 //
 // Two BE keys (members, runs) have no resourcesReducer slot — we skip them
 // (memberships live in their own membershipsReducer; runs live in runsReducer
@@ -63,7 +63,7 @@ const _NON_RESOURCE_KEYS = new Set(['my_role', 'visibility']);
 const _SKIP_RESOURCE_KEYS = new Set(['members', 'runs']);
 
 const initialState = {
-    elevations: [],
+    terrain: [],
     boundaries: [],
     frictions: [],
     inflows: [],
@@ -108,8 +108,8 @@ function _markError(rows, id, error) {
 
 export default (state = initialState, action) => {
     switch (action.type) {
-    case SET_ANUGA_ELEVATION_DATA:
-        return { ...state, elevations: action.data };
+    case SET_ANUGA_TERRAIN_DATA:
+        return { ...state, terrain: action.data };
     case SET_ANUGA_BOUNDARY_DATA:
         return { ...state, boundaries: action.data };
     case SET_ANUGA_FRICTION_DATA:
@@ -209,14 +209,14 @@ export default (state = initialState, action) => {
     // blocked, error). On start we set deleting:true on the row. On success
     // we drop the row entirely; on blocked/error we clear deleting and stamp
     // a per-row error so the SimpleView row component can render inline.
-    case DELETE_ELEVATION:
-        return { ...state, elevations: _markDeleting(state.elevations, action.id) };
-    case DELETE_ELEVATION_SUCCESS:
-        return { ...state, elevations: (state.elevations || []).filter(r => r?.id !== action.id) };
-    case DELETE_ELEVATION_BLOCKED:
-        return { ...state, elevations: _markBlocked(state.elevations, action.id, action.message, action.blocking) };
-    case DELETE_ELEVATION_ERROR:
-        return { ...state, elevations: _markError(state.elevations, action.id, action.error) };
+    case DELETE_TERRAIN:
+        return { ...state, terrain: _markDeleting(state.terrain, action.id) };
+    case DELETE_TERRAIN_SUCCESS:
+        return { ...state, terrain: (state.terrain || []).filter(r => r?.id !== action.id) };
+    case DELETE_TERRAIN_BLOCKED:
+        return { ...state, terrain: _markBlocked(state.terrain, action.id, action.message, action.blocking) };
+    case DELETE_TERRAIN_ERROR:
+        return { ...state, terrain: _markError(state.terrain, action.id, action.error) };
     case DELETE_BOUNDARY:
         return { ...state, boundaries: _markDeleting(state.boundaries, action.id) };
     case DELETE_BOUNDARY_SUCCESS:

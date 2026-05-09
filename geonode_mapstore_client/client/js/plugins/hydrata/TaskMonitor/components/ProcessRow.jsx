@@ -4,7 +4,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 
 const typeIcons = {
     anuga_run: 'glyphicon-flash',
-    elevation_create: 'glyphicon-signal',
+    terrain_create: 'glyphicon-signal',
     layer_create: 'glyphicon-globe',
     swamm_import: 'glyphicon-import',
     geonode_upload: 'glyphicon-upload',

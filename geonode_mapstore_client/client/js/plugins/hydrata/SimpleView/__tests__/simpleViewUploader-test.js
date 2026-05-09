@@ -7,13 +7,13 @@ import { createStore } from 'redux';
 import { UploaderPanel, getActiveProjectId } from '../components/simpleViewUploader';
 
 /**
- * TASK-600: Bind elevation-importer URL to *active* project, not stashed
+ * TASK-600: Bind terrain-importer URL to *active* project, not stashed
  * project_id from initial SimpleView config load.
  *
  * Real-world bug: WKC Group user (gabriela.garcia@wkcgroup.com) signed up,
  * viewed the public Merewether demo (project 378) — config.project_id was
  * stashed at 378. She then created her own project 548 and tried to upload
- * elevation. The PUT went to /anuga/api/378/elevation/importer-create/ → 403,
+ * terrain. The PUT went to /anuga/api/378/terrain/importer-create/ → 403,
  * five times across 7 days. Only when state.simpleView.config was *reloaded*
  * (and happened to populate project_id=548) did the upload succeed.
  *
@@ -24,12 +24,12 @@ import { UploaderPanel, getActiveProjectId } from '../components/simpleViewUploa
 
 // ── Helpers ──
 
-const importerConfigKey = 'elevation';
+const importerConfigKey = 'terrain';
 const baseConfig = {
     importer_config: {
-        elevation: {
+        terrain: {
             app_name: 'anuga',
-            title: 'Elevation',
+            title: 'Terrain',
             filetype: 'tif/zip'
         }
     },
@@ -118,7 +118,7 @@ describe('SimpleView Uploader — TASK-600 active project binding', () => {
         it('handles unknown app_name by falling back to stashed project_id', () => {
             const state = makeState({
                 config: {
-                    importer_config: { elevation: { app_name: 'unknown-app' } },
+                    importer_config: { terrain: { app_name: 'unknown-app' } },
                     project_id: 42
                 }
             });
@@ -162,7 +162,7 @@ describe('SimpleView Uploader — TASK-600 active project binding', () => {
             const state = {
                 simpleView: {
                     visibleUploaderPanel: true,
-                    importerConfigKey: 'elevation',
+                    importerConfigKey: 'terrain',
                     config: { importer_config: baseConfig.importer_config }  // no project_id
                 },
                 anuga: {},

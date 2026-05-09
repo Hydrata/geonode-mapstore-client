@@ -2,7 +2,7 @@
  * V2P-714 — tests for the simpleViewMenuRow trash button cascade-delete wiring.
  *
  * Covers:
- *   - getDeleteDatasetType helper maps layer.group -> {elevation,boundary,friction,inflow}
+ *   - getDeleteDatasetType helper maps layer.group -> {terrain,boundary,friction,inflow}
  *   - trash click confirms, then dispatches the right cascade action per type
  *   - blockingError renders inline with the blocking-scenarios list
  *   - deleteError renders an inline generic error
@@ -28,7 +28,7 @@ function createMockStore(overrides = {}) {
         anuga: {
             projects: { data: { id: 42, my_role: 'editor' } },
             resources: {
-                elevations: [],
+                terrain: [],
                 boundaries: [],
                 frictions: [],
                 inflows: []
@@ -68,9 +68,9 @@ function createMockStore(overrides = {}) {
 const baseLayer = (overrides = {}) => ({
     id: 'l1',
     visibility: true,
-    group: 'Input Data.Elevations',
+    group: 'Input Data.Terrain',
     type: 'wms',
-    title: 'My Elevation',
+    title: 'My Terrain',
     name: 'geonode:ele_xxxxxx',
     opacity: 1,
     perms: ['delete_resourcebase'],
@@ -98,14 +98,14 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
     describe('getDeleteDatasetType helper', () => {
         const { getDeleteDatasetType } = require('../simpleViewMenuRow');
 
-        it('maps Input Data.Elevations -> elevation', () => {
-            expect(getDeleteDatasetType({ group: 'Input Data.Elevations' })).toBe('elevation');
+        it('maps Input Data.Terrain -> terrain', () => {
+            expect(getDeleteDatasetType({ group: 'Input Data.Terrain' })).toBe('terrain');
         });
         it('maps Input Data.Boundaries -> boundary', () => {
             expect(getDeleteDatasetType({ group: 'Input Data.Boundaries' })).toBe('boundary');
         });
-        it('maps Input Data.Friction Maps -> friction', () => {
-            expect(getDeleteDatasetType({ group: 'Input Data.Friction Maps' })).toBe('friction');
+        it('maps Input Data.Friction -> friction', () => {
+            expect(getDeleteDatasetType({ group: 'Input Data.Friction' })).toBe('friction');
         });
         it('maps Input Data.Inflows -> inflow', () => {
             expect(getDeleteDatasetType({ group: 'Input Data.Inflows' })).toBe('inflow');
@@ -121,27 +121,27 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         });
     });
 
-    it('trash click confirms then dispatches DELETE_ELEVATION when layer.group=Elevations', (done) => {
+    it('trash click confirms then dispatches DELETE_TERRAIN when layer.group=Terrain', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
-        const { DELETE_ELEVATION } = require('../../../Anuga/actionsAnuga');
+        const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    elevations: [{ id: 99, gn_layer_name: 'ele_xxxxxx' }]
+                    terrain: [{ id: 99, gn_layer_name: 'ele_xxxxxx' }]
                 }
             }
         });
         ReactDOM.render(
             <Provider store={store}>
-                <MenuRow layer={baseLayer({ group: 'Input Data.Elevations', name: 'geonode:ele_xxxxxx' })} />
+                <MenuRow layer={baseLayer({ group: 'Input Data.Terrain', name: 'geonode:ele_xxxxxx' })} />
             </Provider>,
             container,
             () => {
                 const trash = container.querySelector('.glyphicon-trash');
                 expect(trash).toExist();
                 Simulate.click(trash);
-                const deleteAction = dispatched.find(a => a?.type === DELETE_ELEVATION);
+                const deleteAction = dispatched.find(a => a?.type === DELETE_TERRAIN);
                 expect(deleteAction).toExist();
                 expect(deleteAction.projectId).toBe(42);
                 expect(deleteAction.id).toBe(99);
@@ -179,7 +179,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         );
     });
 
-    it('trash click dispatches DELETE_FRICTION for Friction Maps group', (done) => {
+    it('trash click dispatches DELETE_FRICTION for Friction group', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_FRICTION } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
@@ -193,7 +193,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         ReactDOM.render(
             <Provider store={store}>
                 <MenuRow layer={baseLayer({
-                    group: 'Input Data.Friction Maps', name: 'geonode:fri_zzz', title: 'Friction 1'
+                    group: 'Input Data.Friction', name: 'geonode:fri_zzz', title: 'Friction 1'
                 })} />
             </Provider>,
             container,
@@ -235,32 +235,32 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         );
     });
 
-    it('confirm-no aborts the dispatch (no DELETE_ELEVATION emitted)', (done) => {
+    it('confirm-no aborts the dispatch (no DELETE_TERRAIN emitted)', (done) => {
         window.confirm = () => false;
         const { MenuRow } = require('../simpleViewMenuRow');
-        const { DELETE_ELEVATION } = require('../../../Anuga/actionsAnuga');
+        const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
-                resources: { elevations: [{ id: 99, gn_layer_name: 'ele_xxxxxx' }] }
+                resources: { terrain: [{ id: 99, gn_layer_name: 'ele_xxxxxx' }] }
             }
         });
         ReactDOM.render(
             <Provider store={store}>
-                <MenuRow layer={baseLayer({ group: 'Input Data.Elevations', name: 'geonode:ele_xxxxxx' })} />
+                <MenuRow layer={baseLayer({ group: 'Input Data.Terrain', name: 'geonode:ele_xxxxxx' })} />
             </Provider>,
             container,
             () => {
                 Simulate.click(container.querySelector('.glyphicon-trash'));
-                expect(dispatched.find(a => a?.type === DELETE_ELEVATION)).toBe(undefined);
+                expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);
                 done();
             }
         );
     });
 
-    it('non-cascade types fall back to legacy removeNode/removeLayer (no DELETE_ELEVATION)', (done) => {
+    it('non-cascade types fall back to legacy removeNode/removeLayer (no DELETE_TERRAIN)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
-        const { DELETE_ELEVATION } = require('../../../Anuga/actionsAnuga');
+        const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
         // Structures live in Input Data.Structures — not a V2P-714 type.
         const store = createMockStore();
         ReactDOM.render(
@@ -274,7 +274,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             () => {
                 Simulate.click(container.querySelector('.glyphicon-trash'));
                 // No cascade action dispatched
-                expect(dispatched.find(a => a?.type === DELETE_ELEVATION)).toBe(undefined);
+                expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);
                 // Legacy REMOVE_NODE / REMOVE_LAYER dispatched instead
                 expect(dispatched.find(a => a?.type === 'REMOVE_NODE')).toExist();
                 expect(dispatched.find(a => a?.type === 'REMOVE_LAYER')).toExist();
@@ -289,11 +289,11 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    elevations: [{
+                    terrain: [{
                         id: 99,
                         gn_layer_name: 'ele_xxxxxx',
                         blockingError: {
-                            message: 'Cannot delete: 2 active scenarios reference this elevation',
+                            message: 'Cannot delete: 2 active scenarios reference this terrain',
                             blocking: [
                                 { type: 'scenario', id: 11, name: 'Scenario A', state: 'computing' },
                                 { type: 'scenario', id: 12, name: 'Scenario B', state: 'queued' }
@@ -305,7 +305,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         });
         ReactDOM.render(
             <Provider store={store}>
-                <MenuRow layer={baseLayer({ group: 'Input Data.Elevations', name: 'geonode:ele_xxxxxx' })} />
+                <MenuRow layer={baseLayer({ group: 'Input Data.Terrain', name: 'geonode:ele_xxxxxx' })} />
             </Provider>,
             container,
             () => {
@@ -326,7 +326,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    elevations: [{
+                    terrain: [{
                         id: 99, gn_layer_name: 'ele_xxxxxx',
                         deleteError: { status: 500, data: { detail: 'boom' } }
                     }]
@@ -335,7 +335,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         });
         ReactDOM.render(
             <Provider store={store}>
-                <MenuRow layer={baseLayer({ group: 'Input Data.Elevations', name: 'geonode:ele_xxxxxx' })} />
+                <MenuRow layer={baseLayer({ group: 'Input Data.Terrain', name: 'geonode:ele_xxxxxx' })} />
             </Provider>,
             container,
             () => {
@@ -353,7 +353,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    elevations: [{
+                    terrain: [{
                         id: 99, gn_layer_name: 'ele_xxxxxx',
                         deleteError: { status: 403, data: { detail: 'forbidden' } }
                     }]
@@ -362,7 +362,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         });
         ReactDOM.render(
             <Provider store={store}>
-                <MenuRow layer={baseLayer({ group: 'Input Data.Elevations', name: 'geonode:ele_xxxxxx' })} />
+                <MenuRow layer={baseLayer({ group: 'Input Data.Terrain', name: 'geonode:ele_xxxxxx' })} />
             </Provider>,
             container,
             () => {
@@ -376,18 +376,18 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
 
     it('disables the trash glyph while deleting:true', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
-        const { DELETE_ELEVATION } = require('../../../Anuga/actionsAnuga');
+        const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
             anuga: {
                 projects: { data: { id: 42, my_role: 'editor' } },
                 resources: {
-                    elevations: [{ id: 99, gn_layer_name: 'ele_xxxxxx', deleting: true }]
+                    terrain: [{ id: 99, gn_layer_name: 'ele_xxxxxx', deleting: true }]
                 }
             }
         });
         ReactDOM.render(
             <Provider store={store}>
-                <MenuRow layer={baseLayer({ group: 'Input Data.Elevations', name: 'geonode:ele_xxxxxx' })} />
+                <MenuRow layer={baseLayer({ group: 'Input Data.Terrain', name: 'geonode:ele_xxxxxx' })} />
             </Provider>,
             container,
             () => {
@@ -396,7 +396,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 expect(trash.getAttribute('aria-disabled')).toBe('true');
                 Simulate.click(trash);
                 // No new dispatch should occur — onClick was undefined while deleting
-                expect(dispatched.find(a => a?.type === DELETE_ELEVATION)).toBe(undefined);
+                expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);
                 done();
             }
         );

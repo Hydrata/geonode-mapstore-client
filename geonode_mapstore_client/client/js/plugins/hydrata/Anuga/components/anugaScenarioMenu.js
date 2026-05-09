@@ -34,7 +34,7 @@ class AnugaScenarioMenuClass extends React.Component {
         anugaGroupLength: PropTypes.number,
         scenarios: PropTypes.array,
         boundaries: PropTypes.array,
-        elevations: PropTypes.array,
+        terrain: PropTypes.array,
         frictions: PropTypes.array,
         inflows: PropTypes.array,
         structures: PropTypes.array,
@@ -135,14 +135,14 @@ class AnugaScenarioMenuClass extends React.Component {
                                 <th><Message msgId="hydrata.anuga.name" /></th>
                                 {this.state.scenarioTableTabs?.includes('manage') ?
                                     <React.Fragment>
-                                        <th><Message msgId="hydrata.anuga.elevation" /></th>
+                                        <th><Message msgId="hydrata.anuga.terrain" /></th>
                                         <th><Message msgId="hydrata.anuga.boundary" /></th>
                                         <th><Message msgId="hydrata.anuga.inflow" /></th>
                                     </React.Fragment> : null
                                 }
                                 {this.state.scenarioTableTabs?.includes('advanced') ?
                                     <React.Fragment>
-                                        <th><Message msgId="hydrata.anuga.frictionMap" /></th>
+                                        <th><Message msgId="hydrata.anuga.friction" /></th>
                                         <th><Message msgId="hydrata.anuga.structures" /></th>
                                         <th><Message msgId="hydrata.anuga.meshRegions" /></th>
                                         <th><Message msgId="hydrata.anuga.network" /></th>
@@ -183,7 +183,7 @@ class AnugaScenarioMenuClass extends React.Component {
                                     key={scenario.id || 'new'}
                                     scenario={scenario}
                                     scenarioTableTabs={this.state.scenarioTableTabs}
-                                    elevations={this.props.elevations}
+                                    terrain={this.props.terrain}
                                     boundaries={this.props.boundaries}
                                     inflows={this.props.inflows}
                                     frictions={this.props.frictions}
@@ -229,7 +229,7 @@ const mapStateToProps = (state) => {
         selectedScenarios: selectedScenarios(state),
         readyToCompare: selectedScenarios(state).length === 2,
         boundaries: state?.anuga?.resources?.boundaries,
-        elevations: state?.anuga?.resources?.elevations,
+        terrain: state?.anuga?.resources?.terrain,
         frictions: state?.anuga?.resources?.frictions,
         inflows: state?.anuga?.resources?.inflows,
         structures: state?.anuga?.resources?.structures,
