@@ -134,6 +134,40 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
         });
     });
 
+    describe('ANUGA_FEATURE_CONFIG "Title" relabel + first-field order (TASK-784 polish)', () => {
+        // The user-visible label "Title" is the polish change. The BE column
+        // name stays Description (or `description` for inf_) — only the FE
+        // label changed. Assert: each prefix's FIRST form field is the
+        // Description/description column AND its label is "Title". The
+        // picker label fallback (VectorDrawPopup.featureLabel) reads both
+        // casings so the same data shows up in the picker list.
+        it('bdy_ first field is Description with label "Title"', () => {
+            const fields = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields;
+            expect(fields[0].name).toBe('Description');
+            expect(fields[0].label).toBe('Title');
+        });
+        it('fri_ first field is Description with label "Title"', () => {
+            const fields = ANUGA_FEATURE_CONFIG.fri_.formConfig.fields;
+            expect(fields[0].name).toBe('Description');
+            expect(fields[0].label).toBe('Title');
+        });
+        it('mes_ first field is Description with label "Title"', () => {
+            const fields = ANUGA_FEATURE_CONFIG.mes_.formConfig.fields;
+            expect(fields[0].name).toBe('Description');
+            expect(fields[0].label).toBe('Title');
+        });
+        it('str_ first field is Description with label "Title"', () => {
+            const fields = ANUGA_FEATURE_CONFIG.str_.formConfig.fields;
+            expect(fields[0].name).toBe('Description');
+            expect(fields[0].label).toBe('Title');
+        });
+        it('inf_ first field is description (lowercase) with label "Title"', () => {
+            const fields = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields;
+            expect(fields[0].name).toBe('description');
+            expect(fields[0].label).toBe('Title');
+        });
+    });
+
     describe('ANUGA_FEATURE_CONFIG defaults', () => {
         it('bdy_ Boundary default is "Dirichlet"', () => {
             const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'Boundary');

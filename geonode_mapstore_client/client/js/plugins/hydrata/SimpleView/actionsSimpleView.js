@@ -3,6 +3,7 @@ const SET_VISIBLE_LEGEND_PANEL = 'SET_VISIBLE_LEGEND_PANEL';
 const SET_VISIBLE_INTRODUCTION = 'SET_VISIBLE_INTRODUCTION';
 const SET_VISIBLE_UPLOADER_PANEL = 'SET_VISIBLE_UPLOADER_PANEL';
 const SET_VISIBLE_SV_ATTRIBUTE_FORM = 'SET_VISIBLE_SV_ATTRIBUTE_FORM';
+const SET_VISIBLE_SV_SIDE_PANEL = 'SET_VISIBLE_SV_SIDE_PANEL';
 const UPDATE_UPLOAD_STATUS = 'UPDATE_UPLOAD_STATUS';
 const SV_SELECT_LAYER = 'SV_SELECT_LAYER';
 const SV_DOWNLOAD_LAYER = 'SV_DOWNLOAD_LAYER';
@@ -42,6 +43,13 @@ function setVisibleLegendPanel(visible) {
 function setVisibleSimpleViewAttributeForm(visible) {
     return {
         type: SET_VISIBLE_SV_ATTRIBUTE_FORM,
+        visible
+    };
+}
+
+function setVisibleSimpleViewSidePanel(visible) {
+    return {
+        type: SET_VISIBLE_SV_SIDE_PANEL,
         visible
     };
 }
@@ -156,6 +164,7 @@ module.exports = {
     SET_VISIBLE_INTRODUCTION, setVisibleIntroduction,
     SET_VISIBLE_UPLOADER_PANEL, setVisibleUploaderPanel,
     SET_VISIBLE_SV_ATTRIBUTE_FORM, setVisibleSimpleViewAttributeForm,
+    SET_VISIBLE_SV_SIDE_PANEL, setVisibleSimpleViewSidePanel,
     UPDATE_UPLOAD_STATUS, updateUploadStatus,
     UPDATE_DATASET_TITLE, updateDatasetTitle,
     UPDATE_DATASET_TITLE_SUCCESS, updateDatasetTitleSuccess,

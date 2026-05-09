@@ -184,10 +184,10 @@ describe('ANUGA Epics', () => {
                 );
         });
 
-        // v1 contract lock — both epics emit nothing for now.
-        // VectorDraw's vectorDrawSaveEpic already dispatches refreshLayerVersion
-        // on save success, so no extra work is required from these handlers.
-        it('vectorDrawAnugaCompleteEpic emits nothing (v1 contract)', (done) => {
+        // TASK-784 polish: both epics restore the SimpleView side panel
+        // that was hidden when the user clicked the pencil. They emit
+        // setVisibleSimpleViewSidePanel(true) — one action per source event.
+        it('vectorDrawAnugaCompleteEpic emits setVisibleSimpleViewSidePanel(true)', (done) => {
             const action$ = mockActions([
                 { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'bdy_' }, fid: 'feature.1' },
                 { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'fri_' }, fid: 'feature.2' }
@@ -199,13 +199,17 @@ describe('ANUGA Epics', () => {
                     action => emitted.push(action),
                     err => done(err),
                     () => {
-                        expect(emitted.length).toBe(0);
+                        expect(emitted.length).toBe(2);
+                        emitted.forEach(a => {
+                            expect(a.type).toBe('SET_VISIBLE_SV_SIDE_PANEL');
+                            expect(a.visible).toBe(true);
+                        });
                         done();
                     }
                 );
         });
 
-        it('vectorDrawAnugaCancelledEpic emits nothing (v1 contract)', (done) => {
+        it('vectorDrawAnugaCancelledEpic emits setVisibleSimpleViewSidePanel(true)', (done) => {
             const action$ = mockActions([
                 { type: 'ANUGA:VECTOR_DRAW_CANCELLED', meta: { prefix: 'bdy_' } },
                 { type: 'ANUGA:VECTOR_DRAW_CANCELLED', meta: { prefix: 'mes_' } }
@@ -217,7 +221,11 @@ describe('ANUGA Epics', () => {
                     action => emitted.push(action),
                     err => done(err),
                     () => {
-                        expect(emitted.length).toBe(0);
+                        expect(emitted.length).toBe(2);
+                        emitted.forEach(a => {
+                            expect(a.type).toBe('SET_VISIBLE_SV_SIDE_PANEL');
+                            expect(a.visible).toBe(true);
+                        });
                         done();
                     }
                 );

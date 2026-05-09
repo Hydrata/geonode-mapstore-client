@@ -16,10 +16,15 @@ const GEOM_INSTRUCTIONS = {
     Polygon: 'Click to add vertices, double-click to close the polygon.'
 };
 
+// TASK-784 polish: include lowercase `description` for Inflow features
+// (Inflow's BE attributes_template uses lowercase per scenario.py:381-385,
+// while the other 4 Anuga prefixes use Title-case `Description`).
 const featureLabel = (feature) =>
     feature?.properties?.title
+    || feature?.properties?.Title
     || feature?.properties?.name
     || feature?.properties?.Description
+    || feature?.properties?.description
     || feature?.id
     || 'Feature';
 
@@ -34,6 +39,7 @@ const VectorDrawPopup = ({
     onSubmit,
     onUpdateField,
     onSaveEdit,
+    onSaveEditAndSubmit,
     onSelectFeature
 }) => {
     if (!phase || phase === 'idle' || phase === 'describing' || phase === 'cancelling') {
@@ -108,8 +114,20 @@ const VectorDrawPopup = ({
         );
     }
 
-    // Drawing phase — show instructions + cancel (create) or save/cancel (edit)
+    // Drawing phase. In EDIT mode with formConfig (TASK-784 polish), render
+    // the attribute form fields inline below the vertex-drag hint and have
+    // a single Save commit both the geometry and form values — instead of
+    // the previous two-step "Save geometry → form panel → Save attributes".
+    // Create mode keeps the two-step (geometry must be drawn first before
+    // the form can render).
     if (phase === 'drawing') {
+        const showInlineForm = isEditing && formConfig;
+        const headerLabel = showInlineForm
+            ? (formConfig.title || 'Editing Feature')
+            : (isEditing ? 'Editing Feature' : 'Drawing');
+        const hintText = isEditing
+            ? 'Drag vertices to modify the shape.'
+            : (GEOM_INSTRUCTIONS[geomType] || GEOM_INSTRUCTIONS.Polygon);
         return (
             <div className="vector-draw-popup simple-view-panel" style={{
                 position: 'absolute',
@@ -117,7 +135,7 @@ const VectorDrawPopup = ({
                 left: 30,
                 zIndex: 1026,
                 minWidth: 280,
-                maxWidth: 350,
+                maxWidth: showInlineForm ? 380 : 350,
                 padding: 0
             }}>
                 <div className="simple-view-panel-header" style={{
@@ -126,7 +144,7 @@ const VectorDrawPopup = ({
                     alignItems: 'center',
                     padding: '8px 12px'
                 }}>
-                    <span>{isEditing ? 'Editing Feature' : 'Drawing'}</span>
+                    <span>{headerLabel}</span>
                     <span
                         className="btn glyphicon glyphicon-remove legend-close"
                         onClick={onCancel}
@@ -134,12 +152,24 @@ const VectorDrawPopup = ({
                 </div>
                 <div style={{padding: '12px'}}>
                     <p style={{margin: '0 0 12px 0', fontSize: '13px'}}>
-                        {isEditing
-                            ? 'Drag vertices to modify the shape.'
-                            : GEOM_INSTRUCTIONS[geomType] || GEOM_INSTRUCTIONS.Polygon
-                        }
+                        {hintText}
                     </p>
-                    <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px'}}>
+                    {showInlineForm
+                        ? formConfig.fields.map(field => (
+                            <FormField
+                                key={field.name}
+                                field={field}
+                                value={formValues[field.name]}
+                                onChange={onUpdateField}
+                            />
+                        ))
+                        : null}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: '8px',
+                        marginTop: showInlineForm ? '12px' : '0'
+                    }}>
                         <Button bsStyle="danger" bsSize="small" onClick={onCancel}>
                             Cancel
                         </Button>
@@ -148,11 +178,20 @@ const VectorDrawPopup = ({
                                 bsStyle="success"
                                 bsSize="small"
                                 onClick={() => {
-                                    // Read geometry from draw state — tempFeatures has edits,
-                                    // fall back to features (original) if user didn't move vertices
+                                    // Read geometry from draw state — tempFeatures
+                                    // has edits, fall back to features (original)
+                                    // if user didn't move vertices.
                                     const geom = drawTempFeatures?.[0]?.geometry
                                         || drawFeatures?.[0]?.geometry;
-                                    if (geom) {
+                                    if (!geom) return;
+                                    if (showInlineForm) {
+                                        // One-click commit of geometry + form
+                                        // values (TASK-784 polish).
+                                        onSaveEditAndSubmit(geom);
+                                    } else {
+                                        // Edit without formConfig — geometry
+                                        // only; reducer goes straight to
+                                        // 'saving' since there's no form.
                                         onSaveEdit(geom);
                                     }
                                 }}
@@ -166,7 +205,8 @@ const VectorDrawPopup = ({
         );
     }
 
-    // Form phase — show attribute form
+    // Form phase — only reached in CREATE mode (after END_DRAWING) since
+    // EDIT mode now renders the form inline in the drawing phase.
     if (phase === 'form' && formConfig) {
         return (
             <div className="vector-draw-popup simple-view-panel" style={{
@@ -272,6 +312,14 @@ const mapDispatchToProps = (dispatch) => ({
     onSubmit: () => dispatch(submitForm()),
     onUpdateField: (fieldName, value) => dispatch(updateFormValues(fieldName, value)),
     onSaveEdit: (geometry) => dispatch(drawingComplete(geometry)),
+    // TASK-784 polish — combined edit-mode Save: dispatch geometry-complete
+    // first (reducer transitions drawing→form because formConfig present),
+    // then submitForm immediately (reducer transitions form→saving). Save
+    // epic listens on SUBMIT_FORM filtered by phase==='saving' and fires.
+    onSaveEditAndSubmit: (geometry) => {
+        dispatch(drawingComplete(geometry));
+        dispatch(submitForm());
+    },
     onSelectFeature: (fid) => dispatch(selectExistingFeature(fid))
 });
 

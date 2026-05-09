@@ -17,7 +17,8 @@ import {
     setOpenMenuGroupId,
     updateDatasetTitle,
     svDownloadLayer,
-    setVisibleUploaderPanel
+    setVisibleUploaderPanel,
+    setVisibleSimpleViewSidePanel
 } from '../actionsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
@@ -76,12 +77,17 @@ const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || n
 // and svSelectLayer(layer) — the FeatureGrid we're abandoning was the
 // only reader.
 const ANUGA_FEATURE_CONFIG = {
+    // TASK-784 polish: relabel "Description" → "Title" (first field) so
+    // users have a short human name per feature, distinct from the longer
+    // attribute set. Underlying BE WFS column names UNCHANGED — Description
+    // (or `description` for Inflow) stays the storage key. Picker label
+    // fallback chain in VectorDrawPopup reads both casings.
     'bdy_': {
         geomType: 'LineString',
         formConfig: {
             title: 'Boundary',
             fields: [
-                {name: 'Description', type: 'text', label: 'Description'},
+                {name: 'Description', type: 'text', label: 'Title'},
                 {name: 'Boundary', type: 'select', label: 'Boundary type', "default": 'Dirichlet',
                     options: [
                         {value: 'Dirichlet', label: 'Dirichlet'},
@@ -103,12 +109,12 @@ const ANUGA_FEATURE_CONFIG = {
         formConfig: {
             title: 'Inflow',
             fields: [
+                {name: 'description', type: 'text', label: 'Title'},
                 {name: 'type', type: 'text', label: 'Type', "default": 'Rainfall'},
                 // BE attribute is declared `string` (scenario.py:384). Real
                 // users may type a TimeSeries name (alphanumeric — see
                 // Inflow.make_file() at scenario.py:399-404). KEEP AS TEXT.
-                {name: 'data', type: 'text', label: 'Data', "default": '100'},
-                {name: 'description', type: 'text', label: 'Description'}
+                {name: 'data', type: 'text', label: 'Data', "default": '100'}
             ]
         }
     },
@@ -117,8 +123,8 @@ const ANUGA_FEATURE_CONFIG = {
         formConfig: {
             title: 'Friction',
             fields: [
-                {name: 'Mannings', type: 'number', label: 'Mannings n', "default": 0.035, step: 0.001},
-                {name: 'Description', type: 'text', label: 'Description'}
+                {name: 'Description', type: 'text', label: 'Title'},
+                {name: 'Mannings', type: 'number', label: 'Mannings n', "default": 0.035, step: 0.001}
             ]
         }
     },
@@ -127,8 +133,8 @@ const ANUGA_FEATURE_CONFIG = {
         formConfig: {
             title: 'Mesh Region',
             fields: [
-                {name: 'Resolution', type: 'number', label: 'Resolution (m²)', "default": 10, step: 1, min: 0.1},
-                {name: 'Description', type: 'text', label: 'Description'}
+                {name: 'Description', type: 'text', label: 'Title'},
+                {name: 'Resolution', type: 'number', label: 'Resolution (m²)', "default": 10, step: 1, min: 0.1}
             ]
         }
     },
@@ -137,8 +143,8 @@ const ANUGA_FEATURE_CONFIG = {
         formConfig: {
             title: 'Structure',
             fields: [
-                {name: 'Method', type: 'text', label: 'Method', "default": 'Holes'},
-                {name: 'Description', type: 'text', label: 'Description'}
+                {name: 'Description', type: 'text', label: 'Title'},
+                {name: 'Method', type: 'text', label: 'Method', "default": 'Holes'}
             ]
         }
     }
@@ -198,7 +204,9 @@ class MenuRowClass extends React.Component {
         deleteInflow: PropTypes.func,
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
         // (bdy_/inf_/fri_/mes_/str_).
-        startVectorDraw: PropTypes.func
+        startVectorDraw: PropTypes.func,
+        // TASK-784 polish — hide SimpleView side panel during VectorDraw
+        setVisibleSimpleViewSidePanel: PropTypes.func
     };
 
     constructor(props) {
@@ -286,9 +294,13 @@ class MenuRowClass extends React.Component {
                                             // setPermission/svSelectLayer omitted: pre-flight audit
                                             // (TASK-793) confirmed no downstream consumers outside the
                                             // FeatureGrid we're abandoning.
+                                            // TASK-784 polish: hide the SimpleView side panel so the
+                                            // popup is the focus; vectorDrawAnugaComplete/CancelledEpic
+                                            // restores it when the flow ends.
                                             this.props.closeFeatureGrid();
                                             this.props.selectFeatures([]);
                                             this.props.setOpenMenuGroupId(null);
+                                            this.props.setVisibleSimpleViewSidePanel(false);
                                             this.props.startVectorDraw({
                                                 layerName: layer.name,
                                                 geomType: cfg.geomType,
@@ -699,7 +711,10 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteFriction: (projectId, id, layerIds) => dispatch(deleteFriction(projectId, id, layerIds)),
         deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds)),
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
-        startVectorDraw: (config) => dispatch(startVectorDraw(config))
+        startVectorDraw: (config) => dispatch(startVectorDraw(config)),
+        // TASK-784 polish — hide SimpleView side panel during VectorDraw
+        // edit so the popup is the focus.
+        setVisibleSimpleViewSidePanel: (visible) => dispatch(setVisibleSimpleViewSidePanel(visible))
     };
 };
 
