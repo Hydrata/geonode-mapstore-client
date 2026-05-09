@@ -12,7 +12,8 @@ import {
     DESCRIBE_COMPLETE,
     SEED_FORM_VALUES,
     LOAD_FEATURE_LIST,
-    SELECT_EXISTING_FEATURE
+    SELECT_EXISTING_FEATURE,
+    RETURN_TO_PICKER
 } from '../actionsVectorDraw';
 
 describe('VectorDraw Reducer', () => {
@@ -22,6 +23,7 @@ describe('VectorDraw Reducer', () => {
         geometry: null,
         formValues: {},
         featureList: [],
+        cameFromPicker: false,
         error: null
     };
 
@@ -198,5 +200,105 @@ describe('VectorDraw Reducer', () => {
         const state = reducer(prev, { type: RESET });
         expect(state.phase).toBe('idle');
         expect(state.error).toBe(null);
+    });
+
+    // TASK-784 picker-return — cameFromPicker flag + RETURN_TO_PICKER reducer.
+    describe('cameFromPicker tracking + RETURN_TO_PICKER', () => {
+        it('LOAD_FEATURE_LIST should set cameFromPicker=true', () => {
+            const features = [{ id: 'l.1' }];
+            const prev = { ...initialState, phase: 'describing', config: { layerName: 'l' } };
+            const state = reducer(prev, { type: LOAD_FEATURE_LIST, features });
+            expect(state.cameFromPicker).toBe(true);
+        });
+
+        it('initialState has cameFromPicker=false', () => {
+            const state = reducer(undefined, { type: 'UNKNOWN' });
+            expect(state.cameFromPicker).toBe(false);
+        });
+
+        it('RESET clears cameFromPicker', () => {
+            const prev = { ...initialState, cameFromPicker: true, phase: 'picking' };
+            const state = reducer(prev, { type: RESET });
+            expect(state.cameFromPicker).toBe(false);
+        });
+
+        it('SAVE_SUCCESS clears cameFromPicker (full reset)', () => {
+            const prev = { ...initialState, cameFromPicker: true, phase: 'saving' };
+            const state = reducer(prev, { type: SAVE_SUCCESS });
+            expect(state.cameFromPicker).toBe(false);
+        });
+
+        it('START_VECTOR_DRAW without flag clears cameFromPicker (new external flow)', () => {
+            const prev = { ...initialState, cameFromPicker: true };
+            const state = reducer(prev, {
+                type: START_VECTOR_DRAW,
+                config: { layerName: 'l' }
+            });
+            expect(state.cameFromPicker).toBe(false);
+        });
+
+        it('START_VECTOR_DRAW with config.cameFromPicker=true preserves the flag', () => {
+            // The internal re-dispatch from vectorDrawSelectExistingEpic
+            // threads cameFromPicker through action.config so the picker
+            // breadcrumb survives the reset to initialState.
+            const state = reducer(initialState, {
+                type: START_VECTOR_DRAW,
+                config: { layerName: 'l', cameFromPicker: true }
+            });
+            expect(state.cameFromPicker).toBe(true);
+        });
+
+        it('RETURN_TO_PICKER sets phase=picking and replaces featureList', () => {
+            const features = [{ id: 'a.1' }, { id: 'a.2' }];
+            const prev = {
+                ...initialState,
+                phase: 'saving',
+                config: { layerName: 'l', allowPick: false, featureId: 'a.1' },
+                geometry: { type: 'Polygon', coordinates: [] },
+                formValues: { name: 'X' },
+                cameFromPicker: true
+            };
+            const state = reducer(prev, { type: RETURN_TO_PICKER, features });
+            expect(state.phase).toBe('picking');
+            expect(state.featureList).toEqual(features);
+            // ephemeral edit state cleared
+            expect(state.geometry).toBe(null);
+            // config preserved but featureId stripped (back to "no choice yet")
+            expect(state.config.layerName).toBe('l');
+            expect(state.config.featureId).toBe(undefined);
+            expect(state.config.allowPick).toBe(true);
+            expect(state.cameFromPicker).toBe(true);
+        });
+
+        it('RETURN_TO_PICKER with empty features still goes to picking (not idle)', () => {
+            const prev = {
+                ...initialState,
+                phase: 'saving',
+                config: { layerName: 'l' },
+                cameFromPicker: true
+            };
+            const state = reducer(prev, { type: RETURN_TO_PICKER, features: [] });
+            expect(state.phase).toBe('picking');
+            expect(state.featureList).toEqual([]);
+        });
+
+        it('RETURN_TO_PICKER rebuilds form defaults from config.formConfig', () => {
+            const prev = {
+                ...initialState,
+                phase: 'saving',
+                config: {
+                    layerName: 'l',
+                    formConfig: {
+                        fields: [
+                            { name: 'kind', type: 'select', "default": 'A' }
+                        ]
+                    }
+                },
+                formValues: { kind: 'C' },
+                cameFromPicker: true
+            };
+            const state = reducer(prev, { type: RETURN_TO_PICKER, features: [] });
+            expect(state.formValues).toEqual({ kind: 'A' });
+        });
     });
 });

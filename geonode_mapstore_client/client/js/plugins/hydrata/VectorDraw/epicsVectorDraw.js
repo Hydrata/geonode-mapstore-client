@@ -19,7 +19,8 @@ import {
     seedFormValues,
     loadFeatureList,
     selectExistingFeature,
-    startVectorDraw
+    startVectorDraw,
+    returnToPicker
 } from './actionsVectorDraw';
 
 export const VECTOR_DRAW_OWNER = 'vectorDraw';
@@ -217,11 +218,18 @@ export const vectorDrawStartEpic = (action$, store) =>
 export const vectorDrawSelectExistingEpic = (action$, store) =>
     action$.ofType(SELECT_EXISTING_FEATURE)
         .switchMap((action) => {
-            const config = store.getState()?.vectorDraw?.config || {};
+            const vd = store.getState()?.vectorDraw || {};
+            const config = vd.config || {};
             const effectiveConfig = {
                 ...config,
                 featureId: action.featureId,
-                allowPick: false
+                allowPick: false,
+                // TASK-784 picker-return — thread cameFromPicker through the
+                // re-dispatched START_VECTOR_DRAW so the reducer's reset to
+                // initialState preserves the flag. Without this, picking a
+                // row → editing → saving would lose the breadcrumb and the
+                // save epic would route to idle instead of back to picker.
+                cameFromPicker: vd.cameFromPicker === true
             };
             return Rx.Observable.of(startVectorDraw(effectiveConfig));
         });
@@ -258,8 +266,11 @@ export const vectorDrawSaveEpic = (action$, store) =>
                 .switchMap((fid) => {
                     const layers = store.getState()?.layers?.flat || [];
                     const layer = layers.find(l => l?.name === config.layerName);
+                    const cameFromPicker = state.cameFromPicker === true;
 
-                    const actions = [
+                    // Common post-save side-effects fire regardless of which
+                    // tail we take (picker-return vs idle).
+                    const baseActions = [
                         {
                             type: config.onComplete,
                             fid: fid || config.featureId,
@@ -273,15 +284,38 @@ export const vectorDrawSaveEpic = (action$, store) =>
                             message: 'Feature saved',
                             position: 'tc',
                             autoDismiss: 3
-                        }, 'success'),
-                        saveSuccess(fid)
+                        }, 'success')
                     ];
-
                     if (layer?.id) {
-                        actions.push(refreshLayerVersion(layer.id));
+                        baseActions.push(refreshLayerVersion(layer.id));
                     }
 
-                    return Rx.Observable.from(actions);
+                    // TASK-784 picker-return — when the original flow entered
+                    // through the picker, re-fetch the WFS feature list and
+                    // dispatch RETURN_TO_PICKER instead of SAVE_SUCCESS. Falls
+                    // back to idle path on re-fetch failure (network error)
+                    // so the user isn't stuck in a half-state.
+                    if (cameFromPicker) {
+                        return Rx.Observable.from(baseActions)
+                            .concat(
+                                Rx.Observable.from(loadAllFeatures(wfsUrl, config.layerName))
+                                    .map((features) => returnToPicker(features))
+                                    .catch((err) => {
+                                        console.error('VectorDraw picker re-fetch error:', err);
+                                        return Rx.Observable.of(
+                                            show({
+                                                title: 'Refresh Error',
+                                                message: 'Saved, but could not refresh the list: ' + (err?.message || 'Unknown error'),
+                                                position: 'tc',
+                                                autoDismiss: 6
+                                            }, 'warning'),
+                                            saveSuccess(fid)
+                                        );
+                                    })
+                            );
+                    }
+
+                    return Rx.Observable.from([...baseActions, saveSuccess(fid)]);
                 })
                 .catch((err) => {
                     console.error('VectorDraw save error:', err);
@@ -308,11 +342,28 @@ export const vectorDrawSaveEpic = (action$, store) =>
 
 /**
  * Cancel epic: clean up drawing state and notify the calling plugin.
+ *
+ * TASK-784 picker-return — when the original flow entered through the
+ * picker, route back to the picker phase instead of resetting to idle.
+ * No re-fetch needed (cancel didn't change anything), so reuse the existing
+ * featureList in state. The `onCancel` callback is also skipped on the
+ * in-flow cancel because the calling plugin's "vector draw is done"
+ * handler should only fire when we actually exit to idle.
  */
 export const vectorDrawCancelEpic = (action$, store) =>
     action$.ofType(CANCEL_VECTOR_DRAW)
         .switchMap(() => {
-            const config = store.getState()?.vectorDraw?.config;
+            const vd = store.getState()?.vectorDraw || {};
+            const config = vd.config;
+            const cameFromPicker = vd.cameFromPicker === true;
+
+            if (cameFromPicker) {
+                return Rx.Observable.from([
+                    drawSupportReset(VECTOR_DRAW_OWNER),
+                    returnToPicker(vd.featureList || [])
+                ]);
+            }
+
             const actions = [
                 drawSupportReset(VECTOR_DRAW_OWNER),
                 vectorDrawReset()

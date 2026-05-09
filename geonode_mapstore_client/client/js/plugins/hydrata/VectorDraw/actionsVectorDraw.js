@@ -10,6 +10,12 @@ export const DESCRIBE_COMPLETE = 'VECTOR_DRAW:DESCRIBE_COMPLETE';
 export const SEED_FORM_VALUES = 'VECTOR_DRAW:SEED_FORM_VALUES';
 export const LOAD_FEATURE_LIST = 'VECTOR_DRAW:LOAD_FEATURE_LIST';
 export const SELECT_EXISTING_FEATURE = 'VECTOR_DRAW:SELECT_EXISTING_FEATURE';
+// TASK-784 picker-return — after a save/cancel completes, if the original
+// flow entered through the picker, transition back to the picker phase
+// (instead of idle) so the user can quickly edit another feature without
+// re-clicking the toolbar pencil. The features payload is the refreshed
+// list (save path re-fetches WFS) or the existing list (cancel path).
+export const RETURN_TO_PICKER = 'VECTOR_DRAW:RETURN_TO_PICKER';
 
 export const startVectorDraw = (config) => ({ type: START_VECTOR_DRAW, config });
 export const cancelVectorDraw = () => ({ type: CANCEL_VECTOR_DRAW });
@@ -23,3 +29,4 @@ export const describeComplete = () => ({ type: DESCRIBE_COMPLETE });
 export const seedFormValues = (properties) => ({ type: SEED_FORM_VALUES, properties });
 export const loadFeatureList = (features) => ({ type: LOAD_FEATURE_LIST, features });
 export const selectExistingFeature = (featureId) => ({ type: SELECT_EXISTING_FEATURE, featureId });
+export const returnToPicker = (features) => ({ type: RETURN_TO_PICKER, features: features || [] });

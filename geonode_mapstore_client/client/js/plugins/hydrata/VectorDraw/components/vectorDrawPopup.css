@@ -67,6 +67,35 @@
     font-weight: normal;
 }
 
+/* Visible chrome for native <select> dropdowns. The font/family/size is
+   handled by the `font: inherit` rule above; this restores the border,
+   padding, height, background, and cursor that the previous inline-style
+   block on FormField.js's <select> provided. Layout (flex / margin) stays
+   inline in JSX since it's positional, not chrome. */
+.vector-draw-popup select {
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 4px 8px;
+    height: 28px;
+    background-color: #fff;
+    color: #333;
+    cursor: pointer;
+}
+
+/* Match chrome on text/number inputs so they sit alongside the select
+   consistently inside the same form. The user-agent default border on
+   <input type="text"> looks close enough to #ccc but pinning explicitly
+   keeps the form visually uniform across browsers. */
+.vector-draw-popup input[type="text"],
+.vector-draw-popup input[type="number"] {
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 4px 8px;
+    height: 28px;
+    background-color: #fff;
+    color: #333;
+}
+
 /* Bootstrap buttons inside the popup. Bootstrap's `.btn-sm` and the
    default `.btn` rule both set their own font-size; force inherit so
    the action buttons match the surrounding 12px Montserrat text. */

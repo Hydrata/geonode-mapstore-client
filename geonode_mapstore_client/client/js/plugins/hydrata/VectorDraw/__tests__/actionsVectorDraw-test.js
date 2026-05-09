@@ -12,6 +12,7 @@ import {
     SEED_FORM_VALUES,
     LOAD_FEATURE_LIST,
     SELECT_EXISTING_FEATURE,
+    RETURN_TO_PICKER,
     startVectorDraw,
     cancelVectorDraw,
     drawingComplete,
@@ -23,7 +24,8 @@ import {
     describeComplete,
     seedFormValues,
     loadFeatureList,
-    selectExistingFeature
+    selectExistingFeature,
+    returnToPicker
 } from '../actionsVectorDraw';
 
 describe('VectorDraw Actions', () => {
@@ -104,5 +106,18 @@ describe('VectorDraw Actions', () => {
         const action = selectExistingFeature(null);
         expect(action.type).toBe(SELECT_EXISTING_FEATURE);
         expect(action.featureId).toBe(null);
+    });
+
+    it('returnToPicker should include features array', () => {
+        const features = [{ id: 'l.1' }];
+        const action = returnToPicker(features);
+        expect(action.type).toBe(RETURN_TO_PICKER);
+        expect(action.features).toEqual(features);
+    });
+
+    it('returnToPicker with no arg defaults to empty array', () => {
+        const action = returnToPicker();
+        expect(action.type).toBe(RETURN_TO_PICKER);
+        expect(action.features).toEqual([]);
     });
 });

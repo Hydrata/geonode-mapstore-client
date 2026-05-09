@@ -19,18 +19,22 @@ const {
     vectorDrawStartEpic,
     vectorDrawSelectExistingEpic,
     vectorDrawSaveEpic,
+    vectorDrawCancelEpic,
     extractDrawGeometry
 } = require('../epicsVectorDraw');
 
 const {
     START_VECTOR_DRAW,
+    CANCEL_VECTOR_DRAW,
     SELECT_EXISTING_FEATURE,
     SUBMIT_FORM,
     SEED_FORM_VALUES,
     LOAD_FEATURE_LIST,
     DESCRIBE_COMPLETE,
     SAVE_ERROR,
-    SAVE_SUCCESS
+    SAVE_SUCCESS,
+    RETURN_TO_PICKER,
+    RESET
 } = require('../actionsVectorDraw');
 
 const mockActions = (actions) => {
@@ -257,7 +261,10 @@ describe('VectorDraw Epics', () => {
                 allowPick: true,
                 meta: { foo: 'bar' }
             };
-            const store = makeStore({ config });
+            // cameFromPicker=true on the store (picker rendered earlier in the
+            // flow) — must be threaded into the re-dispatched config so the
+            // breadcrumb survives the START_VECTOR_DRAW reducer's reset.
+            const store = makeStore({ config, cameFromPicker: true });
             const action$ = mockActions([{
                 type: SELECT_EXISTING_FEATURE,
                 featureId: 'test.7'
@@ -275,6 +282,8 @@ describe('VectorDraw Epics', () => {
                         expect(emitted[0].type).toBe(START_VECTOR_DRAW);
                         expect(emitted[0].config.featureId).toBe('test.7');
                         expect(emitted[0].config.allowPick).toBe(false);
+                        // TASK-784 picker-return — flag threaded through
+                        expect(emitted[0].config.cameFromPicker).toBe(true);
                         // Existing config keys preserved
                         expect(emitted[0].config.layerName).toBe('geonode:test');
                         expect(emitted[0].config.meta).toEqual({ foo: 'bar' });
@@ -533,6 +542,245 @@ describe('VectorDraw Epics', () => {
                         if (errored) {
                             expect(errored.error).toNotMatch(/reading 'type'/);
                         }
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+    });
+
+    // TASK-784 picker-return — after save (or cancel), if the original flow
+    // entered through the picker, transition back to the picker phase
+    // (instead of idle) so the user can quickly edit another feature.
+    describe('vectorDrawSaveEpic — picker-return (cameFromPicker=true)', () => {
+        const PICKER_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'pkr',
+                properties: [
+                    { name: 'the_geom', type: 'gml:Polygon', localType: 'Polygon', minOccurs: 0, nillable: true },
+                    { name: 'name', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+        const installPickerMock = (refreshedFeatures) => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, PICKER_DESCRIBE_STUB];
+                }
+                return [200, { type: 'FeatureCollection', features: refreshedFeatures }];
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse fid="pkr.42"/>');
+            return m;
+        };
+
+        it('with cameFromPicker=true → re-fetches features + dispatches RETURN_TO_PICKER (NOT SAVE_SUCCESS)', (done) => {
+            const refreshed = [
+                { id: 'pkr.1', properties: { name: 'Alpha' } },
+                { id: 'pkr.2', properties: { name: 'Beta' } },
+                { id: 'pkr.42', properties: { name: 'Just-saved' } }
+            ];
+            mock = installPickerMock(refreshed);
+            const store = makeStore({
+                phase: 'saving',
+                cameFromPicker: true,
+                config: {
+                    layerName: 'geonode:pkr',
+                    geomType: 'Polygon',
+                    onComplete: 'TEST:COMPLETE'
+                },
+                geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+                formValues: { name: 'Just-saved' }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(5)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        const success = emitted.find(a => a.type === SAVE_SUCCESS);
+                        expect(ret).toExist();
+                        expect(ret.features).toEqual(refreshed);
+                        // Picker-return path: SAVE_SUCCESS is NOT emitted (would
+                        // have reduced phase → idle and dropped config).
+                        expect(success).toBe(undefined);
+                        // onComplete callback still fires (calling plugin needs
+                        // to know the new feature exists)
+                        expect(emitted.find(a => a.type === 'TEST:COMPLETE')).toExist();
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('with cameFromPicker=false → idle path: SAVE_SUCCESS, no RETURN_TO_PICKER', (done) => {
+            mock = installPickerMock([]);
+            const store = makeStore({
+                phase: 'saving',
+                cameFromPicker: false,
+                config: {
+                    layerName: 'geonode:pkr',
+                    geomType: 'Polygon',
+                    onComplete: 'TEST:COMPLETE'
+                },
+                geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+                formValues: { name: 'Solo' }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(4)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        const success = emitted.find(a => a.type === SAVE_SUCCESS);
+                        expect(ret).toBe(undefined);
+                        expect(success).toExist();
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('with cameFromPicker=true and re-fetch fails → falls back to SAVE_SUCCESS (idle) so user is not stuck', (done) => {
+            // Describe + insert succeed; the post-save GetFeature call (no
+            // featureID) returns a server error → re-fetch promise rejects.
+            const m = new MockAdapter(axios);
+            let getCallCount = 0;
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, PICKER_DESCRIBE_STUB];
+                }
+                getCallCount += 1;
+                return [500, 'simulated picker re-fetch failure'];
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse fid="pkr.42"/>');
+            mock = m;
+
+            const store = makeStore({
+                phase: 'saving',
+                cameFromPicker: true,
+                config: {
+                    layerName: 'geonode:pkr',
+                    geomType: 'Polygon',
+                    onComplete: 'TEST:COMPLETE'
+                },
+                geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+                formValues: { name: 'Just-saved' }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(6)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        // The re-fetch failed → fall back: emit SAVE_SUCCESS
+                        // (reducer transitions phase → idle), don't dispatch
+                        // RETURN_TO_PICKER (would render an empty picker).
+                        const success = emitted.find(a => a.type === SAVE_SUCCESS);
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(success).toExist();
+                        expect(ret).toBe(undefined);
+                        expect(getCallCount).toBeGreaterThan(0);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+    });
+
+    describe('vectorDrawCancelEpic — picker-return (cameFromPicker=true)', () => {
+        it('with cameFromPicker=true → dispatches RETURN_TO_PICKER with existing list (NO re-fetch)', (done) => {
+            const existingList = [
+                { id: 'pkr.1', properties: { name: 'A' } },
+                { id: 'pkr.2', properties: { name: 'B' } }
+            ];
+            // Install a mock that would FAIL if hit — proves re-fetch is skipped.
+            const m = new MockAdapter(axios);
+            let httpHits = 0;
+            m.onAny().reply(() => {
+                httpHits += 1;
+                return [500, 'cancel epic should not call WFS'];
+            });
+            mock = m;
+
+            const store = makeStore({
+                phase: 'drawing',
+                cameFromPicker: true,
+                featureList: existingList,
+                config: {
+                    layerName: 'geonode:pkr',
+                    onCancel: 'TEST:CANCEL'
+                }
+            });
+            const action$ = mockActions([{ type: CANCEL_VECTOR_DRAW }]);
+
+            const emitted = [];
+            const sub = vectorDrawCancelEpic(action$, store)
+                .take(2)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(ret).toExist();
+                        // existing list is reused untouched (no re-fetch)
+                        expect(ret.features).toEqual(existingList);
+                        // RESET should NOT be emitted (would lose config)
+                        expect(emitted.find(a => a.type === RESET)).toBe(undefined);
+                        // onCancel callback should NOT fire (in-flow cancel)
+                        expect(emitted.find(a => a.type === 'TEST:CANCEL')).toBe(undefined);
+                        // proves no WFS call
+                        expect(httpHits).toBe(0);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('with cameFromPicker=false → existing idle path: RESET + onCancel', (done) => {
+            const store = makeStore({
+                phase: 'drawing',
+                cameFromPicker: false,
+                config: {
+                    layerName: 'geonode:pkr',
+                    onCancel: 'TEST:CANCEL'
+                }
+            });
+            const action$ = mockActions([{ type: CANCEL_VECTOR_DRAW }]);
+
+            const emitted = [];
+            const sub = vectorDrawCancelEpic(action$, store)
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        const reset = emitted.find(a => a.type === RESET);
+                        const cancel = emitted.find(a => a.type === 'TEST:CANCEL');
+                        expect(ret).toBe(undefined);
+                        expect(reset).toExist();
+                        expect(cancel).toExist();
                         if (sub) sub.unsubscribe();
                         done();
                     }

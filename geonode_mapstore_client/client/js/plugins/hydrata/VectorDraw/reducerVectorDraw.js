@@ -10,7 +10,8 @@ import {
     DESCRIBE_COMPLETE,
     SEED_FORM_VALUES,
     LOAD_FEATURE_LIST,
-    SELECT_EXISTING_FEATURE
+    SELECT_EXISTING_FEATURE,
+    RETURN_TO_PICKER
 } from './actionsVectorDraw';
 
 const initialState = {
@@ -19,6 +20,13 @@ const initialState = {
     geometry: null,
     formValues: {},
     featureList: [],
+    // TASK-784 picker-return — sticky flag set by LOAD_FEATURE_LIST. Tells
+    // the save/cancel epics to dispatch RETURN_TO_PICKER after the in-flight
+    // edit/create finishes, instead of falling through to RESET → idle.
+    // Persists across SELECT_EXISTING_FEATURE → describing → drawing →
+    // form → saving so the post-save handler still knows the user wants to
+    // stay in picker mode. Cleared on START_VECTOR_DRAW (new flow) and RESET.
+    cameFromPicker: false,
     error: null
 };
 
@@ -40,7 +48,13 @@ export default function vectorDraw(state = initialState, action) {
             ...initialState,
             phase: 'describing',
             config: action.config,
-            formValues: buildDefaults(action.config?.formConfig)
+            formValues: buildDefaults(action.config?.formConfig),
+            // TASK-784 picker-return — the internal re-dispatch from
+            // vectorDrawSelectExistingEpic threads `cameFromPicker` through
+            // action.config so it survives the reset to initialState. A
+            // brand-new external startVectorDraw from a plugin won't set
+            // this, so the flag stays false and behaviour is unchanged.
+            cameFromPicker: !!action.config?.cameFromPicker
         };
     case DESCRIBE_COMPLETE:
         return {
@@ -68,10 +82,35 @@ export default function vectorDraw(state = initialState, action) {
             formValues: { ...state.formValues, ...(action.properties || {}) }
         };
     case LOAD_FEATURE_LIST:
+        // First time we render the picker in this flow → mark
+        // cameFromPicker so the save/cancel epics know to come back here
+        // when the in-flight edit/create finishes.
         return {
             ...state,
             phase: 'picking',
-            featureList: action.features || []
+            featureList: action.features || [],
+            cameFromPicker: true
+        };
+    case RETURN_TO_PICKER:
+        // Re-enter the picker phase after a save or cancel. The epic supplies
+        // the refreshed feature list (save path) or the existing list (cancel
+        // path). Drop ephemeral edit state (geometry, featureId, formValues)
+        // but keep config so the picker can re-render with the same prefix /
+        // formConfig the user originally opened.
+        return {
+            ...state,
+            phase: 'picking',
+            featureList: action.features || [],
+            geometry: null,
+            formValues: buildDefaults(state.config?.formConfig),
+            error: null,
+            // SELECT_EXISTING_FEATURE may have set state.config.featureId
+            // when the user picked a row earlier — strip it so the picker
+            // is back to the "no feature chosen yet" state.
+            config: state.config
+                ? { ...state.config, featureId: undefined, allowPick: true }
+                : state.config,
+            cameFromPicker: true
         };
     case SELECT_EXISTING_FEATURE:
         // Transition back to 'describing' and (optionally) merge the chosen
@@ -93,7 +132,8 @@ export default function vectorDraw(state = initialState, action) {
         return { ...initialState };
     case CANCEL_VECTOR_DRAW:
         // Don't reset here — the cancel epic needs to read config.onCancel
-        // before dispatching vectorDrawReset(). Epic handles cleanup.
+        // and cameFromPicker before deciding whether to vectorDrawReset()
+        // (idle path) or returnToPicker() (in-flow path). Epic handles both.
         return { ...state, phase: 'cancelling' };
     case SAVE_ERROR:
         return { ...state, phase: 'error', error: action.error };
