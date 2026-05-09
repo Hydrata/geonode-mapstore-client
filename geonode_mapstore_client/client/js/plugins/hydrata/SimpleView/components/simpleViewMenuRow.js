@@ -17,8 +17,7 @@ import {
     setOpenMenuGroupId,
     updateDatasetTitle,
     svDownloadLayer,
-    setVisibleUploaderPanel,
-    setVisibleSimpleViewSidePanel
+    setVisibleUploaderPanel
 } from '../actionsSimpleView';
 import {featureTypeSelected} from "../../../../../MapStore2/web/client/actions/wfsquery";
 import {closeFeatureGrid, selectFeatures, setPermission} from "../../../../../MapStore2/web/client/actions/featuregrid";
@@ -204,9 +203,7 @@ class MenuRowClass extends React.Component {
         deleteInflow: PropTypes.func,
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
         // (bdy_/inf_/fri_/mes_/str_).
-        startVectorDraw: PropTypes.func,
-        // TASK-784 polish — hide SimpleView side panel during VectorDraw
-        setVisibleSimpleViewSidePanel: PropTypes.func
+        startVectorDraw: PropTypes.func
     };
 
     constructor(props) {
@@ -293,14 +290,12 @@ class MenuRowClass extends React.Component {
                                             // Migrated VectorDraw path — bdy_/inf_/fri_/mes_/str_.
                                             // setPermission/svSelectLayer omitted: pre-flight audit
                                             // (TASK-793) confirmed no downstream consumers outside the
-                                            // FeatureGrid we're abandoning.
-                                            // TASK-784 polish: hide the SimpleView side panel so the
-                                            // popup is the focus; vectorDrawAnugaComplete/CancelledEpic
-                                            // restores it when the flow ends.
+                                            // FeatureGrid we're abandoning. setOpenMenuGroupId(null)
+                                            // collapses the inputs panel so the popup is the focus
+                                            // (the toolbar buttons stay visible).
                                             this.props.closeFeatureGrid();
                                             this.props.selectFeatures([]);
                                             this.props.setOpenMenuGroupId(null);
-                                            this.props.setVisibleSimpleViewSidePanel(false);
                                             this.props.startVectorDraw({
                                                 layerName: layer.name,
                                                 geomType: cfg.geomType,
@@ -711,10 +706,7 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteFriction: (projectId, id, layerIds) => dispatch(deleteFriction(projectId, id, layerIds)),
         deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds)),
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
-        startVectorDraw: (config) => dispatch(startVectorDraw(config)),
-        // TASK-784 polish — hide SimpleView side panel during VectorDraw
-        // edit so the popup is the focus.
-        setVisibleSimpleViewSidePanel: (visible) => dispatch(setVisibleSimpleViewSidePanel(visible))
+        startVectorDraw: (config) => dispatch(startVectorDraw(config))
     };
 };
 

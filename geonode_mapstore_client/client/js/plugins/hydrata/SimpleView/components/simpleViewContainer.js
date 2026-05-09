@@ -107,14 +107,8 @@ class SimpleViewContainer extends React.Component {
     }
 
     render() {
-        // Hidden by VectorDraw flow (TASK-784 polish): pencil-click on a
-        // migrated Anuga prefix dispatches setVisibleSimpleViewSidePanel(false)
-        // so the user focuses on the popup; the new vectorDrawAnugaCompleteEpic
-        // / vectorDrawAnugaCancelledEpic restore visibility when VectorDraw ends.
-        // Default `undefined` means visible (preserves pre-feature behaviour).
-        const sidePanelHidden = this.props.visibleSimpleViewSidePanel === false;
         return (
-            <div id="simple-view-container" style={sidePanelHidden ? {display: 'none'} : undefined}>
+            <div id="simple-view-container">
                 <div className="simple-view-left-toolbar">
                     <button
                         key={'basemaps'}
@@ -267,7 +261,6 @@ const mapStateToProps = (state, ownProps) => {
         visibleIntroduction: state?.simpleView?.visibleIntroduction,
         visibleSimpleViewAttributeForm: state?.simpleView?.visibleSimpleViewAttributeForm,
         visibleSimpleViewAttributeResult: state?.simpleView?.visibleSimpleViewAttributeResult,
-        visibleSimpleViewSidePanel: state?.simpleView?.visibleSimpleViewSidePanel,
         visibleLegendPanel: state?.simpleView?.visibleLegendPanel || false,
         searchEnabled: state?.controls?.search?.enabled || false,
         searchPluginPresent: !!mapViewerPlugins.find(x => x.name === "Search"),

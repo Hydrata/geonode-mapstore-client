@@ -22,7 +22,34 @@ import {
     startVectorDraw
 } from './actionsVectorDraw';
 
-const VECTOR_DRAW_OWNER = 'vectorDraw';
+export const VECTOR_DRAW_OWNER = 'vectorDraw';
+
+/**
+ * Normalise an END_DRAWING payload to a bare GeoJSON geometry. DrawSupport's
+ * onEndDrawing has multiple call sites (DrawSupport.jsx:610 a FeatureCollection
+ * from `geojsonFormat.writeFeaturesObject`; :728 a flat geometry-like object
+ * from `fromOLFeature`; :424/:450 a flat geometry-like object too). The
+ * previous fast path that built `{type: payload.type, coordinates: payload.coordinates}`
+ * crashed on FeatureCollection inputs because it produced
+ * `{type: 'FeatureCollection', coordinates: undefined}` which reprojectGeoJson
+ * → traverseGeoJson then dereferenced as `r.features.map(...)` (or recursed
+ * into undefined geometry, surfacing as `Cannot read properties of undefined
+ * (reading 'type')`).
+ */
+export const extractDrawGeometry = (payload) => {
+    if (!payload) return null;
+    if (payload.type === 'FeatureCollection' && Array.isArray(payload.features)) {
+        const first = payload.features.find(f => f && f.geometry) || payload.features[0];
+        return first ? extractDrawGeometry(first) : null;
+    }
+    if (payload.type === 'Feature') {
+        return payload.geometry || null;
+    }
+    if (payload.type && payload.coordinates) {
+        return { type: payload.type, coordinates: payload.coordinates };
+    }
+    return null;
+};
 
 const getWfsUrl = (store) => {
     // Use geoserverUrl from store (handles localhost dev where GeoServer is on a different port)
@@ -87,12 +114,24 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
                     .filter(a => a.owner === VECTOR_DRAW_OWNER)
                     .take(1)
                     .map(a => {
-                        // END_DRAWING geometry is in map CRS (typically EPSG:3857).
-                        // Reproject to EPSG:4326 for WFS-T.
-                        const geom = a.geometry;
-                        const fromCrs = geom?.projection || 'EPSG:3857';
+                        // END_DRAWING geometry is in map CRS (typically
+                        // EPSG:3857). Reproject to EPSG:4326 for WFS-T.
+                        // See extractDrawGeometry for the shape-normalisation
+                        // rationale (DrawSupport's payload varies by call site).
+                        const inner = extractDrawGeometry(a.geometry);
+                        if (!inner) {
+                            console.error(
+                                'VectorDraw: END_DRAWING with unrecognised geometry shape',
+                                a.geometry
+                            );
+                            return drawingComplete(null);
+                        }
+                        const fromCrs = inner.projection
+                            || a.geometry?.projection
+                            || a.geometry?.featureProjection
+                            || 'EPSG:3857';
                         const reprojected = reprojectGeoJson(
-                            { type: geom.type, coordinates: geom.coordinates },
+                            { type: inner.type, coordinates: inner.coordinates },
                             fromCrs,
                             'EPSG:4326'
                         );
@@ -202,6 +241,14 @@ export const vectorDrawSaveEpic = (action$, store) =>
             const state = store.getState()?.vectorDraw;
             const { config, geometry, formValues } = state;
             const wfsUrl = getWfsUrl(store);
+
+            // Defensive: extractDrawGeometry returns null on unrecognised
+            // shapes; saveEpic must not call wfstInsert/Update with null
+            // geometry (server would reject + we'd surface a confusing
+            // error rather than the real "no geometry" cause).
+            if (!geometry || !geometry.type || !geometry.coordinates) {
+                return Rx.Observable.of(saveError('No geometry was captured. Please draw a feature first.'));
+            }
 
             const savePromise = config.featureId
                 ? wfstUpdate(wfsUrl, config.layerName, config.featureId, geometry, formValues)

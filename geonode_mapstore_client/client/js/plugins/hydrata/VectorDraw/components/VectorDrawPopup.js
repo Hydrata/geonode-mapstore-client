@@ -95,7 +95,7 @@ const VectorDrawPopup = ({
                         onMouseEnter={onRowEnter}
                         onMouseLeave={onRowLeave}
                     >
-                        <strong>+ Add new</strong>
+                        + Add new
                     </div>
                     {(featureList || []).map(feature => (
                         <div
@@ -151,7 +151,7 @@ const VectorDrawPopup = ({
                     />
                 </div>
                 <div style={{padding: '12px'}}>
-                    <p style={{margin: '0 0 12px 0', fontSize: '13px'}}>
+                    <p style={{margin: '0 0 12px 0'}}>
                         {hintText}
                     </p>
                     {showInlineForm

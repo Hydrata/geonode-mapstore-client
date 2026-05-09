@@ -17,7 +17,8 @@ const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
 
 const {
     vectorDrawStartEpic,
-    vectorDrawSelectExistingEpic
+    vectorDrawSelectExistingEpic,
+    extractDrawGeometry
 } = require('../epicsVectorDraw');
 
 const {
@@ -303,6 +304,64 @@ describe('VectorDraw Epics', () => {
                         done();
                     }
                 );
+        });
+    });
+
+    // TASK-784 polish — DrawSupport's onEndDrawing has multiple call sites
+    // that pass differently-shaped payloads. extractDrawGeometry normalises
+    // them. The previous fast path crashed on FeatureCollection inputs with
+    // "Cannot read properties of undefined (reading 'type')" — exact bug
+    // hit on first user-test of create-mode save.
+    describe('extractDrawGeometry (END_DRAWING shape normalisation)', () => {
+        it('returns the bare geometry from a flat geometry-like payload', () => {
+            const payload = {
+                type: 'LineString',
+                coordinates: [[0, 0], [1, 1]],
+                projection: 'EPSG:3857'
+            };
+            const out = extractDrawGeometry(payload);
+            expect(out).toEqual({ type: 'LineString', coordinates: [[0, 0], [1, 1]] });
+        });
+
+        it('extracts the inner geometry from a Feature wrapper', () => {
+            const payload = {
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] },
+                properties: {}
+            };
+            const out = extractDrawGeometry(payload);
+            expect(out.type).toBe('Polygon');
+            expect(out.coordinates.length).toBe(1);
+        });
+
+        it('extracts the first feature\'s geometry from a FeatureCollection', () => {
+            const payload = {
+                type: 'FeatureCollection',
+                features: [
+                    {
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: [[0, 0], [2, 2]] },
+                        properties: {}
+                    }
+                ]
+            };
+            const out = extractDrawGeometry(payload);
+            expect(out.type).toBe('LineString');
+            expect(out.coordinates).toEqual([[0, 0], [2, 2]]);
+        });
+
+        it('skips empty FeatureCollection features without crashing', () => {
+            expect(extractDrawGeometry({ type: 'FeatureCollection', features: [] })).toBe(null);
+        });
+
+        it('returns null for null/undefined/empty', () => {
+            expect(extractDrawGeometry(null)).toBe(null);
+            expect(extractDrawGeometry(undefined)).toBe(null);
+            expect(extractDrawGeometry({})).toBe(null);
+        });
+
+        it('returns null for a Feature with no geometry', () => {
+            expect(extractDrawGeometry({ type: 'Feature', properties: {} })).toBe(null);
         });
     });
 });

@@ -7,7 +7,6 @@ import {
     UPDATE_UPLOAD_STATUS,
     SET_SV_CONFIG,
     SET_VISIBLE_SV_ATTRIBUTE_FORM,
-    SET_VISIBLE_SV_SIDE_PANEL,
     SET_VISIBLE_SV_ATTRIBUTE_RESULT,
     SET_SV_ATTRIBUTE_RESULT,
     CREATE_SV_ATTRIBUTE_FORM,
@@ -53,11 +52,6 @@ export default ( state = {}, action) => {
         return {
             ...state,
             visibleSimpleViewAttributeForm: action.visible
-        };
-    case SET_VISIBLE_SV_SIDE_PANEL:
-        return {
-            ...state,
-            visibleSimpleViewSidePanel: action.visible
         };
     case SET_VISIBLE_SV_ATTRIBUTE_RESULT:
         return {
