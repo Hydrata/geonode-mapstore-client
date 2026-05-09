@@ -38,6 +38,7 @@ import {
     deleteFriction,
     deleteInflow
 } from '../../Anuga/actionsAnuga';
+import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
 
 // V2P-714 — derive the AnugaModel dataset type from layer.group.
 // Group names are set by the BE (gn_anuga/utils.py::get_anuga_group +
@@ -54,6 +55,103 @@ const _GROUP_TO_DELETE_TYPE = {
     'Input Data.Inflows': 'inflow'
 };
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
+
+// TASK-793 — VectorDraw routing config for the 5 migrated Anuga feature
+// types. Field names + casing MUST match each model's attributes_template
+// EXACTLY (verified in /opt/hydrata/apps/gn_anuga/models/scenario.py):
+//   Boundary    line 53-58:  Description, Boundary, Location, Data    (LineString)
+//   Friction    line 361-364: Mannings, Description                    (Polygon)
+//   Structure   line 371-374: Description, Method                      (Polygon)
+//   Inflow      line 381-385: type, data, description (lowercase)      (LineString)
+//   MeshRegion  line 414-417: Description, Resolution                  (Polygon)
+// VectorDraw posts WFS-T directly with these property names — no
+// MapStore translation layer between us and PostGIS. The pre-existing
+// prePopulate epic used wrong casing (location/boundary/manning/method/
+// resolution lowercase) which silently dropped values for years.
+//
+// Pre-flight audit (TASK-793): confirmed there are NO consumers of
+// state.simpleView.selectedLayer outside the simpleView reducer/actions/
+// selectors, and NO Hydrata-side consumers of featuregrid.canEdit. The
+// migrated branch therefore safely DROPS setPermission({canEdit:true})
+// and svSelectLayer(layer) — the FeatureGrid we're abandoning was the
+// only reader.
+const ANUGA_FEATURE_CONFIG = {
+    'bdy_': {
+        geomType: 'LineString',
+        formConfig: {
+            title: 'Boundary',
+            fields: [
+                {name: 'Description', type: 'text', label: 'Description'},
+                {name: 'Boundary', type: 'select', label: 'Boundary type', "default": 'Dirichlet',
+                    options: [
+                        {value: 'Dirichlet', label: 'Dirichlet'},
+                        {value: 'Reflective', label: 'Reflective'},
+                        {value: 'Transmissive', label: 'Transmissive'},
+                        {value: 'Time', label: 'Time'}
+                    ]},
+                {name: 'Location', type: 'select', label: 'Location', "default": 'External',
+                    options: [
+                        {value: 'External', label: 'External'},
+                        {value: 'Internal', label: 'Internal'}
+                    ]},
+                {name: 'Data', type: 'text', label: 'Data'}
+            ]
+        }
+    },
+    'inf_': {
+        geomType: 'LineString',
+        formConfig: {
+            title: 'Inflow',
+            fields: [
+                {name: 'type', type: 'text', label: 'Type', "default": 'Rainfall'},
+                // BE attribute is declared `string` (scenario.py:384). Real
+                // users may type a TimeSeries name (alphanumeric — see
+                // Inflow.make_file() at scenario.py:399-404). KEEP AS TEXT.
+                {name: 'data', type: 'text', label: 'Data', "default": '100'},
+                {name: 'description', type: 'text', label: 'Description'}
+            ]
+        }
+    },
+    'fri_': {
+        geomType: 'Polygon',
+        formConfig: {
+            title: 'Friction',
+            fields: [
+                {name: 'Mannings', type: 'number', label: 'Mannings n', "default": 0.035, step: 0.001},
+                {name: 'Description', type: 'text', label: 'Description'}
+            ]
+        }
+    },
+    'mes_': {
+        geomType: 'Polygon',
+        formConfig: {
+            title: 'Mesh Region',
+            fields: [
+                {name: 'Resolution', type: 'number', label: 'Resolution (m²)', "default": 10, step: 1, min: 0.1},
+                {name: 'Description', type: 'text', label: 'Description'}
+            ]
+        }
+    },
+    'str_': {
+        geomType: 'Polygon',
+        formConfig: {
+            title: 'Structure',
+            fields: [
+                {name: 'Method', type: 'text', label: 'Method', "default": 'Holes'},
+                {name: 'Description', type: 'text', label: 'Description'}
+            ]
+        }
+    }
+};
+
+// TASK-793 helper — returns the config key matching layer.name, or null.
+// Layer names look like "geonode:bdy_4_my_boundary"; we match on the
+// prefix segment after `geonode:`.
+const getAnugaPrefix = (layerName) => {
+    if (!layerName) return null;
+    const stripped = layerName.replace(/^geonode:/, '');
+    return Object.keys(ANUGA_FEATURE_CONFIG).find(p => stripped.startsWith(p)) || null;
+};
 
 const isGlobalExtent = (bounds) =>
     bounds.minx <= -180 && bounds.miny <= -90 && bounds.maxx >= 180 && bounds.maxy >= 90;
@@ -97,7 +195,10 @@ class MenuRowClass extends React.Component {
         deleteTerrain: PropTypes.func,
         deleteBoundary: PropTypes.func,
         deleteFriction: PropTypes.func,
-        deleteInflow: PropTypes.func
+        deleteInflow: PropTypes.func,
+        // TASK-793 — VectorDraw editor for migrated Anuga prefixes
+        // (bdy_/inf_/fri_/mes_/str_).
+        startVectorDraw: PropTypes.func
     };
 
     constructor(props) {
@@ -176,13 +277,39 @@ class MenuRowClass extends React.Component {
                                 <span
                                     className={"btn glyphicon menu-row-glyph glyphicon-pencil glyph-edit"}
                                     onClick={() => {
-                                        this.props.closeFeatureGrid();
-                                        this.props.selectFeatures([]);
-                                        this.props.setOpenMenuGroupId(null);
-                                        this.props.setPermission({canEdit: true});
-                                        this.props.svSelectLayer(this.props.layer);
-                                        this.props.browseData(this.props.layer);
-                                        trackEvent('button', `click`, `simpleview-menu-row-edit-${this.props.layer.title}`);
+                                        const layer = this.props.layer;
+                                        trackEvent('button', `click`, `simpleview-menu-row-edit-${layer.title}`);
+                                        const prefix = getAnugaPrefix(layer.name);
+                                        if (prefix) {
+                                            const cfg = ANUGA_FEATURE_CONFIG[prefix];
+                                            // Migrated VectorDraw path — bdy_/inf_/fri_/mes_/str_.
+                                            // setPermission/svSelectLayer omitted: pre-flight audit
+                                            // (TASK-793) confirmed no downstream consumers outside the
+                                            // FeatureGrid we're abandoning.
+                                            this.props.closeFeatureGrid();
+                                            this.props.selectFeatures([]);
+                                            this.props.setOpenMenuGroupId(null);
+                                            this.props.startVectorDraw({
+                                                layerName: layer.name,
+                                                geomType: cfg.geomType,
+                                                featureId: null,
+                                                allowPick: true,
+                                                owner: 'anuga',
+                                                formConfig: cfg.formConfig,
+                                                onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
+                                                onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED',
+                                                meta: { prefix, layerId: layer.id }
+                                            });
+                                        } else {
+                                            // Legacy FeatureGrid path for non-migrated prefixes
+                                            // (terrain_/ele_/cat_/nod_/lin_/full_mesh_/network_).
+                                            this.props.closeFeatureGrid();
+                                            this.props.selectFeatures([]);
+                                            this.props.setOpenMenuGroupId(null);
+                                            this.props.setPermission({canEdit: true});
+                                            this.props.svSelectLayer(layer);
+                                            this.props.browseData(layer);
+                                        }
                                     }}
                                 />
                                 <input
@@ -570,7 +697,9 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteTerrain: (projectId, id, layerIds) => dispatch(deleteTerrain(projectId, id, layerIds)),
         deleteBoundary: (projectId, id, layerIds) => dispatch(deleteBoundary(projectId, id, layerIds)),
         deleteFriction: (projectId, id, layerIds) => dispatch(deleteFriction(projectId, id, layerIds)),
-        deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds))
+        deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds)),
+        // TASK-793 — VectorDraw editor for migrated Anuga prefixes
+        startVectorDraw: (config) => dispatch(startVectorDraw(config))
     };
 };
 
@@ -581,5 +710,9 @@ export {
     MenuRow,
     // V2P-714 — exposed for unit tests so the layer.group → dataset-type
     // mapping can be exercised without standing up a Provider tree.
-    getDeleteDatasetType
+    getDeleteDatasetType,
+    // TASK-793 — exposed for unit tests so the migrated-prefix routing
+    // logic can be exercised as a pure function.
+    getAnugaPrefix,
+    ANUGA_FEATURE_CONFIG
 };

@@ -1,7 +1,6 @@
 import Rx from "rxjs";
 import {show} from '../../../../../MapStore2/web/client/actions/notifications';
 import {addLayer, removeLayer, removeNode} from '../../../../../MapStore2/web/client/actions/layers';
-import {CREATE_NEW_FEATURE} from "../../../../../MapStore2/web/client/actions/featuregrid";
 import * as anugaApi from '../api/anugaApi';
 import {
     CANCEL_ANUGA_RUN,
@@ -283,46 +282,6 @@ export const createFigureEpic = (action$, store) =>
         .switchMap((response) => {
             window.open(response?.data?.detail_url, '_blank').focus();
             return Rx.Observable.of(initAnuga());
-        });
-
-// -- Feature grid defaults -------------------------------------------------
-
-export const prePopulateAnugaFeatureGridWithDefaults = (action$, store) =>
-    action$
-        .ofType(CREATE_NEW_FEATURE)
-        .filter(() => ['geonode:bdy_', 'geonode:inf_', 'geonode:str_', 'geonode:fri_', 'geonode:mes_'].some(layerType => store.getState()?.featuregrid?.selectedLayer.includes(layerType)))
-        .concatMap((action) => {
-            if (action?.features?.[0] && Object.keys(action?.features?.[0])?.length > 0) {
-                return Rx.Observable.empty();
-            }
-            const defaultPropertyMap = {
-                'geonode:bdy_': {
-                    location: "External",
-                    boundary: "Dirichlet"
-                },
-                'geonode:inf_': {
-                    type: "Rainfall",
-                    data: 100
-                },
-                'geonode:str_': {
-                    method: 'Holes'
-                },
-                'geonode:fri_': {
-                    manning: 0.035
-                },
-                'geonode:mes_': {
-                    resolution: 10
-                }
-            };
-            const layerPrefix = store.getState()?.featuregrid?.selectedLayer.substring(0, 12);
-            const newFeature = {
-                ...action.features[0],
-                properties: defaultPropertyMap[layerPrefix]
-            };
-            return Rx.Observable.of({
-                ...action,
-                features: [newFeature, ...action.features.slice(1)]
-            });
         });
 
 // -- Dataset title update --------------------------------------------------

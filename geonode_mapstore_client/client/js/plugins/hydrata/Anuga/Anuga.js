@@ -31,7 +31,6 @@ import {
     addCatchmentEpic,
     addNodesEpic,
     addLinksEpic,
-    prePopulateAnugaFeatureGridWithDefaults,
     updateComputeInstanceEpic,
     updateAnugaModelTitle,
     pollAnugaModelCreationEpic,
@@ -48,7 +47,10 @@ import {
     deleteTerrainEpic,
     deleteBoundaryEpic,
     deleteFrictionEpic,
-    deleteInflowEpic
+    deleteInflowEpic,
+    // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
+    vectorDrawAnugaCompleteEpic,
+    vectorDrawAnugaCancelledEpic
 } from "./epicsAnuga";
 import {
     fetchMembershipsEpic,
@@ -93,7 +95,6 @@ export default createPlugin('Anuga', {
         addCatchmentEpic,
         addNodesEpic,
         addLinksEpic,
-        prePopulateAnugaFeatureGridWithDefaults,
         updateComputeInstanceEpic,
         updateAnugaModelTitle,
         pollAnugaModelCreationEpic,
@@ -115,6 +116,9 @@ export default createPlugin('Anuga', {
         deleteTerrainEpic,
         deleteBoundaryEpic,
         deleteFrictionEpic,
-        deleteInflowEpic
+        deleteInflowEpic,
+        // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
+        vectorDrawAnugaCompleteEpic,
+        vectorDrawAnugaCancelledEpic
     }
 });

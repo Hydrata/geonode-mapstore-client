@@ -40,7 +40,6 @@ export {
     runNetworkEpic,
     updateComputeInstanceEpic,
     createFigureEpic,
-    prePopulateAnugaFeatureGridWithDefaults,
     updateAnugaModelTitle,
     getAnugaResourcesEpic,
     // V2P-714 — cascade-delete dataset rows (terrain/boundary/friction/inflow)
@@ -49,6 +48,14 @@ export {
     deleteFrictionEpic,
     deleteInflowEpic
 } from './epics/crudEpics';
+
+// TASK-793 — VectorDraw editor handlers for the 5 migrated Anuga prefixes
+// (bdy_/inf_/fri_/mes_/str_). These replace prePopulateAnugaFeatureGridWithDefaults
+// which was the legacy FeatureGrid pre-population epic.
+export {
+    vectorDrawAnugaCompleteEpic,
+    vectorDrawAnugaCancelledEpic
+} from './epics/vectorDrawAnugaEpics';
 
 export {
     manageTerrain3DEpic

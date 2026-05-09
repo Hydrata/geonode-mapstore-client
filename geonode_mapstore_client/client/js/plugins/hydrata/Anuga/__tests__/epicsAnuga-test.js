@@ -4,7 +4,8 @@ import {
     initAnugaEpic,
     pollAnugaModelCreationEpic,
     pollComparisonEpic,
-    prePopulateAnugaFeatureGridWithDefaults
+    vectorDrawAnugaCompleteEpic,
+    vectorDrawAnugaCancelledEpic
 } from '../epicsAnuga';
 import { __setVisibilityForTests } from '../epics/pollingEpics';
 import {
@@ -13,7 +14,6 @@ import {
     STOP_ANUGA_MODEL_CREATION_POLLING
 } from '../actionsAnuga';
 import { SET_OPEN_MENU_GROUP_ID } from '../../SimpleView/actionsSimpleView';
-import { CREATE_NEW_FEATURE } from '../../../../../MapStore2/web/client/actions/featuregrid';
 import {
     cancelAnugaRunEpic,
     retryAnugaRunEpic,
@@ -138,20 +138,24 @@ describe('ANUGA Epics', () => {
         });
     });
 
-    describe('prePopulateAnugaFeatureGridWithDefaults', () => {
-        it('should not emit for non-ANUGA layers', (done) => {
-            const store = {
-                getState: () => ({
-                    featuregrid: { selectedLayer: 'geonode:some_other_layer' }
-                })
-            };
-            const action$ = mockActions([{
-                type: CREATE_NEW_FEATURE,
-                features: [{}]
-            }]);
+    // TASK-793 — VectorDraw editor handlers replace prePopulateAnugaFeatureGridWithDefaults.
+    describe('vectorDrawAnugaCompleteEpic / vectorDrawAnugaCancelledEpic', () => {
+        it('vectorDrawAnugaCompleteEpic should be a function', () => {
+            expect(typeof vectorDrawAnugaCompleteEpic).toBe('function');
+        });
+
+        it('vectorDrawAnugaCancelledEpic should be a function', () => {
+            expect(typeof vectorDrawAnugaCancelledEpic).toBe('function');
+        });
+
+        it('vectorDrawAnugaCompleteEpic only listens for ANUGA:VECTOR_DRAW_COMPLETE', (done) => {
+            const action$ = mockActions([
+                { type: 'SOME_OTHER_ACTION' },
+                { type: 'ANUGA:VECTOR_DRAW_CANCELLED', meta: { prefix: 'bdy_' } }
+            ]);
             const emitted = [];
 
-            prePopulateAnugaFeatureGridWithDefaults(action$, store)
+            vectorDrawAnugaCompleteEpic(action$)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
@@ -162,68 +166,53 @@ describe('ANUGA Epics', () => {
                 );
         });
 
-        it('should set boundary defaults for bdy_ layers', (done) => {
-            const store = {
-                getState: () => ({
-                    featuregrid: { selectedLayer: 'geonode:bdy_test_layer' }
-                })
-            };
-            const action$ = mockActions([{
-                type: CREATE_NEW_FEATURE,
-                features: [{}]
-            }]);
+        it('vectorDrawAnugaCancelledEpic only listens for ANUGA:VECTOR_DRAW_CANCELLED', (done) => {
+            const action$ = mockActions([
+                { type: 'SOME_OTHER_ACTION' },
+                { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'bdy_' } }
+            ]);
             const emitted = [];
 
-            prePopulateAnugaFeatureGridWithDefaults(action$, store)
+            vectorDrawAnugaCancelledEpic(action$)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
                     () => {
-                        expect(emitted.length).toBe(1);
-                        expect(emitted[0].features[0].properties.location).toBe('External');
-                        expect(emitted[0].features[0].properties.boundary).toBe('Dirichlet');
+                        expect(emitted.length).toBe(0);
                         done();
                     }
                 );
         });
 
-        it('should set friction defaults for fri_ layers', (done) => {
-            const store = {
-                getState: () => ({
-                    featuregrid: { selectedLayer: 'geonode:fri_test_layer' }
-                })
-            };
-            const action$ = mockActions([{
-                type: CREATE_NEW_FEATURE,
-                features: [{}]
-            }]);
+        // v1 contract lock — both epics emit nothing for now.
+        // VectorDraw's vectorDrawSaveEpic already dispatches refreshLayerVersion
+        // on save success, so no extra work is required from these handlers.
+        it('vectorDrawAnugaCompleteEpic emits nothing (v1 contract)', (done) => {
+            const action$ = mockActions([
+                { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'bdy_' }, fid: 'feature.1' },
+                { type: 'ANUGA:VECTOR_DRAW_COMPLETE', meta: { prefix: 'fri_' }, fid: 'feature.2' }
+            ]);
             const emitted = [];
 
-            prePopulateAnugaFeatureGridWithDefaults(action$, store)
+            vectorDrawAnugaCompleteEpic(action$)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
                     () => {
-                        expect(emitted.length).toBe(1);
-                        expect(emitted[0].features[0].properties.manning).toBe(0.035);
+                        expect(emitted.length).toBe(0);
                         done();
                     }
                 );
         });
 
-        it('should skip if feature already has properties', (done) => {
-            const store = {
-                getState: () => ({
-                    featuregrid: { selectedLayer: 'geonode:bdy_test_layer' }
-                })
-            };
-            const action$ = mockActions([{
-                type: CREATE_NEW_FEATURE,
-                features: [{ existingProp: 'value' }]
-            }]);
+        it('vectorDrawAnugaCancelledEpic emits nothing (v1 contract)', (done) => {
+            const action$ = mockActions([
+                { type: 'ANUGA:VECTOR_DRAW_CANCELLED', meta: { prefix: 'bdy_' } },
+                { type: 'ANUGA:VECTOR_DRAW_CANCELLED', meta: { prefix: 'mes_' } }
+            ]);
             const emitted = [];
 
-            prePopulateAnugaFeatureGridWithDefaults(action$, store)
+            vectorDrawAnugaCancelledEpic(action$)
                 .subscribe(
                     action => emitted.push(action),
                     err => done(err),
