@@ -473,17 +473,24 @@ const isLayerCompletionType = pt => pt === 'layer_create' || pt === 'terrain_cre
 // V2P-714 follow-up: a completed terrain_create process is "orphaned" if
 // the user has since deleted the underlying Terrain row. Replaying its
 // addLayer side-effect on page reload would re-inject a layer whose
-// backing GeoNode Dataset is 404 (cascade-cleaned). We detect orphans by
-// looking up the metadata's terrain_id in state.anuga.resources.terrain;
-// when state isn't loaded yet (Array.isArray check), we defer rather than
-// over-filter, preserving the save-failure-recovery semantic.
-const isOrphanedCompletion = (process, state) => {
-    if (process.process_type !== 'terrain_create') return false;
+// backing GeoNode Dataset is 404 (cascade-cleaned). We classify each
+// candidate against state.anuga.resources.terrain into one of:
+//   present  — terrain row visible in state, definitely safe to replay
+//   orphaned — terrain row known-missing, definitely skip
+//   unknown  — state unloaded or empty (race against initAnuga's resource
+//              fetch), so neither classification is safe yet
+// Returning 'unknown' lets the caller defer marking the candidate as
+// handled so a later poll (after initAnuga populates terrain) can decide
+// definitively. Returning 'orphaned' was the previous over-eager default
+// when terrain.length === 0; that mis-classified the very-first completed
+// terrain on a fresh page load, dropping addLayer + zoom + saveDirectContent.
+const orphanStatus = (process, state) => {
+    if (process.process_type !== 'terrain_create') return 'present';
     const terrainId = process.metadata?.terrain_id;
-    if (terrainId == null) return false;
+    if (terrainId == null) return 'present';
     const terrain = state?.anuga?.resources?.terrain;
-    if (!Array.isArray(terrain)) return false;
-    return !terrain.some(e => e?.id === terrainId);
+    if (!Array.isArray(terrain) || terrain.length === 0) return 'unknown';
+    return terrain.some(e => e?.id === terrainId) ? 'present' : 'orphaned';
 };
 
 // Per-instance set of completion IDs we've already dispatched addLayer for.
@@ -503,11 +510,17 @@ export const taskCompleteLayerEpic = (action$, store) => {
                      !handledCompletionIds.has(p.id)
             );
             if (!candidates.length) return Rx.Observable.empty();
-            // Mark all candidates handled (including orphans we'll skip) so we
-            // don't re-check them on every subsequent poll.
-            candidates.forEach(p => handledCompletionIds.add(p.id));
             const state = store.getState();
-            const newlyCompleted = candidates.filter(p => !isOrphanedCompletion(p, state));
+            const classified = candidates.map(p => ({process: p, status: orphanStatus(p, state)}));
+            // Mark handled only when we can decide. 'unknown' candidates stay
+            // unmarked so the next poll (after initAnuga fills terrain) can
+            // re-classify them. 'present' and 'orphaned' are decisive.
+            classified.forEach(c => {
+                if (c.status !== 'unknown') handledCompletionIds.add(c.process.id);
+            });
+            const newlyCompleted = classified
+                .filter(c => c.status === 'present')
+                .map(c => c.process);
             if (!newlyCompleted.length) return Rx.Observable.empty();
             const observables = [];
             newlyCompleted.forEach(p => {
