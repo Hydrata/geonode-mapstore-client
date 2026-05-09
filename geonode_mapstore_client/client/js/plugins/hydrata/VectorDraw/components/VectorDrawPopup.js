@@ -9,6 +9,11 @@ import {
     drawingComplete,
     selectExistingFeature
 } from '../actionsVectorDraw';
+// TASK-784 polish — uniform fonts inside the popup. The stylesheet is
+// imported here so the popup brings its own rules even if the SimpleView
+// panel (which usually owns simpleView.css and the .simple-view-panel
+// baseline) hasn't been mounted yet on this page-load ordering.
+import './vectorDrawPopup.css';
 
 const GEOM_INSTRUCTIONS = {
     Point: 'Click on the map to place the point.',
@@ -16,15 +21,19 @@ const GEOM_INSTRUCTIONS = {
     Polygon: 'Click to add vertices, double-click to close the polygon.'
 };
 
-// TASK-784 polish: include lowercase `description` for Inflow features
-// (Inflow's BE attributes_template uses lowercase per scenario.py:381-385,
-// while the other 4 Anuga prefixes use Title-case `Description`).
+// TASK-794 fix: GeoServer's WFS DescribeFeatureType for all 5 migrated
+// Anuga prefixes returns LOWERCASE property names (PostGIS lower-cases
+// unquoted identifiers). The picker therefore prefers `description`, but
+// retains the Title-case `Description` fallback so legacy rows inserted
+// before TASK-794 (where the Title-case attribute happened to land in
+// PostGIS via case-insensitive WFS quirks on some GeoServer versions)
+// still display a readable label instead of "Feature" / feature.id.
 const featureLabel = (feature) =>
     feature?.properties?.title
     || feature?.properties?.Title
     || feature?.properties?.name
-    || feature?.properties?.Description
     || feature?.properties?.description
+    || feature?.properties?.Description
     || feature?.id
     || 'Feature';
 
@@ -323,4 +332,8 @@ const mapDispatchToProps = (dispatch) => ({
     onSelectFeature: (fid) => dispatch(selectExistingFeature(fid))
 });
 
+// TASK-794 — featureLabel is exported as a named export so the picker
+// fallback chain can be unit-tested independently of the connected
+// component. Default export remains the connected component.
+export { featureLabel };
 export default connect(mapStateToProps, mapDispatchToProps)(VectorDrawPopup);

@@ -36,7 +36,8 @@ import {
     deleteTerrain,
     deleteBoundary,
     deleteFriction,
-    deleteInflow
+    deleteInflow,
+    setAnugaInputMenu
 } from '../../Anuga/actionsAnuga';
 import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
 
@@ -57,17 +58,40 @@ const _GROUP_TO_DELETE_TYPE = {
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
 // TASK-793 — VectorDraw routing config for the 5 migrated Anuga feature
-// types. Field names + casing MUST match each model's attributes_template
-// EXACTLY (verified in /opt/hydrata/apps/gn_anuga/models/scenario.py):
-//   Boundary    line 53-58:  Description, Boundary, Location, Data    (LineString)
-//   Friction    line 361-364: Mannings, Description                    (Polygon)
-//   Structure   line 371-374: Description, Method                      (Polygon)
-//   Inflow      line 381-385: type, data, description (lowercase)      (LineString)
-//   MeshRegion  line 414-417: Description, Resolution                  (Polygon)
-// VectorDraw posts WFS-T directly with these property names — no
-// MapStore translation layer between us and PostGIS. The pre-existing
-// prePopulate epic used wrong casing (location/boundary/manning/method/
-// resolution lowercase) which silently dropped values for years.
+// types.
+//
+// FIELD-NAME CASING (TASK-794 fix): All `name` keys must be LOWERCASE to
+// match what GeoServer's DescribeFeatureType actually returns. The Python
+// BE `attributes_template` constants (gn_anuga/models/scenario.py — Boundary
+// line 53-58, Friction 361-364, Structure 371-374, Inflow 381-385,
+// MeshRegion 414-417) are passed as JSON to GeoServer at coverage-creation
+// time, but PostGIS lower-cases unquoted column identifiers and GeoServer's
+// WFS DescribeFeatureType reflects those lowercase column names back. Curl
+// proof (2026-05-09):
+//   bdy_..._boundary_01 → fid, the_geom, boundary, data       (lowercase)
+//   fri_..._friction_01 → fid, the_geom, mannings             (lowercase)
+//   inf_..._inflow_01   → fid, the_geom, type, data           (lowercase)
+//   mes_..._meshregion_01 → fid, the_geom, resolution         (lowercase)
+//   str_..._structure_01  → fid, the_geom, method             (lowercase)
+// (`description` / `location` exist as columns in PostGIS but some older
+//  GeoServer FeatureType caches don't expose them — the lowercase name is
+//  the only one that even has a chance of round-tripping.)
+//
+// What `name` controls vs `label`: `name` is the WFS-T property key sent
+// over the wire (FormField.js → onChange(field.name, val) → state →
+// builder.insert filters on Object.keys(properties).filter(getPropertyDescriptor)).
+// `label` is the user-visible text rendered by FormField.js. They are
+// independent. Lowercasing `name` does NOT change the displayed label.
+//
+// Bug history: pre-TASK-794, the 4 non-inflow prefixes used Title-case
+// `Description / Boundary / Location / Data / Mannings / Method / Resolution`
+// — these did NOT match the GeoServer schema's lowercase column names, so
+// MapStore's WFS-T RequestBuilder silently filtered them all out and the
+// POST body contained ONLY `<the_geom>...</the_geom>`. PostGIS rows landed
+// with NULL attribute columns, the picker had nothing to display, and rows
+// fell through to the feature-id fallback. Inflow happened to be
+// lowercase already (matched its BE template) so its values DID survive —
+// but only by accident.
 //
 // Pre-flight audit (TASK-793): confirmed there are NO consumers of
 // state.simpleView.selectedLayer outside the simpleView reducer/actions/
@@ -78,28 +102,28 @@ const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || n
 const ANUGA_FEATURE_CONFIG = {
     // TASK-784 polish: relabel "Description" → "Title" (first field) so
     // users have a short human name per feature, distinct from the longer
-    // attribute set. Underlying BE WFS column names UNCHANGED — Description
-    // (or `description` for Inflow) stays the storage key. Picker label
-    // fallback chain in VectorDrawPopup reads both casings.
+    // attribute set. Underlying BE WFS column name is `description`
+    // (lowercase, per TASK-794 fix). Picker label fallback chain in
+    // VectorDrawPopup reads both casings for back-compat with legacy rows.
     'bdy_': {
         geomType: 'LineString',
         formConfig: {
             title: 'Boundary',
             fields: [
-                {name: 'Description', type: 'text', label: 'Title'},
-                {name: 'Boundary', type: 'select', label: 'Boundary type', "default": 'Dirichlet',
+                {name: 'description', type: 'text', label: 'Title'},
+                {name: 'boundary', type: 'select', label: 'Boundary type', "default": 'Dirichlet',
                     options: [
                         {value: 'Dirichlet', label: 'Dirichlet'},
                         {value: 'Reflective', label: 'Reflective'},
                         {value: 'Transmissive', label: 'Transmissive'},
                         {value: 'Time', label: 'Time'}
                     ]},
-                {name: 'Location', type: 'select', label: 'Location', "default": 'External',
+                {name: 'location', type: 'select', label: 'Location', "default": 'External',
                     options: [
                         {value: 'External', label: 'External'},
                         {value: 'Internal', label: 'Internal'}
                     ]},
-                {name: 'Data', type: 'text', label: 'Data'}
+                {name: 'data', type: 'text', label: 'Data'}
             ]
         }
     },
@@ -122,8 +146,8 @@ const ANUGA_FEATURE_CONFIG = {
         formConfig: {
             title: 'Friction',
             fields: [
-                {name: 'Description', type: 'text', label: 'Title'},
-                {name: 'Mannings', type: 'number', label: 'Mannings n', "default": 0.035, step: 0.001}
+                {name: 'description', type: 'text', label: 'Title'},
+                {name: 'mannings', type: 'number', label: 'Mannings n', "default": 0.035, step: 0.001}
             ]
         }
     },
@@ -132,8 +156,8 @@ const ANUGA_FEATURE_CONFIG = {
         formConfig: {
             title: 'Mesh Region',
             fields: [
-                {name: 'Description', type: 'text', label: 'Title'},
-                {name: 'Resolution', type: 'number', label: 'Resolution (m²)', "default": 10, step: 1, min: 0.1}
+                {name: 'description', type: 'text', label: 'Title'},
+                {name: 'resolution', type: 'number', label: 'Resolution (m²)', "default": 10, step: 1, min: 0.1}
             ]
         }
     },
@@ -142,8 +166,8 @@ const ANUGA_FEATURE_CONFIG = {
         formConfig: {
             title: 'Structure',
             fields: [
-                {name: 'Description', type: 'text', label: 'Title'},
-                {name: 'Method', type: 'text', label: 'Method', "default": 'Holes'}
+                {name: 'description', type: 'text', label: 'Title'},
+                {name: 'method', type: 'text', label: 'Method', "default": 'Holes'}
             ]
         }
     }
@@ -203,7 +227,11 @@ class MenuRowClass extends React.Component {
         deleteInflow: PropTypes.func,
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
         // (bdy_/inf_/fri_/mes_/str_).
-        startVectorDraw: PropTypes.func
+        startVectorDraw: PropTypes.func,
+        // TASK-784 polish — close the AnugaInputMenu side panel during
+        // VectorDraw edit so the popup is the focus. The toolbar buttons
+        // (rendered by AnugaContainer in a portal) stay visible.
+        setAnugaInputMenu: PropTypes.func
     };
 
     constructor(props) {
@@ -290,12 +318,25 @@ class MenuRowClass extends React.Component {
                                             // Migrated VectorDraw path — bdy_/inf_/fri_/mes_/str_.
                                             // setPermission/svSelectLayer omitted: pre-flight audit
                                             // (TASK-793) confirmed no downstream consumers outside the
-                                            // FeatureGrid we're abandoning. setOpenMenuGroupId(null)
-                                            // collapses the inputs panel so the popup is the focus
-                                            // (the toolbar buttons stay visible).
+                                            // FeatureGrid we're abandoning.
+                                            //
+                                            // Panel hide: the inputs side panel is <AnugaInputMenu/>,
+                                            // gated by state.anuga.ui.showAnugaInputMenu (set by
+                                            // setAnugaInputMenu). state.simpleView.openMenuGroupId
+                                            // controls a DIFFERENT panel (the SimpleView menu-groups
+                                            // panel rendered in simpleViewContainer.js for non-Anuga
+                                            // maps), so dispatching setOpenMenuGroupId(null) alone
+                                            // does NOT close the Anuga inputs panel — Anuga's
+                                            // uiReducer's SET_OPEN_MENU_GROUP_ID case only acts when
+                                            // the value is truthy. We dispatch BOTH so each panel
+                                            // closes via its own slice. The toolbar buttons
+                                            // (portal'd into .simple-view-left-toolbar by
+                                            // AnugaContainer) are not gated by either slice and
+                                            // stay visible.
                                             this.props.closeFeatureGrid();
                                             this.props.selectFeatures([]);
                                             this.props.setOpenMenuGroupId(null);
+                                            this.props.setAnugaInputMenu(false);
                                             this.props.startVectorDraw({
                                                 layerName: layer.name,
                                                 geomType: cfg.geomType,
@@ -706,7 +747,10 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteFriction: (projectId, id, layerIds) => dispatch(deleteFriction(projectId, id, layerIds)),
         deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds)),
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
-        startVectorDraw: (config) => dispatch(startVectorDraw(config))
+        startVectorDraw: (config) => dispatch(startVectorDraw(config)),
+        // TASK-784 polish — close the AnugaInputMenu side panel during
+        // VectorDraw edit so the popup is the focus.
+        setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible))
     };
 };
 

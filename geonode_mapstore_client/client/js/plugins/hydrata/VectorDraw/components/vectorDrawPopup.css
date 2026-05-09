@@ -1,0 +1,87 @@
+/*
+ * TASK-784 polish — uniform fonts inside the VectorDraw popup.
+ *
+ * The popup uses .simple-view-panel for its baseline (12px Montserrat,
+ * white-on-blue panel chrome) but overrides three things that would
+ * otherwise leave the popup looking inconsistent vs the SimpleView panel
+ * sitting on the left:
+ *
+ *   1. .simple-view-panel-header sets `font-size: x-large` for the SimpleView
+ *      tool panels' large headlines. The VectorDraw popup is a small floating
+ *      tooltip-style overlay where that headline is too big — scope a smaller
+ *      header just for the popup.
+ *   2. Native form controls (<select>, <input>, <button>) reset their font
+ *      to the user-agent default (often Times New Roman on Linux). Force
+ *      `font: inherit` everywhere so the popup is uniformly Montserrat 12px
+ *      with the panel's color.
+ *   3. Bootstrap <Button bsSize="small"> applies its own font-size and
+ *      may bold the text on some bootswatch overrides. Pin font: inherit
+ *      and font-weight: normal on .vector-draw-popup .btn so all action
+ *      buttons match the surrounding text.
+ *
+ * Rule of thumb: NO inline font/size/weight overrides in the JSX. All
+ * styling lives here so the popup renders identically across browsers
+ * and matches the rest of the SimpleView UI.
+ */
+
+.vector-draw-popup,
+.vector-draw-popup * {
+    font-family: inherit;
+    font-weight: normal;
+}
+
+/* The popup root inherits font-family from the document (Montserrat) but
+   we explicitly fix the size so the smaller floating popup matches the
+   SimpleView panel's body text rather than its larger headline. */
+.vector-draw-popup {
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* Smaller header for the floating popup (the .simple-view-panel-header
+   x-large is intended for full-size left-rail panels). */
+.vector-draw-popup .simple-view-panel-header {
+    font-size: 13px;
+    font-weight: normal;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    padding: 6px 12px;
+    margin: 0;
+}
+
+.vector-draw-popup p,
+.vector-draw-popup span,
+.vector-draw-popup label,
+.vector-draw-popup div {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+}
+
+/* Native controls (select / input / textarea) drop back to user-agent
+   font defaults unless we tell them not to. */
+.vector-draw-popup select,
+.vector-draw-popup input,
+.vector-draw-popup textarea,
+.vector-draw-popup button {
+    font: inherit;
+    font-weight: normal;
+}
+
+/* Bootstrap buttons inside the popup. Bootstrap's `.btn-sm` and the
+   default `.btn` rule both set their own font-size; force inherit so
+   the action buttons match the surrounding 12px Montserrat text. */
+.vector-draw-popup .btn,
+.vector-draw-popup .btn-sm {
+    font-size: inherit;
+    font-weight: normal;
+    line-height: 1.5;
+}
+
+/* Picker rows in the "Choose feature" phase — left-aligned text; the
+   parent .simple-view-panel sets text-align: center which is wrong for
+   a list. */
+.vector-draw-popup .simple-view-panel-item-row {
+    text-align: left;
+    height: auto;
+    border: none;
+}

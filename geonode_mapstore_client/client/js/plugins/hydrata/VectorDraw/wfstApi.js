@@ -21,7 +21,20 @@ export const wfstInsert = async(wfsUrl, typeName, geometry, properties) => {
         properties: properties || {}
     };
 
-    const xml = builder.transaction(builder.insert(featureObj));
+    // Wrap the synchronous WFS-T body build so a malformed describe (e.g.,
+    // missing geometry property → `findGeometryProperty(...).name` throws,
+    // or a property descriptor lookup miss → `isGeometryType(undefined)`
+    // throws "Cannot read properties of undefined (reading 'type')") surfaces
+    // as a meaningful error instead of leaking the raw stack frame to the
+    // user's save toast.
+    let xml;
+    try {
+        xml = builder.transaction(builder.insert(featureObj));
+    } catch (buildErr) {
+        throw new Error(
+            `Could not build WFS-T insert for ${typeName} — describe schema may be missing the geometry column. (${buildErr?.message || 'unknown'})`
+        );
+    }
 
     const response = await axios.post(wfsUrl, xml, {
         headers: { 'Content-Type': 'application/xml' }
@@ -58,15 +71,22 @@ export const wfstUpdate = async(wfsUrl, typeName, featureId, geometry, propertie
     const describe = await describeFeatureType(wfsUrl, typeName);
     const builder = requestBuilder(describe);
 
-    const changes = Object.keys(properties || {}).map(k =>
-        builder.propertyChange(k, properties[k])
-    );
-
-    if (geometry) {
-        changes.push(builder.propertyChange(builder.getPropertyName('geometry'), geometry));
+    // Same defensive wrap as wfstInsert — a malformed describe must surface
+    // a meaningful error rather than the raw "(reading 'type')" frame.
+    let xml;
+    try {
+        const changes = Object.keys(properties || {}).map(k =>
+            builder.propertyChange(k, properties[k])
+        );
+        if (geometry) {
+            changes.push(builder.propertyChange(builder.getPropertyName('geometry'), geometry));
+        }
+        xml = builder.transaction(builder.update(...changes, fidFilter("ogc", featureId)));
+    } catch (buildErr) {
+        throw new Error(
+            `Could not build WFS-T update for ${typeName} — describe schema may be missing the geometry column. (${buildErr?.message || 'unknown'})`
+        );
     }
-
-    const xml = builder.transaction(builder.update(...changes, fidFilter("ogc", featureId)));
 
     await axios.post(wfsUrl, xml, {
         headers: { 'Content-Type': 'application/xml' }

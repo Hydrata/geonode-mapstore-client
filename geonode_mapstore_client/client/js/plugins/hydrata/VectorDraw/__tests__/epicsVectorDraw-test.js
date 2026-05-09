@@ -18,15 +18,19 @@ const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
 const {
     vectorDrawStartEpic,
     vectorDrawSelectExistingEpic,
+    vectorDrawSaveEpic,
     extractDrawGeometry
 } = require('../epicsVectorDraw');
 
 const {
     START_VECTOR_DRAW,
     SELECT_EXISTING_FEATURE,
+    SUBMIT_FORM,
     SEED_FORM_VALUES,
     LOAD_FEATURE_LIST,
-    DESCRIBE_COMPLETE
+    DESCRIBE_COMPLETE,
+    SAVE_ERROR,
+    SAVE_SUCCESS
 } = require('../actionsVectorDraw');
 
 const mockActions = (actions) => {
@@ -362,6 +366,177 @@ describe('VectorDraw Epics', () => {
 
         it('returns null for a Feature with no geometry', () => {
             expect(extractDrawGeometry({ type: 'Feature', properties: {} })).toBe(null);
+        });
+    });
+
+    // CREATE-mode save bug repro: in production we observed
+    // "Failed to save feature: Cannot read properties of undefined (reading 'type')"
+    // after Save was clicked in the form phase. Two sub-tests verify the round-
+    // trip through vectorDrawSaveEpic with a realistic Anuga Boundaries layer
+    // describe stub and form values.
+    describe('vectorDrawSaveEpic — CREATE mode', () => {
+        const BDY_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'bdy_4_test',
+                properties: [
+                    { name: 'the_geom', type: 'gml:LineString', localType: 'LineString', minOccurs: 0, nillable: true },
+                    { name: 'Description', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true },
+                    { name: 'Boundary', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true },
+                    { name: 'Location', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true },
+                    { name: 'Data', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+
+        const installBdyMock = () => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, BDY_DESCRIBE_STUB];
+                }
+                return [200, { type: 'FeatureCollection', features: [] }];
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse><wfs:InsertResults><wfs:Feature><ogc:FeatureId fid="bdy_4_test.42"/></wfs:Feature></wfs:InsertResults></wfs:TransactionResponse>');
+            return m;
+        };
+
+        it('emits SAVE_SUCCESS for a complete CREATE-mode save (geometry + form values)', (done) => {
+            mock = installBdyMock();
+            const store = makeStore({
+                phase: 'saving',
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
+                    onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED'
+                },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: [[0, 0], [1, 1], [2, 0]]
+                },
+                formValues: {
+                    Description: 'Inlet north',
+                    Boundary: 'Dirichlet',
+                    Location: 'External',
+                    Data: ''
+                }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(4)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const success = emitted.find(a => a.type === SAVE_SUCCESS);
+                        const errored = emitted.find(a => a.type === SAVE_ERROR);
+                        expect(errored).toBe(undefined);
+                        expect(success).toExist();
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        // Locks in the wfstApi defensive wrap: if a malformed describe
+        // (e.g., GeoServer returns a schema without the geometry column) makes
+        // RequestBuilder throw a synchronous "(reading 'type')" or
+        // "(reading 'name')" stack frame, the user-facing toast must NOT
+        // leak the raw stack — it must be the friendlier "Could not build
+        // WFS-T insert" message wrapping the original error.
+        it('surfaces a friendly SAVE_ERROR (not raw stack) for malformed describe', (done) => {
+            const NO_GEOM_DESCRIBE = {
+                targetPrefix: 'geonode',
+                targetNamespace: 'http://geonode.org',
+                featureTypes: [{
+                    typeName: 'bdy_4_test',
+                    properties: [
+                        { name: 'Description', type: 'xsd:string', localType: 'string' }
+                    ]
+                }]
+            };
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply(200, NO_GEOM_DESCRIBE);
+            mock = m;
+
+            const store = makeStore({
+                phase: 'saving',
+                config: { layerName: 'geonode:bdy_4_test', geomType: 'LineString', onComplete: 'X' },
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+                formValues: { Description: 'foo' }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const errored = emitted.find(a => a.type === SAVE_ERROR);
+                        expect(errored).toExist();
+                        // Friendly prefix from wfstInsert defensive wrap;
+                        // raw "(reading 'type')" / "(reading 'name')" must
+                        // not be the *only* user-visible text.
+                        expect(errored.error).toMatch(/Could not build WFS-T insert/);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        // Regression for the user-reported toast text. If wfstInsert throws
+        // synchronously while building the WFS-T body (e.g., undefined property
+        // descriptor in `getValue`), the catch handler emits SAVE_ERROR carrying
+        // the raw `Cannot read properties of undefined (reading 'type')` text.
+        // The fix validated here is that wfstInsert no longer crashes for this
+        // shape, so SAVE_ERROR must NOT carry that string.
+        it('does not emit a "reading \'type\'" SAVE_ERROR for a normal CREATE save', (done) => {
+            mock = installBdyMock();
+            const store = makeStore({
+                phase: 'saving',
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE'
+                },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: [[0, 0], [1, 1], [2, 0]]
+                },
+                formValues: {
+                    Description: 'Inlet north',
+                    Boundary: 'Dirichlet',
+                    Location: 'External',
+                    Data: ''
+                }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(4)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const errored = emitted.find(a => a.type === SAVE_ERROR);
+                        if (errored) {
+                            expect(errored.error).toNotMatch(/reading 'type'/);
+                        }
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
         });
     });
 });
