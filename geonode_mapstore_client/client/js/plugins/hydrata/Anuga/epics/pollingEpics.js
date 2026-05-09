@@ -477,20 +477,61 @@ const isLayerCompletionType = pt => pt === 'layer_create' || pt === 'terrain_cre
 // candidate against state.anuga.resources.terrain into one of:
 //   present  — terrain row visible in state, definitely safe to replay
 //   orphaned — terrain row known-missing, definitely skip
-//   unknown  — state unloaded or empty (race against initAnuga's resource
-//              fetch), so neither classification is safe yet
-// Returning 'unknown' lets the caller defer marking the candidate as
-// handled so a later poll (after initAnuga populates terrain) can decide
-// definitively. Returning 'orphaned' was the previous over-eager default
-// when terrain.length === 0; that mis-classified the very-first completed
-// terrain on a fresh page load, dropping addLayer + zoom + saveDirectContent.
-const orphanStatus = (process, state) => {
+//   unknown  — can't decide yet, defer to next poll (don't mark handled)
+//
+// Three discrete bugs forced the current shape:
+//
+//   (a) Pre-rename Processes with metadata.terrain_id===null. Returning
+//       'present' for those replays addLayer for layers whose Datasets
+//       were cascade-deleted long ago (12 ele_3905/9-13 ghosts on a real
+//       map blob in dev). The legacy procs have NO way to verify
+//       existence — orphan-classify them and skip.
+//
+//   (b) `terrain.length === 0` is ambiguous (empty after fetch vs
+//       not-fetched-yet). Use the explicit terrainLoaded flag stamped
+//       by SET_ANUGA_TERRAIN_DATA to disambiguate.
+//
+//   (c) Fresh-create race: a terrain_create completion arriving
+//       after a successful upload is in the polling stream BEFORE the
+//       FE's cached terrain list has been refetched. The BE truth
+//       (terrain row exists) and FE state (stale list, no row)
+//       disagree. Earlier attempts used a recency-window heuristic
+//       on `process.finished` to rescue this case; that fails because
+//       real DEMs can take up to an HOUR to process — by the time the
+//       FE polls, any time-window is wrong (either too short to catch
+//       slow uploads, or too long to ever orphan-classify a true
+//       cascade-delete). Instead: when terrainLoaded=true and id is
+//       missing, dispatch initAnuga() to force a terrain refetch and
+//       defer classification. On the next poll, if the id is still
+//       missing post-refresh, it really IS orphaned. The caller's
+//       refreshAttempted Set tracks per-process whether we've already
+//       paid the refresh roundtrip, so at most one extra catalogue
+//       fetch per truly-orphaned process per app boot.
+const orphanStatus = (process, state, refreshAttempted) => {
     if (process.process_type !== 'terrain_create') return 'present';
     const terrainId = process.metadata?.terrain_id;
-    if (terrainId == null) return 'present';
-    const terrain = state?.anuga?.resources?.terrain;
-    if (!Array.isArray(terrain) || terrain.length === 0) return 'unknown';
-    return terrain.some(e => e?.id === terrainId) ? 'present' : 'orphaned';
+    // (a) Legacy procs: no terrain_id stamped → can't verify, treat as
+    // orphaned. Marking handled prevents perpetual re-injection on
+    // every page-load poll.
+    if (terrainId == null) return 'orphaned';
+    const resources = state?.anuga?.resources;
+    // (b) Resources slice not yet loaded → defer. The terrainLoaded
+    // flag is stamped by SET_ANUGA_TERRAIN_DATA; while it's false the
+    // initialState empty-array could mean anything. (No initAnuga
+    // dispatch needed here — initAnugaEpic itself will fire the
+    // catalogue fetch as soon as visibility/gnresource gates open.)
+    if (!resources?.terrainLoaded) return 'unknown';
+    const terrain = resources.terrain;
+    if (Array.isArray(terrain) && terrain.some(e => e?.id === terrainId)) {
+        return 'present';
+    }
+    // (c) terrain_id is set, terrain list is loaded, but id is missing.
+    // First miss for this process: defer + caller dispatches initAnuga.
+    // After refresh, if still missing → really orphaned.
+    if (refreshAttempted && refreshAttempted.has(process.id)) {
+        return 'orphaned';
+    }
+    return 'unknown';
 };
 
 // Per-instance set of completion IDs we've already dispatched addLayer for.
@@ -499,8 +540,15 @@ const orphanStatus = (process, state) => {
 // "have I handled this completion yet" signal independent of reducer timing.
 // Reset on page reload (single epic instance per app boot), which is fine
 // because MapLayer auto-injection on reload re-populates layers.flat.
+//
+// refreshAttempted is the sibling per-app-boot Set used by the refresh-then-
+// defer classifier (see orphanStatus comment block (c)). When a candidate's
+// terrain_id is missing from the loaded terrain list, we dispatch initAnuga
+// to force a catalogue refetch and add the candidate id here so the next
+// tick can classify decisively as 'present' or 'orphaned'.
 export const taskCompleteLayerEpic = (action$, store) => {
     const handledCompletionIds = new Set();
+    const refreshAttempted = new Set();
     return action$.ofType(TM_SET_PROCESSES)
         .switchMap((action) => {
             const processes = action.processes || [];
@@ -511,18 +559,36 @@ export const taskCompleteLayerEpic = (action$, store) => {
             );
             if (!candidates.length) return Rx.Observable.empty();
             const state = store.getState();
-            const classified = candidates.map(p => ({process: p, status: orphanStatus(p, state)}));
+            const classified = candidates.map(p => ({
+                process: p,
+                status: orphanStatus(p, state, refreshAttempted)
+            }));
             // Mark handled only when we can decide. 'unknown' candidates stay
             // unmarked so the next poll (after initAnuga fills terrain) can
             // re-classify them. 'present' and 'orphaned' are decisive.
             classified.forEach(c => {
                 if (c.status !== 'unknown') handledCompletionIds.add(c.process.id);
             });
+            // Refresh-then-defer: 'unknown' candidates with terrain_id set
+            // and terrainLoaded=true are fresh-upload-with-stale-list cases.
+            // Force one initAnuga catalogue refetch and mark the id so the
+            // next tick can decide. Candidates whose terrainLoaded=false
+            // are intentionally NOT in this set — initAnugaEpic itself will
+            // fire the catalogue fetch on its own gating signal.
+            const refreshNeeded = classified.filter(c => {
+                if (c.status !== 'unknown') return false;
+                if (c.process.process_type !== 'terrain_create') return false;
+                if (c.process.metadata?.terrain_id == null) return false;
+                return state?.anuga?.resources?.terrainLoaded === true;
+            });
+            refreshNeeded.forEach(c => refreshAttempted.add(c.process.id));
             const newlyCompleted = classified
                 .filter(c => c.status === 'present')
                 .map(c => c.process);
-            if (!newlyCompleted.length) return Rx.Observable.empty();
             const observables = [];
+            if (refreshNeeded.length > 0) {
+                observables.push(Rx.Observable.of(initAnuga()));
+            }
             newlyCompleted.forEach(p => {
                 if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
                     observables.push(buildTerrainAddSequence(p.metadata, action$, store));

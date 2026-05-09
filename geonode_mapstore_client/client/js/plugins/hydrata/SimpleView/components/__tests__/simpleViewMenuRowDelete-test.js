@@ -145,7 +145,107 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                 expect(deleteAction).toExist();
                 expect(deleteAction.projectId).toBe(42);
                 expect(deleteAction.id).toBe(99);
-                expect(deleteAction.layerId).toBe('l1');
+                // V2P-714 sibling-orphan: action carries an array of all
+                // sibling layer ids. With state.layers.flat empty in the
+                // mock and only the utm sibling rendered as MenuRow, the
+                // fallback returns the clicked layer's id alone.
+                expect(deleteAction.layerIds).toEqual(['l1']);
+                done();
+            }
+        );
+    });
+
+    it('trash on Terrain row collects BOTH utm + hillshade siblings from layers.flat', (done) => {
+        // V2P-714 sibling-orphan: when a Terrain has both gn_layer_name
+        // and gn_layer_hillshade_name exposed by the BE serializer, the
+        // dispatched layerIds must include both sibling layer ids so the
+        // epic can remove them in lockstep — leaving the hillshade
+        // sibling stranded was the original bug.
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
+        const store = createMockStore({
+            layers: {
+                flat: [
+                    { id: 'utm-id', name: 'geonode:ele_5433_utm_xxx' },
+                    { id: 'hillshade-id', name: 'geonode:ele_5433_hillshade_xxx' }
+                ],
+                groups: []
+            },
+            anuga: {
+                projects: { data: { id: 42, my_role: 'editor' } },
+                resources: {
+                    terrain: [{
+                        id: 99,
+                        gn_layer_name: 'ele_5433_utm_xxx',
+                        gn_layer_hillshade_name: 'ele_5433_hillshade_xxx'
+                    }]
+                }
+            }
+        });
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({
+                    id: 'utm-id',
+                    group: 'Input Data.Terrain',
+                    name: 'geonode:ele_5433_utm_xxx'
+                })} />
+            </Provider>,
+            container,
+            () => {
+                Simulate.click(container.querySelector('.glyphicon-trash'));
+                const deleteAction = dispatched.find(a => a?.type === DELETE_TERRAIN);
+                expect(deleteAction).toExist();
+                expect(deleteAction.id).toBe(99);
+                expect(deleteAction.layerIds.length).toBe(2);
+                expect(deleteAction.layerIds).toContain('utm-id');
+                expect(deleteAction.layerIds).toContain('hillshade-id');
+                done();
+            }
+        );
+    });
+
+    it('trash on hillshade row resolves to same Terrain pk via gn_layer_hillshade_name', (done) => {
+        // Clicking the hillshade FE layer must resolve to the same
+        // Terrain row as clicking the utm FE layer — without this
+        // getDatasetIdForLayer would have to hit the single-row fallback
+        // and would mis-target once the project has 2+ terrains.
+        const { MenuRow } = require('../simpleViewMenuRow');
+        const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
+        const store = createMockStore({
+            layers: {
+                flat: [
+                    { id: 'utm-id', name: 'geonode:ele_5433_utm_xxx' },
+                    { id: 'hillshade-id', name: 'geonode:ele_5433_hillshade_xxx' }
+                ],
+                groups: []
+            },
+            anuga: {
+                projects: { data: { id: 42, my_role: 'editor' } },
+                resources: {
+                    // Two terrains so the single-row fallback can't bail us out.
+                    terrain: [
+                        { id: 88, gn_layer_name: 'ele_other_utm', gn_layer_hillshade_name: 'ele_other_hillshade' },
+                        { id: 99, gn_layer_name: 'ele_5433_utm_xxx', gn_layer_hillshade_name: 'ele_5433_hillshade_xxx' }
+                    ]
+                }
+            }
+        });
+        ReactDOM.render(
+            <Provider store={store}>
+                <MenuRow layer={baseLayer({
+                    id: 'hillshade-id',
+                    group: 'Input Data.Terrain',
+                    name: 'geonode:ele_5433_hillshade_xxx'
+                })} />
+            </Provider>,
+            container,
+            () => {
+                Simulate.click(container.querySelector('.glyphicon-trash'));
+                const deleteAction = dispatched.find(a => a?.type === DELETE_TERRAIN);
+                expect(deleteAction).toExist();
+                expect(deleteAction.id).toBe(99);  // not 88
+                expect(deleteAction.layerIds).toContain('utm-id');
+                expect(deleteAction.layerIds).toContain('hillshade-id');
                 done();
             }
         );

@@ -723,18 +723,29 @@ describe('Anuga Plugin', () => {
             deleteInflowError
         } = require('../actionsAnuga');
 
-        it('deleteTerrain creates {type, projectId, id, layerId}', () => {
-            const a = deleteTerrain(7, 99, 'l1');
+        it('deleteTerrain creates {type, projectId, id, layerIds: [..]}', () => {
+            // V2P-714 sibling-orphan: signature is now an array (Terrain
+            // has utm + hillshade siblings). Single string still accepted
+            // for backward compat — coerced to a 1-element array.
+            const a = deleteTerrain(7, 99, ['l1', 'l2']);
             expect(a.type).toBe(DELETE_TERRAIN);
             expect(a.projectId).toBe(7);
             expect(a.id).toBe(99);
-            expect(a.layerId).toBe('l1');
+            expect(a.layerIds).toEqual(['l1', 'l2']);
         });
-        it('deleteTerrainSuccess creates {type, id, layerId}', () => {
-            const a = deleteTerrainSuccess(99, 'l1');
+        it('deleteTerrain coerces single layerId string to array', () => {
+            const a = deleteTerrain(7, 99, 'l1');
+            expect(a.layerIds).toEqual(['l1']);
+        });
+        it('deleteTerrain handles missing layerIds gracefully', () => {
+            const a = deleteTerrain(7, 99);
+            expect(a.layerIds).toEqual([]);
+        });
+        it('deleteTerrainSuccess creates {type, id, layerIds: [..]}', () => {
+            const a = deleteTerrainSuccess(99, ['l1', 'l2']);
             expect(a.type).toBe(DELETE_TERRAIN_SUCCESS);
             expect(a.id).toBe(99);
-            expect(a.layerId).toBe('l1');
+            expect(a.layerIds).toEqual(['l1', 'l2']);
         });
         it('deleteTerrainBlocked carries blocking + message', () => {
             const a = deleteTerrainBlocked(99, [{type: 'scenario', id: 1, name: 'A', state: 'computing'}], 'cannot delete');
@@ -789,7 +800,7 @@ describe('Anuga Plugin', () => {
             let state = seed(SET_ANUGA_TERRAIN_DATA, 'data', [
                 { id: 1, title: 'A' }, { id: 2, title: 'B' }
             ]);
-            state = reducer(state, { type: DELETE_TERRAIN, projectId: 7, id: 1, layerId: 'l1' });
+            state = reducer(state, { type: DELETE_TERRAIN, projectId: 7, id: 1, layerIds: ['l1'] });
             expect(state.resources.terrain[0].deleting).toBe(true);
             expect(state.resources.terrain[1].deleting).toBe(undefined);
         });

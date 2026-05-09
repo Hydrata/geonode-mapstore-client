@@ -64,6 +64,12 @@ const _SKIP_RESOURCE_KEYS = new Set(['members', 'runs']);
 
 const initialState = {
     terrain: [],
+    // V2P-714 sibling-orphan: distinguish "not yet loaded" from "loaded
+    // and empty". Without this signal, orphanStatus in pollingEpics can't
+    // tell whether terrain.length===0 means BE-truly-empty (every legacy
+    // terrain_create Process IS orphaned) or just-not-fetched-yet (the
+    // first completed terrain_create on a fresh load).
+    terrainLoaded: false,
     boundaries: [],
     frictions: [],
     inflows: [],
@@ -109,7 +115,7 @@ function _markError(rows, id, error) {
 export default (state = initialState, action) => {
     switch (action.type) {
     case SET_ANUGA_TERRAIN_DATA:
-        return { ...state, terrain: action.data };
+        return { ...state, terrain: action.data, terrainLoaded: true };
     case SET_ANUGA_BOUNDARY_DATA:
         return { ...state, boundaries: action.data };
     case SET_ANUGA_FRICTION_DATA:

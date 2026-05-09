@@ -710,6 +710,10 @@ describe('ANUGA Epics', () => {
 
         const REMOVE_NODE = 'REMOVE_NODE';
         const REMOVE_LAYER = 'REMOVE_LAYER';
+        // V2P-714 sibling-orphan: epic now emits saveDirectContent after the
+        // layer-removal so the saved blob loses the deleted refs and the
+        // user-perceived "delete" actually persists across page refresh.
+        const GN_SAVE_CONTENT = 'GEONODE:SAVE_DIRECT_CONTENT';
 
         const storeWithProjectId = (id) => ({
             getState: () => ({ anuga: { projects: { data: { id } } } })
@@ -719,7 +723,7 @@ describe('ANUGA Epics', () => {
         beforeEach(() => { mockAxios = new MockAdapter(axios); });
         afterEach(() => { mockAxios.restore(); });
 
-        it('deleteTerrainEpic: 204 -> SUCCESS + removeNode + removeLayer', (done) => {
+        it('deleteTerrainEpic: 204 -> SUCCESS + removeNode + removeLayer + saveDirectContent (single layer back-compat)', (done) => {
             mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(204);
             const action$ = mockActions([{
                 type: DELETE_TERRAIN, projectId: 7, id: 99, layerId: 'l1'
@@ -727,11 +731,43 @@ describe('ANUGA Epics', () => {
             const emitted = [];
             deleteTerrainEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
-                    expect(emitted.length).toBe(3);
+                    // success + removeNode + removeLayer + saveDirectContent
+                    expect(emitted.length).toBe(4);
                     expect(emitted[0].type).toBe(DELETE_TERRAIN_SUCCESS);
                     expect(emitted[0].id).toBe(99);
                     expect(emitted[1].type).toBe(REMOVE_NODE);
                     expect(emitted[2].type).toBe(REMOVE_LAYER);
+                    expect(emitted[3].type).toBe(GN_SAVE_CONTENT);
+                    done();
+                });
+        });
+
+        it('deleteTerrainEpic: 204 with layerIds array removes ALL siblings + saves once', (done) => {
+            // V2P-714 sibling-orphan: Terrain has utm + hillshade siblings.
+            // Cascade-delete must remove BOTH FE layers — not just one —
+            // otherwise the un-removed sibling stays as a ghost ref in the
+            // saved blob and re-renders WMS-broken on page reload.
+            mockAxios.onDelete('/api/v2/anuga/projects/7/terrain/99/').reply(204);
+            const action$ = mockActions([{
+                type: DELETE_TERRAIN, projectId: 7, id: 99,
+                layerIds: ['utm-layer-id', 'hillshade-layer-id']
+            }]);
+            const emitted = [];
+            deleteTerrainEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    // success + 2x (removeNode + removeLayer) + saveDirectContent
+                    expect(emitted.length).toBe(6);
+                    expect(emitted[0].type).toBe(DELETE_TERRAIN_SUCCESS);
+                    expect(emitted[0].layerIds).toEqual(['utm-layer-id', 'hillshade-layer-id']);
+                    expect(emitted[1].type).toBe(REMOVE_NODE);
+                    expect(emitted[1].node).toBe('utm-layer-id');
+                    expect(emitted[2].type).toBe(REMOVE_LAYER);
+                    expect(emitted[2].layerId).toBe('utm-layer-id');
+                    expect(emitted[3].type).toBe(REMOVE_NODE);
+                    expect(emitted[3].node).toBe('hillshade-layer-id');
+                    expect(emitted[4].type).toBe(REMOVE_LAYER);
+                    expect(emitted[4].layerId).toBe('hillshade-layer-id');
+                    expect(emitted[5].type).toBe(GN_SAVE_CONTENT);
                     done();
                 });
         });
@@ -832,7 +868,9 @@ describe('ANUGA Epics', () => {
             deleteBoundaryEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/7/boundaries/12/');
-                    expect(emitted.length).toBe(3);
+                    // success + removeNode + removeLayer + saveDirectContent
+                    expect(emitted.length).toBe(4);
+                    expect(emitted[3].type).toBe(GN_SAVE_CONTENT);
                     done();
                 });
         });
@@ -846,7 +884,8 @@ describe('ANUGA Epics', () => {
             deleteFrictionEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/7/frictions/13/');
-                    expect(emitted.length).toBe(3);
+                    expect(emitted.length).toBe(4);
+                    expect(emitted[3].type).toBe(GN_SAVE_CONTENT);
                     done();
                 });
         });
@@ -860,7 +899,8 @@ describe('ANUGA Epics', () => {
             deleteInflowEpic(action$, storeWithProjectId(7))
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/7/inflows/14/');
-                    expect(emitted.length).toBe(3);
+                    expect(emitted.length).toBe(4);
+                    expect(emitted[3].type).toBe(GN_SAVE_CONTENT);
                     done();
                 });
         });

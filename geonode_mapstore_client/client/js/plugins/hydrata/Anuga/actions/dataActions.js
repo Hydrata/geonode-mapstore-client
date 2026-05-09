@@ -182,12 +182,18 @@ function setPermsLoadFailed(failed) {
 }
 
 // V2P-714 action creators. `id` is the AnugaModel pk (Terrain.id, etc.);
-// `layerId` is the MapStore layer id used by removeNode/removeLayer.
-function deleteTerrain(projectId, id, layerId) {
-    return { type: DELETE_TERRAIN, projectId, id, layerId };
+// `layerIds` is an array of MapStore layer ids — Terrain has 2 siblings
+// (utm + hillshade), Boundary/Friction/Inflow have 1.
+const _toLayerIds = (v) => {
+    if (Array.isArray(v)) return v.filter(Boolean);
+    if (v == null || v === '') return [];
+    return [v];
+};
+function deleteTerrain(projectId, id, layerIds) {
+    return { type: DELETE_TERRAIN, projectId, id, layerIds: _toLayerIds(layerIds) };
 }
-function deleteTerrainSuccess(id, layerId) {
-    return { type: DELETE_TERRAIN_SUCCESS, id, layerId };
+function deleteTerrainSuccess(id, layerIds) {
+    return { type: DELETE_TERRAIN_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
 }
 function deleteTerrainBlocked(id, blocking, message) {
     return { type: DELETE_TERRAIN_BLOCKED, id, blocking, message };
@@ -196,11 +202,11 @@ function deleteTerrainError(id, error) {
     return { type: DELETE_TERRAIN_ERROR, id, error };
 }
 
-function deleteBoundary(projectId, id, layerId) {
-    return { type: DELETE_BOUNDARY, projectId, id, layerId };
+function deleteBoundary(projectId, id, layerIds) {
+    return { type: DELETE_BOUNDARY, projectId, id, layerIds: _toLayerIds(layerIds) };
 }
-function deleteBoundarySuccess(id, layerId) {
-    return { type: DELETE_BOUNDARY_SUCCESS, id, layerId };
+function deleteBoundarySuccess(id, layerIds) {
+    return { type: DELETE_BOUNDARY_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
 }
 function deleteBoundaryBlocked(id, blocking, message) {
     return { type: DELETE_BOUNDARY_BLOCKED, id, blocking, message };
@@ -209,11 +215,11 @@ function deleteBoundaryError(id, error) {
     return { type: DELETE_BOUNDARY_ERROR, id, error };
 }
 
-function deleteFriction(projectId, id, layerId) {
-    return { type: DELETE_FRICTION, projectId, id, layerId };
+function deleteFriction(projectId, id, layerIds) {
+    return { type: DELETE_FRICTION, projectId, id, layerIds: _toLayerIds(layerIds) };
 }
-function deleteFrictionSuccess(id, layerId) {
-    return { type: DELETE_FRICTION_SUCCESS, id, layerId };
+function deleteFrictionSuccess(id, layerIds) {
+    return { type: DELETE_FRICTION_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
 }
 function deleteFrictionBlocked(id, blocking, message) {
     return { type: DELETE_FRICTION_BLOCKED, id, blocking, message };
@@ -222,11 +228,11 @@ function deleteFrictionError(id, error) {
     return { type: DELETE_FRICTION_ERROR, id, error };
 }
 
-function deleteInflow(projectId, id, layerId) {
-    return { type: DELETE_INFLOW, projectId, id, layerId };
+function deleteInflow(projectId, id, layerIds) {
+    return { type: DELETE_INFLOW, projectId, id, layerIds: _toLayerIds(layerIds) };
 }
-function deleteInflowSuccess(id, layerId) {
-    return { type: DELETE_INFLOW_SUCCESS, id, layerId };
+function deleteInflowSuccess(id, layerIds) {
+    return { type: DELETE_INFLOW_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
 }
 function deleteInflowBlocked(id, blocking, message) {
     return { type: DELETE_INFLOW_BLOCKED, id, blocking, message };

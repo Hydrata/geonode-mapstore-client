@@ -93,6 +93,7 @@ class MenuRowClass extends React.Component {
         projectId: PropTypes.number,
         deleteRow: PropTypes.object,  // {id, deleting, blockingError, deleteError}
         deleteSliceRows: PropTypes.array,
+        allLayers: PropTypes.array,  // V2P-714 sibling-orphan: state.layers.flat
         deleteTerrain: PropTypes.func,
         deleteBoundary: PropTypes.func,
         deleteFriction: PropTypes.func,
@@ -291,7 +292,14 @@ class MenuRowClass extends React.Component {
                 inflow: this.props.deleteInflow
             }[datasetType];
             if (dispatcher) {
-                dispatcher(this.props.projectId, datasetId, layer.id);
+                // V2P-714 sibling-orphan fix — Terrain has TWO sibling layers
+                // (gn_layer + gn_layer_hillshade) and the BE cascade deletes
+                // both Datasets. Pass an array of all sibling layer ids so
+                // the epic can remove each FE layer in lockstep — otherwise
+                // the un-removed sibling stays as a ghost ref in the saved
+                // map blob and re-renders broken (WMS 404) on next load.
+                const layerIds = this.getSiblingLayerIds(datasetId, layer);
+                dispatcher(this.props.projectId, datasetId, layerIds);
                 return;
             }
         }
@@ -301,6 +309,40 @@ class MenuRowClass extends React.Component {
         this.props.removeNode(layer.id, 'layers');
         this.props.removeLayer(layer.id);
         this.props.refreshlayerVersion(layer.id);
+    };
+
+    // V2P-714 sibling-orphan fix — Given the AnugaModel datasetId we just
+    // resolved, find ALL MapStore layer ids that map to its sibling
+    // Datasets. Terrain rows have gn_layer (utm) AND gn_layer_hillshade;
+    // boundary/friction/inflow have only gn_layer. Match by name (the
+    // FE-side layer.name is "geonode:<dataset.name>") and fall back to the
+    // clicked layer.id if nothing in flat resolves.
+    getSiblingLayerIds = (datasetId, clickedLayer) => {
+        const rows = this.props.deleteSliceRows || [];
+        const row = rows.find(r => r && r.id === datasetId);
+        if (!row) return clickedLayer?.id ? [clickedLayer.id] : [];
+        const targetNames = [row.gn_layer_name, row.gn_layer_hillshade_name]
+            .filter(Boolean);
+        if (targetNames.length === 0) {
+            return clickedLayer?.id ? [clickedLayer.id] : [];
+        }
+        const allLayers = this.props.allLayers || [];
+        const ids = [];
+        for (const l of allLayers) {
+            if (!l?.id || !l.name) continue;
+            for (const tn of targetNames) {
+                if (l.name.endsWith(tn)) {
+                    ids.push(l.id);
+                    break;
+                }
+            }
+        }
+        // Defensive: if name-match found nothing (e.g. row exposes no
+        // *_name fields yet because BE hasn't been redeployed), fall back
+        // to the clicked layer so deletion at least works on the visible
+        // sibling.
+        if (ids.length === 0 && clickedLayer?.id) ids.push(clickedLayer.id);
+        return ids;
     };
 
     // V2P-714 — resolve the AnugaModel pk from a MapStore layer. The
@@ -321,6 +363,9 @@ class MenuRowClass extends React.Component {
         // Dataset.pk, which is also the MapStore layer id once V2P-78
         // sync ran). Fall back to layer.extendedParams?.mapLayer?.dataset?.pk
         // and finally to a name-based search on layer.name.
+        // V2P-714 sibling-orphan: also match on gn_layer_hillshade and its
+        // name so clicking the hillshade row resolves to the same Terrain
+        // pk as clicking the utm row.
         const layerPk = layer?.extendedParams?.mapLayer?.dataset?.pk
             ?? layer?.dataset?.pk
             ?? null;
@@ -328,8 +373,12 @@ class MenuRowClass extends React.Component {
             if (!row) continue;
             if (layerPk !== null && row.gn_layer === layerPk) return row.id;
             if (layerPk !== null && row.gn_layer_id === layerPk) return row.id;
-            // name-based fallback: layer.name="geonode:ele_xxxx" and row.gn_layer_name carries the same alternate
+            if (layerPk !== null && row.gn_layer_hillshade === layerPk) return row.id;
+            if (layerPk !== null && row.gn_layer_hillshade_id === layerPk) return row.id;
+            // name-based fallback: layer.name="geonode:ele_xxxx" and
+            // row.gn_layer_name / gn_layer_hillshade_name carry bare names.
             if (layer?.name && row.gn_layer_name && layer.name.endsWith(row.gn_layer_name)) return row.id;
+            if (layer?.name && row.gn_layer_hillshade_name && layer.name.endsWith(row.gn_layer_hillshade_name)) return row.id;
         }
         // Last resort: if there's only one row in the slice and the type
         // matched, return that row's id. This protects against schema drift
@@ -442,6 +491,8 @@ const mapStateToProps = (state, ownProps) => {
     const sliceRows = sliceKey ? (state?.anuga?.resources?.[sliceKey] || []) : [];
     // Match the row by gn_layer first, then by name fallback (mirrors the
     // logic in getDatasetIdForLayer so reducer-stamped state shows up here).
+    // V2P-714 sibling-orphan: also try gn_layer_hillshade so clicking the
+    // hillshade FE layer resolves to the same Terrain row as the utm one.
     let deleteRow = null;
     if (sliceRows.length > 0) {
         const layerPk = layer?.extendedParams?.mapLayer?.dataset?.pk
@@ -449,11 +500,19 @@ const mapStateToProps = (state, ownProps) => {
             ?? null;
         for (const row of sliceRows) {
             if (!row) continue;
-            if (layerPk !== null && (row.gn_layer === layerPk || row.gn_layer_id === layerPk)) {
+            if (layerPk !== null && (
+                row.gn_layer === layerPk
+                || row.gn_layer_id === layerPk
+                || row.gn_layer_hillshade === layerPk
+                || row.gn_layer_hillshade_id === layerPk
+            )) {
                 deleteRow = row;
                 break;
             }
-            if (layer?.name && row.gn_layer_name && layer.name.endsWith(row.gn_layer_name)) {
+            if (layer?.name && (
+                (row.gn_layer_name && layer.name.endsWith(row.gn_layer_name))
+                || (row.gn_layer_hillshade_name && layer.name.endsWith(row.gn_layer_hillshade_name))
+            )) {
                 deleteRow = row;
                 break;
             }
@@ -472,7 +531,11 @@ const mapStateToProps = (state, ownProps) => {
         // V2P-714 — cascade-delete plumbing
         projectId: getProjectId(state),
         deleteSliceRows: sliceRows,
-        deleteRow
+        deleteRow,
+        // V2P-714 sibling-orphan: handleDeleteClick walks layers.flat by
+        // name to find every sibling MapStore layer for the AnugaModel
+        // about to be deleted (Terrain has utm + hillshade siblings).
+        allLayers: state?.layers?.flat || []
     };
 };
 
@@ -502,11 +565,12 @@ const mapDispatchToProps = ( dispatch ) => {
             position: "tc",
             autoDismiss: 6
         }, "warning")),
-        // V2P-714 — cascade-delete dispatchers
-        deleteTerrain: (projectId, id, layerId) => dispatch(deleteTerrain(projectId, id, layerId)),
-        deleteBoundary: (projectId, id, layerId) => dispatch(deleteBoundary(projectId, id, layerId)),
-        deleteFriction: (projectId, id, layerId) => dispatch(deleteFriction(projectId, id, layerId)),
-        deleteInflow: (projectId, id, layerId) => dispatch(deleteInflow(projectId, id, layerId))
+        // V2P-714 — cascade-delete dispatchers. layerIds is an array
+        // (Terrain has utm + hillshade siblings; the others have one).
+        deleteTerrain: (projectId, id, layerIds) => dispatch(deleteTerrain(projectId, id, layerIds)),
+        deleteBoundary: (projectId, id, layerIds) => dispatch(deleteBoundary(projectId, id, layerIds)),
+        deleteFriction: (projectId, id, layerIds) => dispatch(deleteFriction(projectId, id, layerIds)),
+        deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds))
     };
 };
 

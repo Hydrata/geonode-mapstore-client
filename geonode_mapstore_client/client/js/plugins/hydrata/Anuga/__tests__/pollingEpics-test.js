@@ -27,7 +27,8 @@ import {
     ADD_LUMPED_CATCHMENT,
     ADD_NODES,
     ADD_LINKS,
-    FIX_ANUGA_GROUPS
+    FIX_ANUGA_GROUPS,
+    INIT_ANUGA
 } from '../actionsAnuga';
 import {
     START_ACTIVE_RUN_POLLING,
@@ -491,7 +492,11 @@ describe('Polling Epics', () => {
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [], groups: [] }
+                    layers: { flat: [], groups: [] },
+                    // V2P-714 sibling-orphan: terrain_id must be set + the
+                    // terrain row must be in the loaded list to classify
+                    // as 'present' (not orphaned).
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 99 }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -510,6 +515,7 @@ describe('Polling Epics', () => {
                     process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
+                        terrain_id: 99,
                         target_group: 'Input Data.Terrain',
                         is_first_upload: false,
                         mapstore_layers: [
@@ -546,7 +552,8 @@ describe('Polling Epics', () => {
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [], groups: [] }
+                    layers: { flat: [], groups: [] },
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 100 }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -565,6 +572,7 @@ describe('Polling Epics', () => {
                     process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
+                        terrain_id: 100,
                         is_first_upload: true,
                         mapstore_layers: [
                             { name: 'geonode:ele_first_dem', type: 'wms', url: '/geoserver/ows', bbox: { bounds: { minx: 10, miny: 20, maxx: 11, maxy: 21 }, crs: 'EPSG:4326' } },
@@ -739,15 +747,21 @@ describe('Polling Epics', () => {
         // deletes a Terrain row, its terrain_create Process record is
         // still in TaskMonitor's list. On page reload, replaying the addLayer
         // side-effect would re-inject layers whose backing GeoNode Dataset is
-        // 404 (cascade-cleaned by the post_delete signal). The filter
-        // suppresses replay when state.anuga.resources.terrain is loaded
-        // and the terrain_id is absent.
-        it('should skip terrain_create when terrain_id is gone from state.anuga.resources.terrain', (done) => {
+        // 404 (cascade-cleaned by the post_delete signal).
+        //
+        // Refresh-then-defer protocol (no time-based heuristics): when the
+        // candidate's terrain_id is missing from a LOADED terrain list, the
+        // first miss dispatches initAnuga() to force a catalogue refetch and
+        // defers classification. If still missing on the next tick → really
+        // orphaned, skip + mark handled. Real DEMs can take up to an hour
+        // to process, so any time-window based rescue is wrong.
+        it('should dispatch initAnuga on first miss, then orphan-skip on next tick if still missing', (done) => {
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    anuga: { resources: { terrain: [{ id: 7 }, { id: 8 }] } }
+                    // Loaded list missing the candidate's terrain_id=6
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 7 }, { id: 8 }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -759,28 +773,38 @@ describe('Polling Epics', () => {
                     err => done(err)
                 );
 
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 'orphan-ele-6',
-                    process_type: 'terrain_create',
-                    status: 'complete',
-                    metadata: {
-                        terrain_id: 6,
-                        is_first_upload: false,
-                        mapstore_layers: [
-                            { name: 'geonode:ele_6_dem', type: 'wms', url: '/geoserver/ows' },
-                            { name: 'geonode:ele_6_hs', type: 'wms', url: '/geoserver/ows' }
-                        ]
-                    }
-                }]
-            });
+            const tickProcess = {
+                id: 'orphan-ele-6',
+                process_type: 'terrain_create',
+                status: 'complete',
+                metadata: {
+                    terrain_id: 6,
+                    is_first_upload: false,
+                    mapstore_layers: [
+                        { name: 'geonode:ele_6_dem', type: 'wms', url: '/geoserver/ows' },
+                        { name: 'geonode:ele_6_hs', type: 'wms', url: '/geoserver/ows' }
+                    ]
+                }
+            };
+
+            // Tick 1: id missing, refreshAttempted empty → 'unknown' →
+            // dispatch initAnuga, do NOT mark handled, do NOT add layer.
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
 
             setTimeout(() => {
-                expect(emitted.length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
+
+                // Tick 2: same state (refresh found nothing new) →
+                // 'orphaned' → skip + mark handled. No second initAnuga.
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                setTimeout(() => {
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
+                    sub.unsubscribe();
+                    done();
+                }, 100);
+            }, 100);
         });
 
         it('should process terrain_create when terrain_id IS present in state.anuga.resources.terrain', (done) => {
@@ -788,7 +812,7 @@ describe('Polling Epics', () => {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
                     layers: { flat: [], groups: [] },
-                    anuga: { resources: { terrain: [{ id: 11 }, { id: 12 }] } }
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 11 }, { id: 12 }] } }
                 })
             };
             const { subject, action$ } = liveActions();
@@ -825,12 +849,20 @@ describe('Polling Epics', () => {
             }, 200);
         });
 
-        it('should NOT filter when state.anuga.resources is undefined (defer rather than over-filter)', (done) => {
+        it('should DEFER (no fire, no handled-mark) when state.anuga.resources is unloaded', (done) => {
+            // 3-state classifier (orphanStatus) — when anuga state is
+            // unloaded ('unknown'), we defer rather than fire-eagerly OR
+            // skip-and-mark-handled. The candidate stays in flight so the
+            // next TM_SET_PROCESSES tick (after initAnuga populates terrain)
+            // can re-classify decisively as 'present' or 'orphaned'.
+            // Without this defer, the very-first DEM upload on a fresh
+            // page load was silently dropped (no addLayer/zoom/save).
+            let anugaState; // undefined first emit → 'unknown'
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [], groups: [] }
-                    // anuga state intentionally absent
+                    layers: { flat: [], groups: [] },
+                    anuga: anugaState
                 })
             };
             const { subject, action$ } = liveActions();
@@ -842,39 +874,44 @@ describe('Polling Epics', () => {
                     err => done(err)
                 );
 
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 'unloaded-state',
-                    process_type: 'terrain_create',
-                    status: 'complete',
-                    metadata: {
-                        terrain_id: 99,
-                        is_first_upload: false,
-                        mapstore_layers: [
-                            { name: 'geonode:ele_99_dem', type: 'wms', url: '/geoserver/ows' }
-                        ]
-                    }
-                }]
-            });
-
+            const tickProcess = {
+                id: 'unloaded-state',
+                process_type: 'terrain_create',
+                status: 'complete',
+                metadata: {
+                    terrain_id: 99,
+                    is_first_upload: false,
+                    mapstore_layers: [
+                        { name: 'geonode:ele_99_dem', type: 'wms', url: '/geoserver/ows' }
+                    ]
+                }
+            };
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
             setTimeout(() => {
-                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
-                expect(adds.length).toBe(1);
-                sub.unsubscribe();
-                done();
-            }, 200);
+                // 'unknown' classification: deferred — nothing emitted yet.
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                // Now state loads in with the matching terrain → re-tick.
+                anugaState = { resources: { terrainLoaded: true, terrain: [{ id: 99 }] } };
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                setTimeout(() => {
+                    // Classification now 'present' → ADD_LAYER fires.
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                    sub.unsubscribe();
+                    done();
+                }, 100);
+            }, 100);
         });
 
-        it('should mark orphan completions as handled so subsequent emissions are no-ops', (done) => {
-            // Even though the orphan is skipped, it should be added to the
-            // handledCompletionIds set; otherwise we'd re-check it on every
-            // poll and bake in the orphan-existence check on hot-path tick.
-            // We assert by flipping the resource state between emissions:
-            // first emit with empty terrain -> skipped + handled;
-            // second emit with the terrain present -> still skipped because
-            // handled, NOT re-evaluated.
-            let resources = { terrain: [] };
+        it('once orphan-marked-handled, subsequent ticks are no-ops even if terrain reappears', (done) => {
+            // True-orphan: terrain state is loaded, terrain_id absent.
+            // Tick 1: 'unknown' → dispatch initAnuga, refreshAttempted=42.
+            // Tick 2: still missing, refreshAttempted has 42 → 'orphaned' →
+            //   mark handled.
+            // Tick 3: even if a (BE-impossible) revival happens, the
+            //   handled-set short-circuits the candidate filter so no
+            //   double-fire. This is the semantic guarantee against
+            //   re-injection from replayed completion records.
+            let resources = { terrainLoaded: true, terrain: [{ id: 7 }] };  // 42 missing
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
@@ -902,16 +939,161 @@ describe('Polling Epics', () => {
                 }
             };
 
+            // Tick 1: first miss → initAnuga + defer
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
             setTimeout(() => {
-                expect(emitted.length).toBe(0);  // first emit: orphan, skipped
-                resources = { terrain: [{ id: 42 }] };  // resource "revived"
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
+                // Tick 2: same state → 'orphaned' → mark handled
                 subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
                 setTimeout(() => {
-                    expect(emitted.length).toBe(0);  // still no-op: id was handled
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    // Tick 3: simulate revival — handled-set must still
+                    // suppress re-fire.
+                    resources = { terrainLoaded: true, terrain: [{ id: 7 }, { id: 42 }] };
+                    subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                    setTimeout(() => {
+                        expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                        // Only one initAnuga across all three ticks.
+                        expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
+                        sub.unsubscribe();
+                        done();
+                    }, 100);
+                }, 100);
+            }, 100);
+        });
+
+        it('should classify legacy procs (terrain_id===null) as orphaned and skip them', (done) => {
+            // Pre-rename Processes never stamped metadata.terrain_id. On a
+            // map blob with multiple completed-but-orphan procs, the
+            // previous code's `terrainId == null → 'present'` short-circuit
+            // re-injected ele_3905/9-13 ghosts on every page reload. Now
+            // null terrain_id ⇒ orphaned ⇒ skip + mark handled.
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: { resources: { terrainLoaded: true, terrain: [] } }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(action => emitted.push(action), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'legacy-no-terrain-id',
+                    process_type: 'terrain_create',
+                    status: 'complete',
+                    metadata: {
+                        is_first_upload: false,
+                        // terrain_id intentionally absent (legacy proc shape)
+                        mapstore_layers: [
+                            { name: 'geonode:ele_3905_utm_dem', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                }]
+            });
+            setTimeout(() => {
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('should ADD_LAYER on the next tick once initAnuga refresh delivers the missing terrain row', (done) => {
+            // Real-world fresh-upload race: Celery stamps the new Terrain
+            // in DB and emits process.complete BEFORE the FE's cached
+            // terrain list has been refetched. Under refresh-then-defer:
+            //   tick 1: id missing from loaded list → 'unknown' → epic
+            //           dispatches initAnuga + adds to refreshAttempted
+            //   (initAnuga refetch lands new row in state.anuga.resources.terrain)
+            //   tick 2: id now present → 'present' → ADD_LAYER fires
+            // process.finished is irrelevant — the design works for DEMs
+            // that took an hour to process just as well as 30s ones.
+            let resources = { terrainLoaded: true, terrain: [{ id: 7 }] };  // stale, missing 99
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: { resources }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(action => emitted.push(action), err => done(err));
+            const tickProcess = {
+                id: 'slow-dem-99',
+                process_type: 'terrain_create',
+                status: 'complete',
+                // Deliberately stale — 1 hour ago — to prove no time-window
+                // heuristic is at play.
+                finished: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+                metadata: {
+                    terrain_id: 99,
+                    is_first_upload: false,
+                    mapstore_layers: [
+                        { name: 'geonode:ele_99_utm_dem', type: 'wms', url: '/geoserver/ows' }
+                    ]
+                }
+            };
+            // Tick 1: id missing → initAnuga + defer
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            setTimeout(() => {
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
+                // Simulate initAnuga having delivered the row
+                resources = { terrainLoaded: true, terrain: [{ id: 7 }, { id: 99 }] };
+                // Tick 2: id present → 'present' → ADD_LAYER fires
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+                setTimeout(() => {
+                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
                     sub.unsubscribe();
                     done();
                 }, 100);
+            }, 100);
+        });
+
+        it('should not dispatch initAnuga while terrainLoaded is false (initAnugaEpic is the natural fetcher)', (done) => {
+            // When the resources slice hasn't been hydrated yet (e.g.
+            // page just loaded and initAnugaEpic is mid-flight), the
+            // classifier returns 'unknown' but we MUST NOT dispatch a
+            // competing initAnuga from this epic. initAnugaEpic itself
+            // handles the catalogue fetch on visibility/gnresource gates;
+            // racing it from here just doubles up roundtrips.
+            let anugaState; // undefined first tick
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: anugaState
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(action => emitted.push(action), err => done(err));
+            const tickProcess = {
+                id: 'boot-race',
+                process_type: 'terrain_create',
+                status: 'complete',
+                metadata: {
+                    terrain_id: 99,
+                    is_first_upload: false,
+                    mapstore_layers: [
+                        { name: 'geonode:ele_99_utm_dem', type: 'wms', url: '/geoserver/ows' }
+                    ]
+                }
+            };
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            setTimeout(() => {
+                // 'unknown' from unloaded state — defer, but don't refresh.
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(0);
+                sub.unsubscribe();
+                done();
             }, 100);
         });
     });

@@ -60,6 +60,7 @@ import {
 } from "../../SimpleView/actionsSimpleView";
 import {getAnugaModels, getProjectId} from "../selectorsAnuga";
 import {resourceError} from "@js/actions/gnresource";
+import {saveDirectContent} from "@js/actions/gnsave";
 
 // -- Create-resource epics (create + trigger add-layer) --------------------
 // Fix 1: If the POST response includes mapstore_layer data, add the layer
@@ -394,15 +395,25 @@ const makeDeleteEpic = (
         .ofType(actionType)
         .switchMap((action) => {
             const projectId = action.projectId || getProjectId(store.getState());
+            // Backward-compat: tolerate old single-layerId callers that haven't
+            // moved to the array signature yet (none in-tree, but safer).
+            const layerIds = Array.isArray(action.layerIds) && action.layerIds.length > 0
+                ? action.layerIds.filter(Boolean)
+                : (action.layerId ? [action.layerId] : []);
             return Rx.Observable.defer(
                 () => apiFn(projectId, action.id)
             )
                 .switchMap(() => Rx.Observable.of(
-                    successAction(action.id, action.layerId),
-                    ...(action.layerId ? [
-                        removeNode(action.layerId, 'layers'),
-                        removeLayer(action.layerId)
-                    ] : [])
+                    successAction(action.id, layerIds),
+                    ...layerIds.flatMap(lid => [
+                        removeNode(lid, 'layers'),
+                        removeLayer(lid)
+                    ]),
+                    // Persist the FE removal to base_resourcebase.blob so a
+                    // page refresh doesn't restore the deleted layers as
+                    // ghosts (their backing GeoServer Datasets are gone via
+                    // the BE cascade — re-rendering them would WMS-404).
+                    ...(layerIds.length > 0 ? [saveDirectContent()] : [])
                 ))
                 .catch((err) => {
                     const status = _readErrStatus(err);
