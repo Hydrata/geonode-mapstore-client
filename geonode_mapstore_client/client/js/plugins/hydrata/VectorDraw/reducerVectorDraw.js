@@ -7,7 +7,10 @@ import {
     SAVE_SUCCESS,
     SAVE_ERROR,
     RESET,
-    DESCRIBE_COMPLETE
+    DESCRIBE_COMPLETE,
+    SEED_FORM_VALUES,
+    LOAD_FEATURE_LIST,
+    SELECT_EXISTING_FEATURE
 } from './actionsVectorDraw';
 
 const initialState = {
@@ -15,6 +18,7 @@ const initialState = {
     config: null,
     geometry: null,
     formValues: {},
+    featureList: [],
     error: null
 };
 
@@ -54,6 +58,35 @@ export default function vectorDraw(state = initialState, action) {
         return {
             ...state,
             formValues: { ...state.formValues, [action.fieldName]: action.value }
+        };
+    case SEED_FORM_VALUES:
+        // Overlay defaults with the feature's existing properties.
+        // Feature values win over schema defaults; non-form-managed properties
+        // pass through so wfstUpdate preserves them on Save.
+        return {
+            ...state,
+            formValues: { ...state.formValues, ...(action.properties || {}) }
+        };
+    case LOAD_FEATURE_LIST:
+        return {
+            ...state,
+            phase: 'picking',
+            featureList: action.features || []
+        };
+    case SELECT_EXISTING_FEATURE:
+        // Transition back to 'describing' and (optionally) merge the chosen
+        // featureId into config. featureList is always cleared. The cancel
+        // epic / vectorDrawSelectExistingEpic re-enters START_VECTOR_DRAW so
+        // the reducer's START handler will rebuild state from initialState
+        // anyway, but we keep this defensive in case the flow diverges.
+        return {
+            ...state,
+            phase: 'describing',
+            featureList: [],
+            config: {
+                ...(state.config || {}),
+                featureId: action.featureId
+            }
         };
     case SAVE_SUCCESS:
     case RESET:

@@ -9,6 +9,9 @@ import {
     SAVE_ERROR,
     RESET,
     DESCRIBE_COMPLETE,
+    SEED_FORM_VALUES,
+    LOAD_FEATURE_LIST,
+    SELECT_EXISTING_FEATURE,
     startVectorDraw,
     cancelVectorDraw,
     drawingComplete,
@@ -17,7 +20,10 @@ import {
     saveSuccess,
     saveError,
     vectorDrawReset,
-    describeComplete
+    describeComplete,
+    seedFormValues,
+    loadFeatureList,
+    selectExistingFeature
 } from '../actionsVectorDraw';
 
 describe('VectorDraw Actions', () => {
@@ -72,5 +78,31 @@ describe('VectorDraw Actions', () => {
     it('describeComplete should create correct action', () => {
         const action = describeComplete();
         expect(action.type).toBe(DESCRIBE_COMPLETE);
+    });
+
+    it('seedFormValues should include feature properties', () => {
+        const properties = { name: 'A', value: 42 };
+        const action = seedFormValues(properties);
+        expect(action.type).toBe(SEED_FORM_VALUES);
+        expect(action.properties).toBe(properties);
+    });
+
+    it('loadFeatureList should include features array', () => {
+        const features = [{ id: 'l.1' }, { id: 'l.2' }];
+        const action = loadFeatureList(features);
+        expect(action.type).toBe(LOAD_FEATURE_LIST);
+        expect(action.features).toBe(features);
+    });
+
+    it('selectExistingFeature should include featureId', () => {
+        const action = selectExistingFeature('l.42');
+        expect(action.type).toBe(SELECT_EXISTING_FEATURE);
+        expect(action.featureId).toBe('l.42');
+    });
+
+    it('selectExistingFeature(null) should signal create-path', () => {
+        const action = selectExistingFeature(null);
+        expect(action.type).toBe(SELECT_EXISTING_FEATURE);
+        expect(action.featureId).toBe(null);
     });
 });

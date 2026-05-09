@@ -6,7 +6,8 @@ import {
     cancelVectorDraw,
     submitForm,
     updateFormValues,
-    drawingComplete
+    drawingComplete,
+    selectExistingFeature
 } from '../actionsVectorDraw';
 
 const GEOM_INSTRUCTIONS = {
@@ -15,16 +16,25 @@ const GEOM_INSTRUCTIONS = {
     Polygon: 'Click to add vertices, double-click to close the polygon.'
 };
 
+const featureLabel = (feature) =>
+    feature?.properties?.title
+    || feature?.properties?.name
+    || feature?.properties?.Description
+    || feature?.id
+    || 'Feature';
+
 const VectorDrawPopup = ({
     phase,
     config,
     formValues,
+    featureList,
     drawTempFeatures,
     drawFeatures,
     onCancel,
     onSubmit,
     onUpdateField,
-    onSaveEdit
+    onSaveEdit,
+    onSelectFeature
 }) => {
     if (!phase || phase === 'idle' || phase === 'describing' || phase === 'cancelling') {
         return null;
@@ -33,6 +43,70 @@ const VectorDrawPopup = ({
     const isEditing = !!config?.featureId;
     const formConfig = config?.formConfig;
     const geomType = config?.geomType || 'Polygon';
+
+    // Picking phase — let user choose an existing feature or "+ Add new"
+    if (phase === 'picking') {
+        const headerTitle = formConfig?.title
+            ? `Choose ${formConfig.title}`
+            : 'Choose Feature';
+        const rowStyle = {
+            cursor: 'pointer',
+            padding: '8px',
+            marginBottom: 4,
+            borderRadius: 4,
+            backgroundColor: 'rgba(255,255,255,0.1)'
+        };
+        const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
+        const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; };
+
+        return (
+            <div className="vector-draw-popup simple-view-panel" style={{
+                position: 'absolute',
+                top: 80,
+                left: 30,
+                zIndex: 1026,
+                minWidth: 280,
+                maxWidth: 380,
+                padding: 0
+            }}>
+                <div className="simple-view-panel-header" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px'
+                }}>
+                    <span>{headerTitle}</span>
+                    <span
+                        className="btn glyphicon glyphicon-remove legend-close"
+                        onClick={onCancel}
+                    />
+                </div>
+                <div style={{ padding: '8px 12px', maxHeight: 240, overflowY: 'auto' }}>
+                    <div
+                        className="simple-view-panel-item-row"
+                        style={rowStyle}
+                        onClick={() => onSelectFeature(null)}
+                        onMouseEnter={onRowEnter}
+                        onMouseLeave={onRowLeave}
+                    >
+                        <strong>+ Add new</strong>
+                    </div>
+                    {(featureList || []).map(feature => (
+                        <div
+                            key={feature.id || featureLabel(feature)}
+                            className="simple-view-panel-item-row"
+                            style={rowStyle}
+                            onClick={() => onSelectFeature(feature.id)}
+                            onMouseEnter={onRowEnter}
+                            onMouseLeave={onRowLeave}
+                        >
+                            {featureLabel(feature)}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     // Drawing phase — show instructions + cancel (create) or save/cancel (edit)
     if (phase === 'drawing') {
@@ -188,6 +262,7 @@ const mapStateToProps = (state) => ({
     phase: state?.vectorDraw?.phase,
     config: state?.vectorDraw?.config,
     formValues: state?.vectorDraw?.formValues || {},
+    featureList: state?.vectorDraw?.featureList || [],
     drawTempFeatures: state?.draw?.tempFeatures,
     drawFeatures: state?.draw?.features
 });
@@ -196,7 +271,8 @@ const mapDispatchToProps = (dispatch) => ({
     onCancel: () => dispatch(cancelVectorDraw()),
     onSubmit: () => dispatch(submitForm()),
     onUpdateField: (fieldName, value) => dispatch(updateFormValues(fieldName, value)),
-    onSaveEdit: (geometry) => dispatch(drawingComplete(geometry))
+    onSaveEdit: (geometry) => dispatch(drawingComplete(geometry)),
+    onSelectFeature: (fid) => dispatch(selectExistingFeature(fid))
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(VectorDrawPopup);

@@ -9,7 +9,10 @@ import {
     SAVE_SUCCESS,
     SAVE_ERROR,
     RESET,
-    DESCRIBE_COMPLETE
+    DESCRIBE_COMPLETE,
+    SEED_FORM_VALUES,
+    LOAD_FEATURE_LIST,
+    SELECT_EXISTING_FEATURE
 } from '../actionsVectorDraw';
 
 describe('VectorDraw Reducer', () => {
@@ -18,6 +21,7 @@ describe('VectorDraw Reducer', () => {
         config: null,
         geometry: null,
         formValues: {},
+        featureList: [],
         error: null
     };
 
@@ -26,6 +30,7 @@ describe('VectorDraw Reducer', () => {
         expect(state.phase).toBe('idle');
         expect(state.config).toBe(null);
         expect(state.geometry).toBe(null);
+        expect(state.featureList).toEqual([]);
     });
 
     it('should handle START_VECTOR_DRAW', () => {
@@ -88,6 +93,82 @@ describe('VectorDraw Reducer', () => {
         const prev = { ...initialState, formValues: { a: 1 } };
         const state = reducer(prev, { type: UPDATE_FORM_VALUES, fieldName: 'b', value: 2 });
         expect(state.formValues).toEqual({ a: 1, b: 2 });
+    });
+
+    it('should handle SEED_FORM_VALUES (overlays defaults with feature properties)', () => {
+        const prev = { ...initialState, formValues: { a: 1, b: 2 } };
+        const state = reducer(prev, {
+            type: SEED_FORM_VALUES,
+            properties: { b: 99, c: 3 }
+        });
+        expect(state.formValues).toEqual({ a: 1, b: 99, c: 3 });
+    });
+
+    it('should handle SEED_FORM_VALUES with empty/missing properties', () => {
+        const prev = { ...initialState, formValues: { a: 1 } };
+        const state = reducer(prev, { type: SEED_FORM_VALUES, properties: undefined });
+        expect(state.formValues).toEqual({ a: 1 });
+    });
+
+    it('should handle LOAD_FEATURE_LIST → picking phase', () => {
+        const features = [
+            { id: 'l.1', properties: { title: 'A' } },
+            { id: 'l.2', properties: { title: 'B' } }
+        ];
+        const prev = { ...initialState, phase: 'describing', config: { layerName: 'l' } };
+        const state = reducer(prev, { type: LOAD_FEATURE_LIST, features });
+        expect(state.phase).toBe('picking');
+        expect(state.featureList).toEqual(features);
+    });
+
+    it('should handle SELECT_EXISTING_FEATURE with featureId → describing + config.featureId set', () => {
+        const prev = {
+            ...initialState,
+            phase: 'picking',
+            config: { layerName: 'l', allowPick: true },
+            featureList: [{ id: 'l.1' }, { id: 'l.2' }]
+        };
+        const state = reducer(prev, { type: SELECT_EXISTING_FEATURE, featureId: 'l.2' });
+        expect(state.phase).toBe('describing');
+        expect(state.featureList).toEqual([]);
+        expect(state.config.featureId).toBe('l.2');
+        // pre-existing config keys passed through
+        expect(state.config.layerName).toBe('l');
+    });
+
+    it('should handle SELECT_EXISTING_FEATURE with null → describing + config.featureId stays null', () => {
+        const prev = {
+            ...initialState,
+            phase: 'picking',
+            config: { layerName: 'l', allowPick: true },
+            featureList: [{ id: 'l.1' }]
+        };
+        const state = reducer(prev, { type: SELECT_EXISTING_FEATURE, featureId: null });
+        expect(state.phase).toBe('describing');
+        expect(state.featureList).toEqual([]);
+        expect(state.config.featureId).toBe(null);
+    });
+
+    it('should clear featureList on RESET', () => {
+        const prev = {
+            ...initialState,
+            phase: 'picking',
+            featureList: [{ id: 'a' }, { id: 'b' }]
+        };
+        const state = reducer(prev, { type: RESET });
+        expect(state.featureList).toEqual([]);
+        expect(state.phase).toBe('idle');
+    });
+
+    it('should clear featureList on SAVE_SUCCESS', () => {
+        const prev = {
+            ...initialState,
+            phase: 'saving',
+            featureList: [{ id: 'a' }]
+        };
+        const state = reducer(prev, { type: SAVE_SUCCESS });
+        expect(state.featureList).toEqual([]);
+        expect(state.phase).toBe('idle');
     });
 
     it('should handle SAVE_SUCCESS → reset to initial', () => {

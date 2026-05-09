@@ -90,3 +90,17 @@ export const loadFeature = async(wfsUrl, typeName, featureId) => {
     });
     return result?.features?.[0] || null;
 };
+
+/**
+ * Load all features in a layer (used by the feature-picker phase).
+ * @param {string} wfsUrl - The WFS endpoint URL
+ * @param {string} typeName - The qualified layer name
+ * @returns {Promise<Array>} Array of GeoJSON features (empty array if none)
+ */
+export const loadAllFeatures = async(wfsUrl, typeName) => {
+    const result = await getFeatureSimple(wfsUrl, {
+        typeName: typeName,
+        srsName: 'EPSG:4326'
+    });
+    return result?.features || [];
+};
