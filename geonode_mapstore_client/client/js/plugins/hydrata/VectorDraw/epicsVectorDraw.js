@@ -263,6 +263,14 @@ export const vectorDrawSaveEpic = (action$, store) =>
                 ? wfstUpdate(wfsUrl, config.layerName, config.featureId, geometry, formValues)
                 : wfstInsert(wfsUrl, config.layerName, geometry, formValues);
 
+            // TASK-795 review C2 — takeUntil(CANCEL) so the user clicking the
+            // close X mid-save aborts the in-flight chain instead of letting
+            // the post-save dispatches (RETURN_TO_PICKER, refreshLayerVersion)
+            // land on a state that has already been reset by the cancel
+            // epic's vectorDrawReset(). Without this, the tail RETURN_TO_PICKER
+            // would re-mount the picker on top of an idle reducer state with
+            // a null config, leaving a header-less picker the user can't
+            // recover from without a full toolbar re-open.
             return Rx.Observable.from(savePromise)
                 .switchMap((fid) => {
                     const layers = store.getState()?.layers?.flat || [];
@@ -338,7 +346,8 @@ export const vectorDrawSaveEpic = (action$, store) =>
                         });
                     }
                     return Rx.Observable.from(cancelActions);
-                });
+                })
+                .takeUntil(action$.ofType(CANCEL_VECTOR_DRAW));
         });
 
 /**
@@ -468,5 +477,10 @@ export const vectorDrawDeleteEpic = (action$, store) =>
                         // the user can retry without re-opening the toolbar.
                         returnToPicker(vd.featureList || [])
                     );
-                });
+                })
+                // TASK-795 review C2 — abort the delete chain if the user
+                // closes the picker mid-delete. Otherwise the tail
+                // RETURN_TO_PICKER would re-mount the picker on top of the
+                // already-reset state.
+                .takeUntil(action$.ofType(CANCEL_VECTOR_DRAW));
         });

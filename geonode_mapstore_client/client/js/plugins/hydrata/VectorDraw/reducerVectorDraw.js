@@ -11,7 +11,8 @@ import {
     SEED_FORM_VALUES,
     LOAD_FEATURE_LIST,
     SELECT_EXISTING_FEATURE,
-    RETURN_TO_PICKER
+    RETURN_TO_PICKER,
+    DELETE_FEATURE
 } from './actionsVectorDraw';
 
 const initialState = {
@@ -34,6 +35,23 @@ const initialState = {
     // tell "X clicked while in picker (→ exit idle)" from "X clicked while
     // drawing/form (→ return to picker)".
     previousPhase: null,
+    // TASK-795 review I3 — feature id currently being deleted via WFS-T.
+    // Set on DELETE_FEATURE dispatch, cleared on RETURN_TO_PICKER (success
+    // or graceful error path). The picker reads this to dim + disable the
+    // trash icon on the corresponding row, so the user can't double-click
+    // and trigger a second WFS-T DELETE that would 404 → confusing error
+    // toast on what was actually a successful first delete.
+    deletingFeatureId: null,
+    // TASK-795 review I8 — snapshot of formValues at the moment a flow
+    // begins (CREATE: just buildDefaults; EDIT: defaults + seeded
+    // properties from the BE row). The Cancel button compares the live
+    // formValues against this snapshot to decide whether to confirm
+    // "Discard unsaved changes?" — preventing a mis-clicked Cancel from
+    // throwing away 30 chars + 4 field edits without warning. Cleared on
+    // RESET / SAVE_SUCCESS (full reset) and refreshed on every fresh
+    // SEED_FORM_VALUES so re-entering a row from the picker captures
+    // the row's initial state.
+    initialFormValues: {},
     error: null
 };
 
@@ -50,12 +68,17 @@ const buildDefaults = (formConfig) => {
 
 export default function vectorDraw(state = initialState, action) {
     switch (action.type) {
-    case START_VECTOR_DRAW:
+    case START_VECTOR_DRAW: {
+        const defaults = buildDefaults(action.config?.formConfig);
         return {
             ...initialState,
             phase: 'describing',
             config: action.config,
-            formValues: buildDefaults(action.config?.formConfig),
+            formValues: defaults,
+            // TASK-795 review I8 — snapshot the just-built defaults so
+            // CREATE-mode Cancel can detect "user typed something into a
+            // field that was on a default value" as an unsaved change.
+            initialFormValues: defaults,
             // TASK-784 picker-return — the internal re-dispatch from
             // vectorDrawSelectExistingEpic threads `cameFromPicker` through
             // action.config so it survives the reset to initialState. A
@@ -63,6 +86,7 @@ export default function vectorDraw(state = initialState, action) {
             // this, so the flag stays false and behaviour is unchanged.
             cameFromPicker: !!action.config?.cameFromPicker
         };
+    }
     case DESCRIBE_COMPLETE:
         return {
             ...state,
@@ -80,14 +104,22 @@ export default function vectorDraw(state = initialState, action) {
             ...state,
             formValues: { ...state.formValues, [action.fieldName]: action.value }
         };
-    case SEED_FORM_VALUES:
+    case SEED_FORM_VALUES: {
         // Overlay defaults with the feature's existing properties.
         // Feature values win over schema defaults; non-form-managed properties
         // pass through so wfstUpdate preserves them on Save.
+        const merged = { ...state.formValues, ...(action.properties || {}) };
         return {
             ...state,
-            formValues: { ...state.formValues, ...(action.properties || {}) }
+            formValues: merged,
+            // TASK-795 review I8 — refresh the unsaved-changes baseline now
+            // that the EDIT-mode load has filled in the BE's row values.
+            // Without this refresh, EDIT-mode Cancel would always think the
+            // form is dirty (live values include seeded BE props that the
+            // initial buildDefaults snapshot didn't have).
+            initialFormValues: merged
         };
+    }
     case LOAD_FEATURE_LIST:
         // First time we render the picker in this flow → mark
         // cameFromPicker so the save/cancel epics know to come back here
@@ -98,12 +130,30 @@ export default function vectorDraw(state = initialState, action) {
             featureList: action.features || [],
             cameFromPicker: true
         };
+    case DELETE_FEATURE:
+        // TASK-795 review I3 — track the in-flight delete so the picker can
+        // dim the trash icon and disable a second click. The epic dispatches
+        // RETURN_TO_PICKER on completion (success path) or on graceful
+        // failure paths (delete OK + refetch failed → local-filtered list;
+        // WFS-T error → original cached list), both of which clear the flag.
+        return { ...state, deletingFeatureId: action.featureId };
     case RETURN_TO_PICKER:
         // Re-enter the picker phase after a save or cancel. The epic supplies
         // the refreshed feature list (save path) or the existing list (cancel
         // path). Drop ephemeral edit state (geometry, featureId, formValues)
         // but keep config so the picker can re-render with the same prefix /
         // formConfig the user originally opened.
+        //
+        // TASK-795 review C2 — guard against a stale tail RETURN_TO_PICKER
+        // landing after the user already closed the popup. The cancel epic
+        // resets state to initialState (phase='idle'); takeUntil(CANCEL) on
+        // the save/delete epics is the primary defence, but if a synchronous
+        // RETURN_TO_PICKER somehow slips through, ignore it. Without this,
+        // the picker would re-mount with no config, leaving a header-less
+        // empty list the user can't recover from.
+        if (state.phase === 'idle') {
+            return state;
+        }
         return {
             ...state,
             phase: 'picking',
@@ -117,7 +167,10 @@ export default function vectorDraw(state = initialState, action) {
             config: state.config
                 ? { ...state.config, featureId: undefined, allowPick: true }
                 : state.config,
-            cameFromPicker: true
+            cameFromPicker: true,
+            // Clear the in-flight delete flag — server response landed
+            // (success or graceful failure), trash icon should re-enable.
+            deletingFeatureId: null
         };
     case SELECT_EXISTING_FEATURE:
         // Transition back to 'describing' and (optionally) merge the chosen

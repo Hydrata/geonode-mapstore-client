@@ -551,6 +551,76 @@ describe('VectorDraw Epics', () => {
         });
     });
 
+    // TASK-795 review C2 — CANCEL_VECTOR_DRAW mid-save must abort the chain.
+    // Pre-fix, the post-save dispatches (refreshLayerVersion, RETURN_TO_PICKER)
+    // would still land on a state that the cancel epic had already reset to
+    // initialState — leaving a config-less header-less picker the user can't
+    // recover from without re-opening the toolbar.
+    describe('vectorDrawSaveEpic — TASK-795 review C2 takeUntil(CANCEL)', () => {
+        const BDY_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'bdy_4_test',
+                properties: [
+                    { name: 'the_geom', type: 'gml:LineString', localType: 'LineString', minOccurs: 0, nillable: true },
+                    { name: 'Description', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+
+        it('CANCEL_VECTOR_DRAW after save POST resolves but before tail dispatch → no SAVE_SUCCESS / no RETURN_TO_PICKER', (done) => {
+            // Slow the WFS-T POST so we can land CANCEL_VECTOR_DRAW between
+            // SUBMIT_FORM and the post-save dispatches. The save promise
+            // resolves with a fid; if the takeUntil weren't in place, the
+            // tail would emit SAVE_SUCCESS (no cameFromPicker) or
+            // RETURN_TO_PICKER (cameFromPicker). With the takeUntil, the
+            // chain is unsubscribed before the tail fires.
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply(200, BDY_DESCRIBE_STUB);
+            m.onPost(/\/geoserver\/wfs/).reply(() =>
+                new Promise(resolve => setTimeout(() =>
+                    resolve([200, '<wfs:TransactionResponse><wfs:InsertResults><wfs:Feature><ogc:FeatureId fid="bdy_4_test.42"/></wfs:Feature></wfs:InsertResults></wfs:TransactionResponse>']),
+                80))
+            );
+            mock = m;
+
+            const store = makeStore({
+                phase: 'saving',
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE'
+                },
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+                formValues: { Description: 'X' }
+            });
+            const subject = new Rx.Subject();
+            const action$ = subject.asObservable();
+            action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        // Tail must NOT fire — takeUntil unsubscribed the chain.
+                        expect(emitted.find(a => a.type === SAVE_SUCCESS)).toBe(undefined);
+                        expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toBe(undefined);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+
+            setTimeout(() => subject.next({ type: SUBMIT_FORM }), 0);
+            // Cancel mid-save: 30ms in, before the slow POST resolves at 80ms.
+            setTimeout(() => subject.next({ type: CANCEL_VECTOR_DRAW }), 30);
+            setTimeout(() => subject.complete(), 200);
+        });
+    });
+
     // TASK-784 picker-return — after save (or cancel), if the original flow
     // entered through the picker, transition back to the picker phase
     // (instead of idle) so the user can quickly edit another feature.
@@ -964,6 +1034,67 @@ describe('VectorDraw Epics', () => {
                         done();
                     }
                 );
+        });
+
+        // TASK-795 review C2 — CANCEL_VECTOR_DRAW mid-delete must abort the
+        // chain so the tail RETURN_TO_PICKER doesn't land on already-reset
+        // state. Pre-fix, the post-delete refresh would still resolve and
+        // re-mount the picker on a config-less idle state.
+        it('CANCEL_VECTOR_DRAW mid-delete aborts the post-delete chain (no RETURN_TO_PICKER)', (done) => {
+            // The post-delete chain does the WFS-T POST first, then a GET
+            // re-fetch. We slow the GET so the cancel can land before the
+            // chain emits RETURN_TO_PICKER.
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, {
+                        targetPrefix: 'geonode',
+                        targetNamespace: 'http://geonode.org',
+                        featureTypes: [{
+                            typeName: 'pkr',
+                            properties: [
+                                { name: 'the_geom', type: 'gml:Polygon', localType: 'Polygon', minOccurs: 0, nillable: true }
+                            ]
+                        }]
+                    }];
+                }
+                // Slow re-fetch: gives the cancel a window to land first.
+                return new Promise(resolve => setTimeout(() => resolve([200, { type: 'FeatureCollection', features: [] }]), 80));
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse/>');
+            mock = m;
+
+            const store = makeStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: [{ id: 'pkr.1' }, { id: 'pkr.2' }],
+                config: { layerName: 'geonode:pkr' }
+            });
+            const subject = new Rx.Subject();
+            const action$ = subject.asObservable();
+            action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+
+            const emitted = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        // Tail RETURN_TO_PICKER must NOT have landed because
+                        // CANCEL_VECTOR_DRAW unsubscribed the chain mid-flight.
+                        expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toBe(undefined);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+
+            setTimeout(() => subject.next({ type: DELETE_FEATURE, featureId: 'pkr.2' }), 0);
+            // Cancel mid-delete: after the WFS-T POST returns but before the
+            // re-fetch resolves (re-fetch is delayed 80ms above).
+            setTimeout(() => subject.next({ type: CANCEL_VECTOR_DRAW }), 30);
+            setTimeout(() => subject.complete(), 200);
         });
 
         it('missing layerName → error toast, no WFS call, no RETURN_TO_PICKER', (done) => {

@@ -13,7 +13,8 @@ import {
     SEED_FORM_VALUES,
     LOAD_FEATURE_LIST,
     SELECT_EXISTING_FEATURE,
-    RETURN_TO_PICKER
+    RETURN_TO_PICKER,
+    DELETE_FEATURE
 } from '../actionsVectorDraw';
 
 describe('VectorDraw Reducer', () => {
@@ -304,6 +305,107 @@ describe('VectorDraw Reducer', () => {
             };
             const state = reducer(prev, { type: RETURN_TO_PICKER, features: [] });
             expect(state.phase).toBe('picking');
+            expect(state.featureList).toEqual([]);
+        });
+
+        it('START_VECTOR_DRAW captures initialFormValues from buildDefaults (TASK-795 review I8)', () => {
+            const config = {
+                layerName: 'l',
+                formConfig: {
+                    fields: [
+                        { name: 'kind', "default": 'A' },
+                        { name: 'value', "default": 0 }
+                    ]
+                }
+            };
+            const state = reducer(initialState, { type: START_VECTOR_DRAW, config });
+            // initialFormValues snapshot equals freshly-built defaults so a
+            // CREATE-mode Cancel-without-touching is NOT flagged dirty.
+            expect(state.initialFormValues).toEqual({ kind: 'A', value: 0 });
+            expect(state.formValues).toEqual(state.initialFormValues);
+        });
+
+        it('SEED_FORM_VALUES refreshes initialFormValues to the merged shape (TASK-795 review I8)', () => {
+            // EDIT-mode load: defaults + BE row properties. Without this
+            // refresh, EDIT-mode Cancel would always think the form is
+            // dirty (live values include seeded BE props that the initial
+            // buildDefaults snapshot didn't have).
+            const prev = {
+                ...initialState,
+                phase: 'describing',
+                formValues: { kind: 'A' },
+                initialFormValues: { kind: 'A' }
+            };
+            const state = reducer(prev, {
+                type: SEED_FORM_VALUES,
+                properties: { kind: 'B', description: 'Tide' }
+            });
+            expect(state.formValues).toEqual({ kind: 'B', description: 'Tide' });
+            expect(state.initialFormValues).toEqual({ kind: 'B', description: 'Tide' });
+        });
+
+        it('UPDATE_FORM_VALUES does NOT touch initialFormValues (TASK-795 review I8 dirty detection)', () => {
+            // The whole point of the snapshot is that subsequent edits
+            // diverge from it — that's how Cancel detects "user typed
+            // something" worth warning about.
+            const prev = {
+                ...initialState,
+                formValues: { kind: 'A' },
+                initialFormValues: { kind: 'A' }
+            };
+            const state = reducer(prev, {
+                type: UPDATE_FORM_VALUES,
+                fieldName: 'kind',
+                value: 'B'
+            });
+            expect(state.formValues).toEqual({ kind: 'B' });
+            expect(state.initialFormValues).toEqual({ kind: 'A' });
+        });
+
+        it('DELETE_FEATURE sets deletingFeatureId (TASK-795 review I3)', () => {
+            const prev = {
+                ...initialState,
+                phase: 'picking',
+                cameFromPicker: true,
+                config: { layerName: 'l' },
+                featureList: [{ id: 'l.1' }, { id: 'l.2' }]
+            };
+            const state = reducer(prev, { type: DELETE_FEATURE, featureId: 'l.2' });
+            expect(state.deletingFeatureId).toBe('l.2');
+            // featureList must NOT change here — the epic owns the
+            // optimistic-vs-server-confirmed split. The picker keeps showing
+            // the row (greyed out) until RETURN_TO_PICKER lands with the
+            // refreshed list.
+            expect(state.featureList).toEqual([{ id: 'l.1' }, { id: 'l.2' }]);
+        });
+
+        it('RETURN_TO_PICKER clears deletingFeatureId (TASK-795 review I3)', () => {
+            const prev = {
+                ...initialState,
+                phase: 'picking',
+                cameFromPicker: true,
+                deletingFeatureId: 'l.2',
+                config: { layerName: 'l' }
+            };
+            const state = reducer(prev, {
+                type: RETURN_TO_PICKER,
+                features: [{ id: 'l.1' }]
+            });
+            expect(state.deletingFeatureId).toBe(null);
+        });
+
+        it('RETURN_TO_PICKER on idle state is a no-op (TASK-795 review C2 guard)', () => {
+            // The cancel epic resets state to phase='idle' before the in-flight
+            // save/delete chain has fully unwound. takeUntil(CANCEL) on the
+            // epics is the primary defence; this reducer guard is the
+            // belt-and-braces backup so a stale RETURN_TO_PICKER tail doesn't
+            // re-mount the picker on top of an idle reducer state with a null
+            // config (which would render a header-less empty picker the user
+            // can't recover from).
+            const prev = { ...initialState, phase: 'idle', config: null };
+            const state = reducer(prev, { type: RETURN_TO_PICKER, features: [{ id: 'l.1' }] });
+            expect(state).toBe(prev);
+            expect(state.phase).toBe('idle');
             expect(state.featureList).toEqual([]);
         });
 

@@ -21,6 +21,10 @@ import axios from '../../../../MapStore2/web/client/libs/ajax';
  * BOTH must be null.
  *
  * Wire contract (this function's output):
+ *   * No `boundary` key in props → no-op (caller is not a Boundary layer;
+ *     `inf_*` Inflow rows for example carry a legitimate `data` text column
+ *     that the FE owns and the BE reads — see Inflow.make_file's TimeSeries
+ *     name vs constant heuristic).
  *   * boundary !== 'Time' → strip data, data_constant, data_timeseries_id
  *     (BE will see only the_geom + boundary + location + description)
  *   * boundary === 'Time' + kind='constant' → emit data_constant only,
@@ -33,6 +37,18 @@ import axios from '../../../../MapStore2/web/client/libs/ajax';
  */
 export const translateTimeBoundaryProperties = (input) => {
     const props = { ...(input || {}) };
+    // Pass-through for non-Boundary layers. The `boundary` key is the
+    // discriminator: only bdy_*_boundary_* layers carry it (set by the
+    // formConfig in simpleViewMenuRow.js's ANUGA_FEATURE_CONFIG.bdy_).
+    // Every other prefix routed through wfstInsert/wfstUpdate (inf_, fri_,
+    // str_, mes_) lacks `boundary`, so the Time-XOR contract doesn't apply
+    // and we must NOT strip their `data` field — Inflow's `data: '100'`
+    // string column would silently disappear, then Inflow.make_file would
+    // raise TypeError on the `any(c.isalpha() for c in None)` legacy
+    // heuristic during the next scenario run.
+    if (!('boundary' in props)) {
+        return props;
+    }
     const isTime = props.boundary === 'Time';
     const data = props.data;
     // Always strip the structured shape — it is NOT a wire column.

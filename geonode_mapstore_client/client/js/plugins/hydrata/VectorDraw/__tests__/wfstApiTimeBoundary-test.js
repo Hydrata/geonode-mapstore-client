@@ -137,6 +137,53 @@ describe('TASK-795 translateTimeBoundaryProperties', () => {
         });
     });
 
+    describe('non-Boundary layers (no `boundary` key)', () => {
+        // Regression: pre-fix, translateTimeBoundaryProperties unconditionally
+        // ran `delete props.data` before checking isTime, which silently
+        // dropped Inflow's text `data: '100'` field. The next scenario run
+        // would crash in Inflow.make_file's
+        // `any(c.isalpha() for c in original_data)` heuristic with TypeError
+        // on None. The function is now a pass-through when the props bag
+        // lacks the `boundary` discriminator.
+        it('inf_ formValues with `data` text: passes through unchanged', () => {
+            const input = {
+                description: 'Inflow A',
+                location: 'External',
+                data: '100'  // legitimate text column for inf_*
+            };
+            const out = translateTimeBoundaryProperties(input);
+            expect(out.data).toBe('100');
+            expect(out.description).toBe('Inflow A');
+            expect(out.location).toBe('External');
+        });
+
+        it('inf_ formValues with `data` as TimeSeries name string: pass through', () => {
+            const out = translateTimeBoundaryProperties({
+                description: 'Inflow B',
+                data: 'MyTimeSeriesName'  // legacy string-name lookup
+            });
+            expect(out.data).toBe('MyTimeSeriesName');
+        });
+
+        it('fri_ / str_ / mes_ formValues with no `boundary` key: pass through', () => {
+            const inputs = [
+                { description: 'Friction A', mannings_n: 0.04 },
+                { description: 'Structure', kind: 'culvert' },
+                { description: 'Mesh region', max_triangle_area: 100 }
+            ];
+            inputs.forEach(input => {
+                const out = translateTimeBoundaryProperties(input);
+                expect(out).toEqual(input);
+            });
+        });
+
+        it('does NOT add data_constant or data_timeseries_id keys to a non-Boundary props bag', () => {
+            const out = translateTimeBoundaryProperties({ description: 'X', data: '100' });
+            expect('data_constant' in out).toBe(false);
+            expect('data_timeseries_id' in out).toBe(false);
+        });
+    });
+
     describe('mixed / malformed inputs', () => {
         it('Time boundary with no data field at all: omits all three keys', () => {
             const out = translateTimeBoundaryProperties({

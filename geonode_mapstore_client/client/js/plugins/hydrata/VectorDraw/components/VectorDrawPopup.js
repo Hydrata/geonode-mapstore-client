@@ -34,6 +34,40 @@ export const matchesShowWhen = (showWhen, formValues) => {
     return true;
 };
 
+// TASK-795 review C6 — Pre-save guard for the Time-boundary XOR rule.
+// Returns null when the form is valid OR not subject to the rule, otherwise
+// a user-facing error string. The BE CHECK constraint would otherwise
+// reject with a confusing "violates check constraint bdy_data_xor" toast.
+//
+// Repro path: open a Reflective row, toggle to Time, click Save without
+// touching the picker. Without this guard, BE rejects after a network
+// round-trip; with this guard, the user sees a clear inline message
+// telling them what to do.
+//
+// Exported so unit tests can pin the contract independently of the popup.
+export const validateTimeBoundaryFormValues = (formValues) => {
+    if (!formValues || formValues.boundary !== 'Time') return null;
+    const data = formValues.data;
+    const hasStructuredConstant = data && typeof data === 'object'
+        && data.kind === 'constant'
+        && data.constant !== null && data.constant !== undefined && data.constant !== '';
+    const hasStructuredTs = data && typeof data === 'object'
+        && data.kind === 'timeseries'
+        && data.timeseries_id !== null && data.timeseries_id !== undefined && data.timeseries_id !== '';
+    // Also accept the per-column shape that the EDIT-mode seeded values
+    // arrive in BEFORE the picker has rendered + synthesized them. Without
+    // this, a user opening a Time row and immediately clicking Save (no
+    // edits) would falsely trip the validation.
+    const hasColumnConstant = formValues.data_constant !== null
+        && formValues.data_constant !== undefined && formValues.data_constant !== '';
+    const hasColumnTs = formValues.data_timeseries_id !== null
+        && formValues.data_timeseries_id !== undefined && formValues.data_timeseries_id !== '';
+    if (hasStructuredConstant || hasStructuredTs || hasColumnConstant || hasColumnTs) {
+        return null;
+    }
+    return 'Time boundaries require a data value. Please pick a constant or a TimeSeries before saving.';
+};
+
 const GEOM_INSTRUCTIONS = {
     Point: 'Click on the map to place the point.',
     LineString: 'Click to add vertices, double-click to finish.',
@@ -56,11 +90,34 @@ const featureLabel = (feature) =>
     || feature?.id
     || 'Feature';
 
+// TASK-795 review I8 — Compute whether the current edit session has
+// unsaved changes the user would lose by clicking Cancel. Uses a stable
+// JSON-shape comparison against the snapshot the reducer captured when
+// the flow started (CREATE: just defaults; EDIT: defaults + seeded BE
+// row values). Also flags geometry as dirty if the user actually drew /
+// dragged something — pre-fix, a Cancel after a 30-vertex polygon would
+// silently throw away the geometry.
+//
+// Exported for unit tests so we can pin the contract independently of
+// window.confirm / DOM.
+export const formValuesAreDirty = (current, initial) => {
+    try {
+        return JSON.stringify(current || {}) !== JSON.stringify(initial || {});
+    } catch (e) {
+        // Defensive — circular ref shouldn't happen in plain form values
+        // but if it does, prefer the safer "ask the user" branch over
+        // "silently discard".
+        return true;
+    }
+};
+
 const VectorDrawPopup = ({
     phase,
     config,
     formValues,
+    initialFormValues,
     featureList,
+    deletingFeatureId,
     drawTempFeatures,
     drawFeatures,
     onCancel,
@@ -78,6 +135,21 @@ const VectorDrawPopup = ({
     const isEditing = !!config?.featureId;
     const formConfig = config?.formConfig;
     const geomType = config?.geomType || 'Polygon';
+
+    // TASK-795 review I8 — Wrap onCancel in a discard-changes confirm. Two
+    // signals are dirty: form-value diff against the captured snapshot, OR
+    // geometry was drawn (CREATE mode) / vertices moved (EDIT mode).
+    const drawDirty = (drawTempFeatures && drawTempFeatures.length > 0)
+        || (!isEditing && drawFeatures && drawFeatures.length > 0
+            && drawFeatures.some(f => f && f.geometry));
+    const formDirty = formValuesAreDirty(formValues, initialFormValues);
+    const handleCancel = () => {
+        if (formDirty || drawDirty) {
+            // eslint-disable-next-line no-alert
+            if (!window.confirm('Discard unsaved changes?')) return;
+        }
+        onCancel();
+    };
 
     // TASK-795 — Synthesize the structured `data` shape for the
     // TimeDataPicker if any field uses time-data-picker. This is a pure
@@ -162,29 +234,43 @@ const VectorDrawPopup = ({
                     >
                         <span>+ Add new</span>
                     </div>
-                    {(featureList || []).map(feature => (
-                        <div
-                            key={feature.id || featureLabel(feature)}
-                            className="simple-view-panel-item-row"
-                            style={rowStyle}
-                            onClick={() => onSelectFeature(feature.id)}
-                            onMouseEnter={onRowEnter}
-                            onMouseLeave={onRowLeave}
-                        >
-                            <span style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                flex: 1
-                            }}>{featureLabel(feature)}</span>
-                            <span
-                                className="glyphicon glyphicon-trash vector-draw-trash"
-                                style={trashStyle}
-                                title="Delete this feature"
-                                onClick={onTrashClick(feature)}
-                            />
-                        </div>
-                    ))}
+                    {(featureList || []).map(feature => {
+                        // TASK-795 review I3 — dim + disable the trash icon
+                        // for the row currently being WFS-T-deleted so the
+                        // user can't double-click and trigger a second
+                        // DELETE that would 404 (a confusing error toast on
+                        // what was actually a successful first delete).
+                        const isDeleting = !!deletingFeatureId
+                            && feature.id === deletingFeatureId;
+                        return (
+                            <div
+                                key={feature.id || featureLabel(feature)}
+                                className="simple-view-panel-item-row"
+                                style={rowStyle}
+                                onClick={() => onSelectFeature(feature.id)}
+                                onMouseEnter={onRowEnter}
+                                onMouseLeave={onRowLeave}
+                            >
+                                <span style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    flex: 1
+                                }}>{featureLabel(feature)}</span>
+                                <span
+                                    className="glyphicon glyphicon-trash vector-draw-trash"
+                                    style={{
+                                        ...trashStyle,
+                                        opacity: isDeleting ? 0.3 : 0.7,
+                                        pointerEvents: isDeleting ? 'none' : 'auto',
+                                        cursor: isDeleting ? 'wait' : 'pointer'
+                                    }}
+                                    title={isDeleting ? 'Deleting...' : 'Delete this feature'}
+                                    onClick={isDeleting ? undefined : onTrashClick(feature)}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         );
@@ -223,7 +309,7 @@ const VectorDrawPopup = ({
                     <span>{headerLabel}</span>
                     <span
                         className="btn glyphicon glyphicon-remove legend-close"
-                        onClick={onCancel}
+                        onClick={handleCancel}
                     />
                 </div>
                 <div style={{padding: '12px'}}>
@@ -248,7 +334,7 @@ const VectorDrawPopup = ({
                         gap: '8px',
                         marginTop: showInlineForm ? '12px' : '0'
                     }}>
-                        <Button bsStyle="danger" bsSize="small" onClick={onCancel}>
+                        <Button bsStyle="danger" bsSize="small" onClick={handleCancel}>
                             Cancel
                         </Button>
                         {isEditing ? (
@@ -262,7 +348,15 @@ const VectorDrawPopup = ({
                                     const geom = drawTempFeatures?.[0]?.geometry
                                         || drawFeatures?.[0]?.geometry;
                                     if (!geom) return;
+                                    // TASK-795 review C6 — block Time/no-data
+                                    // saves before they hit the BE CHECK.
                                     if (showInlineForm) {
+                                        const err = validateTimeBoundaryFormValues(effectiveFormValues);
+                                        if (err) {
+                                            // eslint-disable-next-line no-alert
+                                            window.alert(err);
+                                            return;
+                                        }
                                         // One-click commit of geometry + form
                                         // values (TASK-784 polish).
                                         onSaveEditAndSubmit(geom);
@@ -305,7 +399,7 @@ const VectorDrawPopup = ({
                     <span>{formConfig.title || 'Feature Attributes'}</span>
                     <span
                         className="btn glyphicon glyphicon-remove legend-close"
-                        onClick={onCancel}
+                        onClick={handleCancel}
                     />
                 </div>
                 <div style={{padding: '12px'}}>
@@ -325,10 +419,20 @@ const VectorDrawPopup = ({
                         gap: '8px',
                         marginTop: '12px'
                     }}>
-                        <Button bsStyle="danger" bsSize="small" onClick={onCancel}>
+                        <Button bsStyle="danger" bsSize="small" onClick={handleCancel}>
                             Cancel
                         </Button>
-                        <Button bsStyle="success" bsSize="small" onClick={onSubmit}>
+                        <Button bsStyle="success" bsSize="small" onClick={() => {
+                            // TASK-795 review C6 — block Time/no-data saves
+                            // before they hit the BE CHECK constraint.
+                            const err = validateTimeBoundaryFormValues(effectiveFormValues);
+                            if (err) {
+                                // eslint-disable-next-line no-alert
+                                window.alert(err);
+                                return;
+                            }
+                            onSubmit();
+                        }}>
                             Save
                         </Button>
                     </div>
@@ -382,7 +486,9 @@ const mapStateToProps = (state) => ({
     phase: state?.vectorDraw?.phase,
     config: state?.vectorDraw?.config,
     formValues: state?.vectorDraw?.formValues || {},
+    initialFormValues: state?.vectorDraw?.initialFormValues || {},
     featureList: state?.vectorDraw?.featureList || [],
+    deletingFeatureId: state?.vectorDraw?.deletingFeatureId || null,
     drawTempFeatures: state?.draw?.tempFeatures,
     drawFeatures: state?.draw?.features
 });
