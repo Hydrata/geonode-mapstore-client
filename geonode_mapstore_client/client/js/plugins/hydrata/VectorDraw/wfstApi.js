@@ -237,6 +237,43 @@ export const wfstUpdate = async(wfsUrl, typeName, featureId, geometry, propertie
 };
 
 /**
+ * Delete an existing feature via WFS-T.
+ * @param {string} wfsUrl - The WFS endpoint URL
+ * @param {string} typeName - The qualified layer name
+ * @param {string} featureId - The feature ID (e.g. 'layer.42')
+ * @returns {Promise<string>} The deleted feature ID
+ */
+export const wfstDelete = async(wfsUrl, typeName, featureId) => {
+    const describe = await describeFeatureType(wfsUrl, typeName);
+    const builder = requestBuilder(describe);
+
+    let xml;
+    try {
+        xml = builder.transaction(builder.deleteByFilter(fidFilter("ogc", featureId)));
+    } catch (buildErr) {
+        throw new Error(
+            `Could not build WFS-T delete for ${typeName}. (${buildErr?.message || 'unknown'})`
+        );
+    }
+
+    const response = await axios.post(wfsUrl, xml, {
+        headers: { 'Content-Type': 'application/xml' }
+    });
+
+    const responseText = typeof response.data === 'string'
+        ? response.data
+        : new XMLSerializer().serializeToString(response.data);
+
+    if (responseText.includes('ExceptionReport') || responseText.includes('ExceptionText')) {
+        const errorMatch = responseText.match(/<ows:ExceptionText>([\s\S]*?)<\/ows:ExceptionText>/);
+        const errorMsg = errorMatch ? errorMatch[1].split('\n')[0] : 'WFS-T delete failed';
+        throw new Error(errorMsg);
+    }
+
+    return featureId;
+};
+
+/**
  * Load an existing feature for editing.
  * @param {string} wfsUrl - The WFS endpoint URL
  * @param {string} typeName - The qualified layer name

@@ -7,7 +7,8 @@ import {
     submitForm,
     updateFormValues,
     drawingComplete,
-    selectExistingFeature
+    selectExistingFeature,
+    deleteFeature
 } from '../actionsVectorDraw';
 import { synthesizeTimeBoundaryFormValue } from '../wfstApi';
 // TASK-784 polish — uniform fonts inside the popup. The stylesheet is
@@ -67,7 +68,8 @@ const VectorDrawPopup = ({
     onUpdateField,
     onSaveEdit,
     onSaveEditAndSubmit,
-    onSelectFeature
+    onSelectFeature,
+    onDeleteFeature
 }) => {
     if (!phase || phase === 'idle' || phase === 'describing' || phase === 'cancelling') {
         return null;
@@ -101,10 +103,32 @@ const VectorDrawPopup = ({
             padding: '8px',
             marginBottom: 4,
             borderRadius: 4,
-            backgroundColor: 'rgba(255,255,255,0.1)'
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px'
         };
         const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
         const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; };
+        // Trash icon click — stop propagation so the row's onClick (which
+        // would select the feature for editing) doesn't also fire. Confirm
+        // before destructive action; WFS-T delete is irreversible.
+        const onTrashClick = (feature) => (e) => {
+            e.stopPropagation();
+            const label = featureLabel(feature);
+            // eslint-disable-next-line no-alert
+            if (window.confirm(`Delete "${label}"? This cannot be undone.`)) {
+                onDeleteFeature(feature.id);
+            }
+        };
+        const trashStyle = {
+            cursor: 'pointer',
+            padding: '4px 6px',
+            borderRadius: 3,
+            opacity: 0.7,
+            flexShrink: 0
+        };
 
         return (
             <div className="vector-draw-popup simple-view-panel" style={{
@@ -136,7 +160,7 @@ const VectorDrawPopup = ({
                         onMouseEnter={onRowEnter}
                         onMouseLeave={onRowLeave}
                     >
-                        + Add new
+                        <span>+ Add new</span>
                     </div>
                     {(featureList || []).map(feature => (
                         <div
@@ -147,7 +171,18 @@ const VectorDrawPopup = ({
                             onMouseEnter={onRowEnter}
                             onMouseLeave={onRowLeave}
                         >
-                            {featureLabel(feature)}
+                            <span style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1
+                            }}>{featureLabel(feature)}</span>
+                            <span
+                                className="glyphicon glyphicon-trash vector-draw-trash"
+                                style={trashStyle}
+                                title="Delete this feature"
+                                onClick={onTrashClick(feature)}
+                            />
                         </div>
                     ))}
                 </div>
@@ -365,7 +400,8 @@ const mapDispatchToProps = (dispatch) => ({
         dispatch(drawingComplete(geometry));
         dispatch(submitForm());
     },
-    onSelectFeature: (fid) => dispatch(selectExistingFeature(fid))
+    onSelectFeature: (fid) => dispatch(selectExistingFeature(fid)),
+    onDeleteFeature: (fid) => dispatch(deleteFeature(fid))
 });
 
 // TASK-794 — featureLabel is exported as a named export so the picker

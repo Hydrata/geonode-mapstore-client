@@ -195,6 +195,31 @@ describe('VectorDraw Reducer', () => {
         expect(state.config).toBe(config);
     });
 
+    it('CANCEL_VECTOR_DRAW captures previousPhase for the epic to read', () => {
+        // The cancel epic distinguishes "X clicked on picker" from "X clicked
+        // while drawing/form" by previousPhase. Reducer must store the prior
+        // phase before flipping to 'cancelling' — otherwise the epic only
+        // ever sees 'cancelling' and can't tell them apart.
+        const fromPicker = reducer(
+            { ...initialState, phase: 'picking', cameFromPicker: true },
+            { type: CANCEL_VECTOR_DRAW }
+        );
+        expect(fromPicker.phase).toBe('cancelling');
+        expect(fromPicker.previousPhase).toBe('picking');
+
+        const fromDrawing = reducer(
+            { ...initialState, phase: 'drawing', cameFromPicker: true },
+            { type: CANCEL_VECTOR_DRAW }
+        );
+        expect(fromDrawing.previousPhase).toBe('drawing');
+
+        const fromForm = reducer(
+            { ...initialState, phase: 'form' },
+            { type: CANCEL_VECTOR_DRAW }
+        );
+        expect(fromForm.previousPhase).toBe('form');
+    });
+
     it('should handle RESET → reset to initial', () => {
         const prev = { ...initialState, phase: 'error', error: 'some error' };
         const state = reducer(prev, { type: RESET });

@@ -5,7 +5,8 @@ import {
     vectorDrawStartEpic,
     vectorDrawSelectExistingEpic,
     vectorDrawSaveEpic,
-    vectorDrawCancelEpic
+    vectorDrawCancelEpic,
+    vectorDrawDeleteEpic
 } from './epicsVectorDraw';
 
 export default createPlugin('VectorDraw', {
@@ -15,6 +16,7 @@ export default createPlugin('VectorDraw', {
         vectorDrawStartEpic,
         vectorDrawSelectExistingEpic,
         vectorDrawSaveEpic,
-        vectorDrawCancelEpic
+        vectorDrawCancelEpic,
+        vectorDrawDeleteEpic
     }
 });

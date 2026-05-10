@@ -16,6 +16,10 @@ export const SELECT_EXISTING_FEATURE = 'VECTOR_DRAW:SELECT_EXISTING_FEATURE';
 // re-clicking the toolbar pencil. The features payload is the refreshed
 // list (save path re-fetches WFS) or the existing list (cancel path).
 export const RETURN_TO_PICKER = 'VECTOR_DRAW:RETURN_TO_PICKER';
+// TASK-784 picker-delete — fired when the user clicks the trash icon on
+// a row in the picker. Epic performs WFS-T delete + refreshLayerVersion +
+// re-fetch + RETURN_TO_PICKER (to re-render with the deleted row gone).
+export const DELETE_FEATURE = 'VECTOR_DRAW:DELETE_FEATURE';
 
 export const startVectorDraw = (config) => ({ type: START_VECTOR_DRAW, config });
 export const cancelVectorDraw = () => ({ type: CANCEL_VECTOR_DRAW });
@@ -30,3 +34,4 @@ export const seedFormValues = (properties) => ({ type: SEED_FORM_VALUES, propert
 export const loadFeatureList = (features) => ({ type: LOAD_FEATURE_LIST, features });
 export const selectExistingFeature = (featureId) => ({ type: SELECT_EXISTING_FEATURE, featureId });
 export const returnToPicker = (features) => ({ type: RETURN_TO_PICKER, features: features || [] });
+export const deleteFeature = (featureId) => ({ type: DELETE_FEATURE, featureId });

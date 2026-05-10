@@ -20,6 +20,7 @@ const {
     vectorDrawSelectExistingEpic,
     vectorDrawSaveEpic,
     vectorDrawCancelEpic,
+    vectorDrawDeleteEpic,
     extractDrawGeometry
 } = require('../epicsVectorDraw');
 
@@ -34,6 +35,7 @@ const {
     SAVE_ERROR,
     SAVE_SUCCESS,
     RETURN_TO_PICKER,
+    DELETE_FEATURE,
     RESET
 } = require('../actionsVectorDraw');
 
@@ -722,7 +724,11 @@ describe('VectorDraw Epics', () => {
             mock = m;
 
             const store = makeStore({
-                phase: 'drawing',
+                // After CANCEL_VECTOR_DRAW reducer runs: phase='cancelling',
+                // previousPhase=<whatever it was> (here 'drawing'). Tests must
+                // mirror this — the epic reads state AFTER the reducer.
+                phase: 'cancelling',
+                previousPhase: 'drawing',
                 cameFromPicker: true,
                 featureList: existingList,
                 config: {
@@ -758,7 +764,8 @@ describe('VectorDraw Epics', () => {
 
         it('with cameFromPicker=false → existing idle path: RESET + onCancel', (done) => {
             const store = makeStore({
-                phase: 'drawing',
+                phase: 'cancelling',
+                previousPhase: 'drawing',
                 cameFromPicker: false,
                 config: {
                     layerName: 'geonode:pkr',
@@ -787,13 +794,16 @@ describe('VectorDraw Epics', () => {
                 );
         });
 
-        it('cancelling FROM the picker itself (phase=picking) → exits to idle, NOT loop back to picker', (done) => {
+        it('cancelling FROM the picker itself (previousPhase=picking) → exits to idle, NOT loop back to picker', (done) => {
             // Regression: clicking X on the picker header dispatches
             // CANCEL_VECTOR_DRAW. cameFromPicker is sticky-true (set on
-            // LOAD_FEATURE_LIST), but if we re-emit RETURN_TO_PICKER the
-            // same picker re-renders forever — close button does nothing.
+            // LOAD_FEATURE_LIST). Without the previousPhase check the same
+            // picker re-renders forever — close button does nothing.
+            // Real-world state shape: reducer set phase='cancelling' first,
+            // then captured the prior phase as previousPhase='picking'.
             const store = makeStore({
-                phase: 'picking',
+                phase: 'cancelling',
+                previousPhase: 'picking',
                 cameFromPicker: true,
                 featureList: [{ id: 'x.1', properties: { name: 'A' } }],
                 config: {
@@ -815,6 +825,171 @@ describe('VectorDraw Epics', () => {
                         expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toBe(undefined);
                         expect(emitted.find(a => a.type === RESET)).toExist();
                         expect(emitted.find(a => a.type === 'TEST:CANCEL')).toExist();
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+    });
+
+    // TASK-784 picker-delete — trash icon on each picker row dispatches
+    // DELETE_FEATURE → epic does WFS-T delete → re-fetches → RETURN_TO_PICKER.
+    describe('vectorDrawDeleteEpic', () => {
+        const DEL_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'pkr',
+                properties: [
+                    { name: 'the_geom', type: 'gml:Polygon', localType: 'Polygon', minOccurs: 0, nillable: true },
+                    { name: 'name', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+
+        const installDeleteMock = (refreshedFeatures, { failPost = false, failGet = false } = {}) => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, DEL_DESCRIBE_STUB];
+                }
+                if (failGet) return [500, 'simulated re-fetch failure'];
+                return [200, { type: 'FeatureCollection', features: refreshedFeatures }];
+            });
+            if (failPost) {
+                m.onPost(/\/geoserver\/wfs/).reply(
+                    200,
+                    '<ows:ExceptionReport><ows:Exception><ows:ExceptionText>simulated delete failure</ows:ExceptionText></ows:Exception></ows:ExceptionReport>'
+                );
+            } else {
+                m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse/>');
+            }
+            return m;
+        };
+
+        it('happy path: delete → toast + RETURN_TO_PICKER with refreshed list (deleted row gone)', (done) => {
+            const refreshed = [
+                { id: 'pkr.1', properties: { name: 'Alpha' } }
+                // pkr.2 deleted, no longer in refreshed list
+            ];
+            mock = installDeleteMock(refreshed);
+            const store = makeStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: [
+                    { id: 'pkr.1', properties: { name: 'Alpha' } },
+                    { id: 'pkr.2', properties: { name: 'Beta' } }
+                ],
+                config: { layerName: 'geonode:pkr' }
+            });
+            const action$ = mockActions([{ type: DELETE_FEATURE, featureId: 'pkr.2' }]);
+
+            const emitted = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(ret).toExist();
+                        expect(ret.features).toEqual(refreshed);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('WFS-T delete error → error toast + RETURN_TO_PICKER with original list (no row removed)', (done) => {
+            mock = installDeleteMock([], { failPost: true });
+            const original = [
+                { id: 'pkr.1', properties: { name: 'Alpha' } },
+                { id: 'pkr.2', properties: { name: 'Beta' } }
+            ];
+            const store = makeStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: original,
+                config: { layerName: 'geonode:pkr' }
+            });
+            const action$ = mockActions([{ type: DELETE_FEATURE, featureId: 'pkr.2' }]);
+
+            const emitted = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .take(2)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(ret).toExist();
+                        // Server delete failed → cached list reused untouched.
+                        expect(ret.features).toEqual(original);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('delete succeeds + re-fetch fails → warning toast + local-filtered list (deleted row dropped client-side)', (done) => {
+            mock = installDeleteMock([], { failGet: true });
+            const original = [
+                { id: 'pkr.1', properties: { name: 'Alpha' } },
+                { id: 'pkr.2', properties: { name: 'Beta' } }
+            ];
+            const store = makeStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: original,
+                config: { layerName: 'geonode:pkr' }
+            });
+            const action$ = mockActions([{ type: DELETE_FEATURE, featureId: 'pkr.2' }]);
+
+            const emitted = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(ret).toExist();
+                        expect(ret.features.length).toBe(1);
+                        expect(ret.features[0].id).toBe('pkr.1');
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('missing layerName → error toast, no WFS call, no RETURN_TO_PICKER', (done) => {
+            const m = new MockAdapter(axios);
+            let httpHits = 0;
+            m.onAny().reply(() => { httpHits += 1; return [500, 'should not be called']; });
+            mock = m;
+
+            const store = makeStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: [],
+                config: {} // no layerName
+            });
+            const action$ = mockActions([{ type: DELETE_FEATURE, featureId: 'pkr.2' }]);
+
+            const emitted = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .take(1)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toBe(undefined);
+                        expect(httpHits).toBe(0);
                         if (sub) sub.unsubscribe();
                         done();
                     }

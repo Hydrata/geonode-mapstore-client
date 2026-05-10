@@ -27,6 +27,13 @@ const initialState = {
     // form → saving so the post-save handler still knows the user wants to
     // stay in picker mode. Cleared on START_VECTOR_DRAW (new flow) and RESET.
     cameFromPicker: false,
+    // TASK-784 close-button — capture the phase that was active when
+    // CANCEL_VECTOR_DRAW dispatched. The reducer flips phase to 'cancelling'
+    // synchronously, so by the time the cancel epic reads state, the
+    // original phase is gone. previousPhase preserves it so the epic can
+    // tell "X clicked while in picker (→ exit idle)" from "X clicked while
+    // drawing/form (→ return to picker)".
+    previousPhase: null,
     error: null
 };
 
@@ -134,7 +141,10 @@ export default function vectorDraw(state = initialState, action) {
         // Don't reset here — the cancel epic needs to read config.onCancel
         // and cameFromPicker before deciding whether to vectorDrawReset()
         // (idle path) or returnToPicker() (in-flow path). Epic handles both.
-        return { ...state, phase: 'cancelling' };
+        // Capture previousPhase so the epic can distinguish picker-X
+        // (→ idle) from drawing/form-X (→ return-to-picker). See
+        // initialState.previousPhase for the rationale.
+        return { ...state, phase: 'cancelling', previousPhase: state.phase };
     case SAVE_ERROR:
         return { ...state, phase: 'error', error: action.error };
     default:

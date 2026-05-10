@@ -13,6 +13,7 @@ import {
     LOAD_FEATURE_LIST,
     SELECT_EXISTING_FEATURE,
     RETURN_TO_PICKER,
+    DELETE_FEATURE,
     startVectorDraw,
     cancelVectorDraw,
     drawingComplete,
@@ -25,7 +26,8 @@ import {
     seedFormValues,
     loadFeatureList,
     selectExistingFeature,
-    returnToPicker
+    returnToPicker,
+    deleteFeature
 } from '../actionsVectorDraw';
 
 describe('VectorDraw Actions', () => {
@@ -119,5 +121,11 @@ describe('VectorDraw Actions', () => {
         const action = returnToPicker();
         expect(action.type).toBe(RETURN_TO_PICKER);
         expect(action.features).toEqual([]);
+    });
+
+    it('deleteFeature should include featureId', () => {
+        const action = deleteFeature('pkr.42');
+        expect(action.type).toBe(DELETE_FEATURE);
+        expect(action.featureId).toBe('pkr.42');
     });
 });

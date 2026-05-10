@@ -4,13 +4,14 @@ import { refreshLayerVersion } from '../../../../MapStore2/web/client/actions/la
 import { show } from '../../../../MapStore2/web/client/actions/notifications';
 import { describeFeatureType } from '../../../../MapStore2/web/client/api/WFS';
 import { reprojectGeoJson } from '../../../../MapStore2/web/client/utils/CoordinatesUtils';
-import { wfstInsert, wfstUpdate, loadFeature, loadAllFeatures } from './wfstApi';
+import { wfstInsert, wfstUpdate, wfstDelete, loadFeature, loadAllFeatures } from './wfstApi';
 import {
     START_VECTOR_DRAW,
     CANCEL_VECTOR_DRAW,
     DRAWING_COMPLETE,
     SUBMIT_FORM,
     SELECT_EXISTING_FEATURE,
+    DELETE_FEATURE,
     drawingComplete,
     saveSuccess,
     saveError,
@@ -359,7 +360,11 @@ export const vectorDrawCancelEpic = (action$, store) =>
             // Cancel from the picker itself (X button on the picker header)
             // must exit to idle, not loop back to picker — otherwise the
             // close button re-renders the same picker the user just dismissed.
-            const cancellingPicker = vd.phase === 'picking';
+            // The reducer flips phase to 'cancelling' synchronously before
+            // the epic sees CANCEL_VECTOR_DRAW (Redux ordering: reducer →
+            // middleware), so we read previousPhase (captured by the reducer
+            // at the same moment) instead of the now-stale `phase`.
+            const cancellingPicker = vd.previousPhase === 'picking';
 
             if (cameFromPicker && !cancellingPicker) {
                 return Rx.Observable.from([
@@ -379,4 +384,89 @@ export const vectorDrawCancelEpic = (action$, store) =>
                 });
             }
             return Rx.Observable.from(actions);
+        });
+
+/**
+ * Delete epic: performs WFS-T delete for a single feature, refreshes the
+ * layer's tile version (so the deleted feature drops off the map), re-fetches
+ * the WFS feature list, and returns to the picker so the user sees the
+ * updated row set. The trash icon in VectorDrawPopup confirms client-side
+ * before dispatching DELETE_FEATURE — no double-confirm here.
+ *
+ * On WFS-T error: surface a toast and re-render the picker with the
+ * un-modified list (server didn't delete the row).
+ */
+export const vectorDrawDeleteEpic = (action$, store) =>
+    action$.ofType(DELETE_FEATURE)
+        .switchMap((action) => {
+            const vd = store.getState()?.vectorDraw || {};
+            const config = vd.config || {};
+            const wfsUrl = getWfsUrl(store);
+            const featureId = action.featureId;
+
+            if (!featureId || !config.layerName) {
+                return Rx.Observable.of(
+                    show({
+                        title: 'Delete Error',
+                        message: 'Cannot delete: missing feature id or layer.',
+                        position: 'tc',
+                        autoDismiss: 6
+                    }, 'error')
+                );
+            }
+
+            return Rx.Observable.from(wfstDelete(wfsUrl, config.layerName, featureId))
+                .switchMap(() => {
+                    const layers = store.getState()?.layers?.flat || [];
+                    const layer = layers.find(l => l?.name === config.layerName);
+                    const baseActions = [
+                        show({
+                            title: 'Deleted',
+                            message: 'Feature deleted',
+                            position: 'tc',
+                            autoDismiss: 3
+                        }, 'success')
+                    ];
+                    if (layer?.id) {
+                        baseActions.push(refreshLayerVersion(layer.id));
+                    }
+                    return Rx.Observable.from(baseActions)
+                        .concat(
+                            Rx.Observable.from(loadAllFeatures(wfsUrl, config.layerName))
+                                .map((features) => returnToPicker(features))
+                                .catch((err) => {
+                                    console.error('VectorDraw post-delete refetch error:', err);
+                                    // Server delete succeeded; re-fetch failed.
+                                    // Drop the deleted row locally so the picker
+                                    // is at least consistent with what the user
+                                    // just did. Cached list lives in vd.featureList.
+                                    const localFiltered = (vd.featureList || []).filter(
+                                        f => f && f.id !== featureId
+                                    );
+                                    return Rx.Observable.of(
+                                        show({
+                                            title: 'Refresh Error',
+                                            message: 'Deleted, but could not refresh the list: ' + (err?.message || 'Unknown error'),
+                                            position: 'tc',
+                                            autoDismiss: 6
+                                        }, 'warning'),
+                                        returnToPicker(localFiltered)
+                                    );
+                                })
+                        );
+                })
+                .catch((err) => {
+                    console.error('VectorDraw delete error:', err);
+                    return Rx.Observable.of(
+                        show({
+                            title: 'Delete Error',
+                            message: 'Failed to delete feature: ' + (err?.message || 'Unknown error'),
+                            position: 'tc',
+                            autoDismiss: 10
+                        }, 'error'),
+                        // Re-render picker with the un-modified cached list so
+                        // the user can retry without re-opening the toolbar.
+                        returnToPicker(vd.featureList || [])
+                    );
+                });
         });
