@@ -356,8 +356,12 @@ export const vectorDrawCancelEpic = (action$, store) =>
             const vd = store.getState()?.vectorDraw || {};
             const config = vd.config;
             const cameFromPicker = vd.cameFromPicker === true;
+            // Cancel from the picker itself (X button on the picker header)
+            // must exit to idle, not loop back to picker — otherwise the
+            // close button re-renders the same picker the user just dismissed.
+            const cancellingPicker = vd.phase === 'picking';
 
-            if (cameFromPicker) {
+            if (cameFromPicker && !cancellingPicker) {
                 return Rx.Observable.from([
                     drawSupportReset(VECTOR_DRAW_OWNER),
                     returnToPicker(vd.featureList || [])

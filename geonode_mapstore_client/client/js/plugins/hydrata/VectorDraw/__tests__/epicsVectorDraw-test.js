@@ -786,5 +786,39 @@ describe('VectorDraw Epics', () => {
                     }
                 );
         });
+
+        it('cancelling FROM the picker itself (phase=picking) → exits to idle, NOT loop back to picker', (done) => {
+            // Regression: clicking X on the picker header dispatches
+            // CANCEL_VECTOR_DRAW. cameFromPicker is sticky-true (set on
+            // LOAD_FEATURE_LIST), but if we re-emit RETURN_TO_PICKER the
+            // same picker re-renders forever — close button does nothing.
+            const store = makeStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: [{ id: 'x.1', properties: { name: 'A' } }],
+                config: {
+                    layerName: 'geonode:pkr',
+                    onCancel: 'TEST:CANCEL'
+                }
+            });
+            const action$ = mockActions([{ type: CANCEL_VECTOR_DRAW }]);
+
+            const emitted = [];
+            const sub = vectorDrawCancelEpic(action$, store)
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        // MUST exit to idle: RESET fires + onCancel callback fires
+                        expect(emitted.find(a => a.type === RETURN_TO_PICKER)).toBe(undefined);
+                        expect(emitted.find(a => a.type === RESET)).toExist();
+                        expect(emitted.find(a => a.type === 'TEST:CANCEL')).toExist();
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
     });
 });
