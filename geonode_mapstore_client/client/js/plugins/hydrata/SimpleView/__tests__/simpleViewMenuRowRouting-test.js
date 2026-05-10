@@ -382,6 +382,52 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
         });
     });
 
+    /**
+     * TASK-795 — Time-boundary value picker is the new compound widget.
+     * The bdy_ `data` field's TYPE changed from 'text' to 'time-data-picker',
+     * and it carries a `showWhen` predicate so it only renders when the
+     * boundary type is 'Time'. The legacy bare `data` text field is GONE
+     * for new writes (BE keeps the column for back-compat reads only).
+     */
+    describe('TASK-795 bdy_ data field is a time-data-picker (legacy bare text field removed)', () => {
+        it('bdy_ data field type is "time-data-picker" (NOT "text")', () => {
+            const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'data');
+            expect(f).toExist();
+            expect(f.type).toBe('time-data-picker');
+            // Regression guard against re-introducing the legacy bare text
+            // field — the BE no longer accepts plain `data` writes for
+            // Time boundaries.
+            expect(f.type).toNotBe('text');
+        });
+
+        it('bdy_ data field carries showWhen { field: "boundary", equals: "Time" }', () => {
+            const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'data');
+            expect(f.showWhen).toEqual({ field: 'boundary', equals: 'Time' });
+        });
+
+        it('inf_ data field is still plain text (TASK-795 only touched bdy_)', () => {
+            // Inflow boundary type ALSO uses the legacy bare `data` column
+            // and still needs free-text input (TimeSeries name OR numeric
+            // string per scenario.py:399-404). TASK-795 deliberately did
+            // NOT touch inf_ — only bdy_ migrated to the compound widget.
+            const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'data');
+            expect(f).toExist();
+            expect(f.type).toBe('text');
+            expect(f.showWhen).toBe(undefined);
+        });
+
+        it('non-bdy prefixes (fri_, mes_, str_) have no data field', () => {
+            // Friction/Mesh-Region/Structure don't use the `data` column
+            // at all — the per-feature WFS schema for each is
+            // [the_geom, description, <one numeric or string method col>].
+            ['fri_', 'mes_', 'str_'].forEach(prefix => {
+                const fields = ANUGA_FEATURE_CONFIG[prefix].formConfig.fields;
+                const dataField = fields.find(x => x.name === 'data');
+                expect(dataField).toBe(undefined);
+            });
+        });
+    });
+
     describe('ANUGA_FEATURE_CONFIG defaults', () => {
         it('bdy_ boundary default is "Dirichlet"', () => {
             const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'boundary');

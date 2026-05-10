@@ -22,7 +22,12 @@
 import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import FormField from '../components/FormField';
+// TASK-795: import the bare (un-connected) FormField so this regression
+// guard doesn't need a Redux Provider tree just to render select/text/number
+// chrome. The default export is now connect()-wrapped to feed projectId into
+// the new time-data-picker widget — those tests live separately and supply
+// their own Provider.
+import { FormField } from '../components/FormField';
 
 const SELECT_FIELD = {
     name: 'kind',

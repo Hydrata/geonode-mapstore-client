@@ -9,11 +9,29 @@ import {
     drawingComplete,
     selectExistingFeature
 } from '../actionsVectorDraw';
+import { synthesizeTimeBoundaryFormValue } from '../wfstApi';
 // TASK-784 polish — uniform fonts inside the popup. The stylesheet is
 // imported here so the popup brings its own rules even if the SimpleView
 // panel (which usually owns simpleView.css and the .simple-view-panel
 // baseline) hasn't been mounted yet on this page-load ordering.
 import './vectorDrawPopup.css';
+
+// TASK-795 — Pure helper. Returns true if `field.showWhen` matches the
+// current formValues. Currently supports a single equality clause:
+//   showWhen: {field: 'boundary', equals: 'Time'}
+// When `field.showWhen` is undefined, the field is always rendered (no-op).
+// Exported so the SimpleView routing tests can pin the contract.
+export const matchesShowWhen = (showWhen, formValues) => {
+    if (!showWhen) return true;
+    const current = formValues ? formValues[showWhen.field] : undefined;
+    if ('equals' in showWhen) {
+        return current === showWhen.equals;
+    }
+    // Defensive default — unknown showWhen shape: render the field rather
+    // than silently hide. Future predicates (notEquals, in, ...) can be
+    // added without changing call sites.
+    return true;
+};
 
 const GEOM_INSTRUCTIONS = {
     Point: 'Click on the map to place the point.',
@@ -58,6 +76,20 @@ const VectorDrawPopup = ({
     const isEditing = !!config?.featureId;
     const formConfig = config?.formConfig;
     const geomType = config?.geomType || 'Polygon';
+
+    // TASK-795 — Synthesize the structured `data` shape for the
+    // TimeDataPicker if any field uses time-data-picker. This is a pure
+    // render-time transform; the picker writes the structured shape on
+    // every interaction so once the user has touched it,
+    // synthesizeTimeBoundaryFormValue is a no-op (it preserves the existing
+    // structured data). Only fires the synthesis branch on the FIRST render
+    // after a SEED_FORM_VALUES dispatched by the EDIT-mode load epic.
+    const hasTimeDataPicker = (formConfig?.fields || []).some(
+        f => f.type === 'time-data-picker'
+    );
+    const effectiveFormValues = hasTimeDataPicker
+        ? synthesizeTimeBoundaryFormValue(formValues)
+        : formValues;
 
     // Picking phase — let user choose an existing feature or "+ Add new"
     if (phase === 'picking') {
@@ -164,14 +196,16 @@ const VectorDrawPopup = ({
                         {hintText}
                     </p>
                     {showInlineForm
-                        ? formConfig.fields.map(field => (
-                            <FormField
-                                key={field.name}
-                                field={field}
-                                value={formValues[field.name]}
-                                onChange={onUpdateField}
-                            />
-                        ))
+                        ? formConfig.fields
+                            .filter(field => matchesShowWhen(field.showWhen, effectiveFormValues))
+                            .map(field => (
+                                <FormField
+                                    key={field.name}
+                                    field={field}
+                                    value={effectiveFormValues[field.name]}
+                                    onChange={onUpdateField}
+                                />
+                            ))
                         : null}
                     <div style={{
                         display: 'flex',
@@ -240,14 +274,16 @@ const VectorDrawPopup = ({
                     />
                 </div>
                 <div style={{padding: '12px'}}>
-                    {formConfig.fields.map(field => (
-                        <FormField
-                            key={field.name}
-                            field={field}
-                            value={formValues[field.name]}
-                            onChange={onUpdateField}
-                        />
-                    ))}
+                    {formConfig.fields
+                        .filter(field => matchesShowWhen(field.showWhen, effectiveFormValues))
+                        .map(field => (
+                            <FormField
+                                key={field.name}
+                                field={field}
+                                value={effectiveFormValues[field.name]}
+                                onChange={onUpdateField}
+                            />
+                        ))}
                     <div style={{
                         display: 'flex',
                         justifyContent: 'flex-end',

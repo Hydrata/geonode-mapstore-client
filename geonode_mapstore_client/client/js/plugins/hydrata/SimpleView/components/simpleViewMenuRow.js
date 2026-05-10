@@ -123,7 +123,25 @@ const ANUGA_FEATURE_CONFIG = {
                         {value: 'External', label: 'External'},
                         {value: 'Internal', label: 'Internal'}
                     ]},
-                {name: 'data', type: 'text', label: 'Data'}
+                // TASK-795 — Time-boundary value picker. Conditionally rendered
+                // (showWhen) only when boundary === 'Time'. Compound widget owns
+                // an internal radio (Constant | TimeSeries) and emits exactly
+                // one of two WFS-T property names (`data_constant` FLOAT or
+                // `data_timeseries_id` INTEGER) — never both, never the legacy
+                // bare `data` key. The legacy `data` text column stays in the
+                // BE schema for back-compat reads of historical rows but new
+                // FE writes no longer populate it. The save epic
+                // (vectorDrawSaveEpic in epicsVectorDraw.js) reads the
+                // structured formValues.data shape — `{kind:'constant',
+                // constant:Number}` or `{kind:'timeseries', timeseries_id:
+                // Number}` — and translates to the wire properties dict
+                // before calling wfstInsert/Update. EDIT-mode seeding (in
+                // VectorDrawPopup.synthesizeTimeData) reverse-maps existing
+                // row's `data_constant`/`data_timeseries_id` columns back
+                // into the structured shape so the picker re-renders the
+                // row's last value.
+                {name: 'data', type: 'time-data-picker', label: 'Boundary value',
+                    showWhen: {field: 'boundary', equals: 'Time'}}
             ]
         }
     },
