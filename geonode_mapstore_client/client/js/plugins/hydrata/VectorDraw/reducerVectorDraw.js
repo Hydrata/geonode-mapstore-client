@@ -52,6 +52,11 @@ const initialState = {
     // SEED_FORM_VALUES so re-entering a row from the picker captures
     // the row's initial state.
     initialFormValues: {},
+    // TASK-795 review NIT-6 (TASK-804) — the fid of the last save that
+    // landed in this picker session, set by RETURN_TO_PICKER from the
+    // save-success path. The picker reads this to highlight the row the
+    // user just committed. Null on initial entry, cleared on RESET.
+    lastSavedFid: null,
     error: null
 };
 
@@ -84,7 +89,15 @@ export default function vectorDraw(state = initialState, action) {
             // action.config so it survives the reset to initialState. A
             // brand-new external startVectorDraw from a plugin won't set
             // this, so the flag stays false and behaviour is unchanged.
-            cameFromPicker: !!action.config?.cameFromPicker
+            cameFromPicker: !!action.config?.cameFromPicker,
+            // TASK-795 review NIT-1 (TASK-804) — explicitly clear
+            // previousPhase on every fresh START. The spread of initialState
+            // already does this, but a future refactor that diverges from
+            // initialState (e.g. preserving some key) could silently leak
+            // a stale previousPhase across flows — leaving the cancel epic
+            // taking the wrong branch (e.g. picker-return after a brand
+            // new external start).
+            previousPhase: null
         };
     }
     case DESCRIBE_COMPLETE:
@@ -170,7 +183,12 @@ export default function vectorDraw(state = initialState, action) {
             cameFromPicker: true,
             // Clear the in-flight delete flag — server response landed
             // (success or graceful failure), trash icon should re-enable.
-            deletingFeatureId: null
+            deletingFeatureId: null,
+            // TASK-795 review NIT-6 (TASK-804) — the save path passes the
+            // just-saved fid so the picker can highlight the row the user
+            // just committed. Cancel/delete paths leave it null. Cleared
+            // on next selection / RESET.
+            lastSavedFid: action.lastSavedFid || null
         };
     case SELECT_EXISTING_FEATURE:
         // Transition back to 'describing' and (optionally) merge the chosen

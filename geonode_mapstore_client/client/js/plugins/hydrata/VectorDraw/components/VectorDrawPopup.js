@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { connect } from 'react-redux';
 import { Button } from 'react-bootstrap';
 import FormField from './FormField';
@@ -10,7 +10,10 @@ import {
     selectExistingFeature,
     deleteFeature
 } from '../actionsVectorDraw';
-import { synthesizeTimeBoundaryFormValue } from '../wfstApi';
+// TASK-795 review I9 (TASK-802) — synthesizeTimeBoundaryFormValue is now
+// invoked once at EDIT-load time (vectorDrawStartEpic) and the structured
+// `data` shape is persisted in Redux from that moment. The popup just
+// reads formValues directly, no render-time transform needed.
 // TASK-784 polish — uniform fonts inside the popup. The stylesheet is
 // imported here so the popup brings its own rules even if the SimpleView
 // panel (which usually owns simpleView.css and the .simple-view-panel
@@ -111,6 +114,174 @@ export const formValuesAreDirty = (current, initial) => {
     }
 };
 
+// TASK-795 review I10 (TASK-803) — Threshold above which the picker shows
+// a text filter input. Below this, a filter would be visual noise (and
+// scrolling the maxHeight=240 list is fine for small projects). Picked at
+// 8 because that's roughly when 1-row scrolling starts feeling worth a
+// shortcut to jump to a known label without eyeballing.
+export const PICKER_FILTER_THRESHOLD = 8;
+
+// TASK-795 review I10 (TASK-803) — Picker subcomponent. Owns its own filter
+// state (kept local because filter survives only within the same picker
+// session — re-entering the picker via RETURN_TO_PICKER remounts and clears
+// the filter, which matches user expectation: "I'm starting a new pick").
+export const PickerView = ({
+    formConfig,
+    featureList,
+    deletingFeatureId,
+    lastSavedFid,
+    onCancel,
+    onSelectFeature,
+    onDeleteFeature
+}) => {
+    const [filterText, setFilterText] = useState('');
+    const list = featureList || [];
+    const showFilter = list.length >= PICKER_FILTER_THRESHOLD;
+    const filterLower = filterText.trim().toLowerCase();
+    const filteredList = useMemo(() => {
+        if (!filterLower) return list;
+        return list.filter(f => featureLabel(f).toLowerCase().indexOf(filterLower) !== -1);
+    }, [list, filterLower]);
+
+    const headerTitle = formConfig?.title
+        ? `Choose ${formConfig.title}`
+        : 'Choose Feature';
+    const rowStyle = {
+        cursor: 'pointer',
+        padding: '8px',
+        marginBottom: 4,
+        borderRadius: 4,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '8px'
+    };
+    const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
+    const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; };
+    // Trash icon click — stop propagation so the row's onClick (which
+    // would select the feature for editing) doesn't also fire. Confirm
+    // before destructive action; WFS-T delete is irreversible.
+    const onTrashClick = (feature) => (e) => {
+        e.stopPropagation();
+        const label = featureLabel(feature);
+        // eslint-disable-next-line no-alert
+        if (window.confirm(`Delete "${label}"? This cannot be undone.`)) {
+            onDeleteFeature(feature.id);
+        }
+    };
+    const trashStyle = {
+        cursor: 'pointer',
+        padding: '4px 6px',
+        borderRadius: 3,
+        opacity: 0.7,
+        flexShrink: 0
+    };
+
+    return (
+        <div className="vector-draw-popup simple-view-panel" style={{
+            position: 'absolute',
+            top: 80,
+            left: 30,
+            zIndex: 1026,
+            minWidth: 280,
+            maxWidth: 380,
+            padding: 0
+        }}>
+            <div className="simple-view-panel-header" style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 12px'
+            }}>
+                <span>{headerTitle}</span>
+                <span
+                    className="btn glyphicon glyphicon-remove legend-close"
+                    onClick={onCancel}
+                />
+            </div>
+            {showFilter ? (
+                <div style={{padding: '8px 12px 0 12px'}}>
+                    <input
+                        type="text"
+                        className="vector-draw-picker-filter"
+                        placeholder={`Filter ${list.length} features…`}
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                        style={{width: '100%', padding: '4px 6px', fontSize: 'inherit'}}
+                    />
+                </div>
+            ) : null}
+            <div style={{ padding: '8px 12px', maxHeight: 240, overflowY: 'auto' }}>
+                <div
+                    className="simple-view-panel-item-row vector-draw-picker-add-new"
+                    style={rowStyle}
+                    onClick={() => onSelectFeature(null)}
+                    onMouseEnter={onRowEnter}
+                    onMouseLeave={onRowLeave}
+                >
+                    <span>+ Add new</span>
+                </div>
+                {filteredList.length === 0 && filterText ? (
+                    <div className="vector-draw-picker-empty" style={{
+                        padding: '8px',
+                        opacity: 0.7,
+                        fontStyle: 'italic'
+                    }}>
+                        No features match &ldquo;{filterText}&rdquo;
+                    </div>
+                ) : null}
+                {filteredList.map(feature => {
+                    // TASK-795 review I3 — dim + disable the trash icon
+                    // for the row currently being WFS-T-deleted so the
+                    // user can't double-click and trigger a second
+                    // DELETE that would 404 (a confusing error toast on
+                    // what was actually a successful first delete).
+                    const isDeleting = !!deletingFeatureId
+                        && feature.id === deletingFeatureId;
+                    // TASK-795 review NIT-6 (TASK-804) — highlight the
+                    // row the user just committed (set by the save epic
+                    // via RETURN_TO_PICKER's lastSavedFid). Cleared on
+                    // next selection / RESET.
+                    const isLastSaved = !!lastSavedFid
+                        && feature.id === lastSavedFid;
+                    const highlightedRowStyle = isLastSaved
+                        ? { ...rowStyle, backgroundColor: 'rgba(80, 200, 120, 0.25)' }
+                        : rowStyle;
+                    return (
+                        <div
+                            key={feature.id || featureLabel(feature)}
+                            className={'simple-view-panel-item-row' + (isLastSaved ? ' vector-draw-picker-row-just-saved' : '')}
+                            style={highlightedRowStyle}
+                            onClick={() => onSelectFeature(feature.id)}
+                            onMouseEnter={onRowEnter}
+                            onMouseLeave={onRowLeave}
+                        >
+                            <span style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1
+                            }}>{featureLabel(feature)}</span>
+                            <span
+                                className="glyphicon glyphicon-trash vector-draw-trash"
+                                style={{
+                                    ...trashStyle,
+                                    opacity: isDeleting ? 0.3 : 0.7,
+                                    pointerEvents: isDeleting ? 'none' : 'auto',
+                                    cursor: isDeleting ? 'wait' : 'pointer'
+                                }}
+                                title={isDeleting ? 'Deleting...' : 'Delete this feature'}
+                                onClick={isDeleting ? undefined : onTrashClick(feature)}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 const VectorDrawPopup = ({
     phase,
     config,
@@ -118,6 +289,7 @@ const VectorDrawPopup = ({
     initialFormValues,
     featureList,
     deletingFeatureId,
+    lastSavedFid,
     drawTempFeatures,
     drawFeatures,
     onCancel,
@@ -151,128 +323,25 @@ const VectorDrawPopup = ({
         onCancel();
     };
 
-    // TASK-795 — Synthesize the structured `data` shape for the
-    // TimeDataPicker if any field uses time-data-picker. This is a pure
-    // render-time transform; the picker writes the structured shape on
-    // every interaction so once the user has touched it,
-    // synthesizeTimeBoundaryFormValue is a no-op (it preserves the existing
-    // structured data). Only fires the synthesis branch on the FIRST render
-    // after a SEED_FORM_VALUES dispatched by the EDIT-mode load epic.
-    const hasTimeDataPicker = (formConfig?.fields || []).some(
-        f => f.type === 'time-data-picker'
-    );
-    const effectiveFormValues = hasTimeDataPicker
-        ? synthesizeTimeBoundaryFormValue(formValues)
-        : formValues;
+    // TASK-795 review I9 (TASK-802) — formValues is the source of truth.
+    // The structured `data` shape for TimeDataPicker is synthesized once at
+    // EDIT-load time inside vectorDrawStartEpic (so it's persisted in Redux
+    // from the start) and the picker writes structured shape on every
+    // interaction. No render-time transform needed.
+    const effectiveFormValues = formValues;
 
     // Picking phase — let user choose an existing feature or "+ Add new"
     if (phase === 'picking') {
-        const headerTitle = formConfig?.title
-            ? `Choose ${formConfig.title}`
-            : 'Choose Feature';
-        const rowStyle = {
-            cursor: 'pointer',
-            padding: '8px',
-            marginBottom: 4,
-            borderRadius: 4,
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '8px'
-        };
-        const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
-        const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; };
-        // Trash icon click — stop propagation so the row's onClick (which
-        // would select the feature for editing) doesn't also fire. Confirm
-        // before destructive action; WFS-T delete is irreversible.
-        const onTrashClick = (feature) => (e) => {
-            e.stopPropagation();
-            const label = featureLabel(feature);
-            // eslint-disable-next-line no-alert
-            if (window.confirm(`Delete "${label}"? This cannot be undone.`)) {
-                onDeleteFeature(feature.id);
-            }
-        };
-        const trashStyle = {
-            cursor: 'pointer',
-            padding: '4px 6px',
-            borderRadius: 3,
-            opacity: 0.7,
-            flexShrink: 0
-        };
-
         return (
-            <div className="vector-draw-popup simple-view-panel" style={{
-                position: 'absolute',
-                top: 80,
-                left: 30,
-                zIndex: 1026,
-                minWidth: 280,
-                maxWidth: 380,
-                padding: 0
-            }}>
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px'
-                }}>
-                    <span>{headerTitle}</span>
-                    <span
-                        className="btn glyphicon glyphicon-remove legend-close"
-                        onClick={onCancel}
-                    />
-                </div>
-                <div style={{ padding: '8px 12px', maxHeight: 240, overflowY: 'auto' }}>
-                    <div
-                        className="simple-view-panel-item-row"
-                        style={rowStyle}
-                        onClick={() => onSelectFeature(null)}
-                        onMouseEnter={onRowEnter}
-                        onMouseLeave={onRowLeave}
-                    >
-                        <span>+ Add new</span>
-                    </div>
-                    {(featureList || []).map(feature => {
-                        // TASK-795 review I3 — dim + disable the trash icon
-                        // for the row currently being WFS-T-deleted so the
-                        // user can't double-click and trigger a second
-                        // DELETE that would 404 (a confusing error toast on
-                        // what was actually a successful first delete).
-                        const isDeleting = !!deletingFeatureId
-                            && feature.id === deletingFeatureId;
-                        return (
-                            <div
-                                key={feature.id || featureLabel(feature)}
-                                className="simple-view-panel-item-row"
-                                style={rowStyle}
-                                onClick={() => onSelectFeature(feature.id)}
-                                onMouseEnter={onRowEnter}
-                                onMouseLeave={onRowLeave}
-                            >
-                                <span style={{
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    flex: 1
-                                }}>{featureLabel(feature)}</span>
-                                <span
-                                    className="glyphicon glyphicon-trash vector-draw-trash"
-                                    style={{
-                                        ...trashStyle,
-                                        opacity: isDeleting ? 0.3 : 0.7,
-                                        pointerEvents: isDeleting ? 'none' : 'auto',
-                                        cursor: isDeleting ? 'wait' : 'pointer'
-                                    }}
-                                    title={isDeleting ? 'Deleting...' : 'Delete this feature'}
-                                    onClick={isDeleting ? undefined : onTrashClick(feature)}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+            <PickerView
+                formConfig={formConfig}
+                featureList={featureList}
+                deletingFeatureId={deletingFeatureId}
+                lastSavedFid={lastSavedFid}
+                onCancel={onCancel}
+                onSelectFeature={onSelectFeature}
+                onDeleteFeature={onDeleteFeature}
+            />
         );
     }
 
@@ -489,6 +558,7 @@ const mapStateToProps = (state) => ({
     initialFormValues: state?.vectorDraw?.initialFormValues || {},
     featureList: state?.vectorDraw?.featureList || [],
     deletingFeatureId: state?.vectorDraw?.deletingFeatureId || null,
+    lastSavedFid: state?.vectorDraw?.lastSavedFid || null,
     drawTempFeatures: state?.draw?.tempFeatures,
     drawFeatures: state?.draw?.features
 });

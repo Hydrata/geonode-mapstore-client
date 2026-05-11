@@ -210,6 +210,141 @@ describe('VectorDraw Epics', () => {
         });
     });
 
+    // TASK-795 review I9 (TASK-802) — synthesize at EDIT-load time so the
+    // structured `data` shape is persisted in Redux from the start. Pre-fix,
+    // the popup ran the synthesis on every render — meaning formValues never
+    // received the structured shape until the user touched the picker, and
+    // C6's validate guard had to keep a per-column fallback branch as a
+    // result.
+    describe('vectorDrawStartEpic — TASK-802 synthesize at load time', () => {
+        it('Time boundary row with data_constant → seedFormValues carries structured data:{kind:constant,constant:N}', (done) => {
+            const feature = {
+                id: 'bdy_4_test.5',
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+                properties: {
+                    description: 'Tide gauge',
+                    boundary: 'Time',
+                    data_constant: 5.5
+                }
+            };
+            mock = installWfsMock({ feature });
+
+            const action$ = mockActions([{
+                type: START_VECTOR_DRAW,
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    featureId: 'bdy_4_test.5'
+                }
+            }]);
+
+            const emitted = [];
+            const sub = vectorDrawStartEpic(action$, makeStore())
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const seed = emitted.find(a => a.type === SEED_FORM_VALUES);
+                        expect(seed).toExist();
+                        // Structured shape is in the dispatched action.
+                        expect(seed.properties.data).toEqual({ kind: 'constant', constant: 5.5 });
+                        // Per-column raw keys stripped (popup only reads `data`).
+                        expect('data_constant' in seed.properties).toBe(false);
+                        expect('data_timeseries_id' in seed.properties).toBe(false);
+                        // Other props pass through unchanged.
+                        expect(seed.properties.boundary).toBe('Time');
+                        expect(seed.properties.description).toBe('Tide gauge');
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('Time boundary row with data_timeseries_id → seedFormValues carries structured data:{kind:timeseries,timeseries_id:N}', (done) => {
+            const feature = {
+                id: 'bdy_4_test.6',
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+                properties: {
+                    description: 'Tide series',
+                    boundary: 'Time',
+                    data_timeseries_id: 17
+                }
+            };
+            mock = installWfsMock({ feature });
+
+            const action$ = mockActions([{
+                type: START_VECTOR_DRAW,
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    featureId: 'bdy_4_test.6'
+                }
+            }]);
+
+            const emitted = [];
+            const sub = vectorDrawStartEpic(action$, makeStore())
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const seed = emitted.find(a => a.type === SEED_FORM_VALUES);
+                        expect(seed).toExist();
+                        expect(seed.properties.data).toEqual({ kind: 'timeseries', timeseries_id: 17 });
+                        expect('data_constant' in seed.properties).toBe(false);
+                        expect('data_timeseries_id' in seed.properties).toBe(false);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('non-Time boundary row → seedFormValues carries no data field (synth no-ops on non-Time)', (done) => {
+            // Reflective rows have no data*; synthesizeTimeBoundaryFormValue
+            // strips the per-column keys (which weren't there anyway) and
+            // doesn't fabricate a `data` value. Picker is not rendered for
+            // non-Time anyway (showWhen).
+            const feature = {
+                id: 'bdy_4_test.7',
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+                properties: {
+                    description: 'Wall',
+                    boundary: 'Reflective'
+                }
+            };
+            mock = installWfsMock({ feature });
+
+            const action$ = mockActions([{
+                type: START_VECTOR_DRAW,
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    featureId: 'bdy_4_test.7'
+                }
+            }]);
+
+            const emitted = [];
+            const sub = vectorDrawStartEpic(action$, makeStore())
+                .take(3)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const seed = emitted.find(a => a.type === SEED_FORM_VALUES);
+                        expect(seed).toExist();
+                        expect(seed.properties.boundary).toBe('Reflective');
+                        expect('data' in seed.properties).toBe(false);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+    });
+
     describe('vectorDrawStartEpic — SWAMM regression (no allowPick, featureId set)', () => {
         it('does NOT trigger the picker branch when allowPick is omitted', (done) => {
             // Use the existing-feature stub. If the picker branch fires, it would
@@ -771,6 +906,294 @@ describe('VectorDraw Epics', () => {
                         expect(success).toExist();
                         expect(ret).toBe(undefined);
                         expect(getCallCount).toBeGreaterThan(0);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+    });
+
+    // TASK-795 review I1 (TASK-797) — save-error path used to dispatch
+    // cfg.onCancel preemptively. The user then closing the error toast
+    // dispatched CANCEL_VECTOR_DRAW which the cancel epic re-routed to
+    // cfg.onCancel a second time. Calling plugins (e.g. SimpleView's
+    // re-open handler) saw onCancel TWICE for one save attempt. The fix
+    // drops the preemptive dispatch — the cancel epic owns the single
+    // canonical onCancel.
+    describe('vectorDrawSaveEpic — TASK-797 no double cfg.onCancel on save-error', () => {
+        const ERR_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'bdy_4_test',
+                properties: [
+                    { name: 'the_geom', type: 'gml:LineString', localType: 'LineString', minOccurs: 0, nillable: true },
+                    { name: 'description', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+
+        it('save-error catch does NOT emit cfg.onCancel (cancel epic owns the single dispatch)', (done) => {
+            // Make the WFS-T POST return an ExceptionReport so wfstInsert
+            // throws and the catch fires.
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply(200, ERR_DESCRIBE_STUB);
+            m.onPost(/\/geoserver\/wfs/).reply(
+                200,
+                '<ows:ExceptionReport><ows:Exception><ows:ExceptionText>simulated save failure</ows:ExceptionText></ows:Exception></ows:ExceptionReport>'
+            );
+            mock = m;
+
+            const store = makeStore({
+                phase: 'saving',
+                config: {
+                    layerName: 'geonode:bdy_4_test',
+                    geomType: 'LineString',
+                    onCancel: 'TEST:CANCEL',
+                    onComplete: 'TEST:COMPLETE'
+                },
+                geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+                formValues: { description: 'X' }
+            });
+            const action$ = mockActions([{ type: SUBMIT_FORM }]);
+
+            const emitted = [];
+            const sub = vectorDrawSaveEpic(action$, store)
+                .take(4)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        // SAVE_ERROR must fire (reducer transitions to 'error')
+                        expect(emitted.find(a => a.type === SAVE_ERROR)).toExist();
+                        // cfg.onCancel must NOT fire from the save epic — the
+                        // cancel epic is the canonical place when the user
+                        // dismisses the error toast.
+                        expect(emitted.find(a => a.type === 'TEST:CANCEL')).toBe(undefined);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+    });
+
+    // TASK-795 review I2 (TASK-798) — switchMap → mergeMap. Pre-fix, rapid
+    // trash on row A then row B before A's POST returned dropped A's tail
+    // (refresh + RETURN_TO_PICKER). Post-fix, both chains run to completion
+    // in parallel.
+    describe('vectorDrawDeleteEpic — TASK-798 mergeMap parallel deletes', () => {
+        const PAR_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'pkr',
+                properties: [
+                    { name: 'the_geom', type: 'gml:Polygon', localType: 'Polygon', minOccurs: 0, nillable: true },
+                    { name: 'name', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+
+        it('two DELETE_FEATURE actions in flight → both chains complete (BOTH RETURN_TO_PICKER fire)', (done) => {
+            // Slow GET to give both chains time to overlap, but POST is fast.
+            // With switchMap, the second DELETE arriving before the first GET
+            // resolves would unsubscribe the first chain — only ONE
+            // RETURN_TO_PICKER would land. With mergeMap, BOTH land.
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) {
+                    return [200, PAR_DESCRIBE_STUB];
+                }
+                // Slow re-fetch — gives the second DELETE time to arrive
+                // before the first re-fetch resolves.
+                return new Promise(resolve =>
+                    setTimeout(() => resolve([200, { type: 'FeatureCollection', features: [] }]), 60)
+                );
+            });
+            m.onPost(/\/geoserver\/wfs/).reply(200, '<wfs:TransactionResponse/>');
+            mock = m;
+
+            const store = makeStore({
+                phase: 'picking',
+                cameFromPicker: true,
+                featureList: [{ id: 'pkr.1' }, { id: 'pkr.2' }],
+                config: { layerName: 'geonode:pkr' }
+            });
+            const subject = new Rx.Subject();
+            const action$ = subject.asObservable();
+            action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+
+            const returnsLanded = [];
+            const sub = vectorDrawDeleteEpic(action$, store)
+                .timeout(3000)
+                .subscribe(
+                    (a) => {
+                        if (a.type === RETURN_TO_PICKER) returnsLanded.push(a);
+                    },
+                    (err) => done(err),
+                    () => {
+                        // mergeMap: both chains must complete → 2 RETURN_TO_PICKER
+                        // (one per DELETE). switchMap regression would yield 1.
+                        expect(returnsLanded.length).toBe(2);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+
+            setTimeout(() => subject.next({ type: DELETE_FEATURE, featureId: 'pkr.1' }), 0);
+            // Second delete fires 20ms later — well before the 60ms slow
+            // GET of the first chain resolves, so switchMap would unsubscribe
+            // the first chain at this point.
+            setTimeout(() => subject.next({ type: DELETE_FEATURE, featureId: 'pkr.2' }), 20);
+            setTimeout(() => subject.complete(), 250);
+        });
+    });
+
+    // TASK-795 review I4 (TASK-799) — cancel-to-picker after a save-error
+    // re-fetches the WFS list because the BE may have committed even though
+    // the response failed (rare but possible: PUT timeout after commit).
+    describe('vectorDrawCancelEpic — TASK-799 cancel-after-error refetch', () => {
+        const PKR_DESCRIBE_STUB = {
+            targetPrefix: 'geonode',
+            targetNamespace: 'http://geonode.org',
+            featureTypes: [{
+                typeName: 'pkr',
+                properties: [
+                    { name: 'the_geom', type: 'gml:Polygon', localType: 'Polygon', minOccurs: 0, nillable: true },
+                    { name: 'name', type: 'xsd:string', localType: 'string', minOccurs: 0, nillable: true }
+                ]
+            }]
+        };
+
+        it('cameFromPicker + previousPhase=error → re-fetches AND emits RETURN_TO_PICKER with FRESH list', (done) => {
+            // The pre-cancel cached list has 2 rows; the BE has a 3rd row
+            // because the save committed before the response failed. The
+            // refetch should find all 3 and replace the cached list.
+            const fresh = [
+                { id: 'pkr.1', properties: { name: 'A' } },
+                { id: 'pkr.2', properties: { name: 'B' } },
+                { id: 'pkr.3', properties: { name: 'committed-then-timeout' } }
+            ];
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) return [200, PKR_DESCRIBE_STUB];
+                return [200, { type: 'FeatureCollection', features: fresh }];
+            });
+            mock = m;
+
+            const cached = [
+                { id: 'pkr.1', properties: { name: 'A' } },
+                { id: 'pkr.2', properties: { name: 'B' } }
+            ];
+            const store = makeStore({
+                phase: 'cancelling',
+                previousPhase: 'error',
+                cameFromPicker: true,
+                featureList: cached,
+                config: {
+                    layerName: 'geonode:pkr',
+                    onCancel: 'TEST:CANCEL'
+                }
+            });
+            const action$ = mockActions([{ type: CANCEL_VECTOR_DRAW }]);
+
+            const emitted = [];
+            const sub = vectorDrawCancelEpic(action$, store)
+                .take(2)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(ret).toExist();
+                        // CRITICAL: features came from re-fetch, NOT cached list.
+                        expect(ret.features.length).toBe(3);
+                        expect(ret.features[2].id).toBe('pkr.3');
+                        // onCancel still NOT fired (in-flow path, picker continues)
+                        expect(emitted.find(a => a.type === 'TEST:CANCEL')).toBe(undefined);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('cameFromPicker + previousPhase=error + refetch fails → falls back to cached list', (done) => {
+            const m = new MockAdapter(axios);
+            m.onGet(/\/geoserver\/wfs/).reply((cfg) => {
+                const url = (cfg.url || '') + '?' + new URLSearchParams(cfg.params || {}).toString();
+                if (/DescribeFeatureType/i.test(url)) return [200, PKR_DESCRIBE_STUB];
+                return [500, 'simulated cancel-after-error refetch failure'];
+            });
+            mock = m;
+
+            const cached = [{ id: 'pkr.1', properties: { name: 'A' } }];
+            const store = makeStore({
+                phase: 'cancelling',
+                previousPhase: 'error',
+                cameFromPicker: true,
+                featureList: cached,
+                config: {
+                    layerName: 'geonode:pkr',
+                    onCancel: 'TEST:CANCEL'
+                }
+            });
+            const action$ = mockActions([{ type: CANCEL_VECTOR_DRAW }]);
+
+            const emitted = [];
+            const sub = vectorDrawCancelEpic(action$, store)
+                .take(2)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(ret).toExist();
+                        expect(ret.features).toEqual(cached);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+        });
+
+        it('cameFromPicker + previousPhase=drawing (NOT error) → keeps cached list, no refetch', (done) => {
+            // Existing happy-path: cancel during draw/form is a no-op for BE
+            // state, no refetch needed.
+            const m = new MockAdapter(axios);
+            let httpHits = 0;
+            m.onAny().reply(() => {
+                httpHits += 1;
+                return [500, 'cancel-after-drawing should not call WFS'];
+            });
+            mock = m;
+
+            const cached = [{ id: 'pkr.1' }];
+            const store = makeStore({
+                phase: 'cancelling',
+                previousPhase: 'drawing',
+                cameFromPicker: true,
+                featureList: cached,
+                config: { layerName: 'geonode:pkr', onCancel: 'TEST:CANCEL' }
+            });
+            const action$ = mockActions([{ type: CANCEL_VECTOR_DRAW }]);
+
+            const emitted = [];
+            const sub = vectorDrawCancelEpic(action$, store)
+                .take(2)
+                .timeout(2000)
+                .subscribe(
+                    (a) => emitted.push(a),
+                    (err) => done(err),
+                    () => {
+                        const ret = emitted.find(a => a.type === RETURN_TO_PICKER);
+                        expect(ret).toExist();
+                        expect(ret.features).toEqual(cached);
+                        // Proves the refetch branch was NOT taken.
+                        expect(httpHits).toBe(0);
                         if (sub) sub.unsubscribe();
                         done();
                     }

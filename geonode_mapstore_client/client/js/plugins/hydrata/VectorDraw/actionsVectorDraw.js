@@ -33,5 +33,12 @@ export const describeComplete = () => ({ type: DESCRIBE_COMPLETE });
 export const seedFormValues = (properties) => ({ type: SEED_FORM_VALUES, properties });
 export const loadFeatureList = (features) => ({ type: LOAD_FEATURE_LIST, features });
 export const selectExistingFeature = (featureId) => ({ type: SELECT_EXISTING_FEATURE, featureId });
-export const returnToPicker = (features) => ({ type: RETURN_TO_PICKER, features: features || [] });
+// TASK-795 review NIT-6 (TASK-804) — second arg is the just-saved fid
+// (save path) so the picker can visually highlight the row the user just
+// committed. Optional / undefined for cancel/delete paths.
+export const returnToPicker = (features, lastSavedFid) => ({
+    type: RETURN_TO_PICKER,
+    features: features || [],
+    lastSavedFid: lastSavedFid || null
+});
 export const deleteFeature = (featureId) => ({ type: DELETE_FEATURE, featureId });

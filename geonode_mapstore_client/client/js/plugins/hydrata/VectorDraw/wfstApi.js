@@ -131,8 +131,14 @@ export const synthesizeTimeBoundaryFormValue = (props) => {
             // Legacy BE row: `data` was a bare text column. Try to parse as
             // a number → constant; otherwise drop (BE will require the user
             // to pick a value via the CHECK constraint).
+            //
+            // TASK-795 review NIT-3 (TASK-804) — pre-fix the check was
+            // `String(n) === out.data.trim()` which silently rejects valid
+            // numeric strings: '0.0' → "0", '1e5' → "100000", '3.140' →
+            // "3.14", all reject and the user's data is dropped. Use
+            // Number.isFinite instead — anything float-coercible is fine.
             const n = parseFloat(out.data);
-            if (!Number.isNaN(n) && Number.isFinite(n) && String(n) === out.data.trim()) {
+            if (Number.isFinite(n)) {
                 out.data = { kind: 'constant', constant: n };
             } else {
                 // Non-numeric legacy text (e.g. a TimeSeries name) — drop.

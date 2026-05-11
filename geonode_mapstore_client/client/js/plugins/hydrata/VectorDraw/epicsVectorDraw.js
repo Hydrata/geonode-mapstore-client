@@ -4,7 +4,10 @@ import { refreshLayerVersion } from '../../../../MapStore2/web/client/actions/la
 import { show } from '../../../../MapStore2/web/client/actions/notifications';
 import { describeFeatureType } from '../../../../MapStore2/web/client/api/WFS';
 import { reprojectGeoJson } from '../../../../MapStore2/web/client/utils/CoordinatesUtils';
-import { wfstInsert, wfstUpdate, wfstDelete, loadFeature, loadAllFeatures } from './wfstApi';
+import {
+    wfstInsert, wfstUpdate, wfstDelete, loadFeature, loadAllFeatures,
+    synthesizeTimeBoundaryFormValue
+} from './wfstApi';
 import {
     START_VECTOR_DRAW,
     CANCEL_VECTOR_DRAW,
@@ -38,11 +41,17 @@ export const VECTOR_DRAW_OWNER = 'vectorDraw';
  * into undefined geometry, surfacing as `Cannot read properties of undefined
  * (reading 'type')`).
  */
-export const extractDrawGeometry = (payload) => {
-    if (!payload) return null;
+// TASK-795 review NIT-2 (TASK-804) — depth guard so a malformed payload
+// (e.g. a Feature whose geometry is itself a FeatureCollection — invalid
+// GeoJSON, but not unheard of from third-party tooling) can't drive the
+// recursion arbitrarily deep. DrawSupport doesn't produce nested FCs today;
+// this is pure safety.
+const _MAX_EXTRACT_DEPTH = 4;
+export const extractDrawGeometry = (payload, _depth = 0) => {
+    if (!payload || _depth > _MAX_EXTRACT_DEPTH) return null;
     if (payload.type === 'FeatureCollection' && Array.isArray(payload.features)) {
         const first = payload.features.find(f => f && f.geometry) || payload.features[0];
-        return first ? extractDrawGeometry(first) : null;
+        return first ? extractDrawGeometry(first, _depth + 1) : null;
     }
     if (payload.type === 'Feature') {
         return payload.geometry || null;
@@ -88,8 +97,25 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
                         // form values are present in Redux by the time the popup
                         // mounts in the next render. Without this, wfstUpdate would
                         // send schema defaults and silently overwrite real values.
+                        //
+                        // TASK-795 review I9 (TASK-802) — synthesize the
+                        // structured `data` shape HERE (load time) so the
+                        // picker reads it straight from formValues, instead
+                        // of running the synthesis on every render. Pre-fix,
+                        // a render-time synth meant the structured shape
+                        // wasn't persisted in Redux until the user touched
+                        // the picker — leading to: (a) `effectiveFormValues`
+                        // diverging from `formValues` (TimeDataPicker `value`
+                        // came from the synth, but the validate guard read
+                        // the raw `formValues.data` until the user typed
+                        // something), and (b) C6 needing a per-column
+                        // fallback branch that's now dead code. Synthesize
+                        // once, persist once.
+                        const seededProps = synthesizeTimeBoundaryFormValue(
+                            existingFeature?.properties || {}
+                        );
                         return Rx.Observable.of(
-                            seedFormValues(existingFeature?.properties || {}),
+                            seedFormValues(seededProps),
                             describeComplete(),
                             changeDrawingStatus('drawOrEdit', config.geomType, VECTOR_DRAW_OWNER, features, {
                                 featureProjection: 'EPSG:4326',
@@ -305,10 +331,18 @@ export const vectorDrawSaveEpic = (action$, store) =>
                     // back to idle path on re-fetch failure (network error)
                     // so the user isn't stuck in a half-state.
                     if (cameFromPicker) {
+                        // TASK-795 review NIT-6 (TASK-804) — pass the
+                        // just-saved fid through to RETURN_TO_PICKER so the
+                        // picker can highlight the row the user just
+                        // committed. Falls back to config.featureId for
+                        // EDIT-mode (where wfstUpdate returns the input fid
+                        // unchanged) and null for INSERT-without-fid edge
+                        // cases (the picker just doesn't highlight anything).
+                        const lastSavedFid = fid || config.featureId || null;
                         return Rx.Observable.from(baseActions)
                             .concat(
                                 Rx.Observable.from(loadAllFeatures(wfsUrl, config.layerName))
-                                    .map((features) => returnToPicker(features))
+                                    .map((features) => returnToPicker(features, lastSavedFid))
                                     .catch((err) => {
                                         console.error('VectorDraw picker re-fetch error:', err);
                                         return Rx.Observable.of(
@@ -328,8 +362,18 @@ export const vectorDrawSaveEpic = (action$, store) =>
                 })
                 .catch((err) => {
                     console.error('VectorDraw save error:', err);
-                    const { config: cfg } = store.getState()?.vectorDraw || {};
-                    const cancelActions = [
+                    // TASK-795 review I1 (TASK-797) — pre-fix this branch
+                    // dispatched cfg.onCancel preemptively, then the user
+                    // closing the error toast would dispatch CANCEL_VECTOR_DRAW
+                    // which the cancel epic re-routed to cfg.onCancel a second
+                    // time. The calling plugin's onCancel handler therefore
+                    // landed twice for a single save-error. Now: drop the
+                    // preemptive dispatch — the cancel epic owns the single
+                    // canonical onCancel. The error toast's Close button is
+                    // the only path forward from phase==='error', so the
+                    // canonical signal still fires exactly once when the
+                    // user dismisses the error.
+                    return Rx.Observable.of(
                         drawSupportReset(VECTOR_DRAW_OWNER),
                         show({
                             title: 'Save Error',
@@ -338,14 +382,7 @@ export const vectorDrawSaveEpic = (action$, store) =>
                             autoDismiss: 10
                         }, 'error'),
                         saveError(err?.message || 'Unknown error')
-                    ];
-                    if (cfg?.onCancel) {
-                        cancelActions.push({
-                            type: cfg.onCancel,
-                            meta: cfg.meta
-                        });
-                    }
-                    return Rx.Observable.from(cancelActions);
+                    );
                 })
                 .takeUntil(action$.ofType(CANCEL_VECTOR_DRAW));
         });
@@ -374,8 +411,32 @@ export const vectorDrawCancelEpic = (action$, store) =>
             // middleware), so we read previousPhase (captured by the reducer
             // at the same moment) instead of the now-stale `phase`.
             const cancellingPicker = vd.previousPhase === 'picking';
+            // TASK-795 review I4 (TASK-799) — when the user closes the error
+            // toast (previousPhase==='error'), a save was actually attempted.
+            // It usually failed end-to-end, but occasionally the BE commits
+            // and then the response times out — leaving the row in PostGIS
+            // even though the FE saw an error. Re-fetch on this branch so
+            // the picker doesn't re-render with a stale list missing the
+            // committed row. Other cancel paths (drawing, form, idle) made
+            // no BE state change and can keep using the cached list.
+            const cancellingAfterError = vd.previousPhase === 'error';
 
             if (cameFromPicker && !cancellingPicker) {
+                if (cancellingAfterError && config?.layerName) {
+                    const wfsUrl = getWfsUrl(store);
+                    return Rx.Observable.of(drawSupportReset(VECTOR_DRAW_OWNER))
+                        .concat(
+                            Rx.Observable.from(loadAllFeatures(wfsUrl, config.layerName))
+                                .map((features) => returnToPicker(features))
+                                .catch((err) => {
+                                    // Re-fetch failed — fall back to the
+                                    // cached pre-save list so the user is
+                                    // still in the picker and can retry.
+                                    console.error('VectorDraw cancel-after-error refetch failed:', err);
+                                    return Rx.Observable.of(returnToPicker(vd.featureList || []));
+                                })
+                        );
+                }
                 return Rx.Observable.from([
                     drawSupportReset(VECTOR_DRAW_OWNER),
                     returnToPicker(vd.featureList || [])
@@ -407,7 +468,15 @@ export const vectorDrawCancelEpic = (action$, store) =>
  */
 export const vectorDrawDeleteEpic = (action$, store) =>
     action$.ofType(DELETE_FEATURE)
-        .switchMap((action) => {
+        // TASK-795 review I2 (TASK-798) — mergeMap (not switchMap) so a
+        // second DELETE arriving before the first chain finishes does NOT
+        // unsubscribe the first's tail (toast + refreshLayerVersion +
+        // re-fetch + RETURN_TO_PICKER). With switchMap, rapid trash on row
+        // A then row B before A's WFS-T POST returned dropped A's tile-cache
+        // refresh — so the deleted row stayed visible on the map until the
+        // user panned. Deletes are independent (different fids), so parallel
+        // execution is safe and correct.
+        .mergeMap((action) => {
             const vd = store.getState()?.vectorDraw || {};
             const config = vd.config || {};
             const wfsUrl = getWfsUrl(store);
