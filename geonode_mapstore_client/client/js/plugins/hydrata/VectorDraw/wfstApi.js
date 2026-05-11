@@ -1,7 +1,32 @@
+import Rx from 'rxjs';
 import { describeFeatureType, getFeatureSimple } from '../../../../MapStore2/web/client/api/WFS';
 import requestBuilder from '../../../../MapStore2/web/client/utils/ogc/WFST/RequestBuilder';
 import { fidFilter } from '../../../../MapStore2/web/client/utils/ogc/Filter/filter';
 import axios from '../../../../MapStore2/web/client/libs/ajax';
+import { interceptOGCError } from '../../../../MapStore2/web/client/utils/ObservableUtils';
+
+/**
+ * TASK-810 W0.4 — Throws an Error with the first line of an OGC ExceptionText
+ * if `response.data` contains a GeoServer ExceptionReport. Uses MapStore2's
+ * upstream `interceptOGCError` so any future OGC schema change is picked up
+ * automatically (replaces two hand-rolled <ows:ExceptionText> regex blocks).
+ *
+ * Pass a `{ data: stringifiedXml }` object — `interceptOGCError` requires
+ * `response.data` to be a string (`indexOf("ExceptionReport") > 0`). The
+ * `responseText` extraction in `wfstInsert`/`wfstDelete` already produces
+ * that string (axios sometimes returns parsed XML).
+ *
+ * The first-line-only message contract is preserved so the toast UX is
+ * unchanged from the pre-W0.4 regex implementation.
+ */
+const throwIfOGCException = async(response, fallbackMessage) => {
+    try {
+        await interceptOGCError(Rx.Observable.of(response)).toPromise();
+    } catch (ogcErr) {
+        const msg = (ogcErr && ogcErr.message ? String(ogcErr.message).split('\n')[0] : '') || fallbackMessage;
+        throw new Error(msg);
+    }
+};
 
 /**
  * TASK-795 — Translate a form's structured Time-boundary `data` value into
@@ -202,12 +227,10 @@ export const wfstInsert = async(wfsUrl, typeName, geometry, properties) => {
     // Parse response — check for WFS-T errors before parsing FID
     const responseText = typeof response.data === 'string' ? response.data : new XMLSerializer().serializeToString(response.data);
 
-    // Detect GeoServer ExceptionReport
-    if (responseText.includes('ExceptionReport') || responseText.includes('ExceptionText')) {
-        const errorMatch = responseText.match(/<ows:ExceptionText>([\s\S]*?)<\/ows:ExceptionText>/);
-        const errorMsg = errorMatch ? errorMatch[1].split('\n')[0] : 'WFS-T transaction failed';
-        throw new Error(errorMsg);
-    }
+    // TASK-810 W0.4 — delegate ExceptionReport detection to MapStore2's
+    // upstream interceptOGCError (replaces a hand-rolled <ows:ExceptionText>
+    // regex). Pass responseText (string) — axios may return parsed XML.
+    await throwIfOGCException({ data: responseText }, 'WFS-T transaction failed');
 
     // Parse FID from TransactionResponse
     const fidMatch = responseText.match(/fid="([^"]+)"/);
@@ -286,11 +309,10 @@ export const wfstDelete = async(wfsUrl, typeName, featureId) => {
         ? response.data
         : new XMLSerializer().serializeToString(response.data);
 
-    if (responseText.includes('ExceptionReport') || responseText.includes('ExceptionText')) {
-        const errorMatch = responseText.match(/<ows:ExceptionText>([\s\S]*?)<\/ows:ExceptionText>/);
-        const errorMsg = errorMatch ? errorMatch[1].split('\n')[0] : 'WFS-T delete failed';
-        throw new Error(errorMsg);
-    }
+    // TASK-810 W0.4 — delegate ExceptionReport detection to MapStore2's
+    // upstream interceptOGCError (replaces a hand-rolled <ows:ExceptionText>
+    // regex). Pass responseText (string) — axios may return parsed XML.
+    await throwIfOGCException({ data: responseText }, 'WFS-T delete failed');
 
     return featureId;
 };
