@@ -14,10 +14,13 @@
  * has either column populated.
  */
 import expect from 'expect';
+// TASK-813 (W1.2) — These helpers moved from wfstApi.js to boundaryTranslate.js
+// (the new translate-registry shape). Aliased imports keep the existing test
+// code unchanged — we pin the wire contract by behaviour, not by export name.
 import {
-    translateTimeBoundaryProperties,
-    synthesizeTimeBoundaryFormValue
-} from '../wfstApi';
+    translateOut as translateTimeBoundaryProperties,
+    synthesizeIn as synthesizeTimeBoundaryFormValue
+} from '../boundaryTranslate';
 
 describe('TASK-795 translateTimeBoundaryProperties', () => {
 

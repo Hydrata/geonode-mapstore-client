@@ -5,9 +5,9 @@ import { show } from '../../../../MapStore2/web/client/actions/notifications';
 import { describeFeatureType } from '../../../../MapStore2/web/client/api/WFS';
 import { reprojectGeoJson } from '../../../../MapStore2/web/client/utils/CoordinatesUtils';
 import {
-    wfstInsert, wfstUpdate, wfstDelete, loadFeature, loadAllFeatures,
-    synthesizeTimeBoundaryFormValue
+    wfstInsert, wfstUpdate, wfstDelete, loadFeature, loadAllFeatures
 } from './wfstApi';
+import { getTranslate, deriveTranslateKey } from './translateRegistry';
 import {
     START_VECTOR_DRAW,
     CANCEL_VECTOR_DRAW,
@@ -111,7 +111,16 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
                         // something), and (b) C6 needing a per-column
                         // fallback branch that's now dead code. Synthesize
                         // once, persist once.
-                        const seededProps = synthesizeTimeBoundaryFormValue(
+                        //
+                        // TASK-813 (W1.2) — Dispatch through the translate
+                        // registry. For 'bdy_*' layers this routes to
+                        // boundaryTranslate.synthesizeIn (the former
+                        // synthesizeTimeBoundaryFormValue — see
+                        // boundaryTranslate.js). Unregistered prefixes get
+                        // the identity pass-through, so EDIT-load behaviour
+                        // is unchanged for non-Boundary layers (which had no
+                        // synth contract anyway).
+                        const seededProps = getTranslate(deriveTranslateKey(config.layerName)).synthesizeIn(
                             existingFeature?.properties || {}
                         );
                         return Rx.Observable.of(

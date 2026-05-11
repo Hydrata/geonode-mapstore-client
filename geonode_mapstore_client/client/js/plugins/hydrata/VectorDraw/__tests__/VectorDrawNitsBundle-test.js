@@ -24,7 +24,10 @@ import {
     returnToPicker
 } from '../actionsVectorDraw';
 import { extractDrawGeometry } from '../epicsVectorDraw';
-import { synthesizeTimeBoundaryFormValue } from '../wfstApi';
+// TASK-813 (W1.2) — synthesizeTimeBoundaryFormValue moved from wfstApi.js to
+// boundaryTranslate.js as `synthesizeIn`. Aliased to keep existing test code
+// stable; we pin the wire contract by behaviour, not by export name.
+import { synthesizeIn as synthesizeTimeBoundaryFormValue } from '../boundaryTranslate';
 import { PickerView } from '../components/VectorDrawPopup';
 
 describe('TASK-804 NIT-1: previousPhase explicitly cleared on START', () => {

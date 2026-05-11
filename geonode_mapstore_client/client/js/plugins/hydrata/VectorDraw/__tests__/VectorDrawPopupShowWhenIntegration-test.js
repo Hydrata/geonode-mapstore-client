@@ -23,7 +23,10 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { Provider } from 'react-redux';
 import VectorDrawPopup from '../components/VectorDrawPopup';
-import { translateTimeBoundaryProperties } from '../wfstApi';
+// TASK-813 (W1.2) — translateTimeBoundaryProperties moved from wfstApi.js to
+// boundaryTranslate.js as `translateOut`. Aliased to keep existing test code
+// stable; we pin the wire contract by behaviour, not by export name.
+import { translateOut as translateTimeBoundaryProperties } from '../boundaryTranslate';
 import { UPDATE_FORM_VALUES } from '../actionsVectorDraw';
 
 const FORM_CONFIG = {
