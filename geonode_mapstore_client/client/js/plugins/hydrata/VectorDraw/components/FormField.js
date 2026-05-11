@@ -2,97 +2,94 @@ import React, { useEffect, useState } from 'react';
 import { connect } from 'react-redux';
 import axios from '../../../../../MapStore2/web/client/libs/ajax';
 import { getProjectId } from '../../Anuga/selectorsAnuga';
+import { register, get } from '../widgetRegistry';
 
-const FormField = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
+// TASK-784 polish — all font / size / weight rules live in
+// vectorDrawPopup.css (`.vector-draw-popup *` resets to inherit,
+// and select/input/button get `font: inherit`). Inline styles below
+// are pure layout (flex / spacing) only — no fonts, no colors.
+//
+// TASK-812 (W1.1) — Each `switch (field.type)` case body is now a named
+// widget component, registered against the VectorDraw widget registry at
+// module load time. FormField just looks up the component by `field.type`
+// and renders it. New widget types can be added by external callers via
+// `register({name, component})` without touching this file.
+
+// Each widget owns its own onChange handler so the type-coercion rules
+// (parseFloat for number, e.target.checked for checkbox) stay co-located
+// with the rendered control. Widgets ignore props they don't need
+// (projectId / timeSeriesOptions are only used by TimeDataPicker).
+
+export const TextWidget = ({ field, value, onChange }) => {
+    const handleChange = (e) => onChange(field.name, e.target.value);
+    return (
+        <div className="simple-view-panel-item-row">
+            <label>{field.label}:</label>
+            <input
+                type="text"
+                value={value ?? ''}
+                onChange={handleChange}
+                style={{flex: 1, marginLeft: 8}}
+            />
+        </div>
+    );
+};
+
+export const NumberWidget = ({ field, value, onChange }) => {
     const handleChange = (e) => {
-        let val = e.target.value;
-        if (field.type === 'number') {
-            val = val === '' ? '' : parseFloat(val);
-        } else if (field.type === 'checkbox') {
-            val = e.target.checked;
-        }
+        const raw = e.target.value;
+        const val = raw === '' ? '' : parseFloat(raw);
         onChange(field.name, val);
     };
-
-    // TASK-784 polish — all font / size / weight rules live in
-    // vectorDrawPopup.css (`.vector-draw-popup *` resets to inherit,
-    // and select/input/button get `font: inherit`). Inline styles below
-    // are pure layout (flex / spacing) only — no fonts, no colors.
-    switch (field.type) {
-    case 'select':
-        return (
-            <div className="simple-view-panel-item-row">
-                <label>{field.label}:</label>
-                <select
-                    value={value ?? ''}
-                    onChange={handleChange}
-                    style={{flex: 1, marginLeft: 8}}
-                >
-                    {(field.options || []).map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                </select>
-            </div>
-        );
-    case 'number':
-        return (
-            <div className="simple-view-panel-item-row">
-                <label>{field.label}:</label>
-                <input
-                    type="number"
-                    value={value ?? ''}
-                    onChange={handleChange}
-                    min={field.min}
-                    max={field.max}
-                    step={field.step || 'any'}
-                    style={{flex: 1, marginLeft: 8, maxWidth: 120}}
-                />
-            </div>
-        );
-    case 'checkbox':
-        return (
-            <div className="simple-view-panel-item-row">
-                <label>
-                    <input
-                        type="checkbox"
-                        checked={!!value}
-                        onChange={handleChange}
-                        style={{marginRight: 8}}
-                    />
-                    {field.label}
-                </label>
-            </div>
-        );
-    case 'time-data-picker':
-        // TASK-795 — Compound widget for Time-boundary values.
-        // Owned shape on the formValues key (default name='data'):
-        //   { kind: 'constant',   constant: <Number> }
-        //   { kind: 'timeseries', timeseries_id: <Number> }
-        // The save epic reads this shape and translates to WFS-T props
-        // `data_constant` (FLOAT) OR `data_timeseries_id` (INTEGER).
-        return (
-            <TimeDataPicker
-                field={field}
-                value={value}
-                onChange={onChange}
-                projectId={projectId}
-                timeSeriesOptions={timeSeriesOptions}
+    return (
+        <div className="simple-view-panel-item-row">
+            <label>{field.label}:</label>
+            <input
+                type="number"
+                value={value ?? ''}
+                onChange={handleChange}
+                min={field.min}
+                max={field.max}
+                step={field.step || 'any'}
+                style={{flex: 1, marginLeft: 8, maxWidth: 120}}
             />
-        );
-    case 'text':
-    default:
-        return (
-            <div className="simple-view-panel-item-row">
-                <label>{field.label}:</label>
+        </div>
+    );
+};
+
+export const CheckboxWidget = ({ field, value, onChange }) => {
+    const handleChange = (e) => onChange(field.name, e.target.checked);
+    return (
+        <div className="simple-view-panel-item-row">
+            <label>
                 <input
-                    type="text"
-                    value={value ?? ''}
+                    type="checkbox"
+                    checked={!!value}
                     onChange={handleChange}
-                    style={{flex: 1, marginLeft: 8}}
+                    style={{marginRight: 8}}
                 />
-            </div>
-        );
-    }
+                {field.label}
+            </label>
+        </div>
+    );
+};
+
+export const SelectWidget = ({ field, value, onChange }) => {
+    const handleChange = (e) => onChange(field.name, e.target.value);
+    return (
+        <div className="simple-view-panel-item-row">
+            <label>{field.label}:</label>
+            <select
+                value={value ?? ''}
+                onChange={handleChange}
+                style={{flex: 1, marginLeft: 8}}
+            >
+                {(field.options || []).map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+        </div>
+    );
 };
 
 /**
@@ -253,6 +250,22 @@ export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOp
             )}
         </div>
     );
+};
+
+// TASK-812 (W1.1) — Register the 5 default widgets at module load time.
+// New widgets can be added by external callers via
+// `import { register } from '../widgetRegistry'` before any FormField mounts.
+// Overwriting an existing registration is allowed (last-write-wins) so test
+// suites can inject mocks for a specific widget name.
+register({ name: 'text', component: TextWidget });
+register({ name: 'number', component: NumberWidget });
+register({ name: 'checkbox', component: CheckboxWidget });
+register({ name: 'select', component: SelectWidget });
+register({ name: 'time-data-picker', component: TimeDataPicker });
+
+const FormField = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
+    const Component = get(field.type) || get('text');
+    return <Component field={field} value={value} onChange={onChange} projectId={projectId} timeSeriesOptions={timeSeriesOptions} />;
 };
 
 const mapStateToProps = (state) => ({
