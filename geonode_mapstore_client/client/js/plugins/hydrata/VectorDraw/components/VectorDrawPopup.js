@@ -20,20 +20,40 @@ import {
 // baseline) hasn't been mounted yet on this page-load ordering.
 import './vectorDrawPopup.css';
 
-// TASK-795 — Pure helper. Returns true if `field.showWhen` matches the
-// current formValues. Currently supports a single equality clause:
-//   showWhen: {field: 'boundary', equals: 'Time'}
-// When `field.showWhen` is undefined, the field is always rendered (no-op).
-// Exported so the SimpleView routing tests can pin the contract.
+/**
+ * TASK-795 / TASK-816 — Pure helper. Returns true if `field.showWhen`
+ * matches the current formValues. Used by FormField rendering to
+ * conditionally hide fields based on another field's value.
+ *
+ * Supported operators (mutually exclusive on a single showWhen object;
+ * evaluated in the order listed):
+ *   {field: 'X', equals: <value>}      current value === <value>
+ *   {field: 'X', notEquals: <value>}   current value !== <value>
+ *   {field: 'X', in: [<v1>, <v2>...]}  current value is in the array
+ *
+ * When `showWhen` is null/undefined the field is always rendered (no-op).
+ * Unknown operator KEYS return true (defensive default) so a typo in a
+ * formConfig never silently hides a field. A recognised operator with a
+ * malformed value (e.g. `in: 'Active'` instead of `in: ['Active']`)
+ * returns false — the predicate is well-formed but cannot match anything.
+ *
+ * Exported so the SimpleView routing tests can pin the contract.
+ */
 export const matchesShowWhen = (showWhen, formValues) => {
     if (!showWhen) return true;
     const current = formValues ? formValues[showWhen.field] : undefined;
     if ('equals' in showWhen) {
         return current === showWhen.equals;
     }
-    // Defensive default — unknown showWhen shape: render the field rather
-    // than silently hide. Future predicates (notEquals, in, ...) can be
-    // added without changing call sites.
+    if ('notEquals' in showWhen) {
+        return current !== showWhen.notEquals;
+    }
+    if ('in' in showWhen) {
+        return Array.isArray(showWhen.in) && showWhen.in.includes(current);
+    }
+    // Defensive default — unknown showWhen operator: render the field
+    // rather than silently hide. New predicates can be added above without
+    // changing call sites.
     return true;
 };
 
