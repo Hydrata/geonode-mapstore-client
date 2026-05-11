@@ -27,3 +27,7 @@ geonode_mapstore_client/client/package-lock.json
 #dist/
 
 /dist/
+
+# localConfig.json is a working copy for localhost dev — overwritten by Ansible
+# on every prod deploy from deploy-repo per-site files. Seed lives in localConfig.example.json.
+geonode_mapstore_client/static/mapstore/configs/localConfig.json
