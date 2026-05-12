@@ -17,6 +17,7 @@ const InputSection = ({
     titleMsgId,
     emptyMsgId = "hydrata.anuga.none",
     layers = [],
+    pendingItems = [],
     titleValue,
     onTitleChange,
     onCreate,
@@ -134,7 +135,21 @@ const InputSection = ({
                 )}
             </div>
             {!collapsed && layers?.map(layer => <MenuRow key={layer?.name || layer?.id} layer={layer}/>)}
-            {!collapsed && layers?.length === 0 ?
+            {!collapsed && pendingItems?.map((item, idx) => (
+                <div
+                    key={`pending-${item?.id || idx}`}
+                    className={"row menu-row anuga-pending-row"}
+                    aria-busy="true"
+                    aria-live="polite"
+                >
+                    <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                    <span className={"anuga-pending-title"}>{item?.title}</span>
+                    <span className={"anuga-pending-status"}>
+                        <Message msgId="hydrata.anuga.pendingLayerLabel" />
+                    </span>
+                </div>
+            ))}
+            {!collapsed && layers?.length === 0 && pendingItems?.length === 0 ?
                 <div className={"row menu-row anuga-section-empty-row"}>
                     <Message msgId={emptyMsgId} />
                 </div>
@@ -148,6 +163,7 @@ InputSection.propTypes = {
     titleMsgId: PropTypes.string.isRequired,
     emptyMsgId: PropTypes.string,
     layers: PropTypes.array,
+    pendingItems: PropTypes.array,
     titleValue: PropTypes.string,
     onTitleChange: PropTypes.func,
     onCreate: PropTypes.func,

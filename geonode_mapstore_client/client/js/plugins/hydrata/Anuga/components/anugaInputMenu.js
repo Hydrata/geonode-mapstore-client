@@ -33,11 +33,50 @@ import {
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 import InputSection from "./InputSection";
+import AnugaInputStarterCard from "./anugaInputStarterCard";
 
-import {canEditAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {canEditAnugaMap, getProjectId} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
+import {createSelector} from 'reselect';
 const Spinner = require('react-spinkit');
+
+const ACTIVE_TM_STATES = new Set(['pending', 'running']);
+const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Friction', 'Structure', 'MeshRegion'];
+const EMPTY_BY_ID = {};
+const EMPTY_IDS = [];
+
+const stripModelPrefix = (name) => {
+    if (!name || typeof name !== 'string') return name;
+    const idx = name.indexOf(': ');
+    return idx >= 0 ? name.slice(idx + 2) : name;
+};
+
+// Single pass over TaskMonitor processes, grouping in-flight layer_create work
+// by model class. Memoized so mapStateToProps doesn't re-walk on every action —
+// inputs stay reference-stable between TaskMonitor polls.
+const selectPendingByModel = createSelector(
+    [
+        (state) => state?.taskMonitor?.processes?.byId || EMPTY_BY_ID,
+        (state) => state?.taskMonitor?.processes?.allIds || EMPTY_IDS,
+        getProjectId
+    ],
+    (byId, ids, projectId) => {
+        const out = {};
+        for (const mc of PENDING_MODEL_CLASSES) out[mc] = [];
+        if (!projectId) return out;
+        const pid = String(projectId);
+        for (const id of ids) {
+            const p = byId[id];
+            if (!p || p.process_type !== 'layer_create') continue;
+            if (!ACTIVE_TM_STATES.has(p.status)) continue;
+            if (String(p.metadata?.project_id) !== pid) continue;
+            const mc = p.metadata?.model_class;
+            if (out[mc]) out[mc].push({id: p.id, title: stripModelPrefix(p.name)});
+        }
+        return out;
+    }
+);
 
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
@@ -68,6 +107,12 @@ class AnugaInputMenuClass extends React.Component {
         isCreatingAnugaLayer: PropTypes.bool,
         setCreatingAnugaLayer: PropTypes.func,
         canEditAnugaMap: PropTypes.func,
+        pendingBoundaries: PropTypes.array,
+        pendingInflows: PropTypes.array,
+        pendingFrictions: PropTypes.array,
+        pendingStructures: PropTypes.array,
+        pendingMeshRegions: PropTypes.array,
+        starterPhase: PropTypes.oneOf(['terrain', 'defaults']),
         addAnugaBoundary: PropTypes.func,
         addAnugaFriction: PropTypes.func,
         addAnugaInflow: PropTypes.func,
@@ -205,11 +250,18 @@ class AnugaInputMenuClass extends React.Component {
                         </div> : null
                     }
                 </div>
+                {this.props.starterPhase &&
+                    <AnugaInputStarterCard
+                        phase={this.props.starterPhase}
+                        onUploadTerrain={() => this.props.setVisibleUploaderPanel(true, "terrain", null)}
+                    />
+                }
                 {this.props.projectData?.projection ?
                     <React.Fragment>
                         <InputSection
                             titleMsgId="hydrata.anuga.boundaries"
                             layers={this.props.boundaryLayers}
+                            pendingItems={this.props.pendingBoundaries}
                             titleValue={this.state.boundaryTitle}
                             onTitleChange={(v) => this.setState({boundaryTitle: v})}
                             onCreate={() => this.createAndReset(this.props.createAnugaBoundary, 'boundaryTitle')}
@@ -223,6 +275,7 @@ class AnugaInputMenuClass extends React.Component {
                         <InputSection
                             titleMsgId="hydrata.anuga.inflows"
                             layers={this.props.inflowLayers}
+                            pendingItems={this.props.pendingInflows}
                             titleValue={this.state.inflowTitle}
                             onTitleChange={(v) => this.setState({inflowTitle: v})}
                             onCreate={() => this.createAndReset(this.props.createAnugaInflow, 'inflowTitle')}
@@ -282,6 +335,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <InputSection
                                     titleMsgId="hydrata.anuga.meshRegions"
                                     layers={this.props.meshRegionLayers}
+                                    pendingItems={this.props.pendingMeshRegions}
                                     titleValue={this.state.meshRegionTitle}
                                     onTitleChange={(v) => this.setState({meshRegionTitle: v})}
                                     onCreate={() => this.createAndReset(this.props.createAnugaMeshRegion, 'meshRegionTitle')}
@@ -295,6 +349,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <InputSection
                                     titleMsgId="hydrata.anuga.friction"
                                     layers={this.props.frictionLayers}
+                                    pendingItems={this.props.pendingFrictions}
                                     titleValue={this.state.frictionTitle}
                                     onTitleChange={(v) => this.setState({frictionTitle: v})}
                                     onCreate={() => this.createAndReset(this.props.createAnugaFriction, 'frictionTitle')}
@@ -308,6 +363,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <InputSection
                                     titleMsgId="hydrata.anuga.structures"
                                     layers={this.props.structureLayers}
+                                    pendingItems={this.props.pendingStructures}
                                     titleValue={this.state.structureTitle}
                                     onTitleChange={(v) => this.setState({structureTitle: v})}
                                     onCreate={() => this.createAndReset(this.props.createAnugaStructure, 'structureTitle')}
@@ -417,11 +473,17 @@ class AnugaInputMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    const projection = state?.anuga?.projects?.data?.projection;
+    const boundaryLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries');
+    const inflowLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows');
+    const pendingByModel = selectPendingByModel(state);
+    const starterPhase = !projection ? 'terrain'
+        : (boundaryLayers?.length === 0 && inflowLayers?.length === 0 ? 'defaults' : null);
     return {
         projectData: state?.anuga?.projects?.data,
         terrainLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Terrain'),
-        boundaryLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries'),
-        inflowLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows'),
+        boundaryLayers,
+        inflowLayers,
         frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction'),
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Mesh'),
@@ -440,6 +502,12 @@ const mapStateToProps = (state) => {
         catchmentModels: state?.anuga?.resources?.catchments,
         nodesModels: state?.anuga?.resources?.nodes,
         linksModels: state?.anuga?.resources?.links,
+        pendingBoundaries: pendingByModel.Boundary,
+        pendingInflows: pendingByModel.Inflow,
+        pendingFrictions: pendingByModel.Friction,
+        pendingStructures: pendingByModel.Structure,
+        pendingMeshRegions: pendingByModel.MeshRegion,
+        starterPhase,
         isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer,
         canEditAnugaMap: canEditAnugaMap(state)
     };
