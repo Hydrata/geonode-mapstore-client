@@ -6,22 +6,22 @@
     <hr class="featurette-divider">
 
     <div class="hydrata-how-it-works">
-        <h2 class="text-center" style="margin-bottom: 30px;">How It Works</h2>
+        <h2 class="text-center" style="margin-bottom: 30px;">{% trans "How It Works" %}</h2>
         <div class="row">
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">1</div>
-                <h3>Configure</h3>
-                <p>Upload your DEM, define boundary conditions, set friction and rainfall inputs. Or let your AI assistant do it via MCP.</p>
+                <h3>{% trans "Upload" %}</h3>
+                <p>{% trans "Drop your model — HEC-RAS .prj or ANUGA project. NDA + intake form. Payment at booking." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">2</div>
-                <h3>Simulate</h3>
-                <p>ANUGA runs in the cloud. No queue, no desktop licence. Merewether benchmark completes in under 2 minutes.</p>
+                <h3>{% trans "Audit" %}</h3>
+                <p>{% trans "We run model-ingest review, mass-balance audit, mesh-quality assessment, parameter-sensitivity check, and jurisdiction-checklist comparison." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">3</div>
-                <h3>Results</h3>
-                <p>Flood depth maps, velocity fields, and extent polygons published as OGC WMS layers. Download or share via URL.</p>
+                <h3>{% trans "Deliver" %}</h3>
+                <p>{% trans "Signed advisory PDF, raw outputs, and a live web portal your reviewer can comment on in context. Five working days, end to end." %}</p>
             </div>
         </div>
     </div>
@@ -76,24 +76,47 @@
     <hr class="featurette-divider">
 
     <div class="hydrata-users-section">
-        <h2 class="text-center" style="margin-bottom: 30px;">Who Uses Hydrata</h2>
+        <h2 class="text-center" style="margin-bottom: 30px;">{% trans "Who Uses Hydrata" %}</h2>
         <div class="row">
             <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Consulting Engineers</h4>
-                <p>Spend less time on model setup, more on engineering judgement. One platform for terrain, scenarios, and results.</p>
+                <h4>{% trans "Major consultancies (HEC-RAS, design-and-build)" %}</h4>
+                <p>{% trans "You're submitting to a PMEC or independent reviewer. Drop your .prj — get the documentation that gets you to Code 2 on the first cycle." %}</p>
             </div>
             <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Government Agencies</h4>
-                <p>Transparent, reproducible flood modelling with a full audit trail. Every input tracked, every result published.</p>
+                <h4>{% trans "Local authorities & reviewers" %}</h4>
+                <p>{% trans "You retain the regulatory responsibility but don't have in-house flood capability. Outsource the technical review; keep the audit trail." %}</p>
             </div>
             <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Researchers</h4>
-                <p>ANUGA's physics, without the Python scripting barrier. Focus on science, not infrastructure.</p>
+                <h4>{% trans "Municipal stormwater (NPDES Phase II)" %}</h4>
+                <p>{% trans "BMP audit trail, jurisdiction-checklist, annual NPDES compliance for stormwater consultants serving municipal clients." %}</p>
             </div>
             <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Development Finance</h4>
-                <p>Professional flood modelling for project appraisal in data-scarce regions. No expensive desktop licences.</p>
+                <h4>{% trans "Researchers (ANUGA + Python)" %}</h4>
+                <p>{% trans "Run ANUGA in the cloud, no infrastructure required. Free tier, open-source codebase." %}</p>
             </div>
+        </div>
+    </div>
+
+    <hr class="featurette-divider">
+
+    <div class="hydrata-developer-tools">
+        <h2 class="text-center" style="margin-bottom: 10px;">{% trans "Developer tools" %}</h2>
+        <p class="text-center" style="margin-bottom: 24px;">{% trans "Hydrata also exposes a Model Context Protocol endpoint for AI assistants." %}</p>
+        <div class="hydrata-code-block">
+            <div class="hydrata-code-label">Claude Code + Hydrata MCP</div>
+<pre><code><span class="code-comment"># Connect your AI assistant to Hydrata</span>
+<span class="code-prompt">$</span> claude mcp add hydrata https://hydrata.com/mcp/ \
+    --transport streamable-http --header "Authorization: Bearer $HYDRATA_TOKEN"
+
+<span class="code-prompt">&gt;</span> Create a flood model for Merewether, NSW using a 5m DEM
+  <span class="code-tool">Tool: create_project</span>("Merewether Flood Study")           <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: upload_dem</span>(project_id=42, file="merewether_5m.tif")  <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: create_scenario</span>(friction=0.03, rainfall="100yr_6hr") <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: run_simulation</span>(scenario_id=87)                      <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: get_results</span>(run_id=201)                             <span class="code-ok">OK</span>
+
+  Simulation complete. Peak depth: 1.42m at outlet.
+  Results: https://hydrata.com/catalogue/merewether-flood-depth-201</code></pre>
         </div>
     </div>
 
