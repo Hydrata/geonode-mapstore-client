@@ -6,13 +6,12 @@
     <div class="jumbotron">
         <div class="gn-hero-description">
             <h1>Hydrata</h1>
-            <p class="hydrata-hero-verbs"><strong>{% trans "Validate. Verify. Comply. Communicate." %}</strong></p>
-            <p>{% trans "The cloud workspace where consultants prove their hydraulic models are right — before the reviewer sends them back." %}</p>
+            <p class="hydrata-hero-verbs">{% trans "Validate. Verify. Comply. Communicate." %}</p>
+            <p>{% trans "The verification platform for consultants to prove their hydraulic models are correct." %}</p>
         </div>
         <p class="gn-hero-tools">
             {% if not user.is_authenticated %}
-            <a href="#verification-engagement" class="btn btn-success btn-lg">{% trans "Book a Verification Engagement — $2,000" %}</a>
-            <a href="#home-page-register-form" class="btn btn-default btn-lg" style="margin-left: 10px;">{% trans "Try it free with ANUGA" %}</a>
+            <a href="mailto:david.kennewell@hydrata.com?subject=20-minute%20call" class="btn btn-success btn-lg">{% trans "Book a 20-minute call" %}</a>
             {% endif %}
         </p>
     </div>
@@ -39,7 +38,7 @@
 
 <div class="hydrata-trust-bar">
     <div class="container">
-        <p class="hydrata-trust-credential">{% trans "Led by a Chartered Professional Engineer (CPEng, Engineers Australia, NPER NSW) with 25 years on infrastructure projects from US$300M to US$6B." %}</p>
+        <p class="hydrata-trust-credential">{% trans "Designed by engineers, for engineers." %}</p>
         <p class="hydrata-trust-engines">{% blocktrans %}Verification supported for HEC-RAS · ANUGA. <a href="https://github.com/anuga-community/anuga_core">ANUGA</a> <a href="/docs/validation/">validated against 30+ benchmark problems</a>.{% endblocktrans %}</p>
     </div>
 </div>
@@ -186,19 +185,19 @@
 <div class="container">
     <div class="hydrata-value-cards">
         <div class="hydrata-value-card">
-            <h3>{% trans "Validate" %}</h3>
+            <h2>{% trans "Validate" %}</h2>
             <p>{% trans "Mass-balance audit, mesh-quality assessment, parameter sensitivity. Catch the issues a reviewer would catch — before the model leaves your office." %}</p>
         </div>
         <div class="hydrata-value-card">
-            <h3>{% trans "Verify" %}</h3>
+            <h2>{% trans "Verify" %}</h2>
             <p>{% trans "Bring your existing HEC-RAS or ANUGA model. Get a signed advisory PDF in 5 working days, with every check traceable to its evidence." %}</p>
         </div>
         <div class="hydrata-value-card">
-            <h3>{% trans "Comply" %}</h3>
-            <p>{% trans "Jurisdiction-checklist comparison (FEMA MT-2, FIDIC, NPDES, local council). Every item ticked, every tick linked to its source." %}</p>
+            <h2>{% trans "Comply" %}</h2>
+            <p>{% trans "Jurisdiction-checklist comparison against your design criteria. Every item ticked, every tick linked to its source." %}</p>
         </div>
         <div class="hydrata-value-card">
-            <h3>{% trans "Communicate" %}</h3>
+            <h2>{% trans "Communicate" %}</h2>
             <p>{% trans "Live web portal — reviewers drop comments tied to the geospatial context of the model, not as generic input-variable changes that ripple across the project." %}</p>
         </div>
     </div>

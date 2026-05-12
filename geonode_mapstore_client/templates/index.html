@@ -21,7 +21,7 @@
             {% elif job_name == 'nicp' %}
                 <meta name="description" content="Nicaragua Hydro Portal - Open platform for hydrogeological data and groundwater resource planning in Nicaragua.">
             {% elif job_name == 'hydratabase' %}
-                <meta name="description" content="Get your HEC-RAS or ANUGA model validated, verified, and review-ready. Signed advisory report in five working days. Led by a Chartered Professional Engineer.">
+                <meta name="description" content="The verification platform for consultants. Prove your HEC-RAS or ANUGA hydraulic model is correct. Designed by engineers, for engineers. Open source. Auditable.">
             {% endif %}
         {% endblock %}
         {% include './geonode-mapstore-client/snippets/umami_tracking.html' %}
@@ -47,7 +47,9 @@
                         {% if job_name == 'hydratabase' and user.is_authenticated %}
                         <div id="gn-home-my-resources-grid"></div>
                         {% endif %}
+                        {% if job_name != 'hydratabase' %}
                         <div id="gn-home-featured-resources-grid"></div>
+                        {% endif %}
                         <div id="gn-home-resources-grid"></div>
                     </div>
                 {% endblock %}
