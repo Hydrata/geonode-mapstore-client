@@ -454,4 +454,24 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(f.default).toBe('Rainfall');
         });
     });
+
+    // Regression guard: text→select restoration. Originally a FeatureGrid
+    // dropdown, both fields got flattened to plain text inputs during the
+    // VectorDraw migration (commit 823df8c9b). Restored as `select` widgets
+    // 2026-05-12 so users can no longer type free-form values the engine
+    // doesn't understand.
+    describe('ANUGA_FEATURE_CONFIG select-widget regressions restored', () => {
+        it('inf_ type is a select with Rainfall and Surface', () => {
+            const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'type');
+            expect(f.type).toBe('select');
+            const values = (f.options || []).map(o => o.value);
+            expect(values).toEqual(['Rainfall', 'Surface']);
+        });
+        it('str_ method is a select with Holes, Mannings, Reflective', () => {
+            const f = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method');
+            expect(f.type).toBe('select');
+            const values = (f.options || []).map(o => o.value);
+            expect(values).toEqual(['Holes', 'Mannings', 'Reflective']);
+        });
+    });
 });

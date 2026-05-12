@@ -259,6 +259,12 @@
     border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 3px;
     margin: 3px 0;
+    /* Each section grows to fit its content; the outer .simple-view-panel-col-one
+       handles vertical scroll. Without this override, `.menu-rows-container`'s
+       `overflow-y: auto` would render a scrollbar inside every expanded section. */
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow-y: visible;
 }
 
 .anuga-section-header {

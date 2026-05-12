@@ -151,10 +151,17 @@ const ANUGA_FEATURE_CONFIG = {
             title: 'Inflow',
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
-                {name: 'type', type: 'text', label: 'Type', "default": 'Rainfall'},
+                {name: 'type', type: 'select', label: 'Type', "default": 'Rainfall',
+                    options: [
+                        {value: 'Rainfall', label: 'Rainfall'},
+                        {value: 'Surface', label: 'Surface'}
+                    ]},
                 // BE attribute is declared `string` (scenario.py:384). Real
                 // users may type a TimeSeries name (alphanumeric — see
-                // Inflow.make_file() at scenario.py:399-404). KEEP AS TEXT.
+                // Inflow.make_file() at scenario.py:399-404). KEEP AS TEXT
+                // until TASK-820 lands the FeatureDataMixin refactor; then
+                // swap to a Constant/TimeSeries picker mirroring boundary's
+                // `time-data-picker` widget.
                 {name: 'data', type: 'text', label: 'Data', "default": '100'}
             ]
         }
@@ -185,7 +192,12 @@ const ANUGA_FEATURE_CONFIG = {
             title: 'Structure',
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
-                {name: 'method', type: 'text', label: 'Method', "default": 'Holes'}
+                {name: 'method', type: 'select', label: 'Method', "default": 'Holes',
+                    options: [
+                        {value: 'Holes', label: 'Holes'},
+                        {value: 'Mannings', label: 'Mannings'},
+                        {value: 'Reflective', label: 'Reflective'}
+                    ]}
             ]
         }
     }
