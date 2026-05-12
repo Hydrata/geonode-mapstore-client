@@ -6,13 +6,13 @@
     <div class="jumbotron">
         <div class="gn-hero-description">
             <h1>Hydrata</h1>
-            <p>{% trans "Professional flood modelling, without the setup overhead." %}</p>
-            <p>{% trans "Upload terrain, define scenarios, simulate, and publish — all in one place." %}</p>
+            <p class="hydrata-hero-verbs"><strong>{% trans "Validate. Verify. Comply. Communicate." %}</strong></p>
+            <p>{% trans "The cloud workspace where consultants prove their hydraulic models are right — before the reviewer sends them back." %}</p>
         </div>
         <p class="gn-hero-tools">
             {% if not user.is_authenticated %}
-            <a href="#home-page-register-form" class="btn btn-success btn-lg">Get Started Free</a>
-            <a href="/docs/" class="btn btn-default btn-lg" style="margin-left: 10px;">Read the Docs</a>
+            <a href="#verification-engagement" class="btn btn-success btn-lg">{% trans "Book a Verification Engagement — $2,000" %}</a>
+            <a href="#home-page-register-form" class="btn btn-default btn-lg" style="margin-left: 10px;">{% trans "Try it free with ANUGA" %}</a>
             {% endif %}
         </p>
     </div>
@@ -39,30 +39,10 @@
 
 <div class="hydrata-trust-bar">
     <div class="container">
-        <p>Built on <a href="https://github.com/anuga-community/anuga_core"><strong>ANUGA</strong></a> — developed by Geoscience Australia and Australian National University. <a href="/docs/validation/">Validated against 30+ benchmark problems.</a></p>
+        <p class="hydrata-trust-credential">{% trans "Led by a Chartered Professional Engineer (CPEng, Engineers Australia, NPER NSW) with 25 years on infrastructure projects from US$300M to US$6B." %}</p>
+        <p class="hydrata-trust-engines">{% blocktrans %}Verification supported for HEC-RAS · ANUGA. <a href="https://github.com/anuga-community/anuga_core">ANUGA</a> <a href="/docs/validation/">validated against 30+ benchmark problems</a>.{% endblocktrans %}</p>
     </div>
 </div>
-
-{% comment %}
-<div class="container">
-    <div class="hydrata-code-block">
-        <div class="hydrata-code-label">Claude Code + Hydrata MCP</div>
-<pre><code><span class="code-comment"># Connect your AI assistant to Hydrata</span>
-<span class="code-prompt">$</span> claude mcp add hydrata https://hydrata.com/mcp/ \
-    --transport streamable-http --header "Authorization: Bearer $HYDRATA_TOKEN"
-
-<span class="code-prompt">></span> Create a flood model for Merewether, NSW using a 5m DEM
-  <span class="code-tool">Tool: create_project</span>("Merewether Flood Study")           <span class="code-ok">OK</span>
-  <span class="code-tool">Tool: upload_dem</span>(project_id=42, file="merewether_5m.tif")  <span class="code-ok">OK</span>
-  <span class="code-tool">Tool: create_scenario</span>(friction=0.03, rainfall="100yr_6hr") <span class="code-ok">OK</span>
-  <span class="code-tool">Tool: run_simulation</span>(scenario_id=87)                      <span class="code-ok">OK</span>
-  <span class="code-tool">Tool: get_results</span>(run_id=201)                             <span class="code-ok">OK</span>
-
-  Simulation complete. Peak depth: 1.42m at outlet.
-  Results: https://hydrata.com/catalogue/merewether-flood-depth-201</code></pre>
-    </div>
-</div>
-{% endcomment %}
 
 <div class="container">
     <div id="home-page-forms">
@@ -206,20 +186,20 @@
 <div class="container">
     <div class="hydrata-value-cards">
         <div class="hydrata-value-card">
-            <h3>Seamless Data</h3>
-            <p>Upload DEMs, define boundaries, run simulations, and publish results — all in one platform. No file juggling between tools.</p>
+            <h3>{% trans "Validate" %}</h3>
+            <p>{% trans "Mass-balance audit, mesh-quality assessment, parameter sensitivity. Catch the issues a reviewer would catch — before the model leaves your office." %}</p>
         </div>
         <div class="hydrata-value-card">
-            <h3>Faster Setup</h3>
-            <p>Engineers spend 68% of project time on model setup. Hydrata manages mesh generation, friction, and boundaries from your GIS data.</p>
+            <h3>{% trans "Verify" %}</h3>
+            <p>{% trans "Bring your existing HEC-RAS or ANUGA model. Get a signed advisory PDF in 5 working days, with every check traceable to its evidence." %}</p>
         </div>
         <div class="hydrata-value-card">
-            <h3>Collaborate</h3>
-            <p>Your whole team works on the same model. Every input tracked, every result published. No versioning headaches.</p>
+            <h3>{% trans "Comply" %}</h3>
+            <p>{% trans "Jurisdiction-checklist comparison (FEMA MT-2, FIDIC, NPDES, local council). Every item ticked, every tick linked to its source." %}</p>
         </div>
         <div class="hydrata-value-card">
-            <h3>Open &amp; Portable</h3>
-            <p>Built on ANUGA (GPL). Export your model files anytime. No vendor lock-in, no proprietary formats.</p>
+            <h3>{% trans "Communicate" %}</h3>
+            <p>{% trans "Live web portal — reviewers drop comments tied to the geospatial context of the model, not as generic input-variable changes that ripple across the project." %}</p>
         </div>
     </div>
 </div>

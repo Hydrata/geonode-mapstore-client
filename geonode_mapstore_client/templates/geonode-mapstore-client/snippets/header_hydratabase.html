@@ -12,16 +12,16 @@
     {% if show_hero %}
     <link href="{% static 'hydratabase/css/hydratabase_home.css' %}?{{ deploy_commit }}" rel="stylesheet"/>
     <meta property="og:type" content="website"/>
-    <meta property="og:title" content="Hydrata — Professional Flood Modelling, Simplified"/>
-    <meta property="og:description" content="Professional 2D flood modelling without the setup overhead. Upload terrain, define scenarios, simulate with ANUGA, and publish results — all in one platform."/>
+    <meta property="og:title" content="Hydrata — Hydraulic Model Verification"/>
+    <meta property="og:description" content="Get your HEC-RAS or ANUGA model validated, verified, and review-ready. Signed advisory report in five working days. Led by a Chartered Professional Engineer."/>
     <meta property="og:url" content="https://hydrata.com"/>
     <meta property="og:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
     <meta name="twitter:card" content="summary_large_image"/>
     <meta name="twitter:site" content="@hydrata"/>
-    <meta name="twitter:title" content="Hydrata — Professional Flood Modelling, Simplified"/>
-    <meta name="twitter:description" content="Professional 2D flood modelling without the setup overhead. Upload terrain, define scenarios, simulate with ANUGA, and publish results — all in one platform."/>
+    <meta name="twitter:title" content="Hydrata — Hydraulic Model Verification"/>
+    <meta name="twitter:description" content="Get your HEC-RAS or ANUGA model validated, verified, and review-ready. Signed advisory report in five working days. Led by a Chartered Professional Engineer."/>
     <meta name="twitter:image" content="https://hydrata.com/static/img/blue-mountains-overview-01.jpg"/>
-    <meta name="description" content="Professional 2D flood modelling without the setup overhead. Upload terrain, define scenarios, simulate with ANUGA, and publish results — all in one platform. Free trial."/>
+    <meta name="description" content="Get your HEC-RAS or ANUGA model validated, verified, and review-ready. Signed advisory report in five working days. Led by a Chartered Professional Engineer."/>
     <link rel="canonical" href="https://hydrata.com/"/>
     <link rel="llms" href="https://hydrata.com/llms.txt" type="text/plain"/>
     <script type="application/ld+json">
@@ -34,7 +34,7 @@
           "url": "https://hydrata.com/",
           "applicationCategory": "EngineeringApplication",
           "operatingSystem": "Web",
-          "description": "Cloud-based 2D hydraulic flood modelling platform powered by the ANUGA solver. Manages the full workflow — terrain upload, scenario configuration, cloud simulation, and results publishing.",
+          "description": "Hydraulic model verification platform. Validate, verify, and document HEC-RAS and ANUGA flood models — signed advisory reports led by a Chartered Professional Engineer, with a live web portal for reviewers to comment in geospatial context.",
           "isBasedOn": [
             {
               "@type": "SoftwareApplication",
@@ -44,19 +44,20 @@
             }
           ],
           "featureList": [
+            "Hydraulic model verification (HEC-RAS, ANUGA)",
+            "Mass-balance audit and mesh-quality assessment",
+            "Parameter-sensitivity check on critical inputs",
+            "Jurisdiction-checklist comparison (FEMA, FIDIC, NPDES, local council)",
+            "Signed advisory PDF and raw audit outputs",
+            "Live web portal for reviewer comments in geospatial context",
             "Cloud 2D flood simulation (ANUGA solver)",
-            "MCP server for AI coding assistants",
-            "REST API for programmatic access",
-            "OGC WMS/WFS geospatial services",
-            "DEM upload and mesh generation",
-            "Scenario comparison and reporting",
-            "Cloud compute on demand"
+            "REST API and OGC WMS/WFS geospatial services"
           ],
           "offers": {
             "@type": "Offer",
             "price": "0",
             "priceCurrency": "USD",
-            "description": "Free tier: 3 simulation runs, no credit card required. Pay-per-compute for larger models."
+            "description": "Free trial: 3 ANUGA simulation runs, no credit card required. Verification Engagement priced separately."
           },
           "publisher": {
             "@type": "Organization",
@@ -73,26 +74,26 @@
           "mainEntity": [
             {
               "@type": "Question",
-              "name": "What is the best cloud-based 2D flood modelling software?",
+              "name": "How do I get a HEC-RAS or ANUGA flood model verified before submission?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Hydrata is a cloud-based 2D flood modelling platform that manages the full workflow — from DEM upload and mesh generation through simulation to published results. It runs the ANUGA open-source solver, developed by Geoscience Australia and ANU, validated against 30+ benchmark problems. Engineers spend 68% of project time on model setup; Hydrata compresses that by managing inputs, compute, and outputs in one place."
+                "text": "Hydrata's Verification Engagement is a five-working-day advisory review of a finished hydraulic model. The consultant hands over the model files — HEC-RAS project or ANUGA project — and Hydrata returns a model-ingest review, mass-balance audit, mesh-quality assessment, parameter-sensitivity check, and a jurisdiction-checklist comparison, packaged as a signed advisory PDF plus a live web portal a reviewer can comment on in geospatial context. The engagement is advisory; the consultant remains the model-of-record."
               }
             },
             {
               "@type": "Question",
-              "name": "How do I run ANUGA without installing Python?",
+              "name": "What is a hydraulic model verification report?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Hydrata provides a web interface and REST API for the ANUGA solver. Upload terrain data, define boundary conditions and friction maps through the browser, and submit simulations to cloud compute. Results are published as OGC WMS layers. No Python environment, no local installation, and model files remain portable — you can export and run locally with run_anuga anytime."
+                "text": "A verification report documents the steps a hydraulic model passed before submission — calibration and validation against observations, internal consistency checks (mass balance, mesh quality, boundary conditions, parameter sensitivity), and a comparison to the applicable jurisdiction checklist (FEMA, FIDIC, NPDES, or a local-council criterion set). It is signed by a Chartered Professional Engineer and accompanied by raw outputs and a live web checklist, so a reviewer can trace every claim back to its evidence."
               }
             },
             {
               "@type": "Question",
-              "name": "Why is flood model setup so time-consuming?",
+              "name": "Why do flood models get sent back by reviewers?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Flood model setup typically consumes 68% of project time — mesh generation, boundary definition, friction mapping, and data preprocessing. If a mesh is regenerated, manual edits are lost. Hydrata addresses this by managing terrain data, scenario configuration, and simulation outputs in a single platform with version tracking, so engineers spend more time on engineering judgement and less on file management."
+                "text": "Most send-backs are not engineering errors — they are methodology, criteria interpretation, or presentation gaps that were never locked down up front. Moving goalposts inside the review cycle, model multiplicity across the same site, and criterion ambiguity (e.g. 'culvert running 70% full' interpreted two ways) are the recurring failure modes. Hydrata's verification workflow captures these feedback loops before the model leaves the office, by enforcing unskippable checklists and tying every reviewer comment to the geospatial context of the model rather than to a generic input variable."
               }
             }
           ]

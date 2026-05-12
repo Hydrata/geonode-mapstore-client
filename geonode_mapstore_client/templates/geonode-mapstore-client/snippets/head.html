@@ -11,7 +11,11 @@
 {%endblock font %}
 
 <link href="{% static 'mapstore/dist/themes/geonode.css' %}?{% client_version %}" rel="stylesheet" />
+{% if job_name == 'hydratabase' %}
+<title>Hydrata — Hydraulic Model Verification</title>
+{% else %}
 <title>{{ SITE_NAME }}</title>
+{% endif %}
 
 {%block favicon%}
     <link rel="shortcut icon" href="{% static 'geonode/img/favicon.ico' %}" />

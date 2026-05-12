@@ -6,68 +6,148 @@
     <hr class="featurette-divider">
 
     <div class="hydrata-how-it-works">
-        <h2 class="text-center" style="margin-bottom: 30px;">How It Works</h2>
+        <h2 class="text-center" style="margin-bottom: 30px;">{% trans "How It Works" %}</h2>
         <div class="row">
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">1</div>
-                <h3>Configure</h3>
-                <p>Upload your DEM, define boundary conditions, set friction and rainfall inputs. Or let your AI assistant do it via MCP.</p>
+                <h3>{% trans "Upload" %}</h3>
+                <p>{% trans "Drop your model — HEC-RAS .prj or ANUGA project. NDA + intake form. Payment at booking." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">2</div>
-                <h3>Simulate</h3>
-                <p>ANUGA runs in the cloud. No queue, no desktop licence. Merewether benchmark completes in under 2 minutes.</p>
+                <h3>{% trans "Audit" %}</h3>
+                <p>{% trans "We run model-ingest review, mass-balance audit, mesh-quality assessment, parameter-sensitivity check, and jurisdiction-checklist comparison." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">3</div>
-                <h3>Results</h3>
-                <p>Flood depth maps, velocity fields, and extent polygons published as OGC WMS layers. Download or share via URL.</p>
+                <h3>{% trans "Deliver" %}</h3>
+                <p>{% trans "Signed advisory PDF, raw outputs, and a live web portal your reviewer can comment on in context. Five working days, end to end." %}</p>
             </div>
         </div>
+    </div>
+
+    <hr class="featurette-divider">
+
+    <div id="verification-engagement" class="hydrata-verification-engagement">
+        <h2 class="text-center" style="margin-bottom: 16px;">{% trans "Have a model under review? Book a Verification Engagement." %}</h2>
+        <p class="text-center" style="margin-bottom: 20px;">{% trans "You hand over a finished model — HEC-RAS or ANUGA. In five working days we return:" %}</p>
+        <ul class="hydrata-engagement-checklist">
+            <li>{% trans "A model-ingest review" %}</li>
+            <li>{% trans "A mass-balance audit" %}</li>
+            <li>{% trans "A mesh-quality assessment" %}</li>
+            <li>{% trans "A parameter-sensitivity check on the critical inputs" %}</li>
+            <li>{% trans "A jurisdiction-checklist comparison (FEMA MT-2, FIDIC, NPDES, local council)" %}</li>
+            <li>{% trans "A signed advisory PDF (8–12 pages) plus the raw mass-balance / sensitivity outputs" %}</li>
+            <li>{% trans "One round of clarifying Q&A with a Chartered Professional Engineer" %}</li>
+        </ul>
+        <p class="hydrata-engagement-advisory text-center" style="margin-top: 16px; font-style: italic; color: #475569;">{% trans "Advisory, not certification. Hydrata identifies issues; you remain the model-of-record." %}</p>
+        <p class="hydrata-engagement-terms text-center" style="margin-top: 12px; font-weight: 600;">{% trans "USD 2,000 flat · paid at booking · 5 working days intake-to-delivery." %}</p>
+        <p class="hydrata-engagement-ctas text-center" style="margin-top: 20px;">
+            <a href="mailto:david.kennewell@hydrata.com?subject=Verification%20Engagement%20enquiry" class="btn btn-success btn-lg">{% trans "Book a 20-min review call" %}</a>
+            <a href="{% static 'sample-verification-report.pdf' %}" class="btn btn-default btn-lg" style="margin-left: 10px;">{% trans "Download a sample report" %}</a>
+        </p>
     </div>
 
     <hr class="featurette-divider">
 
     <div class="hydrata-pricing-summary">
-        <h2 class="text-center" style="margin-bottom: 30px;">Pricing</h2>
+        <h2 class="text-center" style="margin-bottom: 30px;">{% trans "Pricing" %}</h2>
         <div class="row">
-            <div class="col-md-4">
-                <div class="hydrata-pricing-card">
-                    <h3>Free</h3>
-                    <p class="hydrata-pricing-price">$0</p>
-                    <ul>
-                        <li>3 simulation runs</li>
-                        <li>No credit card required</li>
-                        <li>Full API and MCP access</li>
-                        <li>Results published as WMS</li>
-                    </ul>
-                    <a href="#home-page-register-form" class="btn btn-success btn-block">Sign Up Free</a>
-                </div>
-            </div>
-            <div class="col-md-4">
+            <div class="col-md-3 col-sm-6">
                 <div class="hydrata-pricing-card hydrata-pricing-featured">
-                    <h3>Pay-as-you-go</h3>
-                    <p class="hydrata-pricing-price">$0.25–0.35/hr</p>
+                    <h3>{% trans "Verification Engagement" %}</h3>
+                    <p class="hydrata-pricing-price">{% trans "$2,000 one-time" %}</p>
                     <ul>
-                        <li>Unlimited simulation runs</li>
-                        <li>Cloud compute on demand</li>
-                        <li>Priority compute queue</li>
-                        <li>Email support</li>
+                        <li>{% trans "Signed advisory report" %}</li>
+                        <li>{% trans "5-day turnaround" %}</li>
+                        <li>{% trans "HEC-RAS or ANUGA" %}</li>
+                        <li>{% trans "One round of clarifying Q&A" %}</li>
                     </ul>
-                    <a href="#home-page-register-form" class="btn btn-success btn-block">Get Started</a>
+                    <a href="mailto:david.kennewell@hydrata.com?subject=Verification%20Engagement%20enquiry" class="btn btn-success btn-block">{% trans "Book now" %}</a>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3 col-sm-6">
                 <div class="hydrata-pricing-card">
-                    <h3>Team</h3>
-                    <p class="hydrata-pricing-price">Contact us</p>
+                    <h3>{% trans "Free trial" %}</h3>
+                    <p class="hydrata-pricing-price">{% trans "$0" %}</p>
                     <ul>
-                        <li>Shared project workspace</li>
-                        <li>Dedicated compute resources</li>
-                        <li>Custom integrations</li>
-                        <li>Priority support</li>
+                        <li>{% trans "3 simulation runs" %}</li>
+                        <li>{% trans "No credit card" %}</li>
+                        <li>{% trans "API access" %}</li>
+                        <li>{% trans "ANUGA solver" %}</li>
                     </ul>
-                    <a href="mailto:david.kennewell@hydrata.com" class="btn btn-default btn-block">Contact</a>
+                    <a href="#home-page-register-form" class="btn btn-default btn-block">{% trans "Sign Up Free" %}</a>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="hydrata-pricing-card">
+                    <h3>{% trans "Pro" %}</h3>
+                    <p class="hydrata-pricing-price">{% trans "$2,400 / year" %}</p>
+                    <ul>
+                        <li>{% trans "Self-service verification reports" %}</li>
+                        <li>{% trans "Unlimited models" %}</li>
+                        <li>{% trans "Audit trail" %}</li>
+                        <li>{% trans "Jurisdiction templates" %}</li>
+                    </ul>
+                    <a href="mailto:david.kennewell@hydrata.com?subject=Pro%20tier%20enquiry" class="btn btn-default btn-block">{% trans "Contact" %}</a>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="hydrata-pricing-card">
+                    <h3>{% trans "Team" %}</h3>
+                    <p class="hydrata-pricing-price">{% trans "$18,000 / year" %}</p>
+                    <ul>
+                        <li>{% trans "Shared workspace" %}</li>
+                        <li>{% trans "Dedicated compute" %}</li>
+                        <li>{% trans "Compliance templates" %}</li>
+                        <li>{% trans "Priority support" %}</li>
+                    </ul>
+                    <a href="mailto:david.kennewell@hydrata.com?subject=Team%20tier%20enquiry" class="btn btn-default btn-block">{% trans "Contact" %}</a>
+                </div>
+            </div>
+        </div>
+        <p class="text-center hydrata-pricing-note" style="margin-top: 16px; color: #6b7280; font-size: 14px;">{% trans "Custom & Enterprise tiers — $75k / $150k+ — available on request." %}</p>
+    </div>
+
+    <hr class="featurette-divider">
+
+    <div class="hydrata-users-section">
+        <h2 class="text-center" style="margin-bottom: 30px;">{% trans "Who Uses Hydrata" %}</h2>
+        <div class="row">
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>{% trans "Major consultancies (HEC-RAS, design-and-build)" %}</h4>
+                <p>{% trans "You're submitting to a PMEC or independent reviewer. Drop your .prj — get the documentation that gets you to Code 2 on the first cycle." %}</p>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>{% trans "Local authorities & reviewers" %}</h4>
+                <p>{% trans "You retain the regulatory responsibility but don't have in-house flood capability. Outsource the technical review; keep the audit trail." %}</p>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>{% trans "Municipal stormwater (NPDES Phase II)" %}</h4>
+                <p>{% trans "BMP audit trail, jurisdiction-checklist, annual NPDES compliance for stormwater consultants serving municipal clients." %}</p>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
+                <h4>{% trans "Researchers (ANUGA + Python)" %}</h4>
+                <p>{% trans "Run ANUGA in the cloud, no infrastructure required. Free tier, open-source codebase." %}</p>
+            </div>
+        </div>
+    </div>
+
+    <hr class="featurette-divider">
+
+    <div class="hydrata-why">
+        <h2 class="text-center" style="margin-bottom: 30px;">{% trans "Why Hydrata" %}</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="hydrata-why-panel">
+                    <h3>{% trans "Led by a Chartered Professional Engineer." %}</h3>
+                    <p>{% trans "CPEng (Engineers Australia, NPER NSW). Master of Water Resources Engineering. 25 years across infrastructure projects from US$300M to US$6B. Both consultant-side and reviewer-side experience." %}</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="hydrata-why-panel">
+                    <h3>{% trans "Open source. Auditable." %}</h3>
+                    <p>{% trans "Hydrata's verification pipeline is open-source. Every line of code that touches your model is auditable. Not a black box." %}</p>
                 </div>
             </div>
         </div>
@@ -75,25 +155,24 @@
 
     <hr class="featurette-divider">
 
-    <div class="hydrata-users-section">
-        <h2 class="text-center" style="margin-bottom: 30px;">Who Uses Hydrata</h2>
-        <div class="row">
-            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Consulting Engineers</h4>
-                <p>Spend less time on model setup, more on engineering judgement. One platform for terrain, scenarios, and results.</p>
-            </div>
-            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Government Agencies</h4>
-                <p>Transparent, reproducible flood modelling with a full audit trail. Every input tracked, every result published.</p>
-            </div>
-            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Researchers</h4>
-                <p>ANUGA's physics, without the Python scripting barrier. Focus on science, not infrastructure.</p>
-            </div>
-            <div class="col-md-3 col-sm-6 text-center" style="margin-bottom: 20px;">
-                <h4>Development Finance</h4>
-                <p>Professional flood modelling for project appraisal in data-scarce regions. No expensive desktop licences.</p>
-            </div>
+    <div class="hydrata-developer-tools">
+        <h2 class="text-center" style="margin-bottom: 10px;">{% trans "Developer tools" %}</h2>
+        <p class="text-center" style="margin-bottom: 24px;">{% trans "Hydrata also exposes a Model Context Protocol endpoint for AI assistants." %}</p>
+        <div class="hydrata-code-block">
+            <div class="hydrata-code-label">Claude Code + Hydrata MCP</div>
+<pre><code><span class="code-comment"># Connect your AI assistant to Hydrata</span>
+<span class="code-prompt">$</span> claude mcp add hydrata https://hydrata.com/mcp/ \
+    --transport streamable-http --header "Authorization: Bearer $HYDRATA_TOKEN"
+
+<span class="code-prompt">&gt;</span> Create a flood model for Merewether, NSW using a 5m DEM
+  <span class="code-tool">Tool: create_project</span>("Merewether Flood Study")           <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: upload_dem</span>(project_id=42, file="merewether_5m.tif")  <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: create_scenario</span>(friction=0.03, rainfall="100yr_6hr") <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: run_simulation</span>(scenario_id=87)                      <span class="code-ok">OK</span>
+  <span class="code-tool">Tool: get_results</span>(run_id=201)                             <span class="code-ok">OK</span>
+
+  Simulation complete. Peak depth: 1.42m at outlet.
+  Results: https://hydrata.com/catalogue/merewether-flood-depth-201</code></pre>
         </div>
     </div>
 
