@@ -32,7 +32,10 @@ describe('anugaApi', () => {
             // V2P-21 — batch perm fetch
             'getMyPerms',
             // V2P-714 — cascade-delete dataset rows
-            'deleteTerrainV2', 'deleteBoundaryV2', 'deleteFrictionV2', 'deleteInflowV2'
+            'deleteTerrainV2', 'deleteBoundaryV2', 'deleteFrictionV2', 'deleteInflowV2',
+            // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+            'deleteStructureV2', 'deleteMeshRegionV2', 'deleteCatchmentV2',
+            'deleteNodesV2', 'deleteLinksV2'
         ];
 
         expectedFunctions.forEach(name => {
@@ -41,11 +44,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 35 API functions (V2P-79: -1 dropped getAvailableLayers; V2P-714: +4 cascade deletes)', () => {
+        it('should export exactly 40 API functions (V2P-79: -1 dropped getAvailableLayers; V2P-714: +4 cascade deletes; TASK-723: +5 fan-out deletes)', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(35);
+            expect(exportedFunctions.length).toBe(40);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -195,6 +198,22 @@ describe('anugaApi', () => {
         });
         it('deleteInflowV2 takes 2 arguments (projectId, inflowId)', () => {
             expect(anugaApi.deleteInflowV2.length).toBe(2);
+        });
+        // TASK-723 — cascade-delete fan-out signatures
+        it('deleteStructureV2 takes 2 arguments (projectId, structureId)', () => {
+            expect(anugaApi.deleteStructureV2.length).toBe(2);
+        });
+        it('deleteMeshRegionV2 takes 2 arguments (projectId, meshRegionId)', () => {
+            expect(anugaApi.deleteMeshRegionV2.length).toBe(2);
+        });
+        it('deleteCatchmentV2 takes 2 arguments (projectId, catchmentId)', () => {
+            expect(anugaApi.deleteCatchmentV2.length).toBe(2);
+        });
+        it('deleteNodesV2 takes 2 arguments (projectId, nodesId)', () => {
+            expect(anugaApi.deleteNodesV2.length).toBe(2);
+        });
+        it('deleteLinksV2 takes 2 arguments (projectId, linksId)', () => {
+            expect(anugaApi.deleteLinksV2.length).toBe(2);
         });
     });
 

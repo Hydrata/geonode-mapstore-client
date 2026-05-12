@@ -46,7 +46,13 @@ export {
     deleteTerrainEpic,
     deleteBoundaryEpic,
     deleteFrictionEpic,
-    deleteInflowEpic
+    deleteInflowEpic,
+    // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+    deleteStructureEpic,
+    deleteMeshRegionEpic,
+    deleteCatchmentEpic,
+    deleteNodesEpic,
+    deleteLinksEpic
 } from './epics/crudEpics';
 
 // TASK-793 — VectorDraw editor handlers for the 5 migrated Anuga prefixes

@@ -52,7 +52,28 @@ import {
     deleteFrictionError,
     deleteInflowSuccess,
     deleteInflowBlocked,
-    deleteInflowError
+    deleteInflowError,
+    // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+    DELETE_STRUCTURE,
+    DELETE_MESH_REGION,
+    DELETE_CATCHMENT,
+    DELETE_NODES,
+    DELETE_LINKS,
+    deleteStructureSuccess,
+    deleteStructureBlocked,
+    deleteStructureError,
+    deleteMeshRegionSuccess,
+    deleteMeshRegionBlocked,
+    deleteMeshRegionError,
+    deleteCatchmentSuccess,
+    deleteCatchmentBlocked,
+    deleteCatchmentError,
+    deleteNodesSuccess,
+    deleteNodesBlocked,
+    deleteNodesError,
+    deleteLinksSuccess,
+    deleteLinksBlocked,
+    deleteLinksError
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE
@@ -418,4 +439,48 @@ export const deleteInflowEpic = makeDeleteEpic(
     deleteInflowSuccess,
     deleteInflowBlocked,
     deleteInflowError
+);
+
+// -- TASK-723: cascade-delete fan-out (5 more types) -----------------------
+// NETWORK intentionally excluded — separate lifecycle. Identical contract
+// to V2P-714: 204→success, 409 ACTIVE_REFERENCES→blocked, other→error.
+
+export const deleteStructureEpic = makeDeleteEpic(
+    DELETE_STRUCTURE,
+    anugaApi.deleteStructureV2,
+    deleteStructureSuccess,
+    deleteStructureBlocked,
+    deleteStructureError
+);
+
+export const deleteMeshRegionEpic = makeDeleteEpic(
+    DELETE_MESH_REGION,
+    anugaApi.deleteMeshRegionV2,
+    deleteMeshRegionSuccess,
+    deleteMeshRegionBlocked,
+    deleteMeshRegionError
+);
+
+export const deleteCatchmentEpic = makeDeleteEpic(
+    DELETE_CATCHMENT,
+    anugaApi.deleteCatchmentV2,
+    deleteCatchmentSuccess,
+    deleteCatchmentBlocked,
+    deleteCatchmentError
+);
+
+export const deleteNodesEpic = makeDeleteEpic(
+    DELETE_NODES,
+    anugaApi.deleteNodesV2,
+    deleteNodesSuccess,
+    deleteNodesBlocked,
+    deleteNodesError
+);
+
+export const deleteLinksEpic = makeDeleteEpic(
+    DELETE_LINKS,
+    anugaApi.deleteLinksV2,
+    deleteLinksSuccess,
+    deleteLinksBlocked,
+    deleteLinksError
 );

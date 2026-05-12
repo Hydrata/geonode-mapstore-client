@@ -48,6 +48,12 @@ import {
     deleteBoundaryEpic,
     deleteFrictionEpic,
     deleteInflowEpic,
+    // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+    deleteStructureEpic,
+    deleteMeshRegionEpic,
+    deleteCatchmentEpic,
+    deleteNodesEpic,
+    deleteLinksEpic,
     // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
     vectorDrawAnugaCompleteEpic,
     vectorDrawAnugaCancelledEpic
@@ -117,6 +123,12 @@ export default createPlugin('Anuga', {
         deleteBoundaryEpic,
         deleteFrictionEpic,
         deleteInflowEpic,
+        // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+        deleteStructureEpic,
+        deleteMeshRegionEpic,
+        deleteCatchmentEpic,
+        deleteNodesEpic,
+        deleteLinksEpic,
         // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
         vectorDrawAnugaCompleteEpic,
         vectorDrawAnugaCancelledEpic

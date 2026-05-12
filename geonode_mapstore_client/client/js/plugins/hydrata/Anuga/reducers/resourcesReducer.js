@@ -31,7 +31,28 @@ import {
     DELETE_INFLOW,
     DELETE_INFLOW_SUCCESS,
     DELETE_INFLOW_BLOCKED,
-    DELETE_INFLOW_ERROR
+    DELETE_INFLOW_ERROR,
+    // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+    DELETE_STRUCTURE,
+    DELETE_STRUCTURE_SUCCESS,
+    DELETE_STRUCTURE_BLOCKED,
+    DELETE_STRUCTURE_ERROR,
+    DELETE_MESH_REGION,
+    DELETE_MESH_REGION_SUCCESS,
+    DELETE_MESH_REGION_BLOCKED,
+    DELETE_MESH_REGION_ERROR,
+    DELETE_CATCHMENT,
+    DELETE_CATCHMENT_SUCCESS,
+    DELETE_CATCHMENT_BLOCKED,
+    DELETE_CATCHMENT_ERROR,
+    DELETE_NODES,
+    DELETE_NODES_SUCCESS,
+    DELETE_NODES_BLOCKED,
+    DELETE_NODES_ERROR,
+    DELETE_LINKS,
+    DELETE_LINKS_SUCCESS,
+    DELETE_LINKS_BLOCKED,
+    DELETE_LINKS_ERROR
 } from "../actionsAnuga";
 
 // V2P-21 — map BE (kebab-case) resource_type keys to FE (camelCase plural)
@@ -247,6 +268,48 @@ export default (state = initialState, action) => {
         return { ...state, inflows: _markBlocked(state.inflows, action.id, action.message, action.blocking) };
     case DELETE_INFLOW_ERROR:
         return { ...state, inflows: _markError(state.inflows, action.id, action.error) };
+    // TASK-723 — cascade-delete fan-out. Same shape as V2P-714: mark deleting
+    // on start, drop the row on success, stamp inline error on blocked/error.
+    case DELETE_STRUCTURE:
+        return { ...state, structures: _markDeleting(state.structures, action.id) };
+    case DELETE_STRUCTURE_SUCCESS:
+        return { ...state, structures: (state.structures || []).filter(r => r?.id !== action.id) };
+    case DELETE_STRUCTURE_BLOCKED:
+        return { ...state, structures: _markBlocked(state.structures, action.id, action.message, action.blocking) };
+    case DELETE_STRUCTURE_ERROR:
+        return { ...state, structures: _markError(state.structures, action.id, action.error) };
+    case DELETE_MESH_REGION:
+        return { ...state, meshRegions: _markDeleting(state.meshRegions, action.id) };
+    case DELETE_MESH_REGION_SUCCESS:
+        return { ...state, meshRegions: (state.meshRegions || []).filter(r => r?.id !== action.id) };
+    case DELETE_MESH_REGION_BLOCKED:
+        return { ...state, meshRegions: _markBlocked(state.meshRegions, action.id, action.message, action.blocking) };
+    case DELETE_MESH_REGION_ERROR:
+        return { ...state, meshRegions: _markError(state.meshRegions, action.id, action.error) };
+    case DELETE_CATCHMENT:
+        return { ...state, catchments: _markDeleting(state.catchments, action.id) };
+    case DELETE_CATCHMENT_SUCCESS:
+        return { ...state, catchments: (state.catchments || []).filter(r => r?.id !== action.id) };
+    case DELETE_CATCHMENT_BLOCKED:
+        return { ...state, catchments: _markBlocked(state.catchments, action.id, action.message, action.blocking) };
+    case DELETE_CATCHMENT_ERROR:
+        return { ...state, catchments: _markError(state.catchments, action.id, action.error) };
+    case DELETE_NODES:
+        return { ...state, nodes: _markDeleting(state.nodes, action.id) };
+    case DELETE_NODES_SUCCESS:
+        return { ...state, nodes: (state.nodes || []).filter(r => r?.id !== action.id) };
+    case DELETE_NODES_BLOCKED:
+        return { ...state, nodes: _markBlocked(state.nodes, action.id, action.message, action.blocking) };
+    case DELETE_NODES_ERROR:
+        return { ...state, nodes: _markError(state.nodes, action.id, action.error) };
+    case DELETE_LINKS:
+        return { ...state, links: _markDeleting(state.links, action.id) };
+    case DELETE_LINKS_SUCCESS:
+        return { ...state, links: (state.links || []).filter(r => r?.id !== action.id) };
+    case DELETE_LINKS_BLOCKED:
+        return { ...state, links: _markBlocked(state.links, action.id, action.message, action.blocking) };
+    case DELETE_LINKS_ERROR:
+        return { ...state, links: _markError(state.links, action.id, action.error) };
     default:
         return state;
     }

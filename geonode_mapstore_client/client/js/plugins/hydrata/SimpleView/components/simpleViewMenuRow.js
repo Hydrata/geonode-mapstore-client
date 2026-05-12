@@ -37,23 +37,38 @@ import {
     deleteBoundary,
     deleteFriction,
     deleteInflow,
+    // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+    deleteStructure,
+    deleteMeshRegion,
+    deleteCatchment,
+    deleteNodes,
+    deleteLinks,
     setAnugaInputMenu
 } from '../../Anuga/actionsAnuga';
 import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
 
-// V2P-714 — derive the AnugaModel dataset type from layer.group.
-// Group names are set by the BE (gn_anuga/utils.py::get_anuga_group +
+// V2P-714 + TASK-723 — derive the AnugaModel dataset type from layer.group.
+// Group names are set by the BE (gn_anuga/utils.py::INPUT_DATA_GROUP_MAP +
 // anuga_map_config.json). Returns one of:
-//   'terrain' | 'boundary' | 'friction' | 'inflow' | null
-// Other Input Data types (structures, mesh-regions, full-mesh, catchments,
-// nodes, links) deliberately return null — V2P-714 only ships cascade-delete
-// for the four terrain/boundary/friction/inflow dataset types whose
-// post_delete signals are wired in Phases 1+2.
+//   'terrain' | 'boundary' | 'friction' | 'inflow' |
+//   'structure' | 'mesh_region' | 'catchment' | 'nodes' | 'links' | null
+// V2P-714 shipped the first 4 types; TASK-723 fans the same pattern out to
+// structure/mesh_region/catchment/nodes/links. NETWORK intentionally excluded
+// (no gn_layer + no menu UI — separate lifecycle).
+// Full Mesh (fms_) is also excluded because it is a computed artefact, not a
+// user-edited input dataset.
 const _GROUP_TO_DELETE_TYPE = {
     'Input Data.Terrain': 'terrain',
     'Input Data.Boundaries': 'boundary',
     'Input Data.Friction': 'friction',
-    'Input Data.Inflows': 'inflow'
+    'Input Data.Inflows': 'inflow',
+    // TASK-723 — 5 more types added 2026-05-13 (Network deferred: no gn_layer,
+    // no menu UI). Group names from gn_anuga/utils.py INPUT_DATA_GROUP_MAP.
+    'Input Data.Structures': 'structure',
+    'Input Data.Mesh Regions': 'mesh_region',
+    'Input Data.Catchments': 'catchment',
+    'Input Data.Nodes': 'nodes',
+    'Input Data.Links': 'links'
 };
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
@@ -255,6 +270,12 @@ class MenuRowClass extends React.Component {
         deleteBoundary: PropTypes.func,
         deleteFriction: PropTypes.func,
         deleteInflow: PropTypes.func,
+        // TASK-723 — cascade-delete fan-out
+        deleteStructure: PropTypes.func,
+        deleteMeshRegion: PropTypes.func,
+        deleteCatchment: PropTypes.func,
+        deleteNodes: PropTypes.func,
+        deleteLinks: PropTypes.func,
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
         // (bdy_/inf_/fri_/mes_/str_).
         startVectorDraw: PropTypes.func,
@@ -474,11 +495,12 @@ class MenuRowClass extends React.Component {
             });
     };
 
-    // V2P-714 — confirm + dispatch the right cascade-delete action based on
-    // layer.group. For non-cascade types (structures / catchments / nodes
-    // etc.) we fall back to the legacy redux-only path so this change is
-    // a strict superset of behaviour for the 4 typed datasets and a no-op
-    // elsewhere.
+    // V2P-714 + TASK-723 — confirm + dispatch the right cascade-delete action
+    // based on layer.group. The 9 typed datasets (terrain/boundary/friction/
+    // inflow + structure/mesh_region/catchment/nodes/links) hit the cascade
+    // path; everything else (Network, Full Mesh, non-Anuga groups) falls back
+    // to the legacy redux-only removal so this change is a strict superset of
+    // behaviour for the typed datasets and a no-op elsewhere.
     handleDeleteClick = () => {
         const layer = this.props.layer;
         if (!layer) return;
@@ -494,7 +516,13 @@ class MenuRowClass extends React.Component {
                 terrain: this.props.deleteTerrain,
                 boundary: this.props.deleteBoundary,
                 friction: this.props.deleteFriction,
-                inflow: this.props.deleteInflow
+                inflow: this.props.deleteInflow,
+                // TASK-723 — cascade-delete fan-out
+                structure: this.props.deleteStructure,
+                mesh_region: this.props.deleteMeshRegion,
+                catchment: this.props.deleteCatchment,
+                nodes: this.props.deleteNodes,
+                links: this.props.deleteLinks
             }[datasetType];
             if (dispatcher) {
                 // V2P-714 sibling-orphan fix — Terrain has TWO sibling layers
@@ -508,9 +536,10 @@ class MenuRowClass extends React.Component {
                 return;
             }
         }
-        // Legacy path for non-cascade types (structures, catchments, etc.):
-        // Redux-only removal. Backend cascade for these types lands in a
-        // future task (V2P-714 only covers the four cascade-clean types).
+        // Legacy redux-only fallback for groups not in _GROUP_TO_DELETE_TYPE
+        // (e.g. Network, Full Mesh, non-Anuga groups). Network cascade is
+        // deferred — qualitatively different (no gn_layer, no menu UI as the
+        // primary delete surface).
         this.props.removeNode(layer.id, 'layers');
         this.props.removeLayer(layer.id);
         this.props.refreshlayerVersion(layer.id);
@@ -561,7 +590,15 @@ class MenuRowClass extends React.Component {
             terrain: 'terrain',
             boundary: 'boundaries',
             friction: 'frictions',
-            inflow: 'inflows'
+            inflow: 'inflows',
+            // TASK-723 — cascade-delete fan-out. Slot names mirror
+            // resourcesReducer.js initialState (structures/meshRegions/
+            // catchments/nodes/links).
+            structure: 'structures',
+            mesh_region: 'meshRegions',
+            catchment: 'catchments',
+            nodes: 'nodes',
+            links: 'links'
         }[datasetType];
         const rows = this.props.deleteSliceRows || [];
         // Prefer matching on gn_layer (the AnugaModel.gn_layer FK to GeoNode
@@ -691,7 +728,14 @@ const mapStateToProps = (state, ownProps) => {
         terrain: 'terrain',
         boundary: 'boundaries',
         friction: 'frictions',
-        inflow: 'inflows'
+        inflow: 'inflows',
+        // TASK-723 — cascade-delete fan-out. Slot names mirror
+        // resourcesReducer.js initialState.
+        structure: 'structures',
+        mesh_region: 'meshRegions',
+        catchment: 'catchments',
+        nodes: 'nodes',
+        links: 'links'
     }[datasetType];
     const sliceRows = sliceKey ? (state?.anuga?.resources?.[sliceKey] || []) : [];
     // Match the row by gn_layer first, then by name fallback (mirrors the
@@ -776,6 +820,13 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteBoundary: (projectId, id, layerIds) => dispatch(deleteBoundary(projectId, id, layerIds)),
         deleteFriction: (projectId, id, layerIds) => dispatch(deleteFriction(projectId, id, layerIds)),
         deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds)),
+        // TASK-723 — cascade-delete fan-out for structure/mesh_region/
+        // catchment/nodes/links. Same signature as the V2P-714 four.
+        deleteStructure: (projectId, id, layerIds) => dispatch(deleteStructure(projectId, id, layerIds)),
+        deleteMeshRegion: (projectId, id, layerIds) => dispatch(deleteMeshRegion(projectId, id, layerIds)),
+        deleteCatchment: (projectId, id, layerIds) => dispatch(deleteCatchment(projectId, id, layerIds)),
+        deleteNodes: (projectId, id, layerIds) => dispatch(deleteNodes(projectId, id, layerIds)),
+        deleteLinks: (projectId, id, layerIds) => dispatch(deleteLinks(projectId, id, layerIds)),
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
         startVectorDraw: (config) => dispatch(startVectorDraw(config)),
         // TASK-784 polish — close the AnugaInputMenu side panel during

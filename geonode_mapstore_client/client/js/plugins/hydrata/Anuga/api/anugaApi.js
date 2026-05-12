@@ -130,6 +130,26 @@ export const deleteFrictionV2 = (projectId, frictionId) =>
 export const deleteInflowV2 = (projectId, inflowId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/inflows/${inflowId}/`);
 
+// TASK-723: V2 DELETE wrappers extending the V2P-714 cascade-delete pattern
+// to 5 more dataset types (NETWORK intentionally excluded). Each route mirrors
+// the V2P-714 shape: ProjectViewSetV2 nested route, BE signals cascade-clean
+// of GeoNode Dataset + GeoServer layer + GeoFence rules + S3 artefacts.
+// Returns 204 on success; 409 ACTIVE_REFERENCES if scenarios still reference.
+export const deleteStructureV2 = (projectId, structureId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/structures/${structureId}/`);
+
+export const deleteMeshRegionV2 = (projectId, meshRegionId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/mesh-regions/${meshRegionId}/`);
+
+export const deleteCatchmentV2 = (projectId, catchmentId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/catchments/${catchmentId}/`);
+
+export const deleteNodesV2 = (projectId, nodesId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/nodes/${nodesId}/`);
+
+export const deleteLinksV2 = (projectId, linksId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/links/${linksId}/`);
+
 // V2P-79 / V2P-72: V1 POST /anuga/api/{pid}/scenario/compare/
 //      → V2 POST /api/v2/anuga/projects/{pid}/scenarios/compare/ (CompareView).
 // Body shape now {scenario_one_id, scenario_two_id} per V2 contract.

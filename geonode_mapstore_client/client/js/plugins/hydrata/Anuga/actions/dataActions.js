@@ -37,10 +37,15 @@ const FETCH_MY_PERMS = 'ANUGA:FETCH_MY_PERMS';
 const SET_ANUGA_RESOURCE_PERMS = 'ANUGA:SET_ANUGA_RESOURCE_PERMS';
 const SET_PERMS_LOAD_FAILED = 'ANUGA:SET_PERMS_LOAD_FAILED';
 
-// V2P-714 — cascade-delete dataset rows (terrain/boundary/friction/inflow).
+// V2P-714 + TASK-723 — cascade-delete dataset rows. 9 types in scope:
+// V2P-714 shipped terrain/boundary/friction/inflow; TASK-723 fans the same
+// pattern out to structure/mesh_region/catchment/nodes/links (NETWORK
+// intentionally excluded — separate lifecycle).
 // Each type has 4 actions: start, success (204), blocked (409 with blocking
 // scenarios list), error (other failures). Per-type because the reducer
-// targets distinct slots (state.anuga.resources.{terrain,boundaries,...}).
+// targets distinct slots (state.anuga.resources.{terrain,boundaries,
+// structures,meshRegions,catchments,nodes,links,...}) and SimpleView row
+// components key error-rendering off the per-type type-strings.
 const DELETE_TERRAIN = 'ANUGA:DELETE_TERRAIN';
 const DELETE_TERRAIN_SUCCESS = 'ANUGA:DELETE_TERRAIN_SUCCESS';
 const DELETE_TERRAIN_BLOCKED = 'ANUGA:DELETE_TERRAIN_BLOCKED';
@@ -60,6 +65,32 @@ const DELETE_INFLOW = 'ANUGA:DELETE_INFLOW';
 const DELETE_INFLOW_SUCCESS = 'ANUGA:DELETE_INFLOW_SUCCESS';
 const DELETE_INFLOW_BLOCKED = 'ANUGA:DELETE_INFLOW_BLOCKED';
 const DELETE_INFLOW_ERROR = 'ANUGA:DELETE_INFLOW_ERROR';
+
+// TASK-723 — 5 additional cascade-delete types extending the V2P-714 pattern.
+const DELETE_STRUCTURE = 'ANUGA:DELETE_STRUCTURE';
+const DELETE_STRUCTURE_SUCCESS = 'ANUGA:DELETE_STRUCTURE_SUCCESS';
+const DELETE_STRUCTURE_BLOCKED = 'ANUGA:DELETE_STRUCTURE_BLOCKED';
+const DELETE_STRUCTURE_ERROR = 'ANUGA:DELETE_STRUCTURE_ERROR';
+
+const DELETE_MESH_REGION = 'ANUGA:DELETE_MESH_REGION';
+const DELETE_MESH_REGION_SUCCESS = 'ANUGA:DELETE_MESH_REGION_SUCCESS';
+const DELETE_MESH_REGION_BLOCKED = 'ANUGA:DELETE_MESH_REGION_BLOCKED';
+const DELETE_MESH_REGION_ERROR = 'ANUGA:DELETE_MESH_REGION_ERROR';
+
+const DELETE_CATCHMENT = 'ANUGA:DELETE_CATCHMENT';
+const DELETE_CATCHMENT_SUCCESS = 'ANUGA:DELETE_CATCHMENT_SUCCESS';
+const DELETE_CATCHMENT_BLOCKED = 'ANUGA:DELETE_CATCHMENT_BLOCKED';
+const DELETE_CATCHMENT_ERROR = 'ANUGA:DELETE_CATCHMENT_ERROR';
+
+const DELETE_NODES = 'ANUGA:DELETE_NODES';
+const DELETE_NODES_SUCCESS = 'ANUGA:DELETE_NODES_SUCCESS';
+const DELETE_NODES_BLOCKED = 'ANUGA:DELETE_NODES_BLOCKED';
+const DELETE_NODES_ERROR = 'ANUGA:DELETE_NODES_ERROR';
+
+const DELETE_LINKS = 'ANUGA:DELETE_LINKS';
+const DELETE_LINKS_SUCCESS = 'ANUGA:DELETE_LINKS_SUCCESS';
+const DELETE_LINKS_BLOCKED = 'ANUGA:DELETE_LINKS_BLOCKED';
+const DELETE_LINKS_ERROR = 'ANUGA:DELETE_LINKS_ERROR';
 
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
@@ -241,6 +272,75 @@ function deleteInflowError(id, error) {
     return { type: DELETE_INFLOW_ERROR, id, error };
 }
 
+// TASK-723 action creators — mirror deleteBoundary's shape exactly. `id` is
+// the AnugaModel pk (Structure.id / MeshRegion.id / etc.); `layerIds` is an
+// array of MapStore layer ids (typically 1 each, but array signature kept
+// uniform with V2P-714 in case future types stamp siblings like terrain does).
+function deleteStructure(projectId, id, layerIds) {
+    return { type: DELETE_STRUCTURE, projectId, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteStructureSuccess(id, layerIds) {
+    return { type: DELETE_STRUCTURE_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteStructureBlocked(id, blocking, message) {
+    return { type: DELETE_STRUCTURE_BLOCKED, id, blocking, message };
+}
+function deleteStructureError(id, error) {
+    return { type: DELETE_STRUCTURE_ERROR, id, error };
+}
+
+function deleteMeshRegion(projectId, id, layerIds) {
+    return { type: DELETE_MESH_REGION, projectId, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteMeshRegionSuccess(id, layerIds) {
+    return { type: DELETE_MESH_REGION_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteMeshRegionBlocked(id, blocking, message) {
+    return { type: DELETE_MESH_REGION_BLOCKED, id, blocking, message };
+}
+function deleteMeshRegionError(id, error) {
+    return { type: DELETE_MESH_REGION_ERROR, id, error };
+}
+
+function deleteCatchment(projectId, id, layerIds) {
+    return { type: DELETE_CATCHMENT, projectId, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteCatchmentSuccess(id, layerIds) {
+    return { type: DELETE_CATCHMENT_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteCatchmentBlocked(id, blocking, message) {
+    return { type: DELETE_CATCHMENT_BLOCKED, id, blocking, message };
+}
+function deleteCatchmentError(id, error) {
+    return { type: DELETE_CATCHMENT_ERROR, id, error };
+}
+
+function deleteNodes(projectId, id, layerIds) {
+    return { type: DELETE_NODES, projectId, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteNodesSuccess(id, layerIds) {
+    return { type: DELETE_NODES_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteNodesBlocked(id, blocking, message) {
+    return { type: DELETE_NODES_BLOCKED, id, blocking, message };
+}
+function deleteNodesError(id, error) {
+    return { type: DELETE_NODES_ERROR, id, error };
+}
+
+function deleteLinks(projectId, id, layerIds) {
+    return { type: DELETE_LINKS, projectId, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteLinksSuccess(id, layerIds) {
+    return { type: DELETE_LINKS_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteLinksBlocked(id, blocking, message) {
+    return { type: DELETE_LINKS_BLOCKED, id, blocking, message };
+}
+function deleteLinksError(id, error) {
+    return { type: DELETE_LINKS_ERROR, id, error };
+}
+
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
@@ -287,5 +387,26 @@ module.exports = {
     DELETE_INFLOW, deleteInflow,
     DELETE_INFLOW_SUCCESS, deleteInflowSuccess,
     DELETE_INFLOW_BLOCKED, deleteInflowBlocked,
-    DELETE_INFLOW_ERROR, deleteInflowError
+    DELETE_INFLOW_ERROR, deleteInflowError,
+    // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
+    DELETE_STRUCTURE, deleteStructure,
+    DELETE_STRUCTURE_SUCCESS, deleteStructureSuccess,
+    DELETE_STRUCTURE_BLOCKED, deleteStructureBlocked,
+    DELETE_STRUCTURE_ERROR, deleteStructureError,
+    DELETE_MESH_REGION, deleteMeshRegion,
+    DELETE_MESH_REGION_SUCCESS, deleteMeshRegionSuccess,
+    DELETE_MESH_REGION_BLOCKED, deleteMeshRegionBlocked,
+    DELETE_MESH_REGION_ERROR, deleteMeshRegionError,
+    DELETE_CATCHMENT, deleteCatchment,
+    DELETE_CATCHMENT_SUCCESS, deleteCatchmentSuccess,
+    DELETE_CATCHMENT_BLOCKED, deleteCatchmentBlocked,
+    DELETE_CATCHMENT_ERROR, deleteCatchmentError,
+    DELETE_NODES, deleteNodes,
+    DELETE_NODES_SUCCESS, deleteNodesSuccess,
+    DELETE_NODES_BLOCKED, deleteNodesBlocked,
+    DELETE_NODES_ERROR, deleteNodesError,
+    DELETE_LINKS, deleteLinks,
+    DELETE_LINKS_SUCCESS, deleteLinksSuccess,
+    DELETE_LINKS_BLOCKED, deleteLinksBlocked,
+    DELETE_LINKS_ERROR, deleteLinksError
 };
