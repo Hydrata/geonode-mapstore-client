@@ -79,6 +79,11 @@ const _GROUP_TO_DELETE_TYPE = {
 };
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
+// STRUCTURE_METHODS — keep in sync with /opt/hydrata/apps/gn_anuga/models/scenario.py:STRUCTURE_METHODS
+// 'Holes' / 'Reflective' route via run_anuga.run_utils.make_interior_holes_and_tags;
+// 'Mannings' routes via make_frictions. Default is 'Holes'.
+const STRUCTURE_METHODS = ['Holes', 'Mannings', 'Reflective'];
+
 // TASK-793 — VectorDraw routing config for the 5 migrated Anuga feature
 // types.
 //
@@ -249,11 +254,7 @@ const ANUGA_FEATURE_CONFIG = {
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
                 {name: 'method', type: 'select', label: 'Method', "default": 'Holes',
-                    options: [
-                        {value: 'Holes', label: 'Holes'},
-                        {value: 'Mannings', label: 'Mannings'},
-                        {value: 'Reflective', label: 'Reflective'}
-                    ]}
+                    options: STRUCTURE_METHODS.map(v => ({value: v, label: v}))}
             ]
         }
     }
@@ -887,5 +888,8 @@ export {
     // TASK-793 — exposed for unit tests so the migrated-prefix routing
     // logic can be exercised as a pure function.
     getAnugaPrefix,
-    ANUGA_FEATURE_CONFIG
+    ANUGA_FEATURE_CONFIG,
+    // TASK-827 (W4.1) — canonical Method values for Structure; FE single
+    // source of truth, mirrors BE gn_anuga.models.STRUCTURE_METHODS.
+    STRUCTURE_METHODS
 };

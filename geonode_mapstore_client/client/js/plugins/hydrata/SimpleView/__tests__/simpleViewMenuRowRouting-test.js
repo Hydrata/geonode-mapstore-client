@@ -5,6 +5,7 @@ import { Provider } from 'react-redux';
 import {
     getAnugaPrefix,
     ANUGA_FEATURE_CONFIG,
+    STRUCTURE_METHODS,
     MenuRow
 } from '../components/simpleViewMenuRow';
 import { SET_OPEN_MENU_GROUP_ID } from '../actionsSimpleView';
@@ -512,6 +513,14 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(f.type).toBe('select');
             const values = (f.options || []).map(o => o.value);
             expect(values).toEqual(['Holes', 'Mannings', 'Reflective']);
+        });
+        // TASK-827 (W4.1) — STRUCTURE_METHODS is the single source of truth for
+        // the str_ method select. Mirrors the BE constant in
+        // /opt/hydrata/apps/gn_anuga/models/scenario.py:STRUCTURE_METHODS.
+        it('STRUCTURE_METHODS export matches str_ method options', () => {
+            expect(STRUCTURE_METHODS).toEqual(['Holes', 'Mannings', 'Reflective']);
+            const opts = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method').options.map(o => o.value);
+            expect(opts).toEqual(STRUCTURE_METHODS);
         });
     });
 });
