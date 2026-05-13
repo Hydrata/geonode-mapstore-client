@@ -705,6 +705,8 @@ describe('Anuga Plugin', () => {
             DELETE_INFLOW_SUCCESS,
             DELETE_INFLOW_BLOCKED,
             DELETE_INFLOW_ERROR,
+            // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+            DELETE_FRICTION_RASTER,
             deleteTerrain,
             deleteTerrainSuccess,
             deleteTerrainBlocked,
@@ -720,7 +722,9 @@ describe('Anuga Plugin', () => {
             deleteInflow,
             deleteInflowSuccess,
             deleteInflowBlocked,
-            deleteInflowError
+            deleteInflowError,
+            // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+            deleteFrictionRaster
         } = require('../actionsAnuga');
 
         it('deleteTerrain creates {type, projectId, id, layerIds: [..]}', () => {
@@ -778,6 +782,11 @@ describe('Anuga Plugin', () => {
             expect(deleteInflowSuccess(2).type).toBe(DELETE_INFLOW_SUCCESS);
             expect(deleteInflowBlocked(2, [], '').type).toBe(DELETE_INFLOW_BLOCKED);
             expect(deleteInflowError(2, {}).type).toBe(DELETE_INFLOW_ERROR);
+        });
+        // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain).
+        it('deleteFrictionRaster actions are typed distinctly', () => {
+            expect(deleteFrictionRaster(1, 2).type).toBe(DELETE_FRICTION_RASTER);
+            expect(deleteFrictionRaster(1, 2, [10]).layerIds).toEqual([10]);
         });
     });
 

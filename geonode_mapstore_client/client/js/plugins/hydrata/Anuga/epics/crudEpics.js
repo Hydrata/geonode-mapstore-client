@@ -73,7 +73,12 @@ import {
     deleteNodesError,
     deleteLinksSuccess,
     deleteLinksBlocked,
-    deleteLinksError
+    deleteLinksError,
+    // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+    DELETE_FRICTION_RASTER,
+    deleteFrictionRasterSuccess,
+    deleteFrictionRasterBlocked,
+    deleteFrictionRasterError
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE
@@ -483,4 +488,13 @@ export const deleteLinksEpic = makeDeleteEpic(
     deleteLinksSuccess,
     deleteLinksBlocked,
     deleteLinksError
+);
+
+// TASK-829 (W4.2b) — FrictionRaster cascade-delete epic.
+export const deleteFrictionRasterEpic = makeDeleteEpic(
+    DELETE_FRICTION_RASTER,
+    anugaApi.deleteFrictionRasterV2,
+    deleteFrictionRasterSuccess,
+    deleteFrictionRasterBlocked,
+    deleteFrictionRasterError
 );

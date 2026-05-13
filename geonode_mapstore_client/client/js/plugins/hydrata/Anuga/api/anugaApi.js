@@ -150,6 +150,12 @@ export const deleteNodesV2 = (projectId, nodesId) =>
 export const deleteLinksV2 = (projectId, linksId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/links/${linksId}/`);
 
+// TASK-829 (W4.2b) — FrictionRaster V2 DELETE wrapper. Raster lineage
+// (sibling to Terrain): BE cascade-cleans 1 gn_layer + 1 S3 TIF. 204 on
+// success; 409 ACTIVE_REFERENCES if a scenario still uses it.
+export const deleteFrictionRasterV2 = (projectId, frictionRasterId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/friction-rasters/${frictionRasterId}/`);
+
 // V2P-79 / V2P-72: V1 POST /anuga/api/{pid}/scenario/compare/
 //      → V2 POST /api/v2/anuga/projects/{pid}/scenarios/compare/ (CompareView).
 // Body shape now {scenario_one_id, scenario_two_id} per V2 contract.

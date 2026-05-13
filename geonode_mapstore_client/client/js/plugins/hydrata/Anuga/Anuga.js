@@ -54,6 +54,8 @@ import {
     deleteCatchmentEpic,
     deleteNodesEpic,
     deleteLinksEpic,
+    // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+    deleteFrictionRasterEpic,
     // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
     vectorDrawAnugaCompleteEpic,
     vectorDrawAnugaCancelledEpic
@@ -129,6 +131,8 @@ export default createPlugin('Anuga', {
         deleteCatchmentEpic,
         deleteNodesEpic,
         deleteLinksEpic,
+        // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+        deleteFrictionRasterEpic,
         // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
         vectorDrawAnugaCompleteEpic,
         vectorDrawAnugaCancelledEpic

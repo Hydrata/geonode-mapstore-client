@@ -92,6 +92,13 @@ const DELETE_LINKS_SUCCESS = 'ANUGA:DELETE_LINKS_SUCCESS';
 const DELETE_LINKS_BLOCKED = 'ANUGA:DELETE_LINKS_BLOCKED';
 const DELETE_LINKS_ERROR = 'ANUGA:DELETE_LINKS_ERROR';
 
+// TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain).
+// 1 gn_layer + 1 TIF; no UTM/hillshade siblings (simpler than Terrain).
+const DELETE_FRICTION_RASTER = 'ANUGA:DELETE_FRICTION_RASTER';
+const DELETE_FRICTION_RASTER_SUCCESS = 'ANUGA:DELETE_FRICTION_RASTER_SUCCESS';
+const DELETE_FRICTION_RASTER_BLOCKED = 'ANUGA:DELETE_FRICTION_RASTER_BLOCKED';
+const DELETE_FRICTION_RASTER_ERROR = 'ANUGA:DELETE_FRICTION_RASTER_ERROR';
+
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
 }
@@ -341,6 +348,22 @@ function deleteLinksError(id, error) {
     return { type: DELETE_LINKS_ERROR, id, error };
 }
 
+// TASK-829 (W4.2b) — FrictionRaster cascade-delete creators. Mirror
+// deleteFriction's signature; layerIds is an array even though a typical
+// FrictionRaster has only one gn_layer (kept uniform with V2P-714).
+function deleteFrictionRaster(projectId, id, layerIds) {
+    return { type: DELETE_FRICTION_RASTER, projectId, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteFrictionRasterSuccess(id, layerIds) {
+    return { type: DELETE_FRICTION_RASTER_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteFrictionRasterBlocked(id, blocking, message) {
+    return { type: DELETE_FRICTION_RASTER_BLOCKED, id, blocking, message };
+}
+function deleteFrictionRasterError(id, error) {
+    return { type: DELETE_FRICTION_RASTER_ERROR, id, error };
+}
+
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
@@ -408,5 +431,10 @@ module.exports = {
     DELETE_LINKS, deleteLinks,
     DELETE_LINKS_SUCCESS, deleteLinksSuccess,
     DELETE_LINKS_BLOCKED, deleteLinksBlocked,
-    DELETE_LINKS_ERROR, deleteLinksError
+    DELETE_LINKS_ERROR, deleteLinksError,
+    // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+    DELETE_FRICTION_RASTER, deleteFrictionRaster,
+    DELETE_FRICTION_RASTER_SUCCESS, deleteFrictionRasterSuccess,
+    DELETE_FRICTION_RASTER_BLOCKED, deleteFrictionRasterBlocked,
+    DELETE_FRICTION_RASTER_ERROR, deleteFrictionRasterError
 };

@@ -35,7 +35,9 @@ describe('anugaApi', () => {
             'deleteTerrainV2', 'deleteBoundaryV2', 'deleteFrictionV2', 'deleteInflowV2',
             // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
             'deleteStructureV2', 'deleteMeshRegionV2', 'deleteCatchmentV2',
-            'deleteNodesV2', 'deleteLinksV2'
+            'deleteNodesV2', 'deleteLinksV2',
+            // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+            'deleteFrictionRasterV2'
         ];
 
         expectedFunctions.forEach(name => {
@@ -44,11 +46,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 40 API functions (V2P-79: -1 dropped getAvailableLayers; V2P-714: +4 cascade deletes; TASK-723: +5 fan-out deletes)', () => {
+        it('should export exactly 41 API functions (V2P-79: -1 dropped getAvailableLayers; V2P-714: +4 cascade deletes; TASK-723: +5 fan-out deletes; TASK-829: +1 friction-raster delete)', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(40);
+            expect(exportedFunctions.length).toBe(41);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -214,6 +216,10 @@ describe('anugaApi', () => {
         });
         it('deleteLinksV2 takes 2 arguments (projectId, linksId)', () => {
             expect(anugaApi.deleteLinksV2.length).toBe(2);
+        });
+        // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+        it('deleteFrictionRasterV2 takes 2 arguments (projectId, frictionRasterId)', () => {
+            expect(anugaApi.deleteFrictionRasterV2.length).toBe(2);
         });
     });
 
@@ -522,6 +528,16 @@ describe('anugaApi', () => {
         it('deleteInflowV2 hits V2 /inflows/{id}/', (done) => {
             anugaApi.deleteInflowV2(7, 99).then(() => {
                 expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/inflows/99/');
+                done();
+            }).catch(done);
+        });
+
+        // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain).
+        // BE follow-up will mount the /friction-rasters/{id}/ route on
+        // ProjectViewSetV2; this test pins the FE-side URL contract.
+        it('deleteFrictionRasterV2 hits V2 /friction-rasters/{id}/', (done) => {
+            anugaApi.deleteFrictionRasterV2(7, 99).then(() => {
+                expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/friction-rasters/99/');
                 done();
             }).catch(done);
         });

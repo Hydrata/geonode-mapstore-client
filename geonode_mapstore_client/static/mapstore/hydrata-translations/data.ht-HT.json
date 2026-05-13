@@ -183,6 +183,7 @@
         "terrain": "Teren",
         "figures": "Figi",
         "friction": "Friksyon",
+        "frictionRasters": "Raster Friksyon",
         "fullMesh": "May Konplè",
         "hydrology": "Idwoloji",
         "id": "Id",
@@ -210,6 +211,7 @@
         "newLayersMessage": "Ajoute nouvo kouch... Ou ta dwe anrejistre pwojè ou a.",
         "newLayersTitle": "Nouvo kouch jwenn",
         "newScenario": "Nouvo senaryo",
+        "noFrictionRastersAvailable": "Pa gen raster friksyon disponib",
         "noTerrainAvailable": "Pa gen teren disponib",
         "nodes": "Nè",
         "none": "Okenn",
@@ -254,6 +256,7 @@
         "structures": "Estrikti",
         "toStoreResults": "pou estoke rezilta",
         "underDevelopment": "-- An devlopman -- Pwosesis revizyon modèl.",
+        "uploadFrictionRasterTooltip": "Telechaje yon raster friksyon GeoTIFF (n Manning)",
         "uploadTerrainTooltip": "Telechaje yon nouvo teren *.tiff",
         "yourProjects": "Pwojè ou yo :"
       },

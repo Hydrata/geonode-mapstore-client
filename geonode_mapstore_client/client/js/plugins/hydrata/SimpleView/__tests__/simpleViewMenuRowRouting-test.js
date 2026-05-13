@@ -501,6 +501,31 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
     // VectorDraw migration (commit 823df8c9b). Restored as `select` widgets
     // 2026-05-12 so users can no longer type free-form values the engine
     // doesn't understand.
+    describe('TASK-829 (W4.2b) FrictionRaster raster-sentinel routing', () => {
+        it('ANUGA_FEATURE_CONFIG.fri_raster_ exists with geomType=Raster sentinel', () => {
+            expect(ANUGA_FEATURE_CONFIG.fri_raster_).toExist();
+            expect(ANUGA_FEATURE_CONFIG.fri_raster_.geomType).toBe('Raster');
+        });
+        it('ANUGA_FEATURE_CONFIG.fri_raster_ has null formConfig (no per-feature form for rasters)', () => {
+            expect(ANUGA_FEATURE_CONFIG.fri_raster_.formConfig).toBe(null);
+        });
+        it('getAnugaPrefix returns "fri_raster_" for geonode:fri_raster_4_my_friction', () => {
+            expect(getAnugaPrefix('geonode:fri_raster_4_my_friction')).toBe('fri_raster_');
+        });
+        it('getAnugaPrefix returns "fri_raster_" for fri_raster_4_x (no geonode: prefix)', () => {
+            expect(getAnugaPrefix('fri_raster_4_x')).toBe('fri_raster_');
+        });
+        // Regression guard for longest-prefix-wins ordering. Without
+        // the length-sorted prefix iteration, 'fri_raster_4_x'.startsWith('fri_')
+        // returns true and the raster is mis-classified as polygon Friction
+        // → VectorDraw routes it to a Polygon-geometry editor → crash on a
+        // raster layer with no geometry.
+        it('getAnugaPrefix correctly distinguishes fri_ vs fri_raster_ (longest-prefix wins)', () => {
+            expect(getAnugaPrefix('geonode:fri_4_my_friction')).toBe('fri_');
+            expect(getAnugaPrefix('geonode:fri_raster_4_my_friction')).toBe('fri_raster_');
+        });
+    });
+
     describe('ANUGA_FEATURE_CONFIG select-widget regressions restored', () => {
         it('inf_ type is a select with Rainfall and Surface', () => {
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'type');

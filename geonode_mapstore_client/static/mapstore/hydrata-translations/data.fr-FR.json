@@ -183,6 +183,7 @@
         "terrain": "Terrain",
         "figures": "Figures",
         "friction": "Friction",
+        "frictionRasters": "Friction Rasters",
         "fullMesh": "Full Mesh",
         "hydrology": "Hydrology",
         "id": "Id",
@@ -210,6 +211,7 @@
         "newLayersMessage": "Ajout de nouvelles couches... Vous devriez enregistrer votre projet.",
         "newLayersTitle": "Nouvelles couches trouvées",
         "newScenario": "Nouveau scénario",
+        "noFrictionRastersAvailable": "Aucun raster de friction disponible",
         "noTerrainAvailable": "Aucun terrain disponible",
         "nodes": "Nœuds",
         "none": "Aucun",
@@ -254,6 +256,7 @@
         "structures": "Structures",
         "toStoreResults": "pour stocker les résultats",
         "underDevelopment": "-- En développement -- Processus de révision du modèle.",
+        "uploadFrictionRasterTooltip": "Téléverser un raster de friction GeoTIFF (n de Manning)",
         "uploadTerrainTooltip": "Téléverser un nouveau terrain *.tiff",
         "yourProjects": "Vos projets :"
       },

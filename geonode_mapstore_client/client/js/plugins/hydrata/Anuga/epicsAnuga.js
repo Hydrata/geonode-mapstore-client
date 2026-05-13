@@ -52,7 +52,9 @@ export {
     deleteMeshRegionEpic,
     deleteCatchmentEpic,
     deleteNodesEpic,
-    deleteLinksEpic
+    deleteLinksEpic,
+    // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+    deleteFrictionRasterEpic
 } from './epics/crudEpics';
 
 // TASK-793 — VectorDraw editor handlers for the 5 migrated Anuga prefixes

@@ -43,6 +43,8 @@ import {
     deleteCatchment,
     deleteNodes,
     deleteLinks,
+    // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
+    deleteFrictionRaster,
     setAnugaInputMenu
 } from '../../Anuga/actionsAnuga';
 import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
@@ -68,6 +70,12 @@ const _GROUP_TO_DELETE_TYPE = {
     'Input Data.Terrain': 'terrain',
     'Input Data.Boundaries': 'boundary',
     'Input Data.Friction': 'friction',
+    // TASK-829 (W4.2b) — FrictionRaster (raster sibling to polygon Friction).
+    // Placed adjacent to 'Input Data.Friction' for ordering coherence. BE
+    // INPUT_DATA_GROUP_MAP entry for the raster prefix ships in the
+    // follow-up task; this FE-side group→type mapping is harmless until
+    // then (no layer.group will match 'Input Data.Friction Rasters').
+    'Input Data.Friction Rasters': 'friction_raster',
     'Input Data.Inflows': 'inflow',
     // TASK-723 — 5 more types added 2026-05-13 (Network deferred: no gn_layer,
     // no menu UI). Group names from gn_anuga/utils.py INPUT_DATA_GROUP_MAP.
@@ -257,16 +265,42 @@ const ANUGA_FEATURE_CONFIG = {
                     options: STRUCTURE_METHODS.map(v => ({value: v, label: v}))}
             ]
         }
+    },
+    // TASK-829 (W4.2b) — Raster-type entry. FrictionRaster has no VectorDraw
+    // editing (it's a raster, not a vector geometry). The `geomType: 'Raster'`
+    // sentinel signals the edit-pencil click handler to no-op rather than
+    // route to startVectorDraw (which would crash with no geometry) or fall
+    // through to the legacy FeatureGrid (would WFS-query a raster → 400).
+    // `formConfig: null` because rasters have no per-feature attribute form;
+    // per-raster metadata edits live on the FrictionRaster model wrapper UX
+    // (not in this picker). Upload UX is launched via setVisibleUploaderPanel
+    // from anugaInputMenu.js, NOT from this menu row (which only renders for
+    // existing layers). See TASK-829 implementation_notes for the BE
+    // follow-up gating end-to-end upload (importer_create not yet shipped).
+    'fri_raster_': {
+        geomType: 'Raster',
+        formConfig: null
     }
 };
 
 // TASK-793 helper — returns the config key matching layer.name, or null.
 // Layer names look like "geonode:bdy_4_my_boundary"; we match on the
 // prefix segment after `geonode:`.
+//
+// TASK-829 (W4.2b) — Sort keys by length descending so longer prefixes
+// (e.g. 'fri_raster_') match before shorter ones ('fri_'). String prefix
+// matching alone is ambiguous when one prefix is a strict prefix of
+// another. Without this sort, 'fri_raster_4_x'.startsWith('fri_') wins
+// and the raster is mis-classified as a polygon Friction → VectorDraw
+// routes it to a Polygon-geometry editor, crashing on a raster layer.
+const _ANUGA_PREFIXES_BY_LENGTH = Object.keys(ANUGA_FEATURE_CONFIG)
+    .slice()
+    .sort((a, b) => b.length - a.length);
+
 const getAnugaPrefix = (layerName) => {
     if (!layerName) return null;
     const stripped = layerName.replace(/^geonode:/, '');
-    return Object.keys(ANUGA_FEATURE_CONFIG).find(p => stripped.startsWith(p)) || null;
+    return _ANUGA_PREFIXES_BY_LENGTH.find(p => stripped.startsWith(p)) || null;
 };
 
 const isGlobalExtent = (bounds) =>
@@ -318,6 +352,8 @@ class MenuRowClass extends React.Component {
         deleteCatchment: PropTypes.func,
         deleteNodes: PropTypes.func,
         deleteLinks: PropTypes.func,
+        // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster lineage)
+        deleteFrictionRaster: PropTypes.func,
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
         // (bdy_/inf_/fri_/mes_/str_).
         startVectorDraw: PropTypes.func,
@@ -408,6 +444,21 @@ class MenuRowClass extends React.Component {
                                         const prefix = getAnugaPrefix(layer.name);
                                         if (prefix) {
                                             const cfg = ANUGA_FEATURE_CONFIG[prefix];
+                                            // TASK-829 (W4.2b) — Raster-type early-return.
+                                            // Rasters have no VectorDraw editing AND would
+                                            // crash the legacy FeatureGrid (no WFS features).
+                                            // Per-raster replace-upload is launched from
+                                            // anugaInputMenu.js, not from the menu-row edit
+                                            // pencil. No-op here — the pencil renders
+                                            // (canEditLayer doesn't distinguish raster vs
+                                            // vector at the perm level) but clicking is
+                                            // intentionally inert. Future work: gate the
+                                            // pencil rendering on `cfg?.geomType === 'Raster'`
+                                            // in the JSX so users don't see a dead button.
+                                            // Deferred until per-raster replace UX is wired.
+                                            if (cfg.geomType === 'Raster') {
+                                                return;
+                                            }
                                             // Migrated VectorDraw path — bdy_/inf_/fri_/mes_/str_.
                                             // setPermission/svSelectLayer omitted: pre-flight audit
                                             // (TASK-793) confirmed no downstream consumers outside the
@@ -564,7 +615,9 @@ class MenuRowClass extends React.Component {
                 mesh_region: this.props.deleteMeshRegion,
                 catchment: this.props.deleteCatchment,
                 nodes: this.props.deleteNodes,
-                links: this.props.deleteLinks
+                links: this.props.deleteLinks,
+                // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster lineage)
+                friction_raster: this.props.deleteFrictionRaster
             }[datasetType];
             if (dispatcher) {
                 // V2P-714 sibling-orphan fix — Terrain has TWO sibling layers
@@ -640,7 +693,14 @@ class MenuRowClass extends React.Component {
             mesh_region: 'meshRegions',
             catchment: 'catchments',
             nodes: 'nodes',
-            links: 'links'
+            links: 'links',
+            // TASK-829 (W4.2b) — FrictionRaster slot. BE follow-up ships
+            // state.anuga.resources.frictionRasters via setAnugaResources
+            // payload from ProjectViewSetV2.retrieve; until then this key
+            // resolves to undefined which the rows.length===1 fallback
+            // below handles cleanly (no row to find → return null →
+            // legacy redux-only removal path).
+            friction_raster: 'frictionRasters'
         }[datasetType];
         const rows = this.props.deleteSliceRows || [];
         // Prefer matching on gn_layer (the AnugaModel.gn_layer FK to GeoNode
@@ -777,7 +837,10 @@ const mapStateToProps = (state, ownProps) => {
         mesh_region: 'meshRegions',
         catchment: 'catchments',
         nodes: 'nodes',
-        links: 'links'
+        links: 'links',
+        // TASK-829 (W4.2b) — FrictionRaster slot (BE follow-up wires up
+        // state.anuga.resources.frictionRasters).
+        friction_raster: 'frictionRasters'
     }[datasetType];
     const sliceRows = sliceKey ? (state?.anuga?.resources?.[sliceKey] || []) : [];
     // Match the row by gn_layer first, then by name fallback (mirrors the
@@ -869,6 +932,8 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteCatchment: (projectId, id, layerIds) => dispatch(deleteCatchment(projectId, id, layerIds)),
         deleteNodes: (projectId, id, layerIds) => dispatch(deleteNodes(projectId, id, layerIds)),
         deleteLinks: (projectId, id, layerIds) => dispatch(deleteLinks(projectId, id, layerIds)),
+        // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster lineage)
+        deleteFrictionRaster: (projectId, id, layerIds) => dispatch(deleteFrictionRaster(projectId, id, layerIds)),
         // TASK-793 — VectorDraw editor for migrated Anuga prefixes
         startVectorDraw: (config) => dispatch(startVectorDraw(config)),
         // TASK-784 polish — close the AnugaInputMenu side panel during

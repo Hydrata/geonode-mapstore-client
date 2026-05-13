@@ -95,6 +95,8 @@ class AnugaInputMenuClass extends React.Component {
         createNodes: PropTypes.func,
         createLinks: PropTypes.func,
         frictionLayers: PropTypes.array,
+        // TASK-829 (W4.2b) — FrictionRaster layers (raster sibling to polygon Friction)
+        frictionRasterLayers: PropTypes.array,
         inflowLayers: PropTypes.array,
         structureLayers: PropTypes.array,
         fullMeshLayers: PropTypes.array,
@@ -147,6 +149,9 @@ class AnugaInputMenuClass extends React.Component {
             fullMeshCollapsed: false,
             meshRegionsCollapsed: false,
             frictionCollapsed: false,
+            // TASK-829 (W4.2b) — Friction Rasters section defaults collapsed
+            // (keeps the menu compact; raster usage is an advanced workflow).
+            frictionRastersCollapsed: true,
             structuresCollapsed: false,
             networksCollapsed: false,
             networkInputVisible: false,
@@ -360,6 +365,57 @@ class AnugaInputMenuClass extends React.Component {
                                     collapsed={this.state.frictionCollapsed}
                                     onToggleCollapse={() => this.toggleSection('friction')}
                                 />
+                                {/* TASK-829 (W4.2b) — Friction Rasters section. Raster sibling to
+                                    polygon Friction; both can coexist in one project. Upload-only UX
+                                    (no create-from-title) since rasters originate from TIF upload, not
+                                    geometric drawing. Upload button is currently INERT — opens the
+                                    SimpleView uploader, but the Begin action is disabled by the
+                                    existing TASK-599 guard until the BE follow-up ships:
+                                      1. `importer_config.friction_raster` entry in Project.save()
+                                      2. FrictionRasterViewSetV2.importer_create action
+                                      3. create_friction_raster_gn_layer celery task
+                                      4. INPUT_DATA_GROUP_MAP entry mapping raster prefix to 'Friction Rasters'
+                                    See decision-request 2026-05-13-q-1 for the operator-confirmed
+                                    scope split. */}
+                                <div className={'menu-rows-container anuga-section'}>
+                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
+                                        <span
+                                            className="menu-row-text anuga-section-header-clickable"
+                                            onClick={() => this.toggleSection('frictionRasters')}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    this.toggleSection('frictionRasters');
+                                                }
+                                            }}
+                                            aria-expanded={!this.state.frictionRastersCollapsed}
+                                        ><Message msgId="hydrata.anuga.frictionRasters" /></span>
+                                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadFrictionRasterTooltip" /></Tooltip>}>
+                                            <span
+                                                className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-upload"}
+                                                style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
+                                                onClick={() => {
+                                                    this.props.setVisibleUploaderPanel(true, "friction_raster", null);
+                                                    trackEvent('button', 'click', 'anuga-input-menu-show-friction-raster-uploader');
+                                                }}
+                                            />
+                                        </OverlayTrigger>
+                                        <span
+                                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.frictionRastersCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
+                                            onClick={() => this.toggleSection('frictionRasters')}
+                                            aria-label={this.state.frictionRastersCollapsed ? "Expand section" : "Collapse section"}
+                                        />
+                                    </div>
+                                    {!this.state.frictionRastersCollapsed && this.props.frictionRasterLayers?.map(frictionRaster => <MenuRow layer={frictionRaster}/>)}
+                                    {!this.state.frictionRastersCollapsed && this.props.frictionRasterLayers?.length === 0 ?
+                                        <div className={"row menu-row anuga-section-empty-row"}>
+                                            <Message msgId="hydrata.anuga.noFrictionRastersAvailable" />
+                                        </div> : null
+                                    }
+                                </div>
                                 <InputSection
                                     titleMsgId="hydrata.anuga.structures"
                                     layers={this.props.structureLayers}
@@ -485,6 +541,8 @@ const mapStateToProps = (state) => {
         boundaryLayers,
         inflowLayers,
         frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction'),
+        // TASK-829 (W4.2b) — FrictionRaster layers (raster sibling to polygon Friction)
+        frictionRasterLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Rasters'),
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Mesh'),
         meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),

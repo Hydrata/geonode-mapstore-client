@@ -138,6 +138,10 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         it('maps Input Data.Links -> links', () => {
             expect(getDeleteDatasetType({ group: 'Input Data.Links' })).toBe('links');
         });
+        // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain).
+        it('maps Input Data.Friction Rasters -> friction_raster', () => {
+            expect(getDeleteDatasetType({ group: 'Input Data.Friction Rasters' })).toBe('friction_raster');
+        });
         it('returns null for non-cascade groups', () => {
             // TASK-723: Full Mesh is excluded (computed artefact, not user-edited).
             // Network is excluded (no gn_layer, no menu UI).
