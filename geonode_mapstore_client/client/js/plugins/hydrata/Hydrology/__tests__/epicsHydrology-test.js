@@ -50,7 +50,7 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
     const store = {
         getState: () => ({
             gnresource: { id: 1 },
-            anuga: { projectData: { id: projectId } },
+            anuga: { projects: { data: { id: projectId } } },
             security: { user: { pk: 1 } }
         })
     };
