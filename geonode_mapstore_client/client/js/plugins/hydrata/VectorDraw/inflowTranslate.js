@@ -20,7 +20,7 @@
  * data value — the picker always renders, and translateOut always emits one
  * of the two per-column keys (never both, never the legacy `data` text).
  */
-import { registerTranslate } from './translateRegistry';
+import { registerTranslate, getProp } from './translateRegistry';
 
 /**
  * TASK-850 — Translate the structured form `data` value the TimeDataPicker
@@ -95,23 +95,32 @@ export const translateOut = (input) => {
  */
 export const synthesizeIn = (props) => {
     const out = { ...(props || {}) };
+    // why: TASK-824 (W3.1) — attributes_template casing varies across
+    // ANUGA models. PostGIS lowercases wire columns, but historical rows
+    // / server-side serializers may surface Title-case keys (TASK-794
+    // class). Read via getProp(lowercase-first, Title-case-fallback) so
+    // both casings resolve. Lowercase wins when both are present (matches
+    // PostGIS wire reality).
+    const dataValue = getProp(out, 'data', 'Data');
+    const dataConstantValue = getProp(out, 'data_constant', 'Data_Constant');
+    const dataTimeseriesIdValue = getProp(out, 'data_timeseries_id', 'Data_Timeseries_Id');
     // Prefer an existing structured `data` value if present — the picker
     // (TimeDataPicker) writes the structured shape on every keystroke /
     // radio change, so once the user has interacted, formValues.data is
     // the source of truth. Synthesis only fires when `data` is absent or
     // a stale text-string from the legacy bare-text BE column.
-    const hasStructuredData = out.data && typeof out.data === 'object'
-        && (out.data.kind === 'constant' || out.data.kind === 'timeseries');
+    const hasStructuredData = dataValue && typeof dataValue === 'object'
+        && (dataValue.kind === 'constant' || dataValue.kind === 'timeseries');
     if (!hasStructuredData) {
-        const hasConstant = out.data_constant !== null && out.data_constant !== undefined && out.data_constant !== '';
-        const hasTs = out.data_timeseries_id !== null && out.data_timeseries_id !== undefined && out.data_timeseries_id !== '';
+        const hasConstant = dataConstantValue !== null && dataConstantValue !== undefined && dataConstantValue !== '';
+        const hasTs = dataTimeseriesIdValue !== null && dataTimeseriesIdValue !== undefined && dataTimeseriesIdValue !== '';
         if (hasTs) {
-            const id = out.data_timeseries_id;
+            const id = dataTimeseriesIdValue;
             out.data = { kind: 'timeseries', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
         } else if (hasConstant) {
-            const c = out.data_constant;
+            const c = dataConstantValue;
             out.data = { kind: 'constant', constant: typeof c === 'number' ? c : parseFloat(c) };
-        } else if (typeof out.data === 'string') {
+        } else if (typeof dataValue === 'string') {
             // Legacy BE row: `data` was a bare text column. Try to parse as
             // a number → constant; otherwise drop (BE inf_data_xor CHECK
             // will require the user to pick a value).
@@ -121,19 +130,27 @@ export const synthesizeIn = (props) => {
             // Non-numeric legacy strings were TimeSeries-name lookups
             // (Inflow.make_file's old heuristic) which the FE cannot
             // resolve without a server roundtrip — drop and force re-pick.
-            const n = parseFloat(out.data);
+            const n = parseFloat(dataValue);
             if (Number.isFinite(n)) {
                 out.data = { kind: 'constant', constant: n };
             } else {
                 delete out.data;
             }
         }
+    } else if (out.data !== dataValue) {
+        // Structured value came from a Title-case `Data` key — normalize
+        // to the lowercase `data` key the picker reads.
+        out.data = dataValue;
     }
     // Strip the per-column keys regardless — the picker is the only thing
     // that should be reading these on the FE side, and it reads via the
-    // structured `data` shape.
+    // structured `data` shape. Strip Title-case duplicates too so they
+    // don't leak through to wfstUpdate via formValues.
     delete out.data_constant;
     delete out.data_timeseries_id;
+    delete out.Data;
+    delete out.Data_Constant;
+    delete out.Data_Timeseries_Id;
     return out;
 };
 

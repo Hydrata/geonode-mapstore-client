@@ -17,7 +17,7 @@
  * and registerTranslate('inf', ...) — no changes to wfstApi or
  * epicsVectorDraw required for that wave.
  */
-import { registerTranslate } from './translateRegistry';
+import { registerTranslate, getProp } from './translateRegistry';
 
 /**
  * TASK-795 — Translate a form's structured Time-boundary `data` value into
@@ -128,23 +128,41 @@ export const translateOut = (input) => {
  */
 export const synthesizeIn = (props) => {
     const out = { ...(props || {}) };
+    // why: TASK-824 (W3.1) — attributes_template casing varies across
+    // ANUGA models. PostGIS lowercases wire columns, but historical rows
+    // / server-side serializers may surface Title-case keys (TASK-794
+    // class). Read via getProp(lowercase-first, Title-case-fallback) so
+    // both casings resolve. Lowercase wins when both are present (matches
+    // PostGIS wire reality).
+    const dataValue = getProp(out, 'data', 'Data');
+    const dataConstantValue = getProp(out, 'data_constant', 'Data_Constant');
+    const dataTimeseriesIdValue = getProp(out, 'data_timeseries_id', 'Data_Timeseries_Id');
+    // Normalize the `boundary` discriminator too — translateOut, the popup
+    // validate guard, and the TimeDataPicker show-when all read lowercase
+    // `boundary`. A Title-case `Boundary` from a Title-case attributes_template
+    // row would silently bypass the Time-XOR validation otherwise.
+    const boundaryValue = getProp(out, 'boundary', 'Boundary');
+    if (boundaryValue !== undefined) {
+        out.boundary = boundaryValue;
+    }
+    delete out.Boundary;
     // Prefer an existing structured `data` value if present — the picker
     // (TimeDataPicker) writes the structured shape on every keystroke /
     // radio change, so once the user has interacted, formValues.data is
     // the source of truth. Synthesis only fires when `data` is absent or
     // a stale text-string from the legacy bare-text-field BE column.
-    const hasStructuredData = out.data && typeof out.data === 'object'
-        && (out.data.kind === 'constant' || out.data.kind === 'timeseries');
+    const hasStructuredData = dataValue && typeof dataValue === 'object'
+        && (dataValue.kind === 'constant' || dataValue.kind === 'timeseries');
     if (!hasStructuredData) {
-        const hasConstant = out.data_constant !== null && out.data_constant !== undefined && out.data_constant !== '';
-        const hasTs = out.data_timeseries_id !== null && out.data_timeseries_id !== undefined && out.data_timeseries_id !== '';
+        const hasConstant = dataConstantValue !== null && dataConstantValue !== undefined && dataConstantValue !== '';
+        const hasTs = dataTimeseriesIdValue !== null && dataTimeseriesIdValue !== undefined && dataTimeseriesIdValue !== '';
         if (hasTs) {
-            const id = out.data_timeseries_id;
+            const id = dataTimeseriesIdValue;
             out.data = { kind: 'timeseries', timeseries_id: typeof id === 'number' ? id : parseInt(id, 10) };
         } else if (hasConstant) {
-            const c = out.data_constant;
+            const c = dataConstantValue;
             out.data = { kind: 'constant', constant: typeof c === 'number' ? c : parseFloat(c) };
-        } else if (typeof out.data === 'string') {
+        } else if (typeof dataValue === 'string') {
             // Legacy BE row: `data` was a bare text column. Try to parse as
             // a number → constant; otherwise drop (BE will require the user
             // to pick a value via the CHECK constraint).
@@ -154,7 +172,7 @@ export const synthesizeIn = (props) => {
             // numeric strings: '0.0' → "0", '1e5' → "100000", '3.140' →
             // "3.14", all reject and the user's data is dropped. Use
             // Number.isFinite instead — anything float-coercible is fine.
-            const n = parseFloat(out.data);
+            const n = parseFloat(dataValue);
             if (Number.isFinite(n)) {
                 out.data = { kind: 'constant', constant: n };
             } else {
@@ -163,13 +181,25 @@ export const synthesizeIn = (props) => {
                 // an unset picker rather than auto-stuffing a stale name.
                 delete out.data;
             }
+        } else if (dataValue === undefined) {
+            // No data at all (neither casing) — leave out.data absent so
+            // the picker renders unset. Below cleanup strips any Title-case
+            // residue.
         }
+    } else if (out.data !== dataValue) {
+        // Structured value came from a Title-case `Data` key — normalize
+        // to the lowercase `data` key the picker reads.
+        out.data = dataValue;
     }
     // Strip the per-column keys regardless — the picker is the only thing
     // that should be reading these on the FE side, and it reads via the
-    // structured `data` shape.
+    // structured `data` shape. Strip Title-case duplicates too so they
+    // don't leak through to wfstUpdate via formValues.
     delete out.data_constant;
     delete out.data_timeseries_id;
+    delete out.Data;
+    delete out.Data_Constant;
+    delete out.Data_Timeseries_Id;
     return out;
 };
 
