@@ -255,16 +255,18 @@
 
 /* ── TASK-423: Consolidated ANUGA InputMenu / InputSection layout classes ── */
 
-.anuga-section {
+/* Chained `.menu-rows-container` boosts specificity above the bare
+   `.menu-rows-container { overflow-y: auto }` rule in simpleView.css —
+   without this, the parent rule wins on cascade order and a 4-ish-px
+   scrollbar appears in every expanded section. */
+.menu-rows-container.anuga-section {
     border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 3px;
     margin: 3px 0;
-    /* Each section grows to fit its content; the outer .simple-view-panel-col-one
-       handles vertical scroll. Without this override, `.menu-rows-container`'s
-       `overflow-y: auto` would render a scrollbar inside every expanded section. */
+    padding: 4px 0 6px;
     flex: 0 0 auto;
     min-height: auto;
-    overflow-y: visible;
+    overflow: visible;
 }
 
 .anuga-section-header {
