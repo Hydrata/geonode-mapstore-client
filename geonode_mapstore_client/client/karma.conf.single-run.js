@@ -78,6 +78,27 @@ module.exports = function karmaConfig(config) {
         throw new Error("COVERAGE=1 set but 'coverage' reporter missing from testConfig — check @mapstore/project testConfig.js and MapStore2/build/babel.config.js env.test.plugins.");
     }
 
+    // 3b. TASK-733 — When COVERAGE=1, extend the upstream coverageReporter
+    //     to emit a text-summary on every run (terminal-visible totals) while
+    //     preserving the upstream html/cobertura/lcovonly outputs that
+    //     `npm run coverage:hydrata` and `coverage:open` depend on.
+    //     Upstream shape (MapStore2/build/testConfig.js):
+    //         coverageReporter.reporters = [
+    //             { type: 'html', subdir: 'report-html' },
+    //             { type: 'cobertura', subdir: '.', file: 'cobertura.txt' },
+    //             { type: 'lcovonly', subdir: '.' }  // writes coverage/lcov.info
+    //         ]
+    if (process.env.COVERAGE === '1') {
+        const upstreamCoverage = testConfig.coverageReporter || {};
+        testConfig.coverageReporter = Object.assign({}, upstreamCoverage, {
+            dir: upstreamCoverage.dir || './coverage/',
+            reporters: [
+                ...(upstreamCoverage.reporters || []),
+                { type: 'text-summary' }
+            ]
+        });
+    }
+
     // 4. CI-friendly Chrome launcher with sandbox flags + larger timeouts.
     //    Adds --no-sandbox/--disable-gpu/--disable-dev-shm-usage so the
     //    karma-chrome-launcher 3.1.1 disconnect bug doesn't fire under load.
