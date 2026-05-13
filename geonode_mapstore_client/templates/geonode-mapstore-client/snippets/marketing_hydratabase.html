@@ -32,19 +32,23 @@
     <div class="hydrata-users-section">
         <h2 class="text-center">{% trans "Who Uses Hydrata" %}</h2>
         <div class="row">
-            <div class="col-md-3 col-sm-6 text-center">
+            <div class="col-md-4 col-sm-6 text-center">
                 <h3>{% trans "Consultancies" %}</h3>
                 <p>{% trans "You're submitting to an owner's engineer or independent reviewer. Provide the documentation. It gets you approval on the first cycle." %}</p>
             </div>
-            <div class="col-md-3 col-sm-6 text-center">
+            <div class="col-md-4 col-sm-6 text-center">
                 <h3>{% trans "Local authorities & reviewers" %}</h3>
                 <p>{% trans "You retain the regulatory responsibility but don't have in-house flood capability. Outsource the technical review; keep the audit trail." %}</p>
             </div>
-            <div class="col-md-3 col-sm-6 text-center">
+            <div class="col-md-4 col-sm-6 text-center">
                 <h3>{% trans "Municipal stormwater" %}</h3>
                 <p>{% trans "Audit trail and jurisdiction-checklist for stormwater consultants serving municipal clients." %}</p>
             </div>
-            <div class="col-md-3 col-sm-6 text-center">
+            <div class="col-md-4 col-md-offset-2 col-sm-6 text-center">
+                <h3>{% trans "Dam owners & water utilities" %}</h3>
+                <p>{% trans "Multi-dam systems, PMP studies, spillway capacity, dam-break inundation. Independent verification of your hydrologic and hydraulic models, with the audit trail to back it up." %}</p>
+            </div>
+            <div class="col-md-4 col-sm-6 text-center">
                 <h3>{% trans "Researchers (ANUGA + Python)" %}</h3>
                 <p>{% trans "Run ANUGA in the cloud, no infrastructure required. Free tier, open-source codebase." %}</p>
             </div>
@@ -60,11 +64,11 @@
 
     <hr class="featurette-divider">
 
-    <div class="hydrata-developer-tools">
-        <h2 class="text-center">{% trans "Developer tools" %}</h2>
-        <p class="text-center" style="margin-bottom: 24px;">{% trans "Hydrata also exposes a Model Context Protocol endpoint for AI assistants." %}</p>
-        <div class="hydrata-code-block">
-            <div class="hydrata-code-label">Claude Code + Hydrata MCP</div>
+    <div class="hydrata-developer-tools hydrata-developer-tools-secondary">
+        <details>
+            <summary>{% trans "Developer tools. Hydrata exposes a Model Context Protocol endpoint for AI assistants." %}</summary>
+            <div class="hydrata-code-block">
+                <div class="hydrata-code-label">Claude Code + Hydrata MCP</div>
 <pre><code><span class="code-comment"># Connect your AI assistant to Hydrata</span>
 <span class="code-prompt">$</span> claude mcp add hydrata https://hydrata.com/mcp/ \
     --transport streamable-http --header "Authorization: Bearer $HYDRATA_TOKEN"
@@ -78,7 +82,8 @@
 
   Simulation complete. Peak depth: 1.42m at outlet.
   Results: https://hydrata.com/catalogue/merewether-flood-depth-201</code></pre>
-        </div>
+            </div>
+        </details>
     </div>
 
 </div>
