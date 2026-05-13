@@ -9,6 +9,11 @@ import { interceptOGCError } from '../../../../MapStore2/web/client/utils/Observ
 // fires at module-load time. No `sideEffects: false` in client/package.json
 // → webpack preserves this import.
 import './boundaryTranslate';
+// TASK-850 (W2.3-FE) — Same pattern for the Inflow translator.
+// inflowTranslate.js's registerTranslate('inf', ...) fires at module-load
+// time so wfstInsert/wfstUpdate on inf_* layers routes through the
+// Constant/TimeSeries translateOut instead of the IDENTITY fallback.
+import './inflowTranslate';
 import { getTranslate, deriveTranslateKey } from './translateRegistry';
 
 /**

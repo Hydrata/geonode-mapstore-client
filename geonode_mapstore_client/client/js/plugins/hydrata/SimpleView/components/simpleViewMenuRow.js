@@ -171,13 +171,14 @@ const ANUGA_FEATURE_CONFIG = {
                         {value: 'Rainfall', label: 'Rainfall'},
                         {value: 'Surface', label: 'Surface'}
                     ]},
-                // BE attribute is declared `string` (scenario.py:384). Real
-                // users may type a TimeSeries name (alphanumeric — see
-                // Inflow.make_file() at scenario.py:399-404). KEEP AS TEXT
-                // until TASK-820 lands the FeatureDataMixin refactor; then
-                // swap to a Constant/TimeSeries picker mirroring boundary's
-                // `time-data-picker` widget.
-                {name: 'data', type: 'text', label: 'Data', "default": '100'}
+                // TASK-850 (W2.3-FE) — Compound Constant/TimeSeries picker. Mirrors
+                // the Boundary Time-data-picker pattern (above) but always renders —
+                // Inflow has no discriminator. Inflow.make_file consumes the resolved
+                // value via FeatureDataMixin (TASK-820) so the picker emits one of
+                // `data_constant` FLOAT or `data_timeseries_id` INTEGER, never the
+                // legacy bare `data` text. EDIT-mode seeding goes through
+                // inflowTranslate.synthesizeIn via the registry (epicsVectorDraw.js).
+                {name: 'data', type: 'time-data-picker', label: 'Data'}
             ]
         }
     },

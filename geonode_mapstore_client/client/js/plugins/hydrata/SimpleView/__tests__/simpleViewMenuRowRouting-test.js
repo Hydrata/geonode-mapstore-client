@@ -405,15 +405,24 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(f.showWhen).toEqual({ field: 'boundary', equals: 'Time' });
         });
 
-        it('inf_ data field is still plain text (TASK-795 only touched bdy_)', () => {
-            // Inflow boundary type ALSO uses the legacy bare `data` column
-            // and still needs free-text input (TimeSeries name OR numeric
-            // string per scenario.py:399-404). TASK-795 deliberately did
-            // NOT touch inf_ — only bdy_ migrated to the compound widget.
+        it('inf_ data field is the compound time-data-picker (TASK-850 W2.3-FE migration)', () => {
+            // TASK-850 (W2.3-FE) — Inflow migrated to the Constant/TimeSeries
+            // picker once TASK-820 landed the FeatureDataMixin BE refactor
+            // (data_constant FLOAT XOR data_timeseries_id INTEGER, inf_data_xor
+            // CHECK). Unlike bdy_ this picker has NO showWhen — Inflow has
+            // no discriminator field, every row carries a data value.
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'data');
             expect(f).toExist();
-            expect(f.type).toBe('text');
+            expect(f.type).toBe('time-data-picker');
+            // Regression guard against re-introducing the legacy bare text
+            // field — the BE no longer accepts plain `data` writes.
+            expect(f.type).toNotBe('text');
+            // No discriminator → no showWhen (cf. bdy_ above).
             expect(f.showWhen).toBe(undefined);
+            // No `default` — the picker handles its own empty state, and
+            // the BE inf_data_xor CHECK rejects an empty save with a clear
+            // error message.
+            expect(f.default).toBe(undefined);
         });
 
         it('non-bdy prefixes (fri_, mes_, str_) have no data field', () => {
