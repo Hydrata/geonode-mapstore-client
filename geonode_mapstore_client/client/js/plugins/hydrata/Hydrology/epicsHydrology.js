@@ -60,7 +60,7 @@ export const initHydrologyEpic = (action$, store) =>
     action$
         .ofType(INIT_HYDROLOGY)
         .filter(() => store.getState()?.gnresource.id)
-        .filter(() => store.getState()?.anuga?.projectData?.id)
+        .filter(() => store.getState()?.anuga?.projects?.data?.id)
         .mergeMap(() => {
             let response;
             try {
@@ -84,7 +84,7 @@ export const fetchTimeSeriesEpic = (action$, store) =>
         .mergeMap(() => {
             let response;
             try {
-                const projectId = store.getState()?.anuga?.projectData?.id;
+                const projectId = store.getState()?.anuga?.projects?.data?.id;
                 const endpoint = "time-series";
                 const dispatchFunction = setHydrologyTimeSeriesData;
                 const errorFunction = errorHydrologyTimeSeriesData;
@@ -101,7 +101,7 @@ export const fetchTemporalPatternEpic = (action$, store) =>
         .mergeMap(() => {
             let response;
             try {
-                const projectId = store.getState()?.anuga?.projectData?.id;
+                const projectId = store.getState()?.anuga?.projects?.data?.id;
                 const endpoint = "temporal-pattern";
                 const dispatchFunction = setHydrologyTemporalPatternData;
                 const errorFunction = errorHydrologyTemporalPatternData;
@@ -118,7 +118,7 @@ export const fetchIdfTableEpic = (action$, store) =>
         .mergeMap(() => {
             let response;
             try {
-                const projectId = store.getState()?.anuga?.projectData?.id;
+                const projectId = store.getState()?.anuga?.projects?.data?.id;
                 const endpoint = "idf-table";
                 const dispatchFunction = setHydrologyIdfTableData;
                 const errorFunction = errorHydrologyIdfTableData;
@@ -140,7 +140,7 @@ export const saveHydrologyItemEpic = (action$, store) =>
                 ...action.item,
                 data: action.item.data
             };
-            const projectId = store.getState()?.anuga?.projectData?.id;
+            const projectId = store.getState()?.anuga?.projects?.data?.id;
             if (typeof action.item?.id === 'number' || typeof action.item?.id === 'string' && !isNaN(Number(action.item?.id))) {
                 return Rx.Observable.from(
                     axios.patch(
@@ -202,7 +202,7 @@ export const deleteHydrologyItemEpic = (action$, store) =>
     action$
         .ofType(DELETE_HYDROLOGY_ITEM)
         .mergeMap(action => {
-            const projectId = store.getState()?.anuga?.projectData?.id;
+            const projectId = store.getState()?.anuga?.projects?.data?.id;
             return Rx.Observable.from(
                 axios.delete(
                     `/api/v2/anuga/projects/${projectId}/${v2Hydrology(action.activeHydrologyPage)}/${action.item.id}/`

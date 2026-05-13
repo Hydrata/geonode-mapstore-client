@@ -22,6 +22,7 @@ import {PublicationPanel} from './publicationPanel';
 import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {NetworkMenu} from "./networkMenu";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
+import {setHydrologyMainMenu} from "../../Hydrology/actionsHydrology";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {AnugaRunMenu} from "@js/plugins/hydrata/Anuga/components/anugaRunMenu";
@@ -63,7 +64,10 @@ class AnugaContainer extends React.Component {
         setMembershipPanel: PropTypes.func,
         hasEPSGset: PropTypes.bool,
         resultsGroup: PropTypes.object,
-        isAnugaProject: PropTypes.bool
+        isAnugaProject: PropTypes.bool,
+        hydrologyPluginPresent: PropTypes.bool,
+        showHydrologyMainMenu: PropTypes.bool,
+        setHydrologyMainMenu: PropTypes.func
     };
 
     static defaultProps = {
@@ -83,6 +87,10 @@ class AnugaContainer extends React.Component {
         }
     }
 
+    closeHydrologyIfOpen = () => {
+        if (this.props.showHydrologyMainMenu) this.props.setHydrologyMainMenu(false);
+    }
+
     renderToolbarButtons() {
         return (
             <React.Fragment>
@@ -92,11 +100,37 @@ class AnugaContainer extends React.Component {
                     onClick={() => {
                         this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
                         this.props.setOpenMenuGroupId(null);
+                        this.closeHydrologyIfOpen();
                         trackEvent('button', `click`, `anuga-input-menu-toggle`);
                     }}
                 >
                     <Message msgId="hydrata.anuga.inputs" />
                 </button>
+                {this.props.hydrologyPluginPresent ?
+                    <button
+                        id="hydrology-main-menu-button"
+                        key="hydrology-main-menu-button"
+                        className={`simple-view-menu-button ${this.props.showHydrologyMainMenu ? 'active' : ''}`}
+                        onClick={() => {
+                            const opening = !this.props.showHydrologyMainMenu;
+                            this.props.setHydrologyMainMenu(opening);
+                            if (opening) {
+                                if (this.props.showAnugaInputMenu) this.props.setAnugaInputMenu(false);
+                                if (this.props.showAnugaScenarioMenu) {
+                                    this.props.setAnugaScenarioMenu(false);
+                                    this.props.stopAnugaScenarioPolling();
+                                }
+                                if (this.props.showPublicationPanel) this.props.setPublicationPanel(false);
+                                if (this.props.showMembershipPanel) this.props.setMembershipPanel(false);
+                                this.props.setOpenMenuGroupId(null);
+                            }
+                            trackEvent('button', 'click', 'hydrology-main-menu-toggle');
+                        }}
+                    >
+                        <Message msgId="hydrata.hydrology.hydrology" />
+                    </button>
+                    : null
+                }
                 {this.props.canViewAnugaMap && this.props.hasEPSGset ?
                     <button
                         key="anuga-scenario-button"
@@ -105,6 +139,7 @@ class AnugaContainer extends React.Component {
                             this.props.setAnugaScenarioMenu(!this.props.showAnugaScenarioMenu);
                             this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
                             this.props.setOpenMenuGroupId(null);
+                            this.closeHydrologyIfOpen();
                             trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
                         }}
                     >
@@ -118,6 +153,7 @@ class AnugaContainer extends React.Component {
                         className={`simple-view-menu-button ${this.props.openMenuGroupId === 'Results' ? 'active' : ''}`}
                         onClick={() => {
                             this.props.setOpenMenuGroupId('Results');
+                            this.closeHydrologyIfOpen();
                             trackEvent('button', `click`, `anuga-results-menu-toggle`);
                         }}
                     >
@@ -132,6 +168,7 @@ class AnugaContainer extends React.Component {
                         onClick={() => {
                             this.props.setPublicationPanel(!this.props.showPublicationPanel);
                             this.props.setOpenMenuGroupId(null);
+                            this.closeHydrologyIfOpen();
                             trackEvent('button', `click`, `anuga-publication-menu-toggle`);
                         }}
                     >
@@ -146,6 +183,7 @@ class AnugaContainer extends React.Component {
                         onClick={() => {
                             this.props.setMembershipPanel(!this.props.showMembershipPanel);
                             this.props.setOpenMenuGroupId(null);
+                            this.closeHydrologyIfOpen();
                             trackEvent('button', `click`, `anuga-membership-panel-toggle`);
                         }}
                     >
@@ -191,6 +229,7 @@ const mapStateToProps = (state) => {
     const logText = latestRunIsValid ?
         selectedScenario?.latest_run?.log || '-' :
         selectedScenario?.log || '-';
+    const mapViewerPlugins = state?.localConfig?.plugins?.map_viewer || [];
     return {
         logText: logText,
         gnResourceLoaded: state?.gnresource?.id,
@@ -214,7 +253,9 @@ const mapStateToProps = (state) => {
         canViewAnugaMap: canViewAnugaMap(state),
         canManageMembers: canManageMembers(state),
         canCreateScenario: canCreateScenario(state),
-        showMembershipPanel: state?.anuga?.ui?.showMembershipPanel
+        showMembershipPanel: state?.anuga?.ui?.showMembershipPanel,
+        hydrologyPluginPresent: !!mapViewerPlugins.find(x => x.name === "Hydrology"),
+        showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu
     };
 };
 
@@ -229,7 +270,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setOpenMenuGroupId: (menuGroup) => dispatch(setOpenMenuGroupId(menuGroup)),
         startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
-        setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible))
+        setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible)),
+        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible))
     };
 };
 

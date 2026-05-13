@@ -2,26 +2,18 @@
 import React from 'react';
 import {connect} from 'react-redux';
 
-import {
-    initHydrology
-} from '../actionsHydrology';
+import {initHydrology} from '../actionsHydrology';
 import {HydrologyMainMenu} from './hydrologyMainMenu';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
-import {trackEvent} from "@js/utils/analytics";
-import {setHydrologyMainMenu} from "@js/plugins/hydrata/Hydrology/actionsHydrology";
-import {setOpenMenuGroupId} from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
+import {getProjectId} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import PropTypes from "prop-types";
-import Message from '@mapstore/framework/components/I18N/Message';
 
 class HydrologyContainer extends React.Component {
     static propTypes = {
-        setHydrologyMainMenu: PropTypes.func,
         initHydrology: PropTypes.func,
-        setOpenMenuGroupId: PropTypes.func,
         showHydrologyMainMenu: PropTypes.bool,
-        isAnugaProject: PropTypes.bool,
-        hydrologyProjectId: PropTypes.number
+        isAnugaProject: PropTypes.bool
     }
 
     static defaultProps = {
@@ -32,52 +24,31 @@ class HydrologyContainer extends React.Component {
     }
 
     componentDidUpdate(prevProps) {
-        if (!this.props.hydrologyProjectId && this.props.isAnugaProject !== prevProps.isAnugaProject) {
+        if (this.props.isAnugaProject && !prevProps.isAnugaProject) {
             this.props.initHydrology();
         }
     }
 
     render() {
-        return this.props.isAnugaProject ?
-            <div id={"hydrology-container"}>
-                <div id={"hydrology-main-menu-button"}>
-                    <button
-                        key="hydrology-main-menu-button"
-                        className={'simple-view-menu-button'}
-                        style={{left: 520}}
-                        onClick={() => {
-                            this.props.setHydrologyMainMenu(!this.props.showHydrologyMainMenu);
-                            this.props.setOpenMenuGroupId(null);
-                            trackEvent('button', `click`, `hydrology-main-menu-toggle`);
-                        }}
-                    >
-                        <Message msgId="hydrata.hydrology.hydrology" />
-                    </button>
-                </div>
-                {
-                    this.props.showHydrologyMainMenu ?
-                        <HydrologyMainMenu/>
-                        : null
-                }
-            </div> :
-            null;
+        if (!this.props.isAnugaProject || !this.props.showHydrologyMainMenu) {
+            return null;
+        }
+        return <HydrologyMainMenu/>;
     }
 }
 
 const mapStateToProps = (state) => {
+    const anugaProjectId = getProjectId(state);
     return {
-        isAnugaProject: !!state?.anuga?.projectData?.id,
-        anugaProjectId: state?.anuga?.projectData?.id,
-        hydrologyProjectId: state?.hydrology?.projectId,
+        isAnugaProject: !!anugaProjectId,
+        anugaProjectId,
         showHydrologyMainMenu: state?.hydrology?.showHydrologyMainMenu
     };
 };
 
 const mapDispatchToProps = ( dispatch ) => {
     return {
-        initHydrology: () => dispatch(initHydrology()),
-        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible)),
-        setOpenMenuGroupId: (openMenuGroupId) => dispatch(setOpenMenuGroupId(openMenuGroupId))
+        initHydrology: () => dispatch(initHydrology())
     };
 };
 
