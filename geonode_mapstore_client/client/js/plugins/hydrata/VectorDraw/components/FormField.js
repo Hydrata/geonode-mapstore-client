@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { connect } from 'react-redux';
 import axios from '../../../../../MapStore2/web/client/libs/ajax';
 import { getProjectId } from '../../Anuga/selectorsAnuga';
 import { register, get } from '../widgetRegistry';
+import { DiscriminatorPicker } from './DiscriminatorPicker';
 
 // TASK-784 polish — all font / size / weight rules live in
 // vectorDrawPopup.css (`.vector-draw-popup *` resets to inherit,
@@ -93,164 +94,227 @@ export const SelectWidget = ({ field, value, onChange }) => {
 };
 
 /**
- * TASK-795 — TimeDataPicker
+ * TASK-795 / TASK-825 (W3.2) — TimeDataPicker
  *
- * Internal radio (Constant | TimeSeries) + value control. Emits the structured
- * shape `{kind, constant}` / `{kind, timeseries_id}` to the parent's onChange.
- * The save epic (vectorDrawSaveEpic) translates this into the WFS-T property
- * keys (`data_constant` or `data_timeseries_id`) before transaction build.
+ * Thin wrapper over the generalized DiscriminatorPicker for the 2 Boundary
+ * kinds (constant + timeseries). The previous inline implementation has been
+ * promoted to DiscriminatorPicker.js so other compound widgets (e.g. inflow
+ * source with rainfall-grid as a 3rd kind) can reuse it. The wrapper
+ * preserves the original API exactly:
  *
- * Fetches /api/v2/anuga/projects/<pid>/time-series/ on mount when no
- * `timeSeriesOptions` prop is supplied (test injection point). The list is
- * project-scoped + small (typically a handful per project) so per-form fetch
- * is fine — no global cache needed.
+ *   - Receives `{field, value, onChange, projectId, timeSeriesOptions}`.
+ *   - Emits via `onChange(field.name, structuredValue)` where structuredValue is
+ *       {kind: 'constant',   constant:      Number|null}  |
+ *       {kind: 'timeseries', timeseries_id: Number|null}
+ *   - Renders the DOM with classes `time-data-picker` (outer),
+ *     `time-data-picker-constant` (number input) and
+ *     `time-data-picker-timeseries` (select) so the scoped styles in
+ *     vectorDrawPopup.css still apply.
+ *
+ * The `timeSeriesOptions` prop continues to bypass the per-form fetch
+ * (test injection point). When omitted, DiscriminatorPicker calls the
+ * `fetch` defined below, which hits
+ * `/api/v2/anuga/projects/${projectId}/time-series/` and accepts either
+ * `resp.data` as an array OR `resp.data.results`.
  */
-export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
-    // Initial radio state — read from value (seeded by SEED_FORM_VALUES on
-    // edit) so the picker re-renders the row's last selection. Defaults to
-    // 'constant' on a fresh feature where value is undefined.
-    const initialKind = value?.kind === 'timeseries' ? 'timeseries' : 'constant';
-    const [kind, setKind] = useState(initialKind);
-    const [tsList, setTsList] = useState(
-        Array.isArray(timeSeriesOptions) ? timeSeriesOptions : null
-    );
-    const [loadError, setLoadError] = useState(null);
 
-    // Re-sync internal radio if `value.kind` flips externally (e.g. after
-    // a SEED_FORM_VALUES on a re-entered edit flow). Cheap; no remount.
-    useEffect(() => {
-        if (value?.kind && value.kind !== kind) {
-            setKind(value.kind);
-        }
-    }, [value?.kind]);
-
-    // Per-form fetch when no options were injected. Skips fetch if projectId
-    // is missing (defensive — picker shouldn't render without a project).
-    // Wrapped so consistent-return is satisfied: the IIFE handles the
-    // early-exit branches; the outer arrow always returns the cancel
-    // function (which short-circuits if `cancelled` was already set).
-    useEffect(() => {
-        let cancelled = false;
-        if (Array.isArray(timeSeriesOptions)) {
-            setTsList(timeSeriesOptions);
-        } else if (tsList === null) {
-            if (!projectId) {
-                setTsList([]);
-            } else {
-                axios.get(`/api/v2/anuga/projects/${projectId}/time-series/`)
-                    .then(resp => {
-                        if (cancelled) return;
-                        const list = Array.isArray(resp?.data) ? resp.data
-                            : Array.isArray(resp?.data?.results) ? resp.data.results
-                                : [];
-                        setTsList(list);
-                    })
-                    .catch(err => {
-                        if (cancelled) return;
-                        setLoadError(err?.message || 'Failed to load TimeSeries');
-                        setTsList([]);
-                    });
-            }
-        }
-        return () => { cancelled = true; };
-    }, [projectId, timeSeriesOptions]);
-
-    const onKindChange = (e) => {
-        const newKind = e.target.value;
-        setKind(newKind);
-        // Reset the value when switching modes so we never accidentally emit
-        // both constant + timeseries_id keys downstream. Use null placeholders
-        // so the BE CHECK constraint sees a clean "exactly one of" payload.
-        if (newKind === 'constant') {
-            const existing = typeof value?.constant === 'number' ? value.constant : null;
-            onChange(field.name, { kind: 'constant', constant: existing });
-        } else {
-            const existing = typeof value?.timeseries_id === 'number' ? value.timeseries_id : null;
-            onChange(field.name, { kind: 'timeseries', timeseries_id: existing });
-        }
-    };
-
-    const onConstantChange = (e) => {
-        const raw = e.target.value;
-        const num = raw === '' ? null : parseFloat(raw);
-        onChange(field.name, { kind: 'constant', constant: Number.isNaN(num) ? null : num });
-    };
-
-    const onTimeSeriesChange = (e) => {
-        const raw = e.target.value;
-        const id = raw === '' ? null : parseInt(raw, 10);
-        onChange(field.name, { kind: 'timeseries', timeseries_id: Number.isNaN(id) ? null : id });
-    };
-
+// Render component for the 'constant' kind. Emits the canonical
+// {kind:'constant', constant:Number|null} shape via its onChange prop.
+// The outer wrapper translates this into onChange(field.name, value).
+export const ConstantInput = ({ value, onChange }) => {
     const constantValue = (typeof value?.constant === 'number' || typeof value?.constant === 'string')
         ? value.constant
         : '';
+    const handleChange = (e) => {
+        const raw = e.target.value;
+        const num = raw === '' ? null : parseFloat(raw);
+        onChange({ kind: 'constant', constant: Number.isNaN(num) ? null : num });
+    };
+    return (
+        <input
+            type="number"
+            className="time-data-picker-constant"
+            value={constantValue}
+            onChange={handleChange}
+            step="any"
+            style={{flex: 1, maxWidth: 160}}
+        />
+    );
+};
+
+// Render component for the 'timeseries' kind. Emits
+// {kind:'timeseries', timeseries_id:Number|null}. `options` arrives from
+// DiscriminatorPicker (either from the `timeSeriesOptions` prop or the
+// per-mount fetch). `loading` is unused here because DiscriminatorPicker
+// only sets loading=true when a fetch is actually in flight; for the
+// injected-options path the original "Loading…" placeholder is replaced
+// by the empty-list placeholder, which matches the existing tests.
+export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) => {
     const tsValue = (typeof value?.timeseries_id === 'number' || typeof value?.timeseries_id === 'string')
         ? value.timeseries_id
         : '';
+    const list = Array.isArray(options) ? options : [];
+    const isEmpty = !loading && list.length === 0;
+    const handleChange = (e) => {
+        const raw = e.target.value;
+        const id = raw === '' ? null : parseInt(raw, 10);
+        onChange({ kind: 'timeseries', timeseries_id: Number.isNaN(id) ? null : id });
+    };
+    return (
+        <React.Fragment>
+            <select
+                className="time-data-picker-timeseries"
+                value={tsValue}
+                onChange={handleChange}
+                disabled={loading || isEmpty}
+                style={{flex: 1}}
+            >
+                <option value="">
+                    {loading
+                        ? 'Loading…'
+                        : (isEmpty
+                            ? 'No TimeSeries available, create one first'
+                            : 'Select TimeSeries')}
+                </option>
+                {list.map(ts => (
+                    <option key={ts.id} value={ts.id}>{ts.name}</option>
+                ))}
+            </select>
+            {error ? (
+                <p style={{color: 'red', margin: '4px 0 0 0', fontSize: '0.9em'}}>
+                    {error}
+                </p>
+            ) : null}
+        </React.Fragment>
+    );
+};
 
-    const tsArray = Array.isArray(tsList) ? tsList : [];
-    const tsLoading = tsList === null;
-    const tsEmpty = !tsLoading && tsArray.length === 0;
+// Fetch helper for the 'timeseries' kind. Accepts either `resp.data` as
+// an array OR `resp.data.results` (matches the existing TimeDataPicker
+// behaviour pre-W3.2).
+export const fetchTimeSeries = (projectId) => {
+    if (!projectId) {
+        return Promise.resolve([]);
+    }
+    return axios.get(`/api/v2/anuga/projects/${projectId}/time-series/`)
+        .then(resp => {
+            if (Array.isArray(resp?.data)) return resp.data;
+            if (Array.isArray(resp?.data?.results)) return resp.data.results;
+            return [];
+        });
+};
 
+export const TimeDataPicker = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
+    // Build the choices descriptor for DiscriminatorPicker. The 'timeseries'
+    // kind's `options` prop is the injection point used by tests + by
+    // callers that want to bypass the per-form fetch; when undefined,
+    // DiscriminatorPicker invokes `fetch(projectId)`.
+    const choices = [
+        { kind: 'constant', label: 'Constant', render: ConstantInput },
+        {
+            kind: 'timeseries',
+            label: 'TimeSeries',
+            render: TimeSeriesSelect,
+            // Pass timeSeriesOptions through as injected options when it's an
+            // array (test path + caller-injected path). When undefined we
+            // omit the key so DiscriminatorPicker falls through to fetch.
+            ...(Array.isArray(timeSeriesOptions) ? { options: timeSeriesOptions } : {}),
+            fetch: fetchTimeSeries
+        }
+    ];
+
+    // DiscriminatorPicker emits the full value object; we translate to
+    // (name, value) for the parent's onChange. On a kind-switch reset,
+    // DiscriminatorPicker emits `{kind: newKind}` only — we canonicalize
+    // to the full shape with the per-kind value preserved when possible
+    // (number) else null. This preserves the contract from the original
+    // TASK-795 implementation: the BE CHECK constraint requires exactly
+    // one of `constant` / `timeseries_id` to be set.
+    const handleChange = (newValue) => {
+        const newKind = newValue?.kind;
+        const isResetOnly = newValue && Object.keys(newValue).length === 1 && 'kind' in newValue;
+        if (isResetOnly) {
+            if (newKind === 'constant') {
+                const existing = typeof value?.constant === 'number' ? value.constant : null;
+                onChange(field.name, { kind: 'constant', constant: existing });
+            } else if (newKind === 'timeseries') {
+                const existing = typeof value?.timeseries_id === 'number' ? value.timeseries_id : null;
+                onChange(field.name, { kind: 'timeseries', timeseries_id: existing });
+            } else {
+                onChange(field.name, newValue);
+            }
+            return;
+        }
+        onChange(field.name, newValue);
+    };
+
+    // The wrapper supplies an inner `discriminator-picker` from
+    // DiscriminatorPicker plus its own outer `time-data-picker` div so the
+    // scoped CSS in vectorDrawPopup.css continues to apply.
+    const innerField = { ...field, choices };
     return (
         <div className="time-data-picker simple-view-panel-item-row" style={{flexDirection: 'column', alignItems: 'stretch'}}>
             <label style={{marginBottom: 4}}>{field.label || 'Boundary value'}:</label>
-            <div style={{display: 'flex', gap: 12, marginBottom: 6}}>
-                <label style={{display: 'flex', alignItems: 'center', gap: 4, marginBottom: 0, fontWeight: 'normal'}}>
-                    <input
-                        type="radio"
-                        name={`${field.name}-kind`}
-                        value="constant"
-                        checked={kind === 'constant'}
-                        onChange={onKindChange}
-                    />
-                    Constant
-                </label>
-                <label style={{display: 'flex', alignItems: 'center', gap: 4, marginBottom: 0, fontWeight: 'normal'}}>
-                    <input
-                        type="radio"
-                        name={`${field.name}-kind`}
-                        value="timeseries"
-                        checked={kind === 'timeseries'}
-                        onChange={onKindChange}
-                    />
-                    TimeSeries
-                </label>
-            </div>
-            {kind === 'constant' ? (
-                <input
-                    type="number"
-                    className="time-data-picker-constant"
-                    value={constantValue}
-                    onChange={onConstantChange}
-                    step="any"
-                    style={{flex: 1, maxWidth: 160}}
-                />
-            ) : (
-                <React.Fragment>
-                    <select
-                        className="time-data-picker-timeseries"
-                        value={tsValue}
-                        onChange={onTimeSeriesChange}
-                        disabled={tsLoading || tsEmpty}
-                        style={{flex: 1}}
-                    >
-                        <option value="">{tsLoading ? 'Loading…' : (tsEmpty ? 'No TimeSeries available — create one first' : '— Select TimeSeries —')}</option>
-                        {tsArray.map(ts => (
-                            <option key={ts.id} value={ts.id}>{ts.name}</option>
-                        ))}
-                    </select>
-                    {loadError ? (
-                        <p style={{color: 'red', margin: '4px 0 0 0', fontSize: '0.9em'}}>
-                            {loadError}
-                        </p>
-                    ) : null}
-                </React.Fragment>
-            )}
+            <DiscriminatorPicker
+                field={innerField}
+                value={value}
+                onChange={handleChange}
+                projectId={projectId}
+            />
         </div>
     );
 };
+
+// TASK-826 (W3.3) — Generalized discriminator-picker widget. Adapts
+// DiscriminatorPicker (1-arg `onChange(value)`) to the FormField contract
+// (`onChange(field.name, value)`) and renders the same outer row + field
+// label that TimeDataPicker does — so a formConfig migration from
+// `time-data-picker` to `discriminator-picker` is byte-identical for the
+// 2 Boundary kinds.
+//
+// `field.choices` declares the kinds. Each choice may set an optional
+// `defaultValue: {...}` (e.g. `{constant: null}`) used to canonicalize the
+// kind-switch reset payload — the wrapper merges `defaultValue` with any
+// typed-existing values from the current `value` so toggling kinds doesn't
+// drop a value the user already typed.
+const DiscriminatorPickerWidget = ({ field, value, onChange, projectId }) => {
+    const choices = Array.isArray(field?.choices) ? field.choices : [];
+
+    const handleChange = (newValue) => {
+        // DiscriminatorPicker emits `{kind: newKind}` on a radio change.
+        // Canonicalize to the full shape so the reducer + save epic see
+        // the same `{kind, key}` payload as the legacy TimeDataPicker.
+        const isResetOnly = newValue
+            && Object.keys(newValue).length === 1
+            && 'kind' in newValue;
+        if (isResetOnly) {
+            const c = choices.find(choice => choice.kind === newValue.kind);
+            const seed = (c && c.defaultValue) ? { ...c.defaultValue } : {};
+            for (const k of Object.keys(seed)) {
+                if (value && (typeof value[k] === 'number' || typeof value[k] === 'string')) {
+                    seed[k] = value[k];
+                }
+            }
+            onChange(field.name, { ...seed, kind: newValue.kind });
+            return;
+        }
+        onChange(field.name, newValue);
+    };
+
+    return (
+        <div className="simple-view-panel-item-row" style={{flexDirection: 'column', alignItems: 'stretch'}}>
+            {field.label ? <label style={{marginBottom: 4}}>{field.label}:</label> : null}
+            <DiscriminatorPicker
+                field={field}
+                value={value}
+                onChange={handleChange}
+                projectId={projectId}
+            />
+        </div>
+    );
+};
+
+export { DiscriminatorPickerWidget };
 
 // TASK-812 (W1.1) — Register the 5 default widgets at module load time.
 // New widgets can be added by external callers via
@@ -262,6 +326,11 @@ register({ name: 'number', component: NumberWidget });
 register({ name: 'checkbox', component: CheckboxWidget });
 register({ name: 'select', component: SelectWidget });
 register({ name: 'time-data-picker', component: TimeDataPicker });
+// TASK-826 (W3.3) — Generalized discriminator-picker registered to the
+// wrapper above. New formConfigs declare `type: 'discriminator-picker'` with
+// inline `choices` arrays; `time-data-picker` stays registered as a
+// back-compat alias.
+register({ name: 'discriminator-picker', component: DiscriminatorPickerWidget });
 
 const FormField = ({ field, value, onChange, projectId, timeSeriesOptions }) => {
     const Component = get(field.type) || get('text');

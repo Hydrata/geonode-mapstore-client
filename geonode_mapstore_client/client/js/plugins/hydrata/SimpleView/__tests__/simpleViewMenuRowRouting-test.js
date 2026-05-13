@@ -383,21 +383,46 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
     });
 
     /**
-     * TASK-795 — Time-boundary value picker is the new compound widget.
-     * The bdy_ `data` field's TYPE changed from 'text' to 'time-data-picker',
-     * and it carries a `showWhen` predicate so it only renders when the
-     * boundary type is 'Time'. The legacy bare `data` text field is GONE
-     * for new writes (BE keeps the column for back-compat reads only).
+     * TASK-795 + TASK-826 — Time-boundary value picker is the compound
+     * widget. The bdy_ `data` field's TYPE was originally migrated from
+     * 'text' → 'time-data-picker' (TASK-795), then generalized to
+     * 'discriminator-picker' with inline `choices` (TASK-826 W3.3).
+     * The 'time-data-picker' registry alias still resolves to the same
+     * underlying component (back-compat) but new formConfigs declare the
+     * generalized type explicitly. The legacy bare `data` text field is
+     * GONE for new writes (BE keeps the column for back-compat reads only).
      */
-    describe('TASK-795 bdy_ data field is a time-data-picker (legacy bare text field removed)', () => {
-        it('bdy_ data field type is "time-data-picker" (NOT "text")', () => {
+    describe('TASK-795 + TASK-826 bdy_ data field is a discriminator-picker (legacy bare text field removed)', () => {
+        it('bdy_ data field type is "discriminator-picker" (NOT "text", NOT the legacy "time-data-picker" alias)', () => {
             const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'data');
             expect(f).toExist();
-            expect(f.type).toBe('time-data-picker');
+            // TASK-826 (W3.3) — formConfig declares the generalized type.
+            // The 'time-data-picker' alias remains in the registry for
+            // external consumers but is not used by Hydrata's own configs.
+            expect(f.type).toBe('discriminator-picker');
             // Regression guard against re-introducing the legacy bare text
             // field — the BE no longer accepts plain `data` writes for
             // Time boundaries.
             expect(f.type).toNotBe('text');
+        });
+
+        it('bdy_ data field carries inline choices for constant + timeseries kinds', () => {
+            // TASK-826 (W3.3) — DiscriminatorPicker reads `field.choices`.
+            // Boundary declares exactly the 2 original TimeDataPicker kinds
+            // so DOM, CSS, and value shape stay byte-identical.
+            const f = ANUGA_FEATURE_CONFIG.bdy_.formConfig.fields.find(x => x.name === 'data');
+            expect(Array.isArray(f.choices)).toBe(true);
+            expect(f.choices.length).toBe(2);
+            const kinds = f.choices.map(c => c.kind);
+            expect(kinds).toEqual(['constant', 'timeseries']);
+            // Each choice has a label + a render function. The timeseries
+            // kind also carries a `fetch` for the per-mount options load.
+            f.choices.forEach(c => {
+                expect(typeof c.label).toBe('string');
+                expect(typeof c.render).toBe('function');
+            });
+            const tsChoice = f.choices.find(c => c.kind === 'timeseries');
+            expect(typeof tsChoice.fetch).toBe('function');
         });
 
         it('bdy_ data field carries showWhen { field: "boundary", equals: "Time" }', () => {
@@ -405,18 +430,24 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(f.showWhen).toEqual({ field: 'boundary', equals: 'Time' });
         });
 
-        it('inf_ data field is the compound time-data-picker (TASK-850 W2.3-FE migration)', () => {
+        it('inf_ data field is the compound discriminator-picker (TASK-850 W2.3-FE migration + TASK-826 W3.3)', () => {
             // TASK-850 (W2.3-FE) — Inflow migrated to the Constant/TimeSeries
             // picker once TASK-820 landed the FeatureDataMixin BE refactor
             // (data_constant FLOAT XOR data_timeseries_id INTEGER, inf_data_xor
             // CHECK). Unlike bdy_ this picker has NO showWhen — Inflow has
             // no discriminator field, every row carries a data value.
+            // TASK-826 (W3.3) — generalized from 'time-data-picker' alias to
+            // explicit 'discriminator-picker' with inline `choices`.
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'data');
             expect(f).toExist();
-            expect(f.type).toBe('time-data-picker');
+            expect(f.type).toBe('discriminator-picker');
             // Regression guard against re-introducing the legacy bare text
             // field — the BE no longer accepts plain `data` writes.
             expect(f.type).toNotBe('text');
+            // TASK-826 (W3.3) — same 2 kinds as bdy_ (constant + timeseries).
+            expect(Array.isArray(f.choices)).toBe(true);
+            expect(f.choices.length).toBe(2);
+            expect(f.choices.map(c => c.kind)).toEqual(['constant', 'timeseries']);
             // No discriminator → no showWhen (cf. bdy_ above).
             expect(f.showWhen).toBe(undefined);
             // No `default` — the picker handles its own empty state, and

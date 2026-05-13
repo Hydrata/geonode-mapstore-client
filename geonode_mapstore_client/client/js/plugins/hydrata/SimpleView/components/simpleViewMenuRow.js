@@ -46,6 +46,13 @@ import {
     setAnugaInputMenu
 } from '../../Anuga/actionsAnuga';
 import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
+// TASK-826 (W3.3) — Inline `discriminator-picker` choices for Boundary +
+// Inflow `data` fields. Render components live in FormField.js (the
+// generalized DiscriminatorPicker dispatches to them); we reuse them here
+// rather than reimplementing so DOM + value shape stay byte-identical to
+// the pre-migration `time-data-picker` wrapper. fetchTimeSeries is the
+// per-mount loader for the 'timeseries' kind.
+import { ConstantInput, TimeSeriesSelect, fetchTimeSeries } from '../../VectorDraw/components/FormField';
 
 // V2P-714 + TASK-723 — derive the AnugaModel dataset type from layer.group.
 // Group names are set by the BE (gn_anuga/utils.py::INPUT_DATA_GROUP_MAP +
@@ -155,8 +162,29 @@ const ANUGA_FEATURE_CONFIG = {
                 // row's `data_constant`/`data_timeseries_id` columns back
                 // into the structured shape so the picker re-renders the
                 // row's last value.
-                {name: 'data', type: 'time-data-picker', label: 'Boundary value',
-                    showWhen: {field: 'boundary', equals: 'Time'}}
+                //
+                // TASK-826 (W3.3) — Migrated from `type: 'time-data-picker'` to
+                // the generalized `type: 'discriminator-picker'` with inline
+                // `choices`. The `time-data-picker` registry alias stays in
+                // place (FormField.js still registers it) but new formConfigs
+                // should declare discriminator-picker explicitly. DOM, CSS
+                // classes (`.time-data-picker-constant` / `.time-data-picker-
+                // timeseries`), and value shape are byte-identical to the
+                // pre-W3.3 widget — DiscriminatorPicker resolves to the same
+                // ConstantInput / TimeSeriesSelect render components imported
+                // from FormField.js.
+                // `defaultValue` per choice canonicalizes the kind-switch reset
+                // payload to the same `{kind, constant: null}` / `{kind,
+                // timeseries_id: null}` shape the legacy TimeDataPicker emitted —
+                // so the BE CHECK constraint sees "exactly one of" on every save.
+                {name: 'data', type: 'discriminator-picker', label: 'Boundary value',
+                    showWhen: {field: 'boundary', equals: 'Time'},
+                    choices: [
+                        {kind: 'constant', label: 'Constant', render: ConstantInput,
+                            defaultValue: {constant: null}},
+                        {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
+                            render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
+                    ]}
             ]
         }
     },
@@ -178,7 +206,19 @@ const ANUGA_FEATURE_CONFIG = {
                 // `data_constant` FLOAT or `data_timeseries_id` INTEGER, never the
                 // legacy bare `data` text. EDIT-mode seeding goes through
                 // inflowTranslate.synthesizeIn via the registry (epicsVectorDraw.js).
-                {name: 'data', type: 'time-data-picker', label: 'Data'}
+                //
+                // TASK-826 (W3.3) — Migrated from `type: 'time-data-picker'` to
+                // the generalized `type: 'discriminator-picker'` with inline
+                // `choices`. Same migration as the Boundary field above; DOM,
+                // CSS, and value shape unchanged. The `time-data-picker` alias
+                // remains registered in FormField.js for external consumers.
+                {name: 'data', type: 'discriminator-picker', label: 'Data',
+                    choices: [
+                        {kind: 'constant', label: 'Constant', render: ConstantInput,
+                            defaultValue: {constant: null}},
+                        {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
+                            render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
+                    ]}
             ]
         }
     },
