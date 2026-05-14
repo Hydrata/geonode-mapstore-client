@@ -289,12 +289,32 @@ class ScenarioTableRow extends React.Component {
         }
     }
 
+    renderBuildCell() {
+        const {scenario} = this.props;
+        const isUnsaved = scenario.unsaved;
+        return (
+            <Button
+                bsStyle={'success'} bsSize={'xsmall'}
+                className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
+                onClick={() => {
+                    if (this.props.validateScenario?.(scenario) !== false) {
+                        this.buildScenario();
+                    } else {
+                        // eslint-disable-next-line no-alert -- intentional user-facing validation message
+                        window.alert("Scenario is not valid");
+                    }
+                }}
+            >
+                <Message msgId="hydrata.anuga.build" />
+            </Button>
+        );
+    }
+
     render() {
         const {scenario, scenarioTableTabs, myRole, currentUserId, canRunScenario} = this.props;
         const showManage = scenarioTableTabs?.includes('manage');
         const showAdvanced = scenarioTableTabs?.includes('advanced');
         const showCompare = scenarioTableTabs?.includes('compare');
-        const isUnsaved = scenario.unsaved;
         const status = findScenarioStatus(scenario);
         const isCancellable = ['queued', 'computing', 'building'].includes(status);
         const canEdit = canEditScenarioByRole(myRole, currentUserId, scenario?.created_by);
@@ -330,22 +350,7 @@ class ScenarioTableRow extends React.Component {
                         {this.renderSelectCell('network', scenario?.network, this.props.networks, !canEdit)}
                         {!showManage ?
                             <td>
-                                {canEdit ?
-                                    <Button
-                                        bsStyle={'success'} bsSize={'xsmall'}
-                                        className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
-                                        onClick={() => {
-                                            if (this.props.validateScenario?.(scenario) !== false) {
-                                                this.buildScenario();
-                                            } else {
-                                                // eslint-disable-next-line no-alert -- intentional user-facing validation message
-                                                window.alert("Scenario is not valid");
-                                            }
-                                        }}
-                                    >
-                                        <Message msgId="hydrata.anuga.build" />
-                                    </Button> : null
-                                }
+                                {canEdit ? this.renderBuildCell() : null}
                             </td> : null
                         }
                     </React.Fragment> : null
@@ -373,22 +378,7 @@ class ScenarioTableRow extends React.Component {
                         </td>
                         {this.renderStatusCell()}
                         <td>
-                            {canEdit ?
-                                <Button
-                                    bsStyle={'success'} bsSize={'xsmall'}
-                                    className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
-                                    onClick={() => {
-                                        if (this.props.validateScenario?.(scenario) !== false) {
-                                            this.buildScenario();
-                                        } else {
-                                            // eslint-disable-next-line no-alert -- intentional user-facing validation message
-                                            window.alert("Scenario is not valid");
-                                        }
-                                    }}
-                                >
-                                    <Message msgId="hydrata.anuga.build" />
-                                </Button> : null
-                            }
+                            {canEdit ? this.renderBuildCell() : null}
                         </td>
                         <td>{this.renderRunButton()}</td>
                         <td>
