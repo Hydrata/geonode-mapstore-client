@@ -3,7 +3,6 @@ const SET_ANUGA_INPUT_MENU = 'SET_ANUGA_INPUT_MENU';
 const SET_ANUGA_SCENARIO_MENU = 'SET_ANUGA_SCENARIO_MENU';
 const SET_ANUGA_RESULT_MENU = 'SET_ANUGA_RESULT_MENU';
 const SET_NETWORK_MENU = 'SET_NETWORK_MENU';
-const SET_REVIEW_PANEL = 'SET_REVIEW_PANEL';
 const SET_PUBLICATION_PANEL = 'SET_PUBLICATION_PANEL';
 const SHOW_ANUGA_SCENARIO_LOG = 'SHOW_ANUGA_SCENARIO_LOG';
 const SHOW_ANUGA_RUN_MENU = 'SHOW_ANUGA_RUN_MENU';
@@ -36,10 +35,6 @@ function setNetworkMenu(visible) {
     return { type: SET_NETWORK_MENU, visible };
 }
 
-function setReviewPanel(visible) {
-    return { type: SET_REVIEW_PANEL, visible };
-}
-
 function setPublicationPanel(visible) {
     return { type: SET_PUBLICATION_PANEL, visible };
 }
@@ -70,7 +65,6 @@ module.exports = {
     SET_ANUGA_SCENARIO_MENU, setAnugaScenarioMenu,
     SET_ANUGA_RESULT_MENU, setAnugaResultMenu,
     SET_NETWORK_MENU, setNetworkMenu,
-    SET_REVIEW_PANEL, setReviewPanel,
     SET_PUBLICATION_PANEL, setPublicationPanel,
     SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,
     SHOW_ANUGA_RUN_MENU, showAnugaRunMenu,

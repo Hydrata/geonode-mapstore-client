@@ -30,7 +30,6 @@ const ADD_NETWORK = 'ADD_ANUGA_NETWORK';
 const ADD_LUMPED_CATCHMENT = 'ADD_LUMPED_CATCHMENT';
 const ADD_NODES = 'ADD_NODES';
 const ADD_LINKS = 'ADD_LINKS';
-const ADD_COMPARISON = 'ADD_COMPARISON';
 
 function setComparisonData(data) {
     return { type: SET_COMPARISON_DATA, data };
@@ -109,10 +108,6 @@ function createFigure(figureTitle, publicationId) {
     return { type: CREATE_FIGURE, figureTitle, publicationId };
 }
 
-function addComparison() {
-    return { type: ADD_COMPARISON };
-}
-
 function addAnugaBoundary() {
     return { type: ADD_ANUGA_BOUNDARY };
 }
@@ -179,6 +174,5 @@ module.exports = {
     ADD_NETWORK, addNetwork,
     ADD_LUMPED_CATCHMENT, addCatchment,
     ADD_NODES, addNodes,
-    ADD_LINKS, addLinks,
-    ADD_COMPARISON, addComparison
+    ADD_LINKS, addLinks
 };

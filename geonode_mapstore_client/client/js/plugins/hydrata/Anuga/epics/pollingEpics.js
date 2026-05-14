@@ -21,7 +21,6 @@ import {
     ADD_LUMPED_CATCHMENT,
     ADD_NODES,
     ADD_LINKS,
-    ADD_COMPARISON,
     addAnugaBoundary,
     addAnugaInflow,
     addAnugaFriction,
@@ -31,7 +30,6 @@ import {
     addCatchment,
     addNodes,
     addLinks,
-    addComparison,
     INIT_ANUGA,
     initAnuga,
     setAnugaBoundaryData,
@@ -55,7 +53,6 @@ import {
     START_ANUGA_SCENARIO_POLLING,
     STOP_ANUGA_MODEL_CREATION_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
-    STOP_COMPARISON_POLLING,
     START_ACTIVE_RUN_POLLING,
     STOP_ACTIVE_RUN_POLLING,
     startAnugaModelCreationPolling,
@@ -67,7 +64,6 @@ import {
 } from "../actionsAnuga";
 import {
     UPDATE_DATASET_TITLE_SUCCESS,
-    SET_OPEN_MENU_GROUP_ID,
     setSvConfig,
     updateUploadStatus
 } from "../../SimpleView/actionsSimpleView";
@@ -385,19 +381,6 @@ export const tailScenarioLogEpic = (action$, store) =>
                 )
         );
 
-export const pollComparisonEpic = (action$, _store) =>
-    action$
-        .ofType(SET_OPEN_MENU_GROUP_ID)
-        .filter(action => action?.openMenuGroupId === 'Results')
-        .switchMap(() =>
-            Rx.Observable.timer(0, 10000)
-                .takeUntil(action$.ofType(STOP_COMPARISON_POLLING))
-                .switchMap(() =>
-                    Rx.Observable.concat(
-                        Rx.Observable.of(addComparison())
-                    ))
-        );
-
 // -- Ensure ANUGA group tree exists before layers are added ----------------
 
 const ANUGA_GROUPS = {
@@ -455,10 +438,10 @@ export const ensureAnugaGroupsEpic = (action$, store) =>
 //
 // We retain each epic name so Anuga.js plugin registration stays atomic
 // and dispatchers (pollAnugaModelCreationEpic, taskCompleteLayerEpic,
-// pollComparisonEpic, anugaInputMenu) don't surface unhandled-action
-// warnings if they fire the action. The epics now match the action type
-// but emit nothing — the legacy "fetch available layers and inject" work
-// has already happened by the time these fire in V2.
+// anugaInputMenu) don't surface unhandled-action warnings if they fire
+// the action. The epics now match the action type but emit nothing — the
+// legacy "fetch available layers and inject" work has already happened by
+// the time these fire in V2.
 const noOpEpic = (actionType) => (action$) =>
     action$
         .ofType(actionType)
@@ -473,7 +456,6 @@ export const addAnugaMeshRegionEpic = noOpEpic(ADD_ANUGA_MESH_REGION);
 export const addCatchmentEpic = noOpEpic(ADD_LUMPED_CATCHMENT);
 export const addNodesEpic = noOpEpic(ADD_NODES);
 export const addLinksEpic = noOpEpic(ADD_LINKS);
-export const addComparisonEpic = noOpEpic(ADD_COMPARISON);
 
 // -- Fix 3: Event-driven layer addition on TaskMonitor completion ----------
 // When a layer_create process completes, dispatch the appropriate add action

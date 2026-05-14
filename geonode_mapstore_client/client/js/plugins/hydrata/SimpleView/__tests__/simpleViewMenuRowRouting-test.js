@@ -344,7 +344,7 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             );
         });
 
-        it('pencil click on a migrated prefix does NOT toggle AnugaContainer toolbar (no setNetworkMenu/setReviewPanel/setPublicationPanel/setMembershipPanel/setAnugaScenarioMenu/setAnugaResultMenu)', (done) => {
+        it('pencil click on a migrated prefix does NOT toggle AnugaContainer toolbar (no setNetworkMenu/setPublicationPanel/setMembershipPanel/setAnugaScenarioMenu/setAnugaResultMenu)', (done) => {
             // The toolbar buttons in AnugaContainer.renderToolbarButtons are
             // visible whenever AnugaContainer renders (gated only by
             // isAnugaProject + per-button capability flags). They are NOT
@@ -367,7 +367,6 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
                     pencil.click();
                     const stranglerTypes = [
                         'SET_NETWORK_MENU',
-                        'SET_REVIEW_PANEL',
                         'SET_PUBLICATION_PANEL',
                         'SET_MEMBERSHIP_PANEL',
                         'SET_ANUGA_SCENARIO_MENU',

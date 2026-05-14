@@ -210,27 +210,38 @@ export const retryAnugaRunEpic = (action$) =>
                 ))
         );
 
+// PATCH allow-list mirrors ScenarioUpdateSerializerV2 writable fields.
+// Read-only fields (status, computed_status, latest_run, latest_run_is_valid,
+// created_by, created_by_username, log, unsaved, …) are silently dropped by
+// the serializer.
+export const SCENARIO_PATCH_FIELDS = [
+    'name', 'terrain', 'boundary', 'friction', 'inflow',
+    'structure', 'mesh_region', 'network', 'resolution', 'duration'
+];
+
 export const saveAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(SAVE_ANUGA_SCENARIO)
         .switchMap((action) => {
-            const scenario = {...action.scenario, log: action.scenario.log || 'anuga log'};
             const projectId = getProjectId(store.getState());
-            if (scenario.id) {
-                // V2P-79 / V2P-72 — existing scenario PATCH now hits V2.
-                // anugaApi.updateScenario routes to /api/v2/anuga/projects/{pid}/scenarios/{id}/
-                // (PATCH partial_update). ScenarioUpdateSerializerV2 limits the
-                // writable surface; trailing read-only fields (e.g. log) are
-                // ignored server-side without raising.
+            if (action.scenario.id) {
+                // V2P-79 / V2P-72 — existing scenario PATCH hits V2 partial_update at
+                // /api/v2/anuga/projects/{pid}/scenarios/{id}/. ScenarioUpdateSerializerV2
+                // limits the writable surface to SCENARIO_PATCH_FIELDS; anything else
+                // is dropped server-side without raising.
+                const scenario = SCENARIO_PATCH_FIELDS.reduce((acc, k) => {
+                    if (action.scenario[k] !== undefined) acc[k] = action.scenario[k];
+                    return acc;
+                }, {});
                 return Rx.Observable.from(
-                    anugaApi.updateScenario(projectId, scenario.id, scenario)
+                    anugaApi.updateScenario(projectId, action.scenario.id, scenario)
                         .then(response => saveAnugaScenarioSuccess(response.data))
                         .catch(error => saveAnugaScenarioError(error))
                 );
             }
             // V2P-79: new scenario creation routes to V2 via createScenarioV2.
             return Rx.Observable.from(
-                anugaApi.createScenarioV2(projectId, scenario)
+                anugaApi.createScenarioV2(projectId, action.scenario)
                     .then(response => saveAnugaScenarioSuccess(response.data))
                     .catch(error => saveAnugaScenarioError(error))
             );

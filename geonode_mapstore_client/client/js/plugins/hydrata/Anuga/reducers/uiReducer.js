@@ -3,7 +3,6 @@ import {
     SET_ANUGA_SCENARIO_MENU,
     SET_ANUGA_RESULT_MENU,
     SET_NETWORK_MENU,
-    SET_REVIEW_PANEL,
     SET_PUBLICATION_PANEL,
     SHOW_ANUGA_SCENARIO_LOG,
     SHOW_ANUGA_RUN_MENU,
@@ -20,7 +19,6 @@ const initialState = {
     showAnugaScenarioMenu: false,
     showAnugaResultMenu: false,
     showNetworkMenu: false,
-    showReviewPanel: false,
     showPublicationPanel: false,
     visibleAnugaScenarioLogId: false,
     visibleAnugaRunMenu: false,
@@ -54,7 +52,6 @@ export default (state = initialState, action) => {
             showAnugaScenarioMenu: false,
             showAnugaResultMenu: false,
             showNetworkMenu: false,
-            showReviewPanel: false,
             showPublicationPanel: false
         };
     case SET_ANUGA_SCENARIO_MENU:
@@ -64,7 +61,6 @@ export default (state = initialState, action) => {
             showAnugaScenarioMenu: action.visible,
             showAnugaResultMenu: false,
             showNetworkMenu: false,
-            showReviewPanel: false,
             showPublicationPanel: false
         };
     case SET_ANUGA_RESULT_MENU:
@@ -74,7 +70,6 @@ export default (state = initialState, action) => {
             showAnugaInputMenu: false,
             showAnugaResultMenu: action.visible,
             showNetworkMenu: false,
-            showReviewPanel: false,
             showPublicationPanel: false
         };
     case SET_NETWORK_MENU:
@@ -84,17 +79,6 @@ export default (state = initialState, action) => {
             showAnugaScenarioMenu: false,
             showAnugaResultMenu: false,
             showNetworkMenu: action.visible,
-            showReviewPanel: false,
-            showPublicationPanel: false
-        };
-    case SET_REVIEW_PANEL:
-        return {
-            ...state,
-            showAnugaInputMenu: false,
-            showAnugaScenarioMenu: false,
-            showAnugaResultMenu: false,
-            showNetworkMenu: false,
-            showReviewPanel: action.visible,
             showPublicationPanel: false
         };
     case SET_PUBLICATION_PANEL:
@@ -104,7 +88,6 @@ export default (state = initialState, action) => {
             showAnugaScenarioMenu: false,
             showAnugaResultMenu: false,
             showNetworkMenu: false,
-            showReviewPanel: false,
             showPublicationPanel: action.visible
         };
     case SET_MEMBERSHIP_PANEL:
@@ -114,7 +97,6 @@ export default (state = initialState, action) => {
             showAnugaScenarioMenu: false,
             showAnugaResultMenu: false,
             showNetworkMenu: false,
-            showReviewPanel: false,
             showPublicationPanel: false,
             showMembershipPanel: action.visible
         };

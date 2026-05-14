@@ -34,7 +34,7 @@ const ScenarioTableRow = require('../ScenarioTableRow').default;
 const SELF = 9999;
 const OTHER = 7777;
 
-function makeScenario({ id = 1, ownerId = SELF, status = 'created' } = {}) {
+function makeScenario({ id = 1, ownerId = SELF } = {}) {
     return {
         id,
         name: `scenario_${id}`,
@@ -50,10 +50,9 @@ function makeScenario({ id = 1, ownerId = SELF, status = 'created' } = {}) {
         resolution: 5,
         duration: 3600,
         unsaved: false,
-        latest_run: null,
+        latest_run: null
         // findScenarioStatus: 'created' (no run, no built/built_at)
         // see scenarioHelpers.js
-        ...{statusOverride: status}
     };
 }
 

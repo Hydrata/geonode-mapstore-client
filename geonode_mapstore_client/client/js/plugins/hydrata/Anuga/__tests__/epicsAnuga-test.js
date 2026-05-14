@@ -3,7 +3,6 @@ import Rx from 'rxjs';
 import {
     initAnugaEpic,
     pollAnugaModelCreationEpic,
-    pollComparisonEpic,
     vectorDrawAnugaCompleteEpic,
     vectorDrawAnugaCancelledEpic
 } from '../epicsAnuga';
@@ -13,7 +12,6 @@ import {
     START_ANUGA_MODEL_CREATION_POLLING,
     STOP_ANUGA_MODEL_CREATION_POLLING
 } from '../actionsAnuga';
-import { SET_OPEN_MENU_GROUP_ID } from '../../SimpleView/actionsSimpleView';
 import {
     cancelAnugaRunEpic,
     retryAnugaRunEpic,
@@ -34,6 +32,10 @@ const mockActions = (actions) => {
     }, 0);
     return action$;
 };
+
+const storeWithProjectId = (id) => ({
+    getState: () => ({ anuga: { projects: { data: { id } } } })
+});
 
 describe('ANUGA Epics', () => {
 
@@ -112,29 +114,6 @@ describe('ANUGA Epics', () => {
                 sub.unsubscribe();
                 done();
             }, 200);
-        });
-    });
-
-    describe('pollComparisonEpic', () => {
-        it('should not emit for non-Results menu group', (done) => {
-            const store = { getState: () => ({}) };
-            const action$ = mockActions([{
-                type: SET_OPEN_MENU_GROUP_ID,
-                openMenuGroupId: 'Input Data'
-            }]);
-            const emitted = [];
-
-            pollComparisonEpic(action$, store)
-                .take(1)
-                .timeout(300)
-                .subscribe(
-                    action => emitted.push(action),
-                    () => {
-                        expect(emitted.length).toBe(0);
-                        done();
-                    },
-                    () => done()
-                );
         });
     });
 
@@ -704,10 +683,6 @@ describe('ANUGA Epics', () => {
         // user-perceived "delete" actually persists across page refresh.
         const GN_SAVE_CONTENT = 'GEONODE:SAVE_DIRECT_CONTENT';
 
-        const storeWithProjectId = (id) => ({
-            getState: () => ({ anuga: { projects: { data: { id } } } })
-        });
-
         let mockAxios;
         beforeEach(() => { mockAxios = new MockAdapter(axios); });
         afterEach(() => { mockAxios.restore(); });
@@ -905,6 +880,122 @@ describe('ANUGA Epics', () => {
                 .subscribe(a => emitted.push(a), done, () => {
                     expect(mockAxios.history.delete.slice(-1)[0].url).toBe('/api/v2/anuga/projects/42/terrain/99/');
                     expect(emitted[0].type).toBe(DELETE_TERRAIN_SUCCESS);
+                    done();
+                });
+        });
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TASK-937 (W2.2) — Scenario PATCH allow-list regression guard.
+    //
+    // Post-W1, Scenario.status is a read-only @property derived from
+    // latest_run.status; the underlying DB column was dropped in hydrata
+    // migration 0103. ScenarioUpdateSerializerV2 silently drops any field
+    // outside the 10-field writable allow-list. Sending the full scenario
+    // object on PATCH was therefore dead payload — BE was already ignoring
+    // it. This test pins the FE wire contract so future refactors can't
+    // quietly re-introduce read-only fields (status, computed_status,
+    // latest_run, log, …) into the PATCH body.
+    // ─────────────────────────────────────────────────────────────────────
+    describe('TASK-937 saveAnugaScenarioEpic PATCH allow-list', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            saveAnugaScenarioEpic,
+            SCENARIO_PATCH_FIELDS
+        } = require('../epics/crudEpics');
+        const { SAVE_ANUGA_SCENARIO } = require('../actionsAnuga');
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('PATCH body contains EXACTLY the 10 allow-list keys (no read-only leakage)', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/42/').reply(200, { id: 42 });
+
+            // Scenario with EVERY known read-only field populated alongside
+            // the writable fields. The epic must strip all read-only fields
+            // before PATCH; anything else is a regression.
+            const fatScenario = {
+                // Writable allow-list (all 10):
+                id: 42,
+                name: 'my-scenario',
+                terrain: 1,
+                boundary: 2,
+                friction: 3,
+                inflow: 4,
+                structure: 5,
+                mesh_region: 6,
+                network: 7,
+                resolution: 5,
+                duration: 3600,
+                // Read-only fields that MUST be stripped:
+                status: 'created',
+                computed_status: 'building',
+                latest_run: { id: 99, status: 'queued' },
+                latest_run_is_valid: true,
+                created_by: 9999,
+                created_by_username: 'me',
+                unsaved: true,
+                log: 'something-noisy'
+            };
+
+            const action$ = mockActions([{ type: SAVE_ANUGA_SCENARIO, scenario: fatScenario }]);
+            const emitted = [];
+
+            saveAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.patch.length).toBe(1);
+                    const body = JSON.parse(mockAxios.history.patch[0].data);
+                    const keys = Object.keys(body).sort();
+                    expect(keys).toEqual([...SCENARIO_PATCH_FIELDS].sort());
+                    // Spot-check that the values flowed through correctly for
+                    // both an identifier-typed and a primitive-typed field.
+                    expect(body.name).toBe('my-scenario');
+                    expect(body.terrain).toBe(1);
+                    expect(body.duration).toBe(3600);
+                    // Explicit negative assertions on the read-only fields
+                    // most likely to drift back in.
+                    expect(body.status).toBe(undefined);
+                    expect(body.computed_status).toBe(undefined);
+                    expect(body.latest_run).toBe(undefined);
+                    expect(body.log).toBe(undefined);
+                    expect(body.created_by).toBe(undefined);
+                    expect(body.unsaved).toBe(undefined);
+                    // Epic should still emit the success thunk — response
+                    // handling is untouched. (saveAnugaScenarioSuccess is a
+                    // redux-thunk that fires SHOW_NOTIFICATION +
+                    // SAVE_ANUGA_SCENARIO_SUCCESS on dispatch.)
+                    expect(emitted.length).toBe(1);
+                    expect(typeof emitted[0]).toBe('function');
+                    done();
+                });
+        });
+
+        it('PATCH body omits undefined allow-list fields (does not send `null`-padded contract)', (done) => {
+            mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/42/').reply(200, { id: 42 });
+
+            // Only a subset of writable fields set. Undefined keys must be
+            // omitted (not coerced to null). Explicit null is preserved
+            // (the user is clearing a relation — that's a legitimate write).
+            const partial = {
+                id: 42,
+                name: 'partial',
+                terrain: 1,
+                boundary: null    // explicit clear
+                // friction, inflow, structure, mesh_region, network, resolution, duration: undefined
+            };
+
+            const action$ = mockActions([{ type: SAVE_ANUGA_SCENARIO, scenario: partial }]);
+            const emitted = [];
+
+            saveAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    const body = JSON.parse(mockAxios.history.patch[0].data);
+                    expect(Object.keys(body).sort()).toEqual(['boundary', 'name', 'terrain']);
+                    expect(body.name).toBe('partial');
+                    expect(body.terrain).toBe(1);
+                    expect(body.boundary).toBe(null);
                     done();
                 });
         });

@@ -3,7 +3,6 @@ const STOP_ANUGA_SCENARIO_POLLING = 'STOP_ANUGA_SCENARIO_POLLING';
 const START_ANUGA_MODEL_CREATION_POLLING = 'START_ANUGA_MODEL_CREATION_POLLING';
 const STOP_ANUGA_MODEL_CREATION_POLLING = 'STOP_ANUGA_MODEL_CREATION_POLLING';
 const START_COMPARISON_POLLING = 'START_COMPARISON_POLLING';
-const STOP_COMPARISON_POLLING = 'STOP_COMPARISON_POLLING';
 const START_ACTIVE_RUN_POLLING = 'START_ACTIVE_RUN_POLLING';
 const STOP_ACTIVE_RUN_POLLING = 'STOP_ACTIVE_RUN_POLLING';
 const UPDATE_RUN_STATUS = 'UPDATE_RUN_STATUS';
@@ -28,10 +27,6 @@ function startComparisonPolling() {
     return { type: START_COMPARISON_POLLING };
 }
 
-function stopComparisonPolling() {
-    return { type: STOP_COMPARISON_POLLING };
-}
-
 function startActiveRunPolling(runId) {
     return { type: START_ACTIVE_RUN_POLLING, runId };
 }
@@ -50,7 +45,6 @@ module.exports = {
     START_ANUGA_MODEL_CREATION_POLLING, startAnugaModelCreationPolling,
     STOP_ANUGA_MODEL_CREATION_POLLING, stopAnugaModelCreationPolling,
     START_COMPARISON_POLLING, startComparisonPolling,
-    STOP_COMPARISON_POLLING, stopComparisonPolling,
     START_ACTIVE_RUN_POLLING, startActiveRunPolling,
     STOP_ACTIVE_RUN_POLLING, stopActiveRunPolling,
     UPDATE_RUN_STATUS, updateRunStatus

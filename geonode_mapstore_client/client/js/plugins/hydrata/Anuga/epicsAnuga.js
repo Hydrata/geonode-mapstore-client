@@ -4,7 +4,6 @@ export {
     pollAnugaModelCreationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
-    pollComparisonEpic,
     tailScenarioLogEpic,
     addAnugaBoundaryEpic,
     addAnugaFrictionEpic,
@@ -15,7 +14,6 @@ export {
     addCatchmentEpic,
     addNodesEpic,
     addLinksEpic,
-    addComparisonEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
     anugaMapLayerGroupEpic

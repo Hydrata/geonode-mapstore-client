@@ -5,7 +5,6 @@ import {
     pollAnugaModelCreationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
-    pollComparisonEpic,
     tailScenarioLogEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
@@ -37,7 +36,6 @@ import {
     START_ACTIVE_RUN_POLLING,
     STOP_ACTIVE_RUN_POLLING
 } from '../actions/pollingActions';
-import { SET_OPEN_MENU_GROUP_ID } from '../../SimpleView/actionsSimpleView';
 import { TM_SET_PROCESSES } from '../../TaskMonitor/actionsTaskMonitor';
 
 /**
@@ -466,49 +464,6 @@ describe('Polling Epics', () => {
                 sub.unsubscribe();
                 done();
             }, 200);
-        });
-    });
-
-    describe('pollComparisonEpic', () => {
-        it('should not emit for non-Results menu group', (done) => {
-            const store = { getState: () => ({}) };
-            const action$ = mockActions([{
-                type: SET_OPEN_MENU_GROUP_ID,
-                openMenuGroupId: 'Input Data'
-            }]);
-            const emitted = [];
-
-            pollComparisonEpic(action$, store)
-                .take(1)
-                .timeout(300)
-                .subscribe(
-                    action => emitted.push(action),
-                    () => {
-                        expect(emitted.length).toBe(0);
-                        done();
-                    },
-                    () => done()
-                );
-        });
-
-        it('should emit for Results menu group', (done) => {
-            const { subject, action$ } = liveActions();
-            const store = { getState: () => ({}) };
-            const emitted = [];
-
-            const sub = pollComparisonEpic(action$, store)
-                .take(1)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        expect(emitted.length).toBe(1);
-                        sub.unsubscribe();
-                        done();
-                    }
-                );
-
-            subject.next({ type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'Results' });
         });
     });
 

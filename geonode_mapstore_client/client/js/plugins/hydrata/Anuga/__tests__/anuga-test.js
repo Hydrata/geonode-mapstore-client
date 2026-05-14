@@ -6,7 +6,6 @@ import {
     SET_ANUGA_SCENARIO_MENU,
     SET_ANUGA_RESULT_MENU,
     SET_NETWORK_MENU,
-    SET_REVIEW_PANEL,
     SET_PUBLICATION_PANEL,
     SET_ANUGA_PROJECT_DATA,
     SET_ANUGA_SCENARIO_DATA,
@@ -25,7 +24,6 @@ import {
     setAnugaScenarioMenu,
     setAnugaResultMenu,
     setNetworkMenu,
-    setReviewPanel,
     setPublicationPanel,
     setAnugaProjectData,
     setAnugaInflowData,
@@ -79,12 +77,6 @@ describe('Anuga Plugin', () => {
         it('setNetworkMenu creates correct action', () => {
             const action = setNetworkMenu(true);
             expect(action.type).toBe(SET_NETWORK_MENU);
-            expect(action.visible).toBe(true);
-        });
-
-        it('setReviewPanel creates correct action', () => {
-            const action = setReviewPanel(true);
-            expect(action.type).toBe(SET_REVIEW_PANEL);
             expect(action.visible).toBe(true);
         });
 
@@ -239,22 +231,12 @@ describe('Anuga Plugin', () => {
             expect(state.ui.showAnugaInputMenu).toBe(false);
         });
 
-        it('should handle SET_REVIEW_PANEL', () => {
-            const state = reducer(undefined, {
-                type: SET_REVIEW_PANEL,
-                visible: true
-            });
-            expect(state.ui.showReviewPanel).toBe(true);
-            expect(state.ui.showAnugaInputMenu).toBe(false);
-        });
-
         it('should handle SET_PUBLICATION_PANEL', () => {
             const state = reducer(undefined, {
                 type: SET_PUBLICATION_PANEL,
                 visible: true
             });
             expect(state.ui.showPublicationPanel).toBe(true);
-            expect(state.ui.showReviewPanel).toBe(false);
         });
 
         it('should handle SET_CREATING_ANUGA_LAYER', () => {
