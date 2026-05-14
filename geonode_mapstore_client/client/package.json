@@ -36,7 +36,7 @@
     "test:upstream": "mapstore-project test",
     "test:watch": "mapstore-project test:watch",
     "coverage": "COVERAGE=1 karma start karma.conf.single-run.js --colors",
-    "coverage:hydrata": "node -e \"const fs=require('fs');const src=fs.readFileSync('coverage/lcov.info','utf8');const recs=src.split(/^end_of_record$/m);const keep=recs.filter(r=>/^SF:.*\\/js\\//m.test(r)&&!/MapStore2\\//.test(r));fs.writeFileSync('coverage/lcov-hydrata.info',keep.join('end_of_record')+'end_of_record\\n');console.log('Wrote coverage/lcov-hydrata.info (records: '+keep.length+')');\"",
+    "coverage:hydrata": "node -e \"const fs=require('fs');if(!fs.existsSync('coverage/lcov.info')){console.error('coverage/lcov.info not found — run \\\"npm run coverage\\\" first');process.exit(1);}const src=fs.readFileSync('coverage/lcov.info','utf8');const recs=src.split(/^end_of_record$/m);const keep=recs.filter(r=>/^SF:(.*\\/)?js\\//m.test(r)&&!/MapStore2\\//.test(r));if(keep.length===0){console.warn('WARN: 0 Hydrata records matched — lcov.info SF: paths may have changed shape');}fs.writeFileSync('coverage/lcov-hydrata.info',keep.join('end_of_record')+'end_of_record\\n');console.log('Wrote coverage/lcov-hydrata.info (records: '+keep.length+')');\"",
     "coverage:open": "xdg-open coverage/report-html/index.html",
     "lint": "eslint js/plugins/hydrata --ext .jsx,.js",
     "lint:fix": "eslint js/plugins/hydrata --ext .jsx,.js --fix",
