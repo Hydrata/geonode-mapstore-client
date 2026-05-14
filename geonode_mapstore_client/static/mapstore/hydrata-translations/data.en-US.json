@@ -157,9 +157,11 @@
         "watersheds": "Watersheds"
       },
       "anuga": {
+        "active": "Active",
         "addMember": "Add Members",
         "addMemberButton": "Add",
         "advanced": "Advanced",
+        "archived": "Archived",
         "availableHours": "Available Hours",
         "boundaries": "Boundaries",
         "boundary": "Boundary",

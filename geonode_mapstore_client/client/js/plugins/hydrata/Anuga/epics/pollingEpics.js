@@ -70,6 +70,8 @@ import {
 import {TM_SET_PROCESSES} from "../../TaskMonitor/actionsTaskMonitor";
 import {getProjectId} from "../selectorsAnuga";
 import {SHOW_ANUGA_SCENARIO_LOG} from "../actions/uiActions";
+
+const getArchiveFilter = (state) => state?.anuga?.scenarios?.archiveFilter || 'none';
 // Run statuses past which polling work is wasted. Shared with
 // pollActiveRunStatusEpic + selectorsAnuga.getActiveRuns so the terminal-state
 // set has one source of truth.
@@ -155,8 +157,11 @@ export const initAnugaEpic = (action$, store) =>
             return Rx.Observable.from(anugaApi.getProjectV2(projectId))
                 .catch(() => Rx.Observable.empty())
                 .switchMap(response2 => {
-                    // v2 scenario fetch
-                    const scenariosFetch = Rx.Observable.from(anugaApi.getScenariosV2(projectId))
+                    // Respect the persisted archiveFilter so a panel reopen
+                    // after switching to 'Archived' restores the same view.
+                    const scenariosFetch = Rx.Observable.from(
+                        anugaApi.getScenariosByArchive(projectId, getArchiveFilter(store.getState()))
+                    )
                         .catch(() => Rx.Observable.of({data: []}))
                         .map(resp => setAnugaScenarioData(resp.data));
 
@@ -215,9 +220,12 @@ const isScenarioLoaded = (scenario, state) => {
     return !!depth?.length && !!velocityDepth?.length && !!velocity?.length;
 };
 
-// Bug #5 fix: use v2 getScenariosV2. Polling is still started once per init
-// via startAnugaScenarioPolling in initAnugaEpic — switchMap ensures only one
-// active subscription at a time.
+// Polling is started once per init via startAnugaScenarioPolling in
+// initAnugaEpic — switchMap ensures only one active subscription at a time.
+// Each poll reads the FE's archiveFilter ('none' default, 'only' for the
+// Archived tab, 'all' for both) and passes it to the BE via
+// getScenariosByArchive. The call still drives setAnugaPollingData so the
+// row-update + new-row paths in the reducer don't change.
 export const pollAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(START_ANUGA_SCENARIO_POLLING)
@@ -227,7 +235,10 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                 .takeUntil(action$.ofType(STOP_ANUGA_SCENARIO_POLLING))
                 .switchMap(() =>
                     Rx.Observable.from(
-                        anugaApi.getScenariosV2(getProjectId(store.getState()))
+                        anugaApi.getScenariosByArchive(
+                            getProjectId(store.getState()),
+                            getArchiveFilter(store.getState())
+                        )
                     )
                         .catch(() => Rx.Observable.empty())
                         .switchMap(response => Rx.Observable

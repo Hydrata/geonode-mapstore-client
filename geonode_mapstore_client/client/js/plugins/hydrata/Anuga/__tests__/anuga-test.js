@@ -38,7 +38,20 @@ import {
     RETRY_ANUGA_RUN,
     CANCEL_ANUGA_RUN,
     SET_ANUGA_POLLING_DATA,
-    SAVE_ANUGA_SCENARIO_SUCCESS
+    SAVE_ANUGA_SCENARIO_SUCCESS,
+    DUPLICATE_ANUGA_SCENARIO,
+    DUPLICATE_ANUGA_SCENARIO_SUCCESS,
+    duplicateAnugaScenario,
+    ARCHIVE_ANUGA_SCENARIO,
+    ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+    ARCHIVE_ANUGA_SCENARIO_ERROR,
+    UNARCHIVE_ANUGA_SCENARIO,
+    UNARCHIVE_ANUGA_SCENARIO_SUCCESS,
+    SET_ANUGA_SCENARIO_ARCHIVE_FILTER,
+    archiveAnugaScenario,
+    archiveAnugaScenarioError,
+    unarchiveAnugaScenario,
+    setAnugaScenarioArchiveFilter
 } from '../actionsAnuga';
 import {
     START_ACTIVE_RUN_POLLING,
@@ -387,6 +400,142 @@ describe('Anuga Plugin', () => {
                 scenarios: [{ id: 1, latest_run: null, computed_status: 'created' }]
             });
             expect(state.scenarios.byId[1].latest_run).toBe(null);
+        });
+    });
+
+    describe('TASK-879 duplicate scenario action + reducer', () => {
+        it('duplicateAnugaScenario creates DUPLICATE_ANUGA_SCENARIO with scenario payload', () => {
+            const action = duplicateAnugaScenario({ id: 42, name: 'src' });
+            expect(action.type).toBe(DUPLICATE_ANUGA_SCENARIO);
+            expect(action.scenario).toEqual({ id: 42, name: 'src' });
+        });
+
+        it('Reducer appends the new scenario on DUPLICATE_ANUGA_SCENARIO_SUCCESS', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'src' }]
+            });
+            state = reducer(state, {
+                type: DUPLICATE_ANUGA_SCENARIO_SUCCESS,
+                scenario: { id: 2, name: 'src-copy', project: 7 }
+            });
+            expect(state.scenarios.byId[2]).toExist();
+            expect(state.scenarios.byId[2].name).toBe('src-copy');
+            expect(state.scenarios.byId[2].unsaved).toBe(false);
+            expect(state.scenarios.allIds).toInclude(2);
+            // Original still present.
+            expect(state.scenarios.byId[1]).toExist();
+        });
+
+        it('Reducer is a no-op when scenario id is missing', () => {
+            const initial = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'src' }]
+            });
+            const after = reducer(initial, {
+                type: DUPLICATE_ANUGA_SCENARIO_SUCCESS,
+                scenario: { name: 'no-id' }
+            });
+            expect(after).toBe(initial);
+        });
+    });
+
+    describe('TASK-880 archive/unarchive scenario action + reducer', () => {
+        it('archiveAnugaScenario creates ARCHIVE_ANUGA_SCENARIO with scenario payload', () => {
+            const action = archiveAnugaScenario({ id: 42, name: 'src' });
+            expect(action.type).toBe(ARCHIVE_ANUGA_SCENARIO);
+            expect(action.scenario).toEqual({ id: 42, name: 'src' });
+        });
+
+        it('unarchiveAnugaScenario creates UNARCHIVE_ANUGA_SCENARIO with scenario payload', () => {
+            const action = unarchiveAnugaScenario({ id: 42, name: 'src' });
+            expect(action.type).toBe(UNARCHIVE_ANUGA_SCENARIO);
+            expect(action.scenario).toEqual({ id: 42, name: 'src' });
+        });
+
+        it('setAnugaScenarioArchiveFilter creates SET_ANUGA_SCENARIO_ARCHIVE_FILTER with mode', () => {
+            const action = setAnugaScenarioArchiveFilter('only');
+            expect(action.type).toBe(SET_ANUGA_SCENARIO_ARCHIVE_FILTER);
+            expect(action.mode).toBe('only');
+        });
+
+        it('Reducer updates byId archive metadata on ARCHIVE_ANUGA_SCENARIO_SUCCESS', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'src', archived_at: null, archived_by: null }]
+            });
+            state = reducer(state, {
+                type: ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+                scenario: { id: 1, name: 'src', archived_at: '2026-05-14T13:00:00Z', archived_by: 9, archived_by_username: 'me' }
+            });
+            expect(state.scenarios.byId[1].archived_at).toBe('2026-05-14T13:00:00Z');
+            expect(state.scenarios.byId[1].archived_by).toBe(9);
+            expect(state.scenarios.byId[1].archived_by_username).toBe('me');
+            // Other fields preserved.
+            expect(state.scenarios.byId[1].name).toBe('src');
+        });
+
+        it('Reducer clears archive metadata on UNARCHIVE_ANUGA_SCENARIO_SUCCESS', () => {
+            let state = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'src', archived_at: '2026-05-14T13:00:00Z', archived_by: 9 }]
+            });
+            state = reducer(state, {
+                type: UNARCHIVE_ANUGA_SCENARIO_SUCCESS,
+                scenario: { id: 1, name: 'src', archived_at: null, archived_by: null }
+            });
+            expect(state.scenarios.byId[1].archived_at).toBe(null);
+            expect(state.scenarios.byId[1].archived_by).toBe(null);
+        });
+
+        it('Reducer is no-op on archive success when id is missing or unknown', () => {
+            const initial = reducer(undefined, {
+                type: SET_ANUGA_SCENARIO_DATA,
+                scenarios: [{ id: 1, name: 'src' }]
+            });
+            const noId = reducer(initial, {
+                type: ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+                scenario: { archived_at: 'x' }
+            });
+            expect(noId).toBe(initial);
+            const unknownId = reducer(initial, {
+                type: ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+                scenario: { id: 9999, archived_at: 'x' }
+            });
+            expect(unknownId).toBe(initial);
+        });
+
+        it('Reducer updates archiveFilter on SET_ANUGA_SCENARIO_ARCHIVE_FILTER', () => {
+            const initial = reducer(undefined, { type: '@@INIT' });
+            expect(initial.scenarios.archiveFilter).toBe('none');
+            const next = reducer(initial, setAnugaScenarioArchiveFilter('only'));
+            expect(next.scenarios.archiveFilter).toBe('only');
+            const all = reducer(next, setAnugaScenarioArchiveFilter('all'));
+            expect(all.scenarios.archiveFilter).toBe('all');
+        });
+
+        it('Reducer rejects invalid archiveFilter values', () => {
+            const initial = reducer(undefined, { type: '@@INIT' });
+            const bogus = reducer(initial, { type: SET_ANUGA_SCENARIO_ARCHIVE_FILTER, mode: 'BOGUS' });
+            expect(bogus.scenarios.archiveFilter).toBe('none');
+        });
+
+        it('archiveAnugaScenarioError surfaces BE detail in the toast message', () => {
+            const dispatched = [];
+            const errorBody = { detail: 'active run blocker' };
+            const thunk = archiveAnugaScenarioError({ id: 7 }, errorBody);
+            thunk((a) => dispatched.push(a));
+            expect(dispatched.length).toBe(2);
+            expect(dispatched[0].type).toBe('SHOW_NOTIFICATION');
+            expect(dispatched[0].message).toBe('active run blocker');
+            expect(dispatched[1].type).toBe(ARCHIVE_ANUGA_SCENARIO_ERROR);
+        });
+
+        it('archiveAnugaScenarioError uses a fallback message when BE body is missing', () => {
+            const dispatched = [];
+            const thunk = archiveAnugaScenarioError({ id: 7 }, undefined);
+            thunk((a) => dispatched.push(a));
+            expect(dispatched[0].message).toMatch(/could not archive/i);
         });
     });
 

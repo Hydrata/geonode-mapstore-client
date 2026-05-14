@@ -16,6 +16,10 @@ import {
     addAnugaScenario,
     stopAnugaScenarioPolling,
     deleteAnugaScenario,
+    duplicateAnugaScenario,
+    archiveAnugaScenario,
+    unarchiveAnugaScenario,
+    setAnugaScenarioArchiveFilter,
     showAnugaRunMenu,
     toggleScenarioSelected,
     compareScenarios
@@ -48,6 +52,11 @@ class AnugaScenarioMenuClass extends React.Component {
         stopAnugaScenarioPolling: PropTypes.func,
         addAnugaScenario: PropTypes.func,
         deleteAnugaScenario: PropTypes.func,
+        duplicateAnugaScenario: PropTypes.func,
+        archiveAnugaScenario: PropTypes.func,
+        unarchiveAnugaScenario: PropTypes.func,
+        archiveFilter: PropTypes.oneOf(['none', 'only', 'all']),
+        setAnugaScenarioArchiveFilter: PropTypes.func,
         cancelAnugaRun: PropTypes.func,
         retryAnugaRun: PropTypes.func,
         showAnugaRunMenu: PropTypes.func,
@@ -92,6 +101,26 @@ class AnugaScenarioMenuClass extends React.Component {
         );
     }
 
+    // Active/Archived chip. Clicking toggles between 'none' (default,
+    // active only) and 'only' (archived only). Polling picks up the new
+    // archiveFilter on its next tick.
+    renderArchiveFilterChip() {
+        const archived = this.props.archiveFilter === 'only';
+        return (
+            <Button
+                bsSize={'medium'}
+                className={"scenario-tab" + (archived ? " active" : "")}
+                onClick={() => {
+                    const nextMode = archived ? 'none' : 'only';
+                    this.props.setAnugaScenarioArchiveFilter(nextMode);
+                    trackEvent('button', 'click', `anuga-scenario-menu-archive-filter-${nextMode}`);
+                }}
+            >
+                <Message msgId={archived ? "hydrata.anuga.archived" : "hydrata.anuga.active"} />
+            </Button>
+        );
+    }
+
     render() {
         return (
             <div id={'anuga-scenario-menu'} className={'simple-view-panel anuga-panel'}>
@@ -102,6 +131,7 @@ class AnugaScenarioMenuClass extends React.Component {
                             {this.renderTabButton('manage', 'hydrata.anuga.manage')}
                             {this.renderTabButton('advanced', 'hydrata.anuga.advanced')}
                             {this.renderTabButton('compare', 'hydrata.anuga.compare')}
+                            {this.renderArchiveFilterChip()}
                         </span>
                         {this.props.canCreateScenario ?
                             <span id={"new-scenario-button"}>
@@ -152,7 +182,8 @@ class AnugaScenarioMenuClass extends React.Component {
                                         <th><Message msgId="hydrata.anuga.resolutionM2" /></th>
                                         <th><Message msgId="hydrata.anuga.duration" /></th>
                                         <th><Message msgId="hydrata.anuga.status" /></th>
-                                        <th/><th/><th/><th/>
+                                        {/* Build | Run | Log | Duplicate | Archive | Delete */}
+                                        <th/><th/><th/><th/><th/><th/>
                                     </React.Fragment> : null
                                 }
                                 {this.state.scenarioTableTabs?.includes('compare') ?
@@ -195,6 +226,10 @@ class AnugaScenarioMenuClass extends React.Component {
                                     showAnugaRunMenu={this.props.showAnugaRunMenu}
                                     setAnugaScenarioMenu={this.props.setAnugaScenarioMenu}
                                     deleteAnugaScenario={this.props.deleteAnugaScenario}
+                                    duplicateAnugaScenario={this.props.duplicateAnugaScenario}
+                                    canDuplicateScenario={this.props.canCreateScenario}
+                                    archiveAnugaScenario={this.props.archiveAnugaScenario}
+                                    unarchiveAnugaScenario={this.props.unarchiveAnugaScenario}
                                     cancelAnugaRun={this.props.cancelAnugaRun}
                                     retryAnugaRun={this.props.retryAnugaRun}
                                     toggleScenarioSelected={this.props.toggleScenarioSelected}
@@ -235,7 +270,8 @@ const mapStateToProps = (state) => {
         canCreateScenario: canCreateScenario(state),
         canRunScenario: canRunScenario(state),
         myRole: getProjectMyRole(state),
-        currentUserId: state?.security?.user?.pk
+        currentUserId: state?.security?.user?.pk,
+        archiveFilter: state?.anuga?.scenarios?.archiveFilter || 'none'
     };
 };
 
@@ -250,6 +286,10 @@ const mapDispatchToProps = ( dispatch ) => {
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),
+        duplicateAnugaScenario: (scenario) => dispatch(duplicateAnugaScenario(scenario)),
+        archiveAnugaScenario: (scenario) => dispatch(archiveAnugaScenario(scenario)),
+        unarchiveAnugaScenario: (scenario) => dispatch(unarchiveAnugaScenario(scenario)),
+        setAnugaScenarioArchiveFilter: (mode) => dispatch(setAnugaScenarioArchiveFilter(mode)),
         cancelAnugaRun: (runId) => dispatch(cancelAnugaRun(runId)),
         retryAnugaRun: (runId) => dispatch(retryAnugaRun(runId)),
         showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),

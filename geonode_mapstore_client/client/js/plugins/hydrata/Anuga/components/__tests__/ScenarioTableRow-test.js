@@ -284,3 +284,350 @@ describe('TASK-871 ScenarioTableRow confirm prompts include scenario name', () =
         });
     });
 });
+
+/*
+ * Duplicate button on ScenarioTableRow.
+ *
+ * Contract:
+ *   - Rendered when canDuplicateScenario=true AND scenario has an id AND
+ *     scenario is not in a cancellable state (queued/computing/building).
+ *   - Hidden when canDuplicateScenario=false (viewer, anonymous).
+ *   - Hidden when scenario.id is falsy (unsaved draft — BE has no row to clone).
+ *   - On click: confirm prompt includes scenario name → dispatches
+ *     duplicateAnugaScenario(scenario) on confirm.
+ */
+describe('TASK-879 ScenarioTableRow Duplicate button', () => {
+    let container;
+    let table;
+    let originalConfirm;
+    let confirmCalls;
+    let confirmReturn;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        table = document.createElement('table');
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        container.appendChild(table);
+        confirmCalls = [];
+        confirmReturn = true; // confirm "yes" by default
+        originalConfirm = window.confirm;
+        window.confirm = (msg) => { confirmCalls.push(msg); return confirmReturn; };
+    });
+
+    afterEach(() => {
+        window.confirm = originalConfirm;
+        ReactDOM.unmountComponentAtNode(table.querySelector('tbody'));
+        document.body.removeChild(container);
+    });
+
+    function renderRow({
+        scenarioId = 42,
+        scenarioName = 'source',
+        computedStatus = 'created',
+        canDuplicate = true,
+        myRole = 'editor',
+        duplicateAnugaScenario = () => {}
+    } = {}) {
+        const tbody = table.querySelector('tbody');
+        const scenario = {
+            id: scenarioId,
+            name: scenarioName,
+            created_by: SELF,
+            created_by_username: 'me',
+            terrain: 1,
+            boundary: null,
+            inflow: null,
+            friction: null,
+            structure: null,
+            mesh_region: null,
+            network: null,
+            resolution: 5,
+            duration: 3600,
+            unsaved: false,
+            latest_run: computedStatus === 'queued' ? { id: 99 } : null,
+            computed_status: computedStatus
+        };
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <ScenarioTableRow
+                    scenario={scenario}
+                    scenarioTableTabs={['manage']}
+                    terrain={[]} boundaries={[]} inflows={[]}
+                    frictions={[]} structures={[]} meshRegions={[]} networks={[]}
+                    updateAnugaScenario={() => {}}
+                    saveAnugaScenario={() => {}}
+                    setOpenMenuGroupId={() => {}}
+                    selectAnugaScenario={() => {}}
+                    showAnugaRunMenu={() => {}}
+                    setAnugaScenarioMenu={() => {}}
+                    deleteAnugaScenario={() => {}}
+                    duplicateAnugaScenario={duplicateAnugaScenario}
+                    canDuplicateScenario={canDuplicate}
+                    cancelAnugaRun={() => {}}
+                    toggleScenarioSelected={() => {}}
+                    canRunScenario
+                    myRole={myRole}
+                    currentUserId={SELF}
+                />,
+                tbody,
+                () => resolve(tbody)
+            );
+        });
+    }
+
+    it('renders the Duplicate button when canDuplicate=true + saved + not cancellable', () => {
+        return renderRow().then((tbody) => {
+            const btn = tbody.querySelector('.anuga-btn-duplicate');
+            expect(btn).toExist();
+            expect(btn.querySelector('.glyphicon-duplicate')).toExist();
+        });
+    });
+
+    it('hides the Duplicate button when canDuplicateScenario=false', () => {
+        return renderRow({ canDuplicate: false }).then((tbody) => {
+            const btn = tbody.querySelector('.anuga-btn-duplicate');
+            expect(btn).toNotExist();
+        });
+    });
+
+    it('hides the Duplicate button when scenario.id is falsy (unsaved draft)', () => {
+        return renderRow({ scenarioId: null }).then((tbody) => {
+            const btn = tbody.querySelector('.anuga-btn-duplicate');
+            expect(btn).toNotExist();
+        });
+    });
+
+    it('hides the Duplicate button while the scenario is queued/computing/building', () => {
+        return renderRow({ computedStatus: 'queued' }).then((tbody) => {
+            const btn = tbody.querySelector('.anuga-btn-duplicate');
+            expect(btn).toNotExist();
+        });
+    });
+
+    it('confirm prompt includes the scenario name', () => {
+        return renderRow({ scenarioName: 'my_great_scenario' }).then((tbody) => {
+            const btn = tbody.querySelector('.anuga-btn-duplicate');
+            expect(btn).toExist();
+            btn.click();
+            expect(confirmCalls.length).toBe(1);
+            expect(confirmCalls[0]).toContain('my_great_scenario');
+            expect(confirmCalls[0].toLowerCase()).toContain('duplicate');
+        });
+    });
+
+    it('dispatches duplicateAnugaScenario(scenario) on confirm-yes', () => {
+        const dispatched = [];
+        const duplicateAnugaScenario = (s) => dispatched.push(s);
+        return renderRow({
+            scenarioId: 77, scenarioName: 'pick_me', duplicateAnugaScenario
+        }).then((tbody) => {
+            confirmReturn = true;
+            tbody.querySelector('.anuga-btn-duplicate').click();
+            expect(dispatched.length).toBe(1);
+            expect(dispatched[0].id).toBe(77);
+            expect(dispatched[0].name).toBe('pick_me');
+        });
+    });
+
+    it('does NOT dispatch when confirm is cancelled', () => {
+        const dispatched = [];
+        const duplicateAnugaScenario = (s) => dispatched.push(s);
+        return renderRow({ duplicateAnugaScenario }).then((tbody) => {
+            confirmReturn = false;
+            tbody.querySelector('.anuga-btn-duplicate').click();
+            expect(confirmCalls.length).toBe(1);
+            expect(dispatched.length).toBe(0);
+        });
+    });
+});
+
+/*
+ * Archive/Unarchive button on ScenarioTableRow.
+ *
+ * Contract:
+ *   - Archive button renders when canEdit && saved scenario && not cancellable
+ *     AND scenario is NOT archived (archived_at falsy).
+ *   - Unarchive button renders when canEdit && saved scenario && not cancellable
+ *     AND scenario IS archived (archived_at truthy).
+ *   - Both share the same DOM cell — toggled by archived_at.
+ *   - Confirm prompt includes scenario name; dispatches archive/unarchive on yes.
+ */
+describe('TASK-880 ScenarioTableRow Archive button', () => {
+    let container;
+    let table;
+    let originalConfirm;
+    let confirmCalls;
+    let confirmReturn;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        table = document.createElement('table');
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        container.appendChild(table);
+        confirmCalls = [];
+        confirmReturn = true;
+        originalConfirm = window.confirm;
+        window.confirm = (msg) => { confirmCalls.push(msg); return confirmReturn; };
+    });
+
+    afterEach(() => {
+        window.confirm = originalConfirm;
+        ReactDOM.unmountComponentAtNode(table.querySelector('tbody'));
+        document.body.removeChild(container);
+    });
+
+    function renderRow({
+        scenarioId = 42,
+        scenarioName = 'source',
+        computedStatus = 'created',
+        archivedAt = null,
+        myRole = 'editor',
+        archiveAnugaScenario = () => {},
+        unarchiveAnugaScenario = () => {}
+    } = {}) {
+        const tbody = table.querySelector('tbody');
+        const scenario = {
+            id: scenarioId,
+            name: scenarioName,
+            created_by: SELF,
+            created_by_username: 'me',
+            terrain: 1,
+            boundary: null,
+            inflow: null,
+            friction: null,
+            structure: null,
+            mesh_region: null,
+            network: null,
+            resolution: 5,
+            duration: 3600,
+            unsaved: false,
+            archived_at: archivedAt,
+            latest_run: computedStatus === 'queued' ? { id: 99 } : null,
+            computed_status: computedStatus
+        };
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <ScenarioTableRow
+                    scenario={scenario}
+                    scenarioTableTabs={['manage']}
+                    terrain={[]} boundaries={[]} inflows={[]}
+                    frictions={[]} structures={[]} meshRegions={[]} networks={[]}
+                    updateAnugaScenario={() => {}}
+                    saveAnugaScenario={() => {}}
+                    setOpenMenuGroupId={() => {}}
+                    selectAnugaScenario={() => {}}
+                    showAnugaRunMenu={() => {}}
+                    setAnugaScenarioMenu={() => {}}
+                    deleteAnugaScenario={() => {}}
+                    duplicateAnugaScenario={() => {}}
+                    canDuplicateScenario
+                    archiveAnugaScenario={archiveAnugaScenario}
+                    unarchiveAnugaScenario={unarchiveAnugaScenario}
+                    cancelAnugaRun={() => {}}
+                    toggleScenarioSelected={() => {}}
+                    canRunScenario
+                    myRole={myRole}
+                    currentUserId={SELF}
+                />,
+                tbody,
+                () => resolve(tbody)
+            );
+        });
+    }
+
+    it('renders Archive button for an active scenario when canEdit + saved', () => {
+        return renderRow().then((tbody) => {
+            expect(tbody.querySelector('.anuga-btn-archive')).toExist();
+            expect(tbody.querySelector('.anuga-btn-unarchive')).toNotExist();
+        });
+    });
+
+    it('renders Unarchive button when scenario.archived_at is set', () => {
+        return renderRow({ archivedAt: '2026-05-14T13:00:00Z' }).then((tbody) => {
+            expect(tbody.querySelector('.anuga-btn-unarchive')).toExist();
+            expect(tbody.querySelector('.anuga-btn-archive')).toNotExist();
+        });
+    });
+
+    it('hides the Archive button for non-editor roles (viewer)', () => {
+        return renderRow({ myRole: 'viewer' }).then((tbody) => {
+            expect(tbody.querySelector('.anuga-btn-archive')).toNotExist();
+        });
+    });
+
+    it('hides the Archive button when scenario.id is falsy (unsaved draft)', () => {
+        return renderRow({ scenarioId: null }).then((tbody) => {
+            expect(tbody.querySelector('.anuga-btn-archive')).toNotExist();
+        });
+    });
+
+    it('hides Archive while the scenario is queued/computing/building (cancellable)', () => {
+        return renderRow({ computedStatus: 'queued' }).then((tbody) => {
+            expect(tbody.querySelector('.anuga-btn-archive')).toNotExist();
+        });
+    });
+
+    it('Archive confirm prompt includes scenario name', () => {
+        return renderRow({ scenarioName: 'mighty' }).then((tbody) => {
+            tbody.querySelector('.anuga-btn-archive').click();
+            expect(confirmCalls.length).toBe(1);
+            expect(confirmCalls[0]).toContain('mighty');
+            expect(confirmCalls[0].toLowerCase()).toContain('archive');
+        });
+    });
+
+    it('Archive dispatches archiveAnugaScenario(scenario) on confirm', () => {
+        const dispatched = [];
+        const archiveAnugaScenario = (s) => dispatched.push(s);
+        return renderRow({
+            scenarioId: 77, scenarioName: 'pick_me', archiveAnugaScenario
+        }).then((tbody) => {
+            confirmReturn = true;
+            tbody.querySelector('.anuga-btn-archive').click();
+            expect(dispatched.length).toBe(1);
+            expect(dispatched[0].id).toBe(77);
+            expect(dispatched[0].name).toBe('pick_me');
+        });
+    });
+
+    it('Archive does NOT dispatch when confirm is cancelled', () => {
+        const dispatched = [];
+        const archiveAnugaScenario = (s) => dispatched.push(s);
+        return renderRow({ archiveAnugaScenario }).then((tbody) => {
+            confirmReturn = false;
+            tbody.querySelector('.anuga-btn-archive').click();
+            expect(confirmCalls.length).toBe(1);
+            expect(dispatched.length).toBe(0);
+        });
+    });
+
+    it('Unarchive dispatches unarchiveAnugaScenario(scenario) on confirm', () => {
+        const dispatched = [];
+        const unarchiveAnugaScenario = (s) => dispatched.push(s);
+        return renderRow({
+            scenarioId: 88, scenarioName: 'restore_me',
+            archivedAt: '2026-05-14T13:00:00Z',
+            unarchiveAnugaScenario
+        }).then((tbody) => {
+            confirmReturn = true;
+            tbody.querySelector('.anuga-btn-unarchive').click();
+            expect(dispatched.length).toBe(1);
+            expect(dispatched[0].id).toBe(88);
+        });
+    });
+
+    it('Unarchive confirm prompt mentions restore + scenario name', () => {
+        return renderRow({
+            scenarioName: 'restore_me', archivedAt: '2026-05-14T13:00:00Z'
+        }).then((tbody) => {
+            tbody.querySelector('.anuga-btn-unarchive').click();
+            expect(confirmCalls.length).toBe(1);
+            expect(confirmCalls[0]).toContain('restore_me');
+            expect(confirmCalls[0].toLowerCase()).toMatch(/restore|unarchive/);
+        });
+    });
+});

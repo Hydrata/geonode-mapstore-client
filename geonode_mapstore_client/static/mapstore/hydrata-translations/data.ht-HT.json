@@ -157,9 +157,11 @@
         "watersheds": "Watersheds"
       },
       "anuga": {
+        "active": "Aktif",
         "addMember": "Ajoute Manm",
         "addMemberButton": "Ajoute",
         "advanced": "Avanse",
+        "archived": "Achive",
         "availableHours": "Èdtan disponib",
         "boundaries": "Limit yo",
         "boundary": "Limit",

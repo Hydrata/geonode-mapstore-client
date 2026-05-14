@@ -36,6 +36,14 @@ class ScenarioTableRow extends React.Component {
         showAnugaRunMenu: PropTypes.func.isRequired,
         setAnugaScenarioMenu: PropTypes.func.isRequired,
         deleteAnugaScenario: PropTypes.func.isRequired,
+        // Gate mirrors canCreateScenario (owner/manager/editor/contributor),
+        // wired through anugaScenarioMenu via canDuplicateScenario.
+        duplicateAnugaScenario: PropTypes.func,
+        canDuplicateScenario: PropTypes.bool,
+        // Archive/unarchive share the duplicate gate. When the scenario is
+        // already archived the button toggles label/glyph to "Unarchive".
+        archiveAnugaScenario: PropTypes.func,
+        unarchiveAnugaScenario: PropTypes.func,
         cancelAnugaRun: PropTypes.func.isRequired,
         retryAnugaRun: PropTypes.func,
         toggleScenarioSelected: PropTypes.func.isRequired,
@@ -317,7 +325,7 @@ class ScenarioTableRow extends React.Component {
     }
 
     render() {
-        const {scenario, scenarioTableTabs, myRole, currentUserId, canRunScenario} = this.props;
+        const {scenario, scenarioTableTabs, myRole, currentUserId, canRunScenario, canDuplicateScenario} = this.props;
         const showManage = scenarioTableTabs?.includes('manage');
         const showAdvanced = scenarioTableTabs?.includes('advanced');
         const showCompare = scenarioTableTabs?.includes('compare');
@@ -327,6 +335,15 @@ class ScenarioTableRow extends React.Component {
         const canCancelRun = isCancellable && canRunScenario;
         const canDeleteScenario = !isCancellable && canEdit;
         const showDeleteButton = canCancelRun || canDeleteScenario;
+        // Source scenario must already exist server-side (has an id) —
+        // unsaved drafts can't be duplicated because the BE has no row.
+        const showDuplicateButton = canDuplicateScenario && !!scenario?.id && !isCancellable;
+        // Already-archived rows (scenario.archived_at truthy) render as
+        // Unarchive instead. Archive shares the same gate.
+        const showArchiveButton = canEdit && !!scenario?.id && !isCancellable;
+        const isArchived = !!scenario?.archived_at;
+        // Confirm-prompt label, shared by Duplicate/Archive/Unarchive/Cancel/Delete.
+        const scenarioLabel = scenario?.name || 'this scenario';
 
         return (
             <tr className={'scenario-table-row'}>
@@ -401,6 +418,56 @@ class ScenarioTableRow extends React.Component {
                             </Button>
                         </td>
                         <td>
+                            {showDuplicateButton ?
+                                <Button
+                                    bsStyle={'info'} bsSize={'xsmall'}
+                                    className="anuga-btn anuga-btn-duplicate"
+                                    onClick={() => {
+                                        trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario');
+                                        // eslint-disable-next-line no-alert
+                                        if (window.confirm(`Duplicate scenario "${scenarioLabel}"?`)) {
+                                            this.props.duplicateAnugaScenario(scenario);
+                                            trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario-confirm');
+                                        }
+                                    }}
+                                >
+                                    <span className="glyphicon glyphicon-duplicate" aria-hidden="true" />
+                                </Button> : null
+                            }
+                        </td>
+                        {/* Archive/Unarchive toggle: label/glyph flips based on scenario.archived_at. */}
+                        <td>
+                            {showArchiveButton ?
+                                <Button
+                                    bsStyle={isArchived ? 'success' : 'warning'}
+                                    bsSize={'xsmall'}
+                                    className={isArchived ? "anuga-btn anuga-btn-unarchive" : "anuga-btn anuga-btn-archive"}
+                                    onClick={() => {
+                                        if (isArchived) {
+                                            trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario');
+                                            // eslint-disable-next-line no-alert
+                                            if (window.confirm(`Restore archived scenario "${scenarioLabel}"?`)) {
+                                                this.props.unarchiveAnugaScenario(scenario);
+                                                trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario-confirm');
+                                            }
+                                        } else {
+                                            trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario');
+                                            // eslint-disable-next-line no-alert
+                                            if (window.confirm(`Archive scenario "${scenarioLabel}"?`)) {
+                                                this.props.archiveAnugaScenario(scenario);
+                                                trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario-confirm');
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <span
+                                        className={isArchived ? "glyphicon glyphicon-open" : "glyphicon glyphicon-folder-close"}
+                                        aria-hidden="true"
+                                    />
+                                </Button> : null
+                            }
+                        </td>
+                        <td>
                             {showDeleteButton ?
                                 <Button
                                     bsStyle={'danger'} bsSize={'xsmall'}
@@ -409,10 +476,6 @@ class ScenarioTableRow extends React.Component {
                                         isCancellable ?
                                             () => {
                                                 trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
-                                                // Include scenario name in confirm prompt for safety
-                                                // when multiple runs are in flight. Fall back to a
-                                                // generic label if the name is missing or empty.
-                                                const scenarioLabel = scenario?.name || 'this scenario';
                                                 // eslint-disable-next-line no-alert
                                                 if (window.confirm(`Cancel run for "${scenarioLabel}"?`)) {
                                                     trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run-confirm');
@@ -421,9 +484,6 @@ class ScenarioTableRow extends React.Component {
                                             } :
                                             () => {
                                                 trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
-                                                // Include scenario name in confirm prompt so the
-                                                // operator sees exactly which row is about to disappear.
-                                                const scenarioLabel = scenario?.name || 'this scenario';
                                                 // eslint-disable-next-line no-alert
                                                 if (window.confirm(`Delete scenario "${scenarioLabel}"?`)) {
                                                     this.props.deleteAnugaScenario(scenario);

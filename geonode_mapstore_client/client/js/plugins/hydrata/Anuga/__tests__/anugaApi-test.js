@@ -24,7 +24,11 @@ describe('anugaApi', () => {
             'updateResource',
             // v2-named helpers (kept for explicit V2 callers)
             'getProjectV2', 'getProjectsV2',
-            'getScenariosV2', 'createScenarioV2', 'deleteScenarioV2',
+            'createScenarioV2', 'deleteScenarioV2',
+            // POST /api/v2/anuga/.../scenarios/{id}/duplicate/
+            'duplicateScenario',
+            // POST archive/unarchive + GET archive-filtered list
+            'archiveScenario', 'unarchiveScenario', 'getScenariosByArchive',
             'startRun', 'cancelRun', 'retryRun', 'getRunStatus', 'getRun',
             // Membership + visibility
             'getMemberships', 'addMembership', 'updateMembership', 'deleteMembership',
@@ -46,11 +50,11 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 41 API functions (V2P-79: -1 dropped getAvailableLayers; V2P-714: +4 cascade deletes; TASK-723: +5 fan-out deletes; TASK-829: +1 friction-raster delete)', () => {
+        it('should export exactly 44 API functions', () => {
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(41);
+            expect(exportedFunctions.length).toBe(44);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -127,16 +131,26 @@ describe('anugaApi', () => {
             expect(anugaApi.getProjectsV2.length).toBe(0);
         });
 
-        it('getScenariosV2 takes 1 argument (projectId)', () => {
-            expect(anugaApi.getScenariosV2.length).toBe(1);
-        });
-
         it('createScenarioV2 takes 2 arguments (projectId, scenario)', () => {
             expect(anugaApi.createScenarioV2.length).toBe(2);
         });
 
         it('deleteScenarioV2 takes 2 arguments (projectId, scenarioId)', () => {
             expect(anugaApi.deleteScenarioV2.length).toBe(2);
+        });
+
+        it('duplicateScenario takes 2 arguments (projectId, scenarioId)', () => {
+            expect(anugaApi.duplicateScenario.length).toBe(2);
+        });
+
+        it('archiveScenario takes 2 arguments (projectId, scenarioId)', () => {
+            expect(anugaApi.archiveScenario.length).toBe(2);
+        });
+        it('unarchiveScenario takes 2 arguments (projectId, scenarioId)', () => {
+            expect(anugaApi.unarchiveScenario.length).toBe(2);
+        });
+        it('getScenariosByArchive takes 1 required argument (projectId, mode has default)', () => {
+            expect(anugaApi.getScenariosByArchive.length).toBe(1);
         });
 
         it('startRun takes 1 required argument (scenarioId)', () => {
@@ -246,7 +260,6 @@ describe('anugaApi', () => {
             expect(anugaApi.updateScenario).toExist();
             expect(anugaApi.deleteScenario).toExist();
             expect(anugaApi.compareScenarios).toExist();
-            expect(anugaApi.getScenariosV2).toExist();
             expect(anugaApi.createScenarioV2).toExist();
             expect(anugaApi.deleteScenarioV2).toExist();
         });

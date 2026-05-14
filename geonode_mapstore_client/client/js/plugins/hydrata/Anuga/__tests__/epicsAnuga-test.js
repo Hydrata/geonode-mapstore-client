@@ -897,6 +897,193 @@ describe('ANUGA Epics', () => {
     // quietly re-introduce read-only fields (status, computed_status,
     // latest_run, log, …) into the PATCH body.
     // ─────────────────────────────────────────────────────────────────────
+    describe('TASK-879 duplicateAnugaScenarioEpic', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            duplicateAnugaScenarioEpic
+        } = require('../epics/crudEpics');
+        const {
+            DUPLICATE_ANUGA_SCENARIO
+        } = require('../actionsAnuga');
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('is a function exported from crudEpics', () => {
+            expect(typeof duplicateAnugaScenarioEpic).toBe('function');
+        });
+
+        it('POST 201 → dispatches duplicateAnugaScenarioSuccess thunk', (done) => {
+            // Wire correct project id (7) so the epic's URL path resolves.
+            mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/duplicate/').reply(
+                201,
+                { id: 99, name: 'source-copy', project: 7 }
+            );
+            const sourceScenario = { id: 42, name: 'source' };
+            const action$ = mockActions([{ type: DUPLICATE_ANUGA_SCENARIO, scenario: sourceScenario }]);
+            const emitted = [];
+
+            duplicateAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.post.length).toBe(1);
+                    // The epic emits the success thunk (a function), not a plain
+                    // action — duplicateAnugaScenarioSuccess wraps SHOW_NOTIFICATION
+                    // + DUPLICATE_ANUGA_SCENARIO_SUCCESS dispatches.
+                    expect(emitted.length).toBe(1);
+                    expect(typeof emitted[0]).toBe('function');
+                    // Drive the thunk to confirm it dispatches the success type.
+                    const dispatched = [];
+                    emitted[0]((a) => dispatched.push(a));
+                    // SHOW_NOTIFICATION first, then DUPLICATE_ANUGA_SCENARIO_SUCCESS
+                    expect(dispatched.length).toBe(2);
+                    expect(dispatched[1].type).toBe('DUPLICATE_ANUGA_SCENARIO_SUCCESS');
+                    expect(dispatched[1].scenario).toEqual({ id: 99, name: 'source-copy', project: 7 });
+                    done();
+                });
+        });
+
+        it('Only listens for DUPLICATE_ANUGA_SCENARIO action type', (done) => {
+            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION' }]);
+            const emitted = [];
+
+            duplicateAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(
+                    a => emitted.push(a),
+                    done,
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+    });
+
+    describe('TASK-880 archive/unarchive scenario epics', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            archiveAnugaScenarioEpic,
+            unarchiveAnugaScenarioEpic
+        } = require('../epics/crudEpics');
+        const {
+            ARCHIVE_ANUGA_SCENARIO,
+            UNARCHIVE_ANUGA_SCENARIO
+        } = require('../actionsAnuga');
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('archiveAnugaScenarioEpic is a function exported from crudEpics', () => {
+            expect(typeof archiveAnugaScenarioEpic).toBe('function');
+        });
+
+        it('unarchiveAnugaScenarioEpic is a function exported from crudEpics', () => {
+            expect(typeof unarchiveAnugaScenarioEpic).toBe('function');
+        });
+
+        it('Archive POST 200 → dispatches archiveAnugaScenarioSuccess thunk', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/archive/').reply(
+                200,
+                { id: 42, name: 'source', archived_at: '2026-05-14T13:00:00Z', archived_by: 9 }
+            );
+            const scenario = { id: 42, name: 'source' };
+            const action$ = mockActions([{ type: ARCHIVE_ANUGA_SCENARIO, scenario }]);
+            const emitted = [];
+
+            archiveAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.post.length).toBe(1);
+                    expect(emitted.length).toBe(1);
+                    expect(typeof emitted[0]).toBe('function');
+                    const dispatched = [];
+                    emitted[0]((a) => dispatched.push(a));
+                    // SHOW_NOTIFICATION + ARCHIVE_ANUGA_SCENARIO_SUCCESS
+                    expect(dispatched.length).toBe(2);
+                    expect(dispatched[1].type).toBe('ARCHIVE_ANUGA_SCENARIO_SUCCESS');
+                    expect(dispatched[1].scenario.archived_at).toBe('2026-05-14T13:00:00Z');
+                    done();
+                });
+        });
+
+        it('Archive POST 412 → routes through archiveAnugaScenarioError (toast + error action)', (done) => {
+            // 412 = active run blocker. BE returns `{detail: '...'}` body.
+            // We don't pin the toast message string here — the action shape
+            // (ARCHIVE_ANUGA_SCENARIO_ERROR + a SHOW_NOTIFICATION) is the
+            // load-bearing wire contract; the detail surfacing is exercised
+            // in the action-creator unit test in anuga-test.js.
+            mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/archive/').reply(
+                412,
+                { detail: 'Cannot archive — scenario has an active or queued compute job. Cancel the run first.' }
+            );
+            const scenario = { id: 42, name: 'source' };
+            const action$ = mockActions([{ type: ARCHIVE_ANUGA_SCENARIO, scenario }]);
+            const emitted = [];
+            let finished = false;
+            const finish = (err) => {
+                if (finished) return;
+                finished = true;
+                done(err);
+            };
+
+            archiveAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(
+                    a => emitted.push(a),
+                    err => finish(err),
+                    () => {
+                        try {
+                            expect(emitted.length).toBe(1);
+                            expect(typeof emitted[0]).toBe('function');
+                            const dispatched = [];
+                            emitted[0]((d) => dispatched.push(d));
+                            // SHOW_NOTIFICATION + ARCHIVE_ANUGA_SCENARIO_ERROR
+                            expect(dispatched.length).toBe(2);
+                            expect(dispatched[1].type).toBe('ARCHIVE_ANUGA_SCENARIO_ERROR');
+                            expect(dispatched[0].type).toBe('SHOW_NOTIFICATION');
+                            finish();
+                        } catch (e) { finish(e); }
+                    }
+                );
+        });
+
+        it('Archive only listens for ARCHIVE_ANUGA_SCENARIO action type', (done) => {
+            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION' }]);
+            const emitted = [];
+
+            archiveAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+        });
+
+        it('Unarchive POST 200 → dispatches unarchiveAnugaScenarioSuccess thunk', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/unarchive/').reply(
+                200,
+                { id: 42, name: 'source', archived_at: null, archived_by: null }
+            );
+            const scenario = { id: 42, name: 'source' };
+            const action$ = mockActions([{ type: UNARCHIVE_ANUGA_SCENARIO, scenario }]);
+            const emitted = [];
+
+            unarchiveAnugaScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.post.length).toBe(1);
+                    expect(emitted.length).toBe(1);
+                    expect(typeof emitted[0]).toBe('function');
+                    const dispatched = [];
+                    emitted[0]((a) => dispatched.push(a));
+                    // SHOW_NOTIFICATION + UNARCHIVE_ANUGA_SCENARIO_SUCCESS
+                    expect(dispatched.length).toBe(2);
+                    expect(dispatched[1].type).toBe('UNARCHIVE_ANUGA_SCENARIO_SUCCESS');
+                    expect(dispatched[1].scenario.archived_at).toBe(null);
+                    done();
+                });
+        });
+    });
+
     describe('TASK-937 saveAnugaScenarioEpic PATCH allow-list', () => {
         const MockAdapter = require('axios-mock-adapter');
         const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;

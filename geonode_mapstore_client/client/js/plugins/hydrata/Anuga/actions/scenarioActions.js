@@ -12,6 +12,14 @@ const SAVE_ANUGA_SCENARIO_SUCCESS = 'SAVE_ANUGA_SCENARIO_SUCCESS';
 const SAVE_ANUGA_SCENARIO_ERROR = 'SAVE_ANUGA_SCENARIO_ERROR';
 const DELETE_ANUGA_SCENARIO = 'DELETE_ANUGA_SCENARIO';
 const DELETE_ANUGA_SCENARIO_SUCCESS = 'DELETE_ANUGA_SCENARIO_SUCCESS';
+const DUPLICATE_ANUGA_SCENARIO = 'DUPLICATE_ANUGA_SCENARIO';
+const DUPLICATE_ANUGA_SCENARIO_SUCCESS = 'DUPLICATE_ANUGA_SCENARIO_SUCCESS';
+const ARCHIVE_ANUGA_SCENARIO = 'ARCHIVE_ANUGA_SCENARIO';
+const ARCHIVE_ANUGA_SCENARIO_SUCCESS = 'ARCHIVE_ANUGA_SCENARIO_SUCCESS';
+const ARCHIVE_ANUGA_SCENARIO_ERROR = 'ARCHIVE_ANUGA_SCENARIO_ERROR';
+const UNARCHIVE_ANUGA_SCENARIO = 'UNARCHIVE_ANUGA_SCENARIO';
+const UNARCHIVE_ANUGA_SCENARIO_SUCCESS = 'UNARCHIVE_ANUGA_SCENARIO_SUCCESS';
+const SET_ANUGA_SCENARIO_ARCHIVE_FILTER = 'SET_ANUGA_SCENARIO_ARCHIVE_FILTER';
 const CANCEL_ANUGA_RUN = 'CANCEL_ANUGA_RUN';
 const RETRY_ANUGA_RUN = 'RETRY_ANUGA_RUN';
 const UPDATE_ANUGA_SCENARIO = 'UPDATE_ANUGA_SCENARIO';
@@ -126,6 +134,94 @@ function deleteAnugaScenarioSuccess(scenario) {
     };
 }
 
+// The reducer appends the new scenario to byId / allIds so the row renders
+// without a full INIT_ANUGA refetch.
+function duplicateAnugaScenario(scenario) {
+    return { type: DUPLICATE_ANUGA_SCENARIO, scenario };
+}
+
+function duplicateAnugaScenarioSuccess(scenario) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario duplicated as "${scenario.name}"`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({ type: DUPLICATE_ANUGA_SCENARIO_SUCCESS, scenario });
+    };
+}
+
+// The success reducer updates byId[scenario.id] in place rather than
+// appending — the row was already in state at the moment of the click.
+function archiveAnugaScenario(scenario) {
+    return { type: ARCHIVE_ANUGA_SCENARIO, scenario };
+}
+
+function archiveAnugaScenarioSuccess(scenario) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario "${scenario.name}" archived`,
+            uid: uuidv1(),
+            level: 'info'
+        });
+        dispatch({ type: ARCHIVE_ANUGA_SCENARIO_SUCCESS, scenario });
+    };
+}
+
+// 412 from the archive endpoint = scenario has an active/queued run. Surface
+// the BE-supplied detail string in a toast so the user knows they need to
+// cancel the run first; the matching error action lets reducers track the
+// failure if a future UX needs it.
+function archiveAnugaScenarioError(scenario, errorBody) {
+    return (dispatch) => {
+        const detail = errorBody?.detail || 'Could not archive scenario.';
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Cannot archive',
+            autoDismiss: 12,
+            position: 'tc',
+            message: detail,
+            uid: uuidv1(),
+            level: 'warning'
+        });
+        dispatch({ type: ARCHIVE_ANUGA_SCENARIO_ERROR, scenario, errorBody });
+    };
+}
+
+function unarchiveAnugaScenario(scenario) {
+    return { type: UNARCHIVE_ANUGA_SCENARIO, scenario };
+}
+
+function unarchiveAnugaScenarioSuccess(scenario) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Success',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario "${scenario.name}" restored`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({ type: UNARCHIVE_ANUGA_SCENARIO_SUCCESS, scenario });
+    };
+}
+
+// anugaScenarioMenu's Active/Archived filter chip dispatches this to update
+// state.anuga.scenarios.archiveFilter. The polling epic + initial fetch read
+// that key and pass it through to anugaApi.getScenariosByArchive.
+function setAnugaScenarioArchiveFilter(mode) {
+    return { type: SET_ANUGA_SCENARIO_ARCHIVE_FILTER, mode };
+}
+
 function updateAnugaScenario(scenario, kv) {
     return {
         type: UPDATE_ANUGA_SCENARIO,
@@ -156,6 +252,14 @@ module.exports = {
     SAVE_ANUGA_SCENARIO_ERROR, saveAnugaScenarioError,
     DELETE_ANUGA_SCENARIO, deleteAnugaScenario,
     DELETE_ANUGA_SCENARIO_SUCCESS, deleteAnugaScenarioSuccess,
+    DUPLICATE_ANUGA_SCENARIO, duplicateAnugaScenario,
+    DUPLICATE_ANUGA_SCENARIO_SUCCESS, duplicateAnugaScenarioSuccess,
+    ARCHIVE_ANUGA_SCENARIO, archiveAnugaScenario,
+    ARCHIVE_ANUGA_SCENARIO_SUCCESS, archiveAnugaScenarioSuccess,
+    ARCHIVE_ANUGA_SCENARIO_ERROR, archiveAnugaScenarioError,
+    UNARCHIVE_ANUGA_SCENARIO, unarchiveAnugaScenario,
+    UNARCHIVE_ANUGA_SCENARIO_SUCCESS, unarchiveAnugaScenarioSuccess,
+    SET_ANUGA_SCENARIO_ARCHIVE_FILTER, setAnugaScenarioArchiveFilter,
     RUN_ANUGA_SCENARIO, runAnugaScenario,
     RUN_ANUGA_SCENARIO_SUCCESS, runAnugaScenarioSuccess,
     CANCEL_ANUGA_RUN, cancelAnugaRun,

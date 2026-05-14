@@ -224,14 +224,33 @@ export const getMyPerms = (projectId) =>
 
 // -- v2 Scenarios ---------------------------------------------------------
 
-export const getScenariosV2 = (projectId) =>
-    axios.get(`/api/v2/anuga/projects/${projectId}/scenarios/`);
-
 export const createScenarioV2 = (projectId, scenario) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/scenarios/`, scenario);
 
 export const deleteScenarioV2 = (projectId, scenarioId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/`);
+
+// Returns the freshly-created Scenario row (ScenarioSerializerV2 shape) at 201.
+// FK relations are shallow-shared with the source — see _duplicate_scenario
+// contract in /opt/hydrata/apps/gn_anuga/api_v2.py for the full behaviour.
+export const duplicateScenario = (projectId, scenarioId) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/duplicate/`);
+
+// 412 Precondition Failed when the scenario has an active or queued compute
+// job — caller must cancel the run before archiving.
+export const archiveScenario = (projectId, scenarioId) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/archive/`);
+
+// Idempotent on already-active rows. The @action skips the default
+// `archived_at IS NULL` queryset filter so the FE does NOT need to attach
+// `?archived=` query params.
+export const unarchiveScenario = (projectId, scenarioId) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/unarchive/`);
+
+// List scenarios with explicit archive filter. mode='none' (default) returns
+// active only; 'only' returns archived only; 'all' returns both.
+export const getScenariosByArchive = (projectId, mode = 'none') =>
+    axios.get(`/api/v2/anuga/projects/${projectId}/scenarios/?archived=${encodeURIComponent(mode)}`);
 
 // -- v2 Run lifecycle -----------------------------------------------------
 

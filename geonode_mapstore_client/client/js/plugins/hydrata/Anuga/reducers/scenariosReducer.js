@@ -4,6 +4,10 @@ import {
     ADD_ANUGA_SCENARIO,
     UPDATE_ANUGA_SCENARIO,
     SAVE_ANUGA_SCENARIO_SUCCESS,
+    DUPLICATE_ANUGA_SCENARIO_SUCCESS,
+    ARCHIVE_ANUGA_SCENARIO_SUCCESS,
+    UNARCHIVE_ANUGA_SCENARIO_SUCCESS,
+    SET_ANUGA_SCENARIO_ARCHIVE_FILTER,
     SELECT_ANUGA_SCENARIO,
     TOGGLE_SCENARIO_SELECTED,
     SET_ANUGA_SCENARIO_IS_LOADED
@@ -12,7 +16,10 @@ import {
 const initialState = {
     byId: {},
     allIds: [],
-    selectedId: null
+    selectedId: null,
+    // Active/Archived view filter. 'none' = active only (default, matches BE
+    // default queryset), 'only' = archived only, 'all' = both.
+    archiveFilter: 'none'
 };
 
 /**
@@ -134,6 +141,46 @@ export default (state = initialState, action) => {
         newById[saved.id] = saved;
 
         return { ...state, byId: newById, allIds: newAllIds };
+    }
+    case DUPLICATE_ANUGA_SCENARIO_SUCCESS: {
+        // The BE returns a freshly-INSERTed pk (ScenarioSerializerV2); we
+        // append to byId/allIds. Defensive guard for malformed dispatch
+        // without an id; collisions cannot happen with a fresh insert.
+        if (!action.scenario?.id) {
+            return state;
+        }
+        return {
+            ...state,
+            byId: { ...state.byId, [action.scenario.id]: { ...action.scenario, unsaved: false } },
+            allIds: [...state.allIds, action.scenario.id]
+        };
+    }
+    case ARCHIVE_ANUGA_SCENARIO_SUCCESS:
+    case UNARCHIVE_ANUGA_SCENARIO_SUCCESS: {
+        // The polling epic reconciles visibility on its next tick by
+        // re-fetching with the current archiveFilter; we update byId here so
+        // the row's badge refreshes immediately.
+        const id = action.scenario?.id;
+        if (!id || !state.byId[id]) return state;
+        return {
+            ...state,
+            byId: {
+                ...state.byId,
+                [id]: {
+                    ...state.byId[id],
+                    archived_at: action.scenario.archived_at,
+                    archived_by: action.scenario.archived_by,
+                    archived_by_username: action.scenario.archived_by_username
+                }
+            }
+        };
+    }
+    case SET_ANUGA_SCENARIO_ARCHIVE_FILTER: {
+        // Record the chip's mode so the polling epic + initial fetch pass
+        // `?archived=` through to the BE. Default 'none' = active only.
+        const mode = action.mode;
+        if (!['none', 'only', 'all'].includes(mode)) return state;
+        return { ...state, archiveFilter: mode };
     }
     case SELECT_ANUGA_SCENARIO:
         return {

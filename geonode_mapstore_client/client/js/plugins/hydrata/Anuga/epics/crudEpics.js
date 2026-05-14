@@ -18,6 +18,13 @@ import {
     CREATE_LINKS,
     DELETE_ANUGA_SCENARIO,
     deleteAnugaScenarioSuccess,
+    DUPLICATE_ANUGA_SCENARIO,
+    duplicateAnugaScenarioSuccess,
+    ARCHIVE_ANUGA_SCENARIO,
+    archiveAnugaScenarioSuccess,
+    archiveAnugaScenarioError,
+    UNARCHIVE_ANUGA_SCENARIO,
+    unarchiveAnugaScenarioSuccess,
     initAnuga,
     RUN_ANUGA_SCENARIO,
     runAnugaScenarioSuccess,
@@ -145,6 +152,54 @@ export const deleteAnugaScenarioEpic = (action$, store) =>
             )
                 .catch(() => Rx.Observable.empty())
                 .concatMap((response) => Rx.Observable.of(deleteAnugaScenarioSuccess(response.data)))
+        );
+
+// Reducer appends to byId/allIds on DUPLICATE_ANUGA_SCENARIO_SUCCESS — no
+// full INIT_ANUGA needed.
+export const duplicateAnugaScenarioEpic = (action$, store) =>
+    action$
+        .ofType(DUPLICATE_ANUGA_SCENARIO)
+        .concatMap((action) =>
+            Rx.Observable.from(
+                anugaApi.duplicateScenario(getProjectId(store.getState()), action.scenario.id)
+            )
+                .catch(() => Rx.Observable.empty())
+                .concatMap((response) => Rx.Observable.of(duplicateAnugaScenarioSuccess(response.data)))
+        );
+
+// 412 Precondition Failed surfaces a user-visible toast (the scenario has an
+// active/queued run). The catch handler dispatches the error action so the
+// matching reducer entry can flag the failed attempt if a future UX needs to
+// highlight the row.
+export const archiveAnugaScenarioEpic = (action$, store) =>
+    action$
+        .ofType(ARCHIVE_ANUGA_SCENARIO)
+        .concatMap((action) =>
+            Rx.Observable.from(
+                anugaApi.archiveScenario(getProjectId(store.getState()), action.scenario.id)
+            )
+                .concatMap((response) => Rx.Observable.of(archiveAnugaScenarioSuccess(response.data)))
+                // axios surfaces 4xx as a thrown error with .response; pull the
+                // BE detail string off and route through the error thunk.
+                // Fallback to err.data covers test mocks that don't construct
+                // a full response object on the thrown error.
+                .catch((err) => Rx.Observable.of(
+                    archiveAnugaScenarioError(action.scenario, err?.response?.data || err?.data)
+                ))
+        );
+
+// Simpler than archive: no 412 case, since unarchive is always safe (it
+// can't break an active run). Errors fall through to Rx.Observable.empty
+// so the polling tick re-syncs state.
+export const unarchiveAnugaScenarioEpic = (action$, store) =>
+    action$
+        .ofType(UNARCHIVE_ANUGA_SCENARIO)
+        .concatMap((action) =>
+            Rx.Observable.from(
+                anugaApi.unarchiveScenario(getProjectId(store.getState()), action.scenario.id)
+            )
+                .catch(() => Rx.Observable.empty())
+                .concatMap((response) => Rx.Observable.of(unarchiveAnugaScenarioSuccess(response.data)))
         );
 
 // Bug #2 fix: restructured so runAnugaScenarioSuccess dispatch is emitted
