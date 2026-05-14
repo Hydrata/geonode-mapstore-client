@@ -6,6 +6,7 @@ import {
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
     pollComparisonEpic,
+    tailScenarioLogEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
     addAnugaBoundaryEpic,
@@ -28,7 +29,9 @@ import {
     ADD_NODES,
     ADD_LINKS,
     FIX_ANUGA_GROUPS,
-    INIT_ANUGA
+    INIT_ANUGA,
+    SET_ANUGA_POLLING_DATA,
+    SHOW_ANUGA_SCENARIO_LOG
 } from '../actionsAnuga';
 import {
     START_ACTIVE_RUN_POLLING,
@@ -243,6 +246,161 @@ describe('Polling Epics', () => {
         it('should include runId in start action', () => {
             const action = { type: START_ACTIVE_RUN_POLLING, runId: 99 };
             expect(action.runId).toBe(99);
+        });
+    });
+
+    // TASK-872 (W0.6) — tail latest_run.log while the scenario log viewer is
+    // open + run status is non-terminal. Re-spec per decision-request q-4
+    // (Premise bucket, self-defaulted): there is NO `latest_run.log`
+    // endpoint; the log viewer is passive. The epic polls `getRun(latest_run.id)`
+    // every 3s and dispatches `setAnugaPollingData([{ id, latest_run }])` to
+    // merge the freshly fetched run (with log text) into scenarios.byId.
+    //
+    // Gotcha worth pinning: there is NO HIDE_ANUGA_SCENARIO_LOG action. The
+    // viewer dispatches `showAnugaScenarioLog(false)` to close, so we filter
+    // by truthiness of `action.scenarioId` to distinguish open vs close.
+    describe('tailScenarioLogEpic', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        let mockAxios;
+
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        const buildStore = (scenario) => ({
+            getState: () => ({
+                anuga: {
+                    ui: { visibleAnugaScenarioLogId: scenario?.id || false },
+                    scenarios: {
+                        byId: scenario ? { [scenario.id]: scenario } : {},
+                        allIds: scenario ? [scenario.id] : [],
+                        selectedId: scenario?.id || null
+                    }
+                }
+            })
+        });
+
+        it('SHOW with non-terminal run triggers getRun and dispatches setAnugaPollingData', (done) => {
+            const scenario = {
+                id: 501,
+                latest_run: { id: 7001, status: 'computing', log: 'old log' }
+            };
+            const store = buildStore(scenario);
+            // Mock getRun → returns a fresher latest_run with a longer log
+            mockAxios.onGet('/api/v2/anuga/runs/7001/').reply(200, {
+                id: 7001,
+                status: 'computing',
+                log: 'old log\nnew progress line'
+            });
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = tailScenarioLogEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: 501 });
+
+            // First tick fires immediately via startWith(0).
+            setTimeout(() => {
+                const polls = emitted.filter(a => a.type === SET_ANUGA_POLLING_DATA);
+                expect(polls.length).toBeGreaterThan(0);
+                expect(polls[0].scenarios).toEqual([{
+                    id: 501,
+                    latest_run: { id: 7001, status: 'computing', log: 'old log\nnew progress line' }
+                }]);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('SHOW followed by hide (scenarioId=false) stops polling', (done) => {
+            const scenario = {
+                id: 502,
+                latest_run: { id: 7002, status: 'computing', log: '' }
+            };
+            const store = buildStore(scenario);
+            mockAxios.onGet('/api/v2/anuga/runs/7002/').reply(200, {
+                id: 7002, status: 'computing', log: 'still going'
+            });
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = tailScenarioLogEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: 502 });
+
+            // After the initial tick lands, send the hide action. No further
+            // SET_ANUGA_POLLING_DATA should be emitted after that point.
+            setTimeout(() => {
+                const beforeHide = emitted.filter(a => a.type === SET_ANUGA_POLLING_DATA).length;
+                subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: false });
+                setTimeout(() => {
+                    const afterHide = emitted.filter(a => a.type === SET_ANUGA_POLLING_DATA).length;
+                    // Polling must have stopped — count is stable post-hide.
+                    expect(afterHide).toBe(beforeHide);
+                    sub.unsubscribe();
+                    done();
+                }, 150);
+            }, 100);
+        });
+
+        it('SHOW with terminal status short-circuits (no getRun call)', (done) => {
+            const scenario = {
+                id: 503,
+                latest_run: { id: 7003, status: 'complete', log: 'final log' }
+            };
+            const store = buildStore(scenario);
+            // No mock setup needed — the axios call must NEVER happen. If it
+            // does, MockAdapter passthrough is off by default so it would
+            // network-error, which we'd see as a failed test below.
+            let getRunCalls = 0;
+            mockAxios.onGet('/api/v2/anuga/runs/7003/').reply(() => {
+                getRunCalls += 1;
+                return [200, { id: 7003, status: 'complete', log: 'should not fetch' }];
+            });
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = tailScenarioLogEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: 503 });
+
+            setTimeout(() => {
+                expect(getRunCalls).toBe(0);
+                expect(emitted.filter(a => a.type === SET_ANUGA_POLLING_DATA).length).toBe(0);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('SHOW with scenarioId=false alone is a no-op (filter rejects close-only signal)', (done) => {
+            const store = buildStore(null);
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = tailScenarioLogEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: false });
+
+            setTimeout(() => {
+                expect(emitted.length).toBe(0);
+                sub.unsubscribe();
+                done();
+            }, 150);
         });
     });
 

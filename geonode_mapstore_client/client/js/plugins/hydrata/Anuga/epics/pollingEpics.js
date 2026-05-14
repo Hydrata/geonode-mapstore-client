@@ -73,6 +73,12 @@ import {
 } from "../../SimpleView/actionsSimpleView";
 import {TM_SET_PROCESSES} from "../../TaskMonitor/actionsTaskMonitor";
 import {getProjectId} from "../selectorsAnuga";
+import {SHOW_ANUGA_SCENARIO_LOG} from "../actions/uiActions";
+
+// TASK-872 (W0.6): run statuses past which polling work is wasted. Shared with
+// pollActiveRunStatusEpic — extracted to module scope so tailScenarioLogEpic
+// uses the same set without duplication.
+const TERMINAL_RUN_STATES = ['complete', 'error', 'cancelled'];
 
 // TASK-603: Page Visibility gate. When the catalogue tab is hidden the
 // browser will keep timer-based polling subscriptions alive but the user
@@ -287,7 +293,6 @@ export const pollActiveRunStatusEpic = (action$) =>
         .ofType(START_ACTIVE_RUN_POLLING)
         .switchMap((action) => {
             const runId = action.runId;
-            const terminalStates = ['complete', 'error', 'cancelled'];
             return Rx.Observable.timer(0, 3000)
                 .takeUntil(action$.ofType(STOP_ACTIVE_RUN_POLLING).filter(a => a.runId === runId))
                 .exhaustMap(() =>
@@ -299,12 +304,72 @@ export const pollActiveRunStatusEpic = (action$) =>
                     const actions = [
                         updateRunStatus(runId, data)
                     ];
-                    if (terminalStates.includes(data?.status)) {
+                    if (TERMINAL_RUN_STATES.includes(data?.status)) {
                         actions.push(stopActiveRunPolling(runId));
                     }
                     return Rx.Observable.from(actions);
                 });
         });
+
+// TASK-872 (W0.6): tail the latest_run log while the scenario log viewer is
+// open. Re-spec per decision-request q-4 (Premise bucket, self-defaulted):
+// there is NO `latest_run.log` BE endpoint; the log viewer is passive and
+// reads `state.anuga.scenarios.byId[id].latest_run.log`. This epic refreshes
+// that slice by polling `getRun(latest_run.id)` every 3s while the viewer is
+// open AND the run status is non-terminal.
+//
+// Trigger semantics: SHOW_ANUGA_SCENARIO_LOG with a truthy scenarioId opens
+// the viewer; the SAME action with `scenarioId === false` closes it (see
+// anugaScenarioLogViewer.js calling `showAnugaScenarioLog(false)`). There is
+// no separate HIDE action — we filter the SHOW stream by truthiness for
+// start, and use `takeUntil` on the falsy SHOW for stop.
+//
+// State-read discipline: each tick reads store.getState() via
+// `Observable.defer(...)` so closure-captured state cannot go stale across
+// the 3s window — between ticks the user can save/cancel/copy the scenario,
+// or the BE poller can flip `latest_run` to a terminal status. Reading at
+// emission time (not at SHOW time) avoids both classes of staleness.
+//
+// switchMap (not mergeMap): re-opening the same viewer or switching to a
+// different scenario id should cancel any in-flight poll and re-subscribe.
+// Cap of one concurrent poll per epic instance.
+//
+// We dispatch `setAnugaPollingData([{ id, latest_run }])`, which the
+// scenariosReducer's SET_ANUGA_POLLING_DATA branch merges into byId[id]
+// without disturbing local-only fields (`unsaved`, `selected`, `tempTimeString`).
+// `anugaContainer.js:230` reads `selectedScenario.latest_run.log` from that
+// same byId entry, so the next render reflects the freshly fetched log text.
+export const tailScenarioLogEpic = (action$, store) =>
+    action$
+        .ofType(SHOW_ANUGA_SCENARIO_LOG)
+        .filter(action => !!action.scenarioId)
+        .switchMap(() =>
+            Rx.Observable.interval(3000)
+                .startWith(0)
+                .takeUntil(
+                    action$.ofType(SHOW_ANUGA_SCENARIO_LOG).filter(a => !a.scenarioId)
+                )
+                .switchMap(() =>
+                    Rx.Observable.defer(() => {
+                        const state = store.getState();
+                        const scenarioId = state?.anuga?.ui?.visibleAnugaScenarioLogId;
+                        if (!scenarioId) return Rx.Observable.empty();
+                        const scenario = state?.anuga?.scenarios?.byId?.[scenarioId];
+                        const runId = scenario?.latest_run?.id;
+                        const runStatus = scenario?.latest_run?.status;
+                        if (!runId) return Rx.Observable.empty();
+                        if (TERMINAL_RUN_STATES.includes(runStatus)) {
+                            return Rx.Observable.empty();
+                        }
+                        return Rx.Observable.from(anugaApi.getRun(runId))
+                            .catch(() => Rx.Observable.empty())
+                            .map(response => setAnugaPollingData([{
+                                id: scenarioId,
+                                latest_run: response.data
+                            }]));
+                    })
+                )
+        );
 
 export const pollComparisonEpic = (action$, _store) =>
     action$

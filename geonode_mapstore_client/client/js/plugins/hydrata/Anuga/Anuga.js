@@ -6,6 +6,7 @@ import {
     cancelAnugaRunEpic,
     retryAnugaRunEpic,
     pollActiveRunStatusEpic,
+    tailScenarioLogEpic,
     runAnugaScenarioEpic,
     runNetworkEpic,
     saveAnugaScenarioEpic,
@@ -78,6 +79,8 @@ export default createPlugin('Anuga', {
         cancelAnugaRunEpic,
         retryAnugaRunEpic,
         pollActiveRunStatusEpic,
+        // TASK-872 (W0.6) — tail latest_run.log while viewer open + run non-terminal
+        tailScenarioLogEpic,
         runAnugaScenarioEpic,
         runNetworkEpic,
         saveAnugaScenarioEpic,

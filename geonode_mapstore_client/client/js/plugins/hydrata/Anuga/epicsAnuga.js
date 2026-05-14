@@ -5,6 +5,7 @@ export {
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
     pollComparisonEpic,
+    tailScenarioLogEpic,
     addAnugaBoundaryEpic,
     addAnugaFrictionEpic,
     addAnugaInflowEpic,
