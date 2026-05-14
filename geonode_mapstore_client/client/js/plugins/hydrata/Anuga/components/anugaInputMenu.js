@@ -271,6 +271,7 @@ class AnugaInputMenuClass extends React.Component {
                             onTitleChange={(v) => this.setState({boundaryTitle: v})}
                             onCreate={() => this.createAndReset(this.props.createAnugaBoundary, 'boundaryTitle')}
                             isCreating={this.props.isCreatingAnugaLayer}
+                            isInitializing={this.props.starterPhase === 'defaults'}
                             canEdit={this.props.canEditAnugaMap}
                             inputId="boundary-input"
                             trackEventName="anuga-input-menu-create-new-boundary"
@@ -285,6 +286,7 @@ class AnugaInputMenuClass extends React.Component {
                             onTitleChange={(v) => this.setState({inflowTitle: v})}
                             onCreate={() => this.createAndReset(this.props.createAnugaInflow, 'inflowTitle')}
                             isCreating={this.props.isCreatingAnugaLayer}
+                            isInitializing={this.props.starterPhase === 'defaults'}
                             canEdit={this.props.canEditAnugaMap}
                             inputId="inflow-input"
                             trackEventName="anuga-input-menu-create-new-inflow"

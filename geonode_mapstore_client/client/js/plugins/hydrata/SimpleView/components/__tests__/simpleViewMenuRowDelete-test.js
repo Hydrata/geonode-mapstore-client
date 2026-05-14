@@ -88,22 +88,36 @@ const baseLayer = (overrides = {}) => ({
     ...overrides
 });
 
+// TASK-723 — the trash glyph now opens a React confirm dialog rather than
+// firing window.confirm(). The dialog is always rendered in the DOM
+// (hidden by CSS until the trash is clicked) so we can find its buttons
+// without waiting for a setState→re-render flush; that flush is unreliable
+// under the react@16.14 / react-dom@16.10 mismatch in this repo when running
+// under Karma+JSDOM. Production UX is unchanged: clicking trash flips a
+// `.is-open` class via setState, CSS reveals the dialog.
+const confirmDelete = (c) => {
+    const btn = c.querySelector('.menu-row-delete-confirm .save-confirm-btn.danger');
+    if (!btn) throw new Error('confirm dialog Delete button not found in row DOM');
+    Simulate.click(btn);
+};
+const cancelDelete = (c) => {
+    const btn = c.querySelector('.menu-row-delete-confirm .save-confirm-btn.cancel');
+    if (!btn) throw new Error('confirm dialog Cancel button not found in row DOM');
+    Simulate.click(btn);
+};
+
 describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
     let container;
-    let originalConfirm;
 
     beforeEach(() => {
         container = document.createElement('div');
         document.body.appendChild(container);
         dispatched.length = 0;
-        originalConfirm = window.confirm;
-        window.confirm = () => true;  // auto-accept by default
     });
 
     afterEach(() => {
         ReactDOM.unmountComponentAtNode(container);
         document.body.removeChild(container);
-        window.confirm = originalConfirm;
     });
 
     describe('getDeleteDatasetType helper', () => {
@@ -155,7 +169,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         });
     });
 
-    it('trash click confirms then dispatches DELETE_TERRAIN when layer.group=Terrain', (done) => {
+    it('trash click + dialog confirm dispatches DELETE_TERRAIN when layer.group=Terrain', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
@@ -172,9 +186,8 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                const trash = container.querySelector('.glyphicon-trash');
-                expect(trash).toExist();
-                Simulate.click(trash);
+                expect(container.querySelector('.glyphicon-trash')).toExist();
+                confirmDelete(container);
                 const deleteAction = dispatched.find(a => a?.type === DELETE_TERRAIN);
                 expect(deleteAction).toExist();
                 expect(deleteAction.projectId).toBe(42);
@@ -226,7 +239,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const deleteAction = dispatched.find(a => a?.type === DELETE_TERRAIN);
                 expect(deleteAction).toExist();
                 expect(deleteAction.id).toBe(99);
@@ -274,7 +287,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const deleteAction = dispatched.find(a => a?.type === DELETE_TERRAIN);
                 expect(deleteAction).toExist();
                 expect(deleteAction.id).toBe(99);  // not 88
@@ -304,7 +317,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_BOUNDARY);
                 expect(a).toExist();
                 expect(a.id).toBe(5);
@@ -332,7 +345,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_FRICTION);
                 expect(a).toExist();
                 expect(a.id).toBe(7);
@@ -360,7 +373,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_INFLOW);
                 expect(a).toExist();
                 expect(a.id).toBe(11);
@@ -392,7 +405,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_STRUCTURE);
                 expect(a).toExist();
                 expect(a.projectId).toBe(42);
@@ -422,7 +435,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_MESH_REGION);
                 expect(a).toExist();
                 expect(a.id).toBe(17);
@@ -450,7 +463,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_CATCHMENT);
                 expect(a).toExist();
                 expect(a.id).toBe(23);
@@ -478,7 +491,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_NODES);
                 expect(a).toExist();
                 expect(a.id).toBe(29);
@@ -506,7 +519,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 const a = dispatched.find(x => x?.type === DELETE_LINKS);
                 expect(a).toExist();
                 expect(a.id).toBe(31);
@@ -515,12 +528,11 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         );
     });
 
-    // TASK-723 — confirm-cancel branch must skip the cascade dispatch for the
+    // TASK-723 — dialog-cancel branch must skip the cascade dispatch for the
     // new types too. One representative test (Structure) keeps the cancel
     // branch coverage proportional to V2P-714 while still asserting the
     // dispatcher is correctly wired for the new fan-out.
-    it('confirm-no aborts the Structure dispatch (no DELETE_STRUCTURE emitted)', (done) => {
-        window.confirm = () => false;
+    it('dialog cancel aborts the Structure dispatch (no DELETE_STRUCTURE emitted)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_STRUCTURE } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
@@ -537,7 +549,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                cancelDelete(container);
                 expect(dispatched.find(a => a?.type === DELETE_STRUCTURE)).toBe(undefined);
                 done();
             }
@@ -558,12 +570,11 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
                         name: 'geonode:network_vvv',
                         title: 'Network 1'
                     })}
-                    refreshlayerVersion={() => {}}
                 />
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 // No ANUGA:DELETE_* action should have been dispatched.
                 const cascadeAction = dispatched.find(a => typeof a?.type === 'string' && a.type.startsWith('ANUGA:DELETE_'));
                 expect(cascadeAction).toBe(undefined);
@@ -574,8 +585,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
         );
     });
 
-    it('confirm-no aborts the dispatch (no DELETE_TERRAIN emitted)', (done) => {
-        window.confirm = () => false;
+    it('dialog cancel aborts the dispatch (no DELETE_TERRAIN emitted)', (done) => {
         const { MenuRow } = require('../simpleViewMenuRow');
         const { DELETE_TERRAIN } = require('../../../Anuga/actionsAnuga');
         const store = createMockStore({
@@ -590,7 +600,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                cancelDelete(container);
                 expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);
                 done();
             }
@@ -609,12 +619,11 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             <Provider store={store}>
                 <MenuRow
                     layer={baseLayer({ group: 'Input Data.Full Mesh', name: 'geonode:fms_qqq', title: 'Full Mesh 1' })}
-                    refreshlayerVersion={() => {}}
                 />
             </Provider>,
             container,
             () => {
-                Simulate.click(container.querySelector('.glyphicon-trash'));
+                confirmDelete(container);
                 // No cascade action dispatched
                 expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);
                 // Legacy REMOVE_NODE / REMOVE_LAYER dispatched instead
@@ -733,11 +742,19 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                const trash = container.querySelector('.glyphicon-trash');
+                // .glyph-delete is the interactive trash; .glyphicon-trash alone
+                // also matches the decorative trash inside the always-rendered
+                // confirm dialog so we narrow with the menu-row class.
+                const trash = container.querySelector('.menu-row-glyph.glyphicon-trash');
                 expect(trash).toExist();
                 expect(trash.getAttribute('aria-disabled')).toBe('true');
                 Simulate.click(trash);
-                // No new dispatch should occur — onClick was undefined while deleting
+                // Dialog is rendered (always-in-DOM) but stays in its closed
+                // state — no `.is-open` class — and no dispatch occurs because
+                // onClick was undefined while deleting:true.
+                const dialog = container.querySelector('.menu-row-delete-confirm');
+                expect(dialog).toExist();
+                expect(dialog.classList.contains('is-open')).toBe(false);
                 expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);
                 done();
             }

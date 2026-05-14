@@ -324,7 +324,6 @@ class MenuRowClass extends React.Component {
         updateDatasetTitle: PropTypes.func,
         removeNode: PropTypes.func,
         removeLayer: PropTypes.func,
-        refreshlayerVersion: PropTypes.func,
         updateLayerTitle: PropTypes.func,
         refreshLayers: PropTypes.func,
         svDownloadLayer: PropTypes.func,
@@ -366,7 +365,8 @@ class MenuRowClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            newTitle: props.layer?.title
+            newTitle: props.layer?.title,
+            deleteConfirmVisible: false
         };
     }
 
@@ -531,38 +531,80 @@ class MenuRowClass extends React.Component {
                 </span>
                 <span className={"menu-row-right"}>
                     {
+                        // TASK-723 — the dialog is ALWAYS rendered so unit
+                        // tests can find the Delete/Cancel buttons after the
+                        // first trash click without needing a setState→
+                        // re-render flush (which doesn't propagate reliably
+                        // under the react@16.14 / react-dom@16.10 mismatch
+                        // in our Karma+JSDOM setup). Visibility is driven by
+                        // a class toggle in CSS so prod UX is unchanged.
+                        (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
+                            <span
+                                className={
+                                    "menu-row-delete-confirm"
+                                    + (this.state.deleteConfirmVisible ? " is-open" : "")
+                                }
+                                role="alertdialog"
+                                aria-label="Confirm delete"
+                                aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
+                            >
+                                <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
+                                <span className="menu-row-delete-confirm-text">
+                                    <Message msgId="hydrata.simpleView.confirmDelete"/>
+                                    {' "'}{this.props.layer?.title}{'"?'}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="save-confirm-btn danger"
+                                    onClick={this.performDelete}
+                                >
+                                    <Message msgId="hydrata.simpleView.delete"/>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="save-confirm-btn cancel"
+                                    onClick={this.cancelDelete}
+                                >
+                                    <Message msgId="hydrata.simpleView.cancel"/>
+                                </button>
+                            </span>
+                            : null
+                    }
+                    {
                         (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
                             <span
                                 className={
                                     "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
                                     + (this.props.deleteRow?.deleting ? " glyph-disabled" : "")
+                                    + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
                                 }
                                 onClick={this.props.deleteRow?.deleting ? undefined : this.handleDeleteClick}
                                 aria-disabled={this.props.deleteRow?.deleting ? true : undefined}
                             /> : null
                     }
                     {this.renderDeleteFeedback()}
-                    {
-                        <div
-                            className="mapstore-slider dataset-transparency with-tooltip"
-                            onClick={(e) => { e.stopPropagation();}}
-                            style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
-                        >
-                            <Slider
-                                step={1}
-                                // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-                                start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
-                                range={{
-                                    min: 0,
-                                    max: 100
-                                }}
-                                onChange={(values) => {
-                                    this.props.setOpacity(this.props.layer?.id, values);
-                                    trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
-                                }}
-                            />
-                        </div>
-                    }
+                    <div
+                        className={
+                            "mapstore-slider dataset-transparency with-tooltip"
+                            + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
+                        }
+                        onClick={(e) => { e.stopPropagation();}}
+                        style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
+                    >
+                        <Slider
+                            step={1}
+                            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+                            start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
+                            range={{
+                                min: 0,
+                                max: 100
+                            }}
+                            onChange={(values) => {
+                                this.props.setOpacity(this.props.layer?.id, values);
+                                trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
+                            }}
+                        />
+                    </div>
                 </span>
             </div>
         );
@@ -588,21 +630,27 @@ class MenuRowClass extends React.Component {
             });
     };
 
-    // V2P-714 + TASK-723 — confirm + dispatch the right cascade-delete action
-    // based on layer.group. The 9 typed datasets (terrain/boundary/friction/
-    // inflow + structure/mesh_region/catchment/nodes/links) hit the cascade
-    // path; everything else (Network, Full Mesh, non-Anuga groups) falls back
-    // to the legacy redux-only removal so this change is a strict superset of
-    // behaviour for the typed datasets and a no-op elsewhere.
+    // V2P-714 + TASK-723 — open the inline confirm overlay. The actual
+    // dispatch is in performDelete; this just flips the row into confirm mode
+    // so the user sees a React-styled prompt (matching the SimpleView save
+    // overlay) instead of the blocking `window.confirm()` we used previously.
     handleDeleteClick = () => {
+        if (!this.props.layer) return;
+        this.setState({deleteConfirmVisible: true});
+    };
+
+    // V2P-714 + TASK-723 — dispatch the right cascade-delete action based on
+    // layer.group. The 9 typed datasets (terrain/boundary/friction/inflow +
+    // structure/mesh_region/catchment/nodes/links) hit the cascade path;
+    // everything else (Network, Full Mesh, non-Anuga groups) falls back to
+    // the legacy redux-only removal so this is a strict superset for typed
+    // datasets and a no-op elsewhere.
+    performDelete = () => {
         const layer = this.props.layer;
         if (!layer) return;
+        this.setState({deleteConfirmVisible: false});
         const datasetType = getDeleteDatasetType(layer);
         const datasetId = this.getDatasetIdForLayer(layer);
-        // eslint-disable-next-line no-alert -- intentional user confirmation, matches Hydrata house style (ScenarioTableRow / scenarioOverview)
-        if (!confirm(`Delete "${layer.title}"? This cannot be undone.`)) {
-            return;
-        }
         trackEvent('button', `click`, `simpleview-menu-row-delete-${layer.title}`);
         if (datasetType && datasetId !== null && this.props.projectId) {
             const dispatcher = {
@@ -637,7 +685,11 @@ class MenuRowClass extends React.Component {
         // primary delete surface).
         this.props.removeNode(layer.id, 'layers');
         this.props.removeLayer(layer.id);
-        this.props.refreshlayerVersion(layer.id);
+    };
+
+    cancelDelete = () => {
+        this.setState({deleteConfirmVisible: false});
+        trackEvent('button', `click`, `simpleview-menu-row-delete-cancel-${this.props.layer?.title}`);
     };
 
     // V2P-714 sibling-orphan fix — Given the AnugaModel datasetId we just
@@ -947,6 +999,12 @@ const MenuRow = connect(mapStateToProps, mapDispatchToProps)(MenuRowClass);
 
 export {
     MenuRow,
+    // TASK-723 — unconnected inner class exposed for unit tests. The dialog
+    // refactor moved the dispatch behind a React state-driven confirm step,
+    // and react-redux's connect() wrapper interferes with setState→re-render
+    // flushing in our Karma+JSDOM setup. Tests render the unwrapped class
+    // directly to assert dialog behaviour deterministically.
+    MenuRowClass,
     // V2P-714 — exposed for unit tests so the layer.group → dataset-type
     // mapping can be exercised without standing up a Provider tree.
     getDeleteDatasetType,

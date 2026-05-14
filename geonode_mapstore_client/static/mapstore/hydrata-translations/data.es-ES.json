@@ -34,7 +34,9 @@
         "saveConfirm": "¿Guardar cambios del mapa?",
         "search": "Buscar",
         "measure": "Medir",
-        "welcomeTitle": "Bienvenido a Hydrata"
+        "welcomeTitle": "Bienvenido a Hydrata",
+        "confirmDelete": "Delete",
+        "delete": "Delete"
       },
       "swamm": {
         "accept": "Accept",

@@ -34,7 +34,9 @@
         "saveConfirm": "Enregistrer les modifications ?",
         "search": "Rechercher",
         "measure": "Mesurer",
-        "welcomeTitle": "Bienvenue sur Hydrata"
+        "welcomeTitle": "Bienvenue sur Hydrata",
+        "confirmDelete": "Delete",
+        "delete": "Delete"
       },
       "swamm": {
         "accept": "Accept",

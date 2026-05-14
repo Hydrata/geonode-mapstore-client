@@ -22,6 +22,7 @@ const InputSection = ({
     onTitleChange,
     onCreate,
     isCreating,
+    isInitializing,
     canEdit,
     inputId,
     trackEventName,
@@ -150,8 +151,16 @@ const InputSection = ({
                 </div>
             ))}
             {!collapsed && layers?.length === 0 && pendingItems?.length === 0 ?
-                <div className={"row menu-row anuga-section-empty-row"}>
-                    <Message msgId={emptyMsgId} />
+                <div className={"row menu-row anuga-section-empty-row"} aria-busy={isInitializing ? "true" : undefined} aria-live={isInitializing ? "polite" : undefined}>
+                    {isInitializing ?
+                        <React.Fragment>
+                            <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                            <span className={"anuga-pending-status"}>
+                                <Message msgId="hydrata.anuga.pendingLayerLabel" />
+                            </span>
+                        </React.Fragment> :
+                        <Message msgId={emptyMsgId} />
+                    }
                 </div>
                 : null
             }
@@ -168,6 +177,7 @@ InputSection.propTypes = {
     onTitleChange: PropTypes.func,
     onCreate: PropTypes.func,
     isCreating: PropTypes.bool,
+    isInitializing: PropTypes.bool,
     canEdit: PropTypes.bool,
     inputId: PropTypes.string,
     trackEventName: PropTypes.string,

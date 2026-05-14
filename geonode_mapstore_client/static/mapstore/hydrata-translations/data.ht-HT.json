@@ -34,7 +34,9 @@
         "saveConfirm": "Anrejistre chanjman kat la?",
         "search": "Rechèch",
         "measure": "Mezire",
-        "welcomeTitle": "Byenvini sou Hydrata"
+        "welcomeTitle": "Byenvini sou Hydrata",
+        "confirmDelete": "Delete",
+        "delete": "Delete"
       },
       "swamm": {
         "accept": "Accept",

@@ -647,6 +647,54 @@ span.menu-row-glyph {
     background-color: rgba(90, 98, 104, 0.9);
 }
 
+.save-confirm-btn.danger {
+    background-color: rgba(220, 53, 69, 0.85);
+}
+
+.save-confirm-btn.danger:hover {
+    background-color: rgba(176, 42, 55, 0.95);
+}
+
+/* ── Row-level delete confirmation (pinned top-right, mirrors save overlay) ──
+ *
+ * TASK-723 — the dialog is always rendered so unit tests can find its
+ * buttons without relying on a setState→re-render flush (the
+ * react@16.14 / react-dom@16.10 mismatch in this repo breaks those flushes
+ * under Karma+JSDOM). Hidden by default; the `is-open` class is flipped on
+ * by handleDeleteClick and off by performDelete/cancelDelete.
+ */
+.menu-row-delete-confirm {
+    display: none;
+}
+.menu-row-delete-confirm.is-open {
+    position: fixed;
+    z-index: 1023;
+    top: 11px;
+    right: var(--sv-widget-right, 65px);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(0, 60, 136, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: white;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.menu-row-delete-confirm-text {
+    color: white;
+}
+
+/* Pair with .menu-row-delete-confirm.is-open: hide trash + opacity slider
+ * on the same row while the dialog is open so the dialog visually replaces
+ * them at top-right. */
+.menu-row-glyph.glyph-hidden,
+.mapstore-slider.glyph-hidden {
+    visibility: hidden;
+}
+
 /* Hidden by default in SimpleView; admin drawer toggle overrides via inline style */
 #mapstore-drawermenu {
     display: none;
