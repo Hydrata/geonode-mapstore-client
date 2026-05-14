@@ -33,7 +33,6 @@ class ScenarioTableRow extends React.Component {
         saveAnugaScenario: PropTypes.func.isRequired,
         setOpenMenuGroupId: PropTypes.func.isRequired,
         selectAnugaScenario: PropTypes.func.isRequired,
-        showAnugaScenarioLog: PropTypes.func.isRequired,
         showAnugaRunMenu: PropTypes.func.isRequired,
         setAnugaScenarioMenu: PropTypes.func.isRequired,
         deleteAnugaScenario: PropTypes.func.isRequired,

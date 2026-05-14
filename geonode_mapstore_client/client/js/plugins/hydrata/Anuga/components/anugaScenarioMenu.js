@@ -12,7 +12,6 @@ import {
     saveAnugaScenario,
     updateAnugaScenario,
     selectAnugaScenario,
-    showAnugaScenarioLog,
     setAnugaScenarioMenu,
     addAnugaScenario,
     stopAnugaScenarioPolling,
@@ -45,7 +44,6 @@ class AnugaScenarioMenuClass extends React.Component {
         runAnugaScenario: PropTypes.func,
         updateAnugaScenario: PropTypes.func,
         selectAnugaScenario: PropTypes.func,
-        showAnugaScenarioLog: PropTypes.func,
         setAnugaScenarioMenu: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func,
         addAnugaScenario: PropTypes.func,
@@ -194,7 +192,6 @@ class AnugaScenarioMenuClass extends React.Component {
                                     saveAnugaScenario={this.props.saveAnugaScenario}
                                     setOpenMenuGroupId={this.props.setOpenMenuGroupId}
                                     selectAnugaScenario={this.props.selectAnugaScenario}
-                                    showAnugaScenarioLog={this.props.showAnugaScenarioLog}
                                     showAnugaRunMenu={this.props.showAnugaRunMenu}
                                     setAnugaScenarioMenu={this.props.setAnugaScenarioMenu}
                                     deleteAnugaScenario={this.props.deleteAnugaScenario}
@@ -250,7 +247,6 @@ const mapDispatchToProps = ( dispatch ) => {
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
-        showAnugaScenarioLog: (scenarioId) => dispatch(showAnugaScenarioLog(scenarioId)),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         addAnugaScenario: () => dispatch(addAnugaScenario()),
         deleteAnugaScenario: (scenario) => dispatch(deleteAnugaScenario(scenario)),

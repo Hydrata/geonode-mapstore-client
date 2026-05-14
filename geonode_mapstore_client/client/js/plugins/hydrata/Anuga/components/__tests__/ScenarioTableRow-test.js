@@ -90,7 +90,6 @@ describe('V2P-22 ScenarioTableRow per-role exact-button-set', () => {
                     saveAnugaScenario={() => {}}
                     setOpenMenuGroupId={() => {}}
                     selectAnugaScenario={() => {}}
-                    showAnugaScenarioLog={() => {}}
                     showAnugaRunMenu={() => {}}
                     setAnugaScenarioMenu={() => {}}
                     deleteAnugaScenario={() => {}}
@@ -237,7 +236,6 @@ describe('TASK-871 ScenarioTableRow confirm prompts include scenario name', () =
                     saveAnugaScenario={() => {}}
                     setOpenMenuGroupId={() => {}}
                     selectAnugaScenario={() => {}}
-                    showAnugaScenarioLog={() => {}}
                     showAnugaRunMenu={() => {}}
                     setAnugaScenarioMenu={() => {}}
                     deleteAnugaScenario={() => {}}
