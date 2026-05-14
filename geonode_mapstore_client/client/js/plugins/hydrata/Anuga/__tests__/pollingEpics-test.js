@@ -402,6 +402,71 @@ describe('Polling Epics', () => {
                 done();
             }, 150);
         });
+
+        // Same-payload guard: long ANUGA runs emit log lines slowly, so most
+        // 3s polls return a getRun payload byte-identical to the slice we
+        // already hold (same log.length + same status). The prior code
+        // dispatched on every tick → reducer merge → connected-component
+        // re-render → DOM textarea re-render with no user-visible delta. The
+        // guard skips the dispatch when both fields match.
+        it('same-payload guard: no dispatch when getRun returns identical log.length + status', (done) => {
+            const scenario = {
+                id: 504,
+                // log.length matches mock response exactly.
+                latest_run: { id: 7004, status: 'computing', log: 'abc' }
+            };
+            const store = buildStore(scenario);
+            mockAxios.onGet('/api/v2/anuga/runs/7004/').reply(200, {
+                id: 7004, status: 'computing', log: 'abc'
+            });
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = tailScenarioLogEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: 504 });
+
+            setTimeout(() => {
+                // Identical payload → zero SET_ANUGA_POLLING_DATA dispatches.
+                expect(emitted.filter(a => a.type === SET_ANUGA_POLLING_DATA).length).toBe(0);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('same-payload guard: dispatches when log grows by one byte (proves the guard is field-aware)', (done) => {
+            const scenario = {
+                id: 505,
+                latest_run: { id: 7005, status: 'computing', log: 'abc' }
+            };
+            const store = buildStore(scenario);
+            // One byte longer than the slice in store.
+            mockAxios.onGet('/api/v2/anuga/runs/7005/').reply(200, {
+                id: 7005, status: 'computing', log: 'abcd'
+            });
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = tailScenarioLogEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: 505 });
+
+            setTimeout(() => {
+                const polls = emitted.filter(a => a.type === SET_ANUGA_POLLING_DATA);
+                expect(polls.length).toBeGreaterThan(0);
+                expect(polls[0].scenarios[0].latest_run.log).toBe('abcd');
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
     });
 
     describe('pollComparisonEpic', () => {

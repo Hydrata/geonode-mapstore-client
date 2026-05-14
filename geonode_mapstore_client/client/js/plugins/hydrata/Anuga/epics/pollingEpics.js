@@ -74,11 +74,10 @@ import {
 import {TM_SET_PROCESSES} from "../../TaskMonitor/actionsTaskMonitor";
 import {getProjectId} from "../selectorsAnuga";
 import {SHOW_ANUGA_SCENARIO_LOG} from "../actions/uiActions";
-
-// TASK-872 (W0.6): run statuses past which polling work is wasted. Shared with
-// pollActiveRunStatusEpic — extracted to module scope so tailScenarioLogEpic
-// uses the same set without duplication.
-const TERMINAL_RUN_STATES = ['complete', 'error', 'cancelled'];
+// Run statuses past which polling work is wasted. Shared with
+// pollActiveRunStatusEpic + selectorsAnuga.getActiveRuns so the terminal-state
+// set has one source of truth.
+import {TERMINAL_RUN_STATES} from "../anugaConstants";
 
 // TASK-603: Page Visibility gate. When the catalogue tab is hidden the
 // browser will keep timer-based polling subscriptions alive but the user
@@ -311,12 +310,11 @@ export const pollActiveRunStatusEpic = (action$) =>
                 });
         });
 
-// TASK-872 (W0.6): tail the latest_run log while the scenario log viewer is
-// open. Re-spec per decision-request q-4 (Premise bucket, self-defaulted):
-// there is NO `latest_run.log` BE endpoint; the log viewer is passive and
-// reads `state.anuga.scenarios.byId[id].latest_run.log`. This epic refreshes
-// that slice by polling `getRun(latest_run.id)` every 3s while the viewer is
-// open AND the run status is non-terminal.
+// Tail the latest_run log while the scenario log viewer is open. There is
+// NO `latest_run.log` BE endpoint; the log viewer is passive and reads
+// `state.anuga.scenarios.byId[id].latest_run.log`. This epic refreshes
+// that slice by polling `getRun(latest_run.id)` every 3s while the viewer
+// is open AND the run status is non-terminal.
 //
 // Trigger semantics: SHOW_ANUGA_SCENARIO_LOG with a truthy scenarioId opens
 // the viewer; the SAME action with `scenarioId === false` closes it (see
@@ -355,18 +353,34 @@ export const tailScenarioLogEpic = (action$, store) =>
                         const scenarioId = state?.anuga?.ui?.visibleAnugaScenarioLogId;
                         if (!scenarioId) return Rx.Observable.empty();
                         const scenario = state?.anuga?.scenarios?.byId?.[scenarioId];
-                        const runId = scenario?.latest_run?.id;
-                        const runStatus = scenario?.latest_run?.status;
+                        const currentRun = scenario?.latest_run;
+                        const runId = currentRun?.id;
+                        const runStatus = currentRun?.status;
                         if (!runId) return Rx.Observable.empty();
                         if (TERMINAL_RUN_STATES.includes(runStatus)) {
                             return Rx.Observable.empty();
                         }
+                        // Same-payload guard: when getRun returns a run whose
+                        // log length AND status are byte-identical to the slice
+                        // we already hold, skip the dispatch. The common case
+                        // during long ANUGA runs is a slow log trickle — most
+                        // 3s ticks return the same bytes and the prior
+                        // unconditional dispatch caused a reducer merge,
+                        // connected-component re-render, and DOM textarea
+                        // re-render with no user-visible delta.
                         return Rx.Observable.from(anugaApi.getRun(runId))
                             .catch(() => Rx.Observable.empty())
-                            .map(response => setAnugaPollingData([{
-                                id: scenarioId,
-                                latest_run: response.data
-                            }]));
+                            .switchMap(response => {
+                                const next = response.data;
+                                const same =
+                                    next?.log?.length === currentRun?.log?.length &&
+                                    next?.status === currentRun?.status;
+                                if (same) return Rx.Observable.empty();
+                                return Rx.Observable.of(setAnugaPollingData([{
+                                    id: scenarioId,
+                                    latest_run: next
+                                }]));
+                            });
                     })
                 )
         );

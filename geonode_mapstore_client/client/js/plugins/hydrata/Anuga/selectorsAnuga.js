@@ -1,4 +1,5 @@
 import {createSelector} from 'reselect';
+import {TERMINAL_RUN_STATES} from './anugaConstants';
 
 // -- Permission selectors (project-level RBAC via my_role) -----------------
 
@@ -129,8 +130,7 @@ export const getAnugaModels = (state) => {
 
 export const getActiveRuns = (state) => {
     const byId = state?.anuga?.runs?.byId || {};
-    const terminalStates = ['complete', 'error', 'cancelled'];
-    return Object.values(byId).filter(run => !terminalStates.includes(run?.status));
+    return Object.values(byId).filter(run => !TERMINAL_RUN_STATES.includes(run?.status));
 };
 
 // -- Project selectors ------------------------------------------------------
