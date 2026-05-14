@@ -299,9 +299,6 @@ describe('TASK-871 ScenarioTableRow confirm prompts include scenario name', () =
 describe('TASK-879 ScenarioTableRow Duplicate button', () => {
     let container;
     let table;
-    let originalConfirm;
-    let confirmCalls;
-    let confirmReturn;
 
     beforeEach(() => {
         container = document.createElement('div');
@@ -310,14 +307,9 @@ describe('TASK-879 ScenarioTableRow Duplicate button', () => {
         const tbody = document.createElement('tbody');
         table.appendChild(tbody);
         container.appendChild(table);
-        confirmCalls = [];
-        confirmReturn = true; // confirm "yes" by default
-        originalConfirm = window.confirm;
-        window.confirm = (msg) => { confirmCalls.push(msg); return confirmReturn; };
     });
 
     afterEach(() => {
-        window.confirm = originalConfirm;
         ReactDOM.unmountComponentAtNode(table.querySelector('tbody'));
         document.body.removeChild(container);
     });
@@ -406,39 +398,63 @@ describe('TASK-879 ScenarioTableRow Duplicate button', () => {
         });
     });
 
-    it('confirm prompt includes the scenario name', () => {
+    // Inline-confirm dialog (replaces window.confirm). The Duplicate button
+    // opens the dialog; the .save-confirm-btn.confirm inside the dialog
+    // actually dispatches. Dialog DOM is always rendered (TASK-723 pattern).
+    it('opens inline confirm dialog with scenario name in the message', () => {
         return renderRow({ scenarioName: 'my_great_scenario' }).then((tbody) => {
             const btn = tbody.querySelector('.anuga-btn-duplicate');
             expect(btn).toExist();
             btn.click();
-            expect(confirmCalls.length).toBe(1);
-            expect(confirmCalls[0]).toContain('my_great_scenario');
-            expect(confirmCalls[0].toLowerCase()).toContain('duplicate');
+            const dialog = tbody.querySelector('.anuga-scenario-row-confirm.is-open');
+            expect(dialog).toExist();
+            const text = dialog.querySelector('.menu-row-delete-confirm-text').textContent;
+            expect(text).toContain('my_great_scenario');
+            expect(text.toLowerCase()).toContain('duplicate');
         });
     });
 
-    it('dispatches duplicateAnugaScenario(scenario) on confirm-yes', () => {
+    it('dispatches duplicateAnugaScenario(scenario) on dialog Confirm click', () => {
         const dispatched = [];
         const duplicateAnugaScenario = (s) => dispatched.push(s);
         return renderRow({
             scenarioId: 77, scenarioName: 'pick_me', duplicateAnugaScenario
         }).then((tbody) => {
-            confirmReturn = true;
             tbody.querySelector('.anuga-btn-duplicate').click();
+            const confirmBtn = tbody.querySelector('.anuga-scenario-row-confirm .save-confirm-btn.confirm');
+            expect(confirmBtn).toExist();
+            confirmBtn.click();
             expect(dispatched.length).toBe(1);
             expect(dispatched[0].id).toBe(77);
             expect(dispatched[0].name).toBe('pick_me');
         });
     });
 
-    it('does NOT dispatch when confirm is cancelled', () => {
+    it('does NOT dispatch when dialog Cancel is clicked', () => {
         const dispatched = [];
         const duplicateAnugaScenario = (s) => dispatched.push(s);
         return renderRow({ duplicateAnugaScenario }).then((tbody) => {
-            confirmReturn = false;
             tbody.querySelector('.anuga-btn-duplicate').click();
-            expect(confirmCalls.length).toBe(1);
+            const cancelBtn = tbody.querySelector('.anuga-scenario-row-confirm .save-confirm-btn.cancel');
+            expect(cancelBtn).toExist();
+            cancelBtn.click();
             expect(dispatched.length).toBe(0);
+        });
+    });
+
+    it('does NOT call window.confirm (regression guard against browser-modal interruption)', () => {
+        // Failed in pre-fix: window.confirm fired on every click. Post-fix
+        // the dialog is React-rendered, not browser-native.
+        const calls = [];
+        const original = window.confirm;
+        window.confirm = (msg) => { calls.push(msg); return false; };
+        return renderRow({ scenarioName: 'no_native_modal' }).then((tbody) => {
+            tbody.querySelector('.anuga-btn-duplicate').click();
+            window.confirm = original;
+            expect(calls.length).toBe(0);
+        }).catch((err) => {
+            window.confirm = original;
+            throw err;
         });
     });
 });
@@ -457,9 +473,6 @@ describe('TASK-879 ScenarioTableRow Duplicate button', () => {
 describe('TASK-880 ScenarioTableRow Archive button', () => {
     let container;
     let table;
-    let originalConfirm;
-    let confirmCalls;
-    let confirmReturn;
 
     beforeEach(() => {
         container = document.createElement('div');
@@ -468,14 +481,9 @@ describe('TASK-880 ScenarioTableRow Archive button', () => {
         const tbody = document.createElement('tbody');
         table.appendChild(tbody);
         container.appendChild(table);
-        confirmCalls = [];
-        confirmReturn = true;
-        originalConfirm = window.confirm;
-        window.confirm = (msg) => { confirmCalls.push(msg); return confirmReturn; };
     });
 
     afterEach(() => {
-        window.confirm = originalConfirm;
         ReactDOM.unmountComponentAtNode(table.querySelector('tbody'));
         document.body.removeChild(container);
     });
@@ -571,41 +579,49 @@ describe('TASK-880 ScenarioTableRow Archive button', () => {
         });
     });
 
-    it('Archive confirm prompt includes scenario name', () => {
+    // Inline-confirm dialog (replaces window.confirm). The Archive button
+    // opens the dialog; the .save-confirm-btn.confirm inside the dialog
+    // actually dispatches. Dialog DOM is always rendered (TASK-723 pattern).
+    it('Archive opens inline confirm dialog with scenario name', () => {
         return renderRow({ scenarioName: 'mighty' }).then((tbody) => {
             tbody.querySelector('.anuga-btn-archive').click();
-            expect(confirmCalls.length).toBe(1);
-            expect(confirmCalls[0]).toContain('mighty');
-            expect(confirmCalls[0].toLowerCase()).toContain('archive');
+            const dialog = tbody.querySelector('.anuga-scenario-row-confirm.is-open');
+            expect(dialog).toExist();
+            const text = dialog.querySelector('.menu-row-delete-confirm-text').textContent;
+            expect(text).toContain('mighty');
+            expect(text.toLowerCase()).toContain('archive');
         });
     });
 
-    it('Archive dispatches archiveAnugaScenario(scenario) on confirm', () => {
+    it('Archive dispatches archiveAnugaScenario(scenario) on dialog Confirm click', () => {
         const dispatched = [];
         const archiveAnugaScenario = (s) => dispatched.push(s);
         return renderRow({
             scenarioId: 77, scenarioName: 'pick_me', archiveAnugaScenario
         }).then((tbody) => {
-            confirmReturn = true;
             tbody.querySelector('.anuga-btn-archive').click();
+            const confirmBtn = tbody.querySelector('.anuga-scenario-row-confirm .save-confirm-btn.confirm');
+            expect(confirmBtn).toExist();
+            confirmBtn.click();
             expect(dispatched.length).toBe(1);
             expect(dispatched[0].id).toBe(77);
             expect(dispatched[0].name).toBe('pick_me');
         });
     });
 
-    it('Archive does NOT dispatch when confirm is cancelled', () => {
+    it('Archive does NOT dispatch when dialog Cancel is clicked', () => {
         const dispatched = [];
         const archiveAnugaScenario = (s) => dispatched.push(s);
         return renderRow({ archiveAnugaScenario }).then((tbody) => {
-            confirmReturn = false;
             tbody.querySelector('.anuga-btn-archive').click();
-            expect(confirmCalls.length).toBe(1);
+            const cancelBtn = tbody.querySelector('.anuga-scenario-row-confirm .save-confirm-btn.cancel');
+            expect(cancelBtn).toExist();
+            cancelBtn.click();
             expect(dispatched.length).toBe(0);
         });
     });
 
-    it('Unarchive dispatches unarchiveAnugaScenario(scenario) on confirm', () => {
+    it('Unarchive dispatches unarchiveAnugaScenario(scenario) on dialog Confirm click', () => {
         const dispatched = [];
         const unarchiveAnugaScenario = (s) => dispatched.push(s);
         return renderRow({
@@ -613,21 +629,39 @@ describe('TASK-880 ScenarioTableRow Archive button', () => {
             archivedAt: '2026-05-14T13:00:00Z',
             unarchiveAnugaScenario
         }).then((tbody) => {
-            confirmReturn = true;
             tbody.querySelector('.anuga-btn-unarchive').click();
+            const confirmBtn = tbody.querySelector('.anuga-scenario-row-confirm .save-confirm-btn.confirm');
+            expect(confirmBtn).toExist();
+            confirmBtn.click();
             expect(dispatched.length).toBe(1);
             expect(dispatched[0].id).toBe(88);
         });
     });
 
-    it('Unarchive confirm prompt mentions restore + scenario name', () => {
+    it('Unarchive opens dialog with restore/unarchive wording + scenario name', () => {
         return renderRow({
             scenarioName: 'restore_me', archivedAt: '2026-05-14T13:00:00Z'
         }).then((tbody) => {
             tbody.querySelector('.anuga-btn-unarchive').click();
-            expect(confirmCalls.length).toBe(1);
-            expect(confirmCalls[0]).toContain('restore_me');
-            expect(confirmCalls[0].toLowerCase()).toMatch(/restore|unarchive/);
+            const dialog = tbody.querySelector('.anuga-scenario-row-confirm.is-open');
+            expect(dialog).toExist();
+            const text = dialog.querySelector('.menu-row-delete-confirm-text').textContent;
+            expect(text).toContain('restore_me');
+            expect(text.toLowerCase()).toMatch(/restore|unarchive/);
+        });
+    });
+
+    it('Archive does NOT call window.confirm (regression guard against browser-modal interruption)', () => {
+        const calls = [];
+        const original = window.confirm;
+        window.confirm = (msg) => { calls.push(msg); return false; };
+        return renderRow({ scenarioName: 'no_native_modal' }).then((tbody) => {
+            tbody.querySelector('.anuga-btn-archive').click();
+            window.confirm = original;
+            expect(calls.length).toBe(0);
+        }).catch((err) => {
+            window.confirm = original;
+            throw err;
         });
     });
 });

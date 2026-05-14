@@ -53,6 +53,19 @@ class ScenarioTableRow extends React.Component {
         currentUserId: PropTypes.number
     };
 
+    constructor(props) {
+        super(props);
+        this.state = {
+            // Mirrors the TASK-723 simpleViewMenuRow inline-confirm pattern so
+            // automated flows (Chrome MCP, Karma) aren't blocked by the
+            // browser-native window.confirm modal. null | 'duplicate' |
+            // 'archive' | 'unarchive'. Dialog is always rendered in the DOM
+            // and visibility is toggled via a CSS class; both render +
+            // dispatch keys off this single field.
+            confirmingAction: null
+        };
+    }
+
     handleTextChange = (e) => {
         const kv = {};
         kv[e.target.id] = e.target.value;
@@ -89,6 +102,50 @@ class ScenarioTableRow extends React.Component {
         this.props.setOpenMenuGroupId(null);
         trackEvent('button', 'click', 'anuga-scenario-menu-build');
     }
+
+    // Inline-confirm openers — replace the window.confirm() that previously
+    // gated each of these three actions. window.confirm blocks automated
+    // flows (Chrome DevTools MCP, Karma JSDOM) and mismatches the rest of
+    // the Hydrata UX (save map + SimpleView delete already use the inline
+    // dialog from TASK-723). Tracking event fires on open here so cancels
+    // are visible in analytics; the original `-confirm` event fires from
+    // performConfirm when the user actually proceeds.
+    openConfirmDuplicate = () => {
+        trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario');
+        this.setState({confirmingAction: 'duplicate'});
+    };
+
+    openConfirmArchive = () => {
+        trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario');
+        this.setState({confirmingAction: 'archive'});
+    };
+
+    openConfirmUnarchive = () => {
+        trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario');
+        this.setState({confirmingAction: 'unarchive'});
+    };
+
+    cancelConfirm = () => {
+        const {confirmingAction} = this.state;
+        trackEvent('button', 'click', `anuga-scenario-menu-${confirmingAction || 'confirm'}-cancel`);
+        this.setState({confirmingAction: null});
+    };
+
+    performConfirm = () => {
+        const {confirmingAction} = this.state;
+        const {scenario} = this.props;
+        this.setState({confirmingAction: null});
+        if (confirmingAction === 'duplicate') {
+            this.props.duplicateAnugaScenario(scenario);
+            trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario-confirm');
+        } else if (confirmingAction === 'archive') {
+            this.props.archiveAnugaScenario(scenario);
+            trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario-confirm');
+        } else if (confirmingAction === 'unarchive') {
+            this.props.unarchiveAnugaScenario(scenario);
+            trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario-confirm');
+        }
+    };
 
     renderSelectCell(id, value, options, disabled) {
         const {scenario} = this.props;
@@ -344,6 +401,25 @@ class ScenarioTableRow extends React.Component {
         const isArchived = !!scenario?.archived_at;
         // Confirm-prompt label, shared by Duplicate/Archive/Unarchive/Cancel/Delete.
         const scenarioLabel = scenario?.name || 'this scenario';
+        // Inline-confirm dialog state (Duplicate/Archive/Unarchive only).
+        // Message + button label resolve from `confirmingAction`; dialog
+        // markup is always rendered (visibility toggled via CSS class) so
+        // tests can find buttons without depending on a setState→re-render
+        // flush, mirroring the TASK-723 simpleViewMenuRow pattern.
+        const {confirmingAction} = this.state;
+        let confirmMsg = '';
+        let confirmBtnLabel = '';
+        let confirmBtnClass = 'save-confirm-btn confirm';
+        if (confirmingAction === 'duplicate') {
+            confirmMsg = `Duplicate scenario "${scenarioLabel}"?`;
+            confirmBtnLabel = 'Duplicate';
+        } else if (confirmingAction === 'archive') {
+            confirmMsg = `Archive scenario "${scenarioLabel}"?`;
+            confirmBtnLabel = 'Archive';
+        } else if (confirmingAction === 'unarchive') {
+            confirmMsg = `Restore archived scenario "${scenarioLabel}"?`;
+            confirmBtnLabel = 'Restore';
+        }
 
         return (
             <tr className={'scenario-table-row'}>
@@ -422,14 +498,7 @@ class ScenarioTableRow extends React.Component {
                                 <Button
                                     bsStyle={'info'} bsSize={'xsmall'}
                                     className="anuga-btn anuga-btn-duplicate"
-                                    onClick={() => {
-                                        trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario');
-                                        // eslint-disable-next-line no-alert
-                                        if (window.confirm(`Duplicate scenario "${scenarioLabel}"?`)) {
-                                            this.props.duplicateAnugaScenario(scenario);
-                                            trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario-confirm');
-                                        }
-                                    }}
+                                    onClick={this.openConfirmDuplicate}
                                 >
                                     <span className="glyphicon glyphicon-duplicate" aria-hidden="true" />
                                 </Button> : null
@@ -442,23 +511,7 @@ class ScenarioTableRow extends React.Component {
                                     bsStyle={isArchived ? 'success' : 'warning'}
                                     bsSize={'xsmall'}
                                     className={isArchived ? "anuga-btn anuga-btn-unarchive" : "anuga-btn anuga-btn-archive"}
-                                    onClick={() => {
-                                        if (isArchived) {
-                                            trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario');
-                                            // eslint-disable-next-line no-alert
-                                            if (window.confirm(`Restore archived scenario "${scenarioLabel}"?`)) {
-                                                this.props.unarchiveAnugaScenario(scenario);
-                                                trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario-confirm');
-                                            }
-                                        } else {
-                                            trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario');
-                                            // eslint-disable-next-line no-alert
-                                            if (window.confirm(`Archive scenario "${scenarioLabel}"?`)) {
-                                                this.props.archiveAnugaScenario(scenario);
-                                                trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario-confirm');
-                                            }
-                                        }
-                                    }}
+                                    onClick={isArchived ? this.openConfirmUnarchive : this.openConfirmArchive}
                                 >
                                     <span
                                         className={isArchived ? "glyphicon glyphicon-open" : "glyphicon glyphicon-folder-close"}
@@ -468,6 +521,41 @@ class ScenarioTableRow extends React.Component {
                             }
                         </td>
                         <td>
+                            {/* Always-rendered inline confirm dialog for
+                                Duplicate/Archive/Unarchive. Visibility flips
+                                via the `.is-open` class so Karma+JSDOM can
+                                find the buttons without waiting for a
+                                setState→re-render flush (TASK-723 pattern).
+                                Reuses the `menu-row-delete-confirm` +
+                                `save-confirm-btn` classes from simpleView.css
+                                which is in the bundle whenever an ANUGA
+                                project page is loaded (SimpleView is the
+                                parent panel). */}
+                            <span
+                                className={
+                                    "menu-row-delete-confirm anuga-scenario-row-confirm"
+                                    + (confirmingAction ? " is-open" : "")
+                                }
+                                role="alertdialog"
+                                aria-label="Confirm scenario action"
+                                aria-hidden={confirmingAction ? undefined : true}
+                            >
+                                <span className="menu-row-delete-confirm-text">{confirmMsg}</span>
+                                <button
+                                    type="button"
+                                    className={confirmBtnClass}
+                                    onClick={this.performConfirm}
+                                >
+                                    {confirmBtnLabel}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="save-confirm-btn cancel"
+                                    onClick={this.cancelConfirm}
+                                >
+                                    Cancel
+                                </button>
+                            </span>
                             {showDeleteButton ?
                                 <Button
                                     bsStyle={'danger'} bsSize={'xsmall'}
