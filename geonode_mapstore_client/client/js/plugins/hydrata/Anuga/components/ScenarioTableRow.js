@@ -410,16 +410,23 @@ class ScenarioTableRow extends React.Component {
                                         isCancellable ?
                                             () => {
                                                 trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run');
+                                                // TASK-871: include scenario name in confirm prompt for safety
+                                                // when multiple runs are in flight. Fall back to a generic
+                                                // label if the name is missing or empty.
+                                                const scenarioLabel = scenario?.name || 'this scenario';
                                                 // eslint-disable-next-line no-alert -- intentional user confirmation
-                                                if (confirm('Cancel Run?')) {
+                                                if (window.confirm(`Cancel run for "${scenarioLabel}"?`)) {
                                                     trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run-confirm');
                                                     this.props.cancelAnugaRun(scenario?.latest_run?.id);
                                                 }
                                             } :
                                             () => {
                                                 trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario');
+                                                // TASK-871: include scenario name in confirm prompt so the
+                                                // operator sees exactly which row is about to disappear.
+                                                const scenarioLabel = scenario?.name || 'this scenario';
                                                 // eslint-disable-next-line no-alert -- intentional user confirmation
-                                                if (confirm('Delete Scenario?')) {
+                                                if (window.confirm(`Delete scenario "${scenarioLabel}"?`)) {
                                                     this.props.deleteAnugaScenario(scenario);
                                                     trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario-confirm');
                                                 }
