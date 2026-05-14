@@ -297,11 +297,18 @@ class ScenarioTableRow extends React.Component {
                 bsStyle={'success'} bsSize={'xsmall'}
                 className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
                 onClick={() => {
-                    if (this.props.validateScenario?.(scenario) !== false) {
+                    // TASK-868: validateScenario returns null when valid, or
+                    // the missing field name. Preserve the prop-undefined
+                    // short-circuit (treat as null = valid) so callers that
+                    // don't pass the prop still allow build.
+                    const missingField = this.props.validateScenario
+                        ? this.props.validateScenario(scenario)
+                        : null;
+                    if (!missingField) {
                         this.buildScenario();
                     } else {
                         // eslint-disable-next-line no-alert -- intentional user-facing validation message
-                        window.alert("Scenario is not valid");
+                        window.alert("Scenario is not valid: " + missingField + " is required");
                     }
                 }}
             >
