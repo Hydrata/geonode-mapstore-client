@@ -8,6 +8,7 @@ export {
     addAnugaBoundaryEpic,
     addAnugaFrictionEpic,
     addAnugaInflowEpic,
+    addAnugaRainfallEpic,
     addAnugaStructureEpic,
     addAnugaFullMeshEpic,
     addAnugaMeshRegionEpic,
