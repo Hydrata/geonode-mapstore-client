@@ -24,6 +24,10 @@ class ScenarioTableRow extends React.Component {
         terrain: PropTypes.array,
         boundaries: PropTypes.array,
         inflows: PropTypes.array,
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). Picked from
+        // state.anuga.resources.rainfalls in the connected mapStateToProps for
+        // the table; ScenarioTableRow just renders the select cell.
+        rainfalls: PropTypes.array,
         frictions: PropTypes.array,
         structures: PropTypes.array,
         meshRegions: PropTypes.array,
@@ -31,6 +35,9 @@ class ScenarioTableRow extends React.Component {
         // Callbacks
         updateAnugaScenario: PropTypes.func.isRequired,
         saveAnugaScenario: PropTypes.func.isRequired,
+        // TASK-958: explicit Build dispatch — used when the scenario has no
+        // unsaved changes so PATCH side-effect isn't required to trigger a rebuild.
+        buildScenarioExplicit: PropTypes.func,
         setOpenMenuGroupId: PropTypes.func.isRequired,
         selectAnugaScenario: PropTypes.func.isRequired,
         showAnugaRunMenu: PropTypes.func.isRequired,
@@ -62,7 +69,14 @@ class ScenarioTableRow extends React.Component {
             // 'archive' | 'unarchive'. Dialog is always rendered in the DOM
             // and visibility is toggled via a CSS class; both render +
             // dispatch keys off this single field.
-            confirmingAction: null
+            confirmingAction: null,
+            // TASK-967 — inline build-validation dialog replaces window.alert
+            // in renderRunButton('created') + renderBuildCell. Holds the
+            // missing-field name (e.g. 'terrain', 'boundary') returned by
+            // props.validateScenario, or null when dialog is hidden. Same
+            // always-rendered + CSS-toggle pattern as confirmingAction so
+            // setState→re-render flushes don't break Karma+JSDOM tests.
+            buildValidationError: null
         };
     }
 
@@ -98,9 +112,42 @@ class ScenarioTableRow extends React.Component {
 
     buildScenario = () => {
         const {scenario} = this.props;
-        this.props.saveAnugaScenario(scenario);
+        // TASK-958: PATCH no longer always triggers a rebuild — only fields in
+        // BUILD_AFFECTING_FIELDS do. If the row is dirty, save it (which will
+        // rebuild via the new BUILD_AFFECTING_FIELDS gate); if it's already
+        // saved, dispatch the explicit POST /build/ endpoint.
+        if (scenario.unsaved || !this.props.buildScenarioExplicit) {
+            this.props.saveAnugaScenario(scenario);
+        } else {
+            this.props.buildScenarioExplicit(scenario.id);
+        }
         this.props.setOpenMenuGroupId(null);
         trackEvent('button', 'click', 'anuga-scenario-menu-build');
+    }
+
+    // TASK-967 — single validate-then-build closure used by both the
+    // Build column (renderBuildCell) and the run-column 'created' Build
+    // button (renderRunButton). Replaces two duplicated window.alert
+    // call-sites with the always-rendered inline dialog scaffolding
+    // (memory pin feedback-window-confirm-blocks-automation: native
+    // window.alert/window.confirm interrupts Chrome MCP + breaks Karma).
+    // props.validateScenario returns null when the scenario is valid, or
+    // a field-name string ('terrain' | 'boundary' | 'inflow' | ...) which
+    // we surface via the i18n key hydrata.anuga.validateMissingField.<field>.
+    handleBuildClick = () => {
+        const {scenario, validateScenario} = this.props;
+        const missingField = validateScenario ? validateScenario(scenario) : null;
+        if (missingField) {
+            this.setState({buildValidationError: missingField});
+            trackEvent('button', 'click', `anuga-scenario-menu-build-validate-missing-${missingField}`);
+            return;
+        }
+        this.setState({buildValidationError: null});
+        this.buildScenario();
+    }
+
+    dismissBuildValidation = () => {
+        this.setState({buildValidationError: null});
     }
 
     // Inline-confirm openers — replace the window.confirm() that previously
@@ -348,17 +395,10 @@ class ScenarioTableRow extends React.Component {
                 <Button
                     bsStyle={'success'} bsSize={'xsmall'}
                     className="anuga-btn"
-                    onClick={() => {
-                        const missingField = this.props.validateScenario
-                            ? this.props.validateScenario(scenario)
-                            : null;
-                        if (!missingField) {
-                            this.buildScenario();
-                        } else {
-                            // eslint-disable-next-line no-alert
-                            window.alert("Scenario is not valid: " + missingField + " is required");
-                        }
-                    }}
+                    // TASK-967 — delegated to handleBuildClick (single
+                    // validate-then-build closure). Replaces the in-place
+                    // window.alert path that previously lived here.
+                    onClick={this.handleBuildClick}
                 >
                     <Message msgId="hydrata.anuga.build" />
                 </Button>
@@ -383,21 +423,10 @@ class ScenarioTableRow extends React.Component {
             <Button
                 bsStyle={'success'} bsSize={'xsmall'}
                 className={"anuga-btn" + (isUnsaved ? '' : ' disabled')}
-                onClick={() => {
-                    // validateScenario returns null when valid, or the missing
-                    // field name. Preserve the prop-undefined short-circuit
-                    // (treat as null = valid) so callers that don't pass the
-                    // prop still allow build.
-                    const missingField = this.props.validateScenario
-                        ? this.props.validateScenario(scenario)
-                        : null;
-                    if (!missingField) {
-                        this.buildScenario();
-                    } else {
-                        // eslint-disable-next-line no-alert
-                        window.alert("Scenario is not valid: " + missingField + " is required");
-                    }
-                }}
+                // TASK-967 — delegated to handleBuildClick. Behaviour is
+                // unchanged: validateScenario returns null when valid, or
+                // a field-name string surfaced via the inline dialog.
+                onClick={this.handleBuildClick}
             >
                 <Message msgId="hydrata.anuga.build" />
             </Button>
@@ -429,7 +458,7 @@ class ScenarioTableRow extends React.Component {
         // markup is always rendered (visibility toggled via CSS class) so
         // tests can find buttons without depending on a setState→re-render
         // flush, mirroring the TASK-723 simpleViewMenuRow pattern.
-        const {confirmingAction} = this.state;
+        const {confirmingAction, buildValidationError} = this.state;
         let confirmMsg = '';
         let confirmBtnLabel = '';
         let confirmBtnClass = 'save-confirm-btn confirm';
@@ -446,7 +475,45 @@ class ScenarioTableRow extends React.Component {
 
         return (
             <tr className={'scenario-table-row'}>
-                <td>{scenario.id}</td>
+                <td>
+                    {scenario.id}
+                    {/* TASK-967 — always-rendered inline build-validation
+                        dialog (replaces window.alert from renderRunButton
+                        'created' + renderBuildCell). `.menu-row-delete-confirm`
+                        uses `position:fixed top:11px right:65px` so the dialog
+                        renders at top-right of the viewport regardless of the
+                        DOM location it lives under. Visibility flips via
+                        `.is-open` so Karma+JSDOM can find the OK button
+                        without a setState→re-render flush (memory pin
+                        feedback-mapstore-react-version-mismatch — react@16.14
+                        / react-dom@16.10 mismatch breaks those flushes).
+                        Rendered here regardless of tab so handleBuildClick
+                        works in both renderBuildCell (manage + advanced) and
+                        renderRunButton (manage). */}
+                    <span
+                        className={
+                            "menu-row-delete-confirm anuga-build-validation-dialog"
+                            + (buildValidationError ? " is-open" : "")
+                        }
+                        role="alertdialog"
+                        aria-label="Build validation error"
+                        aria-hidden={buildValidationError ? undefined : true}
+                    >
+                        <span className="menu-row-delete-confirm-text">
+                            {buildValidationError ?
+                                <Message msgId={`hydrata.anuga.validateMissingField.${buildValidationError}`} />
+                                : null
+                            }
+                        </span>
+                        <button
+                            type="button"
+                            className="save-confirm-btn confirm"
+                            onClick={this.dismissBuildValidation}
+                        >
+                            <Message msgId="hydrata.anuga.ok" />
+                        </button>
+                    </span>
+                </td>
                 <td>
                     <input
                         id={'name'} key={`name-${scenario.id}`}
@@ -462,6 +529,10 @@ class ScenarioTableRow extends React.Component {
                         {this.renderSelectCell('terrain', scenario?.terrain, this.props.terrain, !canEdit)}
                         {this.renderSelectCell('boundary', scenario?.boundary, this.props.boundaries, !canEdit)}
                         {this.renderSelectCell('inflow', scenario?.inflow, this.props.inflows, !canEdit)}
+                        {/* TASK-955 (W2.2 FE) — Rainfall select cell mirrors Inflow.
+                            Scenario.rainfall_id FK shipped via TASK-957 BE serializer; PATCH
+                            allow-list is updated in saveAnugaScenarioEpic's SCENARIO_PATCH_FIELDS. */}
+                        {this.renderSelectCell('rainfall', scenario?.rainfall, this.props.rainfalls, !canEdit)}
                     </React.Fragment> : null
                 }
                 {showAdvanced ?

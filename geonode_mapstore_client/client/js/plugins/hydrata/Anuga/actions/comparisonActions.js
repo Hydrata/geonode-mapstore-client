@@ -7,12 +7,19 @@ const COMPARE_SCENARIOS = 'COMPARE_SCENARIOS';
 const COMPARE_SCENARIOS_SUCCESS = 'COMPARE_SCENARIOS_SUCCESS';
 const UPDATE_COMPUTE_INSTANCE = 'UPDATE_COMPUTE_INSTANCE';
 const UPDATE_COMPUTE_INSTANCE_SUCCESS = 'UPDATE_COMPUTE_INSTANCE_SUCCESS';
+const BUILD_SCENARIO = 'HYDRATA:ANUGA:BUILD_SCENARIO';
+const BUILD_SCENARIO_SUCCESS = 'HYDRATA:ANUGA:BUILD_SCENARIO_SUCCESS';
+const BUILD_SCENARIO_ERROR = 'HYDRATA:ANUGA:BUILD_SCENARIO_ERROR';
 
 // -- Resource-type add/create constants ------------------------------------
 
 const CREATE_ANUGA_BOUNDARY = 'CREATE_ANUGA_BOUNDARY';
 const CREATE_ANUGA_FRICTION = 'CREATE_ANUGA_FRICTION';
 const CREATE_ANUGA_INFLOW = 'CREATE_ANUGA_INFLOW';
+// TASK-955 (W2.2 FE) — Rainfall is a polygon-geometry sibling to Inflow.
+// Mirrors createAnugaInflow at every step; BE Rainfall ViewSet (TASK-954)
+// exposes the same CRUD shape so the create/add/delete plumbing is identical.
+const CREATE_ANUGA_RAINFALL = 'CREATE_ANUGA_RAINFALL';
 const CREATE_ANUGA_STRUCTURE = 'CREATE_ANUGA_STRUCTURE';
 const CREATE_ANUGA_MESH_REGION = 'CREATE_ANUGA_MESH_REGION';
 const CREATE_NETWORK = 'CREATE_NETWORK';
@@ -23,6 +30,10 @@ const CREATE_FIGURE = 'CREATE_FIGURE';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
+// TASK-955 — paired with CREATE_ANUGA_RAINFALL; trips the noOpEpic stub in
+// pollingEpics.js the same way ADD_ANUGA_INFLOW does (layer injection is
+// now event-driven via taskCompleteLayerEpic; see V2P-79 add-layer notes).
+const ADD_ANUGA_RAINFALL = 'ADD_ANUGA_RAINFALL';
 const ADD_ANUGA_STRUCTURE = 'ADD_ANUGA_STRUCTURE';
 const ADD_ANUGA_FULL_MESH = 'ADD_ANUGA_FULL_MESH';
 const ADD_ANUGA_MESH_REGION = 'ADD_ANUGA_MESH_REGION';
@@ -66,6 +77,40 @@ function updateComputeInstanceSuccess(data) {
     return { type: UPDATE_COMPUTE_INSTANCE_SUCCESS, data };
 }
 
+function buildScenarioExplicit(scenarioId) {
+    return { type: BUILD_SCENARIO, scenarioId };
+}
+
+function buildScenarioSuccess(scenarioId) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Build started',
+            autoDismiss: 6,
+            position: 'tc',
+            message: `Scenario ID: ${scenarioId} building`,
+            uid: uuidv1(),
+            level: 'success'
+        });
+        dispatch({ type: BUILD_SCENARIO_SUCCESS, scenarioId });
+    };
+}
+
+function buildScenarioError(scenarioId, error) {
+    return (dispatch) => {
+        dispatch({
+            type: SHOW_NOTIFICATION,
+            title: 'Build failed',
+            autoDismiss: 12,
+            position: 'tc',
+            message: `Error starting build: ${JSON.stringify(error?.data ?? error?.message)}`,
+            uid: uuidv1(),
+            level: 'error'
+        });
+        dispatch({ type: BUILD_SCENARIO_ERROR, scenarioId, error });
+    };
+}
+
 // -- Resource create/add action creators -----------------------------------
 
 function createAnugaBoundary(boundaryTitle) {
@@ -78,6 +123,13 @@ function createAnugaFriction(frictionTitle) {
 
 function createAnugaInflow(inflowTitle) {
     return { type: CREATE_ANUGA_INFLOW, inflowTitle };
+}
+
+// TASK-955 — mirror createAnugaInflow. Consumed by makeCreateEpic which
+// dispatches POST /api/v2/anuga/projects/{pid}/rainfalls/ (V2 only, no V1
+// holdout — TASK-954 shipped V2 POST for Rainfall, unlike Inflow).
+function createAnugaRainfall(rainfallTitle) {
+    return { type: CREATE_ANUGA_RAINFALL, rainfallTitle };
 }
 
 function createAnugaStructure(structureTitle) {
@@ -120,6 +172,12 @@ function addAnugaInflow() {
     return { type: ADD_ANUGA_INFLOW };
 }
 
+// TASK-955 — paired with addAnugaInflow; consumed by taskCompleteLayerEpic
+// (via modelClassToAddAction map keyed off Process.metadata.model_class).
+function addAnugaRainfall() {
+    return { type: ADD_ANUGA_RAINFALL };
+}
+
 function addAnugaStructure() {
     return { type: ADD_ANUGA_STRUCTURE };
 }
@@ -155,9 +213,14 @@ module.exports = {
     COMPARE_SCENARIOS_SUCCESS, compareScenariosSuccess,
     UPDATE_COMPUTE_INSTANCE, updateComputeInstance,
     UPDATE_COMPUTE_INSTANCE_SUCCESS, updateComputeInstanceSuccess,
+    BUILD_SCENARIO, buildScenarioExplicit,
+    BUILD_SCENARIO_SUCCESS, buildScenarioSuccess,
+    BUILD_SCENARIO_ERROR, buildScenarioError,
     CREATE_ANUGA_BOUNDARY, createAnugaBoundary,
     CREATE_ANUGA_FRICTION, createAnugaFriction,
     CREATE_ANUGA_INFLOW, createAnugaInflow,
+    // TASK-955 (W2.2 FE) — Rainfall sibling to Inflow.
+    CREATE_ANUGA_RAINFALL, createAnugaRainfall,
     CREATE_ANUGA_STRUCTURE, createAnugaStructure,
     CREATE_ANUGA_MESH_REGION, createAnugaMeshRegion,
     CREATE_NETWORK, createNetwork,
@@ -168,6 +231,8 @@ module.exports = {
     ADD_ANUGA_BOUNDARY, addAnugaBoundary,
     ADD_ANUGA_FRICTION, addAnugaFriction,
     ADD_ANUGA_INFLOW, addAnugaInflow,
+    // TASK-955 — paired with CREATE_ANUGA_RAINFALL.
+    ADD_ANUGA_RAINFALL, addAnugaRainfall,
     ADD_ANUGA_STRUCTURE, addAnugaStructure,
     ADD_ANUGA_FULL_MESH, addAnugaFullMesh,
     ADD_ANUGA_MESH_REGION, addAnugaMeshRegion,

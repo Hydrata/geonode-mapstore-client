@@ -10,6 +10,7 @@ import {
     cancelAnugaRun,
     retryAnugaRun,
     saveAnugaScenario,
+    buildScenarioExplicit,
     updateAnugaScenario,
     selectAnugaScenario,
     setAnugaScenarioMenu,
@@ -40,11 +41,15 @@ class AnugaScenarioMenuClass extends React.Component {
         terrain: PropTypes.array,
         frictions: PropTypes.array,
         inflows: PropTypes.array,
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow), passed
+        // straight through to ScenarioTableRow's renderSelectCell('rainfall', ...).
+        rainfalls: PropTypes.array,
         structures: PropTypes.array,
         meshRegions: PropTypes.array,
         networks: PropTypes.array,
         setOpenMenuGroupId: PropTypes.func,
         saveAnugaScenario: PropTypes.func,
+        buildScenarioExplicit: PropTypes.func,
         runAnugaScenario: PropTypes.func,
         updateAnugaScenario: PropTypes.func,
         selectAnugaScenario: PropTypes.func,
@@ -215,12 +220,14 @@ class AnugaScenarioMenuClass extends React.Component {
                                     terrain={this.props.terrain}
                                     boundaries={this.props.boundaries}
                                     inflows={this.props.inflows}
+                                    rainfalls={this.props.rainfalls}
                                     frictions={this.props.frictions}
                                     structures={this.props.structures}
                                     meshRegions={this.props.meshRegions}
                                     networks={this.props.networks}
                                     updateAnugaScenario={this.props.updateAnugaScenario}
                                     saveAnugaScenario={this.props.saveAnugaScenario}
+                                    buildScenarioExplicit={this.props.buildScenarioExplicit}
                                     setOpenMenuGroupId={this.props.setOpenMenuGroupId}
                                     selectAnugaScenario={this.props.selectAnugaScenario}
                                     showAnugaRunMenu={this.props.showAnugaRunMenu}
@@ -264,6 +271,8 @@ const mapStateToProps = (state) => {
         terrain: state?.anuga?.resources?.terrain,
         frictions: state?.anuga?.resources?.frictions,
         inflows: state?.anuga?.resources?.inflows,
+        // TASK-955 (W2.2 FE) — Rainfall slice.
+        rainfalls: state?.anuga?.resources?.rainfalls,
         structures: state?.anuga?.resources?.structures,
         meshRegions: state?.anuga?.resources?.meshRegions,
         networks: state?.anuga?.resources?.networks,
@@ -281,6 +290,7 @@ const mapDispatchToProps = ( dispatch ) => {
         setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
         runAnugaScenario: (scenario) => dispatch(runAnugaScenario(scenario)),
         saveAnugaScenario: (scenario) => dispatch(saveAnugaScenario(scenario)),
+        buildScenarioExplicit: (scenarioId) => dispatch(buildScenarioExplicit(scenarioId)),
         updateAnugaScenario: (scenario, kv) => dispatch(updateAnugaScenario(scenario, kv)),
         selectAnugaScenario: (scenario) => dispatch(selectAnugaScenario(scenario)),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),

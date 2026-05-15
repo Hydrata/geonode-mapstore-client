@@ -222,6 +222,9 @@
         "projectVisibility": "Visibilidad",
         "publish": "Publicar",
         "publishPrefix": "Publicar:",
+        "rainfall": "Precipitación",
+        "rainfalls": "Precipitación",
+        "createRainfall": "Crear Precipitación",
         "resolutionM2": "Resolución (m²)",
         "results": "Resultados",
         "retry": "Reintentar",
@@ -262,7 +265,17 @@
         "underDevelopment": "-- En desarrollo -- Proceso de revisión de modelo.",
         "uploadFrictionRasterTooltip": "Upload a friction raster GeoTIFF (Manning's-n)",
         "uploadTerrainTooltip": "Subir un nuevo archivo *.tiff de Terrain",
-        "yourProjects": "Sus proyectos:"
+        "yourProjects": "Sus proyectos:",
+        "ok": "OK",
+        "validateMissingField": {
+          "scenario": "Por favor seleccione un escenario antes de construir.",
+          "name": "Por favor dé un nombre al escenario antes de construir.",
+          "terrain": "Por favor establezca un Terrain antes de construir.",
+          "boundary": "Por favor establezca una frontera antes de construir.",
+          "inflow": "Por favor establezca un aporte antes de construir.",
+          "resolution": "Por favor establezca una resolución mayor que cero antes de construir.",
+          "duration": "Por favor establezca una duración mayor que cero antes de construir."
+        }
       },
       "hydrology": {
         "ari05yr": "0.5yr",

@@ -14,6 +14,7 @@ import {
 import {Table, Button} from "react-bootstrap";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getAnugaConfig} from "../api/anugaApi";
 
 class AnugaRunMenuClass extends React.Component {
     static propTypes = {
@@ -32,11 +33,28 @@ class AnugaRunMenuClass extends React.Component {
 
     constructor(props) {
         super(props);
+        // TASK-964 — initial 'local' is a safe pre-config fallback. componentDidMount
+        // fetches /api/v2/anuga/config/ and flips this to the site default ('batch' on
+        // hydrata.com, 'local' elsewhere). Operators can still pick per-run via the
+        // dropdown — that explicit choice flows straight into runAnugaScenario.
         this.state = { computeBackend: 'local' };
     }
 
     componentDidMount() {
         this.props.updateComputeInstance();
+        // TASK-964 — hydrate compute_backend from site config on mount. Failures
+        // fall back to 'local' inside getAnugaConfig itself; we just guard against
+        // a late callback after the component unmounts.
+        this._mounted = true;
+        getAnugaConfig().then((cfg) => {
+            if (this._mounted && cfg && cfg.default_compute_backend) {
+                this.setState({ computeBackend: cfg.default_compute_backend });
+            }
+        });
+    }
+
+    componentWillUnmount() {
+        this._mounted = false;
     }
 
 
@@ -167,4 +185,7 @@ const mapDispatchToProps = ( dispatch ) => {
 const AnugaRunMenu = connect(mapStateToProps, mapDispatchToProps)(AnugaRunMenuClass);
 
 
-export {AnugaRunMenu};
+// Export the unconnected class as well so tests can mount it without a
+// full Redux store / mock dispatch wiring. The default export remains the
+// connected component used by callers.
+export {AnugaRunMenu, AnugaRunMenuClass};

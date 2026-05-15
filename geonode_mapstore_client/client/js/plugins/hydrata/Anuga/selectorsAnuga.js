@@ -107,6 +107,10 @@ const modelTypesToApiName = {
     boundaries: 'boundary',
     frictions: 'friction',
     inflows: 'inflow',
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). The
+    // `apiKey: 'rainfall'` round-trips to anugaApi.updateResourceTitle when
+    // a user renames a rainfall layer via the simpleViewMenuRow inline edit.
+    rainfalls: 'rainfall',
     meshRegions: 'mesh-region',
     structures: 'structure',
     catchments: 'catchment',

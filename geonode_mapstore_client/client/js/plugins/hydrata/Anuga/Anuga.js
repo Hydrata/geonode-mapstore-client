@@ -19,6 +19,8 @@ import {
     createAnugaBoundaryEpic,
     createAnugaFrictionEpic,
     createAnugaInflowEpic,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    createAnugaRainfallEpic,
     createAnugaStructureEpic,
     createAnugaMeshRegionEpic,
     createNetworkEpic,
@@ -29,6 +31,8 @@ import {
     addAnugaBoundaryEpic,
     addAnugaFrictionEpic,
     addAnugaInflowEpic,
+    // TASK-955 — Rainfall add-layer no-op epic (paired with CREATE_ANUGA_RAINFALL).
+    addAnugaRainfallEpic,
     addAnugaStructureEpic,
     addAnugaFullMeshEpic,
     addAnugaMeshRegionEpic,
@@ -50,6 +54,8 @@ import {
     deleteBoundaryEpic,
     deleteFrictionEpic,
     deleteInflowEpic,
+    // TASK-955 — Rainfall cascade-delete epic.
+    deleteRainfallEpic,
     // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
     deleteStructureEpic,
     deleteMeshRegionEpic,
@@ -93,6 +99,8 @@ export default createPlugin('Anuga', {
         createAnugaBoundaryEpic,
         createAnugaFrictionEpic,
         createAnugaInflowEpic,
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+        createAnugaRainfallEpic,
         createAnugaStructureEpic,
         createAnugaMeshRegionEpic,
         createNetworkEpic,
@@ -103,6 +111,8 @@ export default createPlugin('Anuga', {
         addAnugaBoundaryEpic,
         addAnugaFrictionEpic,
         addAnugaInflowEpic,
+        // TASK-955 — Rainfall add-layer no-op epic.
+        addAnugaRainfallEpic,
         addAnugaStructureEpic,
         addAnugaFullMeshEpic,
         addAnugaMeshRegionEpic,
@@ -129,6 +139,8 @@ export default createPlugin('Anuga', {
         deleteBoundaryEpic,
         deleteFrictionEpic,
         deleteInflowEpic,
+        // TASK-955 (W2.2 FE) — Rainfall cascade-delete epic.
+        deleteRainfallEpic,
         // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
         deleteStructureEpic,
         deleteMeshRegionEpic,

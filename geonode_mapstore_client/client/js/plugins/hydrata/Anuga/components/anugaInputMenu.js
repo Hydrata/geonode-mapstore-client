@@ -11,6 +11,8 @@ import {
     addAnugaBoundary,
     addAnugaFriction,
     addAnugaInflow,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    addAnugaRainfall,
     addAnugaStructure,
     addAnugaFullMesh,
     addAnugaMeshRegion,
@@ -21,6 +23,8 @@ import {
     createAnugaBoundary,
     createAnugaFriction,
     createAnugaInflow,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    createAnugaRainfall,
     createAnugaStructure,
     createAnugaMeshRegion,
     createNetwork,
@@ -42,7 +46,10 @@ import {createSelector} from 'reselect';
 const Spinner = require('react-spinkit');
 
 const ACTIVE_TM_STATES = new Set(['pending', 'running']);
-const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Friction', 'Structure', 'MeshRegion'];
+// TASK-955 (W2.2 FE) — 'Rainfall' added. Process metadata.model_class is the
+// Python class name; the selector below groups in-flight layer_create work for
+// each type so InputSection can render a per-section pending placeholder.
+const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'Structure', 'MeshRegion'];
 const EMPTY_BY_ID = {};
 const EMPTY_IDS = [];
 
@@ -88,6 +95,8 @@ class AnugaInputMenuClass extends React.Component {
         createAnugaBoundary: PropTypes.func,
         createAnugaFriction: PropTypes.func,
         createAnugaInflow: PropTypes.func,
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+        createAnugaRainfall: PropTypes.func,
         createAnugaStructure: PropTypes.func,
         createAnugaMeshRegion: PropTypes.func,
         createNetwork: PropTypes.func,
@@ -98,6 +107,9 @@ class AnugaInputMenuClass extends React.Component {
         // TASK-829 (W4.2b) — FrictionRaster layers (raster sibling to polygon Friction)
         frictionRasterLayers: PropTypes.array,
         inflowLayers: PropTypes.array,
+        // TASK-955 (W2.2 FE) — Rainfall layer slice (rai_ prefix on BE → layer.group
+        // 'Input Data.Rainfall' once the BE INPUT_DATA_GROUP_MAP entry ships).
+        rainfallLayers: PropTypes.array,
         structureLayers: PropTypes.array,
         fullMeshLayers: PropTypes.array,
         meshRegionLayers: PropTypes.array,
@@ -111,6 +123,9 @@ class AnugaInputMenuClass extends React.Component {
         canEditAnugaMap: PropTypes.func,
         pendingBoundaries: PropTypes.array,
         pendingInflows: PropTypes.array,
+        // TASK-955 (W2.2 FE) — Rainfall pending list (in-flight layer_create
+        // Processes whose metadata.model_class === 'Rainfall').
+        pendingRainfalls: PropTypes.array,
         pendingFrictions: PropTypes.array,
         pendingStructures: PropTypes.array,
         pendingMeshRegions: PropTypes.array,
@@ -118,6 +133,8 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaBoundary: PropTypes.func,
         addAnugaFriction: PropTypes.func,
         addAnugaInflow: PropTypes.func,
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+        addAnugaRainfall: PropTypes.func,
         addAnugaStructure: PropTypes.func,
         addAnugaFullMesh: PropTypes.func,
         addAnugaMeshRegion: PropTypes.func,
@@ -128,6 +145,8 @@ class AnugaInputMenuClass extends React.Component {
         boundaryModels: PropTypes.array,
         frictionModels: PropTypes.array,
         inflowModels: PropTypes.array,
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+        rainfallModels: PropTypes.array,
         structureModels: PropTypes.array,
         fullMeshModels: PropTypes.array,
         meshRegionModels: PropTypes.array,
@@ -146,6 +165,10 @@ class AnugaInputMenuClass extends React.Component {
             terrainCollapsed: false,
             boundariesCollapsed: false,
             inflowsCollapsed: false,
+            // TASK-955 (W2.2 FE) — Rainfall section is collapse-state-tracked
+            // identically to Inflows; default expanded so empty-state placeholder
+            // shows during the `defaults` starter phase.
+            rainfallsCollapsed: false,
             fullMeshCollapsed: false,
             meshRegionsCollapsed: false,
             frictionCollapsed: false,
@@ -158,6 +181,8 @@ class AnugaInputMenuClass extends React.Component {
             boundaryTitle: '',
             frictionTitle: '',
             inflowTitle: '',
+            // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+            rainfallTitle: '',
             structureTitle: '',
             meshRegionTitle: '',
             networkTitle: '',
@@ -292,6 +317,27 @@ class AnugaInputMenuClass extends React.Component {
                             trackEventName="anuga-input-menu-create-new-inflow"
                             collapsed={this.state.inflowsCollapsed}
                             onToggleCollapse={() => this.toggleSection('inflows')}
+                        />
+                        {/* TASK-955 (W2.2 FE) — Rainfall InputSection. Mirrors Inflows
+                            structurally (polygon `rai_` BE geometry on the same compound
+                            data picker pattern). Sits directly under Inflows so users
+                            see the input-type split at a glance. `isInitializing` keys
+                            off the same `defaults` starter phase so the empty-state
+                            placeholder spins during the default-create burst. */}
+                        <InputSection
+                            titleMsgId="hydrata.anuga.rainfalls"
+                            layers={this.props.rainfallLayers}
+                            pendingItems={this.props.pendingRainfalls}
+                            titleValue={this.state.rainfallTitle}
+                            onTitleChange={(v) => this.setState({rainfallTitle: v})}
+                            onCreate={() => this.createAndReset(this.props.createAnugaRainfall, 'rainfallTitle')}
+                            isCreating={this.props.isCreatingAnugaLayer}
+                            isInitializing={this.props.starterPhase === 'defaults'}
+                            canEdit={this.props.canEditAnugaMap}
+                            inputId="rainfall-input"
+                            trackEventName="anuga-input-menu-create-new-rainfall"
+                            collapsed={this.state.rainfallsCollapsed}
+                            onToggleCollapse={() => this.toggleSection('rainfalls')}
                         />
                         {/* Advanced accordion */}
                         <div className={'menu-rows-container anuga-section'}>
@@ -534,14 +580,27 @@ const mapStateToProps = (state) => {
     const projection = state?.anuga?.projects?.data?.projection;
     const boundaryLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries');
     const inflowLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows');
+    // TASK-955 (W2.2 FE) — Rainfall layer slice (polygon sibling to Inflow).
+    const rainfallLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Rainfall');
     const pendingByModel = selectPendingByModel(state);
+    // TASK-955 — gate the `defaults` starter phase on Boundaries AND
+    // (Inflows OR Rainfall). Either polygon-or-line water input clears
+    // the placeholder so the user isn't blocked on a single sub-type.
+    // create_supporting_models stamps Boundary 01 + Inflow 01 + Rainfall 01
+    // simultaneously, so in practice all three groups fill together; the
+    // OR is defensive against a single sub-type failing or being deleted.
     const starterPhase = !projection ? 'terrain'
-        : (boundaryLayers?.length === 0 && inflowLayers?.length === 0 ? 'defaults' : null);
+        : (boundaryLayers?.length === 0
+            && inflowLayers?.length === 0
+            && rainfallLayers?.length === 0
+            ? 'defaults' : null);
     return {
         projectData: state?.anuga?.projects?.data,
         terrainLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Terrain'),
         boundaryLayers,
         inflowLayers,
+        // TASK-955 — Rainfall layers exposed to the rendered InputSection.
+        rainfallLayers,
         frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction'),
         // TASK-829 (W4.2b) — FrictionRaster layers (raster sibling to polygon Friction)
         frictionRasterLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Rasters'),
@@ -555,6 +614,8 @@ const mapStateToProps = (state) => {
         terrainModels: state?.anuga?.resources?.terrain,
         boundaryModels: state?.anuga?.resources?.boundaries,
         inflowModels: state?.anuga?.resources?.inflows,
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+        rainfallModels: state?.anuga?.resources?.rainfalls,
         frictionModels: state?.anuga?.resources?.frictions,
         structureModels: state?.anuga?.resources?.structures,
         fullMeshModels: state?.anuga?.resources?.fullMeshes,
@@ -564,6 +625,8 @@ const mapStateToProps = (state) => {
         linksModels: state?.anuga?.resources?.links,
         pendingBoundaries: pendingByModel.Boundary,
         pendingInflows: pendingByModel.Inflow,
+        // TASK-955 (W2.2 FE) — Rainfall in-flight layer_create Processes.
+        pendingRainfalls: pendingByModel.Rainfall,
         pendingFrictions: pendingByModel.Friction,
         pendingStructures: pendingByModel.Structure,
         pendingMeshRegions: pendingByModel.MeshRegion,
@@ -578,6 +641,8 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaBoundary: () => dispatch(addAnugaBoundary()),
         addAnugaFriction: () => dispatch(addAnugaFriction()),
         addAnugaInflow: () => dispatch(addAnugaInflow()),
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+        addAnugaRainfall: () => dispatch(addAnugaRainfall()),
         addAnugaStructure: () => dispatch(addAnugaStructure()),
         addAnugaFullMesh: () => dispatch(addAnugaFullMesh()),
         addAnugaMeshRegion: () => dispatch(addAnugaMeshRegion()),
@@ -593,6 +658,8 @@ const mapDispatchToProps = ( dispatch ) => {
         setCreatingAnugaLayer: (isCreatingAnugaLayer) => dispatch(setCreatingAnugaLayer(isCreatingAnugaLayer)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaInflow: (inflowTitle) => dispatch(createAnugaInflow(inflowTitle)),
+        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+        createAnugaRainfall: (rainfallTitle) => dispatch(createAnugaRainfall(rainfallTitle)),
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),

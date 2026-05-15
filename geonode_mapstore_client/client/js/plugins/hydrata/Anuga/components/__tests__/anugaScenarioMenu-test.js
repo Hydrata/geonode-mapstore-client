@@ -25,7 +25,9 @@ const makeStore = (archiveFilter = 'none') => createStore((state) => state, {
         project: { id: 1, my_role: 'editor' },
         scenarios: { byId: {}, allIds: [], archiveFilter },
         resources: {
-            boundaries: [], terrain: [], frictions: [], inflows: [],
+            // TASK-955 (W2.2 FE) — Rainfall slice added so ScenarioTableRow's
+            // rainfalls prop has a deterministic empty array under tests.
+            boundaries: [], terrain: [], frictions: [], inflows: [], rainfalls: [],
             structures: [], meshRegions: [], networks: []
         }
     },
@@ -83,7 +85,8 @@ describe('TASK-880 anugaScenarioMenu archive filter chip', () => {
                     project: { id: 1, my_role: 'editor' },
                     scenarios: { byId: {}, allIds: [], archiveFilter: 'none' },
                     resources: {
-                        boundaries: [], terrain: [], frictions: [], inflows: [],
+                        // TASK-955 (W2.2 FE) — Rainfall slice for completeness.
+                        boundaries: [], terrain: [], frictions: [], inflows: [], rainfalls: [],
                         structures: [], meshRegions: [], networks: []
                     }
                 },

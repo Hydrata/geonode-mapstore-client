@@ -69,6 +69,11 @@ function saveAnugaScenarioError(error) {
     };
 }
 
+// TASK-964 — `computeBackend = 'local'` is a defensive fallback for callers that
+// forget to pass one. anugaRunMenu always passes the value from its component
+// state, which is hydrated from /api/v2/anuga/config/ on mount. Site default
+// for hydrata.com is 'batch', enforced at the API layer
+// (apps/gn_anuga/api_v2.py StartRunView.post + settings.ANUGA_DEFAULT_COMPUTE_BACKEND).
 function runAnugaScenario(scenario, computeBackend = 'local') {
     return { type: RUN_ANUGA_SCENARIO, scenario, computeBackend };
 }

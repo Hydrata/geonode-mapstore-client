@@ -119,6 +119,21 @@ describe('Anuga Plugin', () => {
             expect(action.isCreatingAnugaLayer).toBe(true);
         });
 
+        // TASK-955 (W2.2 FE) — createAnugaRainfall is a thin {type, rainfallTitle}
+        // action consumed by createAnugaRainfallEpic (makeCreateEpic on
+        // CREATE_ANUGA_RAINFALL with 'rainfall' resourceType, 'rainfallTitle' key).
+        it('createAnugaRainfall creates correct action', () => {
+            const {CREATE_ANUGA_RAINFALL, createAnugaRainfall} = require('../actionsAnuga');
+            const action = createAnugaRainfall('Rainfall 02');
+            expect(action.type).toBe(CREATE_ANUGA_RAINFALL);
+            expect(action.rainfallTitle).toBe('Rainfall 02');
+        });
+        it('addAnugaRainfall emits ADD_ANUGA_RAINFALL', () => {
+            const {ADD_ANUGA_RAINFALL, addAnugaRainfall} = require('../actionsAnuga');
+            const action = addAnugaRainfall();
+            expect(action.type).toBe(ADD_ANUGA_RAINFALL);
+        });
+
         it('selectAnugaScenario creates correct action', () => {
             const scenario = { id: 1, name: 'Test Scenario' };
             const action = selectAnugaScenario(scenario);
@@ -581,6 +596,19 @@ describe('Anuga Plugin', () => {
             expect(state.resources.inflows).toEqual(inflows);
         });
 
+        // TASK-955 (W2.2 FE) — Rainfall slice (polygon sibling to Inflow).
+        // Verifies the reducer wires SET_ANUGA_RAINFALL_DATA onto the
+        // `rainfalls` slot mirror to the Inflow check above.
+        it('should handle SET_ANUGA_RAINFALL_DATA', () => {
+            const {SET_ANUGA_RAINFALL_DATA} = require('../actionsAnuga');
+            const rainfalls = [{ id: 1, name: 'Rainfall 1' }];
+            const state = reducer(undefined, {
+                type: SET_ANUGA_RAINFALL_DATA,
+                data: rainfalls
+            });
+            expect(state.resources.rainfalls).toEqual(rainfalls);
+        });
+
         it('should handle SET_ANUGA_FRICTION_DATA', () => {
             const frictions = [{ id: 1, name: 'Friction 1' }];
             const state = reducer(undefined, {
@@ -914,6 +942,30 @@ describe('Anuga Plugin', () => {
             expect(deleteInflowBlocked(2, [], '').type).toBe(DELETE_INFLOW_BLOCKED);
             expect(deleteInflowError(2, {}).type).toBe(DELETE_INFLOW_ERROR);
         });
+        // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+        // Same V2P-714 shape — these tests pin the action-type surface so a
+        // future rename can't silently break the dispatch contract.
+        it('deleteRainfall actions are typed distinctly', () => {
+            const {
+                DELETE_RAINFALL,
+                DELETE_RAINFALL_SUCCESS,
+                DELETE_RAINFALL_BLOCKED,
+                DELETE_RAINFALL_ERROR,
+                deleteRainfall,
+                deleteRainfallSuccess,
+                deleteRainfallBlocked,
+                deleteRainfallError
+            } = require('../actionsAnuga');
+            expect(deleteRainfall(1, 2).type).toBe(DELETE_RAINFALL);
+            expect(deleteRainfallSuccess(2).type).toBe(DELETE_RAINFALL_SUCCESS);
+            expect(deleteRainfallBlocked(2, [], '').type).toBe(DELETE_RAINFALL_BLOCKED);
+            expect(deleteRainfallError(2, {}).type).toBe(DELETE_RAINFALL_ERROR);
+        });
+        it('deleteRainfall layerIds coerce array signature like the V2P-714 four', () => {
+            const {deleteRainfall, deleteRainfallSuccess} = require('../actionsAnuga');
+            expect(deleteRainfall(1, 2, 'lyr-1').layerIds).toEqual(['lyr-1']);
+            expect(deleteRainfallSuccess(2, ['l1', 'l2']).layerIds).toEqual(['l1', 'l2']);
+        });
         // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain).
         it('deleteFrictionRaster actions are typed distinctly', () => {
             expect(deleteFrictionRaster(1, 2).type).toBe(DELETE_FRICTION_RASTER);
@@ -1002,6 +1054,17 @@ describe('Anuga Plugin', () => {
             let state = seed(SET_ANUGA_INFLOW_DATA, 'data', [{ id: 7, title: 'I' }]);
             state = reducer(state, { type: DELETE_INFLOW_SUCCESS, id: 7 });
             expect(state.resources.inflows).toEqual([]);
+        });
+
+        // TASK-955 (W2.2 FE) — Rainfall cascade-delete reducer pin. Identical
+        // shape to DELETE_INFLOW_SUCCESS above; row removal must target only
+        // the rainfalls slot so a stray rainfall delete can't take a sibling
+        // inflow/boundary row with it.
+        it('DELETE_RAINFALL_SUCCESS removes from rainfalls slot only', () => {
+            const {SET_ANUGA_RAINFALL_DATA, DELETE_RAINFALL_SUCCESS} = require('../actionsAnuga');
+            let state = seed(SET_ANUGA_RAINFALL_DATA, 'data', [{ id: 8, title: 'R' }]);
+            state = reducer(state, { type: DELETE_RAINFALL_SUCCESS, id: 8 });
+            expect(state.resources.rainfalls).toEqual([]);
         });
 
         it('SUCCESS for a missing id leaves the slot unchanged', () => {

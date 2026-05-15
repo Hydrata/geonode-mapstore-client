@@ -3,6 +3,8 @@ import {
     SET_ANUGA_BOUNDARY_DATA,
     SET_ANUGA_FRICTION_DATA,
     SET_ANUGA_INFLOW_DATA,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    SET_ANUGA_RAINFALL_DATA,
     SET_ANUGA_STRUCTURE_DATA,
     SET_ANUGA_FULL_MESH_DATA,
     SET_ANUGA_MESH_REGION_DATA,
@@ -32,6 +34,13 @@ import {
     DELETE_INFLOW_SUCCESS,
     DELETE_INFLOW_BLOCKED,
     DELETE_INFLOW_ERROR,
+    // TASK-955 — Rainfall cascade-delete constants. Same shape as DELETE_INFLOW_*;
+    // each pair (start, success, blocked, error) drives _markDeleting / row-drop /
+    // _markBlocked / _markError on state.anuga.resources.rainfalls.
+    DELETE_RAINFALL,
+    DELETE_RAINFALL_SUCCESS,
+    DELETE_RAINFALL_BLOCKED,
+    DELETE_RAINFALL_ERROR,
     // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
     DELETE_STRUCTURE,
     DELETE_STRUCTURE_SUCCESS,
@@ -94,6 +103,10 @@ const initialState = {
     boundaries: [],
     frictions: [],
     inflows: [],
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). Lives in the
+    // same shape as `inflows`; the resources slice index keeps Inflow/Rainfall
+    // independent so a Scenario can attach one of each.
+    rainfalls: [],
     structures: [],
     fullMeshes: [],
     meshRegions: [],
@@ -143,6 +156,9 @@ export default (state = initialState, action) => {
         return { ...state, frictions: action.data };
     case SET_ANUGA_INFLOW_DATA:
         return { ...state, inflows: action.data };
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    case SET_ANUGA_RAINFALL_DATA:
+        return { ...state, rainfalls: action.data };
     case SET_ANUGA_STRUCTURE_DATA:
         return { ...state, structures: action.data };
     case SET_ANUGA_FULL_MESH_DATA:
@@ -268,6 +284,17 @@ export default (state = initialState, action) => {
         return { ...state, inflows: _markBlocked(state.inflows, action.id, action.message, action.blocking) };
     case DELETE_INFLOW_ERROR:
         return { ...state, inflows: _markError(state.inflows, action.id, action.error) };
+    // TASK-955 (W2.2 FE) — Rainfall cascade-delete (mirrors DELETE_INFLOW
+    // cases). Same V2P-714 shape: mark deleting on start, drop row on success,
+    // stamp inline error on blocked/error.
+    case DELETE_RAINFALL:
+        return { ...state, rainfalls: _markDeleting(state.rainfalls, action.id) };
+    case DELETE_RAINFALL_SUCCESS:
+        return { ...state, rainfalls: (state.rainfalls || []).filter(r => r?.id !== action.id) };
+    case DELETE_RAINFALL_BLOCKED:
+        return { ...state, rainfalls: _markBlocked(state.rainfalls, action.id, action.message, action.blocking) };
+    case DELETE_RAINFALL_ERROR:
+        return { ...state, rainfalls: _markError(state.rainfalls, action.id, action.error) };
     // TASK-723 — cascade-delete fan-out. Same shape as V2P-714: mark deleting
     // on start, drop the row on success, stamp inline error on blocked/error.
     case DELETE_STRUCTURE:

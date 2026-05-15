@@ -23,6 +23,8 @@ export {
     createAnugaBoundaryEpic,
     createAnugaFrictionEpic,
     createAnugaInflowEpic,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    createAnugaRainfallEpic,
     createAnugaStructureEpic,
     createAnugaMeshRegionEpic,
     createNetworkEpic,
@@ -39,6 +41,7 @@ export {
     saveAnugaScenarioEpic,
     saveNetworkEpic,
     compareScenarioEpic,
+    buildScenarioEpic,
     runNetworkEpic,
     updateComputeInstanceEpic,
     createFigureEpic,
@@ -49,6 +52,8 @@ export {
     deleteBoundaryEpic,
     deleteFrictionEpic,
     deleteInflowEpic,
+    // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+    deleteRainfallEpic,
     // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
     deleteStructureEpic,
     deleteMeshRegionEpic,

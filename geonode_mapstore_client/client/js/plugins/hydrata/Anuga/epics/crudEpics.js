@@ -9,6 +9,8 @@ import {
     CREATE_ANUGA_BOUNDARY,
     CREATE_ANUGA_FRICTION,
     CREATE_ANUGA_INFLOW,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    CREATE_ANUGA_RAINFALL,
     CREATE_ANUGA_MESH_REGION,
     CREATE_ANUGA_STRUCTURE,
     CREATE_NETWORK,
@@ -34,6 +36,9 @@ import {
     SAVE_ANUGA_SCENARIO,
     saveAnugaScenarioError,
     saveAnugaScenarioSuccess,
+    BUILD_SCENARIO,
+    buildScenarioSuccess,
+    buildScenarioError,
     setAnugaScenarioMenu,
     setCreatingAnugaLayer,
     UPDATE_COMPUTE_INSTANCE,
@@ -48,6 +53,8 @@ import {
     DELETE_BOUNDARY,
     DELETE_FRICTION,
     DELETE_INFLOW,
+    // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+    DELETE_RAINFALL,
     deleteTerrainSuccess,
     deleteTerrainBlocked,
     deleteTerrainError,
@@ -60,6 +67,10 @@ import {
     deleteInflowSuccess,
     deleteInflowBlocked,
     deleteInflowError,
+    // TASK-955 — Rainfall cascade-delete creators (mirror inflow shape).
+    deleteRainfallSuccess,
+    deleteRainfallBlocked,
+    deleteRainfallError,
     // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
     DELETE_STRUCTURE,
     DELETE_MESH_REGION,
@@ -134,6 +145,9 @@ const makeCreateEpic = (actionType, resourceType, titleKey) => (action$, store) 
 export const createAnugaBoundaryEpic = makeCreateEpic(CREATE_ANUGA_BOUNDARY, 'boundary', 'boundaryTitle');
 export const createAnugaFrictionEpic = makeCreateEpic(CREATE_ANUGA_FRICTION, 'friction', 'frictionTitle');
 export const createAnugaInflowEpic = makeCreateEpic(CREATE_ANUGA_INFLOW, 'inflow', 'inflowTitle');
+// TASK-955 (W2.2 FE) — Rainfall create epic. `'rainfall'` routes via
+// V1_CREATE_ONLY_TYPES (anugaApi.createResource); GET/PATCH/DELETE go V2.
+export const createAnugaRainfallEpic = makeCreateEpic(CREATE_ANUGA_RAINFALL, 'rainfall', 'rainfallTitle');
 export const createAnugaStructureEpic = makeCreateEpic(CREATE_ANUGA_STRUCTURE, 'structure', 'structureTitle');
 export const createAnugaMeshRegionEpic = makeCreateEpic(CREATE_ANUGA_MESH_REGION, 'mesh-region', 'meshRegionTitle');
 export const createNetworkEpic = makeCreateEpic(CREATE_NETWORK, 'network', 'networkTitle');
@@ -269,8 +283,13 @@ export const retryAnugaRunEpic = (action$) =>
 // Read-only fields (status, computed_status, latest_run, latest_run_is_valid,
 // created_by, created_by_username, log, unsaved, …) are silently dropped by
 // the serializer.
+// TASK-955 (W2.2 FE): 'rainfall' added — TASK-957 BE updates
+// ScenarioUpdateSerializerV2.Meta.fields to include rainfall so the PATCH
+// surface accepts it; the BE serializer drops anything not in its writable
+// allow-list silently, so this addition is forward-safe even if the BE deploy
+// lags the FE bundle.
 export const SCENARIO_PATCH_FIELDS = [
-    'name', 'terrain', 'boundary', 'friction', 'inflow',
+    'name', 'terrain', 'boundary', 'friction', 'inflow', 'rainfall',
     'structure', 'mesh_region', 'network', 'resolution', 'duration'
 ];
 
@@ -311,6 +330,21 @@ export const compareScenarioEpic = (action$, store) =>
                     .then(response => compareScenariosSuccess(response.data))
             )
                 .catch(() => Rx.Observable.empty())
+        );
+
+// TASK-958: explicit build endpoint, decoupled from PATCH side-effect. Fires
+// when the user clicks Build on a scenario row that has no unsaved changes
+// (otherwise SAVE_ANUGA_SCENARIO is dispatched, which now only triggers a
+// rebuild when a BUILD_AFFECTING_FIELDS field is in the diff).
+export const buildScenarioEpic = (action$, store) =>
+    action$
+        .ofType(BUILD_SCENARIO)
+        .switchMap((action) =>
+            Rx.Observable.from(
+                anugaApi.buildScenario(getProjectId(store.getState()), action.scenarioId)
+                    .then(() => buildScenarioSuccess(action.scenarioId))
+                    .catch(error => buildScenarioError(action.scenarioId, error))
+            )
         );
 
 // -- Network ---------------------------------------------------------------
@@ -510,6 +544,17 @@ export const deleteInflowEpic = makeDeleteEpic(
     deleteInflowSuccess,
     deleteInflowBlocked,
     deleteInflowError
+);
+
+// TASK-955 (W2.2 FE) — Rainfall cascade-delete epic. Identical contract to
+// deleteInflowEpic: 204 -> success + removeNode + removeLayer + saveDirectContent;
+// 409 ACTIVE_REFERENCES -> blocked; other -> error.
+export const deleteRainfallEpic = makeDeleteEpic(
+    DELETE_RAINFALL,
+    anugaApi.deleteRainfallV2,
+    deleteRainfallSuccess,
+    deleteRainfallBlocked,
+    deleteRainfallError
 );
 
 // -- TASK-723: cascade-delete fan-out (5 more types) -----------------------

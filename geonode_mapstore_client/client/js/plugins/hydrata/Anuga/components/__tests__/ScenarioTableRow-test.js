@@ -670,3 +670,305 @@ describe('TASK-880 ScenarioTableRow Archive button', () => {
         });
     });
 });
+
+// TASK-958 — explicit Build endpoint routing. The Build button on a saved
+// scenario row should dispatch buildScenarioExplicit (POST /build/) rather
+// than saveAnugaScenario (PATCH). When the row is dirty (unsaved=true), it
+// should fall back to saveAnugaScenario so the user's pending edits aren't
+// lost.
+describe('TASK-958 ScenarioTableRow Build button routing', () => {
+    let container;
+    let table;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        table = document.createElement('table');
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        container.appendChild(table);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(table.querySelector('tbody'));
+        document.body.removeChild(container);
+    });
+
+    function renderRow({
+        unsaved = false,
+        saveAnugaScenario = () => {},
+        buildScenarioExplicit = () => {}
+    } = {}) {
+        const tbody = table.querySelector('tbody');
+        const scenario = {
+            id: 42,
+            name: 'build_target',
+            created_by: SELF,
+            created_by_username: 'me',
+            terrain: 1,
+            boundary: 2,
+            inflow: 3,
+            friction: 4,
+            structure: null,
+            mesh_region: null,
+            network: null,
+            resolution: 5,
+            duration: 3600,
+            unsaved,
+            latest_run: null,
+            computed_status: 'created'
+        };
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <ScenarioTableRow
+                    scenario={scenario}
+                    scenarioTableTabs={['manage']}
+                    terrain={[{id: 1, title: 't'}]}
+                    boundaries={[{id: 2, title: 'b'}]}
+                    inflows={[{id: 3, title: 'i'}]}
+                    frictions={[{id: 4, title: 'f'}]}
+                    structures={[]} meshRegions={[]} networks={[]}
+                    updateAnugaScenario={() => {}}
+                    saveAnugaScenario={saveAnugaScenario}
+                    buildScenarioExplicit={buildScenarioExplicit}
+                    setOpenMenuGroupId={() => {}}
+                    selectAnugaScenario={() => {}}
+                    showAnugaRunMenu={() => {}}
+                    setAnugaScenarioMenu={() => {}}
+                    deleteAnugaScenario={() => {}}
+                    cancelAnugaRun={() => {}}
+                    toggleScenarioSelected={() => {}}
+                    validateScenario={() => null}
+                    canRunScenario
+                    myRole={'editor'}
+                    currentUserId={SELF}
+                />,
+                tbody,
+                () => resolve(tbody)
+            );
+        });
+    }
+
+    it('dispatches buildScenarioExplicit(scenarioId) when row has no unsaved changes', () => {
+        const saveCalls = [];
+        const buildCalls = [];
+        return renderRow({
+            unsaved: false,
+            saveAnugaScenario: (s) => saveCalls.push(s),
+            buildScenarioExplicit: (id) => buildCalls.push(id)
+        }).then((tbody) => {
+            const buildBtn = Array.from(tbody.querySelectorAll('button')).find(
+                btn => btn.textContent.toLowerCase().includes('build')
+            );
+            expect(buildBtn).toExist();
+            buildBtn.click();
+            expect(buildCalls).toEqual([42]);
+            expect(saveCalls.length).toBe(0);
+        });
+    });
+
+    it('falls back to saveAnugaScenario(scenario) when row has unsaved changes', () => {
+        const saveCalls = [];
+        const buildCalls = [];
+        return renderRow({
+            unsaved: true,
+            saveAnugaScenario: (s) => saveCalls.push(s),
+            buildScenarioExplicit: (id) => buildCalls.push(id)
+        }).then((tbody) => {
+            const buildBtn = Array.from(tbody.querySelectorAll('button')).find(
+                btn => btn.textContent.toLowerCase().includes('build')
+            );
+            expect(buildBtn).toExist();
+            buildBtn.click();
+            expect(saveCalls.length).toBe(1);
+            expect(saveCalls[0].id).toBe(42);
+            expect(buildCalls.length).toBe(0);
+        });
+    });
+});
+
+/*
+ * TASK-967 — replace window.alert with inline build-validation dialog.
+ *
+ * Contract:
+ *   - When validateScenario returns null (scenario valid), clicking Build
+ *     dispatches the build (saveAnugaScenario or buildScenarioExplicit
+ *     depending on TASK-958 dirty-row routing), and does NOT open the dialog.
+ *   - When validateScenario returns a field-name string (e.g. 'terrain' or
+ *     'boundary'), clicking Build opens the inline `.anuga-build-validation-dialog`
+ *     with `.is-open` and does NOT call build/save. The dialog text uses the
+ *     i18n key `hydrata.anuga.validateMissingField.<field>`.
+ *   - The dialog auto-dismisses when the user clicks the OK button.
+ *   - Regression guard: window.alert is NEVER called from any Build flow
+ *     (memory pin: window.alert/window.confirm interrupts Chrome MCP +
+ *     breaks Karma+JSDOM).
+ */
+describe('TASK-967 ScenarioTableRow inline build-validation dialog', () => {
+    let container;
+    let table;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        table = document.createElement('table');
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        container.appendChild(table);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(table.querySelector('tbody'));
+        document.body.removeChild(container);
+    });
+
+    function renderRow({
+        validateScenario = () => null,
+        saveAnugaScenario = () => {},
+        buildScenarioExplicit = () => {},
+        unsaved = false
+    } = {}) {
+        const tbody = table.querySelector('tbody');
+        const scenario = {
+            id: 42,
+            name: 'sx',
+            created_by: SELF,
+            created_by_username: 'me',
+            terrain: 1,
+            boundary: 2,
+            inflow: 3,
+            friction: 4,
+            structure: null,
+            mesh_region: null,
+            network: null,
+            resolution: 5,
+            duration: 3600,
+            unsaved,
+            latest_run: null,
+            computed_status: 'created'
+        };
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <ScenarioTableRow
+                    scenario={scenario}
+                    scenarioTableTabs={['manage']}
+                    terrain={[{id: 1, title: 't'}]}
+                    boundaries={[{id: 2, title: 'b'}]}
+                    inflows={[{id: 3, title: 'i'}]}
+                    frictions={[{id: 4, title: 'f'}]}
+                    structures={[]} meshRegions={[]} networks={[]}
+                    updateAnugaScenario={() => {}}
+                    saveAnugaScenario={saveAnugaScenario}
+                    buildScenarioExplicit={buildScenarioExplicit}
+                    setOpenMenuGroupId={() => {}}
+                    selectAnugaScenario={() => {}}
+                    showAnugaRunMenu={() => {}}
+                    setAnugaScenarioMenu={() => {}}
+                    deleteAnugaScenario={() => {}}
+                    cancelAnugaRun={() => {}}
+                    toggleScenarioSelected={() => {}}
+                    validateScenario={validateScenario}
+                    canRunScenario
+                    myRole={'editor'}
+                    currentUserId={SELF}
+                />,
+                tbody,
+                () => resolve(tbody)
+            );
+        });
+    }
+
+    function getBuildBtn(tbody) {
+        // renderBuildCell + renderRunButton 'created' both render Build buttons;
+        // either one exercises handleBuildClick, so just pick the first.
+        return Array.from(tbody.querySelectorAll('button')).find(
+            btn => btn.textContent.toLowerCase().includes('build')
+        );
+    }
+
+    it('dialog is rendered but hidden by default (no .is-open)', () => {
+        return renderRow().then((tbody) => {
+            const dialog = tbody.querySelector('.anuga-build-validation-dialog');
+            expect(dialog).toExist();
+            expect(dialog.className).toNotMatch(/\bis-open\b/);
+        });
+    });
+
+    it('validateScenario returns null → click Build dispatches buildScenarioExplicit, no dialog', () => {
+        const saveCalls = [];
+        const buildCalls = [];
+        return renderRow({
+            validateScenario: () => null,
+            saveAnugaScenario: (s) => saveCalls.push(s),
+            buildScenarioExplicit: (id) => buildCalls.push(id)
+        }).then((tbody) => {
+            const buildBtn = getBuildBtn(tbody);
+            expect(buildBtn).toExist();
+            buildBtn.click();
+            expect(buildCalls).toEqual([42]);
+            expect(saveCalls.length).toBe(0);
+            const dialog = tbody.querySelector('.anuga-build-validation-dialog');
+            expect(dialog.className).toNotMatch(/\bis-open\b/);
+        });
+    });
+
+    it('validateScenario returns "terrain" → click Build opens dialog with terrain msgId, no dispatch', () => {
+        const saveCalls = [];
+        const buildCalls = [];
+        return renderRow({
+            validateScenario: () => 'terrain',
+            saveAnugaScenario: (s) => saveCalls.push(s),
+            buildScenarioExplicit: (id) => buildCalls.push(id)
+        }).then((tbody) => {
+            getBuildBtn(tbody).click();
+            const dialog = tbody.querySelector('.anuga-build-validation-dialog.is-open');
+            expect(dialog).toExist();
+            // Without an IntlProvider the <Message> falls back to
+            // <span>{msgId}</span>, so the textContent contains the literal
+            // msgId fragment "validateMissingField.terrain".
+            const txt = dialog.querySelector('.menu-row-delete-confirm-text').textContent;
+            expect(txt).toContain('validateMissingField.terrain');
+            expect(buildCalls.length).toBe(0);
+            expect(saveCalls.length).toBe(0);
+        });
+    });
+
+    it('validateScenario returns "boundary" → click Build opens dialog with boundary msgId', () => {
+        return renderRow({ validateScenario: () => 'boundary' }).then((tbody) => {
+            getBuildBtn(tbody).click();
+            const dialog = tbody.querySelector('.anuga-build-validation-dialog.is-open');
+            expect(dialog).toExist();
+            const txt = dialog.querySelector('.menu-row-delete-confirm-text').textContent;
+            expect(txt).toContain('validateMissingField.boundary');
+        });
+    });
+
+    it('clicking OK button dismisses the dialog (.is-open class removed)', () => {
+        return renderRow({ validateScenario: () => 'terrain' }).then((tbody) => {
+            getBuildBtn(tbody).click();
+            const opened = tbody.querySelector('.anuga-build-validation-dialog.is-open');
+            expect(opened).toExist();
+            const okBtn = opened.querySelector('.save-confirm-btn.confirm');
+            expect(okBtn).toExist();
+            okBtn.click();
+            const stillOpen = tbody.querySelector('.anuga-build-validation-dialog.is-open');
+            expect(stillOpen).toNotExist();
+        });
+    });
+
+    it('regression guard: window.alert is NEVER called when Build is clicked (valid or invalid)', () => {
+        // Pre-fix: window.alert fired on every invalid Build click. Post-fix
+        // the dialog is React-rendered, not browser-native, so automated
+        // flows (Chrome MCP, Karma JSDOM) are not interrupted.
+        const alertCalls = [];
+        const originalAlert = window.alert;
+        window.alert = (msg) => { alertCalls.push(msg); };
+        return renderRow({ validateScenario: () => 'terrain' }).then((tbody) => {
+            getBuildBtn(tbody).click();
+            window.alert = originalAlert;
+            expect(alertCalls.length).toBe(0);
+        }).catch((err) => {
+            window.alert = originalAlert;
+            throw err;
+        });
+    });
+});

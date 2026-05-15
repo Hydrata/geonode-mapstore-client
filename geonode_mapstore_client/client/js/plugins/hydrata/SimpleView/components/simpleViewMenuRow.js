@@ -37,6 +37,8 @@ import {
     deleteBoundary,
     deleteFriction,
     deleteInflow,
+    // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+    deleteRainfall,
     // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
     deleteStructure,
     deleteMeshRegion,
@@ -77,6 +79,11 @@ const _GROUP_TO_DELETE_TYPE = {
     // then (no layer.group will match 'Input Data.Friction Rasters').
     'Input Data.Friction Rasters': 'friction_raster',
     'Input Data.Inflows': 'inflow',
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). BE
+    // INPUT_DATA_GROUP_MAP entry for 'rai' prefix ships separately; this
+    // FE-side group→type mapping is harmless until then (no layer.group
+    // will match 'Input Data.Rainfall' before that BE deploy).
+    'Input Data.Rainfall': 'rainfall',
     // TASK-723 — 5 more types added 2026-05-13 (Network deferred: no gn_layer,
     // no menu UI). Group names from gn_anuga/utils.py INPUT_DATA_GROUP_MAP.
     'Input Data.Structures': 'structure',
@@ -245,6 +252,30 @@ const ANUGA_FEATURE_CONFIG = {
             ]
         }
     },
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). BE Rainfall
+    // model in /opt/hydrata/apps/gn_anuga/models/scenario.py uses
+    // FeatureDataMixin (TASK-820) just like Inflow — same discriminator-picker
+    // emits `data_constant` FLOAT or `data_timeseries_id` INTEGER. No `type`
+    // discriminator field (rainfall doesn't choose between Rainfall/Surface).
+    // geomType is Polygon (vs Inflow's LineString) — VectorDraw will route to
+    // the Polygon drawing tool automatically via this entry; no extra wiring
+    // required (per TASK-955 spec verification).
+    'rai_': {
+        geomType: 'Polygon',
+        formConfig: {
+            title: 'Rainfall',
+            fields: [
+                {name: 'description', type: 'text', label: 'Title'},
+                {name: 'data', type: 'discriminator-picker', label: 'Data',
+                    choices: [
+                        {kind: 'constant', label: 'Constant', render: ConstantInput,
+                            defaultValue: {constant: null}},
+                        {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
+                            render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
+                    ]}
+            ]
+        }
+    },
     'mes_': {
         geomType: 'Polygon',
         formConfig: {
@@ -345,6 +376,8 @@ class MenuRowClass extends React.Component {
         deleteBoundary: PropTypes.func,
         deleteFriction: PropTypes.func,
         deleteInflow: PropTypes.func,
+        // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+        deleteRainfall: PropTypes.func,
         // TASK-723 — cascade-delete fan-out
         deleteStructure: PropTypes.func,
         deleteMeshRegion: PropTypes.func,
@@ -658,6 +691,8 @@ class MenuRowClass extends React.Component {
                 boundary: this.props.deleteBoundary,
                 friction: this.props.deleteFriction,
                 inflow: this.props.deleteInflow,
+                // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+                rainfall: this.props.deleteRainfall,
                 // TASK-723 — cascade-delete fan-out
                 structure: this.props.deleteStructure,
                 mesh_region: this.props.deleteMeshRegion,
@@ -977,6 +1012,8 @@ const mapDispatchToProps = ( dispatch ) => {
         deleteBoundary: (projectId, id, layerIds) => dispatch(deleteBoundary(projectId, id, layerIds)),
         deleteFriction: (projectId, id, layerIds) => dispatch(deleteFriction(projectId, id, layerIds)),
         deleteInflow: (projectId, id, layerIds) => dispatch(deleteInflow(projectId, id, layerIds)),
+        // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+        deleteRainfall: (projectId, id, layerIds) => dispatch(deleteRainfall(projectId, id, layerIds)),
         // TASK-723 — cascade-delete fan-out for structure/mesh_region/
         // catchment/nodes/links. Same signature as the V2P-714 four.
         deleteStructure: (projectId, id, layerIds) => dispatch(deleteStructure(projectId, id, layerIds)),

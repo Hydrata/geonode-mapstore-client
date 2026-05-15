@@ -1097,20 +1097,23 @@ describe('ANUGA Epics', () => {
         beforeEach(() => { mockAxios = new MockAdapter(axios); });
         afterEach(() => { mockAxios.restore(); });
 
-        it('PATCH body contains EXACTLY the 10 allow-list keys (no read-only leakage)', (done) => {
+        it('PATCH body contains EXACTLY the 11 allow-list keys (no read-only leakage)', (done) => {
             mockAxios.onPatch('/api/v2/anuga/projects/7/scenarios/42/').reply(200, { id: 42 });
 
             // Scenario with EVERY known read-only field populated alongside
             // the writable fields. The epic must strip all read-only fields
             // before PATCH; anything else is a regression.
+            // TASK-955 (W2.2 FE) — `rainfall` added to the allow-list as the
+            // 11th writable field; same shape as inflow.
             const fatScenario = {
-                // Writable allow-list (all 10):
+                // Writable allow-list (all 11):
                 id: 42,
                 name: 'my-scenario',
                 terrain: 1,
                 boundary: 2,
                 friction: 3,
                 inflow: 4,
+                rainfall: 14,
                 structure: 5,
                 mesh_region: 6,
                 network: 7,
@@ -1183,6 +1186,81 @@ describe('ANUGA Epics', () => {
                     expect(body.name).toBe('partial');
                     expect(body.terrain).toBe(1);
                     expect(body.boundary).toBe(null);
+                    done();
+                });
+        });
+    });
+
+    // TASK-958 — explicit Build endpoint, decoupled from PATCH side-effect.
+    describe('TASK-958 buildScenarioExplicit action + buildScenarioEpic', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const { buildScenarioEpic } = require('../epics/crudEpics');
+        const {
+            BUILD_SCENARIO,
+            BUILD_SCENARIO_SUCCESS,
+            BUILD_SCENARIO_ERROR,
+            buildScenarioExplicit
+        } = require('../actionsAnuga');
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('buildScenarioExplicit returns a BUILD_SCENARIO action with scenarioId', () => {
+            const action = buildScenarioExplicit(42);
+            expect(action.type).toBe(BUILD_SCENARIO);
+            expect(action.scenarioId).toBe(42);
+        });
+
+        it('buildScenarioEpic POSTs to /build/ and emits success thunk on 202', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/build/').reply(202, {
+                status: 'building', scenario_id: 42
+            });
+
+            const action$ = mockActions([{ type: BUILD_SCENARIO, scenarioId: 42 }]);
+            const emitted = [];
+
+            buildScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(mockAxios.history.post.length).toBe(1);
+                    expect(mockAxios.history.post[0].url).toBe(
+                        '/api/v2/anuga/projects/7/scenarios/42/build/'
+                    );
+                    // success is a redux-thunk (function), not a plain action.
+                    expect(emitted.length).toBe(1);
+                    expect(typeof emitted[0]).toBe('function');
+                    // dispatch the thunk to assert it fires BUILD_SCENARIO_SUCCESS.
+                    const dispatched = [];
+                    emitted[0]((a) => dispatched.push(a));
+                    const successAction = dispatched.find(
+                        d => d.type === BUILD_SCENARIO_SUCCESS
+                    );
+                    expect(successAction).toExist();
+                    expect(successAction.scenarioId).toBe(42);
+                    done();
+                });
+        });
+
+        it('buildScenarioEpic emits error thunk on 5xx', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/99/build/').reply(500, {
+                detail: 'boom'
+            });
+
+            const action$ = mockActions([{ type: BUILD_SCENARIO, scenarioId: 99 }]);
+            const emitted = [];
+
+            buildScenarioEpic(action$, storeWithProjectId(7))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(typeof emitted[0]).toBe('function');
+                    const dispatched = [];
+                    emitted[0]((a) => dispatched.push(a));
+                    const errorAction = dispatched.find(
+                        d => d.type === BUILD_SCENARIO_ERROR
+                    );
+                    expect(errorAction).toExist();
+                    expect(errorAction.scenarioId).toBe(99);
                     done();
                 });
         });

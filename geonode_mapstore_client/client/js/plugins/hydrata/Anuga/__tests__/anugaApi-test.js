@@ -29,6 +29,8 @@ describe('anugaApi', () => {
             'duplicateScenario',
             // POST archive/unarchive + GET archive-filtered list
             'archiveScenario', 'unarchiveScenario', 'getScenariosByArchive',
+            // TASK-958: explicit POST /build/ endpoint
+            'buildScenario',
             'startRun', 'cancelRun', 'retryRun', 'getRunStatus', 'getRun',
             // Membership + visibility
             'getMemberships', 'addMembership', 'updateMembership', 'deleteMembership',
@@ -37,11 +39,15 @@ describe('anugaApi', () => {
             'getMyPerms',
             // V2P-714 — cascade-delete dataset rows
             'deleteTerrainV2', 'deleteBoundaryV2', 'deleteFrictionV2', 'deleteInflowV2',
+            // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow)
+            'deleteRainfallV2',
             // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
             'deleteStructureV2', 'deleteMeshRegionV2', 'deleteCatchmentV2',
             'deleteNodesV2', 'deleteLinksV2',
             // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
-            'deleteFrictionRasterV2'
+            'deleteFrictionRasterV2',
+            // TASK-964 — site-level config (default compute backend for FE bootstrap)
+            'getAnugaConfig'
         ];
 
         expectedFunctions.forEach(name => {
@@ -50,11 +56,12 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 44 API functions', () => {
+        it('should export exactly 47 API functions', () => {
+            // 45 baseline + TASK-955 deleteRainfallV2 + TASK-964 getAnugaConfig = 47.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(44);
+            expect(exportedFunctions.length).toBe(47);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -152,6 +159,9 @@ describe('anugaApi', () => {
         it('getScenariosByArchive takes 1 required argument (projectId, mode has default)', () => {
             expect(anugaApi.getScenariosByArchive.length).toBe(1);
         });
+        it('TASK-958: buildScenario takes 2 arguments (projectId, scenarioId)', () => {
+            expect(anugaApi.buildScenario.length).toBe(2);
+        });
 
         it('startRun takes 1 required argument (scenarioId)', () => {
             expect(anugaApi.startRun.length).toBe(1);
@@ -214,6 +224,10 @@ describe('anugaApi', () => {
         });
         it('deleteInflowV2 takes 2 arguments (projectId, inflowId)', () => {
             expect(anugaApi.deleteInflowV2.length).toBe(2);
+        });
+        // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow).
+        it('deleteRainfallV2 takes 2 arguments (projectId, rainfallId)', () => {
+            expect(anugaApi.deleteRainfallV2.length).toBe(2);
         });
         // TASK-723 — cascade-delete fan-out signatures
         it('deleteStructureV2 takes 2 arguments (projectId, structureId)', () => {
@@ -545,12 +559,68 @@ describe('anugaApi', () => {
             }).catch(done);
         });
 
+        // TASK-955 (W2.2 FE) — Rainfall cascade-delete URL contract pin.
+        // BE RainfallViewSetV2 mounts at /api/v2/anuga/projects/{pid}/rainfalls/
+        // (per /opt/hydrata/apps/gn_anuga/urls.py); a future BE rename would
+        // need to update this test together.
+        it('deleteRainfallV2 hits V2 /rainfalls/{id}/', (done) => {
+            anugaApi.deleteRainfallV2(7, 99).then(() => {
+                expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/rainfalls/99/');
+                done();
+            }).catch(done);
+        });
+
+        // TASK-955 — createResource('rainfall') is a V1 holdout (same as
+        // inflow/boundary/friction) because BE V2 RainfallViewSetV2 ships
+        // list/retrieve/PATCH/DELETE only — no POST create. When BE adds V2
+        // POST this test must flip alongside removing 'rainfall' from
+        // V1_CREATE_ONLY_TYPES in api/anugaApi.js.
+        it('createResource for "rainfall" stays on V1 (V2 has no POST)', (done) => {
+            anugaApi.createResource(7, 'rainfall', {project: 7, title: 'x'}).then(() => {
+                expect(lastUrl('post')).toBe('/anuga/api/7/rainfall/');
+                done();
+            }).catch(done);
+        });
+
+        // TASK-955 — getResourceList('rainfall') routes V2 /rainfalls/ via the
+        // V2_PLURAL map. Mirrors the existing boundary/mesh-region/publication
+        // checks above.
+        it('getResourceList for "rainfall" hits V2 /rainfalls/', (done) => {
+            anugaApi.getResourceList(7, 'rainfall').then(() => {
+                expect(lastUrl('get')).toBe('/api/v2/anuga/projects/7/rainfalls/');
+                done();
+            }).catch(done);
+        });
+
         // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain).
         // BE follow-up will mount the /friction-rasters/{id}/ route on
         // ProjectViewSetV2; this test pins the FE-side URL contract.
         it('deleteFrictionRasterV2 hits V2 /friction-rasters/{id}/', (done) => {
             anugaApi.deleteFrictionRasterV2(7, 99).then(() => {
                 expect(lastUrl('delete')).toBe('/api/v2/anuga/projects/7/friction-rasters/99/');
+                done();
+            }).catch(done);
+        });
+
+        // TASK-964 — site-level config endpoint that exposes the default
+        // compute backend so the FE can flip hydrata.com to 'batch' without
+        // a bundle rebuild. anugaRunMenu consumes this on mount.
+        it('getAnugaConfig GETs /api/v2/anuga/config/', (done) => {
+            // catch-all onAny() handler from beforeEach returns 200/{} — that's
+            // enough to verify the URL is correct (the response-shape contract
+            // is exercised by the BE TestAnugaConfigEndpoint pytest suite).
+            anugaApi.getAnugaConfig().then(() => {
+                expect(lastUrl('get')).toBe('/api/v2/anuga/config/');
+                done();
+            }).catch(done);
+        });
+
+        it('getAnugaConfig falls back to {default_compute_backend: "local"} on network error', (done) => {
+            // Reset the catch-all handler so the failing handler wins.
+            mockAxios.reset();
+            mockAxios.onGet('/api/v2/anuga/config/').networkError();
+            anugaApi.getAnugaConfig().then((data) => {
+                expect(data).toEqual({ default_compute_backend: 'local' });
                 done();
             }).catch(done);
         });

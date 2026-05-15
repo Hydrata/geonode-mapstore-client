@@ -69,6 +69,8 @@ function createMockStore({ role = 'viewer', layerCount = 2, permsLoadFailed = fa
                 boundaries: [],
                 frictions: [],
                 inflows: [],
+                // TASK-955 (W2.2 FE) — Rainfall slice for completeness.
+                rainfalls: [],
                 structures: [],
                 fullMeshes: [],
                 meshRegions: [],

@@ -15,6 +15,8 @@ import {
     ADD_ANUGA_BOUNDARY,
     ADD_ANUGA_FRICTION,
     ADD_ANUGA_INFLOW,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    ADD_ANUGA_RAINFALL,
     ADD_ANUGA_STRUCTURE,
     ADD_ANUGA_FULL_MESH,
     ADD_ANUGA_MESH_REGION,
@@ -23,6 +25,8 @@ import {
     ADD_LINKS,
     addAnugaBoundary,
     addAnugaInflow,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    addAnugaRainfall,
     addAnugaFriction,
     addAnugaStructure,
     addAnugaFullMesh,
@@ -36,6 +40,8 @@ import {
     setAnugaTerrainData,
     setAnugaFrictionData,
     setAnugaInflowData,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+    setAnugaRainfallData,
     setAnugaFullMeshData,
     setAnugaMeshRegionData,
     setNetworkData,
@@ -117,6 +123,9 @@ const resourceEndpoints = [
     {endpoint: 'boundary', action: setAnugaBoundaryData},
     {endpoint: 'terrain', action: setAnugaTerrainData},
     {endpoint: 'inflow', action: setAnugaInflowData},
+    // TASK-955 (W2.2 FE) — Rainfall list fetch. Hits V2 /rainfalls/ via
+    // anugaApi.getResourceList → V2_PLURAL mapping (TASK-955 anugaApi edit).
+    {endpoint: 'rainfall', action: setAnugaRainfallData},
     {endpoint: 'structure', action: setAnugaStructureData},
     {endpoint: 'friction', action: setAnugaFrictionData},
     {endpoint: 'full-mesh', action: setAnugaFullMeshData},
@@ -397,6 +406,12 @@ export const tailScenarioLogEpic = (action$, store) =>
 const ANUGA_GROUPS = {
     "Input Data": [
         "Terrain", "Boundaries", "Structures", "Inflows",
+        // TASK-955 (W2.2 FE) — Rainfall input group (sits next to Inflows so the
+        // legend ordering matches the new polygon-vs-line input split). BE
+        // INPUT_DATA_GROUP_MAP entry for the 'rai' prefix lands in a follow-up
+        // BE task; until then, no layer.group will resolve to 'Input Data.Rainfall'
+        // and the empty group renders quietly.
+        "Rainfall",
         "Friction", "Full Mesh", "Mesh Regions",
         "Catchments", "Nodes", "Links"
     ],
@@ -461,6 +476,8 @@ const noOpEpic = (actionType) => (action$) =>
 export const addAnugaBoundaryEpic = noOpEpic(ADD_ANUGA_BOUNDARY);
 export const addAnugaFrictionEpic = noOpEpic(ADD_ANUGA_FRICTION);
 export const addAnugaInflowEpic = noOpEpic(ADD_ANUGA_INFLOW);
+// TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
+export const addAnugaRainfallEpic = noOpEpic(ADD_ANUGA_RAINFALL);
 export const addAnugaStructureEpic = noOpEpic(ADD_ANUGA_STRUCTURE);
 export const addAnugaFullMeshEpic = noOpEpic(ADD_ANUGA_FULL_MESH);
 export const addAnugaMeshRegionEpic = noOpEpic(ADD_ANUGA_MESH_REGION);
@@ -475,6 +492,10 @@ export const addLinksEpic = noOpEpic(ADD_LINKS);
 const modelClassToAddAction = {
     'Boundary': addAnugaBoundary,
     'Inflow': addAnugaInflow,
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). Process
+    // metadata.model_class is the Python class name ('Rainfall'), set by
+    // _stamp_layer_create_process in /opt/hydrata/apps/gn_anuga/tasks.py.
+    'Rainfall': addAnugaRainfall,
     'Friction': addAnugaFriction,
     'Structure': addAnugaStructure,
     'FullMesh': addAnugaFullMesh,

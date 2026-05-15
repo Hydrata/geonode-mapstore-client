@@ -3,6 +3,11 @@ const SET_ANUGA_SCENARIO_DATA = 'SET_ANUGA_SCENARIO_DATA';
 const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
 const SET_ANUGA_FRICTION_DATA = 'SET_ANUGA_FRICTION_DATA';
 const SET_ANUGA_INFLOW_DATA = 'SET_ANUGA_INFLOW_DATA';
+// TASK-955 (W2.2 FE) — Rainfall is a polygon sibling to Inflow.
+// Mirrors SET_ANUGA_INFLOW_DATA at every level of the data pipeline so
+// the v2 GET fan-out, taskCompleteLayerEpic, and the resources reducer
+// can treat Rainfall identically.
+const SET_ANUGA_RAINFALL_DATA = 'SET_ANUGA_RAINFALL_DATA';
 const SET_ANUGA_STRUCTURE_DATA = 'SET_ANUGA_STRUCTURE_DATA';
 const SET_ANUGA_FULL_MESH_DATA = 'SET_ANUGA_FULL_MESH_DATA';
 const SET_ANUGA_MESH_REGION_DATA = 'SET_ANUGA_MESH_REGION_DATA';
@@ -66,6 +71,14 @@ const DELETE_INFLOW_SUCCESS = 'ANUGA:DELETE_INFLOW_SUCCESS';
 const DELETE_INFLOW_BLOCKED = 'ANUGA:DELETE_INFLOW_BLOCKED';
 const DELETE_INFLOW_ERROR = 'ANUGA:DELETE_INFLOW_ERROR';
 
+// TASK-955 (W2.2 FE) — Rainfall cascade-delete. Mirrors DELETE_INFLOW shape
+// exactly; BE Rainfall ViewSet (TASK-954) returns 204/409 ACTIVE_REFERENCES/
+// 403 with the same semantics as Inflow.
+const DELETE_RAINFALL = 'ANUGA:DELETE_RAINFALL';
+const DELETE_RAINFALL_SUCCESS = 'ANUGA:DELETE_RAINFALL_SUCCESS';
+const DELETE_RAINFALL_BLOCKED = 'ANUGA:DELETE_RAINFALL_BLOCKED';
+const DELETE_RAINFALL_ERROR = 'ANUGA:DELETE_RAINFALL_ERROR';
+
 // TASK-723 — 5 additional cascade-delete types extending the V2P-714 pattern.
 const DELETE_STRUCTURE = 'ANUGA:DELETE_STRUCTURE';
 const DELETE_STRUCTURE_SUCCESS = 'ANUGA:DELETE_STRUCTURE_SUCCESS';
@@ -117,6 +130,11 @@ function setAnugaFrictionData(data) {
 
 function setAnugaInflowData(data) {
     return { type: SET_ANUGA_INFLOW_DATA, data };
+}
+
+// TASK-955 — paired with SET_ANUGA_INFLOW_DATA.
+function setAnugaRainfallData(data) {
+    return { type: SET_ANUGA_RAINFALL_DATA, data };
 }
 
 function setAnugaStructureData(data) {
@@ -279,6 +297,22 @@ function deleteInflowError(id, error) {
     return { type: DELETE_INFLOW_ERROR, id, error };
 }
 
+// TASK-955 (W2.2 FE) — Rainfall cascade-delete creators. Mirror deleteInflow
+// exactly. `id` is the Rainfall.id (AnugaModel pk); `layerIds` is the 1-item
+// array of MapStore layer ids stamped by create_rainfall_gn_layer.
+function deleteRainfall(projectId, id, layerIds) {
+    return { type: DELETE_RAINFALL, projectId, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteRainfallSuccess(id, layerIds) {
+    return { type: DELETE_RAINFALL_SUCCESS, id, layerIds: _toLayerIds(layerIds) };
+}
+function deleteRainfallBlocked(id, blocking, message) {
+    return { type: DELETE_RAINFALL_BLOCKED, id, blocking, message };
+}
+function deleteRainfallError(id, error) {
+    return { type: DELETE_RAINFALL_ERROR, id, error };
+}
+
 // TASK-723 action creators — mirror deleteBoundary's shape exactly. `id` is
 // the AnugaModel pk (Structure.id / MeshRegion.id / etc.); `layerIds` is an
 // array of MapStore layer ids (typically 1 each, but array signature kept
@@ -370,6 +404,8 @@ module.exports = {
     SET_ANUGA_BOUNDARY_DATA, setAnugaBoundaryData,
     SET_ANUGA_FRICTION_DATA, setAnugaFrictionData,
     SET_ANUGA_INFLOW_DATA, setAnugaInflowData,
+    // TASK-955 (W2.2 FE) — Rainfall sibling to Inflow.
+    SET_ANUGA_RAINFALL_DATA, setAnugaRainfallData,
     SET_ANUGA_STRUCTURE_DATA, setAnugaStructureData,
     SET_ANUGA_FULL_MESH_DATA, setAnugaFullMeshData,
     SET_ANUGA_MESH_REGION_DATA, setAnugaMeshRegionData,
@@ -411,6 +447,11 @@ module.exports = {
     DELETE_INFLOW_SUCCESS, deleteInflowSuccess,
     DELETE_INFLOW_BLOCKED, deleteInflowBlocked,
     DELETE_INFLOW_ERROR, deleteInflowError,
+    // TASK-955 (W2.2 FE) — Rainfall cascade-delete (polygon sibling to Inflow)
+    DELETE_RAINFALL, deleteRainfall,
+    DELETE_RAINFALL_SUCCESS, deleteRainfallSuccess,
+    DELETE_RAINFALL_BLOCKED, deleteRainfallBlocked,
+    DELETE_RAINFALL_ERROR, deleteRainfallError,
     // TASK-723 — cascade-delete fan-out (structure/mesh_region/catchment/nodes/links)
     DELETE_STRUCTURE, deleteStructure,
     DELETE_STRUCTURE_SUCCESS, deleteStructureSuccess,

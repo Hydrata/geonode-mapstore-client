@@ -26,6 +26,10 @@ const V2_PLURAL = {
     boundary: 'boundaries',
     friction: 'frictions',
     inflow: 'inflows',
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). V2 ViewSet
+    // ships list/retrieve/PATCH/DELETE (TASK-954); POST create remains a V1
+    // holdout while the BE upload-flow story is finalized (parallels Inflow).
+    rainfall: 'rainfalls',
     structure: 'structures',
     'mesh-region': 'mesh-regions',
     'full-mesh': 'full-meshes',
@@ -41,7 +45,8 @@ const V2_PLURAL = {
 // Types whose V2 ViewSet does NOT expose POST create (V2P-12a/12b kept these
 // read+patch-only; V2 spatial-layer stamping is intended to land via a
 // different upload flow in V2P-80+). createResource keeps V1 for these.
-const V1_CREATE_ONLY_TYPES = new Set(['boundary', 'friction', 'inflow']);
+// TASK-955: 'rainfall' added — same V1 holdout situation as inflow.
+const V1_CREATE_ONLY_TYPES = new Set(['boundary', 'friction', 'inflow', 'rainfall']);
 
 const v2Plural = (type) => V2_PLURAL[type] || type;
 
@@ -129,6 +134,12 @@ export const deleteFrictionV2 = (projectId, frictionId) =>
 
 export const deleteInflowV2 = (projectId, inflowId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/inflows/${inflowId}/`);
+
+// TASK-955 (W2.2 FE): V2 DELETE wrapper for Rainfall. Mirrors the V2P-714
+// cascade-delete pattern: BE returns 204 on success, 409 ACTIVE_REFERENCES
+// when a scenario still references the rainfall, 403 for viewers, 401 anon.
+export const deleteRainfallV2 = (projectId, rainfallId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/rainfalls/${rainfallId}/`);
 
 // TASK-723: V2 DELETE wrappers extending the V2P-714 cascade-delete pattern
 // to 5 more dataset types (NETWORK intentionally excluded). Each route mirrors
@@ -247,6 +258,13 @@ export const archiveScenario = (projectId, scenarioId) =>
 export const unarchiveScenario = (projectId, scenarioId) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/unarchive/`);
 
+// TASK-958: explicit build endpoint, decoupled from PATCH. POST /build/ always
+// triggers make_package_async.delay regardless of which fields changed (PATCH
+// only triggers when a BUILD_AFFECTING_FIELDS field is in the payload).
+// Returns 202 + {status: 'building', scenario_id}.
+export const buildScenario = (projectId, scenarioId) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/build/`);
+
 // List scenarios with explicit archive filter. mode='none' (default) returns
 // active only; 'only' returns archived only; 'all' returns both.
 export const getScenariosByArchive = (projectId, mode = 'none') =>
@@ -254,6 +272,11 @@ export const getScenariosByArchive = (projectId, mode = 'none') =>
 
 // -- v2 Run lifecycle -----------------------------------------------------
 
+// TASK-964 — `computeBackend = 'local'` is a defensive fallback. Real callers
+// pass an explicit value sourced from anugaRunMenu state (which hydrates from
+// /api/v2/anuga/config/ on mount). The BE also has its own settings-driven
+// default that fires if the request body omits compute_backend entirely; see
+// apps/gn_anuga/api_v2.py StartRunView.post + settings.ANUGA_DEFAULT_COMPUTE_BACKEND.
 export const startRun = (scenarioId, computeBackend = 'local') =>
     axios.post(`/api/v2/anuga/scenarios/${scenarioId}/run/`, { compute_backend: computeBackend });
 
@@ -293,3 +316,15 @@ export const deleteMembership = (projectId, membershipId) =>
 
 export const updateProjectVisibility = (projectId, visibility) =>
     axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility });
+
+// -- Site config (TASK-964) -----------------------------------------------
+
+// GET /api/v2/anuga/config/ — returns {default_compute_backend: 'local'|'ec2'|'batch'}
+// Per-site default sourced from Ansible (anuga_default_compute_backend in inventory).
+// On network error we fall back to 'local' so the FE keeps working even if the
+// endpoint is unreachable. Per-call override in startRun() still wins downstream.
+export function getAnugaConfig() {
+    return axios.get('/api/v2/anuga/config/')
+        .then(r => r.data)
+        .catch(() => ({ default_compute_backend: 'local' }));
+}

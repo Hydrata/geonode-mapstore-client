@@ -47,6 +47,11 @@ const RESOURCE_TYPES = [
     'terrain',
     'boundaries',
     'inflows',
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). Added to the
+    // fixture so V2P-21 my-perms reducer + V2P-02 helper tests have a slot to
+    // populate; otherwise components reading state.anuga.resources.rainfalls
+    // hit undefined under tests that build state via makeAnugaResourceState.
+    'rainfalls',
     'frictions',
     'structures',
     'meshRegions',

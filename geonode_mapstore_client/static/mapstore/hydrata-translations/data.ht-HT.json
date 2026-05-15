@@ -222,6 +222,9 @@
         "projectVisibility": "Vizibilite",
         "publish": "Pibliye",
         "publishPrefix": "Pibliye :",
+        "rainfall": "Lapli",
+        "rainfalls": "Lapli",
+        "createRainfall": "Kreye Lapli",
         "resolutionM2": "Rezolisyon(m2)",
         "results": "Rezilta",
         "retry": "Eseye ankò",
@@ -262,7 +265,17 @@
         "underDevelopment": "-- An devlopman -- Pwosesis revizyon modèl.",
         "uploadFrictionRasterTooltip": "Telechaje yon raster friksyon GeoTIFF (n Manning)",
         "uploadTerrainTooltip": "Telechaje yon nouvo teren *.tiff",
-        "yourProjects": "Pwojè ou yo :"
+        "yourProjects": "Pwojè ou yo :",
+        "ok": "OK",
+        "validateMissingField": {
+          "scenario": "Tanpri chwazi yon senaryo anvan w konstwi.",
+          "name": "Tanpri bay senaryo a yon non anvan w konstwi.",
+          "terrain": "Tanpri defini yon teren anvan w konstwi.",
+          "boundary": "Tanpri defini yon limit anvan w konstwi.",
+          "inflow": "Tanpri defini yon antre dlo anvan w konstwi.",
+          "resolution": "Tanpri defini yon rezolisyon ki pi gran ke zewo anvan w konstwi.",
+          "duration": "Tanpri defini yon dire ki pi gran ke zewo anvan w konstwi."
+        }
       },
       "hydrology": {
         "ari05yr": "0.5yr",

@@ -69,15 +69,18 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
     //   - terrain upload glyph (.glyphicon-upload, ALWAYS present — no role gate)
     //   - boundaries "+" / "✓" create button (canEditAnugaMap gate)
     //   - inflows "+" / "✓" create button (canEditAnugaMap gate)
+    //   - rainfall "+" / "✓" create button (canEditAnugaMap gate) — TASK-955
     //   - "showAdvanced" cog glyph (always present — no role gate)
     //
     // We assert the SET of role-gated create-buttons. Always-present glyphs
     // are in every render and thus orthogonal to the gate.
     const expectedCreateButtons = {
         // canEditAnugaMap === [owner, manager, editor]
-        owner: ['boundary-create', 'inflow-create'],
-        manager: ['boundary-create', 'inflow-create'],
-        editor: ['boundary-create', 'inflow-create'],
+        // TASK-955 (W2.2 FE) — Rainfall InputSection adds 'rainfall-create' to
+        // the gated create-button set; same canEditAnugaMap gate as Inflow.
+        owner: ['boundary-create', 'inflow-create', 'rainfall-create'],
+        manager: ['boundary-create', 'inflow-create', 'rainfall-create'],
+        editor: ['boundary-create', 'inflow-create', 'rainfall-create'],
         contributor: [],  // canEditAnugaMap excludes contributor (writes only to own resources via Scenario flow)
         viewer: [],
         anon: []
@@ -123,7 +126,11 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
             // hydrata.anuga.boundaries → "boundaries" via DOM attribute, but
             // i18n tag is rendered raw at test-time. Inspect via the
             // section's first .menu-row-text element for a stable token.
+            // TASK-955 (W2.2 FE) — Rainfall section i18n key
+            // (hydrata.anuga.rainfalls) renders the raw msgId at test-time,
+            // matching the substring 'rainfall'.
             if (/boundary|boundaries/i.test(text)) buttons.push('boundary-create');
+            else if (/rainfall/i.test(text)) buttons.push('rainfall-create');
             else if (/inflow/i.test(text)) buttons.push('inflow-create');
         });
         return buttons.sort();

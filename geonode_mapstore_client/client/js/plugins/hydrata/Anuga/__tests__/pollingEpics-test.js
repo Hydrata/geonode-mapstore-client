@@ -495,6 +495,10 @@ describe('Polling Epics', () => {
                     { id: 'Input Data.Boundaries' },
                     { id: 'Input Data.Structures' },
                     { id: 'Input Data.Inflows' },
+                    // TASK-955 (W2.2 FE) — Rainfall group added to ANUGA_GROUPS;
+                    // mirroring the fixture here keeps the "all exist → emit nothing"
+                    // contract pinned.
+                    { id: 'Input Data.Rainfall' },
                     { id: 'Input Data.Friction' },
                     { id: 'Input Data.Full Mesh' },
                     { id: 'Input Data.Mesh Regions' },

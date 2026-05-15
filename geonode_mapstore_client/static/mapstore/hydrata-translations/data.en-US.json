@@ -222,6 +222,9 @@
         "projectVisibility": "Visibility",
         "publish": "Publish",
         "publishPrefix": "Publish:",
+        "rainfall": "Rainfall",
+        "rainfalls": "Rainfall",
+        "createRainfall": "Create Rainfall",
         "resolutionM2": "Resolution(m2)",
         "results": "Results",
         "retry": "Retry",
@@ -262,7 +265,17 @@
         "underDevelopment": "-- Under development -- Model review process.",
         "uploadFrictionRasterTooltip": "Upload a friction raster GeoTIFF (Manning's-n)",
         "uploadTerrainTooltip": "Upload a new *.tiff terrain",
-        "yourProjects": "Your Projects:"
+        "yourProjects": "Your Projects:",
+        "ok": "OK",
+        "validateMissingField": {
+          "scenario": "Please select a scenario before building.",
+          "name": "Please give the scenario a name before building.",
+          "terrain": "Please set a terrain before building.",
+          "boundary": "Please set a boundary before building.",
+          "inflow": "Please set an inflow before building.",
+          "resolution": "Please set a resolution greater than zero before building.",
+          "duration": "Please set a duration greater than zero before building."
+        }
       },
       "hydrology": {
         "ari05yr": "0.5yr",
