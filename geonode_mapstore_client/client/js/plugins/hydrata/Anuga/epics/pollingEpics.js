@@ -453,6 +453,138 @@ export const ensureAnugaGroupsEpic = (action$, store) =>
                 : Rx.Observable.empty();
         });
 
+// Resolve the ANUGA group label ('Input Data.Terrain', 'Results.Depth', ...)
+// for a layer being injected by taskCompleteLayerEpic. The Layer Menu /
+// Results tab filter in simpleViewMenuRows.js gates each layer on
+// `layer.group.split('.')[0] === openMenuGroupId`, so the group MUST land
+// on the layer at addLayer time. Sources in priority order:
+//   1. metadata.target_group (explicit BE hint; terrain stamps this)
+//   2. metadata.mapstore_layer.extra_params.anuga_group (MapLayer canonical
+//      field stamped by create_maplayer_for_dataset)
+//   3. layerConfig.group when serializer's get_group already resolved it
+//      to an ANUGA-prefixed path (Input Data.* or Results.*)
+// Returns the resolved group string or null when no signal is available
+// (caller leaves layerConfig.group unchanged).
+const resolveAnugaGroup = (metadata, layerConfig) => {
+    const target = metadata?.target_group;
+    if (typeof target === 'string' && target) return target;
+    const extra = metadata?.mapstore_layer?.extra_params?.anuga_group;
+    if (typeof extra === 'string' && extra) return extra;
+    const serialized = layerConfig?.group;
+    if (typeof serialized === 'string' &&
+        (serialized.startsWith('Input Data.') || serialized.startsWith('Results.'))) {
+        return serialized;
+    }
+    return null;
+};
+
+// localStorage-backed handled-completion-ids registry. Module-scoped Set
+// alone resets on page reload, which re-fires the addLayer + "save your
+// project" banner for every previously-handled completion (because the
+// per-tick `currentNames.includes` guard only catches layers added under
+// the SAME bytemap-name; renamed/dropped projects + completed Processes
+// older than the current session both leak through). Persisting the
+// handled-IDs across reloads scoped by mapId removes the phantom toast on
+// every reload AND prevents redundant addLayer dispatches for completions
+// the user has already seen.
+//
+// Storage shape: [{id, ts}], TTL-pruned to 7d on every read. Failures to
+// access localStorage (privacy mode, quota, parse) degrade to in-memory
+// only — same defensive pattern as simpleViewMenuRows' collapseStorage.
+const HANDLED_IDS_STORAGE_PREFIX = 'hydrata_handled_completion_ids_';
+export const HANDLED_IDS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+const NEW_LAYERS_NOTIFICATION = {
+    message: "hydrata.anuga.newLayersMessage",
+    title: "hydrata.anuga.newLayersTitle",
+    uid: 1000,
+    position: "tc"
+};
+
+const handledIdsStorageKey = (mapId) => `${HANDLED_IDS_STORAGE_PREFIX}${mapId}`;
+
+// Read the raw [{id, ts}] array from localStorage, TTL-pruning stale entries.
+// Returns [] on any failure (missing key, parse error, quota/privacy block,
+// non-array payload). Telemetry surfaces failures via console.warn so a
+// silent localStorage outage shows up in DevTools without crashing the epic.
+const loadHandledCompletionIdsRaw = (mapId) => {
+    if (mapId === null || mapId === undefined) return [];
+    try {
+        const raw = window.localStorage.getItem(handledIdsStorageKey(mapId));
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        const cutoff = Date.now() - HANDLED_IDS_TTL_MS;
+        return parsed.filter(e => e && typeof e.ts === 'number' && e.ts >= cutoff && e.id !== undefined);
+    } catch (e) {
+        if (typeof console !== 'undefined' && console.warn) {
+            console.warn('hydrata: handled-ids storage unavailable on read', e);
+        }
+        return [];
+    }
+};
+
+const loadHandledCompletionIds = (mapId) => {
+    const fresh = loadHandledCompletionIdsRaw(mapId);
+    return {
+        set: new Set(fresh.map(e => e.id)),
+        entries: fresh
+    };
+};
+
+// Cross-tab safe persist. Two tabs on the same mapId each maintain their own
+// in-memory Set; a naive overwrite means tab B's write loses tab A's entries.
+// Fix: re-read the persistent state, merge (existing fresh entries + the
+// in-memory Set), write the union. Also back-fill the caller's Set with any
+// ids another tab has already persisted so this tab won't re-fire addLayer
+// for completions the other tab already handled.
+//
+// handledIdsSet is mutated in place to absorb re-hydrated cross-tab ids.
+// Returns the merged entries array so the caller can replace its mirror
+// list (handledEntries) used for fresh-write ts stamps.
+const persistHandledCompletionIds = (mapId, handledIdsSet, inMemoryEntries) => {
+    if (mapId === null || mapId === undefined) return null;
+    try {
+        const existingFromStorage = loadHandledCompletionIdsRaw(mapId);
+        const now = Date.now();
+        const merged = new Map();
+        // Seed with existing storage entries (already TTL-pruned by raw loader).
+        for (const entry of existingFromStorage) {
+            merged.set(entry.id, entry);
+        }
+        // Preserve any in-memory entries with their original ts (so the TTL
+        // clock doesn't reset on re-persist). New ids missing a ts get one
+        // stamped now.
+        const inMemoryTsById = new Map();
+        if (Array.isArray(inMemoryEntries)) {
+            for (const entry of inMemoryEntries) {
+                if (entry && entry.id !== undefined && typeof entry.ts === 'number') {
+                    inMemoryTsById.set(entry.id, entry.ts);
+                }
+            }
+        }
+        for (const id of handledIdsSet) {
+            if (!merged.has(id)) {
+                const ts = inMemoryTsById.has(id) ? inMemoryTsById.get(id) : now;
+                merged.set(id, { id, ts });
+            }
+        }
+        // Back-fill the in-memory Set with cross-tab entries so this tab will
+        // skip ids another tab has already handled.
+        for (const id of merged.keys()) handledIdsSet.add(id);
+        const mergedEntries = Array.from(merged.values());
+        window.localStorage.setItem(handledIdsStorageKey(mapId), JSON.stringify(mergedEntries));
+        return mergedEntries;
+    } catch (e) {
+        if (typeof console !== 'undefined' && console.warn) {
+            console.warn('hydrata: handled-ids storage unavailable on write', e);
+        }
+        // localStorage unavailable (privacy/quota); in-memory Set still works
+        // for the current page lifetime.
+        return null;
+    }
+};
+
 // -- Add-layer epics (V2P-79: no-op stubs) ---------------------------------
 //
 // Pre-V2P-79 these epics fetched `/anuga/api/{pid}/{type}/available/` and
@@ -509,27 +641,30 @@ const modelClassToAddAction = {
 // the post-add chain (refresh, first-upload zoom + save race, group placement,
 // status update, model-creation polling kickoff). Driven by Process metadata
 // stamped by the create_terrain_gn_layer celery task.
-const buildTerrainAddSequence = (metadata, action$, store) => {
+const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
     const layers = Array.isArray(metadata?.mapstore_layers) ? metadata.mapstore_layers : [];
     const isFirstUpload = !!metadata?.is_first_upload;
     const firstLayer = layers[0];
-    const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];
     const newLayers = layers.filter(l => l?.name && !currentNames.includes(l.name));
     if (!newLayers.length) {
         return Rx.Observable.empty();
     }
+    // Stamp the BE-resolved group on each layer so the Layer Menu / Results
+    // tab filter (simpleViewMenuRows.js — gates on layer.group.split('.')[0])
+    // routes the layer into the correct tab without waiting for the next
+    // FIX_ANUGA_GROUPS tick. terrain_create stamps metadata.target_group
+    // ('Input Data.Terrain') for both DEM + hillshade.
+    const stampedLayers = newLayers.map(l => {
+        const group = resolveAnugaGroup(metadata, l);
+        return group ? Object.assign({}, l, { group }) : l;
+    });
     return Rx.Observable.concat(
         Rx.Observable.defer(() => {
             const wmsLayers = store.getState()?.layers?.flat?.filter(l => l?.type === 'wms' && l?.group !== 'background') || [];
             return Rx.Observable.of(refreshLayers(wmsLayers));
         }),
-        ...newLayers.map(l => Rx.Observable.of(addLayer(l))),
-        Rx.Observable.of(show({
-            "message": "hydrata.anuga.newLayersMessage",
-            "title": "hydrata.anuga.newLayersTitle",
-            "uid": 1000,
-            "position": "tc"
-        })),
+        ...stampedLayers.map(l => Rx.Observable.of(addLayer(l))),
+        Rx.Observable.of(show(NEW_LAYERS_NOTIFICATION)),
         ...(isFirstUpload && firstLayer?.bbox?.bounds
             ? [
                 Rx.Observable.of(zoomToExtent(firstLayer.bbox.bounds, firstLayer.bbox.crs, 20)),
@@ -625,31 +760,74 @@ const orphanStatus = (process, state, refreshAttempted) => {
     return 'unknown';
 };
 
-// Per-instance set of completion IDs we've already dispatched addLayer for.
-// store.getState() inside the epic returns POST-reduce state, so a prev/new
-// byId diff is always empty. A closure-scoped Set gives us a stable
-// "have I handled this completion yet" signal independent of reducer timing.
-// Reset on page reload (single epic instance per app boot), which is fine
-// because MapLayer auto-injection on reload re-populates layers.flat.
+// Per-map handled-completion-ids registry. store.getState() inside the
+// epic returns POST-reduce state, so a prev/new byId diff is always empty.
+// A persistent Set gives us a stable "have I handled this completion yet"
+// signal independent of reducer timing. Persisted in localStorage keyed
+// by mapId so it survives reload — without that, every reload re-flagged
+// completed Processes as "new", re-firing addLayer (which is a no-op when
+// the layer is already in `currentNames`) AND the "new layers found, save
+// your project" banner for every completion whose name does NOT match an
+// already-loaded layer (e.g. a Process whose Dataset was renamed, or one
+// from a previous session). The TTL-pruned shape ([{id, ts}], 7d) keeps
+// the registry from growing without bound across long-lived projects.
 //
 // refreshAttempted is the sibling per-app-boot Set used by the refresh-then-
 // defer classifier (see orphanStatus comment block (c)). When a candidate's
 // terrain_id is missing from the loaded terrain list, we dispatch initAnuga
 // to force a catalogue refetch and add the candidate id here so the next
-// tick can classify decisively as 'present' or 'orphaned'.
+// tick can classify decisively as 'present' or 'orphaned'. Stays in-memory
+// only — it represents the refresh-round-trip lifecycle for the current
+// app boot, not a fact worth persisting across reloads.
 export const taskCompleteLayerEpic = (action$, store) => {
-    const handledCompletionIds = new Set();
+    // Hydrated lazily per-mapId on the first matching action; the action
+    // stream may fire before gnresource.id is available (initAnugaEpic
+    // gates on it) so we re-hydrate when the seen mapId changes.
+    let loadedForMapId = null;
+    let handledCompletionIds = new Set();
+    let handledEntries = [];
+    // Buffer for handled entries captured while gnresource.id is still null
+    // (TaskMonitor fires processes before gnresource hydrates on first paint).
+    // Without this buffer, the in-memory Set guards the current page only;
+    // on reload the same completions re-fire because persist no-op'd when
+    // mapId was null. Flushed once on the first tick where mapId becomes
+    // non-null.
+    const pendingEntriesBeforeMapId = [];
     const refreshAttempted = new Set();
     return action$.ofType(TM_SET_PROCESSES)
         .switchMap((action) => {
             const processes = action.processes || [];
+            const state = store.getState();
+            const mapId = state?.gnresource?.id;
+            const currentNames = state?.layers?.flat?.map(l => l?.name) || [];
+            // (Re)hydrate the persisted Set the first time we see this
+            // mapId in the action stream. Merge any pending entries that
+            // were captured while mapId was null (Fix 2: retroactive flush).
+            if (mapId !== undefined && mapId !== null && loadedForMapId !== mapId) {
+                const hydrated = loadHandledCompletionIds(mapId);
+                handledCompletionIds = hydrated.set;
+                handledEntries = hydrated.entries;
+                // Replay pending pre-mapId entries into the Set + entries
+                // list so the next persist call flushes them to localStorage.
+                if (pendingEntriesBeforeMapId.length > 0) {
+                    pendingEntriesBeforeMapId.forEach(e => {
+                        if (!handledCompletionIds.has(e.id)) {
+                            handledCompletionIds.add(e.id);
+                            handledEntries.push(e);
+                        }
+                    });
+                    pendingEntriesBeforeMapId.length = 0;
+                    const merged = persistHandledCompletionIds(mapId, handledCompletionIds, handledEntries);
+                    if (merged) handledEntries = merged;
+                }
+                loadedForMapId = mapId;
+            }
             const candidates = processes.filter(
                 p => isLayerCompletionType(p.process_type) &&
                      p.status === 'complete' &&
                      !handledCompletionIds.has(p.id)
             );
             if (!candidates.length) return Rx.Observable.empty();
-            const state = store.getState();
             const classified = candidates.map(p => ({
                 process: p,
                 status: orphanStatus(p, state, refreshAttempted)
@@ -657,9 +835,31 @@ export const taskCompleteLayerEpic = (action$, store) => {
             // Mark handled only when we can decide. 'unknown' candidates stay
             // unmarked so the next poll (after initAnuga fills terrain) can
             // re-classify them. 'present' and 'orphaned' are decisive.
+            let mutated = false;
+            const now = Date.now();
             classified.forEach(c => {
-                if (c.status !== 'unknown') handledCompletionIds.add(c.process.id);
+                if (c.status !== 'unknown' && !handledCompletionIds.has(c.process.id)) {
+                    handledCompletionIds.add(c.process.id);
+                    const entry = { id: c.process.id, ts: now };
+                    handledEntries.push(entry);
+                    // If mapId is not yet hydrated, buffer the entry so it
+                    // can be persisted retroactively once mapId arrives.
+                    // Soft cap at 500 entries — drop oldest first — to bound
+                    // memory growth on long-lived non-map contexts where
+                    // mapId never hydrates.
+                    if (mapId === null || mapId === undefined) {
+                        pendingEntriesBeforeMapId.push(entry);
+                        if (pendingEntriesBeforeMapId.length > 500) {
+                            pendingEntriesBeforeMapId.shift();
+                        }
+                    }
+                    mutated = true;
+                }
             });
+            if (mutated && mapId !== null && mapId !== undefined) {
+                const merged = persistHandledCompletionIds(mapId, handledCompletionIds, handledEntries);
+                if (merged) handledEntries = merged;
+            }
             // Refresh-then-defer: 'unknown' candidates with terrain_id set
             // and terrainLoaded=true are fresh-upload-with-stale-list cases.
             // Force one initAnuga catalogue refetch and mark the id so the
@@ -683,18 +883,23 @@ export const taskCompleteLayerEpic = (action$, store) => {
             }
             newlyCompleted.forEach(p => {
                 if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
-                    observables.push(buildTerrainAddSequence(p.metadata, action$, store));
+                    observables.push(buildTerrainAddSequence(p.metadata, action$, store, currentNames));
                 } else if (p.metadata?.mapstore_layer) {
-                    const layerConfig = p.metadata.mapstore_layer;
-                    const currentNames = store.getState()?.layers?.flat?.map(l => l?.name) || [];
-                    if (!currentNames.includes(layerConfig?.name)) {
+                    const baseLayerConfig = p.metadata.mapstore_layer;
+                    if (!currentNames.includes(baseLayerConfig?.name)) {
+                        // Stamp BE-resolved ANUGA group on the layer so the
+                        // Layer Menu / Results tab filter at
+                        // simpleViewMenuRows.js (gates on
+                        // layer.group.split('.')[0]) routes it into the
+                        // right tab without waiting for the next
+                        // FIX_ANUGA_GROUPS tick (which only fires on
+                        // page-load via initAnugaEpic).
+                        const resolvedGroup = resolveAnugaGroup(p.metadata, baseLayerConfig);
+                        const layerConfig = resolvedGroup
+                            ? Object.assign({}, baseLayerConfig, { group: resolvedGroup })
+                            : baseLayerConfig;
                         observables.push(Rx.Observable.of(addLayer(layerConfig)));
-                        observables.push(Rx.Observable.of(show({
-                            "message": "hydrata.anuga.newLayersMessage",
-                            "title": "hydrata.anuga.newLayersTitle",
-                            "uid": 1000,
-                            "position": "tc"
-                        })));
+                        observables.push(Rx.Observable.of(show(NEW_LAYERS_NOTIFICATION)));
                     }
                 } else {
                     const modelClass = p.metadata?.model_class;

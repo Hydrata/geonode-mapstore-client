@@ -11,6 +11,7 @@ import {
     addAnugaBoundaryEpic,
     addAnugaFrictionEpic,
     anugaMapLayerGroupEpic,
+    HANDLED_IDS_TTL_MS,
     __setVisibilityForTests
 } from '../epics/pollingEpics';
 import {
@@ -1277,6 +1278,641 @@ describe('Polling Epics', () => {
                 sub.unsubscribe();
                 done();
             }, 100);
+        });
+    });
+
+    // Layer-group stamping on addLayer dispatch. The Layer Menu / Results
+    // tab filter in simpleViewMenuRows.js gates each layer on
+    // `layer.group.split('.')[0] === openMenuGroupId`, so when
+    // taskCompleteLayerEpic injects a per-layer addLayer, the resolved
+    // ANUGA group MUST land on the layer. Sources (priority order):
+    //   1. metadata.target_group
+    //   2. metadata.mapstore_layer.extra_params.anuga_group
+    //   3. mapstore_layer.group when it's already an ANUGA-prefixed path
+    describe('taskCompleteLayerEpic — group resolution for tab filter', () => {
+        it('stamps layer.group from extra_params.anuga_group when serializer left it default', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'group-from-extra',
+                    process_type: 'layer_create',
+                    status: 'complete',
+                    metadata: {
+                        model_class: 'Boundary',
+                        mapstore_layer: {
+                            name: 'geonode:res_depth_max_run42',
+                            type: 'wms',
+                            url: '/geoserver/wms',
+                            group: 'Default',
+                            extra_params: { anuga_group: 'Results.Depth' }
+                        }
+                    }
+                }]
+            });
+            setTimeout(() => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                expect(adds[0].layer.group).toBe('Results.Depth');
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('prefers metadata.target_group over extra_params.anuga_group', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'group-target-wins',
+                    process_type: 'layer_create',
+                    status: 'complete',
+                    metadata: {
+                        model_class: 'Boundary',
+                        target_group: 'Input Data.Boundaries',
+                        mapstore_layer: {
+                            name: 'geonode:bdy_target_wins',
+                            type: 'wms',
+                            url: '/geoserver/wms',
+                            extra_params: { anuga_group: 'Results.Depth' }
+                        }
+                    }
+                }]
+            });
+            setTimeout(() => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                expect(adds[0].layer.group).toBe('Input Data.Boundaries');
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('keeps serializer-stamped layer.group when it is an ANUGA-prefixed path', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'group-serializer',
+                    process_type: 'layer_create',
+                    status: 'complete',
+                    metadata: {
+                        model_class: 'Inflow',
+                        mapstore_layer: {
+                            name: 'geonode:inf_serializer_done',
+                            type: 'wms',
+                            url: '/geoserver/wms',
+                            // get_group resolved this server-side; the epic
+                            // should pass it through unchanged.
+                            group: 'Input Data.Inflows'
+                        }
+                    }
+                }]
+            });
+            setTimeout(() => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                expect(adds[0].layer.group).toBe('Input Data.Inflows');
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('leaves layer.group untouched when no ANUGA signal is present', (done) => {
+            // Defensive: a process with no anuga_group hint and a non-ANUGA
+            // serializer group ('Default') should not invent one — let the
+            // FIX_ANUGA_GROUPS path move it later if needed.
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'group-passthrough',
+                    process_type: 'layer_create',
+                    status: 'complete',
+                    metadata: {
+                        model_class: 'Boundary',
+                        mapstore_layer: {
+                            name: 'geonode:bdy_passthrough',
+                            type: 'wms',
+                            url: '/geoserver/wms',
+                            group: 'Default'
+                        }
+                    }
+                }]
+            });
+            setTimeout(() => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                expect(adds[0].layer.group).toBe('Default');
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('stamps target_group on every terrain mapstore_layers entry (DEM + hillshade)', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: { resources: { terrainLoaded: true, terrain: [{ id: 88 }] } }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'terrain-group-stamp',
+                    process_type: 'terrain_create',
+                    status: 'complete',
+                    metadata: {
+                        terrain_id: 88,
+                        target_group: 'Input Data.Terrain',
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_88_dem', type: 'wms', url: '/geoserver/ows' },
+                            { name: 'geonode:ele_88_hs', type: 'wms', url: '/geoserver/ows' }
+                        ]
+                    }
+                }]
+            });
+            setTimeout(() => {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(2);
+                expect(adds[0].layer.group).toBe('Input Data.Terrain');
+                expect(adds[1].layer.group).toBe('Input Data.Terrain');
+                sub.unsubscribe();
+                done();
+            }, 300);
+        });
+    });
+
+    // Persistence of handled-completion-ids across page reload. Without
+    // persistence, the module-scoped Set resets on every reload so every
+    // completed Process re-fires the addLayer path and (for any whose name
+    // doesn't already match a loaded layer) the "new layers found, save
+    // your project" banner. localStorage keyed by mapId removes the phantom
+    // toast and prevents redundant work on reload.
+    describe('taskCompleteLayerEpic — localStorage persistence across reload', () => {
+        // Lightweight in-memory shim so tests are deterministic and don't
+        // leak state across the suite. We hand-roll this rather than poke at
+        // ChromeHeadless's native localStorage because Karma runs share a
+        // single browser session — a real key set in one test would
+        // contaminate the next.
+        let originalLocalStorage;
+        let store;
+        beforeEach(() => {
+            originalLocalStorage = window.localStorage;
+            const backing = new Map();
+            const shim = {
+                getItem: (k) => (backing.has(k) ? backing.get(k) : null),
+                setItem: (k, v) => { backing.set(k, String(v)); },
+                removeItem: (k) => { backing.delete(k); },
+                clear: () => { backing.clear(); },
+                key: (i) => Array.from(backing.keys())[i] || null,
+                get length() { return backing.size; }
+            };
+            Object.defineProperty(window, 'localStorage', {
+                value: shim,
+                configurable: true,
+                writable: true
+            });
+        });
+        afterEach(() => {
+            Object.defineProperty(window, 'localStorage', {
+                value: originalLocalStorage,
+                configurable: true,
+                writable: true
+            });
+        });
+
+        it('persists handled id across a simulated reload (second epic instance is a no-op)', (done) => {
+            // Shared store across both epic instances simulates two page
+            // loads of the same map (gnresource.id stays 4242). A fresh
+            // taskCompleteLayerEpic call mirrors what happens at app boot.
+            store = {
+                getState: () => ({
+                    gnresource: { id: 4242 },
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] }
+                })
+            };
+            const tickProcess = {
+                id: 'persist-completion-1',
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: {
+                        name: 'geonode:bdy_persist_1',
+                        type: 'wms',
+                        url: '/geoserver/wms'
+                    }
+                }
+            };
+
+            // First "page load": dispatches ADD_LAYER + SHOW_NOTIFICATION.
+            const first = liveActions();
+            const emittedFirst = [];
+            const subFirst = taskCompleteLayerEpic(first.action$, store)
+                .subscribe(a => emittedFirst.push(a), err => done(err));
+            first.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+
+            setTimeout(() => {
+                expect(emittedFirst.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                expect(emittedFirst.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(1);
+                subFirst.unsubscribe();
+
+                // Second "page load": fresh epic instance, same store
+                // (same mapId). Should read the persisted handled set and
+                // skip the completion → zero ADD_LAYER, zero notification.
+                const second = liveActions();
+                const emittedSecond = [];
+                const subSecond = taskCompleteLayerEpic(second.action$, store)
+                    .subscribe(a => emittedSecond.push(a), err => done(err));
+                second.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+
+                setTimeout(() => {
+                    expect(emittedSecond.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                    expect(emittedSecond.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(0);
+                    subSecond.unsubscribe();
+                    done();
+                }, 200);
+            }, 200);
+        });
+
+        it('does not bleed handled ids across different mapIds (key is scoped)', (done) => {
+            // Two different maps must not share the registry — otherwise a
+            // user who completed a Boundary creation on map A would have
+            // map B silently skip its own Boundary completion.
+            const tickProcess = {
+                id: 'cross-map-id',
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: { name: 'geonode:bdy_cross', type: 'wms', url: '/geoserver/wms' }
+                }
+            };
+            const storeA = { getState: () => ({ gnresource: { id: 1 }, layers: { flat: [] } }) };
+            const storeB = { getState: () => ({ gnresource: { id: 2 }, layers: { flat: [] } }) };
+
+            const a = liveActions();
+            const emittedA = [];
+            const subA = taskCompleteLayerEpic(a.action$, storeA)
+                .subscribe(act => emittedA.push(act), err => done(err));
+            a.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+
+            setTimeout(() => {
+                expect(emittedA.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
+                subA.unsubscribe();
+
+                const b = liveActions();
+                const emittedB = [];
+                const subB = taskCompleteLayerEpic(b.action$, storeB)
+                    .subscribe(act => emittedB.push(act), err => done(err));
+                b.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+
+                setTimeout(() => {
+                    // Different mapId → must fire.
+                    expect(emittedB.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
+                    subB.unsubscribe();
+                    done();
+                }, 200);
+            }, 200);
+        });
+
+        it('TTL-prunes entries older than 7 days on read', (done) => {
+            // Seed the shim with a stale entry (8 days old) for mapId 99 +
+            // a fresh entry. After the first epic boot for that map, the
+            // stale entry should be gone and a fresh process with that
+            // (formerly stale) id should be processed normally.
+            const staleId = 'stale-id-from-last-week';
+            const freshId = 'fresh-id';
+            const beyondTtlMs = HANDLED_IDS_TTL_MS + 24 * 60 * 60 * 1000;
+            const persisted = [
+                { id: staleId, ts: Date.now() - beyondTtlMs },
+                { id: freshId, ts: Date.now() }
+            ];
+            window.localStorage.setItem(
+                'hydrata_handled_completion_ids_99',
+                JSON.stringify(persisted)
+            );
+
+            store = {
+                getState: () => ({
+                    gnresource: { id: 99 },
+                    layers: { flat: [] }
+                })
+            };
+
+            // freshId still suppresses, staleId no longer does.
+            const tickStale = {
+                id: staleId,
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: { name: 'geonode:bdy_stale', type: 'wms', url: '/geoserver/wms' }
+                }
+            };
+            const tickFresh = {
+                id: freshId,
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: { name: 'geonode:bdy_fresh', type: 'wms', url: '/geoserver/wms' }
+                }
+            };
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(act => emitted.push(act), err => done(err));
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickStale, tickFresh] });
+
+            setTimeout(() => {
+                const adds = emitted.filter(act => act.type === 'ADD_LAYER');
+                // Stale entry was pruned → its addLayer fires; fresh entry
+                // suppresses → no second addLayer.
+                expect(adds.length).toBe(1);
+                expect(adds[0].layer.name).toBe('geonode:bdy_stale');
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('survives corrupt/malformed localStorage payload (defensive parse)', (done) => {
+            // Earlier code-paths or browser-extension interference could
+            // overwrite the storage key with garbage. Defensive: log
+            // nothing, treat as empty, never throw out of the epic.
+            window.localStorage.setItem(
+                'hydrata_handled_completion_ids_777',
+                '{not valid JSON,'
+            );
+            store = {
+                getState: () => ({
+                    gnresource: { id: 777 },
+                    layers: { flat: [] }
+                })
+            };
+            const tickProcess = {
+                id: 'corrupt-recovery',
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: { name: 'geonode:bdy_corrupt', type: 'wms', url: '/geoserver/wms' }
+                }
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(act => emitted.push(act), err => done(err));
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+
+            setTimeout(() => {
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        it('merges concurrent tab writes (load-merge-persist cycle)', (done) => {
+            // Cross-tab last-write-wins scenario: two tabs on the same map.
+            // Tab A persists A1, then tab B (whose in-memory Set knows only B1)
+            // writes — without the load-merge-persist cycle, B's write would
+            // overwrite A's entry. After the fix, localStorage must contain
+            // BOTH ids.
+            const storeShared = {
+                getState: () => ({
+                    gnresource: { id: 8181 },
+                    layers: { flat: [] }
+                })
+            };
+            const tickA = {
+                id: 'tab-a-completion',
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: { name: 'geonode:bdy_tab_a', type: 'wms', url: '/geoserver/wms' }
+                }
+            };
+            const tickB = {
+                id: 'tab-b-completion',
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: { name: 'geonode:bdy_tab_b', type: 'wms', url: '/geoserver/wms' }
+                }
+            };
+
+            // Tab A: fresh epic instance, handles tickA, persists A1.
+            const a = liveActions();
+            const emittedA = [];
+            const subA = taskCompleteLayerEpic(a.action$, storeShared)
+                .subscribe(act => emittedA.push(act), err => done(err));
+            a.subject.next({ type: TM_SET_PROCESSES, processes: [tickA] });
+
+            setTimeout(() => {
+                // A handled, persisted [A1].
+                expect(emittedA.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
+                const afterA = JSON.parse(
+                    window.localStorage.getItem('hydrata_handled_completion_ids_8181')
+                );
+                expect(afterA.length).toBe(1);
+                expect(afterA[0].id).toBe('tab-a-completion');
+                subA.unsubscribe();
+
+                // Tab B: separate epic instance (separate in-memory Set, no
+                // knowledge of A1). On boot it hydrates from localStorage and
+                // sees A1, then handles its own tickB. Crucially, A1 must
+                // remain in storage post-write — the merge guarantees it.
+                const b = liveActions();
+                const emittedB = [];
+                const subB = taskCompleteLayerEpic(b.action$, storeShared)
+                    .subscribe(act => emittedB.push(act), err => done(err));
+                b.subject.next({ type: TM_SET_PROCESSES, processes: [tickB] });
+
+                setTimeout(() => {
+                    expect(emittedB.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
+                    const afterB = JSON.parse(
+                        window.localStorage.getItem('hydrata_handled_completion_ids_8181')
+                    );
+                    const ids = afterB.map(e => e.id).sort();
+                    expect(ids).toEqual(['tab-a-completion', 'tab-b-completion']);
+                    subB.unsubscribe();
+                    done();
+                }, 200);
+            }, 200);
+        });
+
+        it('persists in-memory entries once mapId hydrates from null', (done) => {
+            // Null-to-value mapId transition. First tick fires with
+            // gnresource.id === null (TaskMonitor races ahead of gnresource
+            // hydration). The completion fires (in-memory Set guards
+            // duplicates within the page), but persist no-ops because
+            // mapId is null. On the next tick, mapId has hydrated — the
+            // buffered entry must be flushed to localStorage retroactively.
+            let mapIdNow = null;
+            const store = {
+                getState: () => ({
+                    gnresource: { id: mapIdNow },
+                    layers: { flat: [] }
+                })
+            };
+            const tickProcess = {
+                id: 'hydrate-after-null',
+                process_type: 'layer_create',
+                status: 'complete',
+                metadata: {
+                    model_class: 'Boundary',
+                    mapstore_layer: {
+                        name: 'geonode:bdy_hydrate',
+                        type: 'wms',
+                        url: '/geoserver/wms'
+                    }
+                }
+            };
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(act => emitted.push(act), err => done(err));
+
+            // First tick: mapId is null. Completion fires (in-memory only),
+            // localStorage must remain empty for any key under this map id.
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+
+            setTimeout(() => {
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                // Nothing persisted while mapId was null.
+                expect(window.localStorage.getItem('hydrata_handled_completion_ids_5555')).toBe(null);
+                expect(window.localStorage.getItem('hydrata_handled_completion_ids_null')).toBe(null);
+
+                // mapId hydrates. Next tick (same or different process) must
+                // retroactively flush the buffered entry to localStorage.
+                mapIdNow = 5555;
+                // Emit a benign tick (no new candidates — same id, already
+                // handled) just to drive the hydrate-from-null branch.
+                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+
+                setTimeout(() => {
+                    const stored = JSON.parse(
+                        window.localStorage.getItem('hydrata_handled_completion_ids_5555')
+                    );
+                    expect(Array.isArray(stored)).toBe(true);
+                    const ids = stored.map(e => e.id);
+                    expect(ids).toContain('hydrate-after-null');
+                    sub.unsubscribe();
+                    done();
+                }, 200);
+            }, 200);
+        });
+
+        it('caps pendingEntriesBeforeMapId at 500 entries (drops oldest)', (done) => {
+            // Soft cap to prevent unbounded growth in non-map contexts where
+            // gnresource.id never hydrates. Push >500 entries with null
+            // mapId; on hydrate, only the most-recent 500 should land in
+            // localStorage.
+            let mapIdNow = null;
+            const store = {
+                getState: () => ({
+                    gnresource: { id: mapIdNow },
+                    layers: { flat: [] }
+                })
+            };
+            const totalPushed = 550;
+            const processes = [];
+            for (let i = 0; i < totalPushed; i++) {
+                processes.push({
+                    id: `cap-test-${i}`,
+                    process_type: 'layer_create',
+                    status: 'complete',
+                    metadata: {
+                        model_class: 'Boundary',
+                        mapstore_layer: {
+                            name: `geonode:bdy_cap_${i}`,
+                            type: 'wms',
+                            url: '/geoserver/wms'
+                        }
+                    }
+                });
+            }
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(act => emitted.push(act), err => done(err));
+
+            // First tick: 550 candidates, mapId null. In-memory Set
+            // captures all; pending buffer caps at 500 (oldest 50 dropped).
+            subject.next({ type: TM_SET_PROCESSES, processes });
+
+            setTimeout(() => {
+                expect(window.localStorage.getItem('hydrata_handled_completion_ids_4242')).toBe(null);
+
+                // Hydrate mapId. Next tick replays pending buffer to storage.
+                mapIdNow = 4242;
+                subject.next({ type: TM_SET_PROCESSES, processes: [] });
+
+                setTimeout(() => {
+                    const stored = JSON.parse(
+                        window.localStorage.getItem('hydrata_handled_completion_ids_4242')
+                    );
+                    expect(Array.isArray(stored)).toBe(true);
+                    // Buffer was capped at 500; oldest 50 dropped → ids 50..549 remain.
+                    expect(stored.length).toBeLessThanOrEqualTo(500);
+                    const ids = stored.map(e => e.id);
+                    expect(ids).toNotContain('cap-test-0');
+                    expect(ids).toNotContain('cap-test-49');
+                    expect(ids).toContain('cap-test-549');
+                    expect(ids).toContain('cap-test-50');
+                    sub.unsubscribe();
+                    done();
+                }, 200);
+            }, 200);
         });
     });
 
