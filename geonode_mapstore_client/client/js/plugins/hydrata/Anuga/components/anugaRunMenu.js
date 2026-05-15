@@ -48,6 +48,11 @@ class AnugaRunMenuClass extends React.Component {
         this._mounted = true;
         getAnugaConfig().then((cfg) => {
             if (this._mounted && cfg && cfg.default_compute_backend) {
+                // TASK-964: intentional post-mount setState — site config is async
+                // (network roundtrip to /api/v2/anuga/config/), so it cannot be
+                // resolved during the synchronous mount. _mounted guard prevents
+                // late-callback warnings if the user closes the menu first.
+                // eslint-disable-next-line react/no-did-mount-set-state
                 this.setState({ computeBackend: cfg.default_compute_backend });
             }
         });

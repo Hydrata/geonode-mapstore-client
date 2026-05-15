@@ -81,16 +81,17 @@ export const cleanTranslate = () => {
  *   getProp({}, 'data', 'Data')                        // undefined
  */
 export const getProp = (props, ...candidateKeys) => {
-    if (!props || typeof props !== 'object') {
-        return undefined;
-    }
-    for (let i = 0; i < candidateKeys.length; i++) {
-        const k = candidateKeys[i];
-        if (k && Object.prototype.hasOwnProperty.call(props, k) && props[k] !== undefined) {
-            return props[k];
+    let value;
+    if (props && typeof props === 'object') {
+        for (let i = 0; i < candidateKeys.length; i++) {
+            const k = candidateKeys[i];
+            if (k && Object.prototype.hasOwnProperty.call(props, k) && props[k] !== undefined) {
+                value = props[k];
+                break;
+            }
         }
     }
-    return undefined;
+    return value;
 };
 
 /**
