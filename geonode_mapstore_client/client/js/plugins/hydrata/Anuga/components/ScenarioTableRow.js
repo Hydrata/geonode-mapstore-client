@@ -340,6 +340,29 @@ class ScenarioTableRow extends React.Component {
                     <span className="glyphicon glyphicon-refresh glyphicon-spin" aria-hidden="true" />
                 </Button>
             );
+        case 'created':
+            // Per state_machine.py the only transition from `created` is to
+            // BUILDING, so the run-column action here is Build, not Run.
+            if (!canRunScenario) return null;
+            return (
+                <Button
+                    bsStyle={'success'} bsSize={'xsmall'}
+                    className="anuga-btn"
+                    onClick={() => {
+                        const missingField = this.props.validateScenario
+                            ? this.props.validateScenario(scenario)
+                            : null;
+                        if (!missingField) {
+                            this.buildScenario();
+                        } else {
+                            // eslint-disable-next-line no-alert
+                            window.alert("Scenario is not valid: " + missingField + " is required");
+                        }
+                    }}
+                >
+                    <Message msgId="hydrata.anuga.build" />
+                </Button>
+            );
         default:
             return (
                 <Button

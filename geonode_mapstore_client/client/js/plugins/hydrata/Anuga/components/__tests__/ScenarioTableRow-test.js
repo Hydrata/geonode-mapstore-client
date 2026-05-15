@@ -125,27 +125,30 @@ describe('V2P-22 ScenarioTableRow per-role exact-button-set', () => {
 
     // EXACT matrix — each role × {own scenario, other scenario}.
     // Status='created' (default fixture) → not cancellable → Delete = canEdit.
-    // canRunScenario=true means Run-or-Download present for built/complete states;
-    // status='created' shows a disabled Run, which still renders as .anuga-btn
-    // (matches the renderRunButton "default" branch). We assert presence, not
-    // disabled-state, since the role gate is what V2P-22 covers.
+    // Per F-003 (TASK-949 W0.1) the run-column for status='created' now
+    // renders a Build button gated by canRunScenario, instead of the old
+    // disabled-Run fall-through. So for canRunScenario=true rows with
+    // canEdit=true two Build buttons render: one from renderBuildCell() in
+    // the Build column and one from renderRunButton() 'created' case in the
+    // Run column. For canEdit=false but canRunScenario=true rows, only the
+    // run-column Build button renders (no Build column for them).
     //
     // 'log' is always present (no role gate) — but test still pins it to
     // catch accidental coupling.
     const matrix = [
         // role,         scenarioOwner, expected
-        ['owner',        SELF,          ['build', 'delete', 'log', 'run-or-download']],
-        ['owner',        OTHER,         ['build', 'delete', 'log', 'run-or-download']],
-        ['manager',      SELF,          ['build', 'delete', 'log', 'run-or-download']],
-        ['manager',      OTHER,         ['build', 'delete', 'log', 'run-or-download']],
-        ['editor',       SELF,          ['build', 'delete', 'log', 'run-or-download']],
-        ['editor',       OTHER,         ['build', 'delete', 'log', 'run-or-download']],
-        ['contributor',  SELF,          ['build', 'delete', 'log', 'run-or-download']],
-        ['contributor',  OTHER,         ['log', 'run-or-download']],  // canEdit=false → no build/delete
-        ['viewer',       SELF,          ['log', 'run-or-download']],
-        ['viewer',       OTHER,         ['log', 'run-or-download']],
-        ['anon',         SELF,          ['log', 'run-or-download']],
-        ['anon',         OTHER,         ['log', 'run-or-download']]
+        ['owner',        SELF,          ['build', 'build', 'delete', 'log']],
+        ['owner',        OTHER,         ['build', 'build', 'delete', 'log']],
+        ['manager',      SELF,          ['build', 'build', 'delete', 'log']],
+        ['manager',      OTHER,         ['build', 'build', 'delete', 'log']],
+        ['editor',       SELF,          ['build', 'build', 'delete', 'log']],
+        ['editor',       OTHER,         ['build', 'build', 'delete', 'log']],
+        ['contributor',  SELF,          ['build', 'build', 'delete', 'log']],
+        ['contributor',  OTHER,         ['build', 'log']],  // canEdit=false → no Build-column build/delete; F-003 run-column build still renders
+        ['viewer',       SELF,          ['build', 'log']],
+        ['viewer',       OTHER,         ['build', 'log']],
+        ['anon',         SELF,          ['build', 'log']],
+        ['anon',         OTHER,         ['build', 'log']]
     ];
 
     matrix.forEach(([role, owner, expected]) => {
@@ -157,15 +160,17 @@ describe('V2P-22 ScenarioTableRow per-role exact-button-set', () => {
         });
     });
 
-    it('viewer with canRunScenario=false hides run-or-download', () => {
-        // Note: status='created' default → renderRunButton hits the "default"
-        // branch which renders a disabled Run button regardless of canRunScenario.
-        // The canRunScenario gate only applies to 'built', 'cancelled', 'error'
-        // statuses. For 'created' the row always shows the disabled Run.
-        // This assertion just regression-pins that contract.
+    it('viewer with canRunScenario=false renders no run-column button', () => {
+        // F-003 (TASK-949 W0.1) contract: renderRunButton for status='created'
+        // returns null when !canRunScenario. The viewer role also has
+        // canEdit=false, so no Build-column button renders either. Only the
+        // always-present Log button remains in the .anuga-btn set, and no
+        // 'run-or-download' or 'build' label is produced.
         return render({ role: 'viewer', scenarioOwnerId: SELF, canRunScenario: false }).then(() => {
             const set = readButtonSet();
-            expect(set).toInclude('run-or-download');
+            expect(set).toNotInclude('run-or-download');
+            expect(set).toNotInclude('build');
+            expect(set).toEqual(['log']);
         });
     });
 });
