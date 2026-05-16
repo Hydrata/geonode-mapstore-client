@@ -25,10 +25,15 @@ const {
     deleteHydrologyItemEpic
 } = require('../epicsHydrology');
 
+const reducer = require('../reducersHydrology').default;
+
 const {
     FETCH_HYDROLOGY_TIME_SERIES_DATA,
     FETCH_HYDROLOGY_TEMPORAL_PATTERN_DATA,
     FETCH_HYDROLOGY_IDF_TABLE_DATA,
+    SET_HYDROLOGY_TIME_SERIES_DATA,
+    SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
+    SET_HYDROLOGY_IDF_TABLE_DATA,
     SAVE_HYDROLOGY_ITEM,
     DELETE_HYDROLOGY_ITEM
 } = require('../actionsHydrology');
@@ -164,6 +169,132 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                 done();
             }
         );
+    });
+
+    // Regression for the "TaskMonitor poller dies after one tick" bug.
+    // The V2 hydrology endpoints set pagination_class = HydrologyPagination,
+    // so the response body is {count, next, previous, results: [...]}.
+    // Before the fix, fetchAndDispatch handed the whole body to the reducer,
+    // which calls .map() on action.payload — a TypeError that propagates back
+    // through redux-observable and tears down every merged epic timer.
+    describe('paginated DRF body is unwrapped into action.payload (array)', () => {
+        const paginatedReply = (results) => ({
+            count: results.length,
+            next: null,
+            previous: null,
+            results
+        });
+
+        [
+            ['fetchIdfTableEpic', fetchIdfTableEpic,
+                FETCH_HYDROLOGY_IDF_TABLE_DATA, SET_HYDROLOGY_IDF_TABLE_DATA],
+            ['fetchTimeSeriesEpic', fetchTimeSeriesEpic,
+                FETCH_HYDROLOGY_TIME_SERIES_DATA, SET_HYDROLOGY_TIME_SERIES_DATA],
+            ['fetchTemporalPatternEpic', fetchTemporalPatternEpic,
+                FETCH_HYDROLOGY_TEMPORAL_PATTERN_DATA, SET_HYDROLOGY_TEMPORAL_PATTERN_DATA]
+        ].forEach(([name, epic, fetchType, setType]) => {
+            it(`${name}: action.payload is the results array, not the body`, (done) => {
+                const rows = [{ id: 1, name: 'A', data: [] }, { id: 2, name: 'B', data: [] }];
+                mockAxios.reset();
+                mockAxios.onGet().reply(200, paginatedReply(rows));
+                const collected = [];
+                const action$ = mockActions([{ type: fetchType }]);
+                const sub = epic(action$, store).subscribe(
+                    action => collected.push(action),
+                    err => done(err),
+                    () => {
+                        expect(collected.length).toBe(1);
+                        expect(collected[0].type).toBe(setType);
+                        expect(Array.isArray(collected[0].payload)).toBe(true);
+                        expect(collected[0].payload).toEqual(rows);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+            });
+        });
+
+        it('end-to-end: dispatched action flows through reducer without crashing .map()', (done) => {
+            const rows = [
+                { id: 1, name: 'IDF-A', data: [] },
+                { id: 2, name: 'IDF-B', data: [] }
+            ];
+            mockAxios.reset();
+            mockAxios.onGet().reply(200, paginatedReply(rows));
+            const action$ = mockActions([{ type: FETCH_HYDROLOGY_IDF_TABLE_DATA }]);
+            const sub = fetchIdfTableEpic(action$, store).subscribe(
+                action => {
+                    // This is the path that killed the TaskMonitor poller —
+                    // run the reducer to prove it survives the new payload.
+                    const state = reducer(undefined, action);
+                    expect(state.idfTables.length).toBe(2);
+                    expect(state.idfTables[0].name).toBe('IDF-A');
+                    expect(state.idfTables[1].name).toBe('IDF-B');
+                },
+                err => done(err),
+                () => {
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        it('empty paginated body (results: []) dispatches [], does not crash reducer', (done) => {
+            mockAxios.reset();
+            mockAxios.onGet().reply(200, paginatedReply([]));
+            const action$ = mockActions([{ type: FETCH_HYDROLOGY_IDF_TABLE_DATA }]);
+            const sub = fetchIdfTableEpic(action$, store).subscribe(
+                action => {
+                    expect(Array.isArray(action.payload)).toBe(true);
+                    expect(action.payload.length).toBe(0);
+                    const state = reducer(undefined, action);
+                    expect(state.idfTables).toEqual([]);
+                },
+                err => done(err),
+                () => {
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        it('malformed body (missing results) falls back to [] — reducer survives', (done) => {
+            mockAxios.reset();
+            mockAxios.onGet().reply(200, { count: 0, next: null, previous: null });
+            const action$ = mockActions([{ type: FETCH_HYDROLOGY_IDF_TABLE_DATA }]);
+            const sub = fetchIdfTableEpic(action$, store).subscribe(
+                action => {
+                    expect(Array.isArray(action.payload)).toBe(true);
+                    expect(action.payload.length).toBe(0);
+                    expect(() => reducer(undefined, action)).toNotThrow();
+                },
+                err => done(err),
+                () => {
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        it('legacy non-paginated array body still works (back-compat)', (done) => {
+            const rows = [{ id: 3, name: 'legacy', data: [] }];
+            mockAxios.reset();
+            mockAxios.onGet().reply(200, rows);
+            const action$ = mockActions([{ type: FETCH_HYDROLOGY_IDF_TABLE_DATA }]);
+            const sub = fetchIdfTableEpic(action$, store).subscribe(
+                action => {
+                    expect(action.payload).toEqual(rows);
+                    const state = reducer(undefined, action);
+                    expect(state.idfTables.length).toBe(1);
+                    expect(state.idfTables[0].name).toBe('legacy');
+                },
+                err => done(err),
+                () => {
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
     });
 
     it('regression guard: no V1 /anuga/api/ URLs are sent during the full lifecycle', (done) => {

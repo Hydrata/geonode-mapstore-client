@@ -50,7 +50,12 @@ async function fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunc
         const response = await axios.get(
             `/api/v2/anuga/projects/${projectId}/${v2Hydrology(endpoint)}/`
         );
-        return dispatchFunction(response.data);
+        // Unwrap DRF pagination — a reducer .map() TypeError propagates
+        // through redux-observable and tears down every merged epic timer
+        // (TaskMonitor poller included).
+        const data = response.data;
+        const payload = Array.isArray(data) ? data : (data?.results ?? []);
+        return dispatchFunction(payload);
     } catch (error) {
         return errorFunction(error);
     }
