@@ -11,6 +11,16 @@ import {
     SET_ACTIVE_HYDROLOGY_ITEM,
     CREATE_HYDROLOGY_FORM,
     DELETE_HYDROLOGY_ITEM_SUCCESS,
+    SET_IDF_DERIVE_LAT,
+    SET_IDF_DERIVE_LON,
+    SET_IDF_DERIVE_DURATIONS,
+    SET_IDF_DERIVE_RPS,
+    SET_IDF_DERIVE_MAP_PICK_ACTIVE,
+    DERIVE_IDF_REQUEST,
+    SET_IDF_DERIVE_PROCESS_ID,
+    SET_IDF_DERIVE_ERROR,
+    SET_IDF_DERIVE_RESULT,
+    SET_CELERY_ANUGA_ENABLED,
     initHydrology,
     initHydrologyFulfilled,
     initHydrologyRejected,
@@ -22,7 +32,17 @@ import {
     setActiveHydrologyItem,
     createHydrologyForm,
     saveHydrologyItem,
-    deleteHydrologyItem
+    deleteHydrologyItem,
+    setIdfDeriveLat,
+    setIdfDeriveLon,
+    setIdfDeriveDurations,
+    setIdfDeriveRPs,
+    setIdfDeriveMapPickActive,
+    deriveIdfRequest,
+    setIdfDeriveProcessId,
+    setIdfDeriveError,
+    setIdfDeriveResult,
+    setCeleryAnugaEnabled
 } from '../actionsHydrology';
 
 describe('Hydrology Plugin', () => {
@@ -123,9 +143,14 @@ describe('Hydrology Plugin', () => {
             activeHydrologyPage: 'idf-table'
         };
 
-        it('should return initial state', () => {
+        it('should return initial state (with TASK-934 idfDerive slice present)', () => {
             const state = reducer(undefined, { type: 'UNKNOWN' });
-            expect(state).toEqual(initialState);
+            // Existing fields preserved verbatim.
+            expect(state.isHydrologyProject).toBe(false);
+            expect(state.showHydrologyMainMenu).toBe(false);
+            expect(state.activeHydrologyPage).toBe('idf-table');
+            // TASK-934: new slice present but doesn't disturb the older keys.
+            expect(state.idfDerive).toExist();
         });
 
         it('should handle INIT_HYDROLOGY_FULFILLED', () => {
@@ -223,6 +248,121 @@ describe('Hydrology Plugin', () => {
             expect(state.idfTables.length).toBe(1);
             expect(state.idfTables[0].id).toBe(2);
             expect(state.activeHydrologyItem).toBe(null);
+        });
+    });
+
+    // TASK-934 — IDF Derive action creators + reducer slice.
+    describe('TASK-934 IDF Derive actions', () => {
+        it('setIdfDeriveLat', () => {
+            const a = setIdfDeriveLat(-37.8);
+            expect(a.type).toBe(SET_IDF_DERIVE_LAT);
+            expect(a.lat).toBe(-37.8);
+        });
+        it('setIdfDeriveLon', () => {
+            const a = setIdfDeriveLon(144.9);
+            expect(a.type).toBe(SET_IDF_DERIVE_LON);
+            expect(a.lon).toBe(144.9);
+        });
+        it('setIdfDeriveDurations', () => {
+            const a = setIdfDeriveDurations('60, 1440');
+            expect(a.type).toBe(SET_IDF_DERIVE_DURATIONS);
+            expect(a.text).toBe('60, 1440');
+        });
+        it('setIdfDeriveRPs', () => {
+            const a = setIdfDeriveRPs('2, 100');
+            expect(a.type).toBe(SET_IDF_DERIVE_RPS);
+            expect(a.text).toBe('2, 100');
+        });
+        it('setIdfDeriveMapPickActive', () => {
+            const a = setIdfDeriveMapPickActive(true);
+            expect(a.type).toBe(SET_IDF_DERIVE_MAP_PICK_ACTIVE);
+            expect(a.active).toBe(true);
+        });
+        it('deriveIdfRequest', () => {
+            const a = deriveIdfRequest();
+            expect(a.type).toBe(DERIVE_IDF_REQUEST);
+        });
+        it('setIdfDeriveProcessId', () => {
+            const a = setIdfDeriveProcessId('celery-uuid', 77);
+            expect(a.type).toBe(SET_IDF_DERIVE_PROCESS_ID);
+            expect(a.processId).toBe(77);
+            expect(a.taskId).toBe('celery-uuid');
+        });
+        it('setIdfDeriveError', () => {
+            const a = setIdfDeriveError('bad input');
+            expect(a.type).toBe(SET_IDF_DERIVE_ERROR);
+            expect(a.message).toBe('bad input');
+        });
+        it('setIdfDeriveResult', () => {
+            const a = setIdfDeriveResult({id: 7});
+            expect(a.type).toBe(SET_IDF_DERIVE_RESULT);
+            expect(a.idfTable.id).toBe(7);
+        });
+        it('setCeleryAnugaEnabled', () => {
+            const a = setCeleryAnugaEnabled(false);
+            expect(a.type).toBe(SET_CELERY_ANUGA_ENABLED);
+            expect(a.enabled).toBe(false);
+        });
+    });
+
+    describe('TASK-934 IDF Derive reducer slice', () => {
+        it('initial state includes idfDerive defaults', () => {
+            const s = reducer(undefined, {type: 'UNKNOWN'});
+            expect(s.idfDerive).toExist();
+            expect(s.idfDerive.celeryAnugaEnabled).toBe(true);
+            expect(s.idfDerive.lat).toBe(null);
+            expect(s.idfDerive.lon).toBe(null);
+            expect(s.idfDerive.durationsText.length).toBeGreaterThan(0);
+            expect(s.idfDerive.rpsText.length).toBeGreaterThan(0);
+        });
+        it('SET_IDF_DERIVE_LAT updates lat', () => {
+            const s = reducer(undefined, setIdfDeriveLat(-37.8));
+            expect(s.idfDerive.lat).toBe(-37.8);
+        });
+        it('SET_IDF_DERIVE_LON updates lon', () => {
+            const s = reducer(undefined, setIdfDeriveLon(144.9));
+            expect(s.idfDerive.lon).toBe(144.9);
+        });
+        it('SET_IDF_DERIVE_DURATIONS updates durationsText', () => {
+            const s = reducer(undefined, setIdfDeriveDurations('60, 1440'));
+            expect(s.idfDerive.durationsText).toBe('60, 1440');
+        });
+        it('SET_IDF_DERIVE_RPS updates rpsText', () => {
+            const s = reducer(undefined, setIdfDeriveRPs('2, 100'));
+            expect(s.idfDerive.rpsText).toBe('2, 100');
+        });
+        it('SET_IDF_DERIVE_MAP_PICK_ACTIVE updates mapPickActive', () => {
+            const s = reducer(undefined, setIdfDeriveMapPickActive(true));
+            expect(s.idfDerive.mapPickActive).toBe(true);
+        });
+        it('DERIVE_IDF_REQUEST clears error+result, sets inFlight=true', () => {
+            const pre = reducer(undefined, setIdfDeriveError('old error'));
+            expect(pre.idfDerive.error).toBe('old error');
+            const s = reducer(pre, deriveIdfRequest());
+            expect(s.idfDerive.error).toBe(null);
+            expect(s.idfDerive.result).toBe(null);
+            expect(s.idfDerive.inFlight).toBe(true);
+        });
+        it('SET_IDF_DERIVE_PROCESS_ID stores processId+taskId', () => {
+            const s = reducer(undefined, setIdfDeriveProcessId('celery-uuid', 77));
+            expect(s.idfDerive.processId).toBe(77);
+            expect(s.idfDerive.taskId).toBe('celery-uuid');
+        });
+        it('SET_IDF_DERIVE_ERROR stores message + clears inFlight', () => {
+            const pre = reducer(undefined, deriveIdfRequest());
+            const s = reducer(pre, setIdfDeriveError('boom'));
+            expect(s.idfDerive.error).toBe('boom');
+            expect(s.idfDerive.inFlight).toBe(false);
+        });
+        it('SET_IDF_DERIVE_RESULT stores result + clears inFlight', () => {
+            const pre = reducer(undefined, deriveIdfRequest());
+            const s = reducer(pre, setIdfDeriveResult({id: 7}));
+            expect(s.idfDerive.result.id).toBe(7);
+            expect(s.idfDerive.inFlight).toBe(false);
+        });
+        it('SET_CELERY_ANUGA_ENABLED flips celeryAnugaEnabled', () => {
+            const s = reducer(undefined, setCeleryAnugaEnabled(false));
+            expect(s.idfDerive.celeryAnugaEnabled).toBe(false);
         });
     });
 });

@@ -47,7 +47,9 @@ describe('anugaApi', () => {
             // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
             'deleteFrictionRasterV2',
             // TASK-964 — site-level config (default compute backend for FE bootstrap)
-            'getAnugaConfig'
+            'getAnugaConfig',
+            // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM ingest
+            'createTerrainFromBbox'
         ];
 
         expectedFunctions.forEach(name => {
@@ -56,12 +58,13 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 47 API functions', () => {
-            // 45 baseline + TASK-955 deleteRainfallV2 + TASK-964 getAnugaConfig = 47.
+        it('should export exactly 48 API functions', () => {
+            // 45 baseline + TASK-955 deleteRainfallV2 + TASK-964 getAnugaConfig
+            // + TASK-930 createTerrainFromBbox = 48.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(47);
+            expect(exportedFunctions.length).toBe(48);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
@@ -248,6 +251,10 @@ describe('anugaApi', () => {
         // TASK-829 (W4.2b) — FrictionRaster cascade-delete (raster sibling to Terrain)
         it('deleteFrictionRasterV2 takes 2 arguments (projectId, frictionRasterId)', () => {
             expect(anugaApi.deleteFrictionRasterV2.length).toBe(2);
+        });
+        // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM ingest
+        it('createTerrainFromBbox takes 2 arguments (projectId, payload)', () => {
+            expect(anugaApi.createTerrainFromBbox.length).toBe(2);
         });
     });
 
@@ -621,6 +628,24 @@ describe('anugaApi', () => {
             mockAxios.onGet('/api/v2/anuga/config/').networkError();
             anugaApi.getAnugaConfig().then((data) => {
                 expect(data).toEqual({ default_compute_backend: 'local' });
+                done();
+            }).catch(done);
+        });
+
+        // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM ingest. BE endpoint
+        // shipped in TASK-929 (dc78cf3); body shape pinned by this test.
+        it('createTerrainFromBbox POSTs to V2 /terrain/create-from-bbox/ with correct body', (done) => {
+            const payload = {
+                title: 'GLO-30 sample',
+                source: 'copernicus_glo30',
+                bbox: [115.7, -32.1, 116.2, -31.6]
+            };
+            anugaApi.createTerrainFromBbox(7, payload).then(() => {
+                expect(lastUrl('post')).toBe('/api/v2/anuga/projects/7/terrain/create-from-bbox/');
+                const body = JSON.parse(mockAxios.history.post.slice(-1)[0].data);
+                expect(body.title).toBe('GLO-30 sample');
+                expect(body.source).toBe('copernicus_glo30');
+                expect(body.bbox).toEqual([115.7, -32.1, 116.2, -31.6]);
                 done();
             }).catch(done);
         });

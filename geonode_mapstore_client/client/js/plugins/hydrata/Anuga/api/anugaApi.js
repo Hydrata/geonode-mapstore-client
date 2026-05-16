@@ -126,6 +126,15 @@ export const deleteScenario = (projectId, scenarioId) =>
 export const deleteTerrainV2 = (projectId, terrainId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/`);
 
+// TASK-930 (W2-FE) — POST to the BE GLO-30 ingest endpoint shipped in
+// TASK-929 (dc78cf3). Body shape: {title, source: 'copernicus_glo30',
+// bbox: [minLon, minLat, maxLon, maxLat]}. Returns 202 + serialized
+// Terrain; fetch + reprojection + GeoNode layer creation runs async on
+// the anuga Celery pool. The new Terrain appears in the FE layer list
+// via the existing TaskMonitor + taskCompleteLayerEpic polling loop.
+export const createTerrainFromBbox = (projectId, payload) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/terrain/create-from-bbox/`, payload);
+
 export const deleteBoundaryV2 = (projectId, boundaryId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/boundaries/${boundaryId}/`);
 

@@ -3,6 +3,7 @@ import {connect} from "react-redux";
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
+import HydrologyDetailIdfDerive from './hydrologyDetailIdfDerive';
 import HydrologyDetailTemporalPattern from './hydrologyDetailTemporalPattern';
 import HydrologyDetailTimeSeries from './hydrologyDetailTimeSeries';
 import HydrologyDetailInflow from './hydrologyDetailInflow';
@@ -37,6 +38,20 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
     render() {
+        // TASK-934 — IDF Derive is a one-shot form, not a list-of-items
+        // workflow. Bypass the items column + save/delete footer entirely
+        // when this tab is active; the panel manages its own submit state.
+        if (this.props.activeHydrologyPage === 'idf-derive') {
+            return (
+                <div id={"hydrology-list-detail-container"}>
+                    <div id={"hydrology-list-detail-body"}>
+                        <div id={"hydrology-idf-derive-container"} style={{padding: '10px', width: '100%'}}>
+                            <HydrologyDetailIdfDerive/>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
         return (
             <div id={"hydrology-list-detail-container"}>
                 <div id={"hydrology-list-detail-body"}>

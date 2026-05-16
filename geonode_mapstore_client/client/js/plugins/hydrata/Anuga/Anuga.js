@@ -66,7 +66,10 @@ import {
     deleteFrictionRasterEpic,
     // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
     vectorDrawAnugaCompleteEpic,
-    vectorDrawAnugaCancelledEpic
+    vectorDrawAnugaCancelledEpic,
+    // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker.
+    terrainBboxEndDrawingEpic,
+    createTerrainFromBboxEpic
 } from "./epicsAnuga";
 import {
     fetchMembershipsEpic,
@@ -151,6 +154,9 @@ export default createPlugin('Anuga', {
         deleteFrictionRasterEpic,
         // TASK-793 — VectorDraw editor handlers for migrated Anuga prefixes
         vectorDrawAnugaCompleteEpic,
-        vectorDrawAnugaCancelledEpic
+        vectorDrawAnugaCancelledEpic,
+        // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker epics.
+        terrainBboxEndDrawingEpic,
+        createTerrainFromBboxEpic
     }
 });

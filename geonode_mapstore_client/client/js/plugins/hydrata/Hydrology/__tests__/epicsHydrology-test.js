@@ -22,7 +22,11 @@ const {
     fetchTemporalPatternEpic,
     fetchIdfTableEpic,
     saveHydrologyItemEpic,
-    deleteHydrologyItemEpic
+    deleteHydrologyItemEpic,
+    deriveIdfEpic,
+    idfDeriveCompleteEpic,
+    idfDeriveMapPickEpic,
+    loadAnugaConfigEpic
 } = require('../epicsHydrology');
 
 const reducer = require('../reducersHydrology').default;
@@ -35,7 +39,16 @@ const {
     SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
     SET_HYDROLOGY_IDF_TABLE_DATA,
     SAVE_HYDROLOGY_ITEM,
-    DELETE_HYDROLOGY_ITEM
+    DELETE_HYDROLOGY_ITEM,
+    DERIVE_IDF_REQUEST,
+    SET_IDF_DERIVE_PROCESS_ID,
+    SET_IDF_DERIVE_ERROR,
+    SET_IDF_DERIVE_RESULT,
+    SET_IDF_DERIVE_LAT,
+    SET_IDF_DERIVE_LON,
+    SET_IDF_DERIVE_MAP_PICK_ACTIVE,
+    SET_CELERY_ANUGA_ENABLED,
+    INIT_HYDROLOGY
 } = require('../actionsHydrology');
 
 const mockActions = (actions) => {
@@ -290,6 +303,241 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                 },
                 err => done(err),
                 () => {
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+    });
+
+    // TASK-934 — IDF Derive epics: deriveIdf POST, 503/error handling,
+    // TaskMonitor → IDFTable fetch on complete, map-click capture,
+    // /config/ celery_anuga_enabled hydration on INIT_HYDROLOGY.
+    describe('TASK-934 IDF Derive epics', () => {
+        const idfDeriveState = (slice) => ({
+            gnresource: { id: 1 },
+            anuga: { projects: { data: { id: projectId } } },
+            security: { user: { pk: 1 } },
+            hydrology: { idfDerive: slice || {} }
+        });
+        const idfDeriveStore = (slice, tmByid) => ({
+            getState: () => ({
+                ...idfDeriveState(slice),
+                taskMonitor: { processes: { byId: tmByid || {} } }
+            })
+        });
+
+        it('deriveIdfEpic POSTs to /idf-tables/derive/ and dispatches SET_IDF_DERIVE_PROCESS_ID', (done) => {
+            mockAxios.reset();
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(202, {task_id: 'celery-uuid', process_id: 77});
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60, 1440', rpsText: '2, 100'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    expect(collected.length).toBe(1);
+                    expect(collected[0].type).toBe(SET_IDF_DERIVE_PROCESS_ID);
+                    expect(collected[0].processId).toBe(77);
+                    expect(collected[0].taskId).toBe('celery-uuid');
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        it('deriveIdfEpic 503 → SET_IDF_DERIVE_ERROR + SET_CELERY_ANUGA_ENABLED(false)', function _t(done) {
+            this.timeout(6000);
+            mockAxios.reset();
+            // 503 is the site-disabled-by-CELERY_ANUGA_ENABLED=false signal.
+            // axios-mock-adapter requires a body for some rejection codes;
+            // pass an explicit object so the rejection surfaces with
+            // error.response.status === 503.
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(503, { detail: 'unavailable' });
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60, 1440', rpsText: '2, 100'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            deriveIdfEpic(action$, idfDeriveStore(slice))
+                .take(2)
+                .subscribe(
+                    a => collected.push(a),
+                    err => done(err),
+                    () => {
+                        try {
+                            const types = collected.map(c => c.type);
+                            expect(types.indexOf(SET_IDF_DERIVE_ERROR)).toBeGreaterThan(-1);
+                            expect(types.indexOf(SET_CELERY_ANUGA_ENABLED)).toBeGreaterThan(-1);
+                            const setEnabled = collected.find(c => c.type === SET_CELERY_ANUGA_ENABLED);
+                            expect(setEnabled.enabled).toBe(false);
+                            done();
+                        } catch (e) { done(e); }
+                    }
+                );
+        });
+
+        it('deriveIdfEpic 400 → SET_IDF_DERIVE_ERROR (non-503 path)', (done) => {
+            // axios-mock-adapter's exact rejection shape for non-2xx isn't
+            // guaranteed across versions (error.response.data may or may
+            // not survive); assert only that the epic dispatches a single
+            // SET_IDF_DERIVE_ERROR (string message) and does NOT dispatch
+            // SET_CELERY_ANUGA_ENABLED (that path is 503-only).
+            mockAxios.reset();
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(400, {detail: 'lat out of range'});
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60', rpsText: '2'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            let finished = false;
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => {
+                    if (!finished && a.type === SET_IDF_DERIVE_ERROR) {
+                        finished = true;
+                        try {
+                            expect(typeof a.message).toBe('string');
+                            expect(a.message.length).toBeGreaterThan(0);
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) { done(e); }
+                    } else if (!finished && a.type === SET_CELERY_ANUGA_ENABLED) {
+                        finished = true;
+                        done(new Error('400 must NOT flip celeryAnugaEnabled (503-only)'));
+                    }
+                },
+                err => { if (!finished) { finished = true; done(err); } }
+            );
+        });
+
+        it('deriveIdfEpic missing lat/lon → SET_IDF_DERIVE_ERROR without HTTP call', (done) => {
+            mockAxios.reset();
+            const slice = {
+                lat: null, lon: null,
+                durationsText: '60', rpsText: '2'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    expect(collected.length).toBe(1);
+                    expect(collected[0].type).toBe(SET_IDF_DERIVE_ERROR);
+                    expect(mockAxios.history.post.length).toBe(0);
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        it('idfDeriveCompleteEpic GETs IDFTable when TaskMonitor process flips to complete', (done) => {
+            mockAxios.reset();
+            const idftableId = 999;
+            mockAxios.onGet(`/api/v2/anuga/projects/${projectId}/idf-tables/${idftableId}/`)
+                .reply(200, {id: idftableId, provenance: {source: 'ERA5-Land'}});
+            const tmByid = {
+                88: {id: 88, status: 'complete', metadata: {idftable_id: idftableId}}
+            };
+            const action$ = mockActions([{
+                type: SET_IDF_DERIVE_PROCESS_ID, processId: 88, taskId: 'x'
+            }]);
+            const collected = [];
+            const sub = idfDeriveCompleteEpic(action$, idfDeriveStore({}, tmByid)).subscribe(
+                a => {
+                    collected.push(a);
+                    if (collected.some(c => c.type === SET_IDF_DERIVE_RESULT)) {
+                        if (sub) sub.unsubscribe();
+                        expect(collected.find(c => c.type === SET_IDF_DERIVE_RESULT).idfTable.id).toBe(idftableId);
+                        done();
+                    }
+                },
+                err => done(err)
+            );
+        });
+
+        it('idfDeriveCompleteEpic SET_IDF_DERIVE_ERROR when process status=error', (done) => {
+            mockAxios.reset();
+            const tmByid = {
+                88: {id: 88, status: 'error', metadata: {error_message: 'GEV fit failed'}}
+            };
+            const action$ = mockActions([{
+                type: SET_IDF_DERIVE_PROCESS_ID, processId: 88, taskId: 'x'
+            }]);
+            const sub = idfDeriveCompleteEpic(action$, idfDeriveStore({}, tmByid)).subscribe(
+                a => {
+                    if (a.type === SET_IDF_DERIVE_ERROR) {
+                        expect(a.message.indexOf('GEV fit failed')).toBeGreaterThan(-1);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                },
+                err => done(err)
+            );
+        });
+
+        it('idfDeriveMapPickEpic captures lat/lon from CLICK_ON_MAP when mapPickActive=true', (done) => {
+            const slice = {mapPickActive: true};
+            const action$ = mockActions([{
+                type: 'CLICK_ON_MAP',
+                point: {latlng: {lat: -37.8, lng: 144.9}}
+            }]);
+            const collected = [];
+            const sub = idfDeriveMapPickEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    const types = collected.map(a => a.type);
+                    expect(types.indexOf(SET_IDF_DERIVE_LAT)).toBeGreaterThan(-1);
+                    expect(types.indexOf(SET_IDF_DERIVE_LON)).toBeGreaterThan(-1);
+                    expect(types.indexOf(SET_IDF_DERIVE_MAP_PICK_ACTIVE)).toBeGreaterThan(-1);
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        it('idfDeriveMapPickEpic IGNORES CLICK_ON_MAP when mapPickActive=false', (done) => {
+            const slice = {mapPickActive: false};
+            const action$ = mockActions([{
+                type: 'CLICK_ON_MAP',
+                point: {latlng: {lat: -37.8, lng: 144.9}}
+            }]);
+            const collected = [];
+            const sub = idfDeriveMapPickEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    expect(collected.length).toBe(0);
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        it('loadAnugaConfigEpic hydrates celery_anuga_enabled from /config/', (done) => {
+            mockAxios.reset();
+            mockAxios.onGet('/api/v2/anuga/config/').reply(200, {
+                default_compute_backend: 'local',
+                celery_anuga_enabled: false
+            });
+            const action$ = mockActions([{type: INIT_HYDROLOGY}]);
+            const collected = [];
+            const sub = loadAnugaConfigEpic(action$, idfDeriveStore({})).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    expect(collected.length).toBe(1);
+                    expect(collected[0].type).toBe(SET_CELERY_ANUGA_ENABLED);
+                    expect(collected[0].enabled).toBe(false);
                     if (sub) sub.unsubscribe();
                     done();
                 }

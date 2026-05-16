@@ -61,6 +61,7 @@ class HydrologyMainMenuClass extends React.Component {
                     <span style={{top: "8px", position: "relative"}}><Message msgId="hydrata.hydrology.hydrology" /></span>
                     <span id={"hydrology-page-button-group"}>
                         {this.renderButton('idf-table', <Message msgId="hydrata.hydrology.idfTables" />)}
+                        {this.renderButton('idf-derive', <Message msgId="hydrata.hydrology.idfDerive" />)}
                         {this.renderButton('temporal-pattern', <Message msgId="hydrata.hydrology.temporalPatterns" />)}
                         {this.renderButton('time-series', <Message msgId="hydrata.hydrology.timeseries" />)}
                         {this.renderButton('inflow', <Message msgId="hydrata.hydrology.inflows" />)}

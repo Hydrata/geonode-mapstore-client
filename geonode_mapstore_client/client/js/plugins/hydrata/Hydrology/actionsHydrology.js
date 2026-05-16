@@ -29,6 +29,18 @@ const UPDATE_TEMPORAL_PATTERN_ROW_DATA = 'UPDATE_TEMPORAL_PATTERN_ROW_DATA';
 const UPDATE_TIME_SERIES_ROW_DATA = 'UPDATE_TIME_SERIES_ROW_DATA';
 const REPLACE_TIME_SERIES_ROW_DATA = 'REPLACE_TIME_SERIES_ROW_DATA';
 
+// TASK-934 — IDF Derive panel actions.
+const SET_IDF_DERIVE_LAT = 'SET_IDF_DERIVE_LAT';
+const SET_IDF_DERIVE_LON = 'SET_IDF_DERIVE_LON';
+const SET_IDF_DERIVE_DURATIONS = 'SET_IDF_DERIVE_DURATIONS';
+const SET_IDF_DERIVE_RPS = 'SET_IDF_DERIVE_RPS';
+const SET_IDF_DERIVE_MAP_PICK_ACTIVE = 'SET_IDF_DERIVE_MAP_PICK_ACTIVE';
+const DERIVE_IDF_REQUEST = 'DERIVE_IDF_REQUEST';
+const SET_IDF_DERIVE_PROCESS_ID = 'SET_IDF_DERIVE_PROCESS_ID';
+const SET_IDF_DERIVE_ERROR = 'SET_IDF_DERIVE_ERROR';
+const SET_IDF_DERIVE_RESULT = 'SET_IDF_DERIVE_RESULT';
+const SET_CELERY_ANUGA_ENABLED = 'SET_CELERY_ANUGA_ENABLED';
+
 
 const initHydrology = () => ({
     type: INIT_HYDROLOGY
@@ -197,6 +209,21 @@ const replaceTimeSeriesRowData = (timeSeriesId, newRowData) => ({
     newRowData
 });
 
+const setIdfDeriveLat = (lat) => ({type: SET_IDF_DERIVE_LAT, lat});
+const setIdfDeriveLon = (lon) => ({type: SET_IDF_DERIVE_LON, lon});
+const setIdfDeriveDurations = (text) => ({type: SET_IDF_DERIVE_DURATIONS, text});
+const setIdfDeriveRPs = (text) => ({type: SET_IDF_DERIVE_RPS, text});
+const setIdfDeriveMapPickActive = (active) => ({type: SET_IDF_DERIVE_MAP_PICK_ACTIVE, active});
+const deriveIdfRequest = () => ({type: DERIVE_IDF_REQUEST});
+const setIdfDeriveProcessId = (taskId, processId) => ({
+    type: SET_IDF_DERIVE_PROCESS_ID,
+    taskId,
+    processId
+});
+const setIdfDeriveError = (message) => ({type: SET_IDF_DERIVE_ERROR, message});
+const setIdfDeriveResult = (idfTable) => ({type: SET_IDF_DERIVE_RESULT, idfTable});
+const setCeleryAnugaEnabled = (enabled) => ({type: SET_CELERY_ANUGA_ENABLED, enabled});
+
 module.exports = {
     INIT_HYDROLOGY, initHydrology,
     INIT_HYDROLOGY_FULFILLED, initHydrologyFulfilled,
@@ -227,5 +254,15 @@ module.exports = {
     UPDATE_IDF_ROW_DATA, updateIdfRowData,
     UPDATE_TEMPORAL_PATTERN_ROW_DATA, updateTemporalPatternRowData,
     UPDATE_TIME_SERIES_ROW_DATA, updateTimeSeriesRowData,
-    REPLACE_TIME_SERIES_ROW_DATA, replaceTimeSeriesRowData
+    REPLACE_TIME_SERIES_ROW_DATA, replaceTimeSeriesRowData,
+    SET_IDF_DERIVE_LAT, setIdfDeriveLat,
+    SET_IDF_DERIVE_LON, setIdfDeriveLon,
+    SET_IDF_DERIVE_DURATIONS, setIdfDeriveDurations,
+    SET_IDF_DERIVE_RPS, setIdfDeriveRPs,
+    SET_IDF_DERIVE_MAP_PICK_ACTIVE, setIdfDeriveMapPickActive,
+    DERIVE_IDF_REQUEST, deriveIdfRequest,
+    SET_IDF_DERIVE_PROCESS_ID, setIdfDeriveProcessId,
+    SET_IDF_DERIVE_ERROR, setIdfDeriveError,
+    SET_IDF_DERIVE_RESULT, setIdfDeriveResult,
+    SET_CELERY_ANUGA_ENABLED, setCeleryAnugaEnabled
 };

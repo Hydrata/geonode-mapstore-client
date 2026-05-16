@@ -13,15 +13,48 @@ import {
     DELETE_HYDROLOGY_ITEM_SUCCESS,
     UPDATE_IDF_ROW_DATA,
     UPDATE_TEMPORAL_PATTERN_ROW_DATA,
-    UPDATE_TIME_SERIES_ROW_DATA, REPLACE_TIME_SERIES_ROW_DATA
+    UPDATE_TIME_SERIES_ROW_DATA, REPLACE_TIME_SERIES_ROW_DATA,
+    SET_IDF_DERIVE_LAT,
+    SET_IDF_DERIVE_LON,
+    SET_IDF_DERIVE_DURATIONS,
+    SET_IDF_DERIVE_RPS,
+    SET_IDF_DERIVE_MAP_PICK_ACTIVE,
+    DERIVE_IDF_REQUEST,
+    SET_IDF_DERIVE_PROCESS_ID,
+    SET_IDF_DERIVE_ERROR,
+    SET_IDF_DERIVE_RESULT,
+    SET_CELERY_ANUGA_ENABLED
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
 import {IdfTable, TemporalPattern, TimeSeries} from "./classesHydrology";
 
+// TASK-934 — IDF Derive default form values. ERA5-Land hourly data does
+// not improve below ~1h, so 60min is the smallest meaningful duration.
+// Default RPs follow design-standard practice (2/5/10/20/50/100/200yr).
+const IDF_DERIVE_DEFAULT_DURATIONS = '60, 180, 360, 720, 1440, 2880, 10080';
+const IDF_DERIVE_DEFAULT_RPS = '2, 5, 10, 20, 50, 100, 200';
+
+const initialIdfDerive = {
+    lat: null,
+    lon: null,
+    durationsText: IDF_DERIVE_DEFAULT_DURATIONS,
+    rpsText: IDF_DERIVE_DEFAULT_RPS,
+    mapPickActive: false,
+    processId: null,
+    taskId: null,
+    error: null,
+    result: null,
+    // Optimistic default — overridden once /api/v2/anuga/config/ resolves.
+    // Sites with celery_anuga_enabled=false hit the 503 branch in the epic.
+    celeryAnugaEnabled: true,
+    inFlight: false
+};
+
 const initialState = {
     isHydrologyProject: false,
     showHydrologyMainMenu: false,
-    activeHydrologyPage: "idf-table"
+    activeHydrologyPage: "idf-table",
+    idfDerive: initialIdfDerive
 };
 
 export const hydrologyKeyMap = {
@@ -259,6 +292,76 @@ export default ( state = initialState, action) => {
             activeHydrologyItem: updatedTimeSeries || state.activeHydrologyItem
         };
     }
+    case SET_IDF_DERIVE_LAT:
+        return {
+            ...state,
+            idfDerive: {...(state.idfDerive || initialIdfDerive), lat: action.lat}
+        };
+    case SET_IDF_DERIVE_LON:
+        return {
+            ...state,
+            idfDerive: {...(state.idfDerive || initialIdfDerive), lon: action.lon}
+        };
+    case SET_IDF_DERIVE_DURATIONS:
+        return {
+            ...state,
+            idfDerive: {...(state.idfDerive || initialIdfDerive), durationsText: action.text}
+        };
+    case SET_IDF_DERIVE_RPS:
+        return {
+            ...state,
+            idfDerive: {...(state.idfDerive || initialIdfDerive), rpsText: action.text}
+        };
+    case SET_IDF_DERIVE_MAP_PICK_ACTIVE:
+        return {
+            ...state,
+            idfDerive: {...(state.idfDerive || initialIdfDerive), mapPickActive: action.active}
+        };
+    case DERIVE_IDF_REQUEST:
+        return {
+            ...state,
+            idfDerive: {
+                ...(state.idfDerive || initialIdfDerive),
+                error: null,
+                result: null,
+                processId: null,
+                taskId: null,
+                inFlight: true
+            }
+        };
+    case SET_IDF_DERIVE_PROCESS_ID:
+        return {
+            ...state,
+            idfDerive: {
+                ...(state.idfDerive || initialIdfDerive),
+                processId: action.processId,
+                taskId: action.taskId,
+                error: null
+            }
+        };
+    case SET_IDF_DERIVE_ERROR:
+        return {
+            ...state,
+            idfDerive: {
+                ...(state.idfDerive || initialIdfDerive),
+                error: action.message,
+                inFlight: false
+            }
+        };
+    case SET_IDF_DERIVE_RESULT:
+        return {
+            ...state,
+            idfDerive: {
+                ...(state.idfDerive || initialIdfDerive),
+                result: action.idfTable,
+                inFlight: false
+            }
+        };
+    case SET_CELERY_ANUGA_ENABLED:
+        return {
+            ...state,
+            idfDerive: {...(state.idfDerive || initialIdfDerive), celeryAnugaEnabled: action.enabled}
+        };
     default:
         return state;
     }

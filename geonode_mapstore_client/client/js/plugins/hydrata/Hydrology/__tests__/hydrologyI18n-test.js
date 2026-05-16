@@ -1,6 +1,6 @@
 import expect from 'expect';
 
-const { enMessages, esMessages } = require('../../../../__tests__/fixtures/translations');
+const { enMessages, esMessages, frMessages, htMessages } = require('../../../../__tests__/fixtures/translations');
 
 describe('Hydrology i18n', () => {
     it('all hydrology msgIds exist in en-US translation file', () => {
@@ -50,6 +50,30 @@ describe('Hydrology i18n', () => {
         navKeys.forEach(key => {
             expect(esMessages[key]).toExist(`Missing Spanish translation for: ${key}`);
             expect(esMessages[key].length).toBeGreaterThan(0);
+        });
+    });
+
+    // TASK-934 — IDF Derive panel translation keys parity across all 4 locales.
+    it('IDF Derive keys exist in all 4 locales (en/es/fr/ht)', () => {
+        const idfDeriveKeys = [
+            'hydrata.hydrology.idfDerive',
+            'hydrata.hydrology.idfDeriveLat',
+            'hydrata.hydrology.idfDeriveLon',
+            'hydrata.hydrology.idfDerivePickOnMap',
+            'hydrata.hydrology.idfDeriveDurations',
+            'hydrata.hydrology.idfDeriveRPs',
+            'hydrata.hydrology.idfDeriveDeriveButton',
+            'hydrata.hydrology.idfDeriveSubDailyBanner',
+            'hydrata.hydrology.idfDeriveUnavailable',
+            'hydrata.hydrology.idfDeriveDownloadJson',
+            'hydrata.hydrology.idfDeriveDownloadCsv',
+            'hydrata.hydrology.idfDeriveProvenance'
+        ];
+        [['en', enMessages], ['es', esMessages], ['fr', frMessages], ['ht', htMessages]].forEach(([locale, msgs]) => {
+            idfDeriveKeys.forEach(key => {
+                expect(msgs[key]).toExist(`Missing ${locale} translation for: ${key}`);
+                expect(msgs[key].length).toBeGreaterThan(0);
+            });
         });
     });
 });

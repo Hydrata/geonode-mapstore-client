@@ -7,7 +7,11 @@ import {
     fetchTemporalPatternEpic,
     fetchIdfTableEpic,
     saveHydrologyItemEpic,
-    deleteHydrologyItemEpic
+    deleteHydrologyItemEpic,
+    deriveIdfEpic,
+    idfDeriveCompleteEpic,
+    idfDeriveMapPickEpic,
+    loadAnugaConfigEpic
 } from "./epicsHydrology";
 
 export default createPlugin('Hydrology', {
@@ -21,6 +25,10 @@ export default createPlugin('Hydrology', {
         fetchTemporalPatternEpic,
         fetchIdfTableEpic,
         saveHydrologyItemEpic,
-        deleteHydrologyItemEpic
+        deleteHydrologyItemEpic,
+        deriveIdfEpic,
+        idfDeriveCompleteEpic,
+        idfDeriveMapPickEpic,
+        loadAnugaConfigEpic
     }
 });

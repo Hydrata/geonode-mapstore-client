@@ -112,6 +112,13 @@ const DELETE_FRICTION_RASTER_SUCCESS = 'ANUGA:DELETE_FRICTION_RASTER_SUCCESS';
 const DELETE_FRICTION_RASTER_BLOCKED = 'ANUGA:DELETE_FRICTION_RASTER_BLOCKED';
 const DELETE_FRICTION_RASTER_ERROR = 'ANUGA:DELETE_FRICTION_RASTER_ERROR';
 
+// TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM creation. Body shape and
+// async-flow contract are pinned by anugaApi.createTerrainFromBbox. The
+// epic handles the POST + dispatches the success/error follow-ups.
+const CREATE_TERRAIN_FROM_BBOX = 'ANUGA:CREATE_TERRAIN_FROM_BBOX';
+const CREATE_TERRAIN_FROM_BBOX_SUCCESS = 'ANUGA:CREATE_TERRAIN_FROM_BBOX_SUCCESS';
+const CREATE_TERRAIN_FROM_BBOX_ERROR = 'ANUGA:CREATE_TERRAIN_FROM_BBOX_ERROR';
+
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
 }
@@ -398,6 +405,20 @@ function deleteFrictionRasterError(id, error) {
     return { type: DELETE_FRICTION_RASTER_ERROR, id, error };
 }
 
+// TASK-930 (W2-FE) — Global GLO-30 DEM creation action creators. Body shape
+// matches the BE TASK-929 endpoint contract: {title, source:'copernicus_glo30',
+// bbox:[minLon,minLat,maxLon,maxLat]}. terrainBboxEpic catches CREATE_TERRAIN_
+// FROM_BBOX and POSTs via anugaApi.createTerrainFromBbox.
+function createTerrainFromBbox(title, bbox) {
+    return { type: CREATE_TERRAIN_FROM_BBOX, title, bbox };
+}
+function createTerrainFromBboxSuccess(data) {
+    return { type: CREATE_TERRAIN_FROM_BBOX_SUCCESS, data };
+}
+function createTerrainFromBboxError(error) {
+    return { type: CREATE_TERRAIN_FROM_BBOX_ERROR, error };
+}
+
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
@@ -477,5 +498,9 @@ module.exports = {
     DELETE_FRICTION_RASTER, deleteFrictionRaster,
     DELETE_FRICTION_RASTER_SUCCESS, deleteFrictionRasterSuccess,
     DELETE_FRICTION_RASTER_BLOCKED, deleteFrictionRasterBlocked,
-    DELETE_FRICTION_RASTER_ERROR, deleteFrictionRasterError
+    DELETE_FRICTION_RASTER_ERROR, deleteFrictionRasterError,
+    // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM creation
+    CREATE_TERRAIN_FROM_BBOX, createTerrainFromBbox,
+    CREATE_TERRAIN_FROM_BBOX_SUCCESS, createTerrainFromBboxSuccess,
+    CREATE_TERRAIN_FROM_BBOX_ERROR, createTerrainFromBboxError
 };

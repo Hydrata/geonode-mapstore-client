@@ -82,3 +82,9 @@ export {
     triggerFetchMyPermsOnInitEpic,
     fetchMyPermsEpic
 } from './epics/permsEpics';
+
+// TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker.
+export {
+    terrainBboxEndDrawingEpic,
+    createTerrainFromBboxEpic
+} from './epics/terrainBboxEpic';

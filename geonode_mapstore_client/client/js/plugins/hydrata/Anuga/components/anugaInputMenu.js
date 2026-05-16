@@ -32,10 +32,13 @@ import {
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
     setNetworkMenu,
-    setAnugaInputMenu
+    setAnugaInputMenu,
+    // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
+    setVisibleTerrainBboxPanel
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
+import {TerrainBboxPanel} from "./terrainBboxPanel";
 import InputSection from "./InputSection";
 import AnugaInputStarterCard from "./anugaInputStarterCard";
 
@@ -89,6 +92,8 @@ class AnugaInputMenuClass extends React.Component {
     static propTypes = {
         projectData: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
+        // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
+        setVisibleTerrainBboxPanel: PropTypes.func,
         anugaGroupLength: PropTypes.number,
         terrainLayers: PropTypes.array,
         boundaryLayers: PropTypes.array,
@@ -256,6 +261,20 @@ class AnugaInputMenuClass extends React.Component {
                             }}
                             aria-expanded={!this.state.terrainCollapsed}
                         ><Message msgId="hydrata.anuga.terrain" /></span>
+                        {/* TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox picker.
+                            Sibling to the existing upload glyph; opens TerrainBboxPanel
+                            instead of the SimpleView uploader. Order: text → globe → upload → chevron. */}
+                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
+                            <span
+                                className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-globe"}
+                                data-testid="anuga-terrain-global-dem-button"
+                                style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
+                                onClick={() => {
+                                    this.props.setVisibleTerrainBboxPanel(true);
+                                    trackEvent('button', 'click', 'anuga-input-menu-show-terrain-bbox-picker');
+                                }}
+                            />
+                        </OverlayTrigger>
                         <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
                             <span
                                 className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-upload"}
@@ -571,6 +590,9 @@ class AnugaInputMenuClass extends React.Component {
                     </React.Fragment> : null
                 }
                 <UploaderPanel fileType={'terrain'}/>
+                {/* TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox picker.
+                    Always rendered; conditionally visible via redux state. */}
+                <TerrainBboxPanel/>
             </div>
         );
     }
@@ -655,6 +677,8 @@ const mapDispatchToProps = ( dispatch ) => {
         startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
         stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
         setVisibleUploaderPanel: (visible, importerConfigKey, layerId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, layerId)),
+        // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
+        setVisibleTerrainBboxPanel: (visible) => dispatch(setVisibleTerrainBboxPanel(visible)),
         setCreatingAnugaLayer: (isCreatingAnugaLayer) => dispatch(setCreatingAnugaLayer(isCreatingAnugaLayer)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaInflow: (inflowTitle) => dispatch(createAnugaInflow(inflowTitle)),
