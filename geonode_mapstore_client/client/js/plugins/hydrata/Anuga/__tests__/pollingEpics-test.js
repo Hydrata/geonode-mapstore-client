@@ -499,7 +499,7 @@ describe('Polling Epics', () => {
                     // TASK-955 (W2.2 FE) — Rainfall group added to ANUGA_GROUPS;
                     // mirroring the fixture here keeps the "all exist → emit nothing"
                     // contract pinned.
-                    { id: 'Input Data.Rainfall' },
+                    { id: 'Input Data.Rainfalls' },
                     { id: 'Input Data.Friction' },
                     { id: 'Input Data.Full Mesh' },
                     { id: 'Input Data.Mesh Regions' },
@@ -1912,6 +1912,76 @@ describe('Polling Epics', () => {
                     sub.unsubscribe();
                     done();
                 }, 200);
+            }, 200);
+        });
+
+        it('should drop candidates whose metadata.project_id mismatches the current map', (done) => {
+            // Defence-in-depth: the TaskMonitor poller is gated on
+            // getProjectId being non-null AND the BE rejects unscoped
+            // listings (taskmonitor/views.py). If a future bug ever
+            // bypasses both, candidates from other projects must NOT
+            // be addLayer'd. Repro is the 2026-05-17 stray "Rainfall
+            // 01" leak: a layer_create from project 11550 surfaced
+            // on a freshly-opened map of project 11551.
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    gnresource: { id: 1222 },
+                    anuga: { projects: { data: { id: 11551 } } }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(act => emitted.push(act), err => done(err));
+
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [
+                    {
+                        id: 'cross-project-leak',
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 11550,     // belongs to OTHER project
+                            model_class: 'Rainfall',
+                            mapstore_layer: {
+                                name: 'geonode:rai_11550_rainfall_01',
+                                title: 'Rainfall 01',
+                                group: 'Default',
+                                type: 'wms',
+                                url: '/geoserver/wms'
+                            }
+                        }
+                    },
+                    {
+                        id: 'same-project-keeps',
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 11551,     // current map
+                            model_class: 'Boundary',
+                            mapstore_layer: {
+                                name: 'geonode:bdy_11551_boundary_01',
+                                title: 'Boundary 01',
+                                group: 'Input Data.Boundaries',
+                                type: 'wms',
+                                url: '/geoserver/wms'
+                            }
+                        }
+                    }
+                ]
+            });
+
+            setTimeout(() => {
+                const addLayerActions = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(addLayerActions.length).toBe(1);
+                expect(addLayerActions[0].layer.name).toBe('geonode:bdy_11551_boundary_01');
+                // The cross-project Rainfall layer must NOT have been added.
+                expect(addLayerActions.find(a => /rai_11550/.test(a.layer.name))).toBe(undefined);
+                sub.unsubscribe();
+                done();
             }, 200);
         });
     });

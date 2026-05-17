@@ -79,11 +79,10 @@ const _GROUP_TO_DELETE_TYPE = {
     // then (no layer.group will match 'Input Data.Friction Rasters').
     'Input Data.Friction Rasters': 'friction_raster',
     'Input Data.Inflows': 'inflow',
-    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). BE
-    // INPUT_DATA_GROUP_MAP entry for 'rai' prefix ships separately; this
-    // FE-side group→type mapping is harmless until then (no layer.group
-    // will match 'Input Data.Rainfall' before that BE deploy).
-    'Input Data.Rainfall': 'rainfall',
+    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). Pluralised
+    // to match Boundaries/Inflows/Structures; BE INPUT_DATA_GROUP_MAP maps
+    // the 'rai' prefix to 'Rainfalls'.
+    'Input Data.Rainfalls': 'rainfall',
     // TASK-723 — 5 more types added 2026-05-13 (Network deferred: no gn_layer,
     // no menu UI). Group names from gn_anuga/utils.py INPUT_DATA_GROUP_MAP.
     'Input Data.Structures': 'structure',

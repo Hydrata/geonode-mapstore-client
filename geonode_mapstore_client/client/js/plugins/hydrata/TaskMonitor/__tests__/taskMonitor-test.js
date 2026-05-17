@@ -615,7 +615,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: false } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -640,7 +641,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: true } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -666,7 +668,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: false } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -692,7 +695,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: false } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -733,6 +737,36 @@ describe('TaskMonitor', () => {
                     done();
                 }, 200);
             });
+
+            it('should NOT poll while project_id is unhydrated', (done) => {
+                // The Process list endpoint requires ?project_id=<int> (see
+                // taskmonitor/views.py). Polling without it once leaked
+                // cross-project layer_create completes into the wrong map's
+                // TOC. Skip ticks until state.anuga.projects.data.id is set.
+                const { subject, action$ } = liveActions();
+                const store = {
+                    getState: () => ({
+                        taskMonitor: { ui: { panelOpen: false } },
+                        security: { user: authUser },
+                        anuga: { projects: { data: null } }
+                    })
+                };
+                const emitted = [];
+
+                const sub = pollActiveCountEpic(action$, store)
+                    .subscribe(
+                        action => emitted.push(action),
+                        err => done(err)
+                    );
+
+                subject.next({ type: TM_START_POLLING });
+
+                setTimeout(() => {
+                    expect(emitted.length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                }, 200);
+            });
         });
 
         describe('pollProcessListEpic', () => {
@@ -745,7 +779,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -770,7 +805,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: false, filter: 'active' } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -791,7 +827,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: true, filter: 'completed' } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -815,7 +852,8 @@ describe('TaskMonitor', () => {
                 const store = {
                     getState: () => ({
                         taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
-                        security: { user: authUser }
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     })
                 };
                 const emitted = [];
@@ -851,6 +889,35 @@ describe('TaskMonitor', () => {
                             done();
                         }
                     );
+            });
+
+            it('should NOT poll while project_id is unhydrated', (done) => {
+                // Matches pollActiveCountEpic gate; the open-panel poller
+                // must also wait for state.anuga.projects.data.id before
+                // hitting the API.
+                const { subject, action$ } = liveActions();
+                const store = {
+                    getState: () => ({
+                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                        security: { user: authUser },
+                        anuga: { projects: { data: null } }
+                    })
+                };
+                const emitted = [];
+
+                const sub = pollProcessListEpic(action$, store)
+                    .subscribe(
+                        action => emitted.push(action),
+                        err => done(err)
+                    );
+
+                subject.next({ type: TM_TOGGLE_PANEL });
+
+                setTimeout(() => {
+                    expect(emitted.length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                }, 200);
             });
         });
 

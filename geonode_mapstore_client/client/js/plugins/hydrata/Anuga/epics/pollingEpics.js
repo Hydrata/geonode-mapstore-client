@@ -407,11 +407,10 @@ const ANUGA_GROUPS = {
     "Input Data": [
         "Terrain", "Boundaries", "Structures", "Inflows",
         // TASK-955 (W2.2 FE) — Rainfall input group (sits next to Inflows so the
-        // legend ordering matches the new polygon-vs-line input split). BE
-        // INPUT_DATA_GROUP_MAP entry for the 'rai' prefix lands in a follow-up
-        // BE task; until then, no layer.group will resolve to 'Input Data.Rainfall'
-        // and the empty group renders quietly.
-        "Rainfall",
+        // legend ordering matches the new polygon-vs-line input split). Pluralised
+        // to "Rainfalls" matching Boundaries/Inflows/Structures; BE
+        // INPUT_DATA_GROUP_MAP maps the 'rai' prefix to this label.
+        "Rainfalls",
         "Friction", "Full Mesh", "Mesh Regions",
         "Catchments", "Nodes", "Links"
     ],
@@ -822,10 +821,20 @@ export const taskCompleteLayerEpic = (action$, store) => {
                 }
                 loadedForMapId = mapId;
             }
+            // Defence-in-depth project scoping. The TaskMonitor poller is
+            // gated on getProjectId being non-null (epicsTaskMonitor.js), and
+            // the API requires ?project_id=<int> (taskmonitor/views.py). If
+            // BOTH of those are ever bypassed and a Process from another
+            // project lands in the action payload, we still won't addLayer it
+            // here. The dedupe Set is per-mapId so it can't catch this case;
+            // currentNames dedupe can't either, because mapstore_layer.name
+            // embeds the source project id (e.g. geonode:rai_11550_rainfall_01).
+            const currentProjectId = getProjectId(state);
             const candidates = processes.filter(
                 p => isLayerCompletionType(p.process_type) &&
                      p.status === 'complete' &&
-                     !handledCompletionIds.has(p.id)
+                     !handledCompletionIds.has(p.id) &&
+                     (!currentProjectId || p.metadata?.project_id === currentProjectId)
             );
             if (!candidates.length) return Rx.Observable.empty();
             const classified = candidates.map(p => ({

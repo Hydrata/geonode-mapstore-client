@@ -113,7 +113,7 @@ class AnugaInputMenuClass extends React.Component {
         frictionRasterLayers: PropTypes.array,
         inflowLayers: PropTypes.array,
         // TASK-955 (W2.2 FE) — Rainfall layer slice (rai_ prefix on BE → layer.group
-        // 'Input Data.Rainfall' once the BE INPUT_DATA_GROUP_MAP entry ships).
+        // 'Input Data.Rainfalls', plural to match Boundaries/Inflows/Structures).
         rainfallLayers: PropTypes.array,
         structureLayers: PropTypes.array,
         fullMeshLayers: PropTypes.array,
@@ -603,7 +603,7 @@ const mapStateToProps = (state) => {
     const boundaryLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries');
     const inflowLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows');
     // TASK-955 (W2.2 FE) — Rainfall layer slice (polygon sibling to Inflow).
-    const rainfallLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Rainfall');
+    const rainfallLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Rainfalls');
     const pendingByModel = selectPendingByModel(state);
     // TASK-955 — gate the `defaults` starter phase on Boundaries AND
     // (Inflows OR Rainfall). Either polygon-or-line water input clears

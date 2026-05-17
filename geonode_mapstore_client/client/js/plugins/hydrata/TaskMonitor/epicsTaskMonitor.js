@@ -60,9 +60,18 @@ export const autoStartTaskMonitorEpic = (action$, store) =>
  * just the count) so taskCompleteLayerEpic can react to async layer-creation
  * completions even when the panel is closed.
  *
- * TASK-673 D1.4 (B5 C3): defense-in-depth — even if TM_START_POLLING fires
- * for an anon user, the timer will skip individual ticks while no security
- * user is present, preventing 401 noise.
+ * Gating rules — skip the tick unless ALL hold:
+ *   1. Panel is closed (this is the closed-panel poller).
+ *   2. Security user is hydrated (defense-in-depth vs. anon 401 noise; see
+ *      TASK-673 D1.4 B5 C3).
+ *   3. `getProjectId(state)` returns a non-null id. The Process list endpoint
+ *      now requires `?project_id=<int>` and 400s without it. Polling without
+ *      a project id once leaked cross-project layer_create completions into
+ *      the new map's TOC via taskCompleteLayerEpic — fixed at the API
+ *      boundary, gated here so the FE never makes the bad request to begin
+ *      with. The polling auto-starts on INIT_ANUGA but the v2 project GET
+ *      fan-out can still be in-flight; we wait it out instead of falling
+ *      back to a scopeless request.
  */
 export const pollActiveCountEpic = (action$, store) =>
     action$
@@ -72,10 +81,12 @@ export const pollActiveCountEpic = (action$, store) =>
                 .takeUntil(action$.ofType(TM_STOP_POLLING))
                 .filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
                 .filter(() => !!store.getState()?.security?.user)
+                .filter(() => !!getProjectId(store.getState()))
                 .exhaustMap(() => {
                     const projectId = getProjectId(store.getState());
-                    const params = projectId ? { project_id: projectId, limit: 10 } : { limit: 10 };
-                    return Rx.Observable.from(taskMonitorApi.getProcesses(params))
+                    return Rx.Observable.from(
+                        taskMonitorApi.getProcesses({ project_id: projectId, limit: 10 })
+                    )
                         .concatMap(response => {
                             const processes = response.data?.results || response.data || [];
                             const activeCount = processes.filter(p => ACTIVE_STATES.includes(p.status)).length;
@@ -90,6 +101,9 @@ export const pollActiveCountEpic = (action$, store) =>
 
 /**
  * Full process list poller — runs when panel is open, 3s interval.
+ *
+ * Same project_id gating as the closed-panel poller: skip ticks until
+ * `getProjectId(state)` is non-null, since the API rejects unscoped lists.
  */
 export const pollProcessListEpic = (action$, store) =>
     action$
@@ -108,10 +122,12 @@ export const pollProcessListEpic = (action$, store) =>
                         action$.ofType(TM_TOGGLE_PANEL).filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
                             .merge(action$.ofType(TM_STOP_POLLING))
                     )
+                    .filter(() => !!getProjectId(store.getState()))
                     .exhaustMap(() => {
                         const projectId = getProjectId(store.getState());
-                        const recentParams = projectId ? { project_id: projectId, limit: 10 } : { limit: 10 };
-                        return Rx.Observable.from(taskMonitorApi.getProcesses(recentParams))
+                        return Rx.Observable.from(
+                            taskMonitorApi.getProcesses({ project_id: projectId, limit: 10 })
+                        )
                             .concatMap(response => {
                                 const processes = response.data?.results || response.data || [];
                                 return Rx.Observable.of(
@@ -127,10 +143,12 @@ export const pollProcessListEpic = (action$, store) =>
                     action$.ofType(TM_TOGGLE_PANEL).filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
                         .merge(action$.ofType(TM_STOP_POLLING))
                 )
+                .filter(() => !!getProjectId(store.getState()))
                 .exhaustMap(() => {
                     const projectId = getProjectId(store.getState());
-                    const filteredParams = projectId ? { ...params, project_id: projectId } : params;
-                    return Rx.Observable.from(taskMonitorApi.getProcesses(filteredParams))
+                    return Rx.Observable.from(
+                        taskMonitorApi.getProcesses({ ...params, project_id: projectId })
+                    )
                         .map(response => setProcesses(response.data?.results || response.data || []))
                         .catch(() => Rx.Observable.empty());
                 });
