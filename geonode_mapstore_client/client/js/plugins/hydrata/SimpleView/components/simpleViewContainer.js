@@ -214,7 +214,7 @@ class SimpleViewContainer extends React.Component {
                     case null: return null;
                     case undefined: return null;
                     default: return (
-                        <div className={'simple-view-panel'}>
+                        <div className={'simple-view-panel simple-view-panel--miller'}>
                             <MenuRows/>
                         </div>
                     );

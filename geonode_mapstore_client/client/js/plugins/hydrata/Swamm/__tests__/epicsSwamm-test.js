@@ -3,7 +3,8 @@ import Rx from 'rxjs';
 import {
     initSwammEpic,
     catchBmpFeatureClick,
-    filterBmpEpic
+    filterBmpEpic,
+    ensureBmpGeometriesGroupEpic
 } from '../epicsSwamm';
 import {
     INIT_SWAMM,
@@ -13,6 +14,7 @@ import {
     TOGGLE_BMP_GROUP_PROFILE_VISIBILITY,
     TOGGLE_BMP_PRIORITY_VISIBILITY
 } from '../actionsSwamm';
+import { SET_OPEN_MENU_GROUP_ID } from '../../SimpleView/actionsSimpleView';
 import { LOAD_FEATURE_INFO } from '../../../../../MapStore2/web/client/actions/mapInfo';
 
 
@@ -35,6 +37,102 @@ const mockActions = (actions) => {
 
 
 describe('SWAMM Epics', () => {
+
+    /**
+     * TASK-1005 W1 AC#9 / R05 guard — verifies that adding `selectedCategory`
+     * to the SimpleView reducer's initial state does NOT cause
+     * `ensureBmpGeometriesGroupEpic` to fire on fresh hydration.
+     *
+     * The epic gates on `state.simpleView.openMenuGroupId !== viewBmpGroup.id`
+     * AND on the View-BMPs sub-group not yet existing. The Miller-columns
+     * refactor must not change either signal.
+     */
+    describe('ensureBmpGeometriesGroupEpic R05 guard', () => {
+        it('emits no actions when openMenuGroupId is undefined (reducer initial state)', (done) => {
+            const store = {
+                getState: () => ({
+                    simpleView: { selectedCategory: null },
+                    layers: {
+                        groups: [{ title: 'View BMPs', id: 'view-bmps-group-id', nodes: [] }]
+                    }
+                })
+            };
+            const action$ = mockActions([{
+                type: SET_OPEN_MENU_GROUP_ID,
+                openMenuGroupId: null
+            }]);
+            const emitted = [];
+
+            ensureBmpGeometriesGroupEpic(action$, store)
+                .take(1)
+                .timeout(300)
+                .subscribe(
+                    action => emitted.push(action),
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    },
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+
+        it('emits no actions when openMenuGroupId is set to a non-BMP group', (done) => {
+            const store = {
+                getState: () => ({
+                    simpleView: { openMenuGroupId: 'some-other-group', selectedCategory: null },
+                    layers: {
+                        groups: [{ title: 'View BMPs', id: 'view-bmps-group-id', nodes: [] }]
+                    }
+                })
+            };
+            const action$ = mockActions([{
+                type: SET_OPEN_MENU_GROUP_ID,
+                openMenuGroupId: 'some-other-group'
+            }]);
+            const emitted = [];
+
+            ensureBmpGeometriesGroupEpic(action$, store)
+                .take(1)
+                .timeout(300)
+                .subscribe(
+                    action => emitted.push(action),
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    },
+                    () => {
+                        expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+
+        it('emits no actions when no View BMPs group is present in layers', (done) => {
+            const store = {
+                getState: () => ({
+                    simpleView: { openMenuGroupId: 'view-bmps-group-id', selectedCategory: null },
+                    layers: { groups: [{ title: 'Some Other', id: 'other', nodes: [] }] }
+                })
+            };
+            const action$ = mockActions([{
+                type: SET_OPEN_MENU_GROUP_ID,
+                openMenuGroupId: 'view-bmps-group-id'
+            }]);
+            const emitted = [];
+
+            ensureBmpGeometriesGroupEpic(action$, store)
+                .take(1)
+                .timeout(300)
+                .subscribe(
+                    action => emitted.push(action),
+                    () => { expect(emitted.length).toBe(0); done(); },
+                    () => { expect(emitted.length).toBe(0); done(); }
+                );
+        });
+    });
 
     describe('initSwammEpic', () => {
         it('should not emit when gnresource.id is falsy', (done) => {

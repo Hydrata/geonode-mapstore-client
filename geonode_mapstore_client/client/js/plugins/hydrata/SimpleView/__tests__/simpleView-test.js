@@ -116,11 +116,23 @@ describe('SimpleView Plugin', () => {
     });
 
     describe('Reducer', () => {
-        const initialState = {};
+        const initialState = {selectedCategory: null};
 
         it('should return initial state', () => {
             const state = reducer(undefined, { type: 'UNKNOWN' });
             expect(state).toEqual(initialState);
+        });
+
+        // TASK-1005 W1 — R05 / R12 guard. The Miller-columns rail+pane keeps the
+        // selected subheading in local component state, but the reducer carries a
+        // dead `selectedCategory: null` slot so hydration is deterministic and so
+        // future selectors never read `undefined`. Critically, `openMenuGroupId`
+        // must still default to `undefined` here so epicsSwamm:245 doesn't read
+        // a stale id and fire ensureBmpGeometriesGroupEpic spuriously.
+        it('initial state has selectedCategory=null and openMenuGroupId=undefined (R05 guard)', () => {
+            const state = reducer(undefined, { type: 'UNKNOWN' });
+            expect(state.selectedCategory).toBe(null);
+            expect(state.openMenuGroupId).toBe(undefined);
         });
 
         it('should handle SET_PROCESSING_SV_ATTRIBUTE_FORM', () => {

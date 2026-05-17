@@ -54,10 +54,29 @@ class MenuRowsClass extends React.Component {
 
     constructor(props) {
         super(props);
+        const subHeadings = props.layerSubheadings || [];
         this.state = {
             // Per-(menuId, subHeading) collapsed booleans, hydrated lazily on first render
-            collapsed: {}
+            collapsed: {},
+            // TASK-1005 W1 — Miller-columns selected subheading (local component
+            // state, NOT redux). Defaults to first subheading on mount; resets
+            // when openMenuGroupId changes (componentDidUpdate). The reducer
+            // field `selectedCategory` exists for R12 hydration safety only and
+            // is intentionally never read at runtime (R05).
+            selectedSubHeading: subHeadings[0] || null
         };
+    }
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.openMenuGroupId !== this.props.openMenuGroupId) {
+            const subHeadings = this.props.layerSubheadings || [];
+            this.setState({selectedSubHeading: subHeadings[0] || null});
+            return;
+        }
+        const subHeadings = this.props.layerSubheadings || [];
+        if (this.state.selectedSubHeading && !subHeadings.includes(this.state.selectedSubHeading)) {
+            this.setState({selectedSubHeading: subHeadings[0] || null});
+        }
     }
 
     isCollapsed(subHeading) {
@@ -78,6 +97,146 @@ class MenuRowsClass extends React.Component {
         trackEvent('button', 'click', `simpleview-group-collapse-${subHeading}-${next ? 'on' : 'off'}`);
     };
 
+    handleSelectSubHeading = (subHeading) => {
+        this.setState({selectedSubHeading: subHeading});
+        trackEvent('button', 'click', `simpleview-rail-select-${subHeading}`);
+    };
+
+    getGroupLayers(subHeading) {
+        return this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading) || [];
+    }
+
+    renderRailItem(subHeading) {
+        const groupLayers = this.getGroupLayers(subHeading);
+        const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
+        const noneVisible = groupLayers.every(l => !l.visibility);
+        const isActive = this.state.selectedSubHeading === subHeading;
+        const tristateGlyph = allVisible
+            ? "glyphicon-ok glyph-active"
+            : noneVisible
+                ? "glyphicon-remove glyph-inactive"
+                : "glyphicon-minus glyph-partial";
+        return (
+            <div
+                key={subHeading}
+                className={"sv-category-rail-item" + (isActive ? " is-active" : "")}
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={0}
+                onClick={() => this.handleSelectSubHeading(subHeading)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.handleSelectSubHeading(subHeading);
+                    }
+                }}
+            >
+                <span
+                    className={"btn glyphicon menu-row-glyph sv-category-rail-item-tristate " + tristateGlyph}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        this.props.toggleGroupVisibility(groupLayers, !allVisible);
+                        trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${allVisible ? 'off' : 'on'}`);
+                    }}
+                />
+                <span
+                    className={"btn glyphicon menu-row-glyph glyph-zoom glyphicon-zoom-to sv-category-rail-item-zoom"}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        this.props.zoomToGroup(groupLayers);
+                        trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
+                    }}
+                />
+                <h5 className="sv-category-rail-item-label">{subHeading}</h5>
+            </div>
+        );
+    }
+
+    renderRail(subHeadings) {
+        return (
+            <div className="sv-category-rail" role="tablist">
+                {subHeadings.map(subHeading => this.renderRailItem(subHeading))}
+            </div>
+        );
+    }
+
+    renderPane() {
+        const subHeading = this.state.selectedSubHeading;
+        if (!subHeading) {
+            return (
+                <div className="menu-rows-pane">
+                    <MenuRow layer={null}/>
+                </div>
+            );
+        }
+        const groupLayers = this.getGroupLayers(subHeading);
+        return (
+            <div className="menu-rows-pane">
+                {groupLayers.map(layer =>
+                    <MenuRow key={layer.id} layer={layer}/>
+                )}
+            </div>
+        );
+    }
+
+    renderSingleSubHeadingFallback(subHeading) {
+        // Single-subheading legacy accordion path (AC#7 + AC#8). Used when
+        // there is exactly 1 subheading. Renders the original .subheading-row
+        // markup verbatim so simpleViewGlyphClasses-test.js (which uses 1
+        // subheading per test case) continues to pass without modification,
+        // and so the localStorage collapse helpers remain exercised. Rail+pane
+        // Miller layout activates at 2+ subheadings where a 1-button rail
+        // would be a strictly worse UX than the accordion.
+        const groupLayers = this.getGroupLayers(subHeading);
+        const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
+        const noneVisible = groupLayers.every(l => !l.visibility);
+        const collapsed = this.isCollapsed(subHeading);
+        const chevronGlyph = collapsed ? 'glyphicon-chevron-right' : 'glyphicon-chevron-down';
+        return (
+            <React.Fragment key={subHeading}>
+                <div className="subheading-row">
+                    <span
+                        className={"btn glyphicon menu-row-glyph " + (allVisible ? "glyphicon-ok glyph-active" : noneVisible ? "glyphicon-remove glyph-inactive" : "glyphicon-minus glyph-partial")}
+                        onClick={() => {
+                            this.props.toggleGroupVisibility(groupLayers, !allVisible);
+                            trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${allVisible ? 'off' : 'on'}`);
+                        }}
+                    />
+                    <span
+                        className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
+                        onClick={() => {
+                            this.props.zoomToGroup(groupLayers);
+                            trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
+                        }}
+                    />
+                    <h5
+                        className={"subheading-text subheading-text-clickable"}
+                        onClick={() => this.toggleCollapsed(subHeading)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                this.toggleCollapsed(subHeading);
+                            }
+                        }}
+                        aria-expanded={!collapsed}
+                    >
+                        {subHeading}
+                    </h5>
+                    <span
+                        className={"btn glyphicon menu-row-glyph glyph-collapse " + chevronGlyph}
+                        onClick={() => this.toggleCollapsed(subHeading)}
+                        aria-label={collapsed ? "Expand group" : "Collapse group"}
+                    />
+                </div>
+                {!collapsed && groupLayers.map(layer =>
+                    <MenuRow key={layer.id} layer={layer}/>
+                )}
+            </React.Fragment>
+        );
+    }
+
     render() {
         if (this.props.openMenuGroupId === 'basemaps') {
             return (
@@ -96,71 +255,25 @@ class MenuRowsClass extends React.Component {
             );
         }
         const subHeadings = this.props.layerSubheadings || [];
-        // Experiment 2026-05-04 (option B): always show collapse chevron, regardless
-        // of subheading count. Previous gate was `subHeadings.length > 1`.
-        const hasMultipleSubgroups = subHeadings.length >= 1;
+        if (subHeadings.length < 2) {
+            return (
+                <div className={'menu-rows-container'}>
+                    {subHeadings.map(subHeading => this.renderSingleSubHeadingFallback(subHeading))}
+                </div>
+            );
+        }
         return (
             <div className={'menu-rows-container'}>
-                {subHeadings.map(subHeading => {
-                    const groupLayers = this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading) || [];
-                    const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
-                    const noneVisible = groupLayers.every(l => !l.visibility);
-                    const collapsed = hasMultipleSubgroups && this.isCollapsed(subHeading);
-                    const chevronGlyph = collapsed ? 'glyphicon-chevron-right' : 'glyphicon-chevron-down';
-                    return (
-                        <React.Fragment key={subHeading}>
-                            <div className="subheading-row">
-                                <span
-                                    className={"btn glyphicon menu-row-glyph " + (allVisible ? "glyphicon-ok glyph-active" : noneVisible ? "glyphicon-remove glyph-inactive" : "glyphicon-minus glyph-partial")}
-                                    onClick={() => {
-                                        this.props.toggleGroupVisibility(groupLayers, !allVisible);
-                                        trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${allVisible ? 'off' : 'on'}`);
-                                    }}
-                                />
-                                <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
-                                    onClick={() => {
-                                        this.props.zoomToGroup(groupLayers);
-                                        trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
-                                    }}
-                                />
-                                <h5
-                                    className={"subheading-text" + (hasMultipleSubgroups ? " subheading-text-clickable" : "")}
-                                    onClick={hasMultipleSubgroups ? () => this.toggleCollapsed(subHeading) : undefined}
-                                    role={hasMultipleSubgroups ? "button" : undefined}
-                                    tabIndex={hasMultipleSubgroups ? 0 : undefined}
-                                    onKeyDown={hasMultipleSubgroups ? (e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            this.toggleCollapsed(subHeading);
-                                        }
-                                    } : undefined}
-                                    aria-expanded={hasMultipleSubgroups ? !collapsed : undefined}
-                                >
-                                    {subHeading}
-                                </h5>
-                                {hasMultipleSubgroups && (
-                                    <span
-                                        className={"btn glyphicon menu-row-glyph glyph-collapse " + chevronGlyph}
-                                        onClick={() => this.toggleCollapsed(subHeading)}
-                                        aria-label={collapsed ? "Expand group" : "Collapse group"}
-                                    />
-                                )}
-                            </div>
-                            {!collapsed && groupLayers.map(layer =>
-                                <MenuRow key={layer.id} layer={layer}/>
-                            )}
-                        </React.Fragment>
-                    );
-                })}
+                <div className={'sv-rail-pane-shell'}>
+                    {this.renderRail(subHeadings)}
+                    {this.renderPane()}
+                </div>
             </div>
         );
     }
 }
 
 const mapStateToProps = (state) => {
-    // console.log('state simpleView:', state);
-    // debugger;
     return {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         menuGroups: state?.layers?.groups,
@@ -202,7 +315,6 @@ const mapDispatchToProps = ( dispatch ) => {
                 dispatch(zoomToExtent([combined.minx, combined.miny, combined.maxx, combined.maxy], crs));
                 return;
             }
-            // Fallback: fetch extents from GeoNode API for layers without valid bbox
             const layerNames = layers.map(l => l.name?.replace('geonode:', '')).filter(Boolean);
             if (layerNames.length === 0) return;
             Promise.all(layerNames.map(name =>
@@ -229,5 +341,6 @@ const MenuRows = connect(mapStateToProps, mapDispatchToProps)(MenuRowsClass);
 
 
 export {
-    MenuRows
+    MenuRows,
+    MenuRowsClass
 };
