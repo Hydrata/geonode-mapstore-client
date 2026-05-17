@@ -403,16 +403,28 @@ export const tailScenarioLogEpic = (action$, store) =>
 
 // -- Ensure ANUGA group tree exists before layers are added ----------------
 
+// Order is z-order from TOP (renders on top) to BOTTOM. Rasters last so they
+// sit underneath the vector inputs — drawing a boundary on top of a terrain
+// hillshade has to stay visible. The reverse-walk in initialReorderLayers
+// (MapStore2 LayersUtils) flips this list into flat[]: the first child here
+// ends at the END of flat = TOP of the OL z-stack. So Boundaries first =
+// painted on top of everything, Terrain last = painted underneath.
 const ANUGA_GROUPS = {
     "Input Data": [
-        "Terrain", "Boundaries", "Structures", "Inflows",
-        // TASK-955 (W2.2 FE) — Rainfall input group (sits next to Inflows so the
-        // legend ordering matches the new polygon-vs-line input split). Pluralised
-        // to "Rainfalls" matching Boundaries/Inflows/Structures; BE
-        // INPUT_DATA_GROUP_MAP maps the 'rai' prefix to this label.
+        "Boundaries", "Inflows",
+        // TASK-955 (W2.2 FE) — Rainfall input group, beside Inflows so the
+        // legend ordering matches the polygon-vs-line input split.
+        // BE INPUT_DATA_GROUP_MAP maps the 'rai' prefix to this label.
         "Rainfalls",
-        "Friction", "Full Mesh", "Mesh Regions",
-        "Catchments", "Nodes", "Links"
+        "Structures", "Catchments", "Nodes", "Links",
+        "Mesh Regions", "Full Mesh",
+        "Friction",
+        // TASK-829 raster sibling to vector Friction; routed via the
+        // 'fri_raster_' prefix in BE INPUT_DATA_GROUP_MAP. Pre-create here so
+        // the first friction-raster upload doesn't trigger a lazy group-add at
+        // a non-canonical position.
+        "Friction Rasters",
+        "Terrain"
     ],
     "Results": [
         "Depth", "Depth Integrated Velocity", "Velocity",

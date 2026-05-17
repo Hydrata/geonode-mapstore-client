@@ -492,20 +492,25 @@ describe('Polling Epics', () => {
             // Build a state where all groups already exist
             const allGroups = [
                 { id: 'Input Data', nodes: [
-                    { id: 'Input Data.Terrain' },
                     { id: 'Input Data.Boundaries' },
-                    { id: 'Input Data.Structures' },
                     { id: 'Input Data.Inflows' },
                     // TASK-955 (W2.2 FE) — Rainfall group added to ANUGA_GROUPS;
                     // mirroring the fixture here keeps the "all exist → emit nothing"
                     // contract pinned.
                     { id: 'Input Data.Rainfalls' },
-                    { id: 'Input Data.Friction' },
-                    { id: 'Input Data.Full Mesh' },
-                    { id: 'Input Data.Mesh Regions' },
+                    { id: 'Input Data.Structures' },
                     { id: 'Input Data.Catchments' },
                     { id: 'Input Data.Nodes' },
-                    { id: 'Input Data.Links' }
+                    { id: 'Input Data.Links' },
+                    { id: 'Input Data.Mesh Regions' },
+                    { id: 'Input Data.Full Mesh' },
+                    { id: 'Input Data.Friction' },
+                    // Raster siblings pre-created so the first upload doesn't
+                    // trigger a lazy moveNode that lands the group at a
+                    // non-canonical position. Both rasters live below all
+                    // vectors so a boundary drawn on top stays visible.
+                    { id: 'Input Data.Friction Rasters' },
+                    { id: 'Input Data.Terrain' }
                 ]},
                 { id: 'Results', nodes: [
                     { id: 'Results.Depth' },
@@ -542,6 +547,43 @@ describe('Polling Epics', () => {
                     err => done(err),
                     () => {
                         expect(emitted.length).toBe(0);
+                        done();
+                    }
+                );
+        });
+
+        // Regression: a freshly uploaded terrain hillshade rendered ON TOP of
+        // a boundary line the user had just drawn — the opaque raster hid the
+        // vector completely. initialReorderLayers walks groups in REVERSE, so
+        // the first Input Data child ends at the END of flat[] = TOP of the
+        // OL z-stack. Boundaries must come first (top), Terrain last (bottom).
+        // Pinning the emit order here guarantees fresh projects never
+        // regress to terrain-on-top regardless of how lazy moveNode races.
+        it('should add Input Data subgroups vectors-first, rasters-last', (done) => {
+            const store = { getState: () => ({ layers: { groups: [] } }) };
+            const action$ = mockActions([{ type: FIX_ANUGA_GROUPS }]);
+            const emitted = [];
+
+            ensureAnugaGroupsEpic(action$, store)
+                .subscribe(
+                    action => emitted.push(action),
+                    err => done(err),
+                    () => {
+                        const inputDataIds = emitted
+                            .filter(a => a.options && a.options.id && a.options.id.startsWith('Input Data.'))
+                            .map(a => a.options.id);
+                        const idx = name => inputDataIds.indexOf('Input Data.' + name);
+                        expect(idx('Boundaries')).toBeGreaterThan(-1);
+                        expect(idx('Terrain')).toBeGreaterThan(-1);
+                        expect(idx('Friction Rasters')).toBeGreaterThan(-1);
+                        // Vectors first (z-top), rasters last (z-bottom).
+                        expect(idx('Boundaries')).toBeLessThan(idx('Friction'));
+                        expect(idx('Boundaries')).toBeLessThan(idx('Friction Rasters'));
+                        expect(idx('Boundaries')).toBeLessThan(idx('Terrain'));
+                        expect(idx('Inflows')).toBeLessThan(idx('Terrain'));
+                        expect(idx('Structures')).toBeLessThan(idx('Terrain'));
+                        expect(idx('Mesh Regions')).toBeLessThan(idx('Terrain'));
+                        expect(idx('Friction Rasters')).toBeLessThan(idx('Terrain'));
                         done();
                     }
                 );
