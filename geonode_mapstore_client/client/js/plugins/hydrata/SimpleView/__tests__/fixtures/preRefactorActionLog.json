@@ -1,0 +1,903 @@
+{
+  "captureContext": {
+    "gmcSha": "34ac09071",
+    "submoduleSha": "01ccb61846d",
+    "jobName": "hydratabase",
+    "projectId": 11557,
+    "mapId": 1244,
+    "capturedAt": "2026-05-17T19:17:53.788Z",
+    "captureMethod": "chrome-devtools-mcp MapStoreAPI.onAction listener",
+    "notes": [
+      "Layer source: project 11557 'test16' in hydratabase DB; map 1244. Page title 'theswamm.com' is the saved Map title and is unrelated to the live JOB_NAME=hydratabase.",
+      "MapStoreAPI.onAction('*', fn) was used instead of patching store.dispatch, because the catalogue page exposes the live Redux store's action listener API at window.MapStoreAPI.onAction (defined in geonode_mapstore_client/client/js/utils/AppUtils.js:315-333). This is non-invasive and captures every dispatched action without source modification.",
+      "trackEvent() does NOT dispatch a Redux action. It calls umami.track(label, {category, action}) directly (geonode_mapstore_client/client/js/utils/analytics.js). There is no TRACK_EVENT Redux action, so the schema example in the spec is inaccurate. The label patterns ('simpleview-menu-row-turn-off-<title>' etc.) are present only in Umami event names, not the Redux stream.",
+      "The trash 'open confirm' button is pure React local state (this.setState({deleteConfirmVisible: true}) in simpleViewMenuRow.js:660); no Redux action fires until the user clicks the Delete confirm button. trashConfirm sequences are empty arrays [] by design.",
+      "Per the spec rule 'For CHANGE_LAYER_PROPERTIES newProperties: filter only id-shaped fields', the top-level `layer` field on CHANGE_LAYER_PROPERTIES (which carries the full geonode:prefix_<id>_<title>_<uuid> layer name) has been filtered to '<filtered>' because it serves the same id role as the schema example's `id` field. The actual gmc action uses `layer`, not `id`.",
+      "Background polling noise filtered out at listener level: TM_SET_PROCESSES, TM_SET_ACTIVE_COUNT, SET_ANUGA_POLLING_DATA, CHANGE_MAP_VIEW, CHANGE_MOUSE_POINTER, UPDATE_TIME_BAR, UPDATE_CURRENT_TILES, LAYER_LOAD, LAYER_LOADING, LAYER_ERROR, PURGE_MAPINFO_RESULTS.",
+      "Terrain.pencilClick is null: Terrain layers are rasters; canEditLayer returns true but the pencil onClick early-returns at simpleViewMenuRow.js:480 (cfg.geomType === 'Raster'). No Redux dispatch is intended for raster pencil clicks.",
+      "VECTOR_DRAW:START emits a SHOW_NOTIFICATION 'Drawing Error: Failed to load features... not valid JSON' because the localhost GeoServer returns an XML error response for the WFS GetFeature against the empty layer. This is preserved so the refactor's parity check sees the identical error path.",
+      "Opacity drag values: I drove a mouse-event sequence (mousedown -> mousemove -> mouseup) to ~62% on the slider handle; the exact numeric value depends on pixel rounding. The TYPE (CHANGE_LAYER_PROPERTIES with newProperties.opacity) is the parity signal, not the literal 0.62."
+    ]
+  },
+  "sequences": {
+    "Terrain.toggleVisibility": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "visibility": false
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Terrain.opacityDrag": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "opacity": 0.62
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Terrain.pencilClick": null,
+    "Terrain.trashConfirm": [],
+    "Boundary.toggleVisibility": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "visibility": false
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Boundary.opacityDrag": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "opacity": 0.62
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Boundary.pencilClick": [
+      {
+        "type": "FEATUREGRID:CLOSE_GRID"
+      },
+      {
+        "type": "MAP_LAYOUT:UPDATE_MAP_LAYOUT",
+        "layout": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "transform": "none",
+          "height": "calc(100% - 0px)",
+          "boundingMapRect": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "boundingSidebarRect": {
+            "right": 0,
+            "left": 0,
+            "bottom": 0
+          },
+          "rightPanel": false,
+          "leftPanel": false
+        }
+      },
+      {
+        "type": "IDENTIFY:CURRENT_EDIT_FEATURE_QUERY"
+      },
+      {
+        "type": "CHANGE_BOX_SELECTION_STATUS",
+        "status": "end"
+      },
+      {
+        "type": "DRAW:SET_SNAPPING_LAYER",
+        "snappingLayer": false
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "SET_OPEN_MENU_GROUP_ID",
+        "openMenuGroupId": null
+      },
+      {
+        "type": "SET_ANUGA_INPUT_MENU",
+        "visible": false
+      },
+      {
+        "type": "VECTOR_DRAW:START",
+        "config": {
+          "layerName": "geonode:bdy_11557_boundary_01",
+          "geomType": "LineString",
+          "featureId": null,
+          "allowPick": true,
+          "owner": "anuga",
+          "formConfig": {
+            "title": "Boundary",
+            "fields": [
+              {
+                "name": "description",
+                "type": "text",
+                "label": "Title"
+              },
+              {
+                "name": "boundary",
+                "type": "select",
+                "label": "Boundary type",
+                "default": "Dirichlet",
+                "options": [
+                  {
+                    "value": "Dirichlet",
+                    "label": "Dirichlet"
+                  },
+                  {
+                    "value": "Reflective",
+                    "label": "Reflective"
+                  },
+                  {
+                    "value": "Transmissive",
+                    "label": "Transmissive"
+                  },
+                  {
+                    "value": "Time",
+                    "label": "Time"
+                  }
+                ]
+              },
+              {
+                "name": "location",
+                "type": "select",
+                "label": "Location",
+                "default": "External",
+                "options": [
+                  {
+                    "value": "External",
+                    "label": "External"
+                  },
+                  {
+                    "value": "Internal",
+                    "label": "Internal"
+                  }
+                ]
+              },
+              {
+                "name": "data",
+                "type": "discriminator-picker",
+                "label": "Boundary value",
+                "showWhen": {
+                  "field": "boundary",
+                  "equals": "Time"
+                },
+                "choices": [
+                  {
+                    "kind": "constant",
+                    "label": "Constant",
+                    "defaultValue": {
+                      "constant": null
+                    }
+                  },
+                  {
+                    "kind": "timeseries",
+                    "label": "TimeSeries",
+                    "defaultValue": {
+                      "timeseries_id": null
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "onComplete": "ANUGA:VECTOR_DRAW_COMPLETE",
+          "onCancel": "ANUGA:VECTOR_DRAW_CANCELLED",
+          "meta": {
+            "prefix": "bdy_",
+            "layerId": "<filtered>"
+          }
+        }
+      },
+      {
+        "type": "SHOW_NOTIFICATION",
+        "title": "Drawing Error",
+        "message": "Failed to load features: Unexpected token '<', \"<?xml vers\"... is not valid JSON",
+        "position": "tc",
+        "autoDismiss": 10,
+        "uid": "<filtered>",
+        "level": "error"
+      },
+      {
+        "type": "VECTOR_DRAW:RESET"
+      }
+    ],
+    "Boundary.trashConfirm": [],
+    "Inflow.toggleVisibility": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "visibility": false
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Inflow.opacityDrag": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "opacity": 0.62
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Inflow.pencilClick": [
+      {
+        "type": "FEATUREGRID:CLOSE_GRID"
+      },
+      {
+        "type": "MAP_LAYOUT:UPDATE_MAP_LAYOUT",
+        "layout": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "transform": "none",
+          "height": "calc(100% - 0px)",
+          "boundingMapRect": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "boundingSidebarRect": {
+            "right": 0,
+            "left": 0,
+            "bottom": 0
+          },
+          "rightPanel": false,
+          "leftPanel": false
+        }
+      },
+      {
+        "type": "IDENTIFY:CURRENT_EDIT_FEATURE_QUERY"
+      },
+      {
+        "type": "CHANGE_BOX_SELECTION_STATUS",
+        "status": "end"
+      },
+      {
+        "type": "DRAW:SET_SNAPPING_LAYER",
+        "snappingLayer": false
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "SET_OPEN_MENU_GROUP_ID",
+        "openMenuGroupId": null
+      },
+      {
+        "type": "SET_ANUGA_INPUT_MENU",
+        "visible": false
+      },
+      {
+        "type": "VECTOR_DRAW:START",
+        "config": {
+          "layerName": "geonode:inf_11557_inflow_01",
+          "geomType": "LineString",
+          "featureId": null,
+          "allowPick": true,
+          "owner": "anuga",
+          "formConfig": {
+            "title": "Inflow",
+            "fields": [
+              {
+                "name": "description",
+                "type": "text",
+                "label": "Title"
+              },
+              {
+                "name": "data",
+                "type": "discriminator-picker",
+                "label": "Data",
+                "choices": [
+                  {
+                    "kind": "constant",
+                    "label": "Constant",
+                    "defaultValue": {
+                      "constant": null
+                    },
+                    "unit": "m³/s"
+                  },
+                  {
+                    "kind": "timeseries",
+                    "label": "TimeSeries",
+                    "defaultValue": {
+                      "timeseries_id": null
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "onComplete": "ANUGA:VECTOR_DRAW_COMPLETE",
+          "onCancel": "ANUGA:VECTOR_DRAW_CANCELLED",
+          "meta": {
+            "prefix": "inf_",
+            "layerId": "<filtered>"
+          }
+        }
+      },
+      {
+        "type": "SHOW_NOTIFICATION",
+        "title": "Drawing Error",
+        "message": "Failed to load features: Unexpected token '<', \"<?xml vers\"... is not valid JSON",
+        "position": "tc",
+        "autoDismiss": 10,
+        "uid": "<filtered>",
+        "level": "error"
+      },
+      {
+        "type": "VECTOR_DRAW:RESET"
+      }
+    ],
+    "Inflow.trashConfirm": [],
+    "Rainfall.toggleVisibility": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "visibility": false
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Rainfall.opacityDrag": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "opacity": 0.62
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Rainfall.pencilClick": [
+      {
+        "type": "FEATUREGRID:CLOSE_GRID"
+      },
+      {
+        "type": "MAP_LAYOUT:UPDATE_MAP_LAYOUT",
+        "layout": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "transform": "none",
+          "height": "calc(100% - 0px)",
+          "boundingMapRect": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "boundingSidebarRect": {
+            "right": 0,
+            "left": 0,
+            "bottom": 0
+          },
+          "rightPanel": false,
+          "leftPanel": false
+        }
+      },
+      {
+        "type": "IDENTIFY:CURRENT_EDIT_FEATURE_QUERY"
+      },
+      {
+        "type": "CHANGE_BOX_SELECTION_STATUS",
+        "status": "end"
+      },
+      {
+        "type": "DRAW:SET_SNAPPING_LAYER",
+        "snappingLayer": false
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "SET_OPEN_MENU_GROUP_ID",
+        "openMenuGroupId": null
+      },
+      {
+        "type": "SET_ANUGA_INPUT_MENU",
+        "visible": false
+      },
+      {
+        "type": "VECTOR_DRAW:START",
+        "config": {
+          "layerName": "geonode:rai_11557_rainfall_01",
+          "geomType": "Polygon",
+          "featureId": null,
+          "allowPick": true,
+          "owner": "anuga",
+          "formConfig": {
+            "title": "Rainfall",
+            "fields": [
+              {
+                "name": "description",
+                "type": "text",
+                "label": "Title"
+              },
+              {
+                "name": "data",
+                "type": "discriminator-picker",
+                "label": "Data",
+                "choices": [
+                  {
+                    "kind": "constant",
+                    "label": "Constant",
+                    "defaultValue": {
+                      "constant": null
+                    }
+                  },
+                  {
+                    "kind": "timeseries",
+                    "label": "TimeSeries",
+                    "defaultValue": {
+                      "timeseries_id": null
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "onComplete": "ANUGA:VECTOR_DRAW_COMPLETE",
+          "onCancel": "ANUGA:VECTOR_DRAW_CANCELLED",
+          "meta": {
+            "prefix": "rai_",
+            "layerId": "<filtered>"
+          }
+        }
+      },
+      {
+        "type": "SHOW_NOTIFICATION",
+        "title": "Drawing Error",
+        "message": "Failed to load features: Unexpected token '<', \"<?xml vers\"... is not valid JSON",
+        "position": "tc",
+        "autoDismiss": 10,
+        "uid": "<filtered>",
+        "level": "error"
+      },
+      {
+        "type": "VECTOR_DRAW:RESET"
+      },
+      {
+        "type": "HIDE_NOTIFICATION",
+        "uid": "<filtered>"
+      }
+    ],
+    "Rainfall.trashConfirm": [],
+    "MeshRegion.toggleVisibility": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "visibility": false
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "MeshRegion.opacityDrag": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "opacity": 0.62
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "MeshRegion.pencilClick": [
+      {
+        "type": "FEATUREGRID:CLOSE_GRID"
+      },
+      {
+        "type": "MAP_LAYOUT:UPDATE_MAP_LAYOUT",
+        "layout": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "transform": "none",
+          "height": "calc(100% - 0px)",
+          "boundingMapRect": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "boundingSidebarRect": {
+            "right": 0,
+            "left": 0,
+            "bottom": 0
+          },
+          "rightPanel": false,
+          "leftPanel": false
+        }
+      },
+      {
+        "type": "IDENTIFY:CURRENT_EDIT_FEATURE_QUERY"
+      },
+      {
+        "type": "CHANGE_BOX_SELECTION_STATUS",
+        "status": "end"
+      },
+      {
+        "type": "DRAW:SET_SNAPPING_LAYER",
+        "snappingLayer": false
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "SET_OPEN_MENU_GROUP_ID",
+        "openMenuGroupId": null
+      },
+      {
+        "type": "SET_ANUGA_INPUT_MENU",
+        "visible": false
+      },
+      {
+        "type": "VECTOR_DRAW:START",
+        "config": {
+          "layerName": "geonode:mes_11557_meshregion_01",
+          "geomType": "Polygon",
+          "featureId": null,
+          "allowPick": true,
+          "owner": "anuga",
+          "formConfig": {
+            "title": "Mesh Region",
+            "fields": [
+              {
+                "name": "description",
+                "type": "text",
+                "label": "Title"
+              },
+              {
+                "name": "resolution",
+                "type": "number",
+                "label": "Resolution (m²)",
+                "default": 10,
+                "step": 1,
+                "min": 0.1
+              }
+            ]
+          },
+          "onComplete": "ANUGA:VECTOR_DRAW_COMPLETE",
+          "onCancel": "ANUGA:VECTOR_DRAW_CANCELLED",
+          "meta": {
+            "prefix": "mes_",
+            "layerId": "<filtered>"
+          }
+        }
+      },
+      {
+        "type": "SHOW_NOTIFICATION",
+        "title": "Drawing Error",
+        "message": "Failed to load features: Unexpected token '<', \"<?xml vers\"... is not valid JSON",
+        "position": "tc",
+        "autoDismiss": 10,
+        "uid": "<filtered>",
+        "level": "error"
+      },
+      {
+        "type": "VECTOR_DRAW:RESET"
+      },
+      {
+        "type": "HIDE_NOTIFICATION",
+        "uid": "<filtered>"
+      }
+    ],
+    "MeshRegion.trashConfirm": [],
+    "Friction.toggleVisibility": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "visibility": false
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Friction.opacityDrag": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "opacity": 0.62
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Friction.pencilClick": [
+      {
+        "type": "FEATUREGRID:CLOSE_GRID"
+      },
+      {
+        "type": "MAP_LAYOUT:UPDATE_MAP_LAYOUT",
+        "layout": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "transform": "none",
+          "height": "calc(100% - 0px)",
+          "boundingMapRect": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "boundingSidebarRect": {
+            "right": 0,
+            "left": 0,
+            "bottom": 0
+          },
+          "rightPanel": false,
+          "leftPanel": false
+        }
+      },
+      {
+        "type": "IDENTIFY:CURRENT_EDIT_FEATURE_QUERY"
+      },
+      {
+        "type": "CHANGE_BOX_SELECTION_STATUS",
+        "status": "end"
+      },
+      {
+        "type": "DRAW:SET_SNAPPING_LAYER",
+        "snappingLayer": false
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "SET_OPEN_MENU_GROUP_ID",
+        "openMenuGroupId": null
+      },
+      {
+        "type": "SET_ANUGA_INPUT_MENU",
+        "visible": false
+      },
+      {
+        "type": "VECTOR_DRAW:START",
+        "config": {
+          "layerName": "geonode:fri_11557_friction_01",
+          "geomType": "Polygon",
+          "featureId": null,
+          "allowPick": true,
+          "owner": "anuga",
+          "formConfig": {
+            "title": "Friction",
+            "fields": [
+              {
+                "name": "description",
+                "type": "text",
+                "label": "Title"
+              },
+              {
+                "name": "mannings",
+                "type": "number",
+                "label": "Mannings n",
+                "default": 0.035,
+                "step": 0.001
+              }
+            ]
+          },
+          "onComplete": "ANUGA:VECTOR_DRAW_COMPLETE",
+          "onCancel": "ANUGA:VECTOR_DRAW_CANCELLED",
+          "meta": {
+            "prefix": "fri_",
+            "layerId": "<filtered>"
+          }
+        }
+      },
+      {
+        "type": "SHOW_NOTIFICATION",
+        "title": "Drawing Error",
+        "message": "Failed to load features: Unexpected token '<', \"<?xml vers\"... is not valid JSON",
+        "position": "tc",
+        "autoDismiss": 10,
+        "uid": "<filtered>",
+        "level": "error"
+      },
+      {
+        "type": "VECTOR_DRAW:RESET"
+      },
+      {
+        "type": "HIDE_NOTIFICATION",
+        "uid": "<filtered>"
+      }
+    ],
+    "Friction.trashConfirm": [],
+    "FrictionRaster.toggleVisibility": null,
+    "FrictionRaster.opacityDrag": null,
+    "FrictionRaster.pencilClick": null,
+    "FrictionRaster.trashConfirm": null,
+    "Structure.toggleVisibility": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "visibility": false
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Structure.opacityDrag": [
+      {
+        "type": "CHANGE_LAYER_PROPERTIES",
+        "newProperties": {
+          "opacity": 0.62
+        },
+        "layer": "<filtered>"
+      }
+    ],
+    "Structure.pencilClick": [
+      {
+        "type": "FEATUREGRID:CLOSE_GRID"
+      },
+      {
+        "type": "MAP_LAYOUT:UPDATE_MAP_LAYOUT",
+        "layout": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "transform": "none",
+          "height": "calc(100% - 0px)",
+          "boundingMapRect": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "boundingSidebarRect": {
+            "right": 0,
+            "left": 0,
+            "bottom": 0
+          },
+          "rightPanel": false,
+          "leftPanel": false
+        }
+      },
+      {
+        "type": "IDENTIFY:CURRENT_EDIT_FEATURE_QUERY"
+      },
+      {
+        "type": "CHANGE_BOX_SELECTION_STATUS",
+        "status": "end"
+      },
+      {
+        "type": "DRAW:SET_SNAPPING_LAYER",
+        "snappingLayer": false
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "FEATUREGRID:SELECT_FEATURES",
+        "features": []
+      },
+      {
+        "type": "SET_OPEN_MENU_GROUP_ID",
+        "openMenuGroupId": null
+      },
+      {
+        "type": "SET_ANUGA_INPUT_MENU",
+        "visible": false
+      },
+      {
+        "type": "VECTOR_DRAW:START",
+        "config": {
+          "layerName": "geonode:str_11557_structure_01",
+          "geomType": "Polygon",
+          "featureId": null,
+          "allowPick": true,
+          "owner": "anuga",
+          "formConfig": {
+            "title": "Structure",
+            "fields": [
+              {
+                "name": "description",
+                "type": "text",
+                "label": "Title"
+              },
+              {
+                "name": "method",
+                "type": "select",
+                "label": "Method",
+                "default": "Holes",
+                "options": [
+                  {
+                    "value": "Holes",
+                    "label": "Holes"
+                  },
+                  {
+                    "value": "Mannings",
+                    "label": "Mannings"
+                  },
+                  {
+                    "value": "Reflective",
+                    "label": "Reflective"
+                  }
+                ]
+              }
+            ]
+          },
+          "onComplete": "ANUGA:VECTOR_DRAW_COMPLETE",
+          "onCancel": "ANUGA:VECTOR_DRAW_CANCELLED",
+          "meta": {
+            "prefix": "str_",
+            "layerId": "<filtered>"
+          }
+        }
+      },
+      {
+        "type": "SHOW_NOTIFICATION",
+        "title": "Drawing Error",
+        "message": "Failed to load features: Unexpected token '<', \"<?xml vers\"... is not valid JSON",
+        "position": "tc",
+        "autoDismiss": 10,
+        "uid": "<filtered>",
+        "level": "error"
+      },
+      {
+        "type": "VECTOR_DRAW:RESET"
+      },
+      {
+        "type": "HIDE_NOTIFICATION",
+        "uid": "<filtered>"
+      }
+    ],
+    "Structure.trashConfirm": [],
+    "Catchments.toggleVisibility": null,
+    "Catchments.opacityDrag": null,
+    "Catchments.pencilClick": null,
+    "Catchments.trashConfirm": null,
+    "Nodes.toggleVisibility": null,
+    "Nodes.opacityDrag": null,
+    "Nodes.pencilClick": null,
+    "Nodes.trashConfirm": null,
+    "Links.toggleVisibility": null,
+    "Links.opacityDrag": null,
+    "Links.pencilClick": null,
+    "Links.trashConfirm": null
+  },
+  "gaps": [
+    "FrictionRaster.toggleVisibility: project 11557 has no FrictionRaster row in the SimpleView Inputs tab (DB confirmed: 0 FrictionRaster rows). Re-capture during W4 against a project with at least one FrictionRaster.",
+    "FrictionRaster.opacityDrag: same as above.",
+    "FrictionRaster.pencilClick: same as above. Note: FrictionRaster is a raster (cfg.geomType==='Raster') so pencil is also a no-op — expected null even when a layer exists.",
+    "FrictionRaster.trashConfirm: same as above. Note: trashConfirm is always [] (local React state).",
+    "Catchments.toggleVisibility: no Catchments row exists for project 11557; the 'Networks' accordion is rendered empty in the localhost UI.",
+    "Catchments.opacityDrag: same as above.",
+    "Catchments.pencilClick: same as above. Note: getAnugaPrefix('cat_...') returns 'cat_' but ANUGA_FEATURE_CONFIG has no 'cat_' entry, so this falls into the legacy FeatureGrid path (simpleViewMenuRow.js:519-525) — a different dispatch set than VectorDraw.",
+    "Catchments.trashConfirm: same as above.",
+    "Nodes.toggleVisibility: no Nodes row exists for project 11557.",
+    "Nodes.opacityDrag: same as above.",
+    "Nodes.pencilClick: same as above. Note: 'nod_' prefix falls into legacy FeatureGrid path.",
+    "Nodes.trashConfirm: same as above.",
+    "Links.toggleVisibility: no Links row exists for project 11557.",
+    "Links.opacityDrag: same as above.",
+    "Links.pencilClick: same as above. Note: 'lin_' prefix falls into legacy FeatureGrid path.",
+    "Links.trashConfirm: same as above."
+  ]
+}
