@@ -121,7 +121,13 @@ export const SelectWidget = ({ field, value, onChange }) => {
 // Render component for the 'constant' kind. Emits the canonical
 // {kind:'constant', constant:Number|null} shape via its onChange prop.
 // The outer wrapper translates this into onChange(field.name, value).
-export const ConstantInput = ({ value, onChange }) => {
+//
+// `field` arrives from DiscriminatorPicker (it threads the outer field
+// descriptor through to every render). When the matching choice declares
+// a `unit` string (e.g. 'm³/s' for Inflow), the unit is rendered next to
+// the input as a non-interactive suffix. Other consumers (Boundary value)
+// omit `unit` and the input renders unchanged.
+export const ConstantInput = ({ value, onChange, field }) => {
     const constantValue = (typeof value?.constant === 'number' || typeof value?.constant === 'string')
         ? value.constant
         : '';
@@ -130,7 +136,8 @@ export const ConstantInput = ({ value, onChange }) => {
         const num = raw === '' ? null : parseFloat(raw);
         onChange({ kind: 'constant', constant: Number.isNaN(num) ? null : num });
     };
-    return (
+    const unit = field?.choices?.find(c => c.kind === 'constant')?.unit;
+    const input = (
         <input
             type="number"
             className="time-data-picker-constant"
@@ -139,6 +146,13 @@ export const ConstantInput = ({ value, onChange }) => {
             step="any"
             style={{flex: 1, maxWidth: 160}}
         />
+    );
+    if (!unit) return input;
+    return (
+        <div className="time-data-picker-constant-row" style={{display: 'flex', alignItems: 'center', gap: 6}}>
+            {input}
+            <span className="time-data-picker-constant-unit" style={{color: '#666', fontSize: '0.9em'}}>{unit}</span>
+        </div>
     );
 };
 

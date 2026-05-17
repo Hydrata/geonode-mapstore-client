@@ -283,4 +283,54 @@ describe('TASK-826 W3.3 — discriminator-picker widget integration', () => {
             expect(container.querySelector('select.time-data-picker-timeseries')).toBe(null);
         });
     });
+
+    describe('ConstantInput unit suffix', () => {
+        // Why: Inflow `data` is a flow rate in m³/s; without a unit suffix the
+        // user has no way to know whether to enter the value in m³/s, L/s,
+        // m³/hr, etc. The unit travels via field.choices[constant].unit, read
+        // by ConstantInput. Boundary `data` omits unit (Dirichlet stage vs
+        // Time velocity have different units) and must render unchanged.
+        it('renders the unit suffix when field.choices[constant].unit is set', () => {
+            const field = {
+                name: 'inflow_data',
+                type: 'discriminator-picker',
+                label: 'Data',
+                choices: [
+                    { kind: 'constant', label: 'Constant', render: ConstantInput,
+                        options: [], defaultValue: { constant: null }, unit: 'm³/s' },
+                    { kind: 'timeseries', label: 'TimeSeries', render: TimeSeriesSelect,
+                        options: [], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <FormField field={field} value={{ kind: 'constant', constant: 1.5 }} onChange={onChange} />,
+                container
+            );
+            const unitEl = container.querySelector('.time-data-picker-constant-unit');
+            expect(unitEl).toExist();
+            expect(unitEl.textContent).toBe('m³/s');
+            // Input still renders with the same selector tests rely on.
+            expect(container.querySelector('input.time-data-picker-constant')).toExist();
+        });
+
+        it('omits the unit suffix when no unit is declared (Boundary regression guard)', () => {
+            const field = {
+                name: 'boundary_data',
+                type: 'discriminator-picker',
+                label: 'Boundary value',
+                choices: [
+                    { kind: 'constant', label: 'Constant', render: ConstantInput,
+                        options: [], defaultValue: { constant: null } },
+                    { kind: 'timeseries', label: 'TimeSeries', render: TimeSeriesSelect,
+                        options: [], defaultValue: { timeseries_id: null } }
+                ]
+            };
+            ReactDOM.render(
+                <FormField field={field} value={{ kind: 'constant', constant: 1.5 }} onChange={onChange} />,
+                container
+            );
+            expect(container.querySelector('.time-data-picker-constant-unit')).toBe(null);
+            expect(container.querySelector('input.time-data-picker-constant')).toExist();
+        });
+    });
 });

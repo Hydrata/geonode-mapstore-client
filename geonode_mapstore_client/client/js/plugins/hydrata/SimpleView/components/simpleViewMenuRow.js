@@ -213,28 +213,17 @@ const ANUGA_FEATURE_CONFIG = {
             title: 'Inflow',
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
-                {name: 'type', type: 'select', label: 'Type', "default": 'Rainfall',
-                    options: [
-                        {value: 'Rainfall', label: 'Rainfall'},
-                        {value: 'Surface', label: 'Surface'}
-                    ]},
-                // TASK-850 (W2.3-FE) — Compound Constant/TimeSeries picker. Mirrors
-                // the Boundary Time-data-picker pattern (above) but always renders —
-                // Inflow has no discriminator. Inflow.make_file consumes the resolved
-                // value via FeatureDataMixin (TASK-820) so the picker emits one of
-                // `data_constant` FLOAT or `data_timeseries_id` INTEGER, never the
-                // legacy bare `data` text. EDIT-mode seeding goes through
-                // inflowTranslate.synthesizeIn via the registry (epicsVectorDraw.js).
-                //
-                // TASK-826 (W3.3) — Migrated from `type: 'time-data-picker'` to
-                // the generalized `type: 'discriminator-picker'` with inline
-                // `choices`. Same migration as the Boundary field above; DOM,
-                // CSS, and value shape unchanged. The `time-data-picker` alias
-                // remains registered in FormField.js for external consumers.
+                // why: TASK-955 promoted Rainfall to a top-level `'rai_'` model
+                // with its own polygon geometry + dedicated form. The Inflow
+                // `type` Rainfall/Surface discriminator is dead-FE — every new
+                // inflow is implicitly Surface (LineString hydrograph). The
+                // PostGIS `type` column remains for back-compat reads of older
+                // rows; new WFS-T writes omit it (PostGIS fills NULL) which
+                // run_anuga's legacy `rainfall_filter` already drops.
                 {name: 'data', type: 'discriminator-picker', label: 'Data',
                     choices: [
                         {kind: 'constant', label: 'Constant', render: ConstantInput,
-                            defaultValue: {constant: null}},
+                            defaultValue: {constant: null}, unit: 'm³/s'},
                         {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
                             render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
                     ]}

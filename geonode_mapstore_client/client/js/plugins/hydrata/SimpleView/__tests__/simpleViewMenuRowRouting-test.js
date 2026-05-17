@@ -161,9 +161,12 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(names).toEqual(['description', 'resolution']);
         });
 
-        it('inf_ exposes [description, type, data] in that order', () => {
+        it('inf_ exposes [description, data] in that order (TASK-955 dropped legacy `type` picker)', () => {
+            // Why: TASK-955 promoted Rainfall to a top-level `rai_` model.
+            // The Inflow Rainfall/Surface `type` discriminator is dead-FE;
+            // every new inflow is implicitly Surface (LineString hydrograph).
             const names = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.map(f => f.name);
-            expect(names).toEqual(['description', 'type', 'data']);
+            expect(names).toEqual(['description', 'data']);
         });
     });
 
@@ -489,9 +492,21 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             const f = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method');
             expect(f.default).toBe('Holes');
         });
-        it('inf_ type default is "Rainfall"', () => {
+        it('inf_ no longer has a type field (TASK-955 — Rainfall is now its own model)', () => {
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'type');
-            expect(f.default).toBe('Rainfall');
+            expect(f).toBe(undefined);
+        });
+
+        it('inf_ data constant choice declares unit "m³/s"', () => {
+            // Regression guard: Inflow constant flow rate is in cubic metres
+            // per second. The unit is rendered as a suffix next to the
+            // ConstantInput (see FormField.js — `ConstantInput` reads
+            // `field.choices[constant].unit`) so the user knows what magnitude
+            // to type. Boundary `data` deliberately omits unit (the meaning
+            // varies per boundary kind — stage vs velocity).
+            const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'data');
+            const constantChoice = f.choices.find(c => c.kind === 'constant');
+            expect(constantChoice.unit).toBe('m³/s');
         });
     });
 
@@ -526,11 +541,9 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
     });
 
     describe('ANUGA_FEATURE_CONFIG select-widget regressions restored', () => {
-        it('inf_ type is a select with Rainfall and Surface', () => {
+        it('inf_ no longer exposes a type select (Rainfall promoted to rai_ model — TASK-955)', () => {
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'type');
-            expect(f.type).toBe('select');
-            const values = (f.options || []).map(o => o.value);
-            expect(values).toEqual(['Rainfall', 'Surface']);
+            expect(f).toBe(undefined);
         });
         it('str_ method is a select with Holes, Mannings, Reflective', () => {
             const f = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method');
