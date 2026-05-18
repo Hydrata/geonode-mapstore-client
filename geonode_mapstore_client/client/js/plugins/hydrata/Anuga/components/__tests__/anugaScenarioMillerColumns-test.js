@@ -2,7 +2,7 @@ import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import {Provider} from 'react-redux';
-import {AnugaScenarioMenuMiller} from '../anugaScenarioMenuMiller';
+import {AnugaScenarioMenu} from '../anugaScenarioMenu';
 
 /**
  * TASK-C-scenarios-miller W0 — Karma scaffold for the Miller-columns
@@ -68,7 +68,7 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W0 scaffold)', () =
     it('mounts the panel chrome with the Miller class chain', (done) => {
       const store = createMockStore();
       ReactDOM.render(
-        <Provider store={store}><AnugaScenarioMenuMiller /></Provider>,
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
         container,
         () => {
           const panel = container.querySelector('#anuga-scenario-menu');
@@ -85,7 +85,7 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W0 scaffold)', () =
     it('renders the rail+pane shell', (done) => {
       const store = createMockStore();
       ReactDOM.render(
-        <Provider store={store}><AnugaScenarioMenuMiller /></Provider>,
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
         container,
         () => {
           expect(container.querySelector('.sv-rail-pane-shell')).toExist();
@@ -99,7 +99,7 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W0 scaffold)', () =
     it('does not crash with an empty scenarios store', (done) => {
       const store = createMockStore();
       ReactDOM.render(
-        <Provider store={store}><AnugaScenarioMenuMiller /></Provider>,
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
         container,
         () => {
           // Rail has zero items, pane is empty; no throws.

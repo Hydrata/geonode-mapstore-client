@@ -87,22 +87,6 @@
     background-color: #ffffff45;
 }
 
-.scenario-table {
-    margin-bottom: 0;
-}
-
-.scenario-table-header {
-    height: 45px;
-}
-
-.scenario-table-header th {
-    text-align:center;
-}
-
-.scenario-table-row {
-    height: 45px
-}
-
 .network-table {
     margin-bottom: 0;
 }
