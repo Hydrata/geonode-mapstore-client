@@ -37,6 +37,13 @@ import {
     setVisibleTerrainBboxPanel
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
+// TASK-1007 (W3) — SectionHeader primitive replaces the 5 inline header
+// wrappers (terrain, advanced, fullMesh, frictionRasters, networks) that
+// previously hardcoded the row/menu-row/menu-row-header class string.
+// All 5 invocations here pass extraClassName="anuga-section-header" —
+// that class string is declared in Anuga/anuga.css and only the Anuga
+// menu (not Swamm) gets it.
+import {SectionHeader} from "../../SimpleView/components/primitives";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 import {TerrainBboxPanel} from "./terrainBboxPanel";
 import InputSection from "./InputSection";
@@ -247,7 +254,7 @@ class AnugaInputMenuClass extends React.Component {
                 <div
                     className={'menu-rows-container anuga-section'}
                 >
-                    <div className={"row menu-row menu-row-header anuga-section-header"}>
+                    <SectionHeader extraClassName="anuga-section-header">
                         <span
                             className="menu-row-text anuga-section-header-clickable"
                             onClick={() => this.toggleSection('terrain')}
@@ -291,7 +298,7 @@ class AnugaInputMenuClass extends React.Component {
                             onClick={() => this.toggleSection('terrain')}
                             aria-label={this.state.terrainCollapsed ? "Expand section" : "Collapse section"}
                         />
-                    </div>
+                    </SectionHeader>
                     {!this.state.terrainCollapsed && this.props.terrainLayers?.map(terrain => <MenuRow layer={terrain}/>)}
                     {!this.state.terrainCollapsed && this.props.terrainLayers?.length === 0 ?
                         <div className={"row menu-row anuga-section-empty-row"}>
@@ -360,7 +367,7 @@ class AnugaInputMenuClass extends React.Component {
                         />
                         {/* Advanced accordion */}
                         <div className={'menu-rows-container anuga-section'}>
-                            <div className={"row menu-row menu-row-header anuga-section-header"}>
+                            <SectionHeader extraClassName="anuga-section-header">
                                 <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.advanced" /></span>
                                 <span
                                     className={`btn glyphicon menu-row-glyph glyph-settings ${this.state.showAdvanced ? "glyphicon-chevron-down" : "glyphicon-chevron-right"}`}
@@ -370,13 +377,13 @@ class AnugaInputMenuClass extends React.Component {
                                         trackEvent('button', 'click', 'anuga-input-menu-show-advanced');
                                     }}
                                 />
-                            </div>
+                            </SectionHeader>
                         </div>
                         {this.state.showAdvanced ?
                             <div id={'advancedInputs'}>
                                 {/* Full Mesh — read-only, no create button */}
                                 <div className={'menu-rows-container anuga-section'}>
-                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
+                                    <SectionHeader extraClassName="anuga-section-header">
                                         <span
                                             className="menu-row-text anuga-section-header-clickable"
                                             onClick={() => this.toggleSection('fullMesh')}
@@ -396,7 +403,7 @@ class AnugaInputMenuClass extends React.Component {
                                             onClick={() => this.toggleSection('fullMesh')}
                                             aria-label={this.state.fullMeshCollapsed ? "Expand section" : "Collapse section"}
                                         />
-                                    </div>
+                                    </SectionHeader>
                                     {!this.state.fullMeshCollapsed && this.props.fullMeshLayers?.map(fullMesh => <MenuRow layer={fullMesh}/>)}
                                     {!this.state.fullMeshCollapsed && this.props.fullMeshLayers?.length === 0 ?
                                         <div className={"row menu-row anuga-section-empty-row"}>
@@ -445,7 +452,7 @@ class AnugaInputMenuClass extends React.Component {
                                     See decision-request 2026-05-13-q-1 for the operator-confirmed
                                     scope split. */}
                                 <div className={'menu-rows-container anuga-section'}>
-                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
+                                    <SectionHeader extraClassName="anuga-section-header">
                                         <span
                                             className="menu-row-text anuga-section-header-clickable"
                                             onClick={() => this.toggleSection('frictionRasters')}
@@ -475,7 +482,7 @@ class AnugaInputMenuClass extends React.Component {
                                             onClick={() => this.toggleSection('frictionRasters')}
                                             aria-label={this.state.frictionRastersCollapsed ? "Expand section" : "Collapse section"}
                                         />
-                                    </div>
+                                    </SectionHeader>
                                     {!this.state.frictionRastersCollapsed && this.props.frictionRasterLayers?.map(frictionRaster => <MenuRow layer={frictionRaster}/>)}
                                     {!this.state.frictionRastersCollapsed && this.props.frictionRasterLayers?.length === 0 ?
                                         <div className={"row menu-row anuga-section-empty-row"}>
@@ -501,9 +508,7 @@ class AnugaInputMenuClass extends React.Component {
                                 <div
                                     className={'menu-rows-container anuga-section'}
                                 >
-                                    <div
-                                        className={"row menu-row menu-row-header anuga-section-header"}
-                                    >
+                                    <SectionHeader extraClassName="anuga-section-header">
                                         <span
                                             className="menu-row-text anuga-section-header-clickable"
                                             onClick={() => this.toggleSection('networks')}
@@ -567,7 +572,7 @@ class AnugaInputMenuClass extends React.Component {
                                             onClick={() => this.toggleSection('networks')}
                                             aria-label={this.state.networksCollapsed ? "Expand section" : "Collapse section"}
                                         />
-                                    </div>
+                                    </SectionHeader>
                                     {!this.state.networksCollapsed ?
                                         <React.Fragment>
                                             <div className={'menu-row-mini-container'}>

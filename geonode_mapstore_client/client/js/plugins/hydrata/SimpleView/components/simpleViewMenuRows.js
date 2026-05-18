@@ -3,6 +3,11 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 
 import {MenuRow} from "./simpleViewMenuRow";
+// TASK-1007 (W3) — Miller-columns rail extracted into a presentational
+// primitive. The parent keeps the `selectedSubHeading` local state, the
+// `getGroupLayers` derivation, and the toggleGroupVisibility/zoomToGroup
+// dispatchers (via its own mapDispatchToProps); the primitive only paints.
+import {CategoryRail} from './primitives';
 import '../simpleView.css';
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
@@ -106,57 +111,37 @@ class MenuRowsClass extends React.Component {
         return this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading) || [];
     }
 
-    renderRailItem(subHeading) {
-        const groupLayers = this.getGroupLayers(subHeading);
-        const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
-        const noneVisible = groupLayers.every(l => !l.visibility);
-        const isActive = this.state.selectedSubHeading === subHeading;
-        const tristateGlyph = allVisible
-            ? "glyphicon-ok glyph-active"
-            : noneVisible
-                ? "glyphicon-remove glyph-inactive"
-                : "glyphicon-minus glyph-partial";
-        return (
-            <div
-                key={subHeading}
-                className={"sv-category-rail-item" + (isActive ? " is-active" : "")}
-                role="tab"
-                aria-selected={isActive}
-                tabIndex={0}
-                onClick={() => this.handleSelectSubHeading(subHeading)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        this.handleSelectSubHeading(subHeading);
-                    }
-                }}
-            >
-                <span
-                    className={"btn glyphicon menu-row-glyph sv-category-rail-item-tristate " + tristateGlyph}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        this.props.toggleGroupVisibility(groupLayers, !allVisible);
-                        trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${allVisible ? 'off' : 'on'}`);
-                    }}
-                />
-                <span
-                    className={"btn glyphicon menu-row-glyph glyph-zoom glyphicon-zoom-to sv-category-rail-item-zoom"}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        this.props.zoomToGroup(groupLayers);
-                        trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
-                    }}
-                />
-                <h5 className="sv-category-rail-item-label">{subHeading}</h5>
-            </div>
-        );
+    // TASK-1007 (W3) — Per-rail-item derivation moved into a single map
+    // step so we can pass the result array to the CategoryRail primitive.
+    // The trackEvent calls stay HERE (the container) per W3 spec —
+    // primitives emit no analytics. The primitive's onSelect / onToggle /
+    // onZoom callbacks delegate to the same setState/dispatcher methods
+    // that the inline JSX used to call directly.
+    buildRailItems(subHeadings) {
+        return (subHeadings || []).map(subHeading => {
+            const groupLayers = this.getGroupLayers(subHeading);
+            const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
+            const noneVisible = groupLayers.every(l => !l.visibility);
+            return {subHeading, groupLayers, allVisible, noneVisible};
+        });
     }
 
     renderRail(subHeadings) {
+        const items = this.buildRailItems(subHeadings);
         return (
-            <div className="sv-category-rail" role="tablist">
-                {subHeadings.map(subHeading => this.renderRailItem(subHeading))}
-            </div>
+            <CategoryRail
+                items={items}
+                selectedSubHeading={this.state.selectedSubHeading}
+                onSelect={this.handleSelectSubHeading}
+                onToggleGroupVisibility={(groupLayers, nextVisible, subHeading) => {
+                    this.props.toggleGroupVisibility(groupLayers, nextVisible);
+                    trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${nextVisible ? 'on' : 'off'}`);
+                }}
+                onZoomToGroup={(groupLayers, subHeading) => {
+                    this.props.zoomToGroup(groupLayers);
+                    trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
+                }}
+            />
         );
     }
 
