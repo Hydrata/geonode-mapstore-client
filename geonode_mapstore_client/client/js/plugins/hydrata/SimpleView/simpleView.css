@@ -948,3 +948,66 @@ span.menu-row-glyph {
         font-size: 11px;
     }
 }
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   TASK-1006 (W2) — Layer-row toolbar + lifted slider sub-row
+   ──────────────────────────────────────────────────────────────────────────
+   Additive layout for the W2 render-tree edit in simpleViewMenuRow.js:
+
+     .menu-row (existing horizontal flex)
+       ├ .menu-row-left (existing) - now contains:
+       │    ├ .menu-row-toolbar       (NEW) - locked 4-icon row: vis | zoom | edit | delete
+       │    │    └ .menu-row-delete-confirm (existing, moved sibling of trash)
+       │    ├ .menu-row-toolbar-secondary (NEW) - download | upload
+       │    └ .menu-row-title          (NEW) - title input + save glyph (or static text)
+       ├ .menu-row-right (existing, kept as empty structural container per EPIC §6 W2 note (b))
+       ├ .menu-row-slider-subrow      (NEW) - transparency slider (lifted from .menu-row-right)
+       └ renderDeleteFeedback (existing, now after slider sub-row per AC#7)
+
+   .menu-row's existing flex (display:flex, align-items:center) wraps the
+   children inline; the slider sub-row sits at the end of the row.
+   .menu-row-left and .menu-row-right keep their existing flex behaviour.
+   No existing rule is modified — span.menu-row-glyph (line 482) stays
+   byte-identical (R03).
+   ─────────────────────────────────────────────────────────────────────── */
+
+.menu-row-toolbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    /* position:relative so the delete-confirm overlay can absolute-position
+       itself relative to the toolbar (matches today's layout where the
+       confirm sat inside .menu-row-right and was positioned by the
+       .save-confirm-overlay rule on the dialog wrapper). */
+    position: relative;
+}
+
+.menu-row-toolbar-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.menu-row-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    margin-left: 4px;
+}
+
+/* .menu-row-slider-subrow sits at the END of .menu-row (after the
+   structural .menu-row-right placeholder). It keeps the legacy
+   .dataset-transparency styling (line 562 + .mapstore-slider rules at
+   lines 579/587) because we appended .menu-row-slider-subrow to the
+   same className string; this rule is purely positional. */
+.menu-row-slider-subrow {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+

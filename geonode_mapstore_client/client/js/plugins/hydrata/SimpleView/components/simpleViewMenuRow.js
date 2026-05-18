@@ -402,61 +402,42 @@ class MenuRowClass extends React.Component {
             );
         }
         const hasValidBbox = this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds);
+        // TASK-1006 (W2) — Locked 4-icon toolbar order: vis | zoom | edit | delete.
+        // Edit + delete remain canEditMap-gated (parity with today); visibility
+        // and zoom render unconditionally (matched today's pre-canEditMap render
+        // inside .menu-row-left at lines ~408/415 of the pre-W2 file). Download +
+        // upload move to a sibling .menu-row-toolbar-secondary slot so they
+        // don't violate the locked 4-icon order rule (AC#1). The delete-confirm
+        // overlay remains a sibling of the trash glyph inside the toolbar so
+        // existing test selectors (`.menu-row-delete-confirm .save-confirm-btn.danger`)
+        // continue to resolve (R03).
+        const canEditAndEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
+        const canEditAndDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
         return (
             <div className={"menu-row"}>
                 <span className={"menu-row-left"}>
-                    <span
-                        className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive")}
-                        onClick={() => {
-                            this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
-                            trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
-                        }}
-                    />
-                    <span
-                        className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
-                        onClick={() => {
-                            if (hasValidBbox) {
-                                const {bounds, crs} = this.props.layer.bbox;
-                                this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
-                                trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
-                            } else {
-                                this.fetchAndZoomToLayer();
-                            }
-                        }}
-                    />
-                    {
-                        this.props.canEditMap && this.canExportLayer(this.props.layer) ?
-                            <React.Fragment>
-                                <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-download glyph-active"}
-                                    onClick={() => {
-                                        this.props.svDownloadLayer(this.props.layer);
-                                        trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
-                                    }}
-                                />
-                                {
-                                    // TASK-602: erosion is a SWAMM-only feature. Hide the upload
-                                    // button when running on hydratabase (hydrata.com), where the
-                                    // hardcoded "erosion" importerConfigKey has no matching entry
-                                    // in the AnugaProject.simple_view_config.importer_config (which
-                                    // only contains "terrain"). On hydratabase this button always
-                                    // dispatched a useless action and confused users.
-                                    this.props.canUploadErosion ? (
-                                        <span
-                                            className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
-                                            onClick={() => {
-                                                this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
-                                                trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
-                                            }}
-                                        />
-                                    ) : null
+                    <div className={"menu-row-toolbar"}>
+                        <span
+                            className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive")}
+                            onClick={() => {
+                                this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
+                                trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
+                            }}
+                        />
+                        <span
+                            className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
+                            onClick={() => {
+                                if (hasValidBbox) {
+                                    const {bounds, crs} = this.props.layer.bbox;
+                                    this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
+                                    trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
+                                } else {
+                                    this.fetchAndZoomToLayer();
                                 }
-                            </React.Fragment>
-                            : null
-                    }
-                    {
-                        this.props.canEditMap && this.canEditLayer(this.props.layer) ?
-                            <React.Fragment>
+                            }}
+                        />
+                        {
+                            canEditAndEdit ?
                                 <span
                                     className={"btn glyphicon menu-row-glyph glyphicon-pencil glyph-edit"}
                                     onClick={() => {
@@ -524,7 +505,109 @@ class MenuRowClass extends React.Component {
                                             this.props.browseData(layer);
                                         }
                                     }}
+                                /> : null
+                        }
+                        {
+                            canEditAndDelete ?
+                                <span
+                                    className={
+                                        "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
+                                        + (this.props.deleteRow?.deleting ? " glyph-disabled" : "")
+                                        + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
+                                    }
+                                    onClick={this.props.deleteRow?.deleting ? undefined : this.handleDeleteClick}
+                                    aria-disabled={this.props.deleteRow?.deleting ? true : undefined}
+                                /> : null
+                        }
+                        {
+                            // TASK-723 — the dialog is ALWAYS rendered so unit
+                            // tests can find the Delete/Cancel buttons after the
+                            // first trash click without needing a setState→
+                            // re-render flush (which doesn't propagate reliably
+                            // under the react@16.14 / react-dom@16.10 mismatch
+                            // in our Karma+JSDOM setup). Visibility is driven by
+                            // a class toggle in CSS so prod UX is unchanged.
+                            //
+                            // TASK-1006 (W2) — Sibling of the trash glyph,
+                            // inside the new .menu-row-toolbar slot. Existing
+                            // test selectors (.menu-row-delete-confirm
+                            // .save-confirm-btn.danger) still resolve (R03).
+                            canEditAndDelete ?
+                                <span
+                                    className={
+                                        "menu-row-delete-confirm"
+                                        + (this.state.deleteConfirmVisible ? " is-open" : "")
+                                    }
+                                    role="alertdialog"
+                                    aria-label="Confirm delete"
+                                    aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
+                                >
+                                    <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
+                                    <span className="menu-row-delete-confirm-text">
+                                        <Message msgId="hydrata.simpleView.confirmDelete"/>
+                                        {' "'}{this.props.layer?.title}{'"?'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="save-confirm-btn danger"
+                                        onClick={this.performDelete}
+                                    >
+                                        <Message msgId="hydrata.simpleView.delete"/>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="save-confirm-btn cancel"
+                                        onClick={this.cancelDelete}
+                                    >
+                                        <Message msgId="hydrata.simpleView.cancel"/>
+                                    </button>
+                                </span>
+                                : null
+                        }
+                    </div>
+                    {
+                        // TASK-1006 (W2) — Download + upload glyphs in a
+                        // separate slot OUTSIDE the locked-order 4-icon
+                        // toolbar (AC#1). Same canEditMap + canExportLayer
+                        // + canUploadErosion gates as today.
+                        this.props.canEditMap && this.canExportLayer(this.props.layer) ?
+                            <span className={"menu-row-toolbar-secondary"}>
+                                <span
+                                    className={"btn glyphicon menu-row-glyph glyphicon-download glyph-active"}
+                                    onClick={() => {
+                                        this.props.svDownloadLayer(this.props.layer);
+                                        trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
+                                    }}
                                 />
+                                {
+                                    // TASK-602: erosion is a SWAMM-only feature. Hide the upload
+                                    // button when running on hydratabase (hydrata.com), where the
+                                    // hardcoded "erosion" importerConfigKey has no matching entry
+                                    // in the AnugaProject.simple_view_config.importer_config (which
+                                    // only contains "terrain"). On hydratabase this button always
+                                    // dispatched a useless action and confused users.
+                                    this.props.canUploadErosion ? (
+                                        <span
+                                            className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
+                                            onClick={() => {
+                                                this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
+                                                trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
+                                            }}
+                                        />
+                                    ) : null
+                                }
+                            </span>
+                            : null
+                    }
+                    {
+                        // TASK-1006 (W2) — Title input + save glyph lifted
+                        // into a dedicated .menu-row-title slot between the
+                        // toolbar and the slider sub-row (AC#6). The
+                        // canEditLayer fallback is the static title text
+                        // span (when the user lacks edit rights). No prop
+                        // or onChange handler changes.
+                        canEditAndEdit ?
+                            <div className={"menu-row-title"}>
                                 <input
                                     id={`input-${this.props.layer.name}`}
                                     key={`input-key-${this.props.layer.name}`}
@@ -546,87 +629,51 @@ class MenuRowClass extends React.Component {
                                         }
                                     />
                                 }
-                            </React.Fragment>
-                            : <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
+                            </div>
+                            : <div className={"menu-row-title"}>
+                                <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
+                            </div>
                     }
                 </span>
-                <span className={"menu-row-right"}>
-                    {
-                        // TASK-723 — the dialog is ALWAYS rendered so unit
-                        // tests can find the Delete/Cancel buttons after the
-                        // first trash click without needing a setState→
-                        // re-render flush (which doesn't propagate reliably
-                        // under the react@16.14 / react-dom@16.10 mismatch
-                        // in our Karma+JSDOM setup). Visibility is driven by
-                        // a class toggle in CSS so prod UX is unchanged.
-                        (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
-                            <span
-                                className={
-                                    "menu-row-delete-confirm"
-                                    + (this.state.deleteConfirmVisible ? " is-open" : "")
-                                }
-                                role="alertdialog"
-                                aria-label="Confirm delete"
-                                aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
-                            >
-                                <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
-                                <span className="menu-row-delete-confirm-text">
-                                    <Message msgId="hydrata.simpleView.confirmDelete"/>
-                                    {' "'}{this.props.layer?.title}{'"?'}
-                                </span>
-                                <button
-                                    type="button"
-                                    className="save-confirm-btn danger"
-                                    onClick={this.performDelete}
-                                >
-                                    <Message msgId="hydrata.simpleView.delete"/>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="save-confirm-btn cancel"
-                                    onClick={this.cancelDelete}
-                                >
-                                    <Message msgId="hydrata.simpleView.cancel"/>
-                                </button>
-                            </span>
-                            : null
+                {/* TASK-1006 (W2) — .menu-row-right kept as a structural
+                    container per EPIC §6 W2 implementation note (b): minimises
+                    selector breakage in simpleViewMenuRowDelete-test.js. The
+                    trash + delete-confirm subtree moved into .menu-row-toolbar;
+                    the slider lifted into .menu-row-slider-subrow below. */}
+                <span className={"menu-row-right"}/>
+                {/* TASK-1006 (W2) — Transparency slider lifted out of
+                    .menu-row-right and placed as the LAST CHILD of
+                    .menu-row (AC#2). The always-mounted CSS-toggle pattern
+                    (R04) is preserved — `.glyph-hidden` is appended to the
+                    wrapper className via deleteConfirmVisible so the slider
+                    hides behind the always-rendered confirm overlay. */}
+                <div
+                    className={
+                        "mapstore-slider dataset-transparency with-tooltip menu-row-slider-subrow"
+                        + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
                     }
-                    {
-                        (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
-                            <span
-                                className={
-                                    "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
-                                    + (this.props.deleteRow?.deleting ? " glyph-disabled" : "")
-                                    + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
-                                }
-                                onClick={this.props.deleteRow?.deleting ? undefined : this.handleDeleteClick}
-                                aria-disabled={this.props.deleteRow?.deleting ? true : undefined}
-                            /> : null
-                    }
-                    {this.renderDeleteFeedback()}
-                    <div
-                        className={
-                            "mapstore-slider dataset-transparency with-tooltip"
-                            + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
-                        }
-                        onClick={(e) => { e.stopPropagation();}}
-                        style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
-                    >
-                        <Slider
-                            step={1}
-                            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-                            start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
-                            range={{
-                                min: 0,
-                                max: 100
-                            }}
-                            onChange={(values) => {
-                                this.props.setOpacity(this.props.layer?.id, values);
-                                trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
-                            }}
-                        />
-                    </div>
-                </span>
+                    onClick={(e) => { e.stopPropagation();}}
+                    style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
+                >
+                    <Slider
+                        step={1}
+                        // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
+                        start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
+                        range={{
+                            min: 0,
+                            max: 100
+                        }}
+                        onChange={(values) => {
+                            this.props.setOpacity(this.props.layer?.id, values);
+                            trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
+                        }}
+                    />
+                </div>
+                {/* TASK-1006 (W2) — renderDeleteFeedback moved to render as
+                    a sibling INSIDE .menu-row after the slider sub-row (AC#7).
+                    Behaviour is identical (same row, same blockingError /
+                    deleteError paths). */}
+                {this.renderDeleteFeedback()}
             </div>
         );
     }
