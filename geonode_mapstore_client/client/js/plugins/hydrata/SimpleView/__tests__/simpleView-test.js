@@ -116,11 +116,23 @@ describe('SimpleView Plugin', () => {
     });
 
     describe('Reducer', () => {
-        const initialState = {};
+        const initialState = {selectedCategory: null};
 
         it('should return initial state', () => {
             const state = reducer(undefined, { type: 'UNKNOWN' });
             expect(state).toEqual(initialState);
+        });
+
+        // TASK-1005 W1 — R05 / R12 guard. The Miller-columns rail+pane keeps the
+        // selected subheading in local component state, but the reducer carries a
+        // dead `selectedCategory: null` slot so hydration is deterministic and so
+        // future selectors never read `undefined`. Critically, `openMenuGroupId`
+        // must still default to `undefined` here so epicsSwamm:245 doesn't read
+        // a stale id and fire ensureBmpGeometriesGroupEpic spuriously.
+        it('initial state has selectedCategory=null and openMenuGroupId=undefined (R05 guard)', () => {
+            const state = reducer(undefined, { type: 'UNKNOWN' });
+            expect(state.selectedCategory).toBe(null);
+            expect(state.openMenuGroupId).toBe(undefined);
         });
 
         it('should handle SET_PROCESSING_SV_ATTRIBUTE_FORM', () => {
@@ -164,6 +176,24 @@ describe('SimpleView Plugin', () => {
                 openMenuGroupId: 'group2'
             });
             expect(state.openMenuGroupId).toBe('group2');
+        });
+
+        // TASK-1008 W4 — R05 belt-and-braces. The Miller-columns rail+pane
+        // refactor adds local `selectedSubHeading` state to MenuRowsClass but
+        // MUST NOT alter the toggle semantics of `openMenuGroupId`, which
+        // epicsSwamm.js:245 reads as `state.simpleView.openMenuGroupId !==
+        // viewBmpGroup.id` to gate ensureBmpGeometriesGroupEpic. Round-trip
+        // here pins the four-step set/toggle/set/toggle sequence so future
+        // reducer rewrites can't silently swap toggle-off for no-op.
+        it('SET_OPEN_MENU_GROUP_ID round-trip preserves toggle semantics (R05 Swamm gate)', () => {
+            let s = reducer(initialState, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g1' });
+            expect(s.openMenuGroupId).toBe('g1');
+            s = reducer(s, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g1' });
+            expect(s.openMenuGroupId).toBe(null);
+            s = reducer(s, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g2' });
+            expect(s.openMenuGroupId).toBe('g2');
+            s = reducer(s, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g2' });
+            expect(s.openMenuGroupId).toBe(null);
         });
 
         it('should handle SET_VISIBLE_LEGEND_PANEL', () => {

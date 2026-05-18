@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 const PropTypes = require('prop-types');
 const Spinner = require('react-spinkit');
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
+// Anuga uses extraClassName="anuga-section-header" — the corresponding CSS
+// rule lives in Anuga/anuga.css. Swamm headers ship inline styles instead.
+import {SectionHeader} from "../../SimpleView/components/primitives";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 
@@ -69,9 +72,7 @@ const InputSection = ({
         <div
             className={'menu-rows-container anuga-section'}
         >
-            <div
-                className={"row menu-row menu-row-header anuga-section-header"}
-            >
+            <SectionHeader extraClassName="anuga-section-header">
                 <span
                     className={"pull-left menu-row-text" + (collapsible ? " anuga-section-header-clickable" : "")}
                     onClick={collapsible ? onToggleCollapse : undefined}
@@ -134,7 +135,7 @@ const InputSection = ({
                         aria-label={collapsed ? "Expand section" : "Collapse section"}
                     />
                 )}
-            </div>
+            </SectionHeader>
             {!collapsed && layers?.map(layer => <MenuRow key={layer?.name || layer?.id} layer={layer}/>)}
             {!collapsed && pendingItems?.map((item, idx) => (
                 <div

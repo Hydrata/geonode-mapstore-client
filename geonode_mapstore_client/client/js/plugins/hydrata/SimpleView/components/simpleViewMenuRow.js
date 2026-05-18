@@ -1,7 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-const Slider = require('react-nouislider');
 
 import {
     changeLayerProperties,
@@ -57,6 +56,9 @@ import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
 // the pre-migration `time-data-picker` wrapper. fetchTimeSeries is the
 // per-mount loader for the 'timeseries' kind.
 import { ConstantInput, TimeSeriesSelect, fetchTimeSeries } from '../../VectorDraw/components/FormField';
+// Presentational primitives — toolbar + slider; VectorDraw 6-action
+// onClick body stays in the container and is passed in as `onEdit`.
+import {LayerActionToolbar, OpacitySlider} from './primitives';
 
 // V2P-714 + TASK-723 — derive the AnugaModel dataset type from layer.group.
 // Group names are set by the BE (gn_anuga/utils.py::INPUT_DATA_GROUP_MAP +
@@ -402,45 +404,158 @@ class MenuRowClass extends React.Component {
             );
         }
         const hasValidBbox = this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds);
+        // TASK-1010 W6-polish — download and delete positions swapped.
+        // Locked 4-icon toolbar order is now: vis | zoom | edit | download.
+        // Trash + delete-confirm overlay moved to the secondary toolbar
+        // (alongside upload). The delete-confirm overlay stays a sibling of
+        // the trash glyph so `.menu-row-delete-confirm .save-confirm-btn.danger`
+        // continues to resolve (R03).
+        const canEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
+        const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
+        const canDownload = this.props.canEditMap && this.canExportLayer(this.props.layer);
+        const deleting = !!this.props.deleteRow?.deleting;
+        const onToggleVisibility = () => {
+            this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
+            trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
+        };
+        const onZoom = () => {
+            if (hasValidBbox) {
+                const {bounds, crs} = this.props.layer.bbox;
+                this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
+                trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
+            } else {
+                this.fetchAndZoomToLayer();
+            }
+        };
+        const onEdit = () => {
+            const layer = this.props.layer;
+            trackEvent('button', `click`, `simpleview-menu-row-edit-${layer.title}`);
+            const prefix = getAnugaPrefix(layer.name);
+            if (prefix) {
+                const cfg = ANUGA_FEATURE_CONFIG[prefix];
+                // Raster early-return: rasters have no VectorDraw editing AND
+                // would crash the legacy FeatureGrid (no WFS features). Per-
+                // raster replace-upload is launched from anugaInputMenu.js, not
+                // from the menu-row pencil. The pencil renders (canEditLayer
+                // doesn't distinguish raster vs vector) but clicks are inert.
+                if (cfg.geomType === 'Raster') {
+                    return;
+                }
+                // VectorDraw path — bdy_/inf_/fri_/mes_/str_. setPermission /
+                // svSelectLayer omitted per pre-flight audit (TASK-793): no
+                // downstream consumers outside the FeatureGrid we're abandoning.
+                //
+                // Panel hide: <AnugaInputMenu/> is gated by
+                // state.anuga.ui.showAnugaInputMenu; state.simpleView.openMenuGroupId
+                // controls a different panel rendered in simpleViewContainer.js
+                // for non-Anuga maps. Anuga's uiReducer's SET_OPEN_MENU_GROUP_ID
+                // case only acts when truthy — so dispatching setOpenMenuGroupId(null)
+                // alone does NOT close the Anuga panel. We dispatch BOTH so each
+                // panel closes via its own slice. Toolbar buttons portal'd into
+                // .simple-view-left-toolbar by AnugaContainer stay visible.
+                this.props.closeFeatureGrid();
+                this.props.selectFeatures([]);
+                this.props.setOpenMenuGroupId(null);
+                this.props.setAnugaInputMenu(false);
+                this.props.startVectorDraw({
+                    layerName: layer.name,
+                    geomType: cfg.geomType,
+                    featureId: null,
+                    allowPick: true,
+                    owner: 'anuga',
+                    formConfig: cfg.formConfig,
+                    onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
+                    onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED',
+                    meta: { prefix, layerId: layer.id }
+                });
+            } else {
+                // Legacy FeatureGrid path for non-migrated prefixes
+                // (terrain_/ele_/cat_/nod_/lin_/full_mesh_/network_).
+                this.props.closeFeatureGrid();
+                this.props.selectFeatures([]);
+                this.props.setOpenMenuGroupId(null);
+                this.props.setPermission({canEdit: true});
+                this.props.svSelectLayer(layer);
+                this.props.browseData(layer);
+            }
+        };
+        const onDownload = () => {
+            this.props.svDownloadLayer(this.props.layer);
+            trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
+        };
         return (
             <div className={"menu-row"}>
                 <span className={"menu-row-left"}>
-                    <span
-                        className={"btn glyphicon menu-row-glyph " + (this.props.layer?.visibility ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive")}
-                        onClick={() => {
-                            this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
-                            trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
-                        }}
-                    />
-                    <span
-                        className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
-                        onClick={() => {
-                            if (hasValidBbox) {
-                                const {bounds, crs} = this.props.layer.bbox;
-                                this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
-                                trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
-                            } else {
-                                this.fetchAndZoomToLayer();
-                            }
-                        }}
+                    <LayerActionToolbar
+                        layer={this.props.layer}
+                        canEdit={canEdit}
+                        canDownload={canDownload}
+                        onToggleVisibility={onToggleVisibility}
+                        onZoom={onZoom}
+                        onEdit={onEdit}
+                        onDownload={onDownload}
                     />
                     {
-                        this.props.canEditMap && this.canExportLayer(this.props.layer) ?
-                            <React.Fragment>
-                                <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-download glyph-active"}
-                                    onClick={() => {
-                                        this.props.svDownloadLayer(this.props.layer);
-                                        trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
-                                    }}
-                                />
+                        // TASK-1010 W6-polish — download/delete swapped.
+                        // Secondary toolbar now carries delete (trash + always-
+                        // mounted confirm overlay) and upload. The delete-confirm
+                        // overlay stays a sibling of the trash glyph so
+                        // `.menu-row-delete-confirm .save-confirm-btn.danger`
+                        // continues to resolve (R03 / R04 always-in-DOM dialog).
+                        (canDelete || this.props.canUploadErosion) ?
+                            <span className={"menu-row-toolbar-secondary"}>
+                                {
+                                    canDelete ?
+                                        <span
+                                            className={
+                                                "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
+                                                + (deleting ? " glyph-disabled" : "")
+                                                + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
+                                            }
+                                            onClick={deleting ? undefined : this.handleDeleteClick}
+                                            aria-disabled={deleting ? true : undefined}
+                                        /> : null
+                                }
+                                {
+                                    canDelete ?
+                                        <span
+                                            className={
+                                                "menu-row-delete-confirm"
+                                                + (this.state.deleteConfirmVisible ? " is-open" : "")
+                                            }
+                                            role="alertdialog"
+                                            aria-label="Confirm delete"
+                                            aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
+                                        >
+                                            <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
+                                            <span className="menu-row-delete-confirm-text">
+                                                <Message msgId="hydrata.simpleView.confirmDelete"/>
+                                                {' "'}{this.props.layer?.title}{'"?'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="save-confirm-btn danger"
+                                                onClick={this.performDelete}
+                                            >
+                                                <Message msgId="hydrata.simpleView.delete"/>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="save-confirm-btn cancel"
+                                                onClick={this.cancelDelete}
+                                            >
+                                                <Message msgId="hydrata.simpleView.cancel"/>
+                                            </button>
+                                        </span>
+                                        : null
+                                }
                                 {
                                     // TASK-602: erosion is a SWAMM-only feature. Hide the upload
-                                    // button when running on hydratabase (hydrata.com), where the
-                                    // hardcoded "erosion" importerConfigKey has no matching entry
-                                    // in the AnugaProject.simple_view_config.importer_config (which
-                                    // only contains "terrain"). On hydratabase this button always
-                                    // dispatched a useless action and confused users.
+                                    // button on hydratabase (hydrata.com) — the hardcoded "erosion"
+                                    // importerConfigKey has no matching entry in
+                                    // AnugaProject.simple_view_config.importer_config (which only
+                                    // contains "terrain") and the button used to dispatch a useless
+                                    // action that confused users.
                                     this.props.canUploadErosion ? (
                                         <span
                                             className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
@@ -451,80 +566,12 @@ class MenuRowClass extends React.Component {
                                         />
                                     ) : null
                                 }
-                            </React.Fragment>
+                            </span>
                             : null
                     }
-                    {
-                        this.props.canEditMap && this.canEditLayer(this.props.layer) ?
+                    <div className={"menu-row-title"}>
+                        {canEdit ? (
                             <React.Fragment>
-                                <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-pencil glyph-edit"}
-                                    onClick={() => {
-                                        const layer = this.props.layer;
-                                        trackEvent('button', `click`, `simpleview-menu-row-edit-${layer.title}`);
-                                        const prefix = getAnugaPrefix(layer.name);
-                                        if (prefix) {
-                                            const cfg = ANUGA_FEATURE_CONFIG[prefix];
-                                            // TASK-829 (W4.2b) — Raster-type early-return.
-                                            // Rasters have no VectorDraw editing AND would
-                                            // crash the legacy FeatureGrid (no WFS features).
-                                            // Per-raster replace-upload is launched from
-                                            // anugaInputMenu.js, not from the menu-row edit
-                                            // pencil. No-op here — the pencil renders
-                                            // (canEditLayer doesn't distinguish raster vs
-                                            // vector at the perm level) but clicking is
-                                            // intentionally inert. Future work: gate the
-                                            // pencil rendering on `cfg?.geomType === 'Raster'`
-                                            // in the JSX so users don't see a dead button.
-                                            // Deferred until per-raster replace UX is wired.
-                                            if (cfg.geomType === 'Raster') {
-                                                return;
-                                            }
-                                            // Migrated VectorDraw path — bdy_/inf_/fri_/mes_/str_.
-                                            // setPermission/svSelectLayer omitted: pre-flight audit
-                                            // (TASK-793) confirmed no downstream consumers outside the
-                                            // FeatureGrid we're abandoning.
-                                            //
-                                            // Panel hide: the inputs side panel is <AnugaInputMenu/>,
-                                            // gated by state.anuga.ui.showAnugaInputMenu (set by
-                                            // setAnugaInputMenu). state.simpleView.openMenuGroupId
-                                            // controls a DIFFERENT panel (the SimpleView menu-groups
-                                            // panel rendered in simpleViewContainer.js for non-Anuga
-                                            // maps), so dispatching setOpenMenuGroupId(null) alone
-                                            // does NOT close the Anuga inputs panel — Anuga's
-                                            // uiReducer's SET_OPEN_MENU_GROUP_ID case only acts when
-                                            // the value is truthy. We dispatch BOTH so each panel
-                                            // closes via its own slice. The toolbar buttons
-                                            // (portal'd into .simple-view-left-toolbar by
-                                            // AnugaContainer) are not gated by either slice and
-                                            // stay visible.
-                                            this.props.closeFeatureGrid();
-                                            this.props.selectFeatures([]);
-                                            this.props.setOpenMenuGroupId(null);
-                                            this.props.setAnugaInputMenu(false);
-                                            this.props.startVectorDraw({
-                                                layerName: layer.name,
-                                                geomType: cfg.geomType,
-                                                featureId: null,
-                                                allowPick: true,
-                                                owner: 'anuga',
-                                                formConfig: cfg.formConfig,
-                                                onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
-                                                onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED',
-                                                meta: { prefix, layerId: layer.id }
-                                            });
-                                        } else {
-                                            // Legacy FeatureGrid path for non-migrated prefixes
-                                            // (terrain_/ele_/cat_/nod_/lin_/full_mesh_/network_).
-                                            this.props.closeFeatureGrid();
-                                            this.props.selectFeatures([]);
-                                            this.props.setOpenMenuGroupId(null);
-                                            this.props.setPermission({canEdit: true});
-                                            this.props.svSelectLayer(layer);
-                                            this.props.browseData(layer);
-                                        }
-                                    }}
-                                />
                                 <input
                                     id={`input-${this.props.layer.name}`}
                                     key={`input-key-${this.props.layer.name}`}
@@ -547,86 +594,23 @@ class MenuRowClass extends React.Component {
                                     />
                                 }
                             </React.Fragment>
-                            : <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
-                    }
-                </span>
-                <span className={"menu-row-right"}>
-                    {
-                        // TASK-723 — the dialog is ALWAYS rendered so unit
-                        // tests can find the Delete/Cancel buttons after the
-                        // first trash click without needing a setState→
-                        // re-render flush (which doesn't propagate reliably
-                        // under the react@16.14 / react-dom@16.10 mismatch
-                        // in our Karma+JSDOM setup). Visibility is driven by
-                        // a class toggle in CSS so prod UX is unchanged.
-                        (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
-                            <span
-                                className={
-                                    "menu-row-delete-confirm"
-                                    + (this.state.deleteConfirmVisible ? " is-open" : "")
-                                }
-                                role="alertdialog"
-                                aria-label="Confirm delete"
-                                aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
-                            >
-                                <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
-                                <span className="menu-row-delete-confirm-text">
-                                    <Message msgId="hydrata.simpleView.confirmDelete"/>
-                                    {' "'}{this.props.layer?.title}{'"?'}
-                                </span>
-                                <button
-                                    type="button"
-                                    className="save-confirm-btn danger"
-                                    onClick={this.performDelete}
-                                >
-                                    <Message msgId="hydrata.simpleView.delete"/>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="save-confirm-btn cancel"
-                                    onClick={this.cancelDelete}
-                                >
-                                    <Message msgId="hydrata.simpleView.cancel"/>
-                                </button>
-                            </span>
-                            : null
-                    }
-                    {
-                        (this.props.canEditMap && this.canDeleteLayer(this.props.layer)) ?
-                            <span
-                                className={
-                                    "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
-                                    + (this.props.deleteRow?.deleting ? " glyph-disabled" : "")
-                                    + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
-                                }
-                                onClick={this.props.deleteRow?.deleting ? undefined : this.handleDeleteClick}
-                                aria-disabled={this.props.deleteRow?.deleting ? true : undefined}
-                            /> : null
-                    }
-                    {this.renderDeleteFeedback()}
-                    <div
-                        className={
-                            "mapstore-slider dataset-transparency with-tooltip"
-                            + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
-                        }
-                        onClick={(e) => { e.stopPropagation();}}
-                        style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
-                    >
-                        <Slider
-                            step={1}
-                            // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
-                            start={this.props.layer?.opacity != null ? this.props.layer.opacity * 100 : 100}
-                            range={{
-                                min: 0,
-                                max: 100
-                            }}
-                            onChange={(values) => {
-                                this.props.setOpacity(this.props.layer?.id, values);
-                                trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
-                            }}
-                        />
+                        ) : (
+                            <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
+                        )}
                     </div>
                 </span>
+                {/* Transparency slider — last child of .menu-row. Always-
+                    mounted + CSS-toggled via `hidden` (R04) so the nouislider
+                    instance survives delete-confirm overlay show/hide. */}
+                <OpacitySlider
+                    opacity={this.props.layer?.opacity}
+                    hidden={this.state.deleteConfirmVisible}
+                    onChange={(values) => {
+                        this.props.setOpacity(this.props.layer?.id, values);
+                        trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
+                    }}
+                />
+                {this.renderDeleteFeedback()}
             </div>
         );
     }

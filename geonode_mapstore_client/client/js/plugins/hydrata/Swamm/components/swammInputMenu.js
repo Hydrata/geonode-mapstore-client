@@ -11,9 +11,22 @@ import {
 } from "../actionsSwamm";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
+// SectionHeader primitive — Swamm uses the baseline class set
+// (row/menu-row/menu-row-header) WITHOUT `anuga-section-header` (that
+// class lives in Anuga/anuga.css and swammInputMenu does not import it).
+// The Swamm-specific width/border are passed via inline `style`.
+import {SectionHeader} from "../../SimpleView/components/primitives";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
 import {canEditSwammMap} from "@js/plugins/hydrata/Swamm/selectorsSwamm";
+
+// Swamm section-header inline style — defined once so all 6 invocations
+// stay byte-identical.
+const SWAMM_SECTION_HEADER_STYLE = {
+    width: "510px",
+    textAlign: "left",
+    border: "none"
+};
 
 class SwammInputMenuClass extends React.Component {
     static propTypes = {
@@ -50,14 +63,7 @@ class SwammInputMenuClass extends React.Component {
                         "margin": "3px 0"
                     }}
                 >
-                    <div
-                        className={"row menu-row menu-row-header"}
-                        style={{
-                            width: "510px",
-                            textAlign: "left",
-                            border: "none"
-                        }}
-                    >
+                    <SectionHeader style={SWAMM_SECTION_HEADER_STYLE}>
                         <span className="menu-row-text"><Message msgId="hydrata.swamm.erosion" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
@@ -66,7 +72,7 @@ class SwammInputMenuClass extends React.Component {
                                 this.props.setVisibleUploaderPanel(true, "erosion", null);
                             }}
                         />
-                    </div>
+                    </SectionHeader>
                     {
                         this.props.erosionLayers?.map(erosion => (
                             <MenuRow layer={erosion}/>
@@ -88,14 +94,7 @@ class SwammInputMenuClass extends React.Component {
                         "margin": "3px 0"
                     }}
                 >
-                    <div
-                        className={"row menu-row menu-row-header"}
-                        style={{
-                            width: "510px",
-                            textAlign: "left",
-                            border: "none"
-                        }}
-                    >
+                    <SectionHeader style={SWAMM_SECTION_HEADER_STYLE}>
                         <span className="menu-row-text"><Message msgId="hydrata.swamm.swammModels" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
@@ -104,7 +103,7 @@ class SwammInputMenuClass extends React.Component {
                                 this.props.setVisibleUploaderPanel(true, "swamm-engine", null);
                             }}
                         />
-                    </div>
+                    </SectionHeader>
                     {
                         this.props.swammEngines?.map(swammEngine => (
                             <MenuRow layer={swammEngine}/>
@@ -126,24 +125,10 @@ class SwammInputMenuClass extends React.Component {
                         "margin": "3px 0"
                     }}
                 >
-                    <div
-                        className={"row menu-row menu-row-header"}
-                        style={{
-                            width: "510px",
-                            textAlign: "left",
-                            border: "none"
-                        }}
-                    >
+                    <SectionHeader style={SWAMM_SECTION_HEADER_STYLE}>
                         <span className="menu-row-text"><Message msgId="hydrata.swamm.bmps" /></span>
-                    </div>
-                    <div
-                        className={"row menu-row menu-row-header"}
-                        style={{
-                            width: "510px",
-                            textAlign: "left",
-                            border: "none"
-                        }}
-                    >
+                    </SectionHeader>
+                    <SectionHeader style={SWAMM_SECTION_HEADER_STYLE}>
                         <span className="menu-row-text"><Message msgId="hydrata.swamm.outlets" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
@@ -152,15 +137,8 @@ class SwammInputMenuClass extends React.Component {
                                 this.props.setVisibleUploaderPanel(true, "bmp-outlet", null);
                             }}
                         />
-                    </div>
-                    <div
-                        className={"row menu-row menu-row-header"}
-                        style={{
-                            width: "510px",
-                            textAlign: "left",
-                            border: "none"
-                        }}
-                    >
+                    </SectionHeader>
+                    <SectionHeader style={SWAMM_SECTION_HEADER_STYLE}>
                         <span className="menu-row-text"><Message msgId="hydrata.swamm.footprints" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
@@ -169,15 +147,8 @@ class SwammInputMenuClass extends React.Component {
                                 this.props.setVisibleUploaderPanel(true, "bmp-footprint", null);
                             }}
                         />
-                    </div>
-                    <div
-                        className={"row menu-row menu-row-header"}
-                        style={{
-                            width: "510px",
-                            textAlign: "left",
-                            border: "none"
-                        }}
-                    >
+                    </SectionHeader>
+                    <SectionHeader style={SWAMM_SECTION_HEADER_STYLE}>
                         <span className="menu-row-text"><Message msgId="hydrata.swamm.watersheds" /></span>
                         <span
                             className={"btn pull-right glyphicon menu-row-glyph glyphicon-upload"}
@@ -186,7 +157,7 @@ class SwammInputMenuClass extends React.Component {
                                 this.props.setVisibleUploaderPanel(true, "bmp-watershed", null);
                             }}
                         />
-                    </div>
+                    </SectionHeader>
                 </div>
                 <UploaderPanel />
             </div>

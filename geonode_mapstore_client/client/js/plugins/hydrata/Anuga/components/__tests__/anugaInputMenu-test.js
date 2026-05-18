@@ -17,16 +17,13 @@
  *   anon                     : no create buttons (myRole=null)
  *
  * Notes:
- *   - Boundary + Inflow create buttons render unconditionally on top-level
- *     when projection is set; advanced sections (mesh-regions, friction,
- *     structures, networks) only render when showAdvanced is true. The test
- *     asserts the FIRST level (boundaries, inflows) since the advanced
- *     accordion default-collapsed; expanding it would just multiply the
- *     same gate.
- *   - Each create button uses class .glyph-active per InputSection.js.
- *     Combined with the wrapper class .menu-rows-container > .anuga-section,
- *     we count `.glyph-active` glyphs on the rendered tree as a proxy for
- *     "create buttons visible".
+ *   - With the TASK-1004 rail+pane Miller layout (W3/W4-plus), only one
+ *     category pane is visible at a time. The test navigates the rail to
+ *     each role-gated category (boundaries / inflows / rainfalls) and
+ *     reads the `.anuga-pane-toolbar` for `.glyph-active.glyphicon-plus`.
+ *     The same canEditAnugaMap gate is shared by every InputSection-style
+ *     pane, so probing those three is sufficient to pin the matrix.
+ *   - Each create button uses class .glyph-active per renderCreateControls.
  */
 import expect from 'expect';
 import React from 'react';
@@ -109,30 +106,27 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
     }
 
     function readCreateButtonSet() {
-        // Section "+" buttons live in the InputSection wrapper. They're
-        // identifiable by their parent section's text content. We scan for
-        // .glyphicon-plus (the create state) and .glyphicon-ok (the save
-        // state mid-input). Both share class .glyph-active.
+        // TASK-1004 W4-plus rail+pane Miller layout — only ONE category
+        // pane is visible at a time (the one matching rail-state
+        // selectedCategory). Walk each role-gated rail item, click it to
+        // mount the pane, and probe the visible .anuga-pane-toolbar for the
+        // `.glyph-active.glyphicon-plus` create button.
+        const targets = [
+            {railId: 'boundaries', label: 'boundary-create'},
+            {railId: 'inflows', label: 'inflow-create'},
+            {railId: 'rainfalls', label: 'rainfall-create'}
+        ];
         const buttons = [];
-        // The boundary-input id and inflow-input id mark the InputSection
-        // for that resource. The create button is a sibling .glyphicon-plus
-        // when collapsed and not in input-state; locate by adjacency via the
-        // parent .anuga-section that contains the boundary/inflow header.
-        const sections = container.querySelectorAll('.anuga-section');
-        sections.forEach((section) => {
-            const text = section.textContent || '';
-            const hasCreate = !!section.querySelector('.glyph-active.glyphicon-plus');
-            if (!hasCreate) return;
-            // hydrata.anuga.boundaries → "boundaries" via DOM attribute, but
-            // i18n tag is rendered raw at test-time. Inspect via the
-            // section's first .menu-row-text element for a stable token.
-            // TASK-955 (W2.2 FE) — Rainfall section i18n key
-            // (hydrata.anuga.rainfalls) renders the raw msgId at test-time,
-            // matching the substring 'rainfall'.
-            if (/boundary|boundaries/i.test(text)) buttons.push('boundary-create');
-            else if (/rainfall/i.test(text)) buttons.push('rainfall-create');
-            else if (/inflow/i.test(text)) buttons.push('inflow-create');
-        });
+        for (const t of targets) {
+            const rail = container.querySelector(`[data-anuga-category="${t.railId}"]`);
+            if (!rail) continue;
+            rail.click(); // React 16 setState in event handler flushes synchronously
+            const toolbar = container.querySelector('.anuga-pane-toolbar');
+            if (!toolbar) continue;
+            if (toolbar.querySelector('.glyph-active.glyphicon-plus')) {
+                buttons.push(t.label);
+            }
+        }
         return buttons.sort();
     }
 

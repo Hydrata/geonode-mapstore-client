@@ -471,14 +471,6 @@
     gap: 2px;
 }
 
-.menu-row-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-
 span.menu-row-glyph {
     background: #ffffff;
     border-radius: 3px;
@@ -577,11 +569,16 @@ span.menu-row-glyph {
 }
 
 .mapstore-slider.with-tooltip.dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
-    width: 20px;
-    left: -10px;
-    border: 2px solid #dddddd;
-    border-radius: 10px;
-    cursor: default;
+    width: 18px;
+    height: 18px;
+    left: -9px;
+    top: 50%;
+    margin-top: -9px;
+    background: var(--ms-blue, #397AAB);
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
 }
 
 .mapstore-slider.with-tooltip.dataset-transparency .noUi-target {
@@ -800,3 +797,193 @@ span.menu-row-glyph {
         right: 10px;
     }
 }
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Miller-columns rail+pane layout (TASK-1005 W1)
+   ──────────────────────────────────────────────────────────────────────────
+   Two-pane shell shown inside .menu-rows-container when openMenuGroupId
+   has 2+ subheadings. Scoped under .simple-view-panel--miller; all new
+   classes use the sv- prefix and never modify existing .menu-row,
+   .menu-rows-container, or .subheading-row rules (R01 mitigation).
+
+   The legacy accordion path (single-subheading fallback in
+   simpleViewMenuRows.js) is preserved verbatim so the existing
+   simpleViewGlyphClasses-test.js, simpleViewMenuRowDelete-test.js,
+   and simpleViewMenuRowRouting-test.js suites continue to pass
+   without modification (AC#8 + R02).
+   ─────────────────────────────────────────────────────────────────────── */
+
+.simple-view-panel--miller .sv-rail-pane-shell {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    gap: 8px;
+}
+
+.simple-view-panel--miller .sv-category-rail {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 180px;
+    gap: 2px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    background-color: rgba(0, 0, 0, 0.16);
+    border-right: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    scrollbar-width: thin;
+    scrollbar-color: #5178af transparent;
+}
+
+.simple-view-panel--miller .sv-category-rail-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px 6px 9px;
+    background-color: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    color: white;
+    text-align: left;
+    user-select: none;
+    outline: none;
+}
+
+.simple-view-panel--miller .sv-category-rail-item:hover:not(.is-active) {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.simple-view-panel--miller .sv-category-rail-item:focus-visible {
+    background-color: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.simple-view-panel--miller .sv-category-rail-item.is-active {
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
+    border-left-color: #cae33b;
+}
+
+.simple-view-panel--miller .sv-category-rail-item-tristate,
+.simple-view-panel--miller .sv-category-rail-item-zoom {
+    flex-shrink: 0;
+}
+
+/* The existing span.menu-row-glyph rule (line 482) sets background: #ffffff
+   for the white "chip" look used on dark layer rows. That chip clashes with
+   the dark rail-item background, so we strip it inside the rail and let the
+   glyph colour (glyph-active / glyph-inactive / glyph-partial / glyph-zoom)
+   carry the visual contrast directly. Existing .subheading-row uses of
+   .menu-row-glyph remain untouched (AC#5 / R01). */
+.simple-view-panel--miller .sv-category-rail-item .menu-row-glyph {
+    background: transparent;
+    border-radius: 0;
+}
+
+.simple-view-panel--miller .sv-category-rail-item-label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.simple-view-panel--miller .menu-rows-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* R15 — Narrow-viewport collapse (≤ 900 px). Without this rule, the
+   existing 900 px @media block at line 704 (which resizes .simple-view-panel
+   itself) would leave the rail consuming the full panel width AND the
+   pane stacking below it, giving rail+pane strictly worse vertical
+   density than today's accordion. We flip the rail to a horizontal
+   pill row above the pane so the rail's vertical footprint stays
+   <25% of the panel. AC#11 Karma assertion at 800 px is verified
+   manually via Chrome MCP (JSDOM does not evaluate CSS @media rules
+   deterministically). */
+@media (max-width: 900px) {
+    .simple-view-panel--miller .sv-rail-pane-shell {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .simple-view-panel--miller .sv-category-rail {
+        flex-direction: row;
+        width: auto;
+        max-height: 44px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: none;
+        border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+        padding: 2px 4px;
+        gap: 4px;
+    }
+
+    .simple-view-panel--miller .sv-category-rail-item {
+        flex-shrink: 0;
+        padding: 4px 8px;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+    }
+
+    .simple-view-panel--miller .sv-category-rail-item.is-active {
+        border-left-color: transparent;
+        border-bottom-color: #cae33b;
+    }
+
+    .simple-view-panel--miller .sv-category-rail-item-label {
+        font-size: 11px;
+    }
+}
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Layer-row toolbar + slider sub-row layout
+   ──────────────────────────────────────────────────────────────────────────
+   .menu-row (horizontal flex)
+     ├ .menu-row-left
+     │    ├ .menu-row-toolbar           — locked 4-icon row: vis | zoom | edit | delete
+     │    │    └ .menu-row-delete-confirm — overlay (sibling of trash)
+     │    ├ .menu-row-toolbar-secondary — download | upload
+     │    └ .menu-row-title              — title input + save glyph (or static text)
+     ├ .menu-row-slider-subrow          — transparency slider (last child)
+     └ renderDeleteFeedback             — sibling, after the slider
+   ─────────────────────────────────────────────────────────────────────── */
+
+.menu-row-toolbar,
+.menu-row-toolbar-secondary,
+.menu-row-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.menu-row-toolbar,
+.menu-row-toolbar-secondary {
+    flex-shrink: 0;
+}
+
+.menu-row-toolbar-secondary {
+    margin-left: 4px;
+}
+
+.menu-row-title {
+    flex: 1;
+    min-width: 0;
+    margin-left: 4px;
+}
+
+.menu-row-slider-subrow {
+    flex-shrink: 0;
+}
+

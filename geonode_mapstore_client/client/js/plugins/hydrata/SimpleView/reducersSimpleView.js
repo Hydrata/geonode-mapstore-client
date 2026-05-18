@@ -15,7 +15,18 @@ import {
     SET_PROCESSING_SV_ATTRIBUTE_FORM
 } from "@js/plugins/hydrata/SimpleView/actionsSimpleView";
 
-export default ( state = {}, action) => {
+// TASK-1005 W1 — `selectedCategory: null` is intentionally dead state.
+//
+// The Miller-columns rail+pane (simpleViewMenuRows.js) keeps the rail's
+// selected subheading in *local component state* (`selectedSubHeading`)
+// so the load-bearing `openMenuGroupId` slice stays untouched. The reducer
+// field exists ONLY to keep redux-persist hydration deterministic (R12)
+// and to prevent any future selector from accidentally reading `undefined`.
+//
+// epicsSwamm.js:245 gates `ensureBmpGeometriesGroupEpic` on
+// `state.simpleView.openMenuGroupId !== viewBmpGroup.id`. Adding
+// `selectedCategory` here does NOT affect that read (R05).
+export default ( state = {selectedCategory: null}, action) => {
     switch (action.type) {
     case SET_PROCESSING_SV_ATTRIBUTE_FORM:
         return {

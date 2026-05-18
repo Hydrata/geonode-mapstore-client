@@ -1,9 +1,13 @@
 import React from "react";
 import {connect} from "react-redux";
+import {createSelector} from 'reselect';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 const PropTypes = require('prop-types');
+const Spinner = require('react-spinkit');
+
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
+
 import {
     setVisibleUploaderPanel
 } from "../../SimpleView/actionsSimpleView";
@@ -11,7 +15,6 @@ import {
     addAnugaBoundary,
     addAnugaFriction,
     addAnugaInflow,
-    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
     addAnugaRainfall,
     addAnugaStructure,
     addAnugaFullMesh,
@@ -23,7 +26,6 @@ import {
     createAnugaBoundary,
     createAnugaFriction,
     createAnugaInflow,
-    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
     createAnugaRainfall,
     createAnugaStructure,
     createAnugaMeshRegion,
@@ -33,25 +35,19 @@ import {
     stopAnugaModelCreationPolling,
     setNetworkMenu,
     setAnugaInputMenu,
-    // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
     setVisibleTerrainBboxPanel
 } from "../actionsAnuga";
+
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 import {TerrainBboxPanel} from "./terrainBboxPanel";
-import InputSection from "./InputSection";
 import AnugaInputStarterCard from "./anugaInputStarterCard";
 
 import {canEditAnugaMap, getProjectId} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
-import {createSelector} from 'reselect';
-const Spinner = require('react-spinkit');
 
 const ACTIVE_TM_STATES = new Set(['pending', 'running']);
-// TASK-955 (W2.2 FE) — 'Rainfall' added. Process metadata.model_class is the
-// Python class name; the selector below groups in-flight layer_create work for
-// each type so InputSection can render a per-section pending placeholder.
 const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'Structure', 'MeshRegion'];
 const EMPTY_BY_ID = {};
 const EMPTY_IDS = [];
@@ -62,9 +58,6 @@ const stripModelPrefix = (name) => {
     return idx >= 0 ? name.slice(idx + 2) : name;
 };
 
-// Single pass over TaskMonitor processes, grouping in-flight layer_create work
-// by model class. Memoized so mapStateToProps doesn't re-walk on every action —
-// inputs stay reference-stable between TaskMonitor polls.
 const selectPendingByModel = createSelector(
     [
         (state) => state?.taskMonitor?.processes?.byId || EMPTY_BY_ID,
@@ -88,11 +81,82 @@ const selectPendingByModel = createSelector(
     }
 );
 
+// Rail-item config. `compositeLayersKeys` aggregates several layer slices
+// into one rail item (Networks bundles Catchments/Nodes/Links for tri-state +
+// zoom + count). Order matches the C v2 mockup, with no Advanced divider.
+const CATEGORIES = [
+    {id: 'terrain', titleMsgId: 'hydrata.anuga.terrain', layersKey: 'terrainLayers'},
+    {id: 'boundaries', titleMsgId: 'hydrata.anuga.boundaries', layersKey: 'boundaryLayers'},
+    {id: 'inflows', titleMsgId: 'hydrata.anuga.inflows', layersKey: 'inflowLayers'},
+    {id: 'rainfalls', titleMsgId: 'hydrata.anuga.rainfalls', layersKey: 'rainfallLayers'},
+    {id: 'fullMesh', titleMsgId: 'hydrata.anuga.fullMesh', layersKey: 'fullMeshLayers'},
+    {id: 'meshRegions', titleMsgId: 'hydrata.anuga.meshRegions', layersKey: 'meshRegionLayers'},
+    {id: 'friction', titleMsgId: 'hydrata.anuga.friction', layersKey: 'frictionLayers'},
+    {id: 'frictionRasters', titleMsgId: 'hydrata.anuga.frictionRasters', layersKey: 'frictionRasterLayers'},
+    {id: 'structures', titleMsgId: 'hydrata.anuga.structures', layersKey: 'structureLayers'},
+    {id: 'networks', titleMsgId: 'hydrata.anuga.networks', compositeLayersKeys: ['catchmentLayers', 'nodesLayers', 'linksLayers']}
+];
+
+const CATEGORY_BY_ID = CATEGORIES.reduce((acc, c) => { acc[c.id] = c; return acc; }, {});
+
+// Static category glyphs for the rail. Replaces the previous tri-state
+// visibility chip — per-layer visibility lives on each MenuRow.
+const svgIcon = (children) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        {children}
+    </svg>
+);
+const CATEGORY_ICONS = {
+    terrain: svgIcon(<g><path d="M3 20l5-9 4 6 3-4 6 7z"/><circle cx="17" cy="5" r="1.5"/></g>),
+    boundaries: svgIcon(<polygon points="4 6 20 4 21 18 6 20" strokeDasharray="3 2"/>),
+    inflows: svgIcon(<g><path d="M3 12h13"/><polyline points="13 7 18 12 13 17"/></g>),
+    rainfalls: svgIcon(<g><path d="M6 10a5 5 0 1110 0"/><line x1="8" y1="15" x2="7" y2="20"/><line x1="12" y1="15" x2="11" y2="20"/><line x1="16" y1="15" x2="15" y2="20"/></g>),
+    fullMesh: svgIcon(<g><polygon points="12 3 21 8 21 16 12 21 3 16 3 8"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="8" x2="21" y2="16"/><line x1="21" y1="8" x2="3" y2="16"/></g>),
+    meshRegions: svgIcon(<g><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></g>),
+    friction: svgIcon(<g><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="16" x2="20" y2="16"/></g>),
+    frictionRasters: svgIcon(<g><path d="M3 20l4-9 4 5 3-3 7 7z"/><rect x="3" y="3" width="5" height="3"/></g>),
+    structures: svgIcon(<g><rect x="4" y="9" width="16" height="11"/><polyline points="4 9 12 4 20 9"/></g>),
+    networks: svgIcon(<g><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="6" y1="6" x2="12" y2="18"/><line x1="18" y1="6" x2="12" y2="18"/></g>)
+};
+
+// Per-input config table for renderCreatePane(). Keyed by category id.
+const CREATE_PANE_CONFIG = {
+    boundaries: {
+        titleKey: 'boundaryTitle', createProp: 'createAnugaBoundary',
+        layersKey: 'boundaryLayers', pendingKey: 'pendingBoundaries',
+        inputId: 'boundary-input', trackEventName: 'anuga-input-menu-create-new-boundary'
+    },
+    inflows: {
+        titleKey: 'inflowTitle', createProp: 'createAnugaInflow',
+        layersKey: 'inflowLayers', pendingKey: 'pendingInflows',
+        inputId: 'inflow-input', trackEventName: 'anuga-input-menu-create-new-inflow'
+    },
+    rainfalls: {
+        titleKey: 'rainfallTitle', createProp: 'createAnugaRainfall',
+        layersKey: 'rainfallLayers', pendingKey: 'pendingRainfalls',
+        inputId: 'rainfall-input', trackEventName: 'anuga-input-menu-create-new-rainfall'
+    },
+    meshRegions: {
+        titleKey: 'meshRegionTitle', createProp: 'createAnugaMeshRegion',
+        layersKey: 'meshRegionLayers', pendingKey: 'pendingMeshRegions',
+        inputId: 'mesh-region-input', trackEventName: 'anuga-input-menu-create-mesh-region'
+    },
+    friction: {
+        titleKey: 'frictionTitle', createProp: 'createAnugaFriction',
+        layersKey: 'frictionLayers', pendingKey: 'pendingFrictions',
+        inputId: 'friction-input', trackEventName: 'anuga-input-menu-create-friction'
+    },
+    structures: {
+        titleKey: 'structureTitle', createProp: 'createAnugaStructure',
+        layersKey: 'structureLayers', pendingKey: 'pendingStructures',
+        inputId: 'structure-input', trackEventName: 'anuga-input-menu-create-structure'
+    }
+};
+
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
         projectData: PropTypes.object,
         setVisibleUploaderPanel: PropTypes.func,
-        // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
         setVisibleTerrainBboxPanel: PropTypes.func,
         anugaGroupLength: PropTypes.number,
         terrainLayers: PropTypes.array,
@@ -100,7 +164,6 @@ class AnugaInputMenuClass extends React.Component {
         createAnugaBoundary: PropTypes.func,
         createAnugaFriction: PropTypes.func,
         createAnugaInflow: PropTypes.func,
-        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
         createAnugaRainfall: PropTypes.func,
         createAnugaStructure: PropTypes.func,
         createAnugaMeshRegion: PropTypes.func,
@@ -109,11 +172,8 @@ class AnugaInputMenuClass extends React.Component {
         createNodes: PropTypes.func,
         createLinks: PropTypes.func,
         frictionLayers: PropTypes.array,
-        // TASK-829 (W4.2b) — FrictionRaster layers (raster sibling to polygon Friction)
         frictionRasterLayers: PropTypes.array,
         inflowLayers: PropTypes.array,
-        // TASK-955 (W2.2 FE) — Rainfall layer slice (rai_ prefix on BE → layer.group
-        // 'Input Data.Rainfalls', plural to match Boundaries/Inflows/Structures).
         rainfallLayers: PropTypes.array,
         structureLayers: PropTypes.array,
         fullMeshLayers: PropTypes.array,
@@ -125,11 +185,9 @@ class AnugaInputMenuClass extends React.Component {
         stopAnugaModelCreationPolling: PropTypes.func,
         isCreatingAnugaLayer: PropTypes.bool,
         setCreatingAnugaLayer: PropTypes.func,
-        canEditAnugaMap: PropTypes.func,
+        canEditAnugaMap: PropTypes.bool,
         pendingBoundaries: PropTypes.array,
         pendingInflows: PropTypes.array,
-        // TASK-955 (W2.2 FE) — Rainfall pending list (in-flight layer_create
-        // Processes whose metadata.model_class === 'Rainfall').
         pendingRainfalls: PropTypes.array,
         pendingFrictions: PropTypes.array,
         pendingStructures: PropTypes.array,
@@ -138,7 +196,6 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaBoundary: PropTypes.func,
         addAnugaFriction: PropTypes.func,
         addAnugaInflow: PropTypes.func,
-        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
         addAnugaRainfall: PropTypes.func,
         addAnugaStructure: PropTypes.func,
         addAnugaFullMesh: PropTypes.func,
@@ -150,7 +207,6 @@ class AnugaInputMenuClass extends React.Component {
         boundaryModels: PropTypes.array,
         frictionModels: PropTypes.array,
         inflowModels: PropTypes.array,
-        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
         rainfallModels: PropTypes.array,
         structureModels: PropTypes.array,
         fullMeshModels: PropTypes.array,
@@ -158,7 +214,8 @@ class AnugaInputMenuClass extends React.Component {
         catchmentModels: PropTypes.array,
         nodesModels: PropTypes.array,
         linksModels: PropTypes.array,
-        setAnugaInputMenu: PropTypes.func
+        setAnugaInputMenu: PropTypes.func,
+        setNetworkMenu: PropTypes.func
     };
 
     static defaultProps = {}
@@ -166,27 +223,18 @@ class AnugaInputMenuClass extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            showAdvanced: false,
-            terrainCollapsed: false,
-            boundariesCollapsed: false,
-            inflowsCollapsed: false,
-            // TASK-955 (W2.2 FE) — Rainfall section is collapse-state-tracked
-            // identically to Inflows; default expanded so empty-state placeholder
-            // shows during the `defaults` starter phase.
-            rainfallsCollapsed: false,
-            fullMeshCollapsed: false,
-            meshRegionsCollapsed: false,
-            frictionCollapsed: false,
-            // TASK-829 (W4.2b) — Friction Rasters section defaults collapsed
-            // (keeps the menu compact; raster usage is an advanced workflow).
-            frictionRastersCollapsed: true,
-            structuresCollapsed: false,
-            networksCollapsed: false,
-            networkInputVisible: false,
+            // Rail selection — local only, defaults to terrain. Sibling
+            // `state.simpleView.selectedCategory` exists for hydration safety
+            // in the generic SimpleView path but is not read here.
+            selectedCategory: 'terrain',
+            // Per-category create-input visibility. Only one slot is true at
+            // a time, but keying by category id means navigating away (with
+            // a half-typed title) doesn't reset the visibility for that
+            // category when you return.
+            inputVisible: {},
             boundaryTitle: '',
             frictionTitle: '',
             inflowTitle: '',
-            // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
             rainfallTitle: '',
             structureTitle: '',
             meshRegionTitle: '',
@@ -198,400 +246,385 @@ class AnugaInputMenuClass extends React.Component {
     }
 
     componentDidUpdate(prevProps) {
-        // `isCreatingAnugaLayer` is shared across sections; only collapse the
-        // networks input if *this* section initiated the create (didNetworkSubmit
-        // is set in handleNetworkPlusClick before createAndReset).
+        // After a create finishes (isCreatingAnugaLayer falls back to false),
+        // close the input that initiated it. `lastSubmittedCategory` is set
+        // in handleCreateClick at submit time; cleared here. This is the
+        // generalisation of the old per-section `didSubmit` ref.
         if (
             prevProps.isCreatingAnugaLayer &&
             !this.props.isCreatingAnugaLayer &&
-            this.state.networkInputVisible &&
-            this.didNetworkSubmit
+            this.lastSubmittedCategory
         ) {
-            // eslint-disable-next-line react/no-did-update-set-state -- gated transition: only fires when `isCreatingAnugaLayer` flips false AFTER a local submit; bounded by didNetworkSubmit guard
-            this.setState({networkInputVisible: false});
-            this.didNetworkSubmit = false;
+            const cat = this.lastSubmittedCategory;
+            // eslint-disable-next-line react/no-did-update-set-state -- gated transition: only fires when `isCreatingAnugaLayer` flips false AFTER a local submit; bounded by lastSubmittedCategory guard
+            this.setState((prev) => ({inputVisible: {...prev.inputVisible, [cat]: false}}));
+            this.lastSubmittedCategory = null;
         }
     }
 
-    createAndReset = (createFn, titleKey) => {
-        this.props.setCreatingAnugaLayer(true);
-        createFn(this.state[titleKey]);
-        this.setState({[titleKey]: ''});
+    selectCategory = (catId) => {
+        this.setState({selectedCategory: catId});
+        trackEvent('button', 'click', `anuga-rail-select-${catId}`);
+    };
+
+    getCategoryLayers(cat) {
+        if (cat.compositeLayersKeys) {
+            return cat.compositeLayersKeys.flatMap(k => this.props[k] || []);
+        }
+        return this.props[cat.layersKey] || [];
     }
 
-    toggleSection = (sectionId) => {
-        const key = `${sectionId}Collapsed`;
-        this.setState((prev) => {
-            const next = !prev[key];
-            trackEvent('button', 'click', `anuga-input-menu-toggle-${sectionId}-${next ? 'collapsed' : 'expanded'}`);
-            return {[key]: next};
-        });
-    }
-
-    handleNetworkPlusClick = () => {
-        if (!this.state.networkInputVisible) {
-            this.setState({networkInputVisible: true});
-        } else if (this.state.networkTitle) {
-            this.didNetworkSubmit = true;
-            this.createAndReset(this.props.createNetwork, 'networkTitle');
-            trackEvent('button', 'click', 'anuga-input-menu-create-network');
+    handleCreateClick = (catId, titleKey, createFn, trackEventName) => {
+        const inputVisible = !!this.state.inputVisible[catId];
+        if (!inputVisible) {
+            this.setState((prev) => ({inputVisible: {...prev.inputVisible, [catId]: true}}));
+        } else if (this.state[titleKey]) {
+            this.props.setCreatingAnugaLayer(true);
+            createFn(this.state[titleKey]);
+            this.setState({[titleKey]: ''});
+            this.lastSubmittedCategory = catId;
+            trackEvent('button', 'click', trackEventName);
         } else {
-            this.setState({networkInputVisible: false});
+            this.setState((prev) => ({inputVisible: {...prev.inputVisible, [catId]: false}}));
+        }
+    };
+
+    handleEscapeInput = (catId, titleKey) => {
+        this.setState((prev) => ({
+            [titleKey]: '',
+            inputVisible: {...prev.inputVisible, [catId]: false}
+        }));
+    };
+
+    renderRailItem(cat) {
+        const isActive = this.state.selectedCategory === cat.id;
+        return (
+            <div
+                key={cat.id}
+                className={"sv-category-rail-item" + (isActive ? " is-active" : "")}
+                data-anuga-category={cat.id}
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={0}
+                onClick={() => this.selectCategory(cat.id)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.selectCategory(cat.id);
+                    }
+                }}
+            >
+                <span className="sv-category-rail-item-icon" aria-hidden="true">
+                    {CATEGORY_ICONS[cat.id]}
+                </span>
+                <h5 className="sv-category-rail-item-label">
+                    <Message msgId={cat.titleMsgId} />
+                </h5>
+            </div>
+        );
+    }
+
+    renderRail() {
+        return (
+            <div className="sv-category-rail" role="tablist">
+                {CATEGORIES.map(cat => this.renderRailItem(cat))}
+            </div>
+        );
+    }
+
+    renderPaneEmpty(emptyMsgId, isInitializing) {
+        return (
+            <div
+                className="row menu-row anuga-section-empty-row"
+                aria-busy={isInitializing ? "true" : undefined}
+                aria-live={isInitializing ? "polite" : undefined}
+            >
+                {isInitializing ? (
+                    <React.Fragment>
+                        <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                        <span className={"anuga-pending-status"}>
+                            <Message msgId="hydrata.anuga.pendingLayerLabel" />
+                        </span>
+                    </React.Fragment>
+                ) : (
+                    <Message msgId={emptyMsgId} />
+                )}
+            </div>
+        );
+    }
+
+    renderPendingRow(item, idx) {
+        return (
+            <div
+                key={`pending-${item?.id || idx}`}
+                className={"row menu-row anuga-pending-row"}
+                aria-busy="true"
+                aria-live="polite"
+            >
+                <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                <span className={"anuga-pending-title"}>{item?.title}</span>
+                <span className={"anuga-pending-status"}>
+                    <Message msgId="hydrata.anuga.pendingLayerLabel" />
+                </span>
+            </div>
+        );
+    }
+
+    renderCreateControls(catId, titleKey, createProp, inputId, trackEventName) {
+        const inputVisible = !!this.state.inputVisible[catId];
+        const createFn = this.props[createProp];
+        return (
+            <React.Fragment>
+                <span
+                    className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                    onClick={() => this.handleCreateClick(catId, titleKey, createFn, trackEventName)}
+                    aria-label={inputVisible ? "Save" : "Add new"}
+                />
+                {this.props.isCreatingAnugaLayer ? (
+                    <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
+                ) : inputVisible ? (
+                    <input
+                        id={inputId}
+                        key={inputId}
+                        className={'data-title-input'}
+                        type={'text'}
+                        value={this.state[titleKey]}
+                        onChange={(e) => this.setState({[titleKey]: e.target.value})}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && this.state[titleKey]) {
+                                e.preventDefault();
+                                this.handleCreateClick(catId, titleKey, createFn, trackEventName);
+                            } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                this.handleEscapeInput(catId, titleKey);
+                            }
+                        }}
+                        autoFocus
+                    />
+                ) : null}
+            </React.Fragment>
+        );
+    }
+
+    renderPaneHead(catId, actions) {
+        const cat = CATEGORY_BY_ID[catId];
+        return (
+            <div className="anuga-pane-toolbar">
+                <h3 className="anuga-pane-head-title">
+                    <Message msgId={cat.titleMsgId} />
+                </h3>
+                {actions ? (
+                    <span className="anuga-pane-head-actions">{actions}</span>
+                ) : null}
+            </div>
+        );
+    }
+
+    renderTerrainPane() {
+        const layers = this.props.terrainLayers || [];
+        const actions = (
+            <React.Fragment>
+                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
+                    <span
+                        className={"btn glyphicon menu-row-glyph glyph-active glyphicon-globe"}
+                        data-testid="anuga-terrain-global-dem-button"
+                        onClick={() => {
+                            this.props.setVisibleTerrainBboxPanel(true);
+                            trackEvent('button', 'click', 'anuga-input-menu-show-terrain-bbox-picker');
+                        }}
+                    />
+                </OverlayTrigger>
+                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
+                    <span
+                        className={"btn glyphicon menu-row-glyph glyph-active glyphicon-upload"}
+                        onClick={() => {
+                            this.props.setVisibleUploaderPanel(true, "terrain", null);
+                            trackEvent('button', 'click', 'anuga-input-menu-show-terrain-uploader');
+                        }}
+                    />
+                </OverlayTrigger>
+            </React.Fragment>
+        );
+        return (
+            <div className="menu-rows-pane anuga-pane">
+                {this.renderPaneHead('terrain', actions)}
+                <div className="anuga-pane-rows">
+                    {layers.map(t => <MenuRow key={t?.name || t?.id} layer={t}/>)}
+                    {layers.length === 0 ? this.renderPaneEmpty('hydrata.anuga.noTerrainAvailable', false) : null}
+                </div>
+            </div>
+        );
+    }
+
+    renderCreatePane(catId) {
+        const conf = CREATE_PANE_CONFIG[catId];
+        const layers = this.props[conf.layersKey] || [];
+        const pending = this.props[conf.pendingKey] || [];
+        const isInitializing = this.props.starterPhase === 'defaults';
+        const canEdit = this.props.canEditAnugaMap;
+        const actions = canEdit
+            ? this.renderCreateControls(catId, conf.titleKey, conf.createProp, conf.inputId, conf.trackEventName)
+            : null;
+        return (
+            <div className="menu-rows-pane anuga-pane">
+                {this.renderPaneHead(catId, actions)}
+                <div className="anuga-pane-rows">
+                    {layers.map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
+                    {pending.map((item, idx) => this.renderPendingRow(item, idx))}
+                    {(layers.length === 0 && pending.length === 0)
+                        ? this.renderPaneEmpty('hydrata.anuga.none', isInitializing)
+                        : null}
+                </div>
+            </div>
+        );
+    }
+
+    renderFullMeshPane() {
+        const layers = this.props.fullMeshLayers || [];
+        return (
+            <div className="menu-rows-pane anuga-pane">
+                {this.renderPaneHead('fullMesh', null)}
+                <div className="anuga-pane-rows">
+                    {layers.map(m => <MenuRow key={m?.name || m?.id} layer={m}/>)}
+                    {layers.length === 0 ? this.renderPaneEmpty('hydrata.anuga.meshWillAppear', false) : null}
+                </div>
+            </div>
+        );
+    }
+
+    renderFrictionRastersPane() {
+        const layers = this.props.frictionRasterLayers || [];
+        const actions = (
+            <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadFrictionRasterTooltip" /></Tooltip>}>
+                <span
+                    className={"btn glyphicon menu-row-glyph glyph-active glyphicon-upload"}
+                    onClick={() => {
+                        this.props.setVisibleUploaderPanel(true, "friction_raster", null);
+                        trackEvent('button', 'click', 'anuga-input-menu-show-friction-raster-uploader');
+                    }}
+                />
+            </OverlayTrigger>
+        );
+        return (
+            <div className="menu-rows-pane anuga-pane">
+                {this.renderPaneHead('frictionRasters', actions)}
+                <div className="anuga-pane-rows">
+                    {layers.map(fr => <MenuRow key={fr?.name || fr?.id} layer={fr}/>)}
+                    {layers.length === 0 ? this.renderPaneEmpty('hydrata.anuga.noFrictionRastersAvailable', false) : null}
+                </div>
+            </div>
+        );
+    }
+
+    renderNetworksPane() {
+        const inputVisible = !!this.state.inputVisible.networks;
+        const canEdit = this.props.canEditAnugaMap;
+        const actions = (
+            <React.Fragment>
+                <span
+                    className={'btn glyphicon menu-row-glyph glyph-settings glyphicon-cog'}
+                    title="Network settings"
+                    onClick={() => {
+                        this.props.setNetworkMenu(true);
+                        this.props.setAnugaInputMenu(false);
+                        trackEvent('button', 'click', 'anuga-input-menu-show-network');
+                    }}
+                />
+                {canEdit ? (
+                    <React.Fragment>
+                        <span
+                            className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            onClick={() => this.handleCreateClick('networks', 'networkTitle', this.props.createNetwork, 'anuga-input-menu-create-network')}
+                            aria-label={inputVisible ? "Save" : "Add new"}
+                        />
+                        {this.props.isCreatingAnugaLayer ? (
+                            <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
+                        ) : inputVisible ? (
+                            <input
+                                id="network-input"
+                                key="network-input"
+                                className={'data-title-input'}
+                                type={'text'}
+                                value={this.state.networkTitle}
+                                onChange={(e) => this.setState({networkTitle: e.target.value})}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && this.state.networkTitle) {
+                                        e.preventDefault();
+                                        this.handleCreateClick('networks', 'networkTitle', this.props.createNetwork, 'anuga-input-menu-create-network');
+                                    } else if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        this.handleEscapeInput('networks', 'networkTitle');
+                                    }
+                                }}
+                                autoFocus
+                            />
+                        ) : null}
+                    </React.Fragment>
+                ) : null}
+            </React.Fragment>
+        );
+        return (
+            <div className="menu-rows-pane anuga-pane">
+                {this.renderPaneHead('networks', actions)}
+                <div className="anuga-pane-rows">
+                    <div className={'menu-row-mini-container'}>
+                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
+                        {(this.props.catchmentLayers || []).map(c => <MenuRow key={c?.name || c?.id} layer={c}/>)}
+                    </div>
+                    <div className={'menu-row-mini-container'}>
+                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
+                        {(this.props.nodesLayers || []).map(n => <MenuRow key={n?.name || n?.id} layer={n}/>)}
+                    </div>
+                    <div className={'menu-row-mini-container'}>
+                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
+                        {(this.props.linksLayers || []).map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    renderPane() {
+        switch (this.state.selectedCategory) {
+        case 'terrain':         return this.renderTerrainPane();
+        case 'boundaries':      return this.renderCreatePane('boundaries');
+        case 'inflows':         return this.renderCreatePane('inflows');
+        case 'rainfalls':       return this.renderCreatePane('rainfalls');
+        case 'fullMesh':        return this.renderFullMeshPane();
+        case 'meshRegions':     return this.renderCreatePane('meshRegions');
+        case 'friction':        return this.renderCreatePane('friction');
+        case 'frictionRasters': return this.renderFrictionRastersPane();
+        case 'structures':      return this.renderCreatePane('structures');
+        case 'networks':        return this.renderNetworksPane();
+        default:                return this.renderTerrainPane();
         }
     }
 
     render() {
+        // Pre-projection (`starterPhase==='terrain'`) the only meaningful
+        // action is upload-a-terrain, so we collapse to a single terrain pane
+        // and skip the rail entirely. Once projection is set, the full
+        // rail+pane Miller layout takes over.
+        const hasProjection = !!this.props.projectData?.projection;
         return (
-            <div id={'anuga-input-menu'} className={'simple-view-panel anuga-panel'}>
-                {/* Terrain section — unique (upload button instead of create+input) */}
-                <div
-                    className={'menu-rows-container anuga-section'}
-                >
-                    <div className={"row menu-row menu-row-header anuga-section-header"}>
-                        <span
-                            className="menu-row-text anuga-section-header-clickable"
-                            onClick={() => this.toggleSection('terrain')}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    this.toggleSection('terrain');
-                                }
-                            }}
-                            aria-expanded={!this.state.terrainCollapsed}
-                        ><Message msgId="hydrata.anuga.terrain" /></span>
-                        {/* TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox picker.
-                            Sibling to the existing upload glyph; opens TerrainBboxPanel
-                            instead of the SimpleView uploader. Order: text → globe → upload → chevron. */}
-                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
-                            <span
-                                className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-globe"}
-                                data-testid="anuga-terrain-global-dem-button"
-                                style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
-                                onClick={() => {
-                                    this.props.setVisibleTerrainBboxPanel(true);
-                                    trackEvent('button', 'click', 'anuga-input-menu-show-terrain-bbox-picker');
-                                }}
-                            />
-                        </OverlayTrigger>
-                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
-                            <span
-                                className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-upload"}
-                                style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
-                                onClick={() => {
-                                    this.props.setVisibleUploaderPanel(true, "terrain", null);
-                                    trackEvent('button', 'click', 'anuga-input-menu-show-terrain-uploader');
-                                }}
-                            />
-                        </OverlayTrigger>
-                        <span
-                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.terrainCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
-                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
-                            onClick={() => this.toggleSection('terrain')}
-                            aria-label={this.state.terrainCollapsed ? "Expand section" : "Collapse section"}
-                        />
-                    </div>
-                    {!this.state.terrainCollapsed && this.props.terrainLayers?.map(terrain => <MenuRow layer={terrain}/>)}
-                    {!this.state.terrainCollapsed && this.props.terrainLayers?.length === 0 ?
-                        <div className={"row menu-row anuga-section-empty-row"}>
-                            <Message msgId="hydrata.anuga.noTerrainAvailable" />
-                        </div> : null
-                    }
-                </div>
+            <div id={'anuga-input-menu'} className={'simple-view-panel anuga-panel simple-view-panel--miller'}>
                 {this.props.starterPhase &&
                     <AnugaInputStarterCard
                         phase={this.props.starterPhase}
                         onUploadTerrain={() => this.props.setVisibleUploaderPanel(true, "terrain", null)}
                     />
                 }
-                {this.props.projectData?.projection ?
-                    <React.Fragment>
-                        <InputSection
-                            titleMsgId="hydrata.anuga.boundaries"
-                            layers={this.props.boundaryLayers}
-                            pendingItems={this.props.pendingBoundaries}
-                            titleValue={this.state.boundaryTitle}
-                            onTitleChange={(v) => this.setState({boundaryTitle: v})}
-                            onCreate={() => this.createAndReset(this.props.createAnugaBoundary, 'boundaryTitle')}
-                            isCreating={this.props.isCreatingAnugaLayer}
-                            isInitializing={this.props.starterPhase === 'defaults'}
-                            canEdit={this.props.canEditAnugaMap}
-                            inputId="boundary-input"
-                            trackEventName="anuga-input-menu-create-new-boundary"
-                            collapsed={this.state.boundariesCollapsed}
-                            onToggleCollapse={() => this.toggleSection('boundaries')}
-                        />
-                        <InputSection
-                            titleMsgId="hydrata.anuga.inflows"
-                            layers={this.props.inflowLayers}
-                            pendingItems={this.props.pendingInflows}
-                            titleValue={this.state.inflowTitle}
-                            onTitleChange={(v) => this.setState({inflowTitle: v})}
-                            onCreate={() => this.createAndReset(this.props.createAnugaInflow, 'inflowTitle')}
-                            isCreating={this.props.isCreatingAnugaLayer}
-                            isInitializing={this.props.starterPhase === 'defaults'}
-                            canEdit={this.props.canEditAnugaMap}
-                            inputId="inflow-input"
-                            trackEventName="anuga-input-menu-create-new-inflow"
-                            collapsed={this.state.inflowsCollapsed}
-                            onToggleCollapse={() => this.toggleSection('inflows')}
-                        />
-                        {/* TASK-955 (W2.2 FE) — Rainfall InputSection. Mirrors Inflows
-                            structurally (polygon `rai_` BE geometry on the same compound
-                            data picker pattern). Sits directly under Inflows so users
-                            see the input-type split at a glance. `isInitializing` keys
-                            off the same `defaults` starter phase so the empty-state
-                            placeholder spins during the default-create burst. */}
-                        <InputSection
-                            titleMsgId="hydrata.anuga.rainfalls"
-                            layers={this.props.rainfallLayers}
-                            pendingItems={this.props.pendingRainfalls}
-                            titleValue={this.state.rainfallTitle}
-                            onTitleChange={(v) => this.setState({rainfallTitle: v})}
-                            onCreate={() => this.createAndReset(this.props.createAnugaRainfall, 'rainfallTitle')}
-                            isCreating={this.props.isCreatingAnugaLayer}
-                            isInitializing={this.props.starterPhase === 'defaults'}
-                            canEdit={this.props.canEditAnugaMap}
-                            inputId="rainfall-input"
-                            trackEventName="anuga-input-menu-create-new-rainfall"
-                            collapsed={this.state.rainfallsCollapsed}
-                            onToggleCollapse={() => this.toggleSection('rainfalls')}
-                        />
-                        {/* Advanced accordion */}
-                        <div className={'menu-rows-container anuga-section'}>
-                            <div className={"row menu-row menu-row-header anuga-section-header"}>
-                                <span className="pull-left menu-row-text"><Message msgId="hydrata.anuga.advanced" /></span>
-                                <span
-                                    className={`btn glyphicon menu-row-glyph glyph-settings ${this.state.showAdvanced ? "glyphicon-chevron-down" : "glyphicon-chevron-right"}`}
-                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px", "float": "right" }}
-                                    onClick={() => {
-                                        this.setState(prevState => ({showAdvanced: !prevState.showAdvanced}));
-                                        trackEvent('button', 'click', 'anuga-input-menu-show-advanced');
-                                    }}
-                                />
-                            </div>
+                <div className={'menu-rows-container'}>
+                    {hasProjection ? (
+                        <div className={'sv-rail-pane-shell'}>
+                            {this.renderRail()}
+                            {this.renderPane()}
                         </div>
-                        {this.state.showAdvanced ?
-                            <div id={'advancedInputs'}>
-                                {/* Full Mesh — read-only, no create button */}
-                                <div className={'menu-rows-container anuga-section'}>
-                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
-                                        <span
-                                            className="menu-row-text anuga-section-header-clickable"
-                                            onClick={() => this.toggleSection('fullMesh')}
-                                            role="button"
-                                            tabIndex={0}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    this.toggleSection('fullMesh');
-                                                }
-                                            }}
-                                            aria-expanded={!this.state.fullMeshCollapsed}
-                                        ><Message msgId="hydrata.anuga.fullMesh" /></span>
-                                        <span
-                                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.fullMeshCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
-                                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
-                                            onClick={() => this.toggleSection('fullMesh')}
-                                            aria-label={this.state.fullMeshCollapsed ? "Expand section" : "Collapse section"}
-                                        />
-                                    </div>
-                                    {!this.state.fullMeshCollapsed && this.props.fullMeshLayers?.map(fullMesh => <MenuRow layer={fullMesh}/>)}
-                                    {!this.state.fullMeshCollapsed && this.props.fullMeshLayers?.length === 0 ?
-                                        <div className={"row menu-row anuga-section-empty-row"}>
-                                            <Message msgId="hydrata.anuga.meshWillAppear" />
-                                        </div> : null
-                                    }
-                                </div>
-                                <InputSection
-                                    titleMsgId="hydrata.anuga.meshRegions"
-                                    layers={this.props.meshRegionLayers}
-                                    pendingItems={this.props.pendingMeshRegions}
-                                    titleValue={this.state.meshRegionTitle}
-                                    onTitleChange={(v) => this.setState({meshRegionTitle: v})}
-                                    onCreate={() => this.createAndReset(this.props.createAnugaMeshRegion, 'meshRegionTitle')}
-                                    isCreating={this.props.isCreatingAnugaLayer}
-                                    canEdit={this.props.canEditAnugaMap}
-                                    inputId="mesh-region-input"
-                                    trackEventName="anuga-input-menu-create-mesh-region"
-                                    collapsed={this.state.meshRegionsCollapsed}
-                                    onToggleCollapse={() => this.toggleSection('meshRegions')}
-                                />
-                                <InputSection
-                                    titleMsgId="hydrata.anuga.friction"
-                                    layers={this.props.frictionLayers}
-                                    pendingItems={this.props.pendingFrictions}
-                                    titleValue={this.state.frictionTitle}
-                                    onTitleChange={(v) => this.setState({frictionTitle: v})}
-                                    onCreate={() => this.createAndReset(this.props.createAnugaFriction, 'frictionTitle')}
-                                    isCreating={this.props.isCreatingAnugaLayer}
-                                    canEdit={this.props.canEditAnugaMap}
-                                    inputId="friction-input"
-                                    trackEventName="anuga-input-menu-create-friction"
-                                    collapsed={this.state.frictionCollapsed}
-                                    onToggleCollapse={() => this.toggleSection('friction')}
-                                />
-                                {/* TASK-829 (W4.2b) — Friction Rasters section. Raster sibling to
-                                    polygon Friction; both can coexist in one project. Upload-only UX
-                                    (no create-from-title) since rasters originate from TIF upload, not
-                                    geometric drawing. Upload button is currently INERT — opens the
-                                    SimpleView uploader, but the Begin action is disabled by the
-                                    existing TASK-599 guard until the BE follow-up ships:
-                                      1. `importer_config.friction_raster` entry in Project.save()
-                                      2. FrictionRasterViewSetV2.importer_create action
-                                      3. create_friction_raster_gn_layer celery task
-                                      4. INPUT_DATA_GROUP_MAP entry mapping raster prefix to 'Friction Rasters'
-                                    See decision-request 2026-05-13-q-1 for the operator-confirmed
-                                    scope split. */}
-                                <div className={'menu-rows-container anuga-section'}>
-                                    <div className={"row menu-row menu-row-header anuga-section-header"}>
-                                        <span
-                                            className="menu-row-text anuga-section-header-clickable"
-                                            onClick={() => this.toggleSection('frictionRasters')}
-                                            role="button"
-                                            tabIndex={0}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    this.toggleSection('frictionRasters');
-                                                }
-                                            }}
-                                            aria-expanded={!this.state.frictionRastersCollapsed}
-                                        ><Message msgId="hydrata.anuga.frictionRasters" /></span>
-                                        <OverlayTrigger placement="right" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadFrictionRasterTooltip" /></Tooltip>}>
-                                            <span
-                                                className={"btn pull-right glyphicon menu-row-glyph glyph-active glyphicon-upload"}
-                                                style={{fontSize: "smaller", textAlign: "right", marginRight: "8px"}}
-                                                onClick={() => {
-                                                    this.props.setVisibleUploaderPanel(true, "friction_raster", null);
-                                                    trackEvent('button', 'click', 'anuga-input-menu-show-friction-raster-uploader');
-                                                }}
-                                            />
-                                        </OverlayTrigger>
-                                        <span
-                                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.frictionRastersCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
-                                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
-                                            onClick={() => this.toggleSection('frictionRasters')}
-                                            aria-label={this.state.frictionRastersCollapsed ? "Expand section" : "Collapse section"}
-                                        />
-                                    </div>
-                                    {!this.state.frictionRastersCollapsed && this.props.frictionRasterLayers?.map(frictionRaster => <MenuRow layer={frictionRaster}/>)}
-                                    {!this.state.frictionRastersCollapsed && this.props.frictionRasterLayers?.length === 0 ?
-                                        <div className={"row menu-row anuga-section-empty-row"}>
-                                            <Message msgId="hydrata.anuga.noFrictionRastersAvailable" />
-                                        </div> : null
-                                    }
-                                </div>
-                                <InputSection
-                                    titleMsgId="hydrata.anuga.structures"
-                                    layers={this.props.structureLayers}
-                                    pendingItems={this.props.pendingStructures}
-                                    titleValue={this.state.structureTitle}
-                                    onTitleChange={(v) => this.setState({structureTitle: v})}
-                                    onCreate={() => this.createAndReset(this.props.createAnugaStructure, 'structureTitle')}
-                                    isCreating={this.props.isCreatingAnugaLayer}
-                                    canEdit={this.props.canEditAnugaMap}
-                                    inputId="structure-input"
-                                    trackEventName="anuga-input-menu-create-structure"
-                                    collapsed={this.state.structuresCollapsed}
-                                    onToggleCollapse={() => this.toggleSection('structures')}
-                                />
-                                {/* Networks section — header + sub-sections in one container */}
-                                <div
-                                    className={'menu-rows-container anuga-section'}
-                                >
-                                    <div
-                                        className={"row menu-row menu-row-header anuga-section-header"}
-                                    >
-                                        <span
-                                            className="menu-row-text anuga-section-header-clickable"
-                                            onClick={() => this.toggleSection('networks')}
-                                            role="button"
-                                            tabIndex={0}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    this.toggleSection('networks');
-                                                }
-                                            }}
-                                            aria-expanded={!this.state.networksCollapsed}
-                                        ><Message msgId="hydrata.anuga.networks" /></span>
-                                        <span
-                                            className={'btn glyphicon menu-row-glyph glyph-settings glyphicon-cog'}
-                                            style={{ fontSize: "smaller", textAlign: "right" }}
-                                            onClick={() => {
-                                                this.props.setNetworkMenu(true);
-                                                this.props.setAnugaInputMenu(false);
-                                                trackEvent('button', 'click', 'anuga-input-menu-show-network');
-                                            }}
-                                        />
-                                        {this.props.canEditAnugaMap ?
-                                            <React.Fragment>
-                                                <span
-                                                    className={`btn glyphicon menu-row-glyph glyph-active ${this.state.networkInputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
-                                                    style={{ fontSize: "smaller", textAlign: "right", marginRight: "8px" }}
-                                                    onClick={this.handleNetworkPlusClick}
-                                                    aria-label={this.state.networkInputVisible ? "Save" : "Add new"}
-                                                />
-                                                {this.props.isCreatingAnugaLayer ?
-                                                    <span>
-                                                        <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
-                                                    </span> :
-                                                    this.state.networkInputVisible ?
-                                                        <input
-                                                            id="network-input"
-                                                            key="network-input"
-                                                            className={'data-title-input'}
-                                                            style={{marginTop: "3px", marginRight: "5px"}}
-                                                            type={'text'}
-                                                            value={this.state.networkTitle}
-                                                            onChange={(e) => this.setState({networkTitle: e.target.value})}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter' && this.state.networkTitle) {
-                                                                    e.preventDefault();
-                                                                    this.handleNetworkPlusClick();
-                                                                } else if (e.key === 'Escape') {
-                                                                    e.preventDefault();
-                                                                    this.setState({networkTitle: '', networkInputVisible: false});
-                                                                }
-                                                            }}
-                                                            autoFocus
-                                                        /> : null
-                                                }
-                                            </React.Fragment> : null
-                                        }
-                                        <span
-                                            className={`btn glyphicon menu-row-glyph glyph-collapse ${this.state.networksCollapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
-                                            style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
-                                            onClick={() => this.toggleSection('networks')}
-                                            aria-label={this.state.networksCollapsed ? "Expand section" : "Collapse section"}
-                                        />
-                                    </div>
-                                    {!this.state.networksCollapsed ?
-                                        <React.Fragment>
-                                            <div className={'menu-row-mini-container'}>
-                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
-                                                {this.props.catchmentLayers?.map(catchment => <MenuRow layer={catchment}/>)}
-                                            </div>
-                                            <div className={'menu-row-mini-container'}>
-                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
-                                                {this.props.nodesLayers?.map(nodes => <MenuRow layer={nodes}/>)}
-                                            </div>
-                                            <div className={'menu-row-mini-container'}>
-                                                <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
-                                                {this.props.linksLayers?.map(links => <MenuRow layer={links}/>)}
-                                            </div>
-                                        </React.Fragment> : null
-                                    }
-                                </div>
-                            </div> : null
-                        }
-                    </React.Fragment> : null
-                }
+                    ) : (
+                        this.renderTerrainPane()
+                    )}
+                </div>
                 <UploaderPanel fileType={'terrain'}/>
-                {/* TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox picker.
-                    Always rendered; conditionally visible via redux state. */}
                 <TerrainBboxPanel/>
             </div>
         );
@@ -602,15 +635,8 @@ const mapStateToProps = (state) => {
     const projection = state?.anuga?.projects?.data?.projection;
     const boundaryLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Boundaries');
     const inflowLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Inflows');
-    // TASK-955 (W2.2 FE) — Rainfall layer slice (polygon sibling to Inflow).
     const rainfallLayers = state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Rainfalls');
     const pendingByModel = selectPendingByModel(state);
-    // TASK-955 — gate the `defaults` starter phase on Boundaries AND
-    // (Inflows OR Rainfall). Either polygon-or-line water input clears
-    // the placeholder so the user isn't blocked on a single sub-type.
-    // create_supporting_models stamps Boundary 01 + Inflow 01 + Rainfall 01
-    // simultaneously, so in practice all three groups fill together; the
-    // OR is defensive against a single sub-type failing or being deleted.
     const starterPhase = !projection ? 'terrain'
         : (boundaryLayers?.length === 0
             && inflowLayers?.length === 0
@@ -621,10 +647,8 @@ const mapStateToProps = (state) => {
         terrainLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Terrain'),
         boundaryLayers,
         inflowLayers,
-        // TASK-955 — Rainfall layers exposed to the rendered InputSection.
         rainfallLayers,
         frictionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction'),
-        // TASK-829 (W4.2b) — FrictionRaster layers (raster sibling to polygon Friction)
         frictionRasterLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Rasters'),
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         fullMeshLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Full Mesh'),
@@ -636,7 +660,6 @@ const mapStateToProps = (state) => {
         terrainModels: state?.anuga?.resources?.terrain,
         boundaryModels: state?.anuga?.resources?.boundaries,
         inflowModels: state?.anuga?.resources?.inflows,
-        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
         rainfallModels: state?.anuga?.resources?.rainfalls,
         frictionModels: state?.anuga?.resources?.frictions,
         structureModels: state?.anuga?.resources?.structures,
@@ -647,7 +670,6 @@ const mapStateToProps = (state) => {
         linksModels: state?.anuga?.resources?.links,
         pendingBoundaries: pendingByModel.Boundary,
         pendingInflows: pendingByModel.Inflow,
-        // TASK-955 (W2.2 FE) — Rainfall in-flight layer_create Processes.
         pendingRainfalls: pendingByModel.Rainfall,
         pendingFrictions: pendingByModel.Friction,
         pendingStructures: pendingByModel.Structure,
@@ -663,7 +685,6 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaBoundary: () => dispatch(addAnugaBoundary()),
         addAnugaFriction: () => dispatch(addAnugaFriction()),
         addAnugaInflow: () => dispatch(addAnugaInflow()),
-        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
         addAnugaRainfall: () => dispatch(addAnugaRainfall()),
         addAnugaStructure: () => dispatch(addAnugaStructure()),
         addAnugaFullMesh: () => dispatch(addAnugaFullMesh()),
@@ -677,12 +698,10 @@ const mapDispatchToProps = ( dispatch ) => {
         startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
         stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
         setVisibleUploaderPanel: (visible, importerConfigKey, layerId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, layerId)),
-        // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
         setVisibleTerrainBboxPanel: (visible) => dispatch(setVisibleTerrainBboxPanel(visible)),
         setCreatingAnugaLayer: (isCreatingAnugaLayer) => dispatch(setCreatingAnugaLayer(isCreatingAnugaLayer)),
         createAnugaBoundary: (boundaryTitle) => dispatch(createAnugaBoundary(boundaryTitle)),
         createAnugaInflow: (inflowTitle) => dispatch(createAnugaInflow(inflowTitle)),
-        // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
         createAnugaRainfall: (rainfallTitle) => dispatch(createAnugaRainfall(rainfallTitle)),
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
@@ -693,4 +712,4 @@ const mapDispatchToProps = ( dispatch ) => {
 
 const AnugaInputMenu = connect(mapStateToProps, mapDispatchToProps)(AnugaInputMenuClass);
 
-export {AnugaInputMenu};
+export {AnugaInputMenu, AnugaInputMenuClass};

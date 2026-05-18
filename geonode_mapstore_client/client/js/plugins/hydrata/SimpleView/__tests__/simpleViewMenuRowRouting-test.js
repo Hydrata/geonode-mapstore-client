@@ -6,7 +6,9 @@ import {
     getAnugaPrefix,
     ANUGA_FEATURE_CONFIG,
     STRUCTURE_METHODS,
-    MenuRow
+    MenuRow,
+    MenuRowClass,
+    getDeleteDatasetType
 } from '../components/simpleViewMenuRow';
 import { SET_OPEN_MENU_GROUP_ID } from '../actionsSimpleView';
 import { START_VECTOR_DRAW } from '../../VectorDraw/actionsVectorDraw';
@@ -558,6 +560,22 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(STRUCTURE_METHODS).toEqual(['Holes', 'Mannings', 'Reflective']);
             const opts = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method').options.map(o => o.value);
             expect(opts).toEqual(STRUCTURE_METHODS);
+        });
+    });
+
+    // R02 — Primitive extraction (W3 TASK-1007) moved render-tree code into
+    // SimpleView/components/primitives/, but the named exports listed below
+    // must remain resolvable on `simpleViewMenuRow.js` so this routing test
+    // and the cascade-delete test continue to load. Any drift here breaks
+    // ~500 lines of pure-function tests silently at import time.
+    describe('Named-export canary (R02 — primitive extraction must not move these)', () => {
+        it('MenuRow + MenuRowClass + getAnugaPrefix + ANUGA_FEATURE_CONFIG + STRUCTURE_METHODS + getDeleteDatasetType all resolve', () => {
+            expect(MenuRow).toExist();
+            expect(MenuRowClass).toExist();
+            expect(getAnugaPrefix).toBeA('function');
+            expect(ANUGA_FEATURE_CONFIG).toBeA('object');
+            expect(STRUCTURE_METHODS).toBeA(Array);
+            expect(getDeleteDatasetType).toBeA('function');
         });
     });
 });
