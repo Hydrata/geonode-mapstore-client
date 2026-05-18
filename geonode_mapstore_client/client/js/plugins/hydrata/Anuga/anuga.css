@@ -87,22 +87,6 @@
     background-color: #ffffff45;
 }
 
-.scenario-table {
-    margin-bottom: 0;
-}
-
-.scenario-table-header {
-    height: 45px;
-}
-
-.scenario-table-header th {
-    text-align:center;
-}
-
-.scenario-table-row {
-    height: 45px
-}
-
 .network-table {
     margin-bottom: 0;
 }
@@ -855,3 +839,291 @@ div that holds the feature-grid */
     color: #aaa;
     font-style: italic;
 }
+
+/* ── TASK-C scenarios-miller-columns W1+W2 layout ─────────────────────── */
+
+.anuga-panel.anuga-scenario-miller {
+    width: 920px;
+    max-width: 96vw;
+}
+
+/* Keep the scenarios rail vertical at narrow viewports — each rail item
+   is a 2-line card (id+name top, status pill+badge bottom), and the
+   default simpleView @media (max-width: 900px) rule flips the rail to
+   horizontal which breaks readability. */
+@media (max-width: 900px) {
+    .simple-view-panel--miller.anuga-scenario-miller .sv-rail-pane-shell {
+        flex-direction: row;
+    }
+    .simple-view-panel--miller.anuga-scenario-miller .sv-category-rail {
+        flex-direction: column;
+        width: 220px;
+    }
+}
+
+.simple-view-panel--miller .anuga-scenario-rail {
+    width: 220px;
+}
+
+/* Rail item layout — overrides the SimpleView default flex-row layout
+   with a 2-line body. The leading-edge compare-checkbox is always in
+   the DOM (hidden by default via .is-hidden) so Karma tests don't depend
+   on a setState→re-render flush. */
+.simple-view-panel--miller .scenario-rail-item {
+    display: flex;
+    align-items: stretch;
+    padding: 6px 8px 6px 9px;
+    gap: 6px;
+}
+
+.simple-view-panel--miller .scenario-rail-item.is-archived {
+    opacity: 0.55;
+}
+
+.simple-view-panel--miller .scenario-rail-item.is-unsaved {
+    border-left-color: #f0ad4e;
+}
+
+.simple-view-panel--miller .scenario-rail-item-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.simple-view-panel--miller .scenario-rail-item-top {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.simple-view-panel--miller .scenario-rail-item-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    min-width: 0;
+}
+
+.simple-view-panel--miller .scenario-rail-item-id {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    flex-shrink: 0;
+}
+
+.simple-view-panel--miller .scenario-rail-item-unsaved {
+    color: #f0ad4e;
+    font-weight: 700;
+    margin-right: 2px;
+}
+
+.simple-view-panel--miller .scenario-rail-item-name {
+    flex: 1;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.simple-view-panel--miller .scenario-rail-item-archived-dot {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    flex-shrink: 0;
+}
+
+/* Compare checkbox — always rendered, visibility toggled via .is-hidden so
+   React 16.14/dom 16.10 mismatch doesn't break Karma test selectors. */
+.simple-view-panel--miller .scenario-rail-item-compare-checkbox {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+}
+
+.simple-view-panel--miller .scenario-rail-item-compare-checkbox.is-hidden {
+    display: none;
+}
+
+.simple-view-panel--miller .scenario-rail-item-compare-checkbox.is-checked {
+    color: #5cb85c;
+}
+
+/* Status pill — used both in the rail (compact) and the Run pane (full). */
+.scenario-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.scenario-status-pill.is-compact {
+    font-size: 10.5px;
+}
+
+.scenario-status-pill.status-complete {
+    color: #5cb85c;
+}
+
+.scenario-status-pill.status-error {
+    color: #d9534f;
+}
+
+.scenario-status-pill.status-cancelled {
+    color: #888;
+}
+
+.scenario-status-pill.status-built {
+    color: #5bc0de;
+}
+
+.scenario-status-progress-track {
+    display: inline-block;
+    width: 60px;
+    height: 6px;
+    background: #444;
+    border-radius: 3px;
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+.scenario-status-progress-fill {
+    display: block;
+    height: 100%;
+    background: #5cb85c;
+    transition: width 0.5s;
+}
+
+.scenario-status-progress-pct {
+    font-size: 10px;
+    min-width: 28px;
+}
+
+.scenario-status-progress-eta {
+    font-size: 10px;
+    color: #888;
+}
+
+.scenario-status-error-detail {
+    font-size: 10px;
+    margin-left: 4px;
+    opacity: 0.8;
+}
+
+/* Pane subtab toolbar — reuses anuga-pane-toolbar but adds tab rendering. */
+.anuga-scenario-pane-subtabs {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+}
+
+.anuga-scenario-pane-subtab {
+    padding: 4px 10px;
+    border: 1px solid transparent;
+    border-radius: 3px 3px 0 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.anuga-scenario-pane-subtab:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+}
+
+.anuga-scenario-pane-subtab.is-active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-bottom-color: #cae33b;
+}
+
+.anuga-scenario-pane-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
+}
+
+.anuga-scenario-pane-section:last-child {
+    border-bottom: none;
+}
+
+.anuga-scenario-pane-label {
+    width: 130px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.anuga-scenario-pane-field {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.anuga-scenario-pane-actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px;
+    flex-wrap: wrap;
+}
+
+.anuga-scenario-empty-pane {
+    padding: 24px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
+}
+
+/* Action toolbar buttons — locked visual order matches Build | Run | Log | Duplicate | Archive | Delete. */
+.scenario-action-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.scenario-action-toolbar-btn.is-hidden {
+    display: none;
+}
+
+/* Container-level inline confirm dialog — always rendered in the DOM,
+   visibility toggled via .is-open so Karma tests don't depend on a
+   setState→re-render flush. Positioned absolute to overlay the pane. */
+.anuga-scenario-confirm-dialog {
+    position: absolute;
+    top: 50px;
+    right: 50px;
+    z-index: 10;
+    display: none;
+    background: #ffffff;
+    color: #333;
+    border-radius: 4px;
+    padding: 8px 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.anuga-scenario-confirm-dialog.is-open {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.anuga-scenario-confirm-text {
+    font-size: 12px;
+}
+
+/* ── End TASK-C scenarios-miller-columns W1+W2 ─────────────────────────── */
