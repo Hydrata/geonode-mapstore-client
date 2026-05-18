@@ -1,48 +1,20 @@
 import React from "react";
-const PropTypes = require('prop-types');
+import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 
 /**
- * TASK-1007 (W3) — Pure presentational replacement for the inline
- * `<div className="menu-row-toolbar">` block in `simpleViewMenuRow.js`
- * (introduced in W2/TASK-1006 as a 4-icon `vis | zoom | edit | delete`
- * locked-order toolbar).
+ * Presentational layer-action toolbar: 4-icon locked-order
+ * `vis | zoom | edit | delete` row plus the always-mounted delete-confirm
+ * overlay (CSS-toggled via `is-open` for R04 always-in-DOM dialog).
  *
- * The DOM is byte-identical to the W2 inline version (R03 class-name
- * contract): same span class strings, same .menu-row-delete-confirm
- * overlay sibling of the trash glyph. Existing selectors used by
- * `simpleViewMenuRowDelete-test.js` (`.menu-row-delete-confirm
- * .save-confirm-btn.danger`) continue to resolve.
- *
- * Single-instance DOM (R17): when `deleteConfirmVisible` is true the
- * trash action button gets `glyph-hidden` (CSS hidden) but stays in
- * the DOM. The interactive trash carries `.glyph-delete` —
- * `.menu-row-glyph.glyphicon-trash.glyph-delete` matches exactly 1
- * per row. The decorative trash inside `.menu-row-delete-confirm`
- * has neither `.menu-row-glyph` nor `.glyph-delete` so it does NOT
- * collide with selectors used by the delete-test suite (mirrors the
- * pre-W3 inline structure byte-for-byte).
- *
- * No redux: this primitive has no store binding (verified by the
- * AC #6 grep). All wiring is via plain function props supplied by
- * the parent `MenuRow` container, which keeps the VectorDraw 6-action
- * onClick body, perm gating, and bbox-fetch fallback as caller-owned
- * concerns.
- *
- * Props:
- *  - `onEdit`: callback fired when the pencil glyph is clicked. The
- *    container's VectorDraw 6-action onClick body lives there.
- *  - `onDelete`: callback fired when the trash glyph is clicked
- *    (opens the inline confirm overlay; the parent flips
- *    `deleteConfirmVisible` true).
- *  - `onConfirmDelete`: callback fired when the overlay's "Delete"
- *    button is clicked (the actual cascade-delete dispatch).
- *  - `onCancelDelete`: callback fired when the overlay's "Cancel"
- *    button is clicked (the parent flips `deleteConfirmVisible` false).
+ * Presentation-only; no redux. The container owns dispatch, perm gating,
+ * the VectorDraw 6-action onClick body, and the delete-confirm state
+ * machine — `canEdit` / `canDelete` arrive pre-AND'd from the container.
  */
+const MENU_ROW_GLYPH = "btn glyphicon menu-row-glyph";
+
 const LayerActionToolbar = ({
     layer,
-    canEditMap,
     canEdit,
     canDelete,
     onToggleVisibility,
@@ -54,30 +26,28 @@ const LayerActionToolbar = ({
     deleting,
     deleteConfirmVisible
 }) => {
-    const canEditAndEdit = canEditMap && canEdit;
-    const canEditAndDelete = canEditMap && canDelete;
     return (
         <div className={"menu-row-toolbar"}>
             <span
-                className={"btn glyphicon menu-row-glyph " + (layer?.visibility ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive")}
+                className={`${MENU_ROW_GLYPH} ${layer?.visibility ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive"}`}
                 onClick={onToggleVisibility}
             />
             <span
-                className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
+                className={`${MENU_ROW_GLYPH} glyphicon-zoom-to glyph-zoom`}
                 onClick={onZoom}
             />
             {
-                canEditAndEdit ?
+                canEdit ?
                     <span
-                        className={"btn glyphicon menu-row-glyph glyphicon-pencil glyph-edit"}
+                        className={`${MENU_ROW_GLYPH} glyphicon-pencil glyph-edit`}
                         onClick={onEdit}
                     /> : null
             }
             {
-                canEditAndDelete ?
+                canDelete ?
                     <span
                         className={
-                            "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
+                            `${MENU_ROW_GLYPH} glyphicon-trash glyph-delete`
                             + (deleting ? " glyph-disabled" : "")
                             + (deleteConfirmVisible ? " glyph-hidden" : "")
                         }
@@ -86,12 +56,11 @@ const LayerActionToolbar = ({
                     /> : null
             }
             {
-                // R04 always-mounted CSS-toggle pattern: confirm overlay stays
-                // in the DOM so unit tests can find Delete/Cancel buttons
-                // after the first trash click without a setState→re-render
-                // flush (react@16.14 / react-dom@16.10 mismatch in
-                // Karma+JSDOM). Visibility driven by `is-open` class.
-                canEditAndDelete ?
+                // R04 always-mounted CSS-toggle: confirm overlay stays in the
+                // DOM so unit tests find Delete/Cancel after the first trash
+                // click without a setState→re-render flush (react@16.14 vs
+                // react-dom@16.10 mismatch under Karma+JSDOM).
+                canDelete ?
                     <span
                         className={
                             "menu-row-delete-confirm"
@@ -129,7 +98,6 @@ const LayerActionToolbar = ({
 
 LayerActionToolbar.propTypes = {
     layer: PropTypes.object,
-    canEditMap: PropTypes.bool,
     canEdit: PropTypes.bool,
     canDelete: PropTypes.bool,
     onToggleVisibility: PropTypes.func,

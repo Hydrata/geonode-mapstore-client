@@ -2,11 +2,8 @@ import React, { useState, useEffect } from "react";
 const PropTypes = require('prop-types');
 const Spinner = require('react-spinkit');
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
-// TASK-1007 (W3) — SectionHeader primitive replaces the inline
-// header div wrapper used by every input-data section's header row.
-// Passes extraClassName="anuga-section-header" per the per-site
-// class contract (the .anuga-section-header CSS rule lives in
-// Anuga/anuga.css; Swamm headers use a different shape entirely).
+// Anuga uses extraClassName="anuga-section-header" — the corresponding CSS
+// rule lives in Anuga/anuga.css. Swamm headers ship inline styles instead.
 import {SectionHeader} from "../../SimpleView/components/primitives";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";

@@ -56,10 +56,8 @@ import { startVectorDraw } from '../../VectorDraw/actionsVectorDraw';
 // the pre-migration `time-data-picker` wrapper. fetchTimeSeries is the
 // per-mount loader for the 'timeseries' kind.
 import { ConstantInput, TimeSeriesSelect, fetchTimeSeries } from '../../VectorDraw/components/FormField';
-// TASK-1007 (W3) — Presentational primitives extracted from this file's
-// W2 inline blocks. The toolbar render is in LayerActionToolbar; the
-// slider sub-row is OpacitySlider. The VectorDraw 6-action onClick body
-// stays HERE (passed in as the `onEdit` prop) per the W3 spec.
+// Presentational primitives — toolbar + slider; VectorDraw 6-action
+// onClick body stays in the container and is passed in as `onEdit`.
 import {LayerActionToolbar, OpacitySlider} from './primitives';
 
 // V2P-714 + TASK-723 — derive the AnugaModel dataset type from layer.group.
@@ -406,22 +404,14 @@ class MenuRowClass extends React.Component {
             );
         }
         const hasValidBbox = this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds);
-        // TASK-1006 (W2) — Locked 4-icon toolbar order: vis | zoom | edit | delete.
-        // Edit + delete remain canEditMap-gated (parity with today); visibility
-        // and zoom render unconditionally (matched today's pre-canEditMap render
-        // inside .menu-row-left at lines ~408/415 of the pre-W2 file). Download +
-        // upload move to a sibling .menu-row-toolbar-secondary slot so they
-        // don't violate the locked 4-icon order rule (AC#1). The delete-confirm
-        // overlay remains a sibling of the trash glyph inside the toolbar so
-        // existing test selectors (`.menu-row-delete-confirm .save-confirm-btn.danger`)
-        // continue to resolve (R03).
-        const canEditAndEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
-        const canEditAndDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
-        // TASK-1007 (W3) — Wired callbacks for the LayerActionToolbar
-        // primitive. The toolbar primitive is presentational only; all
-        // dispatch + perm gating + the VectorDraw 6-action onClick body
-        // remain here (the container) per the W3 spec (R02/R07/R08).
-        // trackEvent calls also stay here — primitives emit no analytics.
+        // Locked 4-icon toolbar order: vis | zoom | edit | delete. Edit + delete
+        // are canEditMap-gated; visibility + zoom render unconditionally. Download
+        // + upload live in a sibling .menu-row-toolbar-secondary slot to keep the
+        // 4-icon contract. The delete-confirm overlay stays a sibling of the
+        // trash glyph so `.menu-row-delete-confirm .save-confirm-btn.danger`
+        // continues to resolve (R03).
+        const canEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
+        const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
         const onToggleVisibility = () => {
             this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
             trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
@@ -441,39 +431,26 @@ class MenuRowClass extends React.Component {
             const prefix = getAnugaPrefix(layer.name);
             if (prefix) {
                 const cfg = ANUGA_FEATURE_CONFIG[prefix];
-                // TASK-829 (W4.2b) — Raster-type early-return.
-                // Rasters have no VectorDraw editing AND would
-                // crash the legacy FeatureGrid (no WFS features).
-                // Per-raster replace-upload is launched from
-                // anugaInputMenu.js, not from the menu-row edit
-                // pencil. No-op here — the pencil renders
-                // (canEditLayer doesn't distinguish raster vs
-                // vector at the perm level) but clicking is
-                // intentionally inert. Future work: gate the
-                // pencil rendering on `cfg?.geomType === 'Raster'`
-                // in the JSX so users don't see a dead button.
-                // Deferred until per-raster replace UX is wired.
+                // Raster early-return: rasters have no VectorDraw editing AND
+                // would crash the legacy FeatureGrid (no WFS features). Per-
+                // raster replace-upload is launched from anugaInputMenu.js, not
+                // from the menu-row pencil. The pencil renders (canEditLayer
+                // doesn't distinguish raster vs vector) but clicks are inert.
                 if (cfg.geomType === 'Raster') {
                     return;
                 }
-                // Migrated VectorDraw path — bdy_/inf_/fri_/mes_/str_.
-                // setPermission/svSelectLayer omitted: pre-flight audit
-                // (TASK-793) confirmed no downstream consumers outside the
-                // FeatureGrid we're abandoning.
+                // VectorDraw path — bdy_/inf_/fri_/mes_/str_. setPermission /
+                // svSelectLayer omitted per pre-flight audit (TASK-793): no
+                // downstream consumers outside the FeatureGrid we're abandoning.
                 //
-                // Panel hide: the inputs side panel is <AnugaInputMenu/>,
-                // gated by state.anuga.ui.showAnugaInputMenu (set by
-                // setAnugaInputMenu). state.simpleView.openMenuGroupId
-                // controls a DIFFERENT panel (the SimpleView menu-groups
-                // panel rendered in simpleViewContainer.js for non-Anuga
-                // maps), so dispatching setOpenMenuGroupId(null) alone
-                // does NOT close the Anuga inputs panel — Anuga's
-                // uiReducer's SET_OPEN_MENU_GROUP_ID case only acts when
-                // the value is truthy. We dispatch BOTH so each panel
-                // closes via its own slice. The toolbar buttons
-                // (portal'd into .simple-view-left-toolbar by
-                // AnugaContainer) are not gated by either slice and
-                // stay visible.
+                // Panel hide: <AnugaInputMenu/> is gated by
+                // state.anuga.ui.showAnugaInputMenu; state.simpleView.openMenuGroupId
+                // controls a different panel rendered in simpleViewContainer.js
+                // for non-Anuga maps. Anuga's uiReducer's SET_OPEN_MENU_GROUP_ID
+                // case only acts when truthy — so dispatching setOpenMenuGroupId(null)
+                // alone does NOT close the Anuga panel. We dispatch BOTH so each
+                // panel closes via its own slice. Toolbar buttons portal'd into
+                // .simple-view-left-toolbar by AnugaContainer stay visible.
                 this.props.closeFeatureGrid();
                 this.props.selectFeatures([]);
                 this.props.setOpenMenuGroupId(null);
@@ -505,23 +482,20 @@ class MenuRowClass extends React.Component {
                 <span className={"menu-row-left"}>
                     <LayerActionToolbar
                         layer={this.props.layer}
-                        canEditMap={this.props.canEditMap}
-                        canEdit={this.canEditLayer(this.props.layer)}
-                        canDelete={this.canDeleteLayer(this.props.layer)}
+                        canEdit={canEdit}
+                        canDelete={canDelete}
                         onToggleVisibility={onToggleVisibility}
                         onZoom={onZoom}
                         onEdit={onEdit}
-                        onDelete={this.props.deleteRow?.deleting ? undefined : this.handleDeleteClick}
+                        onDelete={this.handleDeleteClick}
                         onConfirmDelete={this.performDelete}
                         onCancelDelete={this.cancelDelete}
                         deleting={!!this.props.deleteRow?.deleting}
                         deleteConfirmVisible={this.state.deleteConfirmVisible}
                     />
                     {
-                        // TASK-1006 (W2) — Download + upload glyphs in a
-                        // separate slot OUTSIDE the locked-order 4-icon
-                        // toolbar (AC#1). Same canEditMap + canExportLayer
-                        // + canUploadErosion gates as today.
+                        // Download + upload live OUTSIDE the locked 4-icon
+                        // toolbar so the order contract holds.
                         this.props.canEditMap && this.canExportLayer(this.props.layer) ?
                             <span className={"menu-row-toolbar-secondary"}>
                                 <span
@@ -533,11 +507,11 @@ class MenuRowClass extends React.Component {
                                 />
                                 {
                                     // TASK-602: erosion is a SWAMM-only feature. Hide the upload
-                                    // button when running on hydratabase (hydrata.com), where the
-                                    // hardcoded "erosion" importerConfigKey has no matching entry
-                                    // in the AnugaProject.simple_view_config.importer_config (which
-                                    // only contains "terrain"). On hydratabase this button always
-                                    // dispatched a useless action and confused users.
+                                    // button on hydratabase (hydrata.com) — the hardcoded "erosion"
+                                    // importerConfigKey has no matching entry in
+                                    // AnugaProject.simple_view_config.importer_config (which only
+                                    // contains "terrain") and the button used to dispatch a useless
+                                    // action that confused users.
                                     this.props.canUploadErosion ? (
                                         <span
                                             className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
@@ -551,15 +525,9 @@ class MenuRowClass extends React.Component {
                             </span>
                             : null
                     }
-                    {
-                        // TASK-1006 (W2) — Title input + save glyph lifted
-                        // into a dedicated .menu-row-title slot between the
-                        // toolbar and the slider sub-row (AC#6). The
-                        // canEditLayer fallback is the static title text
-                        // span (when the user lacks edit rights). No prop
-                        // or onChange handler changes.
-                        canEditAndEdit ?
-                            <div className={"menu-row-title"}>
+                    <div className={"menu-row-title"}>
+                        {canEdit ? (
+                            <React.Fragment>
                                 <input
                                     id={`input-${this.props.layer.name}`}
                                     key={`input-key-${this.props.layer.name}`}
@@ -581,29 +549,15 @@ class MenuRowClass extends React.Component {
                                         }
                                     />
                                 }
-                            </div>
-                            : <div className={"menu-row-title"}>
-                                <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
-                            </div>
-                    }
+                            </React.Fragment>
+                        ) : (
+                            <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
+                        )}
+                    </div>
                 </span>
-                {/* TASK-1006 (W2) — .menu-row-right kept as a structural
-                    container per EPIC §6 W2 implementation note (b): minimises
-                    selector breakage in simpleViewMenuRowDelete-test.js. The
-                    trash + delete-confirm subtree moved into .menu-row-toolbar;
-                    the slider lifted into .menu-row-slider-subrow below. */}
-                <span className={"menu-row-right"}/>
-                {/* TASK-1006 (W2) — Transparency slider lifted out of
-                    .menu-row-right and placed as the LAST CHILD of
-                    .menu-row (AC#2). The always-mounted CSS-toggle pattern
-                    (R04) is preserved — `.glyph-hidden` is appended to the
-                    wrapper className via deleteConfirmVisible so the slider
-                    hides behind the always-rendered confirm overlay.
-
-                    TASK-1007 (W3) — Slider extracted into OpacitySlider
-                    primitive. trackEvent + opacity-decimal conversion stay
-                    here (the container) — the primitive is render-only and
-                    passes the raw slider value back. */}
+                {/* Transparency slider — last child of .menu-row. Always-
+                    mounted + CSS-toggled via `hidden` (R04) so the nouislider
+                    instance survives delete-confirm overlay show/hide. */}
                 <OpacitySlider
                     opacity={this.props.layer?.opacity}
                     hidden={this.state.deleteConfirmVisible}
@@ -612,10 +566,6 @@ class MenuRowClass extends React.Component {
                         trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
                     }}
                 />
-                {/* TASK-1006 (W2) — renderDeleteFeedback moved to render as
-                    a sibling INSIDE .menu-row after the slider sub-row (AC#7).
-                    Behaviour is identical (same row, same blockingError /
-                    deleteError paths). */}
                 {this.renderDeleteFeedback()}
             </div>
         );

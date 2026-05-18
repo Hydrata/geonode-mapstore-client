@@ -3,11 +3,9 @@ import {connect} from "react-redux";
 const PropTypes = require('prop-types');
 
 import {MenuRow} from "./simpleViewMenuRow";
-// TASK-1007 (W3) — Miller-columns rail extracted into a presentational
-// primitive. The parent keeps the `selectedSubHeading` local state, the
-// `getGroupLayers` derivation, and the toggleGroupVisibility/zoomToGroup
-// dispatchers (via its own mapDispatchToProps); the primitive only paints.
-import {CategoryRail} from './primitives';
+// Miller-columns rail primitive + shared tri-state glyph formula used by
+// both the rail and the single-subheading legacy accordion fallback.
+import {CategoryRail, tristateGlyph} from './primitives';
 import '../simpleView.css';
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
@@ -63,13 +61,21 @@ class MenuRowsClass extends React.Component {
         this.state = {
             // Per-(menuId, subHeading) collapsed booleans, hydrated lazily on first render
             collapsed: {},
-            // TASK-1005 W1 — Miller-columns selected subheading (local component
-            // state, NOT redux). Defaults to first subheading on mount; resets
-            // when openMenuGroupId changes (componentDidUpdate). The reducer
-            // field `selectedCategory` exists for R12 hydration safety only and
-            // is intentionally never read at runtime (R05).
+            // Miller-columns selected subheading — local component state, NOT
+            // redux. Defaults to first subheading on mount; resets when
+            // openMenuGroupId changes. The reducer field `selectedCategory`
+            // exists for R12 hydration safety only and is intentionally never
+            // read at runtime (R05).
             selectedSubHeading: subHeadings[0] || null
         };
+    }
+
+    trackGroupToggle(subHeading, isOn) {
+        trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${isOn ? 'on' : 'off'}`);
+    }
+
+    trackGroupZoom(subHeading) {
+        trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
     }
 
     componentDidUpdate(prevProps) {
@@ -111,12 +117,8 @@ class MenuRowsClass extends React.Component {
         return this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading) || [];
     }
 
-    // TASK-1007 (W3) — Per-rail-item derivation moved into a single map
-    // step so we can pass the result array to the CategoryRail primitive.
-    // The trackEvent calls stay HERE (the container) per W3 spec —
-    // primitives emit no analytics. The primitive's onSelect / onToggle /
-    // onZoom callbacks delegate to the same setState/dispatcher methods
-    // that the inline JSX used to call directly.
+    // Per-rail-item derivation: trackEvent stays HERE (the container);
+    // primitives emit no analytics.
     buildRailItems(subHeadings) {
         return (subHeadings || []).map(subHeading => {
             const groupLayers = this.getGroupLayers(subHeading);
@@ -135,11 +137,11 @@ class MenuRowsClass extends React.Component {
                 onSelect={this.handleSelectSubHeading}
                 onToggleGroupVisibility={(groupLayers, nextVisible, subHeading) => {
                     this.props.toggleGroupVisibility(groupLayers, nextVisible);
-                    trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${nextVisible ? 'on' : 'off'}`);
+                    this.trackGroupToggle(subHeading, nextVisible);
                 }}
                 onZoomToGroup={(groupLayers, subHeading) => {
                     this.props.zoomToGroup(groupLayers);
-                    trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
+                    this.trackGroupZoom(subHeading);
                 }}
             />
         );
@@ -165,13 +167,12 @@ class MenuRowsClass extends React.Component {
     }
 
     renderSingleSubHeadingFallback(subHeading) {
-        // Single-subheading legacy accordion path (AC#7 + AC#8). Used when
-        // there is exactly 1 subheading. Renders the original .subheading-row
-        // markup verbatim so simpleViewGlyphClasses-test.js (which uses 1
-        // subheading per test case) continues to pass without modification,
-        // and so the localStorage collapse helpers remain exercised. Rail+pane
-        // Miller layout activates at 2+ subheadings where a 1-button rail
-        // would be a strictly worse UX than the accordion.
+        // Legacy accordion path used when there's exactly 1 subheading.
+        // Keeps the original .subheading-row markup verbatim so
+        // simpleViewGlyphClasses-test.js continues to pass and the
+        // localStorage collapse helpers stay exercised. Miller rail+pane
+        // activates at 2+ subheadings where a 1-button rail would be a
+        // strictly worse UX than the accordion.
         const groupLayers = this.getGroupLayers(subHeading);
         const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
         const noneVisible = groupLayers.every(l => !l.visibility);
@@ -181,17 +182,17 @@ class MenuRowsClass extends React.Component {
             <React.Fragment key={subHeading}>
                 <div className="subheading-row">
                     <span
-                        className={"btn glyphicon menu-row-glyph " + (allVisible ? "glyphicon-ok glyph-active" : noneVisible ? "glyphicon-remove glyph-inactive" : "glyphicon-minus glyph-partial")}
+                        className={"btn glyphicon menu-row-glyph " + tristateGlyph(allVisible, noneVisible)}
                         onClick={() => {
                             this.props.toggleGroupVisibility(groupLayers, !allVisible);
-                            trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${allVisible ? 'off' : 'on'}`);
+                            this.trackGroupToggle(subHeading, !allVisible);
                         }}
                     />
                     <span
                         className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
                         onClick={() => {
                             this.props.zoomToGroup(groupLayers);
-                            trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
+                            this.trackGroupZoom(subHeading);
                         }}
                     />
                     <h5

@@ -1,39 +1,27 @@
 import React from "react";
-const PropTypes = require('prop-types');
+import PropTypes from 'prop-types';
 
 /**
- * TASK-1007 (W3) — Pure presentational replacement for the inline
- * Miller-columns rail JSX from W1 (TASK-1005) in
- * `simpleViewMenuRows.js` — `.sv-category-rail` + per-item
- * `.sv-category-rail-item` with tri-state visibility glyph + zoom
- * glyph + label.
+ * Presentational Miller-columns rail: tri-state visibility glyph +
+ * zoom glyph + label, one entry per subheading.
  *
- * DOM is byte-identical to the W1 inline version (R03 class-name
- * contract). Selectors used by `simpleViewMillerLayout-test.js`
- * (`.sv-category-rail-item`, `.sv-category-rail-item .sv-category-rail-item-zoom`)
- * continue to resolve. The `is-active` class on the selected item
- * mirrors W1 exactly.
- *
- * No redux: this primitive has no store binding (verified by the
- * AC #6 grep). The parent `MenuRowsClass` keeps:
- *  - the `getGroupLayers(subHeading)` lookup
- *  - the `selectedSubHeading` local state
- *  - the localStorage collapse helpers
- *  - the `toggleGroupVisibility` and `zoomToGroup` dispatchers (via
- *    its own `mapDispatchToProps`)
- *
- * The rail simply receives a pre-computed `items` array and lets the
- * parent own all derivation logic. The `trackEvent` calls stay in the
- * parent's callback bodies — the rail itself emits no analytics.
- *
- * `items` shape:
- *   Array<{
- *     subHeading: string,         // display label AND key
- *     groupLayers: Array<layer>,  // passed back to onToggleGroupVisibility/onZoomToGroup
- *     allVisible: boolean,        // tri-state: true → ok glyph
- *     noneVisible: boolean        // tri-state: true → remove glyph; else partial glyph
- *   }>
+ * Presentation-only; no redux. The parent owns `getGroupLayers`,
+ * `selectedSubHeading` local state, localStorage collapse helpers,
+ * and the dispatchers. `items` is a pre-computed array (see propTypes).
  */
+const MENU_ROW_GLYPH = "btn glyphicon menu-row-glyph";
+
+/**
+ * Tri-state visibility glyph class string. Exported so the legacy
+ * single-subheading fallback (simpleViewMenuRows.js) can use the same
+ * formula as the rail.
+ */
+export function tristateGlyph(allVisible, noneVisible) {
+    if (allVisible) return "glyphicon-ok glyph-active";
+    if (noneVisible) return "glyphicon-remove glyph-inactive";
+    return "glyphicon-minus glyph-partial";
+}
+
 const CategoryRail = ({
     items,
     selectedSubHeading,
@@ -43,13 +31,8 @@ const CategoryRail = ({
 }) => {
     return (
         <div className="sv-category-rail" role="tablist">
-            {(items || []).map(({subHeading, groupLayers, allVisible, noneVisible}) => {
+            {items.map(({subHeading, groupLayers, allVisible, noneVisible}) => {
                 const isActive = selectedSubHeading === subHeading;
-                const tristateGlyph = allVisible
-                    ? "glyphicon-ok glyph-active"
-                    : noneVisible
-                        ? "glyphicon-remove glyph-inactive"
-                        : "glyphicon-minus glyph-partial";
                 return (
                     <div
                         key={subHeading}
@@ -66,14 +49,14 @@ const CategoryRail = ({
                         }}
                     >
                         <span
-                            className={"btn glyphicon menu-row-glyph sv-category-rail-item-tristate " + tristateGlyph}
+                            className={`${MENU_ROW_GLYPH} sv-category-rail-item-tristate ${tristateGlyph(allVisible, noneVisible)}`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onToggleGroupVisibility(groupLayers, !allVisible, subHeading);
                             }}
                         />
                         <span
-                            className={"btn glyphicon menu-row-glyph glyph-zoom glyphicon-zoom-to sv-category-rail-item-zoom"}
+                            className={`${MENU_ROW_GLYPH} glyph-zoom glyphicon-zoom-to sv-category-rail-item-zoom`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onZoomToGroup(groupLayers, subHeading);
@@ -88,7 +71,7 @@ const CategoryRail = ({
 };
 
 CategoryRail.propTypes = {
-    items: PropTypes.array,
+    items: PropTypes.array.isRequired,
     selectedSubHeading: PropTypes.string,
     onSelect: PropTypes.func,
     onToggleGroupVisibility: PropTypes.func,

@@ -11,21 +11,17 @@ import {
 } from "../actionsSwamm";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
-// TASK-1007 (W3) — SectionHeader primitive replaces the 6 inline header
-// wrappers in this file. Per Phase 0.5 spec verification, Swamm headers
-// use the BASELINE class set (row/menu-row/menu-row-header) WITHOUT the
-// `anuga-section-header` class — that class rule lives in Anuga/anuga.css
-// and swammInputMenu does not import it. The 540px-wide-with-no-border
-// rendering instead comes from an inline `style` prop pass-through.
+// SectionHeader primitive — Swamm uses the baseline class set
+// (row/menu-row/menu-row-header) WITHOUT `anuga-section-header` (that
+// class lives in Anuga/anuga.css and swammInputMenu does not import it).
+// The Swamm-specific width/border are passed via inline `style`.
 import {SectionHeader} from "../../SimpleView/components/primitives";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 
 import {canEditSwammMap} from "@js/plugins/hydrata/Swamm/selectorsSwamm";
 
-// TASK-1007 (W3) — Swamm section-header inline style. Defined once at
-// module scope to keep all 6 SectionHeader invocations byte-identical
-// and to make the per-site contract explicit (vs the per-call inline
-// duplication in the pre-W3 file).
+// Swamm section-header inline style — defined once so all 6 invocations
+// stay byte-identical.
 const SWAMM_SECTION_HEADER_STYLE = {
     width: "510px",
     textAlign: "left",

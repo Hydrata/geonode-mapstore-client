@@ -37,12 +37,9 @@ import {
     setVisibleTerrainBboxPanel
 } from "../actionsAnuga";
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
-// TASK-1007 (W3) — SectionHeader primitive replaces the 5 inline header
-// wrappers (terrain, advanced, fullMesh, frictionRasters, networks) that
-// previously hardcoded the row/menu-row/menu-row-header class string.
-// All 5 invocations here pass extraClassName="anuga-section-header" —
-// that class string is declared in Anuga/anuga.css and only the Anuga
-// menu (not Swamm) gets it.
+// SectionHeader primitive — the 5 Anuga sections (terrain, advanced,
+// fullMesh, frictionRasters, networks) pass extraClassName="anuga-section-header";
+// that class lives in Anuga/anuga.css.
 import {SectionHeader} from "../../SimpleView/components/primitives";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 import {TerrainBboxPanel} from "./terrainBboxPanel";
