@@ -404,14 +404,16 @@ class MenuRowClass extends React.Component {
             );
         }
         const hasValidBbox = this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds);
-        // Locked 4-icon toolbar order: vis | zoom | edit | delete. Edit + delete
-        // are canEditMap-gated; visibility + zoom render unconditionally. Download
-        // + upload live in a sibling .menu-row-toolbar-secondary slot to keep the
-        // 4-icon contract. The delete-confirm overlay stays a sibling of the
-        // trash glyph so `.menu-row-delete-confirm .save-confirm-btn.danger`
+        // TASK-1010 W6-polish — download and delete positions swapped.
+        // Locked 4-icon toolbar order is now: vis | zoom | edit | download.
+        // Trash + delete-confirm overlay moved to the secondary toolbar
+        // (alongside upload). The delete-confirm overlay stays a sibling of
+        // the trash glyph so `.menu-row-delete-confirm .save-confirm-btn.danger`
         // continues to resolve (R03).
         const canEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
         const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
+        const canDownload = this.props.canEditMap && this.canExportLayer(this.props.layer);
+        const deleting = !!this.props.deleteRow?.deleting;
         const onToggleVisibility = () => {
             this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
             trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
@@ -477,34 +479,76 @@ class MenuRowClass extends React.Component {
                 this.props.browseData(layer);
             }
         };
+        const onDownload = () => {
+            this.props.svDownloadLayer(this.props.layer);
+            trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
+        };
         return (
             <div className={"menu-row"}>
                 <span className={"menu-row-left"}>
                     <LayerActionToolbar
                         layer={this.props.layer}
                         canEdit={canEdit}
-                        canDelete={canDelete}
+                        canDownload={canDownload}
                         onToggleVisibility={onToggleVisibility}
                         onZoom={onZoom}
                         onEdit={onEdit}
-                        onDelete={this.handleDeleteClick}
-                        onConfirmDelete={this.performDelete}
-                        onCancelDelete={this.cancelDelete}
-                        deleting={!!this.props.deleteRow?.deleting}
-                        deleteConfirmVisible={this.state.deleteConfirmVisible}
+                        onDownload={onDownload}
                     />
                     {
-                        // Download + upload live OUTSIDE the locked 4-icon
-                        // toolbar so the order contract holds.
-                        this.props.canEditMap && this.canExportLayer(this.props.layer) ?
+                        // TASK-1010 W6-polish — download/delete swapped.
+                        // Secondary toolbar now carries delete (trash + always-
+                        // mounted confirm overlay) and upload. The delete-confirm
+                        // overlay stays a sibling of the trash glyph so
+                        // `.menu-row-delete-confirm .save-confirm-btn.danger`
+                        // continues to resolve (R03 / R04 always-in-DOM dialog).
+                        (canDelete || this.props.canUploadErosion) ?
                             <span className={"menu-row-toolbar-secondary"}>
-                                <span
-                                    className={"btn glyphicon menu-row-glyph glyphicon-download glyph-active"}
-                                    onClick={() => {
-                                        this.props.svDownloadLayer(this.props.layer);
-                                        trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
-                                    }}
-                                />
+                                {
+                                    canDelete ?
+                                        <span
+                                            className={
+                                                "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
+                                                + (deleting ? " glyph-disabled" : "")
+                                                + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
+                                            }
+                                            onClick={deleting ? undefined : this.handleDeleteClick}
+                                            aria-disabled={deleting ? true : undefined}
+                                        /> : null
+                                }
+                                {
+                                    canDelete ?
+                                        <span
+                                            className={
+                                                "menu-row-delete-confirm"
+                                                + (this.state.deleteConfirmVisible ? " is-open" : "")
+                                            }
+                                            role="alertdialog"
+                                            aria-label="Confirm delete"
+                                            aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
+                                        >
+                                            <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
+                                            <span className="menu-row-delete-confirm-text">
+                                                <Message msgId="hydrata.simpleView.confirmDelete"/>
+                                                {' "'}{this.props.layer?.title}{'"?'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="save-confirm-btn danger"
+                                                onClick={this.performDelete}
+                                            >
+                                                <Message msgId="hydrata.simpleView.delete"/>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="save-confirm-btn cancel"
+                                                onClick={this.cancelDelete}
+                                            >
+                                                <Message msgId="hydrata.simpleView.cancel"/>
+                                            </button>
+                                        </span>
+                                        : null
+                                }
                                 {
                                     // TASK-602: erosion is a SWAMM-only feature. Hide the upload
                                     // button on hydratabase (hydrata.com) — the hardcoded "erosion"

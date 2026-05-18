@@ -1,30 +1,28 @@
 import React from "react";
 import PropTypes from 'prop-types';
-import Message from '@mapstore/framework/components/I18N/Message';
 
 /**
- * Presentational layer-action toolbar: 4-icon locked-order
- * `vis | zoom | edit | delete` row plus the always-mounted delete-confirm
- * overlay (CSS-toggled via `is-open` for R04 always-in-DOM dialog).
+ * Presentational layer-action toolbar.
+ *
+ * TASK-1010 W6-polish — the locked 4-icon order is now
+ * `vis | zoom | edit | download`. Delete moved out of this primitive and
+ * into the secondary toolbar in simpleViewMenuRow (alongside upload), so
+ * the trash + delete-confirm overlay are no longer rendered here.
  *
  * Presentation-only; no redux. The container owns dispatch, perm gating,
- * the VectorDraw 6-action onClick body, and the delete-confirm state
- * machine — `canEdit` / `canDelete` arrive pre-AND'd from the container.
+ * the VectorDraw 6-action onClick body, and the download dispatch —
+ * `canEdit` / `canDownload` arrive pre-AND'd from the container.
  */
 const MENU_ROW_GLYPH = "btn glyphicon menu-row-glyph";
 
 const LayerActionToolbar = ({
     layer,
     canEdit,
-    canDelete,
+    canDownload,
     onToggleVisibility,
     onZoom,
     onEdit,
-    onDelete,
-    onConfirmDelete,
-    onCancelDelete,
-    deleting,
-    deleteConfirmVisible
+    onDownload
 }) => {
     return (
         <div className={"menu-row-toolbar"}>
@@ -44,53 +42,11 @@ const LayerActionToolbar = ({
                     /> : null
             }
             {
-                canDelete ?
+                canDownload ?
                     <span
-                        className={
-                            `${MENU_ROW_GLYPH} glyphicon-trash glyph-delete`
-                            + (deleting ? " glyph-disabled" : "")
-                            + (deleteConfirmVisible ? " glyph-hidden" : "")
-                        }
-                        onClick={deleting ? undefined : onDelete}
-                        aria-disabled={deleting ? true : undefined}
+                        className={`${MENU_ROW_GLYPH} glyphicon-download glyph-active`}
+                        onClick={onDownload}
                     /> : null
-            }
-            {
-                // R04 always-mounted CSS-toggle: confirm overlay stays in the
-                // DOM so unit tests find Delete/Cancel after the first trash
-                // click without a setState→re-render flush (react@16.14 vs
-                // react-dom@16.10 mismatch under Karma+JSDOM).
-                canDelete ?
-                    <span
-                        className={
-                            "menu-row-delete-confirm"
-                            + (deleteConfirmVisible ? " is-open" : "")
-                        }
-                        role="alertdialog"
-                        aria-label="Confirm delete"
-                        aria-hidden={deleteConfirmVisible ? undefined : true}
-                    >
-                        <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
-                        <span className="menu-row-delete-confirm-text">
-                            <Message msgId="hydrata.simpleView.confirmDelete"/>
-                            {' "'}{layer?.title}{'"?'}
-                        </span>
-                        <button
-                            type="button"
-                            className="save-confirm-btn danger"
-                            onClick={onConfirmDelete}
-                        >
-                            <Message msgId="hydrata.simpleView.delete"/>
-                        </button>
-                        <button
-                            type="button"
-                            className="save-confirm-btn cancel"
-                            onClick={onCancelDelete}
-                        >
-                            <Message msgId="hydrata.simpleView.cancel"/>
-                        </button>
-                    </span>
-                    : null
             }
         </div>
     );
@@ -99,15 +55,11 @@ const LayerActionToolbar = ({
 LayerActionToolbar.propTypes = {
     layer: PropTypes.object,
     canEdit: PropTypes.bool,
-    canDelete: PropTypes.bool,
+    canDownload: PropTypes.bool,
     onToggleVisibility: PropTypes.func,
     onZoom: PropTypes.func,
     onEdit: PropTypes.func,
-    onDelete: PropTypes.func,
-    onConfirmDelete: PropTypes.func,
-    onCancelDelete: PropTypes.func,
-    deleting: PropTypes.bool,
-    deleteConfirmVisible: PropTypes.bool
+    onDownload: PropTypes.func
 };
 
 export {LayerActionToolbar};

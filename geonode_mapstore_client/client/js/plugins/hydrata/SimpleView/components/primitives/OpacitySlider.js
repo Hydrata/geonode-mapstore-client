@@ -19,7 +19,7 @@ const OpacitySlider = ({opacity, onChange, hidden}) => {
                 + (hidden ? " glyph-hidden" : "")
             }
             onClick={(e) => { e.stopPropagation(); }}
-            style={{ width: "150px", marginBottom: "-10px", marginTop: "2px" }}
+            style={{ width: "150px", marginBottom: "0", marginTop: "2px" }}
         >
             <Slider
                 step={1}

@@ -15,7 +15,7 @@ import {OpacitySlider} from '../OpacitySlider';
  *      (nouislider's native callback shape, not a 0..1 numeric).
  *   E. Wrapper click stopPropagation (so the parent menu-row doesn't toggle
  *      when the user drags the slider).
- *   F. Inline styles (width 150px; margin-bottom -10px; margin-top 2px).
+ *   F. Inline styles (width 150px; margin-bottom 0; margin-top 2px).
  *
  * The component is a stateless function component, so for assertions
  * about prop pass-through (D) we invoke it as a function and inspect the
@@ -217,10 +217,10 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
             expect(wrapper.style.width).toBe('150px');
         });
 
-        it('marginBottom is -10px (pulls the sub-row up against its parent row)', () => {
+        it('marginBottom is 0 (TASK-1010 polish — relaxed from -10px so the bigger circular knob does not clip into the next row)', () => {
             ReactDOM.render(<OpacitySlider opacity={0.5} />, container);
             const wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.style.marginBottom).toBe('-10px');
+            expect(wrapper.style.marginBottom).toBe('0px');
         });
 
         it('marginTop is 2px', () => {
