@@ -1,5 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
+import {Button} from "react-bootstrap";
 const PropTypes = require('prop-types');
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
@@ -21,14 +22,19 @@ import {
   archiveAnugaScenario,
   unarchiveAnugaScenario,
   setAnugaScenarioMenu,
-  showAnugaRunMenu
+  showAnugaRunMenu,
+  addAnugaScenario,
+  stopAnugaScenarioPolling,
+  setAnugaScenarioArchiveFilter,
+  compareScenarios
 } from "../actionsAnuga";
 import {
   canCreateScenario,
   canRunScenario,
   getProjectMyRole,
   getSelectedScenario,
-  canEditScenarioByRole
+  canEditScenarioByRole,
+  selectedScenarios as selectedScenariosSelector
 } from "../selectorsAnuga";
 import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import {validateScenario} from './scenarioHelpers';
@@ -74,6 +80,8 @@ class AnugaScenarioMenuMillerClass extends React.Component {
     canRunScenario: PropTypes.bool,
     myRole: PropTypes.string,
     currentUserId: PropTypes.number,
+    selectedScenarios: PropTypes.array,
+    readyToCompare: PropTypes.bool,
     // Redux dispatch
     selectAnugaScenario: PropTypes.func,
     toggleScenarioSelected: PropTypes.func,
@@ -88,6 +96,10 @@ class AnugaScenarioMenuMillerClass extends React.Component {
     unarchiveAnugaScenario: PropTypes.func,
     setOpenMenuGroupId: PropTypes.func,
     setAnugaScenarioMenu: PropTypes.func,
+    stopAnugaScenarioPolling: PropTypes.func,
+    addAnugaScenario: PropTypes.func,
+    setAnugaScenarioArchiveFilter: PropTypes.func,
+    compareScenarios: PropTypes.func,
     showAnugaRunMenu: PropTypes.func,
     openTaskMonitorForRun: PropTypes.func
   };
@@ -143,6 +155,54 @@ class AnugaScenarioMenuMillerClass extends React.Component {
 
   handleSelectCategory = (categoryId) => {
     this.setState({selectedCategoryId: categoryId});
+  };
+
+  handleNewScenario = () => {
+    if (this.props.addAnugaScenario) {
+      this.props.addAnugaScenario();
+    }
+    trackEvent('button', 'click', 'anuga-scenario-menu-new-scenario');
+  };
+
+  handleClose = () => {
+    if (this.props.setAnugaScenarioMenu) {
+      this.props.setAnugaScenarioMenu(false);
+    }
+    if (this.props.stopAnugaScenarioPolling) {
+      this.props.stopAnugaScenarioPolling();
+    }
+    trackEvent('button', 'click', 'anuga-scenario-menu-close');
+  };
+
+  handleToggleCompareMode = () => {
+    const nextCompareMode = !this.state.compareMode;
+    this.setState({compareMode: nextCompareMode});
+    // When leaving compare mode, clear any lingering `selected` flags so
+    // the next compare session starts fresh (memory pin §5.7).
+    if (!nextCompareMode && Array.isArray(this.props.selectedScenarios)) {
+      this.props.selectedScenarios.forEach((s) => {
+        if (this.props.toggleScenarioSelected) {
+          this.props.toggleScenarioSelected(s);
+        }
+      });
+    }
+    trackEvent('button', 'click', 'anuga-scenario-menu-compare-tab-toggle');
+  };
+
+  handleArchiveFilterToggle = () => {
+    const archived = this.props.archiveFilter === 'only';
+    const nextMode = archived ? 'none' : 'only';
+    if (this.props.setAnugaScenarioArchiveFilter) {
+      this.props.setAnugaScenarioArchiveFilter(nextMode);
+    }
+    trackEvent('button', 'click', `anuga-scenario-menu-archive-filter-${nextMode}`);
+  };
+
+  handleExecuteCompare = () => {
+    if (this.props.readyToCompare && this.props.compareScenarios) {
+      this.props.compareScenarios(this.props.selectedScenarios);
+    }
+    trackEvent('button', 'click', 'anuga-scenario-menu-compare-execute');
   };
 
   handleUpdateScenario = (scenario, kv) => {
@@ -287,6 +347,70 @@ class AnugaScenarioMenuMillerClass extends React.Component {
     );
   }
 
+  renderHeader() {
+    const {canCreateScenario: canCreate, archiveFilter, readyToCompare} = this.props;
+    const {compareMode} = this.state;
+    const archivedActive = archiveFilter === 'only';
+    return (
+      <div className={"row menu-row menu-row-header anuga-section-header scenario-menu-header"}>
+        <Message msgId="hydrata.anuga.scenarios" />
+        <span id={"scenario-tab-button-group"}>
+          <Button
+            bsSize={'medium'}
+            className={"scenario-tab" + (archivedActive ? " active" : "")}
+            onClick={this.handleArchiveFilterToggle}
+          >
+            <Message msgId={archivedActive ? "hydrata.anuga.archived" : "hydrata.anuga.active"} />
+          </Button>
+          <Button
+            bsSize={'medium'}
+            className={"scenario-tab" + (compareMode ? " active" : "")}
+            onClick={this.handleToggleCompareMode}
+          >
+            <Message msgId="hydrata.anuga.compare" />
+          </Button>
+        </span>
+        {compareMode ?
+          <span id={"depth-difference-button"}>
+            <Button
+              bsStyle={'success'}
+              bsSize={'xsmall'}
+              className={"anuga-btn" + (readyToCompare ? '' : ' disabled')}
+              disabled={!readyToCompare}
+              onClick={this.handleExecuteCompare}
+            >
+              <Message msgId="hydrata.anuga.compare" />
+            </Button>
+          </span>
+          : (canCreate ?
+            <span id={"new-scenario-button"}>
+              <Button
+                bsStyle={'success'}
+                bsSize={'xsmall'}
+                className="anuga-btn"
+                onClick={this.handleNewScenario}
+              >
+                <Message msgId="hydrata.anuga.newScenario" />
+              </Button>
+            </span>
+            : null)
+        }
+        <span
+          className={"btn glyphicon glyphicon-remove legend-close"}
+          role="button"
+          tabIndex={0}
+          onClick={this.handleClose}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              this.handleClose();
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
   renderConfirmDialog() {
     const {confirmingAction, confirmingScenario} = this.state;
     const isOpen = !!confirmingAction;
@@ -371,9 +495,7 @@ class AnugaScenarioMenuMillerClass extends React.Component {
         className={'simple-view-panel anuga-panel simple-view-panel--miller anuga-scenario-miller'}
       >
         <div className={'menu-rows-container'}>
-          <div className={"row menu-row menu-row-header anuga-section-header scenario-menu-header"}>
-            <Message msgId="hydrata.anuga.scenarios" />
-          </div>
+          {this.renderHeader()}
           <div className={'sv-rail-pane-shell'}>
             {this.renderRail()}
             {this.renderPane()}
@@ -409,7 +531,9 @@ const mapStateToProps = (state) => {
     canCreateScenario: canCreateScenario(state),
     canRunScenario: canRunScenario(state),
     myRole: getProjectMyRole(state),
-    currentUserId: state?.security?.user?.pk
+    currentUserId: state?.security?.user?.pk,
+    selectedScenarios: selectedScenariosSelector(state),
+    readyToCompare: selectedScenariosSelector(state).length === 2
   };
 };
 
@@ -427,6 +551,10 @@ const mapDispatchToProps = (dispatch) => ({
   archiveAnugaScenario: (scenario) => dispatch(archiveAnugaScenario(scenario)),
   unarchiveAnugaScenario: (scenario) => dispatch(unarchiveAnugaScenario(scenario)),
   setAnugaScenarioMenu: (visible) => dispatch(setAnugaScenarioMenu(visible)),
+  stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
+  addAnugaScenario: () => dispatch(addAnugaScenario()),
+  setAnugaScenarioArchiveFilter: (mode) => dispatch(setAnugaScenarioArchiveFilter(mode)),
+  compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios)),
   showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
   openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true))
 });
