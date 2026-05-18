@@ -151,7 +151,7 @@ export const ConstantInput = ({ value, onChange, field }) => {
     return (
         <div className="time-data-picker-constant-row" style={{display: 'flex', alignItems: 'center', gap: 6}}>
             {input}
-            <span className="time-data-picker-constant-unit" style={{color: '#666', fontSize: '0.9em'}}>{unit}</span>
+            <span className="time-data-picker-constant-unit">{unit}</span>
         </div>
     );
 };

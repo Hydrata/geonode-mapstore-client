@@ -122,3 +122,26 @@
     opacity: 1 !important;
     background-color: rgba(255, 255, 255, 0.15);
 }
+
+/* Unit suffix next to constant inputs (e.g. m³/s on Inflow). 0.9em pulls
+   the unit slightly back from the input value as a subtle subdued
+   affordance; color stays inherited from the popup (white) so it reads
+   on the dark-blue panel. The font-family/weight reset above already
+   handles inheritance from .vector-draw-popup. */
+.vector-draw-popup .time-data-picker-constant-unit {
+    font-size: 0.9em;
+}
+
+/* Close X in the popup header. The shared .legend-close rule pins to
+   top:0/right:0 with line-height: var(--sv-icon-size), which Bootstrap's
+   .btn overrides to ~1.43em — so the X sits in the upper portion of the
+   24x24 red box. Two fixes scoped to .vector-draw-popup:
+     1. Pull the box in from the corner (top/right margin) so it doesn't
+        hug the panel border.
+     2. Restore line-height to the box size so the glyph re-centers
+        vertically. Selector keeps 3 classes for specificity > .btn. */
+.vector-draw-popup .simple-view-panel-header .legend-close {
+    top: 6px;
+    right: 6px;
+    line-height: var(--sv-icon-size, 24px);
+}
