@@ -24,7 +24,10 @@ import {
     duplicateAnugaScenarioSuccess,
     ARCHIVE_ANUGA_SCENARIO,
     archiveAnugaScenarioSuccess,
-    archiveAnugaScenarioError,
+    // Wave 3C C5: archiveAnugaScenarioError → showArchiveError. Toast-only
+    // (no Redux action dispatch); the prior ARCHIVE_ANUGA_SCENARIO_ERROR
+    // action had no reducer or middleware consumer.
+    showArchiveError,
     UNARCHIVE_ANUGA_SCENARIO,
     unarchiveAnugaScenarioSuccess,
     initAnuga,
@@ -182,9 +185,12 @@ export const duplicateAnugaScenarioEpic = (action$, store) =>
         );
 
 // 412 Precondition Failed surfaces a user-visible toast (the scenario has an
-// active/queued run). The catch handler dispatches the error action so the
-// matching reducer entry can flag the failed attempt if a future UX needs to
-// highlight the row.
+// active/queued run). Wave 3C C5: the catch handler now dispatches only the
+// toast thunk — the prior ARCHIVE_ANUGA_SCENARIO_ERROR action had no
+// reducer or middleware consumer. Wave 3C C1 also pre-disables the Archive
+// button while a run is in flight, so this 412 path is now a defence-in-depth
+// fallback (race window between the BE flipping a run to terminal and the
+// FE poller refreshing the row).
 export const archiveAnugaScenarioEpic = (action$, store) =>
     action$
         .ofType(ARCHIVE_ANUGA_SCENARIO)
@@ -194,11 +200,11 @@ export const archiveAnugaScenarioEpic = (action$, store) =>
             )
                 .concatMap((response) => Rx.Observable.of(archiveAnugaScenarioSuccess(response.data)))
                 // axios surfaces 4xx as a thrown error with .response; pull the
-                // BE detail string off and route through the error thunk.
+                // BE detail string off and route through the toast thunk.
                 // Fallback to err.data covers test mocks that don't construct
                 // a full response object on the thrown error.
                 .catch((err) => Rx.Observable.of(
-                    archiveAnugaScenarioError(action.scenario, err?.response?.data || err?.data)
+                    showArchiveError(err?.response?.data || err?.data)
                 ))
         );
 

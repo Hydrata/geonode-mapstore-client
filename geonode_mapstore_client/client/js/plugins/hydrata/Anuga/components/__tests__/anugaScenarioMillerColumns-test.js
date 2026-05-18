@@ -140,6 +140,28 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
       );
     });
 
+    it('Wave 3A — renders the 3-column shell: scenario rail / category rail / detail', (done) => {
+      const s1 = makeScenario(21, 'Baseline');
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          // Pane 1 — scenario list rail (existing sv-category-rail).
+          expect(container.querySelector('.sv-category-rail')).toExist();
+          // Pane 2 — vertical category rail (NEW Wave 3A).
+          expect(container.querySelector('.anuga-scenario-category-rail')).toExist();
+          // Pane 3 — detail body (NEW Wave 3A).
+          expect(container.querySelector('.anuga-scenario-pane-detail')).toExist();
+          done();
+        }
+      );
+    });
+
     it('renders one rail item per scenario in the store', (done) => {
       const s1 = makeScenario(21, 'Baseline');
       const s2 = makeScenario(22, 'With levee');
@@ -222,10 +244,10 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
   });
 
   // ------------------------------------------------------------------
-  // C. Category subtab switching
+  // C. Category rail switching (Wave 3A — 5 categories in vertical rail)
   // ------------------------------------------------------------------
-  describe('C. Category subtab switching', () => {
-    it('renders Inputs subtab by default and Advanced after click', (done) => {
+  describe('C. Category rail switching', () => {
+    it('renders 5 category items in the vertical rail (Inputs/Advanced/Run config/Status and actions/Run log)', (done) => {
       const s1 = makeScenario(21, 'Baseline');
       const store = createMockStore({
         anuga: {
@@ -236,18 +258,33 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
         <Provider store={store}><AnugaScenarioMenu /></Provider>,
         container,
         () => {
-          // Default: Inputs subtab is active
-          const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-          expect(subtabs.length).toBe(4);
-          expect(subtabs[0].className).toInclude('is-active'); // inputs
-          expect(subtabs[1].className).toNotInclude('is-active'); // advanced
-          // Click Advanced
-          subtabs[1].click();
+          const items = container.querySelectorAll('.anuga-scenario-category-item');
+          expect(items.length).toBe(5);
+          // Default: Inputs is active.
+          expect(items[0].className).toInclude('is-active');
+          expect(items[1].className).toNotInclude('is-active');
+          done();
+        }
+      );
+    });
+
+    it('clicking Advanced flips is-active and renders the friction dropdown', (done) => {
+      const s1 = makeScenario(21, 'Baseline');
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          const items = container.querySelectorAll('.anuga-scenario-category-item');
+          items[1].click(); // advanced
           setTimeout(() => {
-            const subtabsAfter = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            expect(subtabsAfter[0].className).toNotInclude('is-active');
-            expect(subtabsAfter[1].className).toInclude('is-active');
-            // The Advanced rows should be rendered now (e.g. friction dropdown)
+            const itemsAfter = container.querySelectorAll('.anuga-scenario-category-item');
+            expect(itemsAfter[0].className).toNotInclude('is-active');
+            expect(itemsAfter[1].className).toInclude('is-active');
             expect(container.querySelector('#friction')).toExist();
             done();
           });
@@ -255,7 +292,30 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
       );
     });
 
-    it('clicking Run subtab shows status + run buttons', (done) => {
+    it('clicking Run config renders resolution + duration + compute_backend', (done) => {
+      const s1 = makeScenario(21, 'Baseline');
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          const items = container.querySelectorAll('.anuga-scenario-category-item');
+          items[2].click(); // runConfig
+          setTimeout(() => {
+            expect(container.querySelector('#resolution')).toExist();
+            expect(container.querySelector('#duration')).toExist();
+            expect(container.querySelector('#compute_backend')).toExist();
+            done();
+          });
+        }
+      );
+    });
+
+    it('clicking Status and actions shows the status card + action toolbar', (done) => {
       const s1 = makeScenario(21, 'Baseline', {status: 'built'});
       const store = createMockStore({
         anuga: {
@@ -266,11 +326,37 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
         <Provider store={store}><AnugaScenarioMenu /></Provider>,
         container,
         () => {
-          const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-          subtabs[2].click(); // run
+          const items = container.querySelectorAll('.anuga-scenario-category-item');
+          items[3].click(); // statusActions
           setTimeout(() => {
-            expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
+            expect(container.querySelector('.anuga-scenario-pane-rows-status-actions')).toExist();
+            expect(container.querySelector('.anuga-scenario-status-card')).toExist();
             expect(container.querySelector('.scenario-action-toolbar')).toExist();
+            done();
+          });
+        }
+      );
+    });
+
+    it('clicking Run log shows the open-task-monitor button', (done) => {
+      const s1 = makeScenario(21, 'Baseline', {
+        status: 'built',
+        latest_run: {id: 999, log_line_count: 42}
+      });
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          const items = container.querySelectorAll('.anuga-scenario-category-item');
+          items[4].click(); // runLog
+          setTimeout(() => {
+            expect(container.querySelector('.anuga-scenario-pane-rows-run-log')).toExist();
+            expect(container.querySelector('.scenario-action-open-task-monitor')).toExist();
             done();
           });
         }

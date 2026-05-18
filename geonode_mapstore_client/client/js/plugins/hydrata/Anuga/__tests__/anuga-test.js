@@ -44,12 +44,13 @@ import {
     duplicateAnugaScenario,
     ARCHIVE_ANUGA_SCENARIO,
     ARCHIVE_ANUGA_SCENARIO_SUCCESS,
-    ARCHIVE_ANUGA_SCENARIO_ERROR,
     UNARCHIVE_ANUGA_SCENARIO,
     UNARCHIVE_ANUGA_SCENARIO_SUCCESS,
     SET_ANUGA_SCENARIO_ARCHIVE_FILTER,
     archiveAnugaScenario,
-    archiveAnugaScenarioError,
+    // Wave 3C C5: archiveAnugaScenarioError (and ARCHIVE_ANUGA_SCENARIO_ERROR)
+    // replaced with showArchiveError — toast-only thunk, no Redux action.
+    showArchiveError,
     unarchiveAnugaScenario,
     setAnugaScenarioArchiveFilter
 } from '../actionsAnuga';
@@ -535,20 +536,23 @@ describe('Anuga Plugin', () => {
             expect(bogus.scenarios.archiveFilter).toBe('none');
         });
 
-        it('archiveAnugaScenarioError surfaces BE detail in the toast message', () => {
+        // Wave 3C C5: archiveAnugaScenarioError → showArchiveError. Toast-only;
+        // the prior ARCHIVE_ANUGA_SCENARIO_ERROR Redux action had no consumer.
+        it('showArchiveError surfaces BE detail in the toast message', () => {
             const dispatched = [];
             const errorBody = { detail: 'active run blocker' };
-            const thunk = archiveAnugaScenarioError({ id: 7 }, errorBody);
+            const thunk = showArchiveError(errorBody);
             thunk((a) => dispatched.push(a));
-            expect(dispatched.length).toBe(2);
+            // Single SHOW_NOTIFICATION — no follow-up ARCHIVE_ANUGA_SCENARIO_ERROR.
+            expect(dispatched.length).toBe(1);
             expect(dispatched[0].type).toBe('SHOW_NOTIFICATION');
             expect(dispatched[0].message).toBe('active run blocker');
-            expect(dispatched[1].type).toBe(ARCHIVE_ANUGA_SCENARIO_ERROR);
+            expect(dispatched[0].level).toBe('warning');
         });
 
-        it('archiveAnugaScenarioError uses a fallback message when BE body is missing', () => {
+        it('showArchiveError uses a fallback message when BE body is missing', () => {
             const dispatched = [];
-            const thunk = archiveAnugaScenarioError({ id: 7 }, undefined);
+            const thunk = showArchiveError(undefined);
             thunk((a) => dispatched.push(a));
             expect(dispatched[0].message).toMatch(/could not archive/i);
         });

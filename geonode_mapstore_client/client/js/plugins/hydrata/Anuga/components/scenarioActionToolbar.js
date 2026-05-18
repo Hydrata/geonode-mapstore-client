@@ -4,6 +4,7 @@ import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 import {findScenarioStatus} from './scenarioHelpers';
+import {TERMINAL_RUN_STATES} from '../anugaConstants';
 
 /**
  * TASK-C-scenarios-miller W2 — presentational button strip for a scenario.
@@ -150,13 +151,25 @@ const ScenarioActionToolbar = ({
   if (!scenario) return null;
   const status = findScenarioStatus(scenario);
   const isCancellable = ['queued', 'computing', 'building'].includes(status);
+  // Wave 3C C2 — defence-in-depth gate. isCancellable + TERMINAL_RUN_STATES
+  // are mutually exclusive sets today, but reading the run status directly
+  // means future status-set drift can't accidentally enable the Cancel
+  // button on a finished run.
+  const runStatus = scenario?.latest_run?.status;
+  const isTerminalRun = TERMINAL_RUN_STATES.includes(runStatus);
 
-  const canCancelRun = isCancellable && canRunScenario;
+  const canCancelRun = isCancellable && canRunScenario && !isTerminalRun;
   const canDeleteScenario = !isCancellable && canEdit;
   const showDeleteOrCancel = canCancelRun || canDeleteScenario;
 
   const showDuplicate = canDuplicateScenario && !!scenario.id && !isCancellable;
-  const showArchive = canEdit && !!scenario.id && !isCancellable;
+  // Wave 3C C1 — Archive button now renders disabled (instead of hidden)
+  // while a run is in progress, with a hover tooltip explaining why. Better
+  // discovery than the prior toast-after-roundtrip 412 path. The button is
+  // still entirely hidden when the user lacks edit rights or the scenario
+  // is unsaved.
+  const showArchive = canEdit && !!scenario.id;
+  const isArchiveDisabled = isCancellable;
   const isArchived = !!scenario.archived_at;
 
   const runControl = renderRunControl({
@@ -213,8 +226,18 @@ const ScenarioActionToolbar = ({
         bsSize={'xsmall'}
         className={"anuga-btn scenario-action-toolbar-btn "
           + (isArchived ? 'anuga-btn-unarchive scenario-action-unarchive' : 'anuga-btn-archive scenario-action-archive')
-          + (showArchive ? '' : ' is-hidden')}
+          + (showArchive ? '' : ' is-hidden')
+          + (isArchiveDisabled ? ' disabled' : '')}
+        disabled={isArchiveDisabled}
+        // Wave 3C C1: title is plain English here (matches the pattern used
+        // by anuga-scenario-confirm-dialog's aria-label). TODO i18n: wire
+        // to getMessageById once contextTypes.messages plumbing lands.
+        // Locale key reserved: hydrata.anuga.archiveDisabledWhileRunning.
+        title={isArchiveDisabled
+          ? 'Cannot archive while a run is in progress. Cancel the run first.'
+          : undefined}
         onClick={() => {
+          if (isArchiveDisabled) return;
           if (isArchived) {
             if (onUnarchiveClick) onUnarchiveClick(scenario);
             trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario');

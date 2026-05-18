@@ -287,6 +287,121 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
     });
   });
 
+  describe('Wave 3C C1 — Archive pre-disabled while running', () => {
+    ['queued', 'computing', 'building'].forEach((status) => {
+      it(`renders Archive disabled with tooltip when status=${status}`, (done) => {
+        ReactDOM.render(
+          <ScenarioActionToolbar
+            scenario={{...baseScenario, status}}
+            canEdit canRunScenario
+          />,
+          container,
+          () => {
+            const arch = container.querySelector('.scenario-action-archive');
+            expect(arch).toExist();
+            expect(arch.className).toNotInclude('is-hidden');
+            expect(arch.className).toInclude('disabled');
+            expect(arch.disabled).toBe(true);
+            expect(arch.getAttribute('title')).toBe(
+              'Cannot archive while a run is in progress. Cancel the run first.'
+            );
+            done();
+          }
+        );
+      });
+    });
+
+    it('Archive remains enabled (no title) when status is not cancellable', (done) => {
+      ReactDOM.render(
+        <ScenarioActionToolbar
+          scenario={{...baseScenario, status: 'built'}}
+          canEdit canRunScenario
+        />,
+        container,
+        () => {
+          const arch = container.querySelector('.scenario-action-archive');
+          expect(arch).toExist();
+          expect(arch.className).toNotInclude('disabled');
+          expect(arch.disabled).toBe(false);
+          expect(arch.getAttribute('title')).toNotExist();
+          done();
+        }
+      );
+    });
+
+    it('disabled Archive button does NOT invoke onArchiveClick on click', (done) => {
+      let captured = false;
+      ReactDOM.render(
+        <ScenarioActionToolbar
+          scenario={{...baseScenario, status: 'computing'}}
+          canEdit canRunScenario
+          onArchiveClick={() => { captured = true; }}
+        />,
+        container,
+        () => {
+          const arch = container.querySelector('.scenario-action-archive');
+          expect(arch).toExist();
+          // disabled buttons ignore clicks per HTML spec, but call directly
+          // to ensure the onClick handler also guards.
+          arch.click();
+          expect(captured).toBe(false);
+          done();
+        }
+      );
+    });
+  });
+
+  describe('Wave 3C C2 — Cancel-Run not enabled for terminal run status', () => {
+    ['complete', 'error', 'cancelled'].forEach((terminalStatus) => {
+      it(`does not render Cancel-Run when latest_run.status=${terminalStatus}`, (done) => {
+        // Scenario status is non-cancellable too (built / created / etc) when
+        // latest_run is terminal in real-world traffic; baseScenario.status='built'
+        // is the canonical case post-complete (BE flips back to 'built' before
+        // 'complete' depending on poller race) so we test both.
+        ReactDOM.render(
+          <ScenarioActionToolbar
+            scenario={{
+              ...baseScenario,
+              status: 'built',
+              latest_run: {id: 5, status: terminalStatus}
+            }}
+            canEdit canRunScenario
+          />,
+          container,
+          () => {
+            expect(container.querySelector('.scenario-action-cancel-run')).toNotExist();
+            done();
+          }
+        );
+      });
+    });
+
+    it('isCancellable scenario with terminal latest_run.status still hides Cancel-Run (defence-in-depth)', (done) => {
+      // Synthetic: should never happen in BE traffic but defends against
+      // set-drift between TERMINAL_RUN_STATES and isCancellable. Because
+      // isCancellable=true forces the button into the cancel-run branch
+      // (class .scenario-action-cancel-run) AND canDeleteScenario=false
+      // (since isCancellable=true), the button renders but gets is-hidden.
+      ReactDOM.render(
+        <ScenarioActionToolbar
+          scenario={{
+            ...baseScenario,
+            status: 'computing',
+            latest_run: {id: 5, status: 'complete'}
+          }}
+          canEdit canRunScenario
+        />,
+        container,
+        () => {
+          const cancel = container.querySelector('.scenario-action-cancel-run');
+          expect(cancel).toExist();
+          expect(cancel.className).toInclude('is-hidden');
+          done();
+        }
+      );
+    });
+  });
+
   describe('Click contracts', () => {
     it('Build click invokes onBuildClick with the scenario', (done) => {
       let captured = null;

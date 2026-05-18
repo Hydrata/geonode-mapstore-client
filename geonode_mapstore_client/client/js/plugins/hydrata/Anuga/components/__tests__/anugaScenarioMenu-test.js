@@ -10,8 +10,9 @@
  *   - Compare-mode toggle flips local state + reveals checkboxes.
  *   - In compare mode + 2 scenarios `selected`, Execute Compare
  *     dispatches compareScenarios.
- *   - Close X dispatches BOTH setAnugaScenarioMenu(false) AND
- *     stopAnugaScenarioPolling().
+ *   - Wave 3C C3: Close X removed per operator decision D3 — top-tab
+ *     switch on anugaContainer.js handles panel close + polling stop. The
+ *     panel header MUST NOT render a .legend-close element.
  *
  * Memory pin guardrails:
  *   - feedback-mapstore-react-version-mismatch: use simple
@@ -129,6 +130,37 @@ describe('anugaScenarioMenu W4 — header strip wiring', () => {
             const setFilter = store.__actions().find(a => a?.type === 'SET_ANUGA_SCENARIO_ARCHIVE_FILTER');
             expect(setFilter).toExist();
             expect(setFilter.mode).toBe('only');
+        });
+
+        it('Wave 3A — shows the Active count next to the chip label', () => {
+            const s1 = makeScenario(21, 'Baseline'); // not archived
+            const s2 = makeScenario(22, 'With levee'); // not archived
+            const s3 = makeScenario(23, 'Old', {archived_at: '2026-01-01T00:00:00Z'});
+            const store = makeStore({archiveFilter: 'none', scenariosArr: [s1, s2, s3]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            const chip = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab')[0];
+            const count = chip.querySelector('.scenario-tab-count');
+            expect(count).toExist();
+            // 2 active, 1 archived; in "Active" mode the chip shows the active count.
+            expect(count.textContent.trim()).toBe('(2)');
+        });
+
+        it('Wave 3A — shows the Archived count when archiveFilter is "only"', () => {
+            const s1 = makeScenario(21, 'Baseline');
+            const s2 = makeScenario(22, 'With levee');
+            const s3 = makeScenario(23, 'Old', {archived_at: '2026-01-01T00:00:00Z'});
+            const store = makeStore({archiveFilter: 'only', scenariosArr: [s1, s2, s3]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            const chip = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab')[0];
+            const count = chip.querySelector('.scenario-tab-count');
+            expect(count).toExist();
+            expect(count.textContent.trim()).toBe('(1)');
         });
     });
 
@@ -269,24 +301,20 @@ describe('anugaScenarioMenu W4 — header strip wiring', () => {
     });
 
     // ----------------------------------------------------------------
-    // Close X
+    // Close X removed (Wave 3C C3) — regression guard
     // ----------------------------------------------------------------
-    describe('Close X button', () => {
-        it('dispatches BOTH setAnugaScenarioMenu(false) AND stopAnugaScenarioPolling', () => {
+    describe('Close X regression (Wave 3C C3)', () => {
+        it('does NOT render a .legend-close element in the panel header', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
+            // Operator decision D3: panel exits via top-tab switch on
+            // anugaContainer.js, which already toggles
+            // setAnugaScenarioMenu + start/stopAnugaScenarioPolling.
             const closeBtn = container.querySelector('.legend-close');
-            expect(closeBtn).toExist();
-            closeBtn.click();
-            const dispatched = store.__actions();
-            const setMenu = dispatched.find(a => a?.type === 'SET_ANUGA_SCENARIO_MENU');
-            const stopPolling = dispatched.find(a => a?.type === 'STOP_ANUGA_SCENARIO_POLLING');
-            expect(setMenu).toExist();
-            expect(setMenu.visible).toBe(false);
-            expect(stopPolling).toExist();
+            expect(closeBtn).toNotExist();
         });
     });
 });

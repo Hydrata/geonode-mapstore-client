@@ -1008,12 +1008,12 @@ describe('ANUGA Epics', () => {
                 });
         });
 
-        it('Archive POST 412 → routes through archiveAnugaScenarioError (toast + error action)', (done) => {
-            // 412 = active run blocker. BE returns `{detail: '...'}` body.
-            // We don't pin the toast message string here — the action shape
-            // (ARCHIVE_ANUGA_SCENARIO_ERROR + a SHOW_NOTIFICATION) is the
-            // load-bearing wire contract; the detail surfacing is exercised
-            // in the action-creator unit test in anuga-test.js.
+        it('Archive POST 412 → routes through showArchiveError (toast only, no Redux action)', (done) => {
+            // Wave 3C C5: 412 = active run blocker. BE returns `{detail: '...'}` body.
+            // The catch handler now dispatches the toast-only showArchiveError thunk.
+            // The prior ARCHIVE_ANUGA_SCENARIO_ERROR action had no consumer (no
+            // reducer or middleware) so it was removed; toast remains the user
+            // signal. The detail surfacing is exercised in anuga-test.js.
             mockAxios.onPost('/api/v2/anuga/projects/7/scenarios/42/archive/').reply(
                 412,
                 { detail: 'Cannot archive — scenario has an active or queued compute job. Cancel the run first.' }
@@ -1038,10 +1038,11 @@ describe('ANUGA Epics', () => {
                             expect(typeof emitted[0]).toBe('function');
                             const dispatched = [];
                             emitted[0]((d) => dispatched.push(d));
-                            // SHOW_NOTIFICATION + ARCHIVE_ANUGA_SCENARIO_ERROR
-                            expect(dispatched.length).toBe(2);
-                            expect(dispatched[1].type).toBe('ARCHIVE_ANUGA_SCENARIO_ERROR');
+                            // SHOW_NOTIFICATION only (Wave 3C C5 dropped the
+                            // ARCHIVE_ANUGA_SCENARIO_ERROR follow-up).
+                            expect(dispatched.length).toBe(1);
                             expect(dispatched[0].type).toBe('SHOW_NOTIFICATION');
+                            expect(dispatched[0].level).toBe('warning');
                             finish();
                         } catch (e) { finish(e); }
                     }

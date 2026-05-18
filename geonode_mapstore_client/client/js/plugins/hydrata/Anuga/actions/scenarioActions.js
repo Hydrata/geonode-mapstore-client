@@ -16,7 +16,13 @@ const DUPLICATE_ANUGA_SCENARIO = 'DUPLICATE_ANUGA_SCENARIO';
 const DUPLICATE_ANUGA_SCENARIO_SUCCESS = 'DUPLICATE_ANUGA_SCENARIO_SUCCESS';
 const ARCHIVE_ANUGA_SCENARIO = 'ARCHIVE_ANUGA_SCENARIO';
 const ARCHIVE_ANUGA_SCENARIO_SUCCESS = 'ARCHIVE_ANUGA_SCENARIO_SUCCESS';
-const ARCHIVE_ANUGA_SCENARIO_ERROR = 'ARCHIVE_ANUGA_SCENARIO_ERROR';
+// Wave 3C C5: ARCHIVE_ANUGA_SCENARIO_ERROR + archiveAnugaScenarioError
+// thunk removed. The action was dispatched by crudEpics.archiveAnugaScenarioEpic
+// alongside SHOW_NOTIFICATION on a 412 from the BE, but no reducer ever
+// handled it (only SUCCESS had a reducer case) and no middleware/analytics
+// hook consumed it. Wave 3C C1 also pre-disables the Archive button while
+// a run is in flight, eliminating the most common 412 path before it
+// reaches the network. The toast still fires inline from the epic.
 const UNARCHIVE_ANUGA_SCENARIO = 'UNARCHIVE_ANUGA_SCENARIO';
 const UNARCHIVE_ANUGA_SCENARIO_SUCCESS = 'UNARCHIVE_ANUGA_SCENARIO_SUCCESS';
 const SET_ANUGA_SCENARIO_ARCHIVE_FILTER = 'SET_ANUGA_SCENARIO_ARCHIVE_FILTER';
@@ -181,11 +187,13 @@ function archiveAnugaScenarioSuccess(scenario) {
     };
 }
 
-// 412 from the archive endpoint = scenario has an active/queued run. Surface
-// the BE-supplied detail string in a toast so the user knows they need to
-// cancel the run first; the matching error action lets reducers track the
-// failure if a future UX needs it.
-function archiveAnugaScenarioError(scenario, errorBody) {
+// Wave 3C C5: archiveAnugaScenarioError thunk replaced with showArchiveError
+// — toast-only, no Redux action dispatch. 412 from the archive endpoint =
+// scenario has an active/queued run. The toast surfaces the BE-supplied
+// detail string so the user knows to cancel the run first. The prior
+// matching error action had no reducer or middleware consumer (see C5
+// comment block above) so the dispatch was dead code.
+function showArchiveError(errorBody) {
     return (dispatch) => {
         const detail = errorBody?.detail || 'Could not archive scenario.';
         dispatch({
@@ -197,7 +205,6 @@ function archiveAnugaScenarioError(scenario, errorBody) {
             uid: uuidv1(),
             level: 'warning'
         });
-        dispatch({ type: ARCHIVE_ANUGA_SCENARIO_ERROR, scenario, errorBody });
     };
 }
 
@@ -261,7 +268,10 @@ module.exports = {
     DUPLICATE_ANUGA_SCENARIO_SUCCESS, duplicateAnugaScenarioSuccess,
     ARCHIVE_ANUGA_SCENARIO, archiveAnugaScenario,
     ARCHIVE_ANUGA_SCENARIO_SUCCESS, archiveAnugaScenarioSuccess,
-    ARCHIVE_ANUGA_SCENARIO_ERROR, archiveAnugaScenarioError,
+    // Wave 3C C5: ARCHIVE_ANUGA_SCENARIO_ERROR removed (no consumers).
+    // showArchiveError replaces the prior archiveAnugaScenarioError thunk;
+    // it dispatches the toast only.
+    showArchiveError,
     UNARCHIVE_ANUGA_SCENARIO, unarchiveAnugaScenario,
     UNARCHIVE_ANUGA_SCENARIO_SUCCESS, unarchiveAnugaScenarioSuccess,
     SET_ANUGA_SCENARIO_ARCHIVE_FILTER, setAnugaScenarioArchiveFilter,

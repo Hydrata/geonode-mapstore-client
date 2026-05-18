@@ -18,6 +18,15 @@ import {findScenarioStatus} from './scenarioHelpers';
  *
  * `compact` mode (used by the rail item) hides the ETA-minutes badge and
  * the truncated error_message tooltip so the rail row stays one-line.
+ *
+ * Wave 3B (B1, B2) — R2 + R3 mitigations:
+ *   - B1: compact + computing renders a 2px mini progress bar UNDER a
+ *         pulsing dot so the rail row still shows at-a-glance progress
+ *         percentage even without the numeric track that the Pane 3
+ *         status card displays.
+ *   - B2: compact + error sets `title=` on the pill wrapper carrying the
+ *         full error_message (truncated to 200 chars). Native browser
+ *         tooltip on hover, same UX as the legacy 30-char inline detail.
  */
 const ScenarioStatusPill = ({scenario, compact}) => {
   const status = findScenarioStatus(scenario);
@@ -41,8 +50,27 @@ const ScenarioStatusPill = ({scenario, compact}) => {
   case 'computing': {
     const pct = latestRun?.progress_pct || 0;
     const eta = latestRun?.eta_seconds;
+    if (compact) {
+      // Wave 3B (B1) — R2 mitigation. Compact rail pill loses the full
+      // progress track + numeric pct vs the Pane 3 status card. Replace
+      // the legacy spinner with a thin 2px progress sliver UNDER the pulse
+      // so the rail row still gives at-a-glance progress feedback.
+      return (
+        <span className="scenario-status-pill status-computing is-compact">
+          <span className="scenario-status-mini-pulse" aria-hidden="true" />
+          <span className="scenario-status-mini-label">
+            <Message msgId="hydrata.anuga.statusComputing" />
+          </span>
+          <span
+            className="scenario-status-mini-bar"
+            style={{width: `${Math.max(0, Math.min(100, pct))}%`}}
+            aria-hidden="true"
+          />
+        </span>
+      );
+    }
     return (
-      <span className={"scenario-status-pill status-computing" + (compact ? " is-compact" : "")}>
+      <span className="scenario-status-pill status-computing">
         <span className="scenario-status-progress-track">
           <span
             className="scenario-status-progress-fill"
@@ -50,7 +78,7 @@ const ScenarioStatusPill = ({scenario, compact}) => {
           />
         </span>
         <span className="scenario-status-progress-pct">{Math.round(pct)}%</span>
-        {eta && !compact ?
+        {eta ?
           <span className="scenario-status-progress-eta">{Math.ceil(eta / 60)}m</span> : null
         }
       </span>
@@ -70,20 +98,33 @@ const ScenarioStatusPill = ({scenario, compact}) => {
         <Message msgId="hydrata.anuga.statusComplete" />
       </span>
     );
-  case 'error':
+  case 'error': {
+    // Wave 3B (B2) — R3 mitigation. Compact rail pill is icon-only so the
+    // legacy 30-char preview is hidden. Surface the full error message as
+    // a native `title=` tooltip on the pill wrapper so hovering the rail
+    // row still shows the failure reason. Truncate to 200 chars so a
+    // multi-page stack trace doesn't make the tooltip unreadable.
+    const fullMsg = latestRun?.error_message;
+    const tooltip = (compact && fullMsg)
+      ? (fullMsg.length > 200 ? fullMsg.substring(0, 200) + '...' : fullMsg)
+      : undefined;
     return (
-      <span className={"scenario-status-pill status-error" + (compact ? " is-compact" : "")}>
+      <span
+        className={"scenario-status-pill status-error" + (compact ? " is-compact" : "")}
+        title={tooltip}
+      >
         <Message msgId="hydrata.anuga.statusError" />
-        {latestRun?.error_message && !compact ?
+        {fullMsg && !compact ?
           <span
             className="scenario-status-error-detail"
-            title={latestRun.error_message}
+            title={fullMsg}
           >
-            {latestRun.error_message.substring(0, 30)}{latestRun.error_message.length > 30 ? '...' : ''}
+            {fullMsg.substring(0, 30)}{fullMsg.length > 30 ? '...' : ''}
           </span> : null
         }
       </span>
     );
+  }
   case 'cancelled':
     return (
       <span className={"scenario-status-pill status-cancelled" + (compact ? " is-compact" : "")}>

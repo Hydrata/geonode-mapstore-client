@@ -956,6 +956,39 @@ div that holds the feature-grid */
     color: #5cb85c;
 }
 
+/* Wave 3B (B3) — zero-state placeholder when the project has no scenarios.
+   Centered glyph + heading + subcopy nudging the user at "+ New scenario". */
+.simple-view-panel--miller .anuga-scenario-rail-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.simple-view-panel--miller .anuga-scenario-rail-empty-glyph {
+    font-size: 28px;
+    opacity: 0.6;
+    margin-bottom: 4px;
+}
+
+.simple-view-panel--miller .anuga-scenario-rail-empty-heading {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.simple-view-panel--miller .anuga-scenario-rail-empty-subcopy {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.5));
+    max-width: 180px;
+}
+
 /* Status pill — used both in the rail (compact) and the Run pane (full). */
 .scenario-status-pill {
     display: inline-flex;
@@ -1019,32 +1052,406 @@ div that holds the feature-grid */
     opacity: 0.8;
 }
 
-/* Pane subtab toolbar — reuses anuga-pane-toolbar but adds tab rendering. */
-.anuga-scenario-pane-subtabs {
+/* Wave 3B (B1) — compact + computing mini progress sliver. Sits beneath
+   a pulsing dot so the Pane 1 rail row keeps at-a-glance progress
+   feedback without taking the full 60px Pane 3 progress track. */
+.scenario-status-pill.is-compact.status-computing {
+    position: relative;
+    padding-bottom: 4px;
+}
+
+.scenario-status-mini-pulse {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--sv-glyph-active, #5cb85c);
+    box-shadow: 0 0 0 0 rgba(92, 184, 92, 0.55);
+    animation: anuga-scenario-mini-pulse 1.6s ease-out infinite;
+    flex-shrink: 0;
+}
+
+.scenario-status-mini-label {
+    font-size: 10.5px;
+}
+
+.scenario-status-mini-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--sv-glyph-active, #5cb85c);
+    transition: width 0.5s ease-out;
+    border-radius: 1px;
+}
+
+@keyframes anuga-scenario-mini-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0.55); }
+    70% { box-shadow: 0 0 0 5px rgba(92, 184, 92, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0); }
+}
+
+/* ── Wave 3A: 3-column Pane 1 / Pane 2 / Pane 3 shell ──────────────── */
+
+/* The .anuga-scenario-pane-shell sits inside the existing .menu-rows-pane
+   and is the parent of the vertical category rail (Pane 2) plus the
+   detail body (Pane 3). The legacy .anuga-pane-rows wrapper is removed
+   from the scenarios surface because the category rail + detail are
+   structurally side-by-side (not stacked).
+
+   Pane 1 (scenarioRail.js) stays where it was; the .sv-rail-pane-shell
+   parent is unchanged. This adds the SECOND nested split so the
+   3-column layout reads:
+
+     [sv-category-rail]  [anuga-scenario-category-rail]  [anuga-scenario-pane-detail]
+     ↑ Pane 1            ↑ Pane 2                        ↑ Pane 3
+     (scenario list)     (category rail)                 (field detail)
+*/
+.anuga-scenario-pane-shell {
     display: flex;
-    gap: 2px;
+    flex: 1;
+    min-height: 0;
+    flex-direction: row;
+}
+
+/* Pane 2 — vertical category rail */
+.anuga-scenario-category-rail {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 220px;
+    padding: 4px 0;
+    background-color: rgba(0, 0, 0, 0.16);
+    border-right: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #5178af transparent;
+}
+
+.anuga-scenario-category-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.anuga-scenario-category-section + .anuga-scenario-category-section {
+    margin-top: 2px;
+}
+
+.anuga-scenario-category-section-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.50);
+    padding: 10px 12px 4px;
+    font-weight: 600;
+}
+
+.anuga-scenario-category-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 10px 6px 9px;
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    color: #ffffff;
+    text-align: left;
+    user-select: none;
+    outline: none;
+}
+
+.anuga-scenario-category-item:hover:not(.is-active) {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.anuga-scenario-category-item:focus-visible {
+    background-color: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.anuga-scenario-category-item.is-active {
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
+    border-left-color: #cae33b;
+}
+
+.anuga-scenario-category-item-glyph {
+    width: 16px;
+    height: 16px;
+    font-size: 14px;
+    line-height: 16px;
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.85);
+    background: transparent;
+}
+
+.anuga-scenario-category-item-label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anuga-scenario-category-item-tag {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.65);
+    min-width: 26px;
+    text-align: center;
+}
+
+.anuga-scenario-category-item-tag.is-ok {
+    background: rgba(202, 227, 59, 0.22);
+    color: #cae33b;
+}
+
+.anuga-scenario-category-item-tag.is-warn {
+    background: rgba(240, 173, 78, 0.22);
+    color: #f0ad4e;
+}
+
+.anuga-scenario-category-item-tag.is-err {
+    background: rgba(217, 83, 79, 0.22);
+    color: #f0a09e;
+}
+
+.anuga-scenario-category-item.is-alert .anuga-scenario-category-item-tag.is-err {
+    background: rgba(217, 83, 79, 0.32);
+}
+
+/* Wave 3C C4 — unsaved-diff dot prefix on the category tag pill. Mirrors
+ * the .scenario-rail-item.is-unsaved amber border on Pane 1 rows so users
+ * see the same "this scenario has uncommitted changes" signal on Pane 2
+ * tags. Coarse signal (scenario-level, not per-category) per scenarioHelpers
+ * comment block. */
+.anuga-scenario-category-item-unsaved-dot {
+    color: #f0ad4e;
+    font-weight: 700;
+    margin-right: 3px;
+    line-height: 1;
+}
+
+/* Pane 3 — detail body */
+.anuga-scenario-pane-detail {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-y: auto;
+}
+
+.anuga-scenario-pane-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
+    background: rgba(0, 0, 0, 0.10);
+}
+
+.anuga-scenario-pane-detail-head-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
     flex: 1;
 }
 
-.anuga-scenario-pane-subtab {
-    padding: 4px 10px;
-    border: 1px solid transparent;
-    border-radius: 3px 3px 0 0;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+.anuga-scenario-pane-detail-body {
+    flex: 1;
+    padding: 8px 8px 16px;
+    overflow-y: auto;
+}
+
+/* Wave 3A — pane sections inside Pane 3 use the existing .anuga-scenario-pane-section
+   layout (label left, field right). The new `--unit` variant lets a numeric
+   input show a trailing unit badge ("m²" / "h") to the right of the input. */
+.anuga-scenario-pane-field--unit {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+}
+
+.anuga-scenario-pane-field-unit {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    background: rgba(0, 0, 0, 0.25);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 0 3px 3px 0;
+    font-weight: 500;
+}
+
+.anuga-scenario-pane-section--help {
+    border-bottom: none;
+}
+
+.anuga-scenario-pane-help {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.55);
+    margin: 0;
+    line-height: 1.45;
+}
+
+/* Resource summary card (Pane 3 dropdown adornment + run-history list) */
+.anuga-scenario-resource-summary {
+    margin: 4px 10px 8px;
+    background: rgba(0, 0, 0, 0.20);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    padding: 7px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.anuga-scenario-resource-summary-glyph {
+    width: 14px;
+    height: 14px;
     font-size: 12px;
-    cursor: pointer;
+    color: rgba(255, 255, 255, 0.45);
+    flex-shrink: 0;
 }
 
-.anuga-scenario-pane-subtab:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #ffffff;
+.anuga-scenario-resource-summary-body {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.anuga-scenario-pane-subtab.is-active {
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    border-bottom-color: #cae33b;
+.anuga-scenario-resource-summary-meta {
+    margin-left: auto;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.45);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+/* Status card (Status & actions Pane 3) */
+.anuga-scenario-status-card {
+    margin: 6px 10px 12px;
+    background: rgba(0, 0, 0, 0.20);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 14px 14px 12px;
+}
+
+.anuga-scenario-status-card-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.anuga-scenario-status-card-eta {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 500;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.anuga-scenario-status-card-eta.is-stopped {
+    color: rgba(240, 160, 158, 0.85);
+}
+
+.anuga-scenario-status-card-progress {
+    margin-top: 4px;
+}
+
+.anuga-scenario-status-card-progress-track {
+    width: 100%;
+    height: 5px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 2.5px;
+    overflow: hidden;
+}
+
+.anuga-scenario-status-card-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #397AAB 0%, #5a9dd1 100%);
+    border-radius: 2.5px;
+    transition: width 0.4s ease;
+}
+
+.anuga-scenario-status-card-progress-fill.is-error {
+    background: linear-gradient(90deg, #8c3a37, #d9534f);
+}
+
+.anuga-scenario-status-card-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.65);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+/* Error strip (Status & actions Pane 3, error state only) */
+.anuga-scenario-error-strip {
+    margin: 6px 10px 8px;
+    background: rgba(217, 83, 79, 0.14);
+    border: 1px solid rgba(217, 83, 79, 0.30);
+    border-left: 3px solid #d9534f;
+    padding: 8px 12px;
+    border-radius: 3px;
+    font-size: 11.5px;
+    color: #f4b9b7;
+    line-height: 1.45;
+}
+
+.anuga-scenario-error-strip-head {
+    color: #ff8a87;
+    font-weight: 600;
+    margin-bottom: 2px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.anuga-scenario-error-strip-payload {
+    font-family: 'Menlo', 'Monaco', monospace;
+    font-size: 10.5px;
+    background: rgba(0, 0, 0, 0.30);
+    padding: 2px 6px;
+    border-radius: 2px;
+    color: #f4b9b7;
+    display: block;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* Empty-pane glyph (no scenario selected) */
+.anuga-scenario-empty-pane-glyph {
+    margin-right: 8px;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 18px;
+    vertical-align: middle;
+}
+
+/* Wave 3A — filter chip count suffix */
+.scenario-tab-count {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-left: 2px;
+    font-variant-numeric: tabular-nums;
 }
 
 .anuga-scenario-pane-section {
@@ -1072,6 +1479,40 @@ div that holds the feature-grid */
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+/* Wave 3B (B4) — read-only visual when canEdit=false. Dims the wrapper
+   and flips the cursor to not-allowed across the field. Inputs keep
+   readOnly (not disabled) so users can still focus + copy values. */
+.anuga-scenario-pane-field.is-readonly {
+    opacity: 0.7;
+}
+
+.anuga-scenario-pane-field.is-readonly input,
+.anuga-scenario-pane-field.is-readonly select {
+    cursor: not-allowed;
+    background-color: var(--sv-input-readonly-bg, rgba(255, 255, 255, 0.03));
+}
+
+/* Read-only hint banner above the field rows. Small lock glyph plus the
+   single-line copy from hydrata.anuga.readOnlyPaneHint. */
+.anuga-scenario-pane-readonly-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 10px;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    border-radius: 3px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.75));
+    background: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
+    border-left: 3px solid var(--sv-info-border, #5bc0de);
+}
+
+.anuga-scenario-pane-readonly-hint-glyph {
+    font-size: 13px;
+    opacity: 0.75;
+    flex-shrink: 0;
 }
 
 .anuga-scenario-pane-actions {

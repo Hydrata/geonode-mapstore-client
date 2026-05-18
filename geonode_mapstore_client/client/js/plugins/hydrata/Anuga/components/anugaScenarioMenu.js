@@ -76,6 +76,7 @@ class AnugaScenarioMenuClass extends React.Component {
     structures: PropTypes.array,
     meshRegions: PropTypes.array,
     networks: PropTypes.array,
+    computeInstances: PropTypes.array,
     canCreateScenario: PropTypes.bool,
     canRunScenario: PropTypes.bool,
     myRole: PropTypes.string,
@@ -111,6 +112,8 @@ class AnugaScenarioMenuClass extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      // Wave 3A renamed: 'inputs' / 'advanced' / 'runConfig' / 'statusActions' / 'runLog'.
+      // Default starts on 'inputs' to match the operator-approved Option A.
       selectedCategoryId: 'inputs',
       compareMode: false,
       confirmingAction: null,
@@ -164,15 +167,15 @@ class AnugaScenarioMenuClass extends React.Component {
     trackEvent('button', 'click', 'anuga-scenario-menu-new-scenario');
   };
 
-  handleClose = () => {
-    if (this.props.setAnugaScenarioMenu) {
-      this.props.setAnugaScenarioMenu(false);
-    }
-    if (this.props.stopAnugaScenarioPolling) {
-      this.props.stopAnugaScenarioPolling();
-    }
-    trackEvent('button', 'click', 'anuga-scenario-menu-close');
-  };
+  // Wave 3C C3: Close X removed per operator decision D3 — Option A exits via
+  // the top-tab switch instead. The container button on anugaContainer.js
+  // (lines 138-148) already toggles setAnugaScenarioMenu + start/stopAnugaScenarioPolling
+  // when the user clicks the same tab again or switches to another top-tab,
+  // so panel-level close is redundant. stopAnugaScenarioPolling + handleClose
+  // are dropped here; the legend-close <span> in renderHeader is dropped too.
+  // setAnugaScenarioMenu + stopAnugaScenarioPolling props are preserved in
+  // propTypes/mapDispatchToProps because they are still needed by the run-now
+  // chain (handleRunClick → setAnugaScenarioMenu(false)).
 
   handleToggleCompareMode = () => {
     const nextCompareMode = !this.state.compareMode;
@@ -313,7 +316,8 @@ class AnugaScenarioMenuClass extends React.Component {
       frictions,
       structures,
       meshRegions,
-      networks
+      networks,
+      computeInstances
     } = this.props;
     const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
     return (
@@ -333,6 +337,7 @@ class AnugaScenarioMenuClass extends React.Component {
         structures={structures}
         meshRegions={meshRegions}
         networks={networks}
+        computeInstances={computeInstances}
         onUpdateScenario={this.handleUpdateScenario}
         onBuildClick={this.handleBuildClick}
         onRunClick={this.handleRunClick}
@@ -348,22 +353,31 @@ class AnugaScenarioMenuClass extends React.Component {
   }
 
   renderHeader() {
-    const {canCreateScenario: canCreate, archiveFilter, readyToCompare} = this.props;
+    const {canCreateScenario: canCreate, archiveFilter, readyToCompare, scenarios} = this.props;
     const {compareMode} = this.state;
     const archivedActive = archiveFilter === 'only';
+    // Wave 3A — surface counts on the filter chips so users see at a glance
+    // how many scenarios live in each bucket. Counts derive directly from
+    // the unfiltered scenarios array on the store (the archive filter
+    // reducer also returns the unfiltered list under this same prop, so
+    // we have full visibility regardless of the active chip).
+    const scenariosList = Array.isArray(scenarios) ? scenarios : [];
+    const activeCount = scenariosList.filter(s => s && !s.archived_at).length;
+    const archivedCount = scenariosList.filter(s => s && !!s.archived_at).length;
     return (
       <div className={"row menu-row menu-row-header anuga-section-header scenario-menu-header"}>
         <Message msgId="hydrata.anuga.scenarios" />
         <span id={"scenario-tab-button-group"}>
           <Button
-            bsSize={'medium'}
             className={"scenario-tab" + (archivedActive ? " active" : "")}
             onClick={this.handleArchiveFilterToggle}
           >
             <Message msgId={archivedActive ? "hydrata.anuga.archived" : "hydrata.anuga.active"} />
+            <span className="scenario-tab-count">
+              {' '}({archivedActive ? archivedCount : activeCount})
+            </span>
           </Button>
           <Button
-            bsSize={'medium'}
             className={"scenario-tab" + (compareMode ? " active" : "")}
             onClick={this.handleToggleCompareMode}
           >
@@ -395,18 +409,8 @@ class AnugaScenarioMenuClass extends React.Component {
             </span>
             : null)
         }
-        <span
-          className={"btn glyphicon glyphicon-remove legend-close"}
-          role="button"
-          tabIndex={0}
-          onClick={this.handleClose}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              this.handleClose();
-            }
-          }}
-        />
+        {/* Wave 3C C3: Close X removed per operator decision D3. Top-tab
+            switch on anugaContainer.js already toggles polling + visibility. */}
       </div>
     );
   }
@@ -414,46 +418,59 @@ class AnugaScenarioMenuClass extends React.Component {
   renderConfirmDialog() {
     const {confirmingAction, confirmingScenario} = this.state;
     const isOpen = !!confirmingAction;
-    let message = '';
-    let confirmLabel = '';
-    const scenarioLabel = confirmingScenario?.name || 'this scenario';
+    // Body + confirm-button msgId pair, keyed off confirmingAction. msgParams
+    // carries the scenario name through to {name} placeholder in each body
+    // string. ICU MessageFormat (used by react-intl) tolerates an unused
+    // msgParams entry, so we can pass it unconditionally.
+    let bodyMsgId = null;
+    let confirmLabelMsgId = null;
     if (confirmingAction === 'duplicate') {
-      message = `Duplicate scenario "${scenarioLabel}"?`;
-      confirmLabel = 'Duplicate';
+      bodyMsgId = 'hydrata.anuga.confirmDuplicateScenario';
+      confirmLabelMsgId = 'hydrata.anuga.btnDuplicate';
     } else if (confirmingAction === 'archive') {
-      message = `Archive scenario "${scenarioLabel}"?`;
-      confirmLabel = 'Archive';
+      bodyMsgId = 'hydrata.anuga.confirmArchiveScenario';
+      confirmLabelMsgId = 'hydrata.anuga.btnArchive';
     } else if (confirmingAction === 'unarchive') {
-      message = `Restore archived scenario "${scenarioLabel}"?`;
-      confirmLabel = 'Restore';
+      bodyMsgId = 'hydrata.anuga.confirmUnarchiveScenario';
+      confirmLabelMsgId = 'hydrata.anuga.btnRestore';
     } else if (confirmingAction === 'delete') {
-      message = `Delete scenario "${scenarioLabel}"?`;
-      confirmLabel = 'Delete';
+      bodyMsgId = 'hydrata.anuga.confirmDeleteScenario';
+      confirmLabelMsgId = 'hydrata.anuga.btnDelete';
     } else if (confirmingAction === 'cancel-run') {
-      message = `Cancel run for "${scenarioLabel}"?`;
-      confirmLabel = 'Cancel Run';
+      bodyMsgId = 'hydrata.anuga.confirmCancelRunScenario';
+      confirmLabelMsgId = 'hydrata.anuga.btnCancelRun';
     }
+    const name = confirmingScenario?.name || 'this scenario';
     return (
       <span
         className={"anuga-scenario-confirm-dialog" + (isOpen ? " is-open" : "")}
         role="alertdialog"
+        // TODO i18n: aria-label needs a plain string, not JSX. Matches the
+        // pattern used by the sibling anuga-build-validation-dialog below
+        // and other Anuga dialogs in this directory. Wire to getMessageById
+        // once a static contextTypes.messages plumbing pass is done across
+        // the surface.
         aria-label="Confirm scenario action"
         aria-hidden={isOpen ? undefined : true}
       >
-        <span className="anuga-scenario-confirm-text">{message}</span>
+        <span className="anuga-scenario-confirm-text">
+          {bodyMsgId ? <Message msgId={bodyMsgId} msgParams={{name}} /> : null}
+        </span>
         <button
           type="button"
           className="save-confirm-btn confirm"
           onClick={this.performConfirm}
         >
-          {confirmLabel || 'OK'}
+          {confirmLabelMsgId
+            ? <Message msgId={confirmLabelMsgId} />
+            : <Message msgId="hydrata.anuga.ok" />}
         </button>
         <button
           type="button"
           className="save-confirm-btn cancel"
           onClick={this.cancelConfirm}
         >
-          Cancel
+          <Message msgId="hydrata.anuga.cancel" />
         </button>
       </span>
     );
@@ -528,6 +545,7 @@ const mapStateToProps = (state) => {
     structures: state?.anuga?.resources?.structures,
     meshRegions: state?.anuga?.resources?.meshRegions,
     networks: state?.anuga?.resources?.networks,
+    computeInstances: state?.anuga?.resources?.computeInstances,
     canCreateScenario: canCreateScenario(state),
     canRunScenario: canRunScenario(state),
     myRole: getProjectMyRole(state),

@@ -22,9 +22,10 @@ import {ScenarioStatusPill} from './scenarioStatusPill';
  * anuga.css:850-857. Unsaved drafts render `#*` for the id; archived rows
  * dim opacity via `.is-archived`.
  *
- * Analytics: `anuga-scenario-menu-select-scenario-<name>` fires on row
- * click (matches today's `anuga-scenario-menu-select-scenario-${name}`
- * event from ScenarioTableRow line 690 — the compare-glyph click site).
+ * Analytics: `anuga-scenario-menu-select-scenario-<id>` fires on row
+ * click. Interpolating scenario.id (integer) keeps the event key
+ * low-cardinality so Umami doesn't accrete unbounded event types from
+ * freetext scenario names.
  */
 const ScenarioRailItem = ({
   scenario,
@@ -69,8 +70,8 @@ const ScenarioRailItem = ({
 
   const handleSelect = () => {
     if (onSelect) onSelect(scenario);
-    if (scenario?.name) {
-      trackEvent('button', 'click', `anuga-scenario-menu-select-scenario-${scenario.name}`);
+    if (scenario?.id) {
+      trackEvent('button', 'click', `anuga-scenario-menu-select-scenario-${scenario.id}`);
     }
   };
 
@@ -162,6 +163,11 @@ ScenarioRailItem.defaultProps = {
  * Pure-presentational rail wrapper. Maps `scenarios` to <ScenarioRailItem/>.
  * Selection + compare-toggle callbacks bubble up to the container which
  * dispatches the corresponding redux action.
+ *
+ * Wave 3B (B3) — when the project has zero scenarios, render a centered
+ * zero-state with a glyph + heading + sub-copy that points the user at the
+ * "+ New scenario" button in the header above the rail. Keep the rail
+ * container in the DOM so the surrounding shell layout is undisturbed.
  */
 const ScenarioRail = ({
   scenarios,
@@ -171,9 +177,28 @@ const ScenarioRail = ({
   onSelect,
   onToggleSelected
 }) => {
+  const list = scenarios || [];
+  if (list.length === 0) {
+    return (
+      <div className="sv-category-rail anuga-scenario-rail" role="tablist">
+        <div className="anuga-scenario-rail-empty">
+          <span
+            className="anuga-scenario-rail-empty-glyph glyphicon glyphicon-list-alt"
+            aria-hidden="true"
+          />
+          <h5 className="anuga-scenario-rail-empty-heading">
+            <Message msgId="hydrata.anuga.emptyScenariosHeading" />
+          </h5>
+          <p className="anuga-scenario-rail-empty-subcopy">
+            <Message msgId="hydrata.anuga.emptyScenariosSubcopy" />
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="sv-category-rail anuga-scenario-rail" role="tablist">
-      {(scenarios || []).map(scenario => {
+      {list.map(scenario => {
         const key = scenario.id || scenario._tempId || `unsaved-${scenario.name || 'new'}`;
         const isActive = !!selectedId && (scenario.id === selectedId || scenario._tempId === selectedId);
         return (

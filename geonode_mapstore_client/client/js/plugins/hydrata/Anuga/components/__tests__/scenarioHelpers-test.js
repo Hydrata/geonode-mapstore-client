@@ -13,7 +13,7 @@
  *   boundary                   → 'boundary'
  */
 import expect from 'expect';
-import { validateScenario } from '../scenarioHelpers';
+import { validateScenario, validateCategoryProgress, toHHMM, getSecondsFromHHMM } from '../scenarioHelpers';
 
 function makeValidScenario(overrides) {
     return {
@@ -71,7 +71,243 @@ describe('TASK-868 validateScenario', () => {
     });
 
     it('returns the first missing field in declared order (terrain before boundary)', () => {
-        // Both terrain and boundary missing — terrain is checked first.
+        // Both terrain and boundary missing, terrain is checked first.
         expect(validateScenario(makeValidScenario({terrain: null, boundary: null}))).toBe('terrain');
+    });
+});
+
+describe('K5 toHHMM', () => {
+    it('returns 00:00 for zero seconds', () => {
+        expect(toHHMM(0)).toBe('00:00');
+    });
+
+    it('returns 00:01 for 90 seconds (rounds down to whole minute)', () => {
+        expect(toHHMM(90)).toBe('00:01');
+    });
+
+    it('returns 01:00 for exactly 3600 seconds', () => {
+        expect(toHHMM(3600)).toBe('01:00');
+    });
+
+    it('returns 01:01 for 3690 seconds', () => {
+        expect(toHHMM(3690)).toBe('01:01');
+    });
+
+    it('returns 24:00 for 86400 seconds (allows hours > 23)', () => {
+        expect(toHHMM(86400)).toBe('24:00');
+    });
+
+    it('returns 00:00 for negative input', () => {
+        expect(toHHMM(-1)).toBe('00:00');
+    });
+
+    it('returns 00:00 for null', () => {
+        expect(toHHMM(null)).toBe('00:00');
+    });
+
+    it('returns 00:00 for undefined', () => {
+        expect(toHHMM(undefined)).toBe('00:00');
+    });
+
+    it('returns 00:00 for NaN', () => {
+        expect(toHHMM(NaN)).toBe('00:00');
+    });
+
+    it('round-trips with getSecondsFromHHMM for 3690', () => {
+        // 3690 seconds rounds to 61 minutes ("01:01"), which round-trips to 3660.
+        // The HH:MM display drops sub-minute precision by design.
+        expect(getSecondsFromHHMM(toHHMM(3690))).toBe(3660);
+    });
+
+    it('round-trips exactly with getSecondsFromHHMM for whole-minute inputs', () => {
+        expect(getSecondsFromHHMM(toHHMM(3600))).toBe(3600);
+        expect(getSecondsFromHHMM(toHHMM(60))).toBe(60);
+    });
+});
+
+describe('TASK-C Wave 3A validateCategoryProgress', () => {
+    describe('inputs category', () => {
+        it('returns 4/4 + ok when all 4 inputs are assigned', () => {
+            const s = {terrain: 1, boundary: 2, inflow: 3, rainfall: 4};
+            const result = validateCategoryProgress('inputs', s);
+            expect(result.satisfied).toBe(4);
+            expect(result.total).toBe(4);
+            expect(result.tag).toBe('4/4');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns 2/4 + warn when half of inputs are assigned', () => {
+            const s = {terrain: 1, inflow: 3};
+            const result = validateCategoryProgress('inputs', s);
+            expect(result.tag).toBe('2/4');
+            expect(result.severity).toBe('warn');
+        });
+
+        it('returns 0/4 + err when no inputs are assigned', () => {
+            const s = {name: 'empty'};
+            const result = validateCategoryProgress('inputs', s);
+            expect(result.tag).toBe('0/4');
+            expect(result.severity).toBe('err');
+        });
+    });
+
+    describe('advanced category', () => {
+        it('returns N/4 + ok even when nothing is assigned (advanced is optional)', () => {
+            const s = {name: 'empty'};
+            const result = validateCategoryProgress('advanced', s);
+            expect(result.tag).toBe('0/4');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns 3/4 + ok when 3 advanced fields are assigned', () => {
+            const s = {friction: 1, structure: 2, mesh_region: 3};
+            const result = validateCategoryProgress('advanced', s);
+            expect(result.tag).toBe('3/4');
+            expect(result.severity).toBe('ok');
+        });
+    });
+
+    describe('runConfig category', () => {
+        it('returns OK + ok when both resolution and duration are positive', () => {
+            const s = {resolution: 1000, duration: 3600};
+            const result = validateCategoryProgress('runConfig', s);
+            expect(result.tag).toBe('OK');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns 1/2 + warn when only resolution is set', () => {
+            const s = {resolution: 1000};
+            const result = validateCategoryProgress('runConfig', s);
+            expect(result.tag).toBe('1/2');
+            expect(result.severity).toBe('warn');
+        });
+
+        it('returns 0/2 + err when neither is set', () => {
+            const s = {name: 'empty'};
+            const result = validateCategoryProgress('runConfig', s);
+            expect(result.tag).toBe('0/2');
+            expect(result.severity).toBe('err');
+        });
+    });
+
+    describe('statusActions category', () => {
+        it('returns rounded pct + ok when computing', () => {
+            const s = {status: 'computing', latest_run: {progress_pct: 47.3}};
+            const result = validateCategoryProgress('statusActions', s);
+            expect(result.tag).toBe('47%');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns err + err when status is error', () => {
+            const s = {status: 'error'};
+            const result = validateCategoryProgress('statusActions', s);
+            expect(result.tag).toBe('err');
+            expect(result.severity).toBe('err');
+        });
+
+        it('returns 100% + ok when status is complete', () => {
+            const s = {status: 'complete'};
+            const result = validateCategoryProgress('statusActions', s);
+            expect(result.tag).toBe('100%');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns built + ok when status is built', () => {
+            const s = {status: 'built'};
+            const result = validateCategoryProgress('statusActions', s);
+            expect(result.tag).toBe('built');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns dash + warn when status is created', () => {
+            const s = {status: 'created'};
+            const result = validateCategoryProgress('statusActions', s);
+            expect(result.tag).toBe('—');
+            expect(result.severity).toBe('warn');
+        });
+
+        it('returns dash + warn when status is cancelled', () => {
+            const s = {status: 'cancelled'};
+            const result = validateCategoryProgress('statusActions', s);
+            expect(result.tag).toBe('—');
+            expect(result.severity).toBe('warn');
+        });
+    });
+
+    describe('runLog category', () => {
+        it('returns line count + ok when latest_run.log_line_count > 0', () => {
+            const s = {latest_run: {log_line_count: 231}};
+            const result = validateCategoryProgress('runLog', s);
+            expect(result.tag).toBe('231');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns dash + warn when no log lines yet', () => {
+            const s = {latest_run: {}};
+            const result = validateCategoryProgress('runLog', s);
+            expect(result.tag).toBe('—');
+            expect(result.severity).toBe('warn');
+        });
+    });
+
+    describe('defensive defaults', () => {
+        it('returns a neutral fallback when scenario is null', () => {
+            const result = validateCategoryProgress('inputs', null);
+            expect(result.tag).toBe('—');
+            expect(result.severity).toBe('warn');
+        });
+
+        it('returns a neutral fallback for an unknown category', () => {
+            const result = validateCategoryProgress('unknownCategory', {});
+            expect(result.tag).toBe('—');
+            expect(result.severity).toBe('warn');
+        });
+    });
+
+    describe('Wave 3C C4 — unsaved flag propagation', () => {
+        // Coarse signal: scenario.unsaved===true should propagate to every
+        // category's `unsaved` flag identically. Per-category diffing would
+        // require a backend snapshot cache — out of scope.
+        const allCategories = ['inputs', 'advanced', 'runConfig', 'statusActions', 'runLog'];
+
+        it('returns unsaved=false when scenario has no unsaved flag', () => {
+            const s = {terrain: 1, boundary: 2, inflow: 3};
+            allCategories.forEach((cat) => {
+                const result = validateCategoryProgress(cat, s);
+                expect(result.unsaved).toBe(false);
+            });
+        });
+
+        it('returns unsaved=true on every category when scenario.unsaved is true', () => {
+            const s = {terrain: 1, boundary: 2, inflow: 3, unsaved: true};
+            allCategories.forEach((cat) => {
+                const result = validateCategoryProgress(cat, s);
+                expect(result.unsaved).toBe(true);
+            });
+        });
+
+        it('coerces truthy non-boolean unsaved to true', () => {
+            const s = {unsaved: 'pending'};
+            const result = validateCategoryProgress('inputs', s);
+            expect(result.unsaved).toBe(true);
+        });
+
+        it('returns unsaved=false in the null-scenario neutral fallback', () => {
+            const result = validateCategoryProgress('inputs', null);
+            expect(result.unsaved).toBe(false);
+        });
+
+        it('returns unsaved=true in the unknown-category fallback when scenario.unsaved is true', () => {
+            // Unknown category still propagates the scenario-level unsaved
+            // flag so a future-added category gets the coarse dot signal
+            // for free. The 5 known categories are exercised above.
+            const result = validateCategoryProgress('unknownCategory', {unsaved: true});
+            expect(result.unsaved).toBe(true);
+        });
+
+        it('returns unsaved=false in the unknown-category fallback when scenario.unsaved is false', () => {
+            const result = validateCategoryProgress('unknownCategory', {});
+            expect(result.unsaved).toBe(false);
+        });
     });
 });

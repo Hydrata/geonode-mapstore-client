@@ -78,6 +78,53 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
       });
     });
 
+    // Wave 3B (B3) — zero-state placeholder when the project has no
+    // scenarios yet. Surfaces a glyph + heading + sub-copy pointing the
+    // user at the "+ New scenario" button.
+    describe('Wave 3B B3 — empty-state placeholder', () => {
+      it('renders the empty-state container when scenarios is empty', (done) => {
+        ReactDOM.render(<ScenarioRail scenarios={[]} />, container, () => {
+          expect(container.querySelector('.anuga-scenario-rail-empty')).toExist();
+          done();
+        });
+      });
+
+      it('renders the empty-state glyph', (done) => {
+        ReactDOM.render(<ScenarioRail scenarios={[]} />, container, () => {
+          expect(container.querySelector('.anuga-scenario-rail-empty-glyph')).toExist();
+          done();
+        });
+      });
+
+      it('renders the empty-state heading + sub-copy', (done) => {
+        ReactDOM.render(<ScenarioRail scenarios={[]} />, container, () => {
+          expect(container.querySelector('.anuga-scenario-rail-empty-heading')).toExist();
+          expect(container.querySelector('.anuga-scenario-rail-empty-subcopy')).toExist();
+          done();
+        });
+      });
+
+      it('omits the empty-state placeholder when scenarios is non-empty', (done) => {
+        ReactDOM.render(
+          <ScenarioRail scenarios={[scenarioA]} />,
+          container,
+          () => {
+            expect(container.querySelector('.anuga-scenario-rail-empty')).toNotExist();
+            done();
+          }
+        );
+      });
+
+      it('omits the empty-state placeholder when scenarios is null', (done) => {
+        ReactDOM.render(<ScenarioRail scenarios={null} />, container, () => {
+          // null and undefined fall through the same empty-list branch,
+          // so the placeholder DOES render — matches the empty array case.
+          expect(container.querySelector('.anuga-scenario-rail-empty')).toExist();
+          done();
+        });
+      });
+    });
+
     it('flips .is-active onto the rail item matching selectedId', (done) => {
       ReactDOM.render(
         <ScenarioRail scenarios={[scenarioA, scenarioB]} selectedId={22} />,

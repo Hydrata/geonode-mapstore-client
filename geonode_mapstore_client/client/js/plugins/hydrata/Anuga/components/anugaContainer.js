@@ -46,7 +46,10 @@ class AnugaContainer extends React.Component {
         setOpenMenuGroupId: PropTypes.func,
         showAddAnugaTerrainData: PropTypes.bool,
         setAddAnugaTerrainData: PropTypes.func,
-        visibleAnugaScenarioLogId: PropTypes.number,
+        // Wave 3B (B5) — reducer initial state is `false`, selector
+        // returns the scenario id (number) once the log opens. Widen the
+        // type so the boolean-on-init case doesn't trip a PropType warning.
+        visibleAnugaScenarioLogId: PropTypes.oneOfType([PropTypes.number, PropTypes.bool]),
         startAnugaScenarioPolling: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func,
         updateCustomEditorsOptions: PropTypes.func,
@@ -61,7 +64,11 @@ class AnugaContainer extends React.Component {
         setMembershipPanel: PropTypes.func,
         hasEPSGset: PropTypes.bool,
         resultsGroup: PropTypes.object,
-        isAnugaProject: PropTypes.bool,
+        // Wave 3B (B5) — mapStateToProps returns
+        // `state?.anuga?.projects?.data?.id` (a number) rather than a
+        // boolean coercion. Widen the type so the number doesn't trip a
+        // PropType warning.
+        isAnugaProject: PropTypes.oneOfType([PropTypes.bool, PropTypes.number]),
         hydrologyPluginPresent: PropTypes.bool,
         showHydrologyMainMenu: PropTypes.bool,
         setHydrologyMainMenu: PropTypes.func

@@ -20,12 +20,15 @@
  * or removed in the Miller refactor):
  *   - anuga-scenario-menu-{manage,advanced}-tab-toggle (header tabs
  *     removed — categories now live inside the pane as
- *     anuga-scenario-menu-{inputs,advanced,run,actions}-tab-toggle).
+ *     anuga-scenario-menu-category-{inputs,advanced,runConfig,
+ *     statusActions,runLog} after Wave 3A vertical-rail refactor).
  *   - anuga-scenario-menu-build-validate-missing-{field} — fires only
  *     when Build is clicked on an invalid scenario; covered by the
  *     scenarioActionToolbar / Build code-path tests.
- *   - anuga-scenario-menu-select-scenario-{name} — covered by
- *     scenarioRail-test.js (where the spy is local).
+ *   - anuga-scenario-menu-select-scenario-{id}: covered by
+ *     scenarioRail-test.js (where the spy is local). The label is keyed
+ *     on scenario.id (integer) rather than scenario.name to keep Umami
+ *     event types bounded (was -{name} until Bug K7 fix).
  */
 import expect from 'expect';
 import React from 'react';
@@ -110,14 +113,21 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             expect(labelsFired()).toInclude('anuga-scenario-menu-new-scenario');
         });
 
-        it('fires anuga-scenario-menu-close on X click', () => {
+        // Wave 3C C3: Close X removed per operator decision D3 — Option A
+        // exits via the top-tab switch on anugaContainer.js. The
+        // .legend-close element no longer renders and the
+        // 'anuga-scenario-menu-close' Umami label is no longer fired from
+        // this surface. The top-tab analytics event
+        // 'anuga-scenario-menu-toggle' (on anugaContainer.js) is the
+        // replacement signal — exercised by anugaContainer's own coverage.
+        it('does NOT render .legend-close (Wave 3C C3 regression guard)', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            container.querySelector('.legend-close').click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-close');
+            expect(container.querySelector('.legend-close')).toNotExist();
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-close');
         });
 
         it('fires anuga-scenario-menu-archive-filter-only when toggling archive chip', () => {
@@ -172,53 +182,65 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
         });
     });
 
-    describe('Pane subtab events', () => {
-        it('fires anuga-scenario-menu-inputs-tab-toggle on Inputs subtab click', () => {
+    describe('Pane category events (Wave 3A — vertical rail)', () => {
+        it('fires anuga-scenario-menu-category-inputs on Inputs category click', () => {
             const s1 = makeScenario(21, 'A');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[0].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-inputs-tab-toggle');
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[0].click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-category-inputs');
         });
 
-        it('fires anuga-scenario-menu-advanced-tab-toggle on Advanced subtab click', () => {
+        it('fires anuga-scenario-menu-category-advanced on Advanced category click', () => {
             const s1 = makeScenario(21, 'A');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[1].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-advanced-tab-toggle');
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[1].click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-category-advanced');
         });
 
-        it('fires anuga-scenario-menu-run-tab-toggle on Run subtab click', () => {
+        it('fires anuga-scenario-menu-category-runConfig on Run config category click', () => {
             const s1 = makeScenario(21, 'A');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-run-tab-toggle');
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[2].click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-category-runConfig');
         });
 
-        it('fires anuga-scenario-menu-actions-tab-toggle on Actions subtab click', () => {
+        it('fires anuga-scenario-menu-category-statusActions on Status and actions category click', () => {
             const s1 = makeScenario(21, 'A');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[3].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-actions-tab-toggle');
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-category-statusActions');
+        });
+
+        it('fires anuga-scenario-menu-category-runLog on Run log category click', () => {
+            const s1 = makeScenario(21, 'A');
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[4].click();
+            expect(labelsFired()).toInclude('anuga-scenario-menu-category-runLog');
         });
     });
 
@@ -230,8 +252,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click(); // Run subtab
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const logBtn = container.querySelector('.scenario-action-log');
                 expect(logBtn).toExist();
@@ -248,8 +270,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click(); // Run subtab
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const runBtn = container.querySelector('.scenario-action-run');
                 expect(runBtn).toExist();
@@ -269,8 +291,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const retryBtn = container.querySelector('.scenario-action-retry');
                 expect(retryBtn).toExist();
@@ -290,8 +312,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const dlBtn = container.querySelector('.scenario-action-download');
                 expect(dlBtn).toExist();
@@ -317,8 +339,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const rerunBtn = container.querySelector('.scenario-action-rerun');
                 expect(rerunBtn).toExist();
@@ -335,8 +357,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const dupBtn = container.querySelector('.scenario-action-duplicate');
                 expect(dupBtn).toExist();
@@ -354,8 +376,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const archBtn = container.querySelector('.scenario-action-archive');
                 expect(archBtn).toExist();
@@ -372,8 +394,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const unarchBtn = container.querySelector('.scenario-action-unarchive');
                 expect(unarchBtn).toExist();
@@ -390,8 +412,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const delBtn = container.querySelector('.scenario-action-delete');
                 expect(delBtn).toExist();
@@ -412,8 +434,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const cancelBtn = container.querySelector('.scenario-action-cancel-run');
                 expect(cancelBtn).toExist();
@@ -430,8 +452,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 const buildBtn = container.querySelector('.scenario-action-build');
                 expect(buildBtn).toExist();
@@ -450,8 +472,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 container.querySelector('.scenario-action-duplicate').click();
                 setTimeout(() => {
@@ -471,8 +493,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 container.querySelector('.scenario-action-archive').click();
                 setTimeout(() => {
@@ -490,8 +512,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 container.querySelector('.scenario-action-delete').click();
                 setTimeout(() => {
@@ -512,8 +534,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 container.querySelector('.scenario-action-cancel-run').click();
                 setTimeout(() => {
@@ -531,8 +553,8 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const subtabs = container.querySelectorAll('.anuga-scenario-pane-subtab');
-            subtabs[2].click();
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            items[3].click(); // Status and actions
             setTimeout(() => {
                 container.querySelector('.scenario-action-duplicate').click();
                 setTimeout(() => {
