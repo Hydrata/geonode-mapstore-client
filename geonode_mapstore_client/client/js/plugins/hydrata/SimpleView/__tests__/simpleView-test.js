@@ -178,6 +178,24 @@ describe('SimpleView Plugin', () => {
             expect(state.openMenuGroupId).toBe('group2');
         });
 
+        // TASK-1008 W4 — R05 belt-and-braces. The Miller-columns rail+pane
+        // refactor adds local `selectedSubHeading` state to MenuRowsClass but
+        // MUST NOT alter the toggle semantics of `openMenuGroupId`, which
+        // epicsSwamm.js:245 reads as `state.simpleView.openMenuGroupId !==
+        // viewBmpGroup.id` to gate ensureBmpGeometriesGroupEpic. Round-trip
+        // here pins the four-step set/toggle/set/toggle sequence so future
+        // reducer rewrites can't silently swap toggle-off for no-op.
+        it('SET_OPEN_MENU_GROUP_ID round-trip preserves toggle semantics (R05 Swamm gate)', () => {
+            let s = reducer(initialState, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g1' });
+            expect(s.openMenuGroupId).toBe('g1');
+            s = reducer(s, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g1' });
+            expect(s.openMenuGroupId).toBe(null);
+            s = reducer(s, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g2' });
+            expect(s.openMenuGroupId).toBe('g2');
+            s = reducer(s, { type: SET_OPEN_MENU_GROUP_ID, openMenuGroupId: 'g2' });
+            expect(s.openMenuGroupId).toBe(null);
+        });
+
         it('should handle SET_VISIBLE_LEGEND_PANEL', () => {
             const state = reducer(initialState, {
                 type: SET_VISIBLE_LEGEND_PANEL,
