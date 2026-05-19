@@ -22,8 +22,20 @@ import {
 import { LOGIN_SUCCESS, SESSION_VALID } from '@mapstore/framework/actions/security';
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
 import { getProjectId } from '../Anuga/selectorsAnuga';
+import { TERMINAL_RUN_STATES } from '../Anuga/anugaConstants';
 
 const ACTIVE_STATES = ['pending', 'running'];
+
+// W7 (TASK-1045) — terminal-process filter for the OPEN-panel poller. The
+// /processes/ list endpoint returns finished Process rows for ~24h post-
+// completion; at 3s tick rate they drown the panel display. Drop them before
+// re-emission so the open-panel UX shows only in-flight work. The closed-panel
+// `pollActiveCountEpic` still passes ALL rows through so taskCompleteLayerEpic
+// can observe late completion transitions.
+function filterTerminalProcesses(processes) {
+    if (!Array.isArray(processes)) return processes;
+    return processes.filter(p => !TERMINAL_RUN_STATES.includes(p?.status));
+}
 
 // Map filter names to API params
 const filterToParams = (filter) => {
@@ -129,7 +141,10 @@ export const pollProcessListEpic = (action$, store) =>
                             taskMonitorApi.getProcesses({ project_id: projectId, limit: 10 })
                         )
                             .concatMap(response => {
-                                const processes = response.data?.results || response.data || [];
+                                const raw = response.data?.results || response.data || [];
+                                // W7 (TASK-1045): drop terminal rows BEFORE re-emission
+                                // so the panel never shows stale completions as in-progress.
+                                const processes = filterTerminalProcesses(raw);
                                 return Rx.Observable.of(
                                     setProcesses(processes),
                                     setActiveCount(processes.filter(p => ACTIVE_STATES.includes(p.status)).length)
@@ -149,7 +164,13 @@ export const pollProcessListEpic = (action$, store) =>
                     return Rx.Observable.from(
                         taskMonitorApi.getProcesses({ ...params, project_id: projectId })
                     )
-                        .map(response => setProcesses(response.data?.results || response.data || []))
+                        // W7 (TASK-1045): drop terminal rows BEFORE re-emission. Spec
+                        // applies the filter to BOTH branches — the open-panel pollers
+                        // surface "live work in flight" exclusively. The 'completed' /
+                        // 'failed' history panels are served by a separate one-shot
+                        // fetch in TaskMonitor history view, so dropping terminals here
+                        // does not regress that surface.
+                        .map(response => setProcesses(filterTerminalProcesses(response.data?.results || response.data || [])))
                         .catch(() => Rx.Observable.empty());
                 });
         });

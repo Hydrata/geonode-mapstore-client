@@ -244,6 +244,46 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
         }
       );
     });
+
+    // W7 (TASK-1045) — cancel button must be enabled while a run is in the
+    // 'processing' (post-compute result-finalize) phase. Before W7 the
+    // affordance disappeared the moment the run moved to processing.
+    it('renders Cancel-Run when status=processing (TASK-1045 W7)', (done) => {
+      ReactDOM.render(
+        <ScenarioActionToolbar
+          scenario={{...baseScenario, status: 'processing', latest_run: {id: 91, status: 'processing'}}}
+          canEdit canRunScenario
+        />,
+        container,
+        () => {
+          const cancel = container.querySelector('.scenario-action-cancel-run');
+          expect(cancel).toExist();
+          expect(cancel.className).toNotInclude('is-hidden');
+          expect(cancel.disabled).toBe(false);
+          done();
+        }
+      );
+    });
+
+    it('cancel-run via latest_run.status=processing dispatches onConfirmCancelRun (TASK-1045 W7)', (done) => {
+      let captured = null;
+      ReactDOM.render(
+        <ScenarioActionToolbar
+          scenario={{...baseScenario, status: 'processing', latest_run: {id: 92, status: 'processing'}}}
+          canEdit canRunScenario
+          onConfirmCancelRun={(s) => { captured = s; }}
+        />,
+        container,
+        () => {
+          const cancel = container.querySelector('.scenario-action-cancel-run');
+          expect(cancel).toExist();
+          cancel.click();
+          expect(captured).toExist();
+          expect(captured.latest_run.id).toBe(92);
+          done();
+        }
+      );
+    });
   });
 
   describe('Wave 3C C1 — Archive pre-disabled while running', () => {

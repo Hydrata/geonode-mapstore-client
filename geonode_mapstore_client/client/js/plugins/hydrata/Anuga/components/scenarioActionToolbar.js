@@ -149,7 +149,12 @@ const ScenarioActionToolbar = ({
 }) => {
   if (!scenario) return null;
   const status = findScenarioStatus(scenario);
-  const isCancellable = ['queued', 'computing', 'building'].includes(status);
+  // W7 (TASK-1045) — add 'processing' to the cancellable set. The status
+  // value lands when results post-processing is in flight; until W7 the
+  // cancel affordance disappeared at the moment the run moved to processing,
+  // leaving the user no way to abort late-stage work that can still be
+  // safely cancelled BE-side.
+  const isCancellable = ['queued', 'computing', 'building', 'processing'].includes(status);
   // Wave 3C C2 — defence-in-depth gate. isCancellable + TERMINAL_RUN_STATES
   // are mutually exclusive sets today, but reading the run status directly
   // means future status-set drift can't accidentally enable the Cancel

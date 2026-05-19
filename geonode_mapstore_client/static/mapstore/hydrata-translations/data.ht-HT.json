@@ -317,7 +317,9 @@
         "runFailedHead": "Echèk ekzekisyon",
         "emptyScenariosHeading": "Poko gen senaryo",
         "emptyScenariosSubcopy": "Klike sou \"+ Nouvo senaryo\" anwo a pou kreye premye egzekisyon ou.",
-        "readOnlyPaneHint": "Lekti sèlman, wòl ou pa pèmèt edisyon."
+        "readOnlyPaneHint": "Lekti sèlman, wòl ou pa pèmèt edisyon.",
+        "pollingPaused": "Mizajou an dirèk an poz",
+        "resumePolling": "Rekòmanse"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

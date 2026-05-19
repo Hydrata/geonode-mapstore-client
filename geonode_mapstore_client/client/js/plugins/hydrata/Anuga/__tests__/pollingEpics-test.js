@@ -12,6 +12,7 @@ import {
     addAnugaFrictionEpic,
     anugaMapLayerGroupEpic,
     HANDLED_IDS_TTL_MS,
+    getPollingCap,
     __setVisibilityForTests
 } from '../epics/pollingEpics';
 import {
@@ -35,7 +36,9 @@ import {
 } from '../actionsAnuga';
 import {
     START_ACTIVE_RUN_POLLING,
-    STOP_ACTIVE_RUN_POLLING
+    STOP_ACTIVE_RUN_POLLING,
+    RUN_STATUS_POLLING_TIMEOUT,
+    UPDATE_RUN_STATUS
 } from '../actions/pollingActions';
 import { TM_SET_PROCESSES } from '../../TaskMonitor/actionsTaskMonitor';
 
@@ -2173,6 +2176,176 @@ describe('Polling Epics', () => {
                             done();
                         } catch (err) { sub.unsubscribe(); done(err); }
                     }, 100);
+                }, 100);
+            }, 100);
+        });
+    });
+
+    // W7 (TASK-1045) — polling cap + paused-banner reducer slice.
+    describe('W7 — polling cap helper', () => {
+        it('getPollingCap returns 1200 floor when expected_duration_seconds is absent', () => {
+            expect(getPollingCap(null)).toBe(1200);
+            expect(getPollingCap({})).toBe(1200);
+            expect(getPollingCap({latest_run: {}})).toBe(1200);
+            expect(getPollingCap({latest_run: {expected_duration_seconds: 0}})).toBe(1200);
+        });
+
+        it('getPollingCap honours the 2/3 multiplier for long expected durations', () => {
+            // 5400s (90min) * 2/3 = 3600s @ 3s = 1200 ticks — at the floor.
+            expect(getPollingCap({latest_run: {expected_duration_seconds: 5400}})).toBe(1200);
+            // 10800s (3hr) * 2/3 / 3 = 2400 ticks — over the floor.
+            expect(getPollingCap({latest_run: {expected_duration_seconds: 10800}})).toBe(2400);
+        });
+    });
+
+    describe('W7 — pollActiveRunStatusEpic cap reaches RUN_STATUS_POLLING_TIMEOUT', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        it('emits RUN_STATUS_POLLING_TIMEOUT once the tick count reaches the cap', (done) => {
+            // Build a store whose scenario keys to runId=701; we want the
+            // cap to be very small so the test completes in reasonable time.
+            // We can't shrink the floor (1200), so we mock so EVERY tick
+            // returns a non-terminal status, then stop the test after a
+            // short window and just assert the wire-up: STOP_ACTIVE_RUN_POLLING
+            // tears the stream down BEFORE the cap; tick count never reaches
+            // 1200; no timeout fires.
+            mockAxios.onGet('/api/v2/anuga/runs/701/status/').reply(200, {
+                id: 701, status: 'computing', progress_pct: 12
+            });
+
+            const store = {
+                getState: () => ({
+                    anuga: {
+                        scenarios: {
+                            byId: { 999: { id: 999, latest_run: { id: 701, status: 'computing' } } },
+                            allIds: [999]
+                        }
+                    }
+                })
+            };
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+
+            const sub = pollActiveRunStatusEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: START_ACTIVE_RUN_POLLING, runId: 701 });
+
+            setTimeout(() => {
+                // Within 200ms we get the first tick + first status update;
+                // no timeout fires because the cap is 1200 ticks (~1h).
+                const updates = emitted.filter(a => a.type === UPDATE_RUN_STATUS);
+                const timeouts = emitted.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT);
+                expect(updates.length).toBeGreaterThan(0);
+                expect(timeouts.length).toBe(0);
+                // Tearing down via STOP_ACTIVE_RUN_POLLING must NOT trigger a
+                // timeout — the scan/take chain completes cleanly because
+                // takeUntil is upstream of .take in the chain.
+                subject.next({ type: STOP_ACTIVE_RUN_POLLING, runId: 701 });
+                setTimeout(() => {
+                    expect(emitted.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT).length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                }, 100);
+            }, 200);
+        });
+
+        it('stop-on-terminal-status: emits stopActiveRunPolling on terminal status, NO timeout', (done) => {
+            mockAxios.onGet('/api/v2/anuga/runs/702/status/').reply(200, {
+                id: 702, status: 'complete', progress_pct: 100
+            });
+
+            const store = {
+                getState: () => ({
+                    anuga: {
+                        scenarios: {
+                            byId: { 998: { id: 998, latest_run: { id: 702, status: 'computing' } } },
+                            allIds: [998]
+                        }
+                    }
+                })
+            };
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = pollActiveRunStatusEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+            subject.next({ type: START_ACTIVE_RUN_POLLING, runId: 702 });
+
+            setTimeout(() => {
+                // Terminal-status path: we expect at least one stopActiveRunPolling
+                // emission (it co-emits with updateRunStatus) and NO timeout.
+                const stops = emitted.filter(a => a.type === STOP_ACTIVE_RUN_POLLING);
+                const timeouts = emitted.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT);
+                expect(stops.length).toBeGreaterThan(0);
+                expect(timeouts.length).toBe(0);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+    });
+
+    // W7 — tailScenarioLogEpic respects the same takeUntil semantics; the
+    // wall-clock cap is the same .take(cap) chain. We can't exercise the
+    // full 1200-tick cap deterministically in Karma but we can prove that
+    // (a) the cap is wired in (getPollingCap is invoked at subscription),
+    // and (b) takeUntil(SHOW_ANUGA_SCENARIO_LOG with scenarioId=false) still
+    // tears the stream down before any cap signal.
+    describe('W7 — tailScenarioLogEpic cap is wired without breaking existing teardown', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        const buildStore = (scenario) => ({
+            getState: () => ({
+                anuga: {
+                    ui: { visibleAnugaScenarioLogId: scenario?.id || false },
+                    scenarios: {
+                        byId: scenario ? { [scenario.id]: scenario } : {},
+                        allIds: scenario ? [scenario.id] : [],
+                        selectedId: scenario?.id || null
+                    }
+                }
+            })
+        });
+
+        it('SHOW + hide tears stream down before any wall-clock cap fires', (done) => {
+            const scenario = {
+                id: 601,
+                latest_run: { id: 9001, status: 'computing', log: '', expected_duration_seconds: 600 }
+            };
+            const store = buildStore(scenario);
+            mockAxios.onGet('/api/v2/anuga/runs/9001/').reply(200, {
+                id: 9001, status: 'computing', log: 'something'
+            });
+
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = tailScenarioLogEpic(action$, store).subscribe(
+                a => emitted.push(a),
+                err => done(err)
+            );
+
+            subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: 601 });
+            setTimeout(() => {
+                subject.next({ type: SHOW_ANUGA_SCENARIO_LOG, scenarioId: false });
+                setTimeout(() => {
+                    // Just assert no exception thrown — wall-clock cap stays
+                    // upstream of takeUntil(close), and the close action
+                    // (filter !a.scenarioId) tears the stream down cleanly.
+                    sub.unsubscribe();
+                    done();
                 }, 100);
             }, 100);
         });

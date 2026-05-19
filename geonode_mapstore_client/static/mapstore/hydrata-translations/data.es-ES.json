@@ -317,7 +317,9 @@
         "runFailedHead": "Ejecución fallida",
         "emptyScenariosHeading": "Aún no hay escenarios",
         "emptyScenariosSubcopy": "Haz clic en \"+ Nuevo escenario\" arriba para crear tu primera ejecución.",
-        "readOnlyPaneHint": "Solo lectura, tu rol no permite editar."
+        "readOnlyPaneHint": "Solo lectura, tu rol no permite editar.",
+        "pollingPaused": "Actualizaciones en vivo en pausa",
+        "resumePolling": "Reanudar"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

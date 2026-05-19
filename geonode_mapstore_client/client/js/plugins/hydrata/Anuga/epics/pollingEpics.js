@@ -65,6 +65,7 @@ import {
     startAnugaScenarioPolling,
     stopActiveRunPolling,
     updateRunStatus,
+    runStatusPollingTimeout,
     fixAnugaGroups,
     FIX_ANUGA_GROUPS
 } from "../actionsAnuga";
@@ -114,6 +115,25 @@ const _domVisibility$ = (typeof document !== 'undefined' && document.addEventLis
 const visibility$ = Rx.Observable.defer(
     () => __visibilityForTests$ || _domVisibility$
 );
+
+// W7 (TASK-1045) — polling cap. Without a cap, an orphan BE Process leaves
+// the user polling forever (memory pin: feedback-fe-epic-task-monitor-poll-cap).
+// Callers must evaluate this from the CURRENT scenario at subscription time
+// (read store.getState() inside the switchMap, not from a stale closure of
+// the initial action).
+//
+// Floor = 1h wall-clock at 3s ticks; headroom = 2/3 over the BE-supplied
+// expected_duration_seconds, so a slow-but-healthy run isn't prematurely paused.
+const POLLING_TICK_SECONDS = 3;
+const POLLING_CAP_FLOOR_TICKS = 1200;
+const POLLING_CAP_HEADROOM_RATIO = 2 / 3;
+const DEFAULT_EXPECTED_DURATION_SECONDS = POLLING_CAP_FLOOR_TICKS;
+export function getPollingCap(scenario) {
+    const expected = scenario?.latest_run?.expected_duration_seconds
+        || DEFAULT_EXPECTED_DURATION_SECONDS;
+    const dynamic = Math.ceil(expected * POLLING_CAP_HEADROOM_RATIO / POLLING_TICK_SECONDS);
+    return Math.max(POLLING_CAP_FLOOR_TICKS, dynamic);
+}
 
 // V2P-79 — resource endpoint catalogue. Each entry is a (V1) type identifier
 // recognised by anugaApi.getResourceList; the helper translates the type to
@@ -302,24 +322,59 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                 )
         );
 
-// New: lightweight run-status poller for active runs (3s interval)
-export const pollActiveRunStatusEpic = (action$) =>
+// Lightweight run-status poller for active runs (3s interval).
+//
+// W7 (TASK-1045) — polling cap. The stream is .take(N)-capped where N is
+// derived from the CURRENT scenario at subscription time (via store.getState),
+// not the START action payload — the scenario's latest_run can flip
+// between START_ACTIVE_RUN_POLLING firing and the first tick landing. When
+// the cap is reached without a terminal status, we dispatch
+// RUN_STATUS_POLLING_TIMEOUT(runId) so a paused-banner can prompt the user
+// to manually resume. STOP_ACTIVE_RUN_POLLING (terminal-status detected, or
+// user navigation) still tears down via takeUntil first.
+//
+// `store` arg added at the same time so we can read scenario state. Callers
+// in the rootEpic invoke (action$, store) for every epic — no caller change.
+//
+// Pattern: a single ticker tracks tick count via `scan`; when the count hits
+// the cap, we emit a timeout action and end the stream. takeUntil(STOP) still
+// tears down early on terminal status or navigation, in which case scan's
+// counter never reaches cap and no timeout fires.
+export const pollActiveRunStatusEpic = (action$, store) =>
     action$
         .ofType(START_ACTIVE_RUN_POLLING)
         .switchMap((action) => {
             const runId = action.runId;
+            // Derive the cap at subscription time from the live store. We
+            // search byId for the scenario whose latest_run.id matches runId.
+            const cap = (() => {
+                const state = store && store.getState ? store.getState() : null;
+                const byId = state?.anuga?.scenarios?.byId || {};
+                const scenario = Object.values(byId).find(
+                    s => s?.latest_run?.id === runId
+                );
+                return getPollingCap(scenario);
+            })();
             return Rx.Observable.timer(0, 3000)
                 .takeUntil(action$.ofType(STOP_ACTIVE_RUN_POLLING).filter(a => a.runId === runId))
-                .exhaustMap(() =>
+                .scan((acc) => acc + 1, 0)
+                // Stop after `cap` ticks have been emitted from scan (1..cap).
+                .take(cap)
+                .exhaustMap((tickNumber) =>
                     Rx.Observable.from(anugaApi.getRunStatus(runId))
                         .catch(() => Rx.Observable.empty())
+                        .map(response => ({response, tickNumber}))
                 )
-                .concatMap(response => {
+                .concatMap(({response, tickNumber}) => {
                     const data = response.data;
-                    const actions = [
-                        updateRunStatus(runId, data)
-                    ];
+                    const actions = [updateRunStatus(runId, data)];
                     if (TERMINAL_RUN_STATES.includes(data?.status)) {
+                        actions.push(stopActiveRunPolling(runId));
+                    } else if (tickNumber >= cap) {
+                        // Cap reached without a terminal status — pause the
+                        // poll and surface the banner. The banner is the
+                        // resume affordance (dispatches START_ACTIVE_RUN_POLLING).
+                        actions.push(runStatusPollingTimeout(runId));
                         actions.push(stopActiveRunPolling(runId));
                     }
                     return Rx.Observable.from(actions);
@@ -357,12 +412,25 @@ export const tailScenarioLogEpic = (action$, store) =>
     action$
         .ofType(SHOW_ANUGA_SCENARIO_LOG)
         .filter(action => !!action.scenarioId)
-        .switchMap(() =>
-            Rx.Observable.interval(3000)
+        .switchMap((action) => {
+            // W7 (TASK-1045) — wall-clock cap on the log tail. The nested
+            // same-payload guard already prevents redundant dispatches; this
+            // cap is wall-clock protection (an orphan BE Process leaves the
+            // log viewer polling indefinitely otherwise — same pin as
+            // pollActiveRunStatusEpic). Cap is derived from the CURRENT
+            // scenario at subscription time so a scenario whose latest_run
+            // has a longer expected duration gets a proportionally longer cap.
+            const cap = (() => {
+                const state = store && store.getState ? store.getState() : null;
+                const scenario = state?.anuga?.scenarios?.byId?.[action.scenarioId];
+                return getPollingCap(scenario);
+            })();
+            return Rx.Observable.interval(3000)
                 .startWith(0)
                 .takeUntil(
                     action$.ofType(SHOW_ANUGA_SCENARIO_LOG).filter(a => !a.scenarioId)
                 )
+                .take(cap)
                 .switchMap(() =>
                     Rx.Observable.defer(() => {
                         const state = store.getState();
@@ -398,8 +466,8 @@ export const tailScenarioLogEpic = (action$, store) =>
                                 }]));
                             });
                     })
-                )
-        );
+                );
+        });
 
 // -- Ensure ANUGA group tree exists before layers are added ----------------
 

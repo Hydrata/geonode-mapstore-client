@@ -919,6 +919,90 @@ describe('TaskMonitor', () => {
                     done();
                 }, 200);
             });
+
+            // W7 (TASK-1045) — terminal-process filter on the open-panel
+            // poller. The endpoint returns a mix of in-flight + recently-
+            // terminated rows; the epic drops the terminal ones BEFORE
+            // re-emission so the panel and active-count never show stale
+            // completions as in-progress.
+            describe('W7 — terminal-process filter', () => {
+                const MockAdapter = require('axios-mock-adapter');
+                const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+                let mockAxios;
+                beforeEach(() => { mockAxios = new MockAdapter(axios); });
+                afterEach(() => { mockAxios.restore(); });
+
+                it('drops complete/error/cancelled rows from the setProcesses payload (active filter)', (done) => {
+                    const mixedRows = [
+                        { id: 1, status: 'pending', type: 'layer_create' },
+                        { id: 2, status: 'running', type: 'layer_create' },
+                        { id: 3, status: 'complete', type: 'layer_create' },
+                        { id: 4, status: 'error', type: 'layer_create' },
+                        { id: 5, status: 'cancelled', type: 'layer_create' }
+                    ];
+                    mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: mixedRows });
+
+                    const { subject, action$ } = liveActions();
+                    const store = {
+                        getState: () => ({
+                            taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                            security: { user: authUser },
+                            anuga: { projects: { data: { id: 42 } } }
+                        })
+                    };
+                    const emitted = [];
+                    const sub = pollProcessListEpic(action$, store)
+                        .subscribe(a => emitted.push(a), err => done(err));
+
+                    subject.next({ type: TM_TOGGLE_PANEL });
+
+                    setTimeout(() => {
+                        const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
+                        expect(setActions.length).toBeGreaterThan(0);
+                        const surfaced = setActions[0].processes;
+                        expect(surfaced.length).toBe(2);
+                        expect(surfaced.map(p => p.id).sort()).toEqual([1, 2]);
+                        // Active count tracks pending+running over the FILTERED list.
+                        const countActions = emitted.filter(a => a.type === TM_SET_ACTIVE_COUNT);
+                        expect(countActions[0].count).toBe(2);
+                        sub.unsubscribe();
+                        done();
+                    }, 200);
+                });
+
+                it('drops terminal rows from the non-active filter branch too', (done) => {
+                    // The 'completed' filter requests status=complete from the API,
+                    // but per the W7 spec we drop ALL terminal rows in both branches.
+                    // For a 'completed' filter the surfaced list is therefore [].
+                    const completedRows = [
+                        { id: 10, status: 'complete', type: 'layer_create' },
+                        { id: 11, status: 'complete', type: 'terrain_create' }
+                    ];
+                    mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: completedRows });
+
+                    const { subject, action$ } = liveActions();
+                    const store = {
+                        getState: () => ({
+                            taskMonitor: { ui: { panelOpen: true, filter: 'completed' } },
+                            security: { user: authUser },
+                            anuga: { projects: { data: { id: 42 } } }
+                        })
+                    };
+                    const emitted = [];
+                    const sub = pollProcessListEpic(action$, store)
+                        .subscribe(a => emitted.push(a), err => done(err));
+
+                    subject.next({ type: TM_SET_FILTER, filter: 'completed' });
+
+                    setTimeout(() => {
+                        const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
+                        expect(setActions.length).toBeGreaterThan(0);
+                        expect(setActions[0].processes).toEqual([]);
+                        sub.unsubscribe();
+                        done();
+                    }, 200);
+                });
+            });
         });
 
         describe('loadProcessDetailEpic', () => {

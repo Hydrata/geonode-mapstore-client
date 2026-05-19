@@ -26,6 +26,7 @@ import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {AnugaRunMenu} from "@js/plugins/hydrata/Anuga/components/anugaRunMenu";
 import {MembershipPanel} from "./membershipPanel";
+import RunPollingPausedBanner from "./runPollingPausedBanner";
 import {trackEvent} from "@js/utils/analytics";
 
 class AnugaContainer extends React.Component {
@@ -220,6 +221,12 @@ class AnugaContainer extends React.Component {
                     {this.props.visibleAnugaRunMenu ? <AnugaRunMenu/> : null}
                     {this.props.showNetworkMenu ? <NetworkMenu/> : null}
                     {this.props.showMembershipPanel ? <MembershipPanel/> : null}
+                    {/* W7 (TASK-1045) — paused-polling banner. Always
+                        mounted under isAnugaProject so the connected
+                        component can react to pollingTimeoutFor without
+                        re-mount churn. Returns null when the slice is
+                        falsy, so DOM cost is one stub div until it fires. */}
+                    <RunPollingPausedBanner/>
                 </div>
             ) :
             null;

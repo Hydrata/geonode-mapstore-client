@@ -317,7 +317,9 @@
         "runFailedHead": "Run failed",
         "emptyScenariosHeading": "No scenarios yet",
         "emptyScenariosSubcopy": "Click \"+ New scenario\" above to create your first run.",
-        "readOnlyPaneHint": "Read-only, your role does not allow editing."
+        "readOnlyPaneHint": "Read-only, your role does not allow editing.",
+        "pollingPaused": "Live updates paused",
+        "resumePolling": "Resume polling"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

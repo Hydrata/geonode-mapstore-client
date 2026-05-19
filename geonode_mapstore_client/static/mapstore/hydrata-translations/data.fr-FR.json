@@ -317,7 +317,9 @@
         "runFailedHead": "Échec de l'exécution",
         "emptyScenariosHeading": "Aucun scénario pour le moment",
         "emptyScenariosSubcopy": "Cliquez sur \"+ Nouveau scénario\" ci-dessus pour créer votre première exécution.",
-        "readOnlyPaneHint": "Lecture seule, votre rôle ne permet pas la modification."
+        "readOnlyPaneHint": "Lecture seule, votre rôle ne permet pas la modification.",
+        "pollingPaused": "Mises à jour en direct suspendues",
+        "resumePolling": "Reprendre"
       },
       "hydrology": {
         "ari05yr": "0.5yr",
