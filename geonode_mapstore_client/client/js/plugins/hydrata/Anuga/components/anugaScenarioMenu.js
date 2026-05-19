@@ -258,11 +258,6 @@ class AnugaScenarioMenuClass extends React.Component {
     }
   };
 
-  handleLogClick = (scenario) => {
-    if (this.props.selectAnugaScenario) this.props.selectAnugaScenario(scenario);
-    if (this.props.openTaskMonitorForRun) this.props.openTaskMonitorForRun();
-  };
-
   openConfirm = (action, scenario) => {
     this.setState({confirmingAction: action, confirmingScenario: scenario});
   };
@@ -352,7 +347,6 @@ class AnugaScenarioMenuClass extends React.Component {
         onBuildClick={this.handleBuildClick}
         onRunClick={this.handleRunClick}
         onRetryClick={this.handleRetryClick}
-        onLogClick={this.handleLogClick}
         onDuplicateClick={(s) => this.openConfirm('duplicate', s)}
         onArchiveClick={(s) => this.openConfirm('archive', s)}
         onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}

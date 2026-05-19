@@ -1453,10 +1453,12 @@ div that holds the feature-grid */
     font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
     font-size: 11px;
     line-height: 1.4;
-    max-height: 220px;
+    height: 220px;
     min-height: 80px;
-    overflow-y: auto;
+    overflow: auto;
+    resize: vertical;
     margin: 0;
+    text-align: left;
     white-space: pre-wrap;
     word-break: break-word;
     scrollbar-width: thin;

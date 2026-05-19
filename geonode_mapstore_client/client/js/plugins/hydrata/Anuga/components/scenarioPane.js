@@ -293,7 +293,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
 
 function renderStatusActionsPane({
     scenario, canEdit, canRunScenario, canDuplicateScenario,
-    onBuildClick, onRunClick, onRetryClick, onLogClick,
+    onBuildClick, onRunClick, onRetryClick,
     onDuplicateClick, onArchiveClick, onUnarchiveClick,
     onConfirmDelete, onConfirmCancelRun
 }) {
@@ -310,7 +310,6 @@ function renderStatusActionsPane({
                     onBuildClick={onBuildClick}
                     onRunClick={onRunClick}
                     onRetryClick={onRetryClick}
-                    onLogClick={onLogClick}
                     onDuplicateClick={onDuplicateClick}
                     onArchiveClick={onArchiveClick}
                     onUnarchiveClick={onUnarchiveClick}
@@ -430,7 +429,6 @@ ScenarioPane.propTypes = {
     onBuildClick: PropTypes.func,
     onRunClick: PropTypes.func,
     onRetryClick: PropTypes.func,
-    onLogClick: PropTypes.func,
     onDuplicateClick: PropTypes.func,
     onArchiveClick: PropTypes.func,
     onUnarchiveClick: PropTypes.func,

@@ -141,7 +141,6 @@ const ScenarioActionToolbar = ({
   onBuildClick,
   onRunClick,
   onRetryClick,
-  onLogClick,
   onDuplicateClick,
   onArchiveClick,
   onUnarchiveClick,
@@ -198,17 +197,6 @@ const ScenarioActionToolbar = ({
         </Button> : null
       }
       {runControl}
-      <Button
-        bsStyle={'info'}
-        bsSize={'xsmall'}
-        className="anuga-btn scenario-action-toolbar-btn scenario-action-log"
-        onClick={() => {
-          if (onLogClick) onLogClick(scenario);
-          trackEvent('button', 'click', 'anuga-scenario-menu-view-log');
-        }}
-      >
-        <Message msgId="hydrata.anuga.log" />
-      </Button>
       <Button
         bsStyle={isArchived ? 'success' : 'warning'}
         bsSize={'xsmall'}
@@ -273,7 +261,6 @@ ScenarioActionToolbar.propTypes = {
   onBuildClick: PropTypes.func,
   onRunClick: PropTypes.func,
   onRetryClick: PropTypes.func,
-  onLogClick: PropTypes.func,
   onDuplicateClick: PropTypes.func,
   onArchiveClick: PropTypes.func,
   onUnarchiveClick: PropTypes.func,

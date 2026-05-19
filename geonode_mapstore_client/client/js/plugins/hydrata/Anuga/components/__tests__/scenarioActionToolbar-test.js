@@ -162,21 +162,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
     });
   });
 
-  describe('Log / Duplicate / Archive / Delete visibility', () => {
-    it('always renders Log button', (done) => {
-      ReactDOM.render(
-        <ScenarioActionToolbar
-          scenario={baseScenario}
-          canEdit canRunScenario
-        />,
-        container,
-        () => {
-          expect(container.querySelector('.scenario-action-log')).toExist();
-          done();
-        }
-      );
-    });
-
+  describe('Duplicate / Archive / Delete visibility', () => {
     // Wave 3C — Duplicate moved to the scenario panel header (next to New
     // Scenario). The toolbar no longer renders a `.scenario-action-duplicate`
     // button. Header-level Duplicate behaviour is covered in
@@ -427,23 +413,6 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
       );
     });
 
-    it('Log click invokes onLogClick with the scenario', (done) => {
-      let captured = null;
-      ReactDOM.render(
-        <ScenarioActionToolbar
-          scenario={baseScenario}
-          canEdit canRunScenario
-          onLogClick={(s) => { captured = s; }}
-        />,
-        container,
-        () => {
-          container.querySelector('.scenario-action-log').click();
-          expect(captured?.id).toBe(21);
-          done();
-        }
-      );
-    });
-
     // Wave 3C — Duplicate moved to the scenario panel header. The toolbar
     // no longer wires onDuplicateClick anywhere; this guard exercises every
     // button on the toolbar and confirms the supplied onDuplicateClick prop
@@ -458,7 +427,6 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
           onBuildClick={() => {}}
           onRunClick={() => {}}
           onRetryClick={() => {}}
-          onLogClick={() => {}}
           onArchiveClick={() => {}}
           onUnarchiveClick={() => {}}
           onConfirmDelete={() => {}}
@@ -554,7 +522,6 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
           onBuildClick={() => {}}
           onRunClick={() => {}}
           onRetryClick={() => {}}
-          onLogClick={() => {}}
           onDuplicateClick={() => {}}
           onArchiveClick={() => {}}
           onUnarchiveClick={() => {}}

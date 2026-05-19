@@ -237,24 +237,6 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
     });
 
     describe('Action toolbar events', () => {
-        it('fires anuga-scenario-menu-view-log on Log button click', (done) => {
-            const s1 = makeScenario(21, 'A', {status: 'built'});
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const items = container.querySelectorAll('.anuga-scenario-category-item');
-            items[3].click(); // Status and actions
-            setTimeout(() => {
-                const logBtn = container.querySelector('.scenario-action-log');
-                expect(logBtn).toExist();
-                logBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-view-log');
-                done();
-            });
-        });
-
         it('fires anuga-scenario-menu-run on Run button click (built status)', (done) => {
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
