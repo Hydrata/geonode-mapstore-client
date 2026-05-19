@@ -177,7 +177,13 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
       );
     });
 
-    it('renders Duplicate button visible when canDuplicateScenario + scenario.id', (done) => {
+    // Wave 3C — Duplicate moved to the scenario panel header (next to New
+    // Scenario). The toolbar no longer renders a `.scenario-action-duplicate`
+    // button. Header-level Duplicate behaviour is covered in
+    // anugaScenarioMenu-test.js. Regression guard below asserts the toolbar
+    // really has no Duplicate button even when the prior preconditions
+    // (canDuplicateScenario + scenario.id) are present.
+    it('does NOT render Duplicate button even with canDuplicateScenario + scenario.id (moved to header)', (done) => {
       ReactDOM.render(
         <ScenarioActionToolbar
           scenario={baseScenario}
@@ -185,40 +191,7 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
         />,
         container,
         () => {
-          const dup = container.querySelector('.scenario-action-duplicate');
-          expect(dup).toExist();
-          expect(dup.className).toNotInclude('is-hidden');
-          done();
-        }
-      );
-    });
-
-    it('hides Duplicate when canDuplicateScenario false', (done) => {
-      ReactDOM.render(
-        <ScenarioActionToolbar
-          scenario={baseScenario}
-          canEdit canRunScenario
-        />,
-        container,
-        () => {
-          const dup = container.querySelector('.scenario-action-duplicate');
-          expect(dup).toExist();
-          expect(dup.className).toInclude('is-hidden');
-          done();
-        }
-      );
-    });
-
-    it('hides Duplicate when scenario.id missing (unsaved draft)', (done) => {
-      ReactDOM.render(
-        <ScenarioActionToolbar
-          scenario={{...baseScenario, id: null}}
-          canEdit canRunScenario canDuplicateScenario
-        />,
-        container,
-        () => {
-          const dup = container.querySelector('.scenario-action-duplicate');
-          expect(dup.className).toInclude('is-hidden');
+          expect(container.querySelector('.scenario-action-duplicate')).toBe(null);
           done();
         }
       );
@@ -471,18 +444,33 @@ describe('TASK-C ScenarioActionToolbar primitive (W2)', () => {
       );
     });
 
-    it('Duplicate click invokes onDuplicateClick with the scenario', (done) => {
-      let captured = null;
+    // Wave 3C — Duplicate moved to the scenario panel header. The toolbar
+    // no longer wires onDuplicateClick anywhere; this guard exercises every
+    // button on the toolbar and confirms the supplied onDuplicateClick prop
+    // is never invoked from here (call-spy assertion).
+    it('onDuplicateClick prop is never invoked from any toolbar button (dead prop)', (done) => {
+      let dupCalls = 0;
       ReactDOM.render(
         <ScenarioActionToolbar
           scenario={baseScenario}
           canEdit canRunScenario canDuplicateScenario
-          onDuplicateClick={(s) => { captured = s; }}
+          onDuplicateClick={() => { dupCalls++; }}
+          onBuildClick={() => {}}
+          onRunClick={() => {}}
+          onRetryClick={() => {}}
+          onLogClick={() => {}}
+          onArchiveClick={() => {}}
+          onUnarchiveClick={() => {}}
+          onConfirmDelete={() => {}}
+          onConfirmCancelRun={() => {}}
         />,
         container,
         () => {
-          container.querySelector('.scenario-action-duplicate').click();
-          expect(captured?.id).toBe(21);
+          const buttons = container.querySelectorAll('button:not(.is-hidden), a:not(.is-hidden)');
+          buttons.forEach((btn) => {
+            try { btn.click(); } catch (e) { /* ignore href anchors */ }
+          });
+          expect(dupCalls).toBe(0);
           done();
         }
       );

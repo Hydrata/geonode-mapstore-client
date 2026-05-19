@@ -83,6 +83,30 @@ describe('Wave 3A — ScenarioResourceSummary', () => {
             );
         });
     });
+
+    // Scenarios Option A redesign — scenarioPane's renderResourceSummary
+    // helper passes `extraClassName="is-empty"` when it falls back to the
+    // always-rendered placeholder card. The primitive must surface that
+    // class on the root .anuga-scenario-resource-summary div so the
+    // placeholder styling can target it without leaking into populated
+    // cards.
+    it('includes extraClassName="is-empty" on the root div', (done) => {
+        ReactDOM.render(
+            <ScenarioResourceSummary
+                kind="terrain"
+                body="Placeholder"
+                extraClassName="is-empty"
+            />,
+            container,
+            () => {
+                const card = container.querySelector('.anuga-scenario-resource-summary');
+                expect(card).toExist();
+                expect(card.className).toInclude('is-empty');
+                expect(card.className).toInclude('anuga-scenario-resource-summary--terrain');
+                done();
+            }
+        );
+    });
 });
 
 describe('Wave 3A — summariseResource helper', () => {

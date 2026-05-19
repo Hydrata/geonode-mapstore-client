@@ -17,11 +17,12 @@
  *     captured track-call labels.
  *
  * NOT covered (out of scope for this file — already covered elsewhere
- * or removed in the Miller refactor):
+ * or removed in the Miller / Option A refactor):
  *   - anuga-scenario-menu-{manage,advanced}-tab-toggle (header tabs
  *     removed — categories now live inside the pane as
  *     anuga-scenario-menu-category-{inputs,advanced,runConfig,
- *     statusActions,runLog} after Wave 3A vertical-rail refactor).
+ *     statusActions} after Wave 3A vertical-rail refactor; runLog was
+ *     dropped from the rail in the Option A redesign).
  *   - anuga-scenario-menu-build-validate-missing-{field} — fires only
  *     when Build is clicked on an invalid scenario; covered by the
  *     scenarioActionToolbar / Build code-path tests.
@@ -29,6 +30,11 @@
  *     scenarioRail-test.js (where the spy is local). The label is keyed
  *     on scenario.id (integer) rather than scenario.name to keep Umami
  *     event types bounded (was -{name} until Bug K7 fix).
+ *   - anuga-scenario-menu-archive-filter-{only,none} — chip UI removed
+ *     in Option A; see 'removed analytics labels regression guard'
+ *     block for the negative assertions guarding against regression.
+ *   - anuga-scenario-menu-category-runLog — runLog category removed
+ *     from the rail in Option A; regression guard below.
  */
 import expect from 'expect';
 import React from 'react';
@@ -102,13 +108,25 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
     }
 
     describe('Header strip events', () => {
+        // Scenarios Option A redesign — the header is now a flat
+        // .scenario-header-actions span with .anuga-btn-new-scenario /
+        // .anuga-btn-compare / .anuga-btn-run-compare /
+        // .anuga-btn-duplicate-header. The old #scenario-tab-button-group +
+        // .scenario-tab structure (active+compare tabs) is gone, along
+        // with #new-scenario-button and #depth-difference-button id
+        // wrappers. The archive-filter chip UI is removed entirely;
+        // setAnugaScenarioArchiveFilter still exists as a handler but no
+        // surface fires it (see the 'removed analytics labels regression
+        // guard' block below).
+
         it('fires anuga-scenario-menu-new-scenario on + New Scenario click', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const btn = container.querySelector('#new-scenario-button .anuga-btn');
+            const btn = container.querySelector('.anuga-btn-new-scenario');
+            expect(btn).toExist();
             btn.click();
             expect(labelsFired()).toInclude('anuga-scenario-menu-new-scenario');
         });
@@ -130,36 +148,15 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             expect(labelsFired()).toNotInclude('anuga-scenario-menu-close');
         });
 
-        it('fires anuga-scenario-menu-archive-filter-only when toggling archive chip', () => {
-            const store = makeStore({archiveFilter: 'none'});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const buttons = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab');
-            buttons[0].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-archive-filter-only');
-        });
-
-        it('fires anuga-scenario-menu-archive-filter-none when toggling archive chip off', () => {
-            const store = makeStore({archiveFilter: 'only'});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const buttons = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab');
-            buttons[0].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-archive-filter-none');
-        });
-
         it('fires anuga-scenario-menu-compare-tab-toggle when toggling compare mode', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const buttons = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab');
-            buttons[1].click();
+            const btn = container.querySelector('.anuga-btn-compare');
+            expect(btn).toExist();
+            btn.click();
             expect(labelsFired()).toInclude('anuga-scenario-menu-compare-tab-toggle');
         });
 
@@ -171,10 +168,12 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const buttons = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab');
-            buttons[1].click();
+            // Enter compare mode first so .anuga-btn-run-compare renders
+            // (it only mounts when compareMode && readyToCompare).
+            container.querySelector('.anuga-btn-compare').click();
             setTimeout(() => {
-                const execBtn = container.querySelector('#depth-difference-button .anuga-btn');
+                const execBtn = container.querySelector('.anuga-btn-run-compare');
+                expect(execBtn).toExist();
                 execBtn.click();
                 expect(labelsFired()).toInclude('anuga-scenario-menu-compare-execute');
                 done();
@@ -231,17 +230,10 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             expect(labelsFired()).toInclude('anuga-scenario-menu-category-statusActions');
         });
 
-        it('fires anuga-scenario-menu-category-runLog on Run log category click', () => {
-            const s1 = makeScenario(21, 'A');
-            const store = makeStore({scenariosArr: [s1]});
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container
-            );
-            const items = container.querySelectorAll('.anuga-scenario-category-item');
-            items[4].click();
-            expect(labelsFired()).toInclude('anuga-scenario-menu-category-runLog');
-        });
+        // Scenarios Option A redesign — runLog category was removed from
+        // the rail. The 'anuga-scenario-menu-category-runLog' label can no
+        // longer fire from this surface; the regression-guard block below
+        // asserts the category id is absent from the rail.
     });
 
     describe('Action toolbar events', () => {
@@ -350,23 +342,40 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             });
         });
 
-        it('fires anuga-scenario-menu-duplicate-scenario on Duplicate click', (done) => {
+        it('opens the confirm dialog when the header Duplicate button is clicked (saved scenario)', () => {
+            // Scenarios Option A redesign — Duplicate moved from the
+            // toolbar (.scenario-action-duplicate) to the header
+            // (.anuga-btn-duplicate-header). It opens the confirm dialog
+            // via openConfirm('duplicate', scenario) without firing a
+            // bare 'anuga-scenario-menu-duplicate-scenario' label — only
+            // -confirm / -duplicate-cancel fire from the dialog flow.
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.anuga-scenario-category-item');
-            items[3].click(); // Status and actions
-            setTimeout(() => {
-                const dupBtn = container.querySelector('.scenario-action-duplicate');
-                expect(dupBtn).toExist();
-                expect(dupBtn.className).toNotInclude('is-hidden');
-                dupBtn.click();
-                expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-scenario');
-                done();
-            });
+            const dupBtn = container.querySelector('.anuga-btn-duplicate-header');
+            expect(dupBtn).toExist();
+            expect(dupBtn.className).toNotInclude('disabled');
+            dupBtn.click();
+            const dialog = container.querySelector('.anuga-scenario-confirm-dialog.is-open');
+            expect(dialog).toExist();
+            // The header opens the dialog without a bare label; the
+            // -confirm / -cancel labels fire from the dialog buttons (see
+            // 'Confirm-dialog parity events' block below).
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-duplicate-scenario');
+        });
+
+        it('disables the header Duplicate button when no scenario is selected', () => {
+            const store = makeStore(); // no scenarios → no selectedScenario
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            const dupBtn = container.querySelector('.anuga-btn-duplicate-header');
+            expect(dupBtn).toExist();
+            expect(dupBtn.className).toInclude('disabled');
         });
 
         it('fires anuga-scenario-menu-archive-scenario on Archive click', (done) => {
@@ -466,23 +475,22 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
 
     describe('Confirm-dialog parity events', () => {
         it('fires anuga-scenario-menu-duplicate-scenario-confirm on Duplicate confirm', (done) => {
+            // Scenarios Option A — dialog opens from the header
+            // .anuga-btn-duplicate-header (not the toolbar). Confirm/
+            // cancel flow on the dialog itself is unchanged.
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.anuga-scenario-category-item');
-            items[3].click(); // Status and actions
+            container.querySelector('.anuga-btn-duplicate-header').click();
             setTimeout(() => {
-                container.querySelector('.scenario-action-duplicate').click();
-                setTimeout(() => {
-                    const confirmBtn = container.querySelector('.anuga-scenario-confirm-dialog.is-open .confirm');
-                    expect(confirmBtn).toExist();
-                    confirmBtn.click();
-                    expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-scenario-confirm');
-                    done();
-                });
+                const confirmBtn = container.querySelector('.anuga-scenario-confirm-dialog.is-open .confirm');
+                expect(confirmBtn).toExist();
+                confirmBtn.click();
+                expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-scenario-confirm');
+                done();
             });
         });
 
@@ -546,7 +554,86 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             });
         });
 
-        it('fires anuga-scenario-menu-confirm-cancel on confirm dialog Cancel', (done) => {
+        it('fires anuga-scenario-menu-duplicate-cancel on confirm dialog Cancel (header-opened)', (done) => {
+            // Cancel label uses the action that was active (duplicate).
+            // The dialog opens via the header .anuga-btn-duplicate-header
+            // post-Option A redesign; the cancel-label semantics are
+            // unchanged.
+            const s1 = makeScenario(21, 'A', {status: 'built'});
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            container.querySelector('.anuga-btn-duplicate-header').click();
+            setTimeout(() => {
+                const cancelBtn = container.querySelector('.anuga-scenario-confirm-dialog.is-open .cancel');
+                expect(cancelBtn).toExist();
+                cancelBtn.click();
+                expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-cancel');
+                done();
+            });
+        });
+    });
+
+    describe('removed analytics labels regression guard', () => {
+        // Three legacy labels are no longer fireable from this surface
+        // post-Option A redesign. The handler functions for archive-filter
+        // remain (setAnugaScenarioArchiveFilter is still a registered
+        // dispatch prop) but no DOM element wires them — so we assert
+        // the wiring elements themselves are gone. Per the TASK-897-class
+        // silent-event-drift concern, dropping a Umami label from a
+        // dashboard for 365d without a guard is a bigger risk than the
+        // tiny extra cost of these regression assertions.
+
+        it('does not render any .scenario-tab element (archive-filter chip UI removed)', () => {
+            const store = makeStore({archiveFilter: 'none'});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('.scenario-tab')).toNotExist();
+            // The removed labels cannot fire because no DOM hook reaches
+            // handleArchiveFilterToggle from this surface anymore.
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-archive-filter-only');
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-archive-filter-none');
+        });
+
+        it('does not render the #scenario-tab-button-group wrapper', () => {
+            const store = makeStore();
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
+        });
+
+        it('does not render a rail item with category id "runLog"', () => {
+            const s1 = makeScenario(21, 'A');
+            const store = makeStore({scenariosArr: [s1]});
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container
+            );
+            // Rail items now have 4 entries (inputs, advanced, runConfig,
+            // statusActions); runLog is removed from the rail data so
+            // the category-runLog label has no DOM hook.
+            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            expect(items.length).toBe(4);
+            // Walk all rail labels — none should textually claim runLog.
+            const labels = Array.from(container.querySelectorAll('.anuga-scenario-category-item-label'))
+                .map(n => (n.textContent || '').toLowerCase());
+            labels.forEach(text => {
+                expect(text.indexOf('run log')).toBe(-1);
+            });
+            // The category-runLog label cannot fire from this surface.
+            expect(labelsFired()).toNotInclude('anuga-scenario-menu-category-runLog');
+        });
+
+        it('does not render the toolbar .scenario-action-duplicate button', (done) => {
+            // Scenarios Option A — Duplicate moved from the toolbar to
+            // the header. The toolbar no longer fires the bare
+            // 'anuga-scenario-menu-duplicate-scenario' label.
             const s1 = makeScenario(21, 'A', {status: 'built'});
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
@@ -556,14 +643,9 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             const items = container.querySelectorAll('.anuga-scenario-category-item');
             items[3].click(); // Status and actions
             setTimeout(() => {
-                container.querySelector('.scenario-action-duplicate').click();
-                setTimeout(() => {
-                    const cancelBtn = container.querySelector('.anuga-scenario-confirm-dialog.is-open .cancel');
-                    cancelBtn.click();
-                    // Cancel label uses the action that was active (duplicate).
-                    expect(labelsFired()).toInclude('anuga-scenario-menu-duplicate-cancel');
-                    done();
-                });
+                expect(container.querySelector('.scenario-action-duplicate')).toNotExist();
+                expect(labelsFired()).toNotInclude('anuga-scenario-menu-duplicate-scenario');
+                done();
             });
         });
     });

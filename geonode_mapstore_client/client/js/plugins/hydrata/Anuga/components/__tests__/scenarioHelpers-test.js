@@ -7,10 +7,16 @@
  *   scenario (non-null object) → 'scenario'
  *   name (length > 0)          → 'name'
  *   terrain                    → 'terrain'
- *   inflow                     → 'inflow'
+ *   inflow OR rainfall         → 'inflowOrRainfall'
  *   resolution (> 0)           → 'resolution'
  *   duration (> 0)             → 'duration'
  *   boundary                   → 'boundary'
+ *
+ * Scenarios Option A redesign — Inflow and Rainfall are mutually
+ * substitutable water sources; the validator requires at least one of
+ * the two. Callers surface "inflowOrRainfall" via a dedicated message
+ * string. The category-rail tag counts them as a single slot too (3/3,
+ * not 4/4) so the build-validation and rail UIs agree.
  */
 import expect from 'expect';
 import { validateScenario, validateCategoryProgress, toHHMM, getSecondsFromHHMM } from '../scenarioHelpers';
@@ -54,8 +60,33 @@ describe('TASK-868 validateScenario', () => {
         expect(validateScenario(makeValidScenario({terrain: null}))).toBe('terrain');
     });
 
-    it('returns "inflow" when inflow is missing', () => {
-        expect(validateScenario(makeValidScenario({inflow: null}))).toBe('inflow');
+    it('returns "inflowOrRainfall" when both inflow and rainfall are missing', () => {
+        // Inflow + Rainfall share one validator slot — neither set fires
+        // the combined-name error.
+        const s = makeValidScenario({inflow: null});
+        delete s.rainfall;
+        expect(validateScenario(s)).toBe('inflowOrRainfall');
+    });
+
+    it('returns null when only rainfall is set (no inflow)', () => {
+        // Rainfall substitutes for Inflow — the validator must accept a
+        // rainfall-only scenario as fully valid.
+        const s = makeValidScenario({inflow: null, rainfall: 9});
+        expect(validateScenario(s)).toBe(null);
+    });
+
+    it('returns null when only inflow is set (no rainfall)', () => {
+        // Preserves prior pre-redesign behaviour where inflow alone was
+        // enough to satisfy the water-source slot.
+        const s = makeValidScenario({rainfall: null});
+        expect(validateScenario(s)).toBe(null);
+    });
+
+    it('returns "inflowOrRainfall" when both fields are absent (not null) on the scenario', () => {
+        const s = makeValidScenario();
+        delete s.inflow;
+        delete s.rainfall;
+        expect(validateScenario(s)).toBe('inflowOrRainfall');
     });
 
     it('returns "resolution" when resolution is 0', () => {
@@ -127,27 +158,61 @@ describe('K5 toHHMM', () => {
 
 describe('TASK-C Wave 3A validateCategoryProgress', () => {
     describe('inputs category', () => {
-        it('returns 4/4 + ok when all 4 inputs are assigned', () => {
+        // Scenarios Option A — 3 slots: terrain, boundary, water-source
+        // (inflow OR rainfall, mutually substitutable). 3/3 is the
+        // complete state, not 4/4.
+
+        it('returns 3/3 + ok when terrain + boundary + (inflow OR rainfall) assigned', () => {
             const s = {terrain: 1, boundary: 2, inflow: 3, rainfall: 4};
             const result = validateCategoryProgress('inputs', s);
-            expect(result.satisfied).toBe(4);
-            expect(result.total).toBe(4);
-            expect(result.tag).toBe('4/4');
+            expect(result.satisfied).toBe(3);
+            expect(result.total).toBe(3);
+            expect(result.tag).toBe('3/3');
             expect(result.severity).toBe('ok');
         });
 
-        it('returns 2/4 + warn when half of inputs are assigned', () => {
+        it('returns 2/3 + warn when 2 of 3 slots are filled (terrain + inflow, no boundary)', () => {
             const s = {terrain: 1, inflow: 3};
             const result = validateCategoryProgress('inputs', s);
-            expect(result.tag).toBe('2/4');
+            expect(result.satisfied).toBe(2);
+            expect(result.total).toBe(3);
+            expect(result.tag).toBe('2/3');
             expect(result.severity).toBe('warn');
         });
 
-        it('returns 0/4 + err when no inputs are assigned', () => {
+        it('returns 0/3 + err when none assigned', () => {
             const s = {name: 'empty'};
             const result = validateCategoryProgress('inputs', s);
-            expect(result.tag).toBe('0/4');
+            expect(result.tag).toBe('0/3');
             expect(result.severity).toBe('err');
+        });
+
+        it('counts rainfall-only as 1/3 + warn (no terrain, no boundary, no inflow)', () => {
+            const s = {terrain: null, boundary: null, rainfall: 4};
+            const result = validateCategoryProgress('inputs', s);
+            expect(result.satisfied).toBe(1);
+            expect(result.total).toBe(3);
+            expect(result.tag).toBe('1/3');
+            expect(result.severity).toBe('warn');
+        });
+
+        it('counts inflow-only as 1/3 + warn (preserves prior inflow-slot semantics)', () => {
+            const s = {terrain: null, boundary: null, inflow: 4};
+            const result = validateCategoryProgress('inputs', s);
+            expect(result.satisfied).toBe(1);
+            expect(result.total).toBe(3);
+            expect(result.tag).toBe('1/3');
+            expect(result.severity).toBe('warn');
+        });
+
+        it('counts both inflow AND rainfall as a single shared slot (3/3 not 4/3)', () => {
+            // The water-source slot is satisfied once — having both does
+            // not promote the count past total.
+            const s = {terrain: 1, boundary: 2, inflow: 3, rainfall: 4};
+            const result = validateCategoryProgress('inputs', s);
+            expect(result.satisfied).toBe(3);
+            expect(result.total).toBe(3);
+            expect(result.tag).toBe('3/3');
         });
     });
 

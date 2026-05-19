@@ -5,22 +5,25 @@ import {Provider} from 'react-redux';
 import {AnugaScenarioMenu, AnugaScenarioMenuClass} from '../anugaScenarioMenu';
 
 /**
- * TASK-C-scenarios-miller W3 — wave-level integration test for the new
- * Miller-columns scenarios container. Mirrors the SimpleView Inputs
- * miller test structure (describe blocks A-G).
+ * TASK-C-scenarios-miller — wave-level integration test for the new
+ * Miller-columns scenarios container. Re-cut after the Option A header
+ * refactor + 4-category rail (no runLog).
  *
  *   A. Rail+pane composition (mount, count rail items = scenarios.length,
  *      first is `.is-active` after auto-select).
  *   B. Pane swap on rail click (clicking a rail item flips `.is-active`
  *      and dispatches SELECT_ANUGA_SCENARIO).
- *   C. Category subtab switching (clicking Inputs/Advanced/Run/Actions
- *      flips the in-pane content).
+ *   C. Category subtab switching (4 items, Inputs / Advanced / Run config
+ *      / Status & actions; clicking flips the in-pane content; the
+ *      Status & actions pane now bundles the inline ScenarioRunLog block).
  *   D. Field-update dispatches (typing in the name field or changing a
  *      dropdown dispatches UPDATE_ANUGA_SCENARIO).
  *   E. Empty-scenarios fallback (rail empty + pane "no scenario"
  *      placeholder; container does not crash).
- *   F. Compare-mode toggle (clicking the chip flips local state +
- *      shows checkboxes; Execute Compare gates on exactly 2 selected).
+ *   F. Compare-mode (Option A header): clicking `.anuga-btn-compare`
+ *      flips local state + shows checkboxes; `.anuga-btn-run-compare`
+ *      renders only when readyToCompare; click dispatches
+ *      COMPARE_SCENARIOS.
  *   G. Cross-plugin no-leak smoke (mount alongside another panel,
  *      no state collision; mount/unmount cycle is clean).
  *
@@ -86,7 +89,7 @@ function makeScenario(id, name, extra = {}) {
   };
 }
 
-describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
+describe('ANUGA Scenarios Miller-columns integration', () => {
   let container;
   let origConfirm;
 
@@ -140,7 +143,7 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
       );
     });
 
-    it('Wave 3A — renders the 3-column shell: scenario rail / category rail / detail', (done) => {
+    it('renders the 3-column shell: scenario rail / category rail / detail', (done) => {
       const s1 = makeScenario(21, 'Baseline');
       const store = createMockStore({
         anuga: {
@@ -153,9 +156,9 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
         () => {
           // Pane 1 — scenario list rail (existing sv-category-rail).
           expect(container.querySelector('.sv-category-rail')).toExist();
-          // Pane 2 — vertical category rail (NEW Wave 3A).
+          // Pane 2 — vertical category rail.
           expect(container.querySelector('.anuga-scenario-category-rail')).toExist();
-          // Pane 3 — detail body (NEW Wave 3A).
+          // Pane 3 — detail body.
           expect(container.querySelector('.anuga-scenario-pane-detail')).toExist();
           done();
         }
@@ -208,6 +211,10 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
         container,
         () => {
           expect(container.querySelector('.scenario-menu-header')).toExist();
+          // Option A: header has #scenario-header-actions instead of
+          // the legacy #scenario-tab-button-group.
+          expect(container.querySelector('#scenario-header-actions')).toExist();
+          expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
           done();
         }
       );
@@ -244,10 +251,10 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
   });
 
   // ------------------------------------------------------------------
-  // C. Category rail switching (Wave 3A — 5 categories in vertical rail)
+  // C. Category rail switching (4 categories — no runLog)
   // ------------------------------------------------------------------
   describe('C. Category rail switching', () => {
-    it('renders 5 category items in the vertical rail (Inputs/Advanced/Run config/Status and actions/Run log)', (done) => {
+    it('renders 4 category items in the vertical rail (Inputs/Advanced/Run config/Status and actions)', (done) => {
       const s1 = makeScenario(21, 'Baseline');
       const store = createMockStore({
         anuga: {
@@ -259,7 +266,7 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
         container,
         () => {
           const items = container.querySelectorAll('.anuga-scenario-category-item');
-          expect(items.length).toBe(5);
+          expect(items.length).toBe(4);
           // Default: Inputs is active.
           expect(items[0].className).toInclude('is-active');
           expect(items[1].className).toNotInclude('is-active');
@@ -268,7 +275,25 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
       );
     });
 
-    it('clicking Advanced flips is-active and renders the friction dropdown', (done) => {
+    it('does not render any .anuga-scenario-category-section-label inside the rail', (done) => {
+      const s1 = makeScenario(21, 'Baseline');
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          const labels = container.querySelectorAll('.anuga-scenario-category-section-label');
+          expect(labels.length).toBe(0);
+          done();
+        }
+      );
+    });
+
+    it('clicking Advanced (items[1]) flips is-active and renders the friction dropdown', (done) => {
       const s1 = makeScenario(21, 'Baseline');
       const store = createMockStore({
         anuga: {
@@ -292,7 +317,7 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
       );
     });
 
-    it('clicking Run config renders resolution + duration + compute_backend', (done) => {
+    it('clicking Run config (items[2]) renders resolution + duration + compute_backend', (done) => {
       const s1 = makeScenario(21, 'Baseline');
       const store = createMockStore({
         anuga: {
@@ -315,7 +340,7 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
       );
     });
 
-    it('clicking Status and actions shows the status card + action toolbar', (done) => {
+    it('clicking Status and actions (items[3]) shows the status card + action toolbar', (done) => {
       const s1 = makeScenario(21, 'Baseline', {status: 'built'});
       const store = createMockStore({
         anuga: {
@@ -338,10 +363,49 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
       );
     });
 
-    it('clicking Run log shows the open-task-monitor button', (done) => {
+    it('Status and actions also renders the inline .anuga-scenario-pane-log block', (done) => {
+      // No run yet → log is empty string, lineCount is undefined (so no
+      // " (N)" suffix appears next to the title).
+      const s1 = makeScenario(21, 'Baseline', {status: 'created'});
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          const items = container.querySelectorAll('.anuga-scenario-category-item');
+          // Click the 4th category (Status and actions).
+          items[3].click();
+          setTimeout(() => {
+            const log = container.querySelector('.anuga-scenario-pane-log');
+            expect(log).toExist();
+            const title = container.querySelector('.anuga-scenario-pane-log-title');
+            expect(title).toExist();
+            // No intl provider in this test, so <Message msgId="hydrata.anuga.log" />
+            // renders the literal msgId string. Asserting the msgId substring
+            // is the closest deterministic check for "the log header was
+            // rendered using the right translation key".
+            expect(title.textContent).toInclude('hydrata.anuga.log');
+            // Without latest_run there is no " (N)" parenthetical suffix.
+            expect(title.textContent).toNotInclude('(');
+            const pre = container.querySelector('.anuga-scenario-pane-log-viewer');
+            expect(pre).toExist();
+            // No log text — CSS handles the placeholder via :empty::before.
+            // textContent must be empty (no string interpolated).
+            expect(pre.textContent.length).toBe(0);
+            done();
+          });
+        }
+      );
+    });
+
+    it('Status and actions log shows " (N)" line-count when latest_run.log_line_count is finite', (done) => {
       const s1 = makeScenario(21, 'Baseline', {
         status: 'built',
-        latest_run: {id: 999, log_line_count: 42}
+        latest_run: {id: 999, log: 'first line\nsecond line', log_line_count: 42}
       });
       const store = createMockStore({
         anuga: {
@@ -353,10 +417,14 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
         container,
         () => {
           const items = container.querySelectorAll('.anuga-scenario-category-item');
-          items[4].click(); // runLog
+          items[3].click(); // statusActions
           setTimeout(() => {
-            expect(container.querySelector('.anuga-scenario-pane-rows-run-log')).toExist();
-            expect(container.querySelector('.scenario-action-open-task-monitor')).toExist();
+            const title = container.querySelector('.anuga-scenario-pane-log-title');
+            expect(title).toExist();
+            expect(title.textContent).toInclude('(42)');
+            const pre = container.querySelector('.anuga-scenario-pane-log-viewer');
+            expect(pre.textContent).toInclude('first line');
+            expect(pre.textContent).toInclude('second line');
             done();
           });
         }
@@ -467,10 +535,10 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
   });
 
   // ------------------------------------------------------------------
-  // F. Compare-mode toggle
+  // F. Compare-mode (Option A header)
   // ------------------------------------------------------------------
-  describe('F. Compare-mode toggle', () => {
-    it('flips compareMode state and surfaces rail checkboxes', (done) => {
+  describe('F. Compare-mode toggle (Option A header)', () => {
+    it('clicking .anuga-btn-compare flips compareMode and surfaces rail checkboxes', (done) => {
       const s1 = makeScenario(21, 'Baseline');
       const s2 = makeScenario(22, 'With levee');
       const store = createMockStore({
@@ -485,40 +553,25 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
           // Initially: checkboxes hidden.
           let checkboxes = container.querySelectorAll('.scenario-rail-item-compare-checkbox.is-hidden');
           expect(checkboxes.length).toBe(2);
-          // Find and click the Compare toggle (second button in the header tab group).
-          const tabButtons = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab');
-          expect(tabButtons.length).toBe(2);
-          tabButtons[1].click(); // compare-mode toggle
+          // Click the Compare button in the new action strip.
+          const compareBtn = container.querySelector('.anuga-btn-compare');
+          expect(compareBtn).toExist();
+          compareBtn.click();
           setTimeout(() => {
             const visibleCheckboxes = container.querySelectorAll('.scenario-rail-item-compare-checkbox:not(.is-hidden)');
             expect(visibleCheckboxes.length).toBe(2);
+            const compareBtnAfter = container.querySelector('.anuga-btn-compare');
+            expect(compareBtnAfter.className).toInclude('is-active');
             done();
           });
         }
       );
     });
 
-    it('Execute Compare button is hidden by default and shown in compare mode', (done) => {
-      const store = createMockStore();
-      ReactDOM.render(
-        <Provider store={store}><AnugaScenarioMenu /></Provider>,
-        container,
-        () => {
-          expect(container.querySelector('#depth-difference-button')).toNotExist();
-          // Toggle compare.
-          const tabButtons = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab');
-          tabButtons[1].click();
-          setTimeout(() => {
-            expect(container.querySelector('#depth-difference-button')).toExist();
-            done();
-          });
-        }
-      );
-    });
-
-    it('dispatches COMPARE_SCENARIOS only when exactly 2 scenarios are selected', (done) => {
-      const s1 = makeScenario(21, 'Baseline', {selected: true});
-      const s2 = makeScenario(22, 'With levee', {selected: true});
+    it('.anuga-btn-run-compare absent until compareMode AND 2 scenarios are selected', (done) => {
+      // No `selected: true` scenarios → readyToCompare is false.
+      const s1 = makeScenario(21, 'A');
+      const s2 = makeScenario(22, 'B');
       const store = createMockStore({
         anuga: {
           scenarios: {byId: {21: s1, 22: s2}, allIds: [21, 22], archiveFilter: 'none', selectedId: 21}
@@ -528,14 +581,62 @@ describe('ANUGA Scenarios Miller-columns integration (TASK-C W3)', () => {
         <Provider store={store}><AnugaScenarioMenu /></Provider>,
         container,
         () => {
-          // Toggle compare on.
-          const tabButtons = container.querySelectorAll('#scenario-tab-button-group button.scenario-tab');
-          tabButtons[1].click();
+          expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
+          // Toggle compare.
+          const compareBtn = container.querySelector('.anuga-btn-compare');
+          compareBtn.click();
           setTimeout(() => {
-            const execBtn = container.querySelector('#depth-difference-button .anuga-btn');
-            expect(execBtn).toExist();
-            expect(execBtn.className).toNotInclude('disabled');
-            execBtn.click();
+            // Still not rendered — no scenarios are .selected.
+            expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
+            done();
+          });
+        }
+      );
+    });
+
+    it('.anuga-btn-run-compare renders when compareMode && readyToCompare', (done) => {
+      const s1 = makeScenario(21, 'A', {selected: true});
+      const s2 = makeScenario(22, 'B', {selected: true});
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1, 22: s2}, allIds: [21, 22], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          // Off-by-default check.
+          expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
+          // Toggle compare on.
+          const compareBtn = container.querySelector('.anuga-btn-compare');
+          compareBtn.click();
+          setTimeout(() => {
+            expect(container.querySelector('.anuga-btn-run-compare')).toExist();
+            done();
+          });
+        }
+      );
+    });
+
+    it('clicking .anuga-btn-run-compare dispatches COMPARE_SCENARIOS exactly once', (done) => {
+      const s1 = makeScenario(21, 'A', {selected: true});
+      const s2 = makeScenario(22, 'B', {selected: true});
+      const store = createMockStore({
+        anuga: {
+          scenarios: {byId: {21: s1, 22: s2}, allIds: [21, 22], archiveFilter: 'none', selectedId: 21}
+        }
+      });
+      ReactDOM.render(
+        <Provider store={store}><AnugaScenarioMenu /></Provider>,
+        container,
+        () => {
+          const compareBtn = container.querySelector('.anuga-btn-compare');
+          compareBtn.click();
+          setTimeout(() => {
+            const runCompare = container.querySelector('.anuga-btn-run-compare');
+            expect(runCompare).toExist();
+            runCompare.click();
             const dispatched = store.__actions().filter(a => a?.type === 'COMPARE_SCENARIOS');
             expect(dispatched.length).toBe(1);
             done();
