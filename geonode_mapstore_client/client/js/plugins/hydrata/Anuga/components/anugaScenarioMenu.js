@@ -14,7 +14,6 @@ import {
   updateAnugaScenario,
   saveAnugaScenario,
   buildScenarioExplicit,
-  runAnugaScenario, // eslint-disable-line no-unused-vars -- W3 wires Run pipeline directly; today the Run button uses showAnugaRunMenu instead
   cancelAnugaRun,
   retryAnugaRun,
   deleteAnugaScenario,
@@ -32,6 +31,7 @@ import {
   canCreateScenario,
   canRunScenario,
   getProjectMyRole,
+  getScenariosArray,
   getSelectedScenario,
   canEditScenarioByRole,
   selectedScenarios as selectedScenariosSelector
@@ -42,11 +42,10 @@ import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane} from './scenarioPane';
 
 /**
- * TASK-C-scenarios-miller — Miller-columns container for the ANUGA scenarios
- * panel. Replaces the legacy table-driven anugaScenarioMenu.js (W3 cutover).
+ * Miller-columns container for the ANUGA scenarios panel.
  *
  * Local component state:
- *   - selectedCategoryId — Inputs / Advanced / Run / Actions subtab.
+ *   - selectedCategoryId — 'inputs' / 'advanced' / 'runConfig' / 'statusActions'.
  *   - compareMode — header chip toggle; rail items expose compare checkboxes.
  *   - confirmingAction — single 'duplicate' | 'archive' | 'unarchive' |
  *     'delete' | 'cancel-run' string gating the container-level inline
@@ -62,6 +61,17 @@ import {ScenarioPane} from './scenarioPane';
  * status/action-button renders to ScenarioActionToolbar (via ScenarioPane),
  * all rail item renders to ScenarioRailItem.
  */
+// Body + confirm-button msgId pair, keyed off confirmingAction state. ICU
+// MessageFormat (used by react-intl) tolerates an unused {name} placeholder,
+// so each entry can interpolate the scenario name via msgParams uniformly.
+const CONFIRM_DIALOG_MSG_IDS = {
+  duplicate:    {body: 'hydrata.anuga.confirmDuplicateScenario',   confirm: 'hydrata.anuga.btnDuplicate'},
+  archive:      {body: 'hydrata.anuga.confirmArchiveScenario',     confirm: 'hydrata.anuga.btnArchive'},
+  unarchive:    {body: 'hydrata.anuga.confirmUnarchiveScenario',   confirm: 'hydrata.anuga.btnRestore'},
+  delete:       {body: 'hydrata.anuga.confirmDeleteScenario',      confirm: 'hydrata.anuga.btnDelete'},
+  'cancel-run': {body: 'hydrata.anuga.confirmCancelRunScenario',   confirm: 'hydrata.anuga.btnCancelRun'}
+};
+
 class AnugaScenarioMenuClass extends React.Component {
   static propTypes = {
     // Redux state
@@ -112,7 +122,7 @@ class AnugaScenarioMenuClass extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      // Wave 3A renamed: 'inputs' / 'advanced' / 'runConfig' / 'statusActions' / 'runLog'.
+      // 'inputs' / 'advanced' / 'runConfig' / 'statusActions'.
       // Default starts on 'inputs' to match the operator-approved Option A.
       selectedCategoryId: 'inputs',
       compareMode: false,
@@ -415,28 +425,8 @@ class AnugaScenarioMenuClass extends React.Component {
   renderConfirmDialog() {
     const {confirmingAction, confirmingScenario} = this.state;
     const isOpen = !!confirmingAction;
-    // Body + confirm-button msgId pair, keyed off confirmingAction. msgParams
-    // carries the scenario name through to {name} placeholder in each body
-    // string. ICU MessageFormat (used by react-intl) tolerates an unused
-    // msgParams entry, so we can pass it unconditionally.
-    let bodyMsgId = null;
-    let confirmLabelMsgId = null;
-    if (confirmingAction === 'duplicate') {
-      bodyMsgId = 'hydrata.anuga.confirmDuplicateScenario';
-      confirmLabelMsgId = 'hydrata.anuga.btnDuplicate';
-    } else if (confirmingAction === 'archive') {
-      bodyMsgId = 'hydrata.anuga.confirmArchiveScenario';
-      confirmLabelMsgId = 'hydrata.anuga.btnArchive';
-    } else if (confirmingAction === 'unarchive') {
-      bodyMsgId = 'hydrata.anuga.confirmUnarchiveScenario';
-      confirmLabelMsgId = 'hydrata.anuga.btnRestore';
-    } else if (confirmingAction === 'delete') {
-      bodyMsgId = 'hydrata.anuga.confirmDeleteScenario';
-      confirmLabelMsgId = 'hydrata.anuga.btnDelete';
-    } else if (confirmingAction === 'cancel-run') {
-      bodyMsgId = 'hydrata.anuga.confirmCancelRunScenario';
-      confirmLabelMsgId = 'hydrata.anuga.btnCancelRun';
-    }
+    const dialogEntry = CONFIRM_DIALOG_MSG_IDS[confirmingAction] || {};
+    const {body: bodyMsgId, confirm: confirmLabelMsgId} = dialogEntry;
     const name = confirmingScenario?.name || 'this scenario';
     return (
       <span
@@ -523,15 +513,9 @@ class AnugaScenarioMenuClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-  const byId = state?.anuga?.scenarios?.byId || {};
-  const allIds = state?.anuga?.scenarios?.allIds || [];
-  const scenarios = allIds.map(id => byId[id]).filter(Boolean).sort((a, b) => {
-    const aId = a.id || 0;
-    const bId = b.id || 0;
-    return aId - bId;
-  });
+  const selected = selectedScenariosSelector(state);
   return {
-    scenarios,
+    scenarios: getScenariosArray(state),
     selectedScenario: getSelectedScenario(state),
     archiveFilter: state?.anuga?.scenarios?.archiveFilter || 'none',
     terrain: state?.anuga?.resources?.terrain,
@@ -547,8 +531,8 @@ const mapStateToProps = (state) => {
     canRunScenario: canRunScenario(state),
     myRole: getProjectMyRole(state),
     currentUserId: state?.security?.user?.pk,
-    selectedScenarios: selectedScenariosSelector(state),
-    readyToCompare: selectedScenariosSelector(state).length === 2
+    selectedScenarios: selected,
+    readyToCompare: selected.length === 2
   };
 };
 

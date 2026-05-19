@@ -74,18 +74,19 @@ const CATEGORY_GLYPHS = {
     statusActions: 'glyphicon-play-circle'
 };
 
+// SECTIONS + CATEGORIES are module-level constants, so the per-section
+// grouping is too — hoisting out of render avoids rebuilding the lookup
+// on every keystroke in the name input.
+const ITEMS_BY_SECTION = SECTIONS.reduce((acc, s) => {
+    acc[s.id] = CATEGORIES.filter(cat => cat.section === s.id);
+    return acc;
+}, {});
+
 const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}) => {
     const handleSelect = (categoryId) => {
         if (onSelectCategory) onSelectCategory(categoryId);
         trackEvent('button', 'click', `anuga-scenario-menu-category-${categoryId}`);
     };
-
-    // Group categories by section so we can interleave section labels.
-    const itemsBySection = {};
-    SECTIONS.forEach(s => { itemsBySection[s.id] = []; });
-    CATEGORIES.forEach(cat => {
-        if (itemsBySection[cat.section]) itemsBySection[cat.section].push(cat);
-    });
 
     return (
         <div
@@ -98,7 +99,7 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}) 
                     key={section.id}
                     className={`anuga-scenario-category-section anuga-scenario-category-section-${section.id}`}
                 >
-                    {itemsBySection[section.id].map(cat => {
+                    {ITEMS_BY_SECTION[section.id].map(cat => {
                         const isActive = cat.id === selectedCategoryId;
                         const progress = validateCategoryProgress(cat.id, scenario);
                         const className = [

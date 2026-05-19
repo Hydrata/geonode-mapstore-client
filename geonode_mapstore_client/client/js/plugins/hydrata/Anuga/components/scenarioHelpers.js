@@ -21,10 +21,11 @@ export const getSecondsFromHHMM = (userInputValue) => {
 
 export const toHHMM = (secs) => {
     // Convert seconds to whole minutes, then split into zero-padded HH:MM (hours may exceed 99 for long durations).
-    if (!Number.isFinite(Number(secs)) || secs === null || secs === undefined || secs <= 0) {
+    const n = Number(secs);
+    if (!Number.isFinite(n) || n <= 0) {
         return '00:00';
     }
-    const totalMinutes = Math.floor(Number(secs) / 60);
+    const totalMinutes = Math.floor(n / 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     const hh = String(hours).padStart(2, '0');
@@ -113,7 +114,6 @@ export const validateScenario = (scenario) => {
  *                       cancelled → "—" + warn
  *                       created   → "—" + warn
  *                       queued/processing/building → "..." + warn
- *   - 'runLog'        — log_line_count if available, else "—".
  *
  * Defensive contract: null/undefined scenarios return a no-op tag
  * ({satisfied: 0, total: N, tag: '—', severity: 'warn'}) so the rail
@@ -152,8 +152,7 @@ export const validateCategoryProgress = (category, scenario) => {
         const satisfied = fields.filter(f => scenario[f] != null && scenario[f] !== '').length; // eslint-disable-line no-eq-null, eqeqeq
         const total = fields.length;
         // Advanced fields are optional; never err.
-        const severity = satisfied === 0 ? 'ok' : 'ok';
-        return {satisfied, total, tag: `${satisfied}/${total}`, severity, unsaved};
+        return {satisfied, total, tag: `${satisfied}/${total}`, severity: 'ok', unsaved};
     }
 
     if (category === 'runConfig') {
@@ -198,14 +197,6 @@ export const validateCategoryProgress = (category, scenario) => {
         default:
             return {satisfied: 0, total: 1, tag: '—', severity: 'warn', unsaved};
         }
-    }
-
-    if (category === 'runLog') {
-        const lineCount = scenario?.latest_run?.log_line_count;
-        if (Number.isFinite(lineCount) && lineCount > 0) {
-            return {satisfied: 1, total: 1, tag: String(lineCount), severity: 'ok', unsaved};
-        }
-        return {satisfied: 0, total: 1, tag: '—', severity: 'warn', unsaved};
     }
 
     // Unknown category — neutral fallback (defensive default so adding a

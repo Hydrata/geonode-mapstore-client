@@ -299,22 +299,6 @@ describe('TASK-C Wave 3A validateCategoryProgress', () => {
         });
     });
 
-    describe('runLog category', () => {
-        it('returns line count + ok when latest_run.log_line_count > 0', () => {
-            const s = {latest_run: {log_line_count: 231}};
-            const result = validateCategoryProgress('runLog', s);
-            expect(result.tag).toBe('231');
-            expect(result.severity).toBe('ok');
-        });
-
-        it('returns dash + warn when no log lines yet', () => {
-            const s = {latest_run: {}};
-            const result = validateCategoryProgress('runLog', s);
-            expect(result.tag).toBe('—');
-            expect(result.severity).toBe('warn');
-        });
-    });
-
     describe('defensive defaults', () => {
         it('returns a neutral fallback when scenario is null', () => {
             const result = validateCategoryProgress('inputs', null);
@@ -333,7 +317,7 @@ describe('TASK-C Wave 3A validateCategoryProgress', () => {
         // Coarse signal: scenario.unsaved===true should propagate to every
         // category's `unsaved` flag identically. Per-category diffing would
         // require a backend snapshot cache — out of scope.
-        const allCategories = ['inputs', 'advanced', 'runConfig', 'statusActions', 'runLog'];
+        const allCategories = ['inputs', 'advanced', 'runConfig', 'statusActions'];
 
         it('returns unsaved=false when scenario has no unsaved flag', () => {
             const s = {terrain: 1, boundary: 2, inflow: 3};

@@ -25,14 +25,7 @@ import {ScenarioStatusPill} from './scenarioStatusPill';
  * progress bar would later live.
  */
 
-function formatElapsed(seconds) {
-    if (!Number.isFinite(seconds) || seconds <= 0) return null;
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}m ${String(s).padStart(2, '0')}s`;
-}
-
-function formatEta(seconds) {
+function formatMinSec(seconds) {
     if (!Number.isFinite(seconds) || seconds <= 0) return null;
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
@@ -44,8 +37,8 @@ const ScenarioStatusCard = ({scenario}) => {
     const status = findScenarioStatus(scenario);
     const latestRun = scenario.latest_run || {};
     const pct = Number.isFinite(latestRun.progress_pct) ? latestRun.progress_pct : null;
-    const etaText = formatEta(latestRun.eta_seconds);
-    const elapsedText = formatElapsed(latestRun.elapsed_seconds);
+    const etaText = formatMinSec(latestRun.eta_seconds);
+    const elapsedText = formatMinSec(latestRun.elapsed_seconds);
     const showProgressBar = (
         status === 'computing'
         || (status === 'error' && pct != null && pct > 0) // eslint-disable-line no-eq-null, eqeqeq

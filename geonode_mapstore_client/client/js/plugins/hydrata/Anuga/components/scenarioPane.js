@@ -1,7 +1,7 @@
 import React from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
-import {findScenarioStatus, toHHMM, getSecondsFromHHMM} from './scenarioHelpers';
+import {toHHMM, getSecondsFromHHMM} from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 import {ScenarioActionToolbar} from './scenarioActionToolbar';
 import {ScenarioCategoryRail} from './scenarioCategoryRail';
@@ -10,20 +10,16 @@ import {ScenarioStatusCard} from './scenarioStatusCard';
 import {ScenarioErrorStrip} from './scenarioErrorStrip';
 
 /**
- * TASK-C-scenarios-miller Wave 3A — per-category pane renderer for the
- * Miller-columns scenarios panel. Replaces the 4 horizontal subtabs at
- * the top of the legacy ScenarioPane with a vertical category rail
- * (`ScenarioCategoryRail`, Pane 2) plus rich per-category detail content
- * (Pane 3).
+ * Per-category pane renderer for the Miller-columns scenarios panel. The
+ * vertical category rail (`ScenarioCategoryRail`, Pane 2) drives a per-
+ * category detail body (Pane 3).
  *
- * The 4 legacy categories ('inputs' / 'advanced' / 'run' / 'actions')
- * are replaced by 5 ('inputs' / 'advanced' / 'runConfig' / 'statusActions' /
- * 'runLog'). The Run config category absorbs the resolution/duration/
- * compute-backend choice that used to be split between Advanced (res +
- * duration) and the legacy AnugaRunMenu modal (compute_backend). Status
- * and actions consolidates the legacy Run + Actions subtabs and adds the
- * new ScenarioStatusCard + ScenarioErrorStrip. Run log is a stub for the
- * existing TaskMonitor wiring (`onLogClick`).
+ * 4 categories: 'inputs' / 'advanced' / 'runConfig' / 'statusActions'.
+ * runConfig absorbs the resolution/duration/compute-backend choice that
+ * used to live in Advanced + the legacy AnugaRunMenu modal. statusActions
+ * consolidates the legacy Run + Actions subtabs and adds the new
+ * ScenarioStatusCard + ScenarioErrorStrip. The inline ScenarioRunLog is
+ * embedded at the bottom of the statusActions pane.
  *
  * Field-edit callbacks (name, dropdowns, resolution, duration, compute
  * backend) dispatch through the container's `onUpdateScenario` prop.
@@ -111,7 +107,7 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
 }
 
 function renderResourceSummary(scenario, kind, resourceList) {
-    const assignedId = scenario?.[kind === 'mesh_region' ? 'mesh_region' : kind];
+    const assignedId = scenario?.[kind];
     const summary = summariseResource(resourceList, assignedId, kind);
     if (summary) {
         return (
@@ -450,22 +446,3 @@ ScenarioPane.defaultProps = {
 };
 
 export {ScenarioPane, VALID_CATEGORIES};
-
-// Legacy export shape — preserved for tests that import the old name.
-// The legacy CATEGORIES array shape (with 4 entries inputs/advanced/run/
-// actions) is no longer used in production; the new ScenarioCategoryRail
-// owns the 5-entry list. Exporting an empty array would silently break
-// older consumers, so we re-export the new VALID_CATEGORIES list as
-// CATEGORIES for backwards compatibility.
-export const CATEGORIES = VALID_CATEGORIES.map(id => ({
-    id,
-    msgId: id === 'runConfig'
-        ? 'hydrata.anuga.runConfig'
-        : id === 'statusActions'
-            ? 'hydrata.anuga.statusActions'
-            : id === 'inputs'
-                ? 'hydrata.anuga.requiredInputs'
-                : id === 'advanced'
-                    ? 'hydrata.anuga.optionalInputs'
-                    : `hydrata.anuga.${id}`
-}));
