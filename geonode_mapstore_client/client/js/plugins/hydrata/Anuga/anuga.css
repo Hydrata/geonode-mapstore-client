@@ -109,6 +109,60 @@
     top: 11px;
 }
 
+/* Scenarios header right-cluster — Compare toggle, Duplicate, New Scenario.
+ * Replaces the legacy `.scenario-tab` tab strip + `#new-scenario-button`
+ * absolute single-button. Flex row pinned to the right edge of the header. */
+.scenario-header-actions {
+    position: absolute;
+    right: 12px;
+    top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.scenario-header-actions .anuga-btn {
+    margin: 0;
+}
+
+.anuga-btn-compare {
+    background-color: #6085b5;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.anuga-btn-compare:hover {
+    background-color: #7297c5;
+    color: #ffffff;
+}
+
+.anuga-btn-compare.is-active {
+    background-color: #ffffff;
+    color: #3363a0;
+    border-color: #3363a0;
+}
+
+/* Duplicate header button — visually identical to the Compare button so the
+ * two secondary header actions read as a uniform pair (only New Scenario
+ * stands out as the primary green CTA). */
+.anuga-btn-duplicate-header {
+    background-color: #6085b5;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.anuga-btn-duplicate-header:hover:not(.disabled) {
+    background-color: #7297c5;
+    color: #ffffff;
+}
+
+.anuga-btn-duplicate-header.disabled,
+.anuga-btn-duplicate-header[disabled] {
+    background-color: rgba(96, 133, 181, 0.45);
+    color: rgba(255, 255, 255, 0.55);
+    cursor: not-allowed;
+}
+
 .scenario-select {
     border-radius: 3px;
     width: 100px;
@@ -123,6 +177,17 @@
     text-align: center;
     background: rgba(255, 255, 255, 0.22);
     color: #f4f4f4;
+}
+
+/* Scenario pane (Miller-columns Pane 3) selects fill the available field
+ * column so long resource titles (e.g. "Grand Canyon DEM 1m") are readable
+ * without truncation. The legacy 100px fixed width only fit short names. */
+.anuga-scenario-pane-field > .scenario-select {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+    padding-left: 6px;
+    padding-right: 6px;
 }
 
 .add-data-input {
@@ -1341,6 +1406,87 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.45);
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
+}
+
+/* Empty-state resource summary — rendered when no value is selected in the
+ * adjacent dropdown. Keeps the dark card always visible so the layout
+ * doesn't reflow as the user picks values. */
+.anuga-scenario-resource-summary.is-empty {
+    opacity: 0.55;
+    font-style: italic;
+}
+
+.anuga-scenario-resource-summary-placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* Inline log tail rendered at the bottom of the Run pane — replaces the
+ * former "Run log" category. Auto-scrolls to the latest line on log change
+ * (see ScenarioRunLog in scenarioPane.js). */
+.anuga-scenario-pane-log {
+    margin: 6px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.anuga-scenario-pane-log-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.anuga-scenario-pane-log-title {
+    font-weight: 600;
+}
+
+.anuga-scenario-pane-log-viewer {
+    background: #000000cc;
+    color: #c8e6c9;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    max-height: 220px;
+    min-height: 80px;
+    overflow-y: auto;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    scrollbar-width: thin;
+    scrollbar-color: #5178af transparent;
+}
+
+.anuga-scenario-pane-log-viewer:empty::before {
+    content: '(no log output yet)';
+    color: rgba(255, 255, 255, 0.35);
+    font-style: italic;
+}
+
+/* Log button — dark blue background to match the header Duplicate button
+ * style and improve contrast vs the light-blue bootstrap "info" default. */
+.anuga-btn.scenario-action-log {
+    background-color: #003c88;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.anuga-btn.scenario-action-log:hover:not(.disabled):not([disabled]),
+.anuga-btn.scenario-action-log:focus {
+    background-color: #1d57a8;
+    color: #ffffff;
+}
+
+.anuga-btn.scenario-action-log:disabled,
+.anuga-btn.scenario-action-log.disabled {
+    background-color: rgba(0, 60, 136, 0.35);
+    color: rgba(255, 255, 255, 0.55);
 }
 
 /* Status card (Status & actions Pane 3) */

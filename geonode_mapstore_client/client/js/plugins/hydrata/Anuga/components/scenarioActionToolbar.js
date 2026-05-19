@@ -162,7 +162,7 @@ const ScenarioActionToolbar = ({
   const canDeleteScenario = !isCancellable && canEdit;
   const showDeleteOrCancel = canCancelRun || canDeleteScenario;
 
-  const showDuplicate = canDuplicateScenario && !!scenario.id && !isCancellable;
+  // Duplicate button moved to the scenario panel header (next to New Scenario).
   // Wave 3C C1 — Archive button now renders disabled (instead of hidden)
   // while a run is in progress, with a hover tooltip explaining why. Better
   // discovery than the prior toast-after-roundtrip 412 path. The button is
@@ -208,18 +208,6 @@ const ScenarioActionToolbar = ({
         }}
       >
         <Message msgId="hydrata.anuga.log" />
-      </Button>
-      <Button
-        bsStyle={'info'}
-        bsSize={'xsmall'}
-        className={"anuga-btn anuga-btn-duplicate scenario-action-toolbar-btn scenario-action-duplicate"
-          + (showDuplicate ? '' : ' is-hidden')}
-        onClick={() => {
-          if (onDuplicateClick) onDuplicateClick(scenario);
-          trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario');
-        }}
-      >
-        <span className="glyphicon glyphicon-duplicate" aria-hidden="true" />
       </Button>
       <Button
         bsStyle={isArchived ? 'success' : 'warning'}

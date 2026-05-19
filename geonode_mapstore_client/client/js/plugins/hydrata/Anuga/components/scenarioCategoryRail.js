@@ -38,12 +38,12 @@ const CATEGORIES = [
     {
         id: 'inputs',
         section: 'inputs',
-        msgId: 'hydrata.anuga.inputs'
+        msgId: 'hydrata.anuga.requiredInputs'
     },
     {
         id: 'advanced',
         section: 'inputs',
-        msgId: 'hydrata.anuga.advanced'
+        msgId: 'hydrata.anuga.optionalInputs'
     },
     {
         id: 'runConfig',
@@ -54,11 +54,6 @@ const CATEGORIES = [
         id: 'statusActions',
         section: 'execution',
         msgId: 'hydrata.anuga.statusActions'
-    },
-    {
-        id: 'runLog',
-        section: 'execution',
-        msgId: 'hydrata.anuga.runLog'
     }
 ];
 
@@ -76,8 +71,7 @@ const CATEGORY_GLYPHS = {
     inputs: 'glyphicon-th-large',
     advanced: 'glyphicon-cog',
     runConfig: 'glyphicon-wrench',
-    statusActions: 'glyphicon-play-circle',
-    runLog: 'glyphicon-list-alt'
+    statusActions: 'glyphicon-play-circle'
 };
 
 const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}) => {
@@ -104,9 +98,6 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}) 
                     key={section.id}
                     className={`anuga-scenario-category-section anuga-scenario-category-section-${section.id}`}
                 >
-                    <div className="anuga-scenario-category-section-label">
-                        <Message msgId={section.msgId} />
-                    </div>
                     {itemsBySection[section.id].map(cat => {
                         const isActive = cat.id === selectedCategoryId;
                         const progress = validateCategoryProgress(cat.id, scenario);

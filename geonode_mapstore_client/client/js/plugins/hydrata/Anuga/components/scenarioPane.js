@@ -31,7 +31,47 @@ import {ScenarioErrorStrip} from './scenarioErrorStrip';
  * ScenarioActionToolbar.
  */
 
-const VALID_CATEGORIES = ['inputs', 'advanced', 'runConfig', 'statusActions', 'runLog'];
+const VALID_CATEGORIES = ['inputs', 'advanced', 'runConfig', 'statusActions'];
+
+/**
+ * Inline log tail rendered at the bottom of the Run (statusActions) pane.
+ * Auto-scrolls to the latest line when the log prop changes. Pulled from
+ * `scenario?.latest_run?.log` upstream (the same string the TaskMonitor
+ * ProcessLogViewer renders); kept as a tiny local class component so the
+ * scenarios pane doesn't need to import a TaskMonitor component (which
+ * would couple to that plugin's CSS for log styling).
+ */
+class ScenarioRunLog extends React.Component {
+    static propTypes = {
+        log: PropTypes.string,
+        lineCount: PropTypes.number
+    };
+    constructor(props) {
+        super(props);
+        this.logRef = React.createRef();
+    }
+    componentDidUpdate(prevProps) {
+        if (prevProps.log !== this.props.log && this.logRef.current) {
+            this.logRef.current.scrollTop = this.logRef.current.scrollHeight;
+        }
+    }
+    render() {
+        const {log, lineCount} = this.props;
+        return (
+            <div className="anuga-scenario-pane-log">
+                <div className="anuga-scenario-pane-log-head">
+                    <span className="anuga-scenario-pane-log-title">
+                        <Message msgId="hydrata.anuga.log" />
+                        {Number.isFinite(lineCount) ? ` (${lineCount})` : null}
+                    </span>
+                </div>
+                <pre ref={this.logRef} className="anuga-scenario-pane-log-viewer">
+                    {log || ''}
+                </pre>
+            </div>
+        );
+    }
+}
 
 // ------------------------------------------------------------------------
 // Field primitives
@@ -73,12 +113,23 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
 function renderResourceSummary(scenario, kind, resourceList) {
     const assignedId = scenario?.[kind === 'mesh_region' ? 'mesh_region' : kind];
     const summary = summariseResource(resourceList, assignedId, kind);
-    if (!summary) return null;
+    if (summary) {
+        return (
+            <ScenarioResourceSummary
+                kind={kind}
+                body={summary.body}
+                meta={summary.meta}
+            />
+        );
+    }
+    // Always render the summary card so layout is stable as the user picks
+    // values from each dropdown. Empty-state body is a single em-dash.
     return (
         <ScenarioResourceSummary
             kind={kind}
-            body={summary.body}
-            meta={summary.meta}
+            body={<span className="anuga-scenario-resource-summary-placeholder">—</span>}
+            meta={null}
+            extraClassName="is-empty"
         />
     );
 }
@@ -271,34 +322,10 @@ function renderStatusActionsPane({
                     onConfirmCancelRun={onConfirmCancelRun}
                 />
             </div>
-        </div>
-    );
-}
-
-function renderRunLogPane({scenario, onLogClick}) {
-    const lineCount = scenario?.latest_run?.log_line_count;
-    return (
-        <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-run-log">
-            <div className="anuga-scenario-pane-section">
-                <div className="anuga-scenario-pane-field">
-                    <p className="anuga-scenario-pane-help">
-                        <Message msgId="hydrata.anuga.runLogHelp" />
-                    </p>
-                </div>
-            </div>
-            <div className="anuga-scenario-pane-section">
-                <div className="anuga-scenario-pane-field">
-                    <button
-                        type="button"
-                        className="anuga-btn scenario-action-log scenario-action-open-task-monitor"
-                        onClick={() => { if (onLogClick) onLogClick(scenario); }}
-                        disabled={!scenario?.latest_run?.id}
-                    >
-                        <Message msgId="hydrata.anuga.log" />
-                        {Number.isFinite(lineCount) ? ` (${lineCount})` : null}
-                    </button>
-                </div>
-            </div>
+            <ScenarioRunLog
+                log={scenario?.latest_run?.log}
+                lineCount={scenario?.latest_run?.log_line_count}
+            />
         </div>
     );
 }
@@ -309,11 +336,10 @@ function renderRunLogPane({scenario, onLogClick}) {
 
 function renderDetailHead(selectedCategoryId) {
     const labelMap = {
-        inputs: 'hydrata.anuga.inputs',
-        advanced: 'hydrata.anuga.advanced',
+        inputs: 'hydrata.anuga.requiredInputs',
+        advanced: 'hydrata.anuga.optionalInputs',
         runConfig: 'hydrata.anuga.runConfig',
-        statusActions: 'hydrata.anuga.statusActions',
-        runLog: 'hydrata.anuga.runLog'
+        statusActions: 'hydrata.anuga.statusActions'
     };
     const msgId = labelMap[selectedCategoryId] || labelMap.inputs;
     return (
@@ -378,7 +404,6 @@ const ScenarioPane = (props) => {
                                 {resolvedCategory === 'advanced' && renderAdvancedPane(props)}
                                 {resolvedCategory === 'runConfig' && renderRunConfigPane(props)}
                                 {resolvedCategory === 'statusActions' && renderStatusActionsPane(props)}
-                                {resolvedCategory === 'runLog' && renderRunLogPane(props)}
                             </div>
                         </React.Fragment>
                     }
@@ -438,7 +463,9 @@ export const CATEGORIES = VALID_CATEGORIES.map(id => ({
         ? 'hydrata.anuga.runConfig'
         : id === 'statusActions'
             ? 'hydrata.anuga.statusActions'
-            : id === 'runLog'
-                ? 'hydrata.anuga.runLog'
-                : `hydrata.anuga.${id}`
+            : id === 'inputs'
+                ? 'hydrata.anuga.requiredInputs'
+                : id === 'advanced'
+                    ? 'hydrata.anuga.optionalInputs'
+                    : `hydrata.anuga.${id}`
 }));

@@ -353,64 +353,61 @@ class AnugaScenarioMenuClass extends React.Component {
   }
 
   renderHeader() {
-    const {canCreateScenario: canCreate, archiveFilter, readyToCompare, scenarios} = this.props;
+    const {canCreateScenario: canCreate, readyToCompare, selectedScenario} = this.props;
     const {compareMode} = this.state;
-    const archivedActive = archiveFilter === 'only';
-    // Wave 3A — surface counts on the filter chips so users see at a glance
-    // how many scenarios live in each bucket. Counts derive directly from
-    // the unfiltered scenarios array on the store (the archive filter
-    // reducer also returns the unfiltered list under this same prop, so
-    // we have full visibility regardless of the active chip).
-    const scenariosList = Array.isArray(scenarios) ? scenarios : [];
-    const activeCount = scenariosList.filter(s => s && !s.archived_at).length;
-    const archivedCount = scenariosList.filter(s => s && !!s.archived_at).length;
+    const hasSelected = !!(selectedScenario && selectedScenario.id);
+    const canDuplicateNow = canCreate && hasSelected;
     return (
       <div className={"row menu-row menu-row-header anuga-section-header scenario-menu-header"}>
         <Message msgId="hydrata.anuga.scenarios" />
-        <span id={"scenario-tab-button-group"}>
-          <Button
-            className={"scenario-tab" + (archivedActive ? " active" : "")}
-            onClick={this.handleArchiveFilterToggle}
-          >
-            <Message msgId={archivedActive ? "hydrata.anuga.archived" : "hydrata.anuga.active"} />
-            <span className="scenario-tab-count">
-              {' '}({archivedActive ? archivedCount : activeCount})
-            </span>
-          </Button>
-          <Button
-            className={"scenario-tab" + (compareMode ? " active" : "")}
-            onClick={this.handleToggleCompareMode}
-          >
-            <Message msgId="hydrata.anuga.compare" />
-          </Button>
-        </span>
-        {compareMode ?
-          <span id={"depth-difference-button"}>
+        <span id={"scenario-header-actions"} className="scenario-header-actions">
+          {canCreate ?
             <Button
               bsStyle={'success'}
               bsSize={'xsmall'}
-              className={"anuga-btn" + (readyToCompare ? '' : ' disabled')}
-              disabled={!readyToCompare}
+              className="anuga-btn anuga-btn-new-scenario"
+              onClick={this.handleNewScenario}
+            >
+              <Message msgId="hydrata.anuga.newScenario" />
+            </Button>
+            : null
+          }
+          <Button
+            bsSize={'xsmall'}
+            className={"anuga-btn anuga-btn-compare" + (compareMode ? ' is-active' : '')}
+            onClick={this.handleToggleCompareMode}
+            title={compareMode
+              ? 'Exit compare mode'
+              : 'Enter compare mode, then select 2 scenarios to compare'}
+          >
+            <Message msgId="hydrata.anuga.compare" />
+          </Button>
+          {compareMode && readyToCompare ?
+            <Button
+              bsStyle={'success'}
+              bsSize={'xsmall'}
+              className="anuga-btn anuga-btn-run-compare"
               onClick={this.handleExecuteCompare}
             >
-              <Message msgId="hydrata.anuga.compare" />
+              <Message msgId="hydrata.anuga.run" />
             </Button>
-          </span>
-          : (canCreate ?
-            <span id={"new-scenario-button"}>
-              <Button
-                bsStyle={'success'}
-                bsSize={'xsmall'}
-                className="anuga-btn"
-                onClick={this.handleNewScenario}
-              >
-                <Message msgId="hydrata.anuga.newScenario" />
-              </Button>
-            </span>
-            : null)
-        }
-        {/* Wave 3C C3: Close X removed per operator decision D3. Top-tab
-            switch on anugaContainer.js already toggles polling + visibility. */}
+            : null
+          }
+          <Button
+            bsSize={'xsmall'}
+            className={"anuga-btn anuga-btn-duplicate-header"
+              + (canDuplicateNow ? '' : ' disabled')}
+            disabled={!canDuplicateNow}
+            onClick={() => {
+              if (canDuplicateNow) this.openConfirm('duplicate', selectedScenario);
+            }}
+            title={canDuplicateNow
+              ? 'Duplicate the selected scenario'
+              : 'Select a saved scenario to duplicate'}
+          >
+            <Message msgId="hydrata.anuga.btnDuplicate" />
+          </Button>
+        </span>
       </div>
     );
   }

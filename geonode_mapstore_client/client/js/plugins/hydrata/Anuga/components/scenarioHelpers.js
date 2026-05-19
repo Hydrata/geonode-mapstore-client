@@ -58,8 +58,8 @@ export const validateScenario = (scenario) => {
     if (!scenario?.terrain) {
         return 'terrain';
     }
-    if (!scenario?.inflow) {
-        return 'inflow';
+    if (!scenario?.inflow && !scenario?.rainfall) {
+        return 'inflowOrRainfall';
     }
     if (!(scenario?.resolution > 0)) {
         return 'resolution';
@@ -92,11 +92,12 @@ export const validateScenario = (scenario) => {
  * "this scenario has unsaved diffs" surfaces on every visible category.
  *
  * Categories handled:
- *   - 'inputs'        — required count of {terrain, boundary, inflow,
- *                       rainfall}. Rainfall is optional in
- *                       validateScenario but still counted here so the
- *                       tag reads "N/4". severity=ok at 4/4, warn at
- *                       1-3/4, err at 0/4.
+ *   - 'inputs'        — required count of {terrain, boundary, (inflow OR
+ *                       rainfall)}. Inflow and rainfall are mutually
+ *                       substitutable water sources (validateScenario
+ *                       requires one of the two), so they share a single
+ *                       slot. Tag reads "N/3". severity=ok at 3/3, warn
+ *                       at 1-2/3, err at 0/3.
  *   - 'advanced'      — count of {friction, structure, mesh_region,
  *                       network}. ALL FIELDS OPTIONAL in
  *                       validateScenario, so severity stays ok-or-empty
@@ -130,9 +131,16 @@ export const validateCategoryProgress = (category, scenario) => {
     const unsaved = !!scenario.unsaved;
 
     if (category === 'inputs') {
-        const fields = ['terrain', 'boundary', 'inflow', 'rainfall'];
-        const satisfied = fields.filter(f => scenario[f] != null && scenario[f] !== '').length; // eslint-disable-line no-eq-null, eqeqeq
-        const total = fields.length;
+        // Inflow and Rainfall are mutually substitutable water sources — the
+        // build-time validateScenario requires only one of the two — so the
+        // category-rail tag counts them as a single slot
+        // (terrain + boundary + (inflow|rainfall) = 3).
+        const hasTerrain = scenario.terrain != null && scenario.terrain !== ''; // eslint-disable-line no-eq-null, eqeqeq
+        const hasBoundary = scenario.boundary != null && scenario.boundary !== ''; // eslint-disable-line no-eq-null, eqeqeq
+        const hasWaterSource = (scenario.inflow != null && scenario.inflow !== '') // eslint-disable-line no-eq-null, eqeqeq
+            || (scenario.rainfall != null && scenario.rainfall !== ''); // eslint-disable-line no-eq-null, eqeqeq
+        const satisfied = (hasTerrain ? 1 : 0) + (hasBoundary ? 1 : 0) + (hasWaterSource ? 1 : 0);
+        const total = 3;
         let severity = 'warn';
         if (satisfied === total) severity = 'ok';
         else if (satisfied === 0) severity = 'err';
