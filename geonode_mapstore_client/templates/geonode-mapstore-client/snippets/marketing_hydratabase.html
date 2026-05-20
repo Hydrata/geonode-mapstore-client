@@ -32,23 +32,19 @@
     <div class="hydrata-users-section">
         <h2 class="text-center">{% trans "Who Uses Hydrata" %}</h2>
         <div class="row">
-            <div class="col-md-4 col-sm-6 text-center">
+            <div class="col-md-6 col-sm-6 text-center">
                 <h3>{% trans "Consultancies" %}</h3>
                 <p>{% trans "You're submitting to an owner's engineer or independent reviewer. Provide the documentation. It gets you approval on the first cycle." %}</p>
             </div>
-            <div class="col-md-4 col-sm-6 text-center">
+            <div class="col-md-6 col-sm-6 text-center">
                 <h3>{% trans "Local authorities & reviewers" %}</h3>
-                <p>{% trans "You retain the regulatory responsibility but don't have in-house flood capability. Outsource the technical review; keep the audit trail." %}</p>
+                <p>{% trans "You retain regulatory responsibility but don't have in-house flood capability. Outsource technical review for stormwater and floodplain consultants serving municipal clients. Keep the audit trail." %}</p>
             </div>
-            <div class="col-md-4 col-sm-6 text-center">
-                <h3>{% trans "Municipal stormwater" %}</h3>
-                <p>{% trans "Audit trail and jurisdiction-checklist for stormwater consultants serving municipal clients." %}</p>
-            </div>
-            <div class="col-md-4 col-md-offset-2 col-sm-6 text-center">
+            <div class="col-md-6 col-sm-6 text-center">
                 <h3>{% trans "Dam owners & water utilities" %}</h3>
                 <p>{% trans "Multi-dam systems, PMP studies, spillway capacity, dam-break inundation. Independent verification of your hydrologic and hydraulic models, with the audit trail to back it up." %}</p>
             </div>
-            <div class="col-md-4 col-sm-6 text-center">
+            <div class="col-md-6 col-sm-6 text-center">
                 <h3>{% trans "Researchers (ANUGA + Python)" %}</h3>
                 <p>{% trans "Run ANUGA in the cloud, no infrastructure required. Free tier, open-source codebase." %}</p>
             </div>
@@ -58,8 +54,10 @@
     <hr class="featurette-divider">
 
     <div class="hydrata-developer-tools hydrata-developer-tools-secondary">
+        <h2 class="text-center">{% trans "Developer tools" %}</h2>
+        <p class="text-center">{% trans "Hydrata exposes a Model Context Protocol endpoint so AI assistants can query verification jobs directly." %}</p>
         <details>
-            <summary>{% trans "Developer tools. Hydrata exposes a Model Context Protocol endpoint for AI assistants." %}</summary>
+            <summary>{% trans "Show example: Claude Code connecting to the Hydrata MCP" %}</summary>
             <div class="hydrata-code-block">
                 <div class="hydrata-code-label">Claude Code + Hydrata MCP</div>
 <pre><code><span class="code-comment"># Connect your AI assistant to Hydrata</span>
