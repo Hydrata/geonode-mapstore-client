@@ -50,7 +50,9 @@ module.exports = (devServerDefault, projectConfig) => {
                 context: ['/geoserver/**'],
                 target: 'http://localhost:8080',
                 secure: false,
-                changeOrigin: true
+                changeOrigin: true,
+                // 600 s aligns with prod nginx; was hitting http-proxy-middleware's 60 s default and 504-ing slow async callbacks (e.g. /anuga/api/.../process-result/)
+                proxyTimeout: 600000
             },
             {
                 context: [
@@ -71,7 +73,9 @@ module.exports = (devServerDefault, projectConfig) => {
                 headers: {
                     Host: proxyTargetHost,
                     Referer: `${proxyTargetURL}/`
-                }
+                },
+                // 600 s aligns with prod nginx; was hitting http-proxy-middleware's 60 s default and 504-ing slow async callbacks (e.g. /anuga/api/.../process-result/)
+                proxyTimeout: 600000
             },
             {
                 context: [

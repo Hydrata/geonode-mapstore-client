@@ -21,7 +21,7 @@ import {
   archiveAnugaScenario,
   unarchiveAnugaScenario,
   setAnugaScenarioMenu,
-  showAnugaRunMenu,
+  runAnugaScenario,
   addAnugaScenario,
   stopAnugaScenarioPolling,
   setAnugaScenarioArchiveFilter,
@@ -111,7 +111,7 @@ class AnugaScenarioMenuClass extends React.Component {
     addAnugaScenario: PropTypes.func,
     setAnugaScenarioArchiveFilter: PropTypes.func,
     compareScenarios: PropTypes.func,
-    showAnugaRunMenu: PropTypes.func,
+    runAnugaScenario: PropTypes.func,
     openTaskMonitorForRun: PropTypes.func
   };
 
@@ -245,11 +245,15 @@ class AnugaScenarioMenuClass extends React.Component {
   };
 
   handleRunClick = (scenario) => {
-    // Run still routes through AnugaRunMenu (compute-backend chooser). The
-    // legacy 3-dispatch flow is preserved exactly.
-    if (this.props.setAnugaScenarioMenu) this.props.setAnugaScenarioMenu(false);
+    // Run dispatches directly to runAnugaScenario; the compute-backend
+    // chooser now lives inline on the runConfig category of ScenarioPane
+    // (scenario.compute_backend is set there), so the legacy AnugaRunMenu
+    // popup is gone. Fall back to 'local' for the rare case where the
+    // scenario was saved before the compute_backend column existed.
     if (this.props.selectAnugaScenario) this.props.selectAnugaScenario(scenario);
-    if (this.props.showAnugaRunMenu) this.props.showAnugaRunMenu(true);
+    if (this.props.runAnugaScenario) {
+      this.props.runAnugaScenario(scenario, scenario?.compute_backend || 'local');
+    }
   };
 
   handleRetryClick = (scenario) => {
@@ -548,7 +552,7 @@ const mapDispatchToProps = (dispatch) => ({
   addAnugaScenario: () => dispatch(addAnugaScenario()),
   setAnugaScenarioArchiveFilter: (mode) => dispatch(setAnugaScenarioArchiveFilter(mode)),
   compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios)),
-  showAnugaRunMenu: (visible) => dispatch(showAnugaRunMenu(visible)),
+  runAnugaScenario: (scenario, computeBackend) => dispatch(runAnugaScenario(scenario, computeBackend)),
   openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true))
 });
 

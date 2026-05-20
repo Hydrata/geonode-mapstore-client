@@ -18,8 +18,6 @@ import {
     SELECT_ANUGA_SCENARIO,
     TOGGLE_SCENARIO_SELECTED,
     UPDATE_ANUGA_SCENARIO,
-    SHOW_ANUGA_SCENARIO_LOG,
-    SHOW_ANUGA_RUN_MENU,
     setAnugaInputMenu,
     setAnugaScenarioMenu,
     setAnugaResultMenu,
@@ -30,8 +28,6 @@ import {
     setCreatingAnugaLayer,
     selectAnugaScenario,
     toggleScenarioSelected,
-    showAnugaScenarioLog,
-    showAnugaRunMenu,
     initAnuga,
     retryAnugaRun,
     cancelAnugaRun,
@@ -149,18 +145,6 @@ describe('Anuga Plugin', () => {
             expect(action.scenario).toEqual(scenario);
         });
 
-        it('showAnugaScenarioLog creates correct action', () => {
-            const action = showAnugaScenarioLog(123);
-            expect(action.type).toBe(SHOW_ANUGA_SCENARIO_LOG);
-            expect(action.scenarioId).toBe(123);
-        });
-
-        it('showAnugaRunMenu creates correct action', () => {
-            const action = showAnugaRunMenu(true);
-            expect(action.type).toBe(SHOW_ANUGA_RUN_MENU);
-            expect(action.visible).toBe(true);
-        });
-
         it('retryAnugaRun creates correct action', () => {
             const action = retryAnugaRun(42);
             expect(action.type).toBe(RETRY_ANUGA_RUN);
@@ -276,21 +260,6 @@ describe('Anuga Plugin', () => {
             expect(state.ui.isCreatingAnugaLayer).toBe(true);
         });
 
-        it('should handle SHOW_ANUGA_SCENARIO_LOG', () => {
-            const state = reducer(undefined, {
-                type: SHOW_ANUGA_SCENARIO_LOG,
-                scenarioId: 123
-            });
-            expect(state.ui.visibleAnugaScenarioLogId).toBe(123);
-        });
-
-        it('should handle SHOW_ANUGA_RUN_MENU', () => {
-            const state = reducer(undefined, {
-                type: SHOW_ANUGA_RUN_MENU,
-                visible: true
-            });
-            expect(state.ui.visibleAnugaRunMenu).toBe(true);
-        });
     });
 
     describe('Reducer — projects sub-reducer', () => {

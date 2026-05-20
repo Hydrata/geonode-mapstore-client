@@ -24,6 +24,14 @@ const statusBadgeClass = (status) => {
 
 const statusMsgId = (status) => `hydrata.taskMonitor.status${status.charAt(0).toUpperCase() + status.slice(1)}`;
 
+// 'processing' renders as "Processing Results" so users see the post-evolve
+// phase explicitly. Unknown details fall through to a capitalized token.
+const STATUS_DETAIL_LABEL = {
+    processing: 'Processing Results'
+};
+const formatStatusDetail = (detail) =>
+    STATUS_DETAIL_LABEL[detail] || (detail.charAt(0).toUpperCase() + detail.slice(1));
+
 class ProcessRow extends React.Component {
     static propTypes = {
         process: PropTypes.object,
@@ -51,12 +59,12 @@ class ProcessRow extends React.Component {
                         <span className="tm-process-name">{process.name}</span>
                         <span className={statusBadgeClass(process.status)}>
                             {detailAsBadge
-                                ? process.status_detail.charAt(0).toUpperCase() + process.status_detail.slice(1)
+                                ? formatStatusDetail(process.status_detail)
                                 : <Message msgId={statusMsgId(process.status)} />}
                         </span>
                     </div>
                     {!detailAsBadge && process.status_detail ? (
-                        <span className="tm-status-detail">{process.status_detail}</span>
+                        <span className="tm-status-detail">{formatStatusDetail(process.status_detail)}</span>
                     ) : null}
                     {showProgress ? (
                         <div className="tm-progress-bar-container">

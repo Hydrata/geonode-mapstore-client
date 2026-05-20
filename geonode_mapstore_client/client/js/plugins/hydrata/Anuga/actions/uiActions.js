@@ -4,9 +4,6 @@ const SET_ANUGA_SCENARIO_MENU = 'SET_ANUGA_SCENARIO_MENU';
 const SET_ANUGA_RESULT_MENU = 'SET_ANUGA_RESULT_MENU';
 const SET_NETWORK_MENU = 'SET_NETWORK_MENU';
 const SET_PUBLICATION_PANEL = 'SET_PUBLICATION_PANEL';
-const SHOW_ANUGA_SCENARIO_LOG = 'SHOW_ANUGA_SCENARIO_LOG';
-const SHOW_ANUGA_RUN_MENU = 'SHOW_ANUGA_RUN_MENU';
-const SHOW_MANAGE_ACCOUNT = 'SHOW_MANAGE_ACCOUNT';
 const SET_CREATING_ANUGA_LAYER = 'SET_CREATING_ANUGA_LAYER';
 const FIX_ANUGA_GROUPS = 'FIX_ANUGA_GROUPS';
 const SET_MEMBERSHIP_PANEL = 'SET_MEMBERSHIP_PANEL';
@@ -44,21 +41,9 @@ function setPublicationPanel(visible) {
     return { type: SET_PUBLICATION_PANEL, visible };
 }
 
-function showAnugaScenarioLog(scenarioId) {
-    return { type: SHOW_ANUGA_SCENARIO_LOG, scenarioId };
-}
-
-function showAnugaRunMenu(visible) {
-    return { type: SHOW_ANUGA_RUN_MENU, visible };
-}
-
 function setCreatingAnugaLayer(isCreatingAnugaLayer) {
     return { type: SET_CREATING_ANUGA_LAYER, isCreatingAnugaLayer };
 }
-
-const showManageAccount = (visible) => {
-    return { type: SHOW_MANAGE_ACCOUNT, visible };
-};
 
 function setMembershipPanel(visible) {
     return { type: SET_MEMBERSHIP_PANEL, visible };
@@ -95,10 +80,7 @@ module.exports = {
     SET_ANUGA_RESULT_MENU, setAnugaResultMenu,
     SET_NETWORK_MENU, setNetworkMenu,
     SET_PUBLICATION_PANEL, setPublicationPanel,
-    SHOW_ANUGA_SCENARIO_LOG, showAnugaScenarioLog,
-    SHOW_ANUGA_RUN_MENU, showAnugaRunMenu,
     SET_CREATING_ANUGA_LAYER, setCreatingAnugaLayer,
-    SHOW_MANAGE_ACCOUNT, showManageAccount,
     FIX_ANUGA_GROUPS, fixAnugaGroups,
     SET_MEMBERSHIP_PANEL, setMembershipPanel,
     // TASK-930 (W2-FE) — Global GLO-30 bbox picker UI state.
