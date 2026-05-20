@@ -700,20 +700,36 @@ export const addLinksEpic = noOpEpic(ADD_LINKS);
 // When a layer_create process completes, dispatch the appropriate add action
 // to fetch available layers for that resource type immediately.
 
-const modelClassToAddAction = {
-    'Boundary': addAnugaBoundary,
-    'Inflow': addAnugaInflow,
-    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow). Process
-    // metadata.model_class is the Python class name ('Rainfall'), set by
-    // _stamp_layer_create_process in /opt/hydrata/apps/gn_anuga/tasks.py.
-    'Rainfall': addAnugaRainfall,
-    'Friction': addAnugaFriction,
-    'Structure': addAnugaStructure,
-    'FullMesh': addAnugaFullMesh,
-    'MeshRegion': addAnugaMeshRegion,
-    'Catchment': addCatchment,
-    'Nodes': addNodes,
-    'Links': addLinks
+// Per-class dispatch table for layer_create completions. Keyed on the
+// Python class name stamped in Process metadata.model_class.
+//   addAction — legacy V1 ADD_ANUGA_* action; epics are no-ops in V2
+//               (see addAnugaBoundaryEpic etc. above) but the dispatch is
+//               kept for backwards compat and surface-area parity if a
+//               future feature wants to listen.
+//   endpoint / setAction — resource-list refresh pair. The page-load
+//               fan-out in initAnugaEpic fires before celery's
+//               `create_supporting_models` has populated the default rows
+//               for a fresh project, so /<plural>/ returns [] and
+//               state.anuga.resources.<type> persists that empty list.
+//               When the layer_create Process lands with mapstore_layer
+//               metadata, taskCompleteLayerEpic uses this entry to refetch
+//               /<endpoint>/ and dispatch setAction so the Scenarios >
+//               Required dropdowns (which read from resources.inflows
+//               etc.) see the new resource. terrain_create dodges this
+//               via initAnuga() inside buildTerrainAddSequence; this map
+//               is the equivalent per-type targeted fetch for non-terrain
+//               layer_create completions. TASK-955 added Rainfall.
+const modelClassDispatch = {
+    'Boundary':   { addAction: addAnugaBoundary,   endpoint: 'boundary',    setAction: setAnugaBoundaryData },
+    'Inflow':     { addAction: addAnugaInflow,     endpoint: 'inflow',      setAction: setAnugaInflowData },
+    'Rainfall':   { addAction: addAnugaRainfall,   endpoint: 'rainfall',    setAction: setAnugaRainfallData },
+    'Friction':   { addAction: addAnugaFriction,   endpoint: 'friction',    setAction: setAnugaFrictionData },
+    'Structure':  { addAction: addAnugaStructure,  endpoint: 'structure',   setAction: setAnugaStructureData },
+    'FullMesh':   { addAction: addAnugaFullMesh,   endpoint: 'full-mesh',   setAction: setAnugaFullMeshData },
+    'MeshRegion': { addAction: addAnugaMeshRegion, endpoint: 'mesh-region', setAction: setAnugaMeshRegionData },
+    'Catchment':  { addAction: addCatchment,       endpoint: 'catchment',   setAction: setCatchmentData },
+    'Nodes':      { addAction: addNodes,           endpoint: 'nodes',       setAction: setAnugaNodesData },
+    'Links':      { addAction: addLinks,           endpoint: 'links',       setAction: setAnugaLinksData }
 };
 
 // Multi-layer terrain handoff. Adds DEM + hillshade together, then runs
@@ -970,7 +986,9 @@ export const taskCompleteLayerEpic = (action$, store) => {
             if (refreshNeeded.length > 0) {
                 observables.push(Rx.Observable.of(initAnuga()));
             }
+            const refreshedEndpoints = new Set();
             newlyCompleted.forEach(p => {
+                const dispatch = modelClassDispatch[p.metadata?.model_class];
                 if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
                     observables.push(buildTerrainAddSequence(p.metadata, action$, store, currentNames));
                 } else if (p.metadata?.mapstore_layer) {
@@ -990,10 +1008,24 @@ export const taskCompleteLayerEpic = (action$, store) => {
                         observables.push(Rx.Observable.of(addLayer(layerConfig)));
                         observables.push(Rx.Observable.of(show(NEW_LAYERS_NOTIFICATION)));
                     }
-                } else {
-                    const modelClass = p.metadata?.model_class;
-                    const actionCreator = modelClassToAddAction[modelClass];
-                    if (actionCreator) observables.push(Rx.Observable.of(actionCreator()));
+                } else if (dispatch?.addAction) {
+                    observables.push(Rx.Observable.of(dispatch.addAction()));
+                }
+                // Refresh state.anuga.resources.<type> on non-terrain
+                // layer_create completion. The branches above inject the
+                // map layer but never update resources.<type>, leaving the
+                // Scenarios > Required dropdowns (which read
+                // resources.inflows / .rainfalls / etc.) stale on fresh
+                // projects where the page-load fan-out raced
+                // `create_supporting_models`. Dedupe by endpoint within
+                // the batch so 6 defaults completing in one tick fire 6
+                // distinct fetches, not 6 × N.
+                if (p.process_type === 'layer_create' && currentProjectId && dispatch
+                    && !refreshedEndpoints.has(dispatch.endpoint)) {
+                    refreshedEndpoints.add(dispatch.endpoint);
+                    observables.push(
+                        fetchResourceEndpoint(dispatch.endpoint, currentProjectId).map(dispatch.setAction)
+                    );
                 }
             });
             return observables.length > 0

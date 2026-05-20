@@ -31,7 +31,9 @@ import {
     ADD_LINKS,
     FIX_ANUGA_GROUPS,
     INIT_ANUGA,
+    SET_ANUGA_INFLOW_DATA,
     SET_ANUGA_POLLING_DATA,
+    SET_ANUGA_RAINFALL_DATA,
     SHOW_ANUGA_SCENARIO_LOG
 } from '../actionsAnuga';
 import {
@@ -1323,6 +1325,141 @@ describe('Polling Epics', () => {
                 sub.unsubscribe();
                 done();
             }, 100);
+        });
+
+        // Pin for the resources.<type> refresh on layer_create completion.
+        // Background: `create_supporting_models` races the page-load fan-out
+        // for fresh projects; the initial GET /inflows/ returns [] and the
+        // Scenarios > Required dropdowns stay empty even after the celery
+        // task finishes. taskCompleteLayerEpic injects the map layer but
+        // previously never refreshed state.anuga.resources.<type>.
+        it('refreshes resources.<type> when a non-terrain layer_create completes', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] },
+                    anuga: { projects: { data: { id: 11794 } } }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(action => emitted.push(action), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'inflow-fetch-1',
+                    process_type: 'layer_create',
+                    status: 'complete',
+                    metadata: {
+                        project_id: 11794,
+                        model_class: 'Inflow',
+                        mapstore_layer: {
+                            name: 'geonode:inf_11794_inflow_01',
+                            type: 'wms',
+                            url: '/geoserver/wms'
+                        }
+                    }
+                }]
+            });
+            setTimeout(() => {
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                expect(emitted.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(1);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        // Two completions for the same model_class in a single tick should
+        // collapse to one fetch — the resource endpoint is a list, so
+        // refetching it twice is pure waste.
+        it('dedupes the resource refresh by endpoint within a single tick', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] },
+                    anuga: { projects: { data: { id: 11794 } } }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(action => emitted.push(action), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [
+                    {
+                        id: 'inflow-dedup-1',
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 11794,
+                            model_class: 'Inflow',
+                            mapstore_layer: { name: 'geonode:inf_a', type: 'wms', url: '/geoserver/wms' }
+                        }
+                    },
+                    {
+                        id: 'inflow-dedup-2',
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 11794,
+                            model_class: 'Inflow',
+                            mapstore_layer: { name: 'geonode:inf_b', type: 'wms', url: '/geoserver/wms' }
+                        }
+                    },
+                    {
+                        id: 'rainfall-dedup-1',
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 11794,
+                            model_class: 'Rainfall',
+                            mapstore_layer: { name: 'geonode:rai_a', type: 'wms', url: '/geoserver/wms' }
+                        }
+                    }
+                ]
+            });
+            setTimeout(() => {
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(3);
+                expect(emitted.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(1);
+                expect(emitted.filter(a => a.type === SET_ANUGA_RAINFALL_DATA).length).toBe(1);
+                sub.unsubscribe();
+                done();
+            }, 200);
+        });
+
+        // Without a hydrated projectId the API can't be called safely, so
+        // the resource refresh must be skipped — addLayer still fires.
+        it('skips the resource refresh when projectId is null', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [] }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(action => emitted.push(action), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'no-pid',
+                    process_type: 'layer_create',
+                    status: 'complete',
+                    metadata: {
+                        model_class: 'Inflow',
+                        mapstore_layer: { name: 'geonode:inf_nopid', type: 'wms', url: '/geoserver/wms' }
+                    }
+                }]
+            });
+            setTimeout(() => {
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                expect(emitted.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(0);
+                sub.unsubscribe();
+                done();
+            }, 200);
         });
     });
 
