@@ -455,8 +455,15 @@ export const getUserByPk = (pk, apikey) => {
         .then(({ data }) => data.user);
 };
 
+const hasSessionCookie = () => /(sessionid|csrftoken)=/.test(typeof document !== 'undefined' ? (document.cookie || '') : '');
+
 export const getAccountInfo = () => {
     const apikey = getApiToken();
+    // Skip the userinfo round-trip for anonymous visitors (no session/csrf cookie
+    // and no apikey). Avoids a guaranteed 401 in DevTools on every page load.
+    if (!apikey && !hasSessionCookie()) {
+        return Promise.resolve(null);
+    }
     return getUserInfo(apikey)
         .then((info) => {
             return getUserByPk(info.sub, apikey)
