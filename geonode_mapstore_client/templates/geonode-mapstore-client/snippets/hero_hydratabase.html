@@ -39,7 +39,7 @@
     </div>
 </div>
 
-<div class="container">
+<div id="main-content" class="container">
     <div id="home-page-forms">
         <div id="home-page-register-form">
             <p class="home-page-form-heading-text">{% trans "Create Account" %}</p>
@@ -47,7 +47,7 @@
                 <div class="form-content">
                     <div class="form-group">
                         <label for="signup_email">{% trans "Email:" %}</label>
-                        <input type="text" id="signup_email" name="email" placeholder="required" class="home-page-register-text-input"/>
+                        <input type="text" id="signup_email" name="email" placeholder="required" class="home-page-register-text-input" autocomplete="email" aria-label="{% trans 'New account email' %}"/>
                         {% if form.email.errors %}
                             <div class="home-page-form-error-messages">
                                 {% for error in form.email.errors %}
@@ -59,7 +59,7 @@
                     <div class="form-group">
                         <label for="signup_password1">{% trans "Password:" %}</label>
                         <div class="input-group">
-                            <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input"/>
+                            <input type="password" id="signup_password1" name="password1" placeholder="required" class="form-control home-page-register-text-input" autocomplete="new-password" aria-label="{% trans 'New account password' %}"/>
                             <span class="input-group-addon">
                                 <i id="signup-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleSignupPasswordVisibility()" style="cursor: pointer;"></i>
                             </span>
@@ -151,12 +151,12 @@
                     <p class="home-page-form-heading-text">{% trans "Existing User" %}</p>
                     <div class="form-group">
                       <label for="signin_email">{% trans "Email:" %}</label>
-                      <input type="text" id="signin_email" name="login" placeholder="email" class="home-page-register-text-input"/>
+                      <input type="text" id="signin_email" name="login" placeholder="email" class="home-page-register-text-input" autocomplete="username" aria-label="{% trans 'Existing account email' %}"/>
                     </div>
                     <div class="form-group">
                         <label for="signin_password">{% trans "Password:" %}</label>
                         <div class="input-group">
-                            <input type="password" id="signin_password" name="password" placeholder="required" class="form-control home-page-register-text-input"/>
+                            <input type="password" id="signin_password" name="password" placeholder="required" class="form-control home-page-register-text-input" autocomplete="current-password" aria-label="{% trans 'Existing account password' %}"/>
                             <span class="input-group-addon">
                                 <i id="signin-password-icon" class="glyphicon glyphicon-eye-open" onclick="toggleLoginPasswordVisibility()" style="cursor: pointer;"></i>
                             </span>
@@ -179,24 +179,27 @@
 </div>
 
 <div class="container">
-    <div class="hydrata-value-cards">
-        <div class="hydrata-value-card">
-            <h2>{% trans "Validate" %}</h2>
-            <p>{% trans "Mass-balance audit, mesh-quality assessment, parameter sensitivity. Catch the issues a reviewer would catch — before the model leaves your office." %}</p>
+    <section>
+        <h2>{% trans "What we do" %}</h2>
+        <div class="hydrata-value-cards">
+            <div class="hydrata-value-card">
+                <h3>{% trans "Validate" %}</h3>
+                <p>{% trans "Mass-balance audit, mesh-quality assessment, parameter sensitivity. Catch the issues a reviewer would catch — before the model leaves your office." %}</p>
+            </div>
+            <div class="hydrata-value-card">
+                <h3>{% trans "Verify" %}</h3>
+                <p>{% trans "Bring your existing HEC-RAS or ANUGA model. Get a signed advisory PDF in 5 working days, with every check traceable to its evidence." %}</p>
+            </div>
+            <div class="hydrata-value-card">
+                <h3>{% trans "Comply" %}</h3>
+                <p>{% trans "Jurisdiction-checklist comparison against your design criteria. Every item ticked, every tick linked to its source." %}</p>
+            </div>
+            <div class="hydrata-value-card">
+                <h3>{% trans "Communicate" %}</h3>
+                <p>{% trans "Live web portal — reviewers drop comments tied to the geospatial context of the model, not as generic input-variable changes that ripple across the project." %}</p>
+            </div>
         </div>
-        <div class="hydrata-value-card">
-            <h2>{% trans "Verify" %}</h2>
-            <p>{% trans "Bring your existing HEC-RAS or ANUGA model. Get a signed advisory PDF in 5 working days, with every check traceable to its evidence." %}</p>
-        </div>
-        <div class="hydrata-value-card">
-            <h2>{% trans "Comply" %}</h2>
-            <p>{% trans "Jurisdiction-checklist comparison against your design criteria. Every item ticked, every tick linked to its source." %}</p>
-        </div>
-        <div class="hydrata-value-card">
-            <h2>{% trans "Communicate" %}</h2>
-            <p>{% trans "Live web portal — reviewers drop comments tied to the geospatial context of the model, not as generic input-variable changes that ripple across the project." %}</p>
-        </div>
-    </div>
+    </section>
     <div class="hydrata-principle-callout">
         <p>{% trans "When your models disagree, the answer is in the inputs. We find it." %}</p>
     </div>
