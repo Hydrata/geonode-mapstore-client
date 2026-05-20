@@ -5,10 +5,11 @@
 <div id="gn-hero" class="gn-hero hydrata-hero-background">
     <div class="jumbotron">
         <div class="gn-hero-description">
-            <h1>Hydrata</h1>
+            <h1 class="hydrata-hero-h1">{% trans "Hydraulic model verification" %}<span class="sr-only">. Hydrata.</span></h1>
             <p class="hydrata-hero-verbs">{% trans "Validate. Verify. Comply. Communicate." %}</p>
             <p>{% trans "The verification platform that lets consultants prove, with evidence, that their hydraulic models are right." %}</p>
             <p class="hydrata-hero-tagline">{% trans "Defensible flood modelling" %}</p>
+            <a href="#signup_form" class="btn btn-success btn-lg hydrata-hero-cta">{% trans "Create your account" %}</a>
         </div>
     </div>
 </div>
@@ -34,8 +35,7 @@
 
 <div class="hydrata-trust-bar">
     <div class="container">
-        <p class="hydrata-trust-credential">{% trans "Designed by engineers, for engineers." %}</p>
-        <p class="hydrata-trust-engines">{% blocktrans %}Verification supported for HEC-RAS · ANUGA. <a href="https://github.com/anuga-community/anuga_core">ANUGA</a> <a href="/docs/validation/">validated against 30+ benchmark problems</a>.{% endblocktrans %}</p>
+        <p class="hydrata-trust-engines">{% blocktrans %}Designed by engineers, for engineers. Verification supported for HEC-RAS · ANUGA, <a href="https://github.com/anuga-community/anuga_core">ANUGA</a> <a href="/docs/validation/">validated against 30+ benchmark problems</a>.{% endblocktrans %}</p>
     </div>
 </div>
 
