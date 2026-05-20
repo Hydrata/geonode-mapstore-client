@@ -76,7 +76,6 @@ import {
 } from "../../SimpleView/actionsSimpleView";
 import {TM_SET_PROCESSES} from "../../TaskMonitor/actionsTaskMonitor";
 import {getProjectId} from "../selectorsAnuga";
-import {SHOW_ANUGA_SCENARIO_LOG} from "../actions/uiActions";
 
 const getArchiveFilter = (state) => state?.anuga?.scenarios?.archiveFilter || 'none';
 // Run statuses past which polling work is wasted. Shared with
@@ -379,94 +378,6 @@ export const pollActiveRunStatusEpic = (action$, store) =>
                     }
                     return Rx.Observable.from(actions);
                 });
-        });
-
-// Tail the latest_run log while the scenario log viewer is open. There is
-// NO `latest_run.log` BE endpoint; the log viewer is passive and reads
-// `state.anuga.scenarios.byId[id].latest_run.log`. This epic refreshes
-// that slice by polling `getRun(latest_run.id)` every 3s while the viewer
-// is open AND the run status is non-terminal.
-//
-// Trigger semantics: SHOW_ANUGA_SCENARIO_LOG with a truthy scenarioId opens
-// the viewer; the SAME action with `scenarioId === false` closes it (see
-// anugaScenarioLogViewer.js calling `showAnugaScenarioLog(false)`). There is
-// no separate HIDE action — we filter the SHOW stream by truthiness for
-// start, and use `takeUntil` on the falsy SHOW for stop.
-//
-// State-read discipline: each tick reads store.getState() via
-// `Observable.defer(...)` so closure-captured state cannot go stale across
-// the 3s window — between ticks the user can save/cancel/copy the scenario,
-// or the BE poller can flip `latest_run` to a terminal status. Reading at
-// emission time (not at SHOW time) avoids both classes of staleness.
-//
-// switchMap (not mergeMap): re-opening the same viewer or switching to a
-// different scenario id should cancel any in-flight poll and re-subscribe.
-// Cap of one concurrent poll per epic instance.
-//
-// We dispatch `setAnugaPollingData([{ id, latest_run }])`, which the
-// scenariosReducer's SET_ANUGA_POLLING_DATA branch merges into byId[id]
-// without disturbing local-only fields (`unsaved`, `selected`, `tempTimeString`).
-// `anugaContainer.js:230` reads `selectedScenario.latest_run.log` from that
-// same byId entry, so the next render reflects the freshly fetched log text.
-export const tailScenarioLogEpic = (action$, store) =>
-    action$
-        .ofType(SHOW_ANUGA_SCENARIO_LOG)
-        .filter(action => !!action.scenarioId)
-        .switchMap((action) => {
-            // W7 (TASK-1045) — wall-clock cap on the log tail. The nested
-            // same-payload guard already prevents redundant dispatches; this
-            // cap is wall-clock protection (an orphan BE Process leaves the
-            // log viewer polling indefinitely otherwise — same pin as
-            // pollActiveRunStatusEpic). Cap is derived from the CURRENT
-            // scenario at subscription time so a scenario whose latest_run
-            // has a longer expected duration gets a proportionally longer cap.
-            const cap = (() => {
-                const state = store && store.getState ? store.getState() : null;
-                const scenario = state?.anuga?.scenarios?.byId?.[action.scenarioId];
-                return getPollingCap(scenario);
-            })();
-            return Rx.Observable.interval(3000)
-                .startWith(0)
-                .takeUntil(
-                    action$.ofType(SHOW_ANUGA_SCENARIO_LOG).filter(a => !a.scenarioId)
-                )
-                .take(cap)
-                .switchMap(() =>
-                    Rx.Observable.defer(() => {
-                        const state = store.getState();
-                        const scenarioId = state?.anuga?.ui?.visibleAnugaScenarioLogId;
-                        if (!scenarioId) return Rx.Observable.empty();
-                        const scenario = state?.anuga?.scenarios?.byId?.[scenarioId];
-                        const currentRun = scenario?.latest_run;
-                        const runId = currentRun?.id;
-                        const runStatus = currentRun?.status;
-                        if (!runId) return Rx.Observable.empty();
-                        if (TERMINAL_RUN_STATES.includes(runStatus)) {
-                            return Rx.Observable.empty();
-                        }
-                        // Same-payload guard: when getRun returns a run whose
-                        // log length AND status are byte-identical to the slice
-                        // we already hold, skip the dispatch. The common case
-                        // during long ANUGA runs is a slow log trickle — most
-                        // 3s ticks return the same bytes and the prior
-                        // unconditional dispatch caused a reducer merge,
-                        // connected-component re-render, and DOM textarea
-                        // re-render with no user-visible delta.
-                        return Rx.Observable.from(anugaApi.getRun(runId))
-                            .catch(() => Rx.Observable.empty())
-                            .switchMap(response => {
-                                const next = response.data;
-                                const same =
-                                    next?.log?.length === currentRun?.log?.length &&
-                                    next?.status === currentRun?.status;
-                                if (same) return Rx.Observable.empty();
-                                return Rx.Observable.of(setAnugaPollingData([{
-                                    id: scenarioId,
-                                    latest_run: next
-                                }]));
-                            });
-                    })
-                );
         });
 
 // -- Ensure ANUGA group tree exists before layers are added ----------------

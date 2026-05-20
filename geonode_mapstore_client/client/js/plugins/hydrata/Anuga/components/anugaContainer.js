@@ -18,13 +18,11 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
 import {AnugaScenarioMenu} from './anugaScenarioMenu';
 import {PublicationPanel} from './publicationPanel';
-import {AnugaScenarioLogViewer} from "./anugaScenarioLogViewer";
 import {NetworkMenu} from "./networkMenu";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {setHydrologyMainMenu} from "../../Hydrology/actionsHydrology";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
-import {AnugaRunMenu} from "@js/plugins/hydrata/Anuga/components/anugaRunMenu";
 import {MembershipPanel} from "./membershipPanel";
 import RunPollingPausedBanner from "./runPollingPausedBanner";
 import {trackEvent} from "@js/utils/analytics";
@@ -47,16 +45,10 @@ class AnugaContainer extends React.Component {
         setOpenMenuGroupId: PropTypes.func,
         showAddAnugaTerrainData: PropTypes.bool,
         setAddAnugaTerrainData: PropTypes.func,
-        // Wave 3B (B5) — reducer initial state is `false`, selector
-        // returns the scenario id (number) once the log opens. Widen the
-        // type so the boolean-on-init case doesn't trip a PropType warning.
-        visibleAnugaScenarioLogId: PropTypes.oneOfType([PropTypes.number, PropTypes.bool]),
         startAnugaScenarioPolling: PropTypes.func,
         stopAnugaScenarioPolling: PropTypes.func,
         updateCustomEditorsOptions: PropTypes.func,
-        logText: PropTypes.string,
         gnResourceLoaded: PropTypes.string,
-        visibleAnugaRunMenu: PropTypes.bool,
         canEditAnugaMap: PropTypes.bool,
         canViewAnugaMap: PropTypes.bool,
         canManageMembers: PropTypes.bool,
@@ -215,10 +207,6 @@ class AnugaContainer extends React.Component {
                     {this.props.canEditAnugaMap && this.props.hasEPSGset && this.props.showPublicationPanel ?
                         <PublicationPanel/> : null
                     }
-                    {this.props.visibleAnugaScenarioLogId ?
-                        <AnugaScenarioLogViewer logText={this.props.logText}/> : null
-                    }
-                    {this.props.visibleAnugaRunMenu ? <AnugaRunMenu/> : null}
                     {this.props.showNetworkMenu ? <NetworkMenu/> : null}
                     {this.props.showMembershipPanel ? <MembershipPanel/> : null}
                     {/* W7 (TASK-1045) — paused-polling banner. Always
@@ -234,15 +222,8 @@ class AnugaContainer extends React.Component {
 }
 
 const mapStateToProps = (state) => {
-    const selectedId = state?.anuga?.scenarios?.selectedId;
-    const selectedScenario = selectedId ? state?.anuga?.scenarios?.byId?.[selectedId] : null;
-    const latestRunIsValid = selectedScenario?.latest_run_is_valid;
-    const logText = latestRunIsValid ?
-        selectedScenario?.latest_run?.log || '-' :
-        selectedScenario?.log || '-';
     const mapViewerPlugins = state?.localConfig?.plugins?.map_viewer || [];
     return {
-        logText: logText,
         gnResourceLoaded: state?.gnresource?.id,
         isAnugaProject: state?.anuga?.projects?.data?.id,
         hasEPSGset: !!state?.anuga?.projects?.data?.projection,
@@ -254,11 +235,9 @@ const mapStateToProps = (state) => {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups?.length || 1,
         showAddAnugaTerrainData: state?.anuga?.ui?.showAddAnugaTerrainData,
-        visibleAnugaScenarioLogId: state?.anuga?.ui?.visibleAnugaScenarioLogId,
         visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
         showNetworkMenu: state?.anuga?.ui?.showNetworkMenu,
         visibleNetworkMenu: state?.anuga?.ui?.visibleNetworkMenu,
-        visibleAnugaRunMenu: state?.anuga?.ui?.visibleAnugaRunMenu,
         canEditAnugaMap: canEditAnugaMap(state),
         canViewAnugaMap: canViewAnugaMap(state),
         canManageMembers: canManageMembers(state),

@@ -4,8 +4,6 @@ import {
     SET_ANUGA_RESULT_MENU,
     SET_NETWORK_MENU,
     SET_PUBLICATION_PANEL,
-    SHOW_ANUGA_SCENARIO_LOG,
-    SHOW_ANUGA_RUN_MENU,
     SET_CREATING_ANUGA_LAYER,
     SET_MEMBERSHIP_PANEL,
     // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker panel.
@@ -25,8 +23,6 @@ const initialState = {
     showAnugaResultMenu: false,
     showNetworkMenu: false,
     showPublicationPanel: false,
-    visibleAnugaScenarioLogId: false,
-    visibleAnugaRunMenu: false,
     isCreatingAnugaLayer: false,
     showAddAnugaTerrainData: false,
     showMembershipPanel: false,
@@ -44,10 +40,6 @@ export default (state = initialState, action) => {
     switch (action.type) {
     case SET_CREATING_ANUGA_LAYER:
         return { ...state, isCreatingAnugaLayer: action.isCreatingAnugaLayer };
-    case SHOW_ANUGA_SCENARIO_LOG:
-        return { ...state, visibleAnugaScenarioLogId: action.scenarioId };
-    case SHOW_ANUGA_RUN_MENU:
-        return { ...state, visibleAnugaRunMenu: action.visible };
     case SET_OPEN_MENU_GROUP_ID:
         if (action.openMenuGroupId) {
             return {
