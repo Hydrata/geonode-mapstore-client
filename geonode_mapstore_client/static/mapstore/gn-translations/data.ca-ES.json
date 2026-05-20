@@ -78,6 +78,7 @@
             "errorResourcePageTitle": "Error de càrrega de la pàgina",
             "errorResourcePageContent": "La pàgina de recursos seleccionat no està disponible",
             "resourcesFound": "{count,plural, =0 {0 Resources found} = 1 {1 Resource found} Altres {# Resources found}}",
+            "featuredResultsCount": "",
             "filterApplied": "{count, plural, =0 {0 Filtres applied} =1 {1 Filtre applied} Altre {# Filtres applied}}",
             "noResultsWithFilterTitle": "Sense resultats",
             "noResultsWithFilterContent": "No hi ha resultats per als filtres seleccionats. <br/> esborreu tots els filtres i proveu amb una sol·licitud nova.",

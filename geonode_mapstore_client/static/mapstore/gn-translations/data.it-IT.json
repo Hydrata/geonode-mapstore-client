@@ -78,6 +78,7 @@
             "errorResourcePageTitle": "Errore nel caricamento della pagina",
             "errorResourcePageContent": "La pagina delle risorse selezionate non è disponibile",
             "resourcesFound": "{count, plural, =0 {0 Risorse trovate} =1 {1 Risorsa trovata} other {# Risorse trovate}}",
+            "featuredResultsCount": "",
             "filterApplied": "{count, plural, =0 {0 filtri applicati} =1 {1 filtro applicato} other {# filtri applicati}}",
             "noResultsWithFilterTitle": "Nessun risultato",
             "noResultsWithFilterContent": "Non ci sono risultato per i filtri selezionati. <br/> Cancella tutti filtri e riprova con una nuova richiesta.",

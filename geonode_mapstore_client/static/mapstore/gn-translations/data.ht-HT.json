@@ -78,6 +78,7 @@
             "errorResourcePageTitle": "Erè nan chajman paj la",
             "errorResourcePageContent": "Paj resous ki chwazi a pa disponib",
             "resourcesFound": "{count, plural, =0 {0 Resous jwenn} =1 {1 Resous jwenn} other {# Resous jwenn}}",
+            "featuredResultsCount": "",
             "filterApplied": "{count, plural, =0 {0 filtè aplike} =1 {1 filtè aplike} other {# filtè aplike}}",
             "noResultsWithFilterTitle": "Pa gen rezilta",
             "noResultsWithFilterContent": "Pa gen rezilta pou filtè yo ki chwazi. <br/> Efase tout filtè yo epi eseye ak yon nouvo rechèch.",
