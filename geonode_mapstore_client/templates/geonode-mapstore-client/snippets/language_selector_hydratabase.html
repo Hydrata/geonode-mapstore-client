@@ -19,7 +19,7 @@
             class="dropdown-toggle btn btn-{{variant|default:'default'}}"
             data-toggle="dropdown"
         >
-            <i class="glyphicon glyphicon-globe" aria-hidden="true"></i> {% if LANGUAGE == 'es' %}ES{% elif LANGUAGE == 'fr' %}FR{% else %}EN{% endif %}
+            <i class="glyphicon glyphicon-globe" aria-hidden="true"></i> {{ LANGUAGE|upper }}
         </button>
         <ul class="dropdown-menu{% if align_right %} dropdown-menu-right{% endif %}" aria-labelledby="gn-language-selector">
             {% if LANGUAGE != 'en' %}

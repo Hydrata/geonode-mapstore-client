@@ -7,6 +7,7 @@
  */
 
 import axios from '@mapstore/framework/libs/ajax';
+import { getCookieValue } from '@mapstore/framework/utils/CookieUtils';
 import {
     getApiToken,
     paramsSerializer,
@@ -455,13 +456,9 @@ export const getUserByPk = (pk, apikey) => {
         .then(({ data }) => data.user);
 };
 
-const hasSessionCookie = () => /(sessionid|csrftoken)=/.test(typeof document !== 'undefined' ? (document.cookie || '') : '');
-
 export const getAccountInfo = () => {
     const apikey = getApiToken();
-    // Skip the userinfo round-trip for anonymous visitors (no session/csrf cookie
-    // and no apikey). Avoids a guaranteed 401 in DevTools on every page load.
-    if (!apikey && !hasSessionCookie()) {
+    if (!apikey && !getCookieValue('sessionid') && !getCookieValue('csrftoken')) {
         return Promise.resolve(null);
     }
     return getUserInfo(apikey)
