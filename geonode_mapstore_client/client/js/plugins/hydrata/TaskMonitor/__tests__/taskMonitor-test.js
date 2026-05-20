@@ -920,25 +920,20 @@ describe('TaskMonitor', () => {
                 }, 200);
             });
 
-            // W7 (TASK-1045) — terminal-process filter on the open-panel
-            // poller. The endpoint returns a mix of in-flight + recently-
-            // terminated rows; the epic drops the terminal ones BEFORE
-            // re-emission so the panel and active-count never show stale
-            // completions as in-progress.
-            describe('W7 — terminal-process filter', () => {
+            describe('open-panel poller payload', () => {
                 const MockAdapter = require('axios-mock-adapter');
                 const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
                 let mockAxios;
                 beforeEach(() => { mockAxios = new MockAdapter(axios); });
                 afterEach(() => { mockAxios.restore(); });
 
-                it('drops complete/error/cancelled rows from the setProcesses payload (active filter)', (done) => {
+                it('passes all rows through unfiltered on the active-filter branch', (done) => {
                     const mixedRows = [
-                        { id: 1, status: 'pending', type: 'layer_create' },
-                        { id: 2, status: 'running', type: 'layer_create' },
-                        { id: 3, status: 'complete', type: 'layer_create' },
-                        { id: 4, status: 'error', type: 'layer_create' },
-                        { id: 5, status: 'cancelled', type: 'layer_create' }
+                        { id: 1, status: 'pending', process_type: 'layer_create' },
+                        { id: 2, status: 'running', process_type: 'layer_create' },
+                        { id: 3, status: 'complete', process_type: 'layer_create' },
+                        { id: 4, status: 'error', process_type: 'layer_create' },
+                        { id: 5, status: 'cancelled', process_type: 'layer_create' }
                     ];
                     mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: mixedRows });
 
@@ -957,26 +952,24 @@ describe('TaskMonitor', () => {
                     subject.next({ type: TM_TOGGLE_PANEL });
 
                     setTimeout(() => {
-                        const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
-                        expect(setActions.length).toBeGreaterThan(0);
-                        const surfaced = setActions[0].processes;
-                        expect(surfaced.length).toBe(2);
-                        expect(surfaced.map(p => p.id).sort()).toEqual([1, 2]);
-                        // Active count tracks pending+running over the FILTERED list.
-                        const countActions = emitted.filter(a => a.type === TM_SET_ACTIVE_COUNT);
-                        expect(countActions[0].count).toBe(2);
-                        sub.unsubscribe();
-                        done();
+                        try {
+                            const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
+                            expect(setActions.length).toBeGreaterThan(0);
+                            const surfaced = setActions[0].processes;
+                            expect(surfaced.length).toBe(5);
+                            expect(surfaced.map(p => p.id).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+                            const countActions = emitted.filter(a => a.type === TM_SET_ACTIVE_COUNT);
+                            expect(countActions[0].count).toBe(2);
+                            done();
+                        } catch (e) { done(e); }
+                        finally { sub.unsubscribe(); }
                     }, 200);
                 });
 
-                it('drops terminal rows from the non-active filter branch too', (done) => {
-                    // The 'completed' filter requests status=complete from the API,
-                    // but per the W7 spec we drop ALL terminal rows in both branches.
-                    // For a 'completed' filter the surfaced list is therefore [].
+                it('passes completed rows through unfiltered on the completed-filter branch', (done) => {
                     const completedRows = [
-                        { id: 10, status: 'complete', type: 'layer_create' },
-                        { id: 11, status: 'complete', type: 'terrain_create' }
+                        { id: 10, status: 'complete', process_type: 'layer_create' },
+                        { id: 11, status: 'complete', process_type: 'terrain_create' }
                     ];
                     mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: completedRows });
 
@@ -995,11 +988,64 @@ describe('TaskMonitor', () => {
                     subject.next({ type: TM_SET_FILTER, filter: 'completed' });
 
                     setTimeout(() => {
-                        const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
-                        expect(setActions.length).toBeGreaterThan(0);
-                        expect(setActions[0].processes).toEqual([]);
-                        sub.unsubscribe();
-                        done();
+                        try {
+                            const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
+                            expect(setActions.length).toBeGreaterThan(0);
+                            expect(setActions[0].processes.length).toBe(2);
+                            expect(setActions[0].processes.map(p => p.id).sort((a, b) => a - b)).toEqual([10, 11]);
+                            done();
+                        } catch (e) { done(e); }
+                        finally { sub.unsubscribe(); }
+                    }, 200);
+                });
+
+                it('preserves terminal terrain_create completions for action$ listeners', (done) => {
+                    // Regression guard: a payload-shape assertion would still pass
+                    // even if the dispatched action never reached redux-observable
+                    // listeners. This test wires an independent action$ subscriber
+                    // (mimicking taskCompleteLayerEpic) and asserts it sees the
+                    // terminal row — the surface where the original bug hid.
+                    const rows = [
+                        { id: 'in-flight', status: 'running', process_type: 'layer_create' },
+                        {
+                            id: 'terrain-done',
+                            status: 'complete',
+                            process_type: 'terrain_create',
+                            metadata: { project_id: 42, terrain_id: 9999, mapstore_layers: [{ name: 'geonode:ele_9999' }] }
+                        }
+                    ];
+                    mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: rows });
+
+                    const { subject, action$ } = liveActions();
+                    const store = {
+                        getState: () => ({
+                            taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                            security: { user: authUser },
+                            anuga: { projects: { data: { id: 42 } } }
+                        })
+                    };
+
+                    const seenByListener = [];
+                    const listenerSub = action$.ofType(TM_SET_PROCESSES)
+                        .subscribe(a => seenByListener.push(a));
+                    const epicSub = pollProcessListEpic(action$, store)
+                        .subscribe(a => subject.next(a), err => done(err));
+
+                    subject.next({ type: TM_TOGGLE_PANEL });
+
+                    setTimeout(() => {
+                        try {
+                            expect(seenByListener.length).toBeGreaterThan(0);
+                            const lastSetProc = seenByListener[seenByListener.length - 1];
+                            const terrainProc = lastSetProc.processes.find(p => p.process_type === 'terrain_create');
+                            expect(terrainProc).toBeTruthy();
+                            expect(terrainProc.status).toBe('complete');
+                            done();
+                        } catch (e) { done(e); }
+                        finally {
+                            epicSub.unsubscribe();
+                            listenerSub.unsubscribe();
+                        }
                     }, 200);
                 });
             });

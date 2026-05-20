@@ -22,30 +22,34 @@ import {
 import { LOGIN_SUCCESS, SESSION_VALID } from '@mapstore/framework/actions/security';
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
 import { getProjectId } from '../Anuga/selectorsAnuga';
-import { TERMINAL_RUN_STATES } from '../Anuga/anugaConstants';
 
 const ACTIVE_STATES = ['pending', 'running'];
 
-// W7 (TASK-1045) — terminal-process filter for the OPEN-panel poller. The
-// /processes/ list endpoint returns finished Process rows for ~24h post-
-// completion; at 3s tick rate they drown the panel display. Drop them before
-// re-emission so the open-panel UX shows only in-flight work. The closed-panel
-// `pollActiveCountEpic` still passes ALL rows through so taskCompleteLayerEpic
-// can observe late completion transitions.
-function filterTerminalProcesses(processes) {
-    if (!Array.isArray(processes)) return processes;
-    return processes.filter(p => !TERMINAL_RUN_STATES.includes(p?.status));
-}
-
-// Map filter names to API params
 const filterToParams = (filter) => {
     switch (filter) {
-    case 'active': return { status: 'pending' };
     case 'completed': return { status: 'complete' };
     case 'failed': return { status: 'error' };
     default: return {};
     }
 };
+
+// Suppress no-op ticks: if a poll returns a byte-equivalent process list the
+// dispatch chain (reducer rebuild + every TM_SET_PROCESSES listener including
+// taskCompleteLayerEpic's orphan-classification + localStorage walk) re-runs
+// for nothing. id+status+updated+progress_pct covers every transition any
+// downstream consumer reacts to.
+const processListsEqual = (a, b) =>
+    a === b || (
+        Array.isArray(a) && Array.isArray(b) &&
+        a.length === b.length &&
+        a.every((p, i) => {
+            const q = b[i];
+            return p?.id === q?.id
+                && p?.status === q?.status
+                && p?.updated === q?.updated
+                && p?.progress_pct === q?.progress_pct;
+        })
+    );
 
 /**
  * Auto-start polling on login or ANUGA init.
@@ -99,81 +103,61 @@ export const pollActiveCountEpic = (action$, store) =>
                     return Rx.Observable.from(
                         taskMonitorApi.getProcesses({ project_id: projectId, limit: 10 })
                     )
-                        .concatMap(response => {
-                            const processes = response.data?.results || response.data || [];
-                            const activeCount = processes.filter(p => ACTIVE_STATES.includes(p.status)).length;
-                            return Rx.Observable.of(
-                                setProcesses(processes),
-                                setActiveCount(activeCount)
-                            );
-                        })
+                        .map(response => response.data?.results || response.data || [])
                         .catch(() => Rx.Observable.empty());
                 })
+                .distinctUntilChanged(processListsEqual)
+                .concatMap(processes => Rx.Observable.of(
+                    setProcesses(processes),
+                    setActiveCount(processes.filter(p => ACTIVE_STATES.includes(p.status)).length)
+                ))
         );
 
 /**
- * Full process list poller — runs when panel is open, 3s interval.
- *
- * Same project_id gating as the closed-panel poller: skip ticks until
- * `getProjectId(state)` is non-null, since the API rejects unscoped lists.
+ * Open-panel poller — 3s interval, gated on panelOpen + security.user +
+ * getProjectId. The 'active' filter fetches `limit:10` (newest regardless of
+ * status) so taskCompleteLayerEpic can observe completion transitions; the
+ * panel filters terminal rows for display via `getFilteredProcesses`. Other
+ * filters delegate to the BE via `filterToParams` and fetch the full project
+ * history. Action payload is the raw list — `taskCompleteLayerEpic` listens on
+ * TM_SET_PROCESSES to inject map layers on completion, so stripping terminals
+ * here would leave new uploads invisible on the map.
  */
 export const pollProcessListEpic = (action$, store) =>
     action$
         .ofType(TM_TOGGLE_PANEL, TM_SET_FILTER)
         .filter(() => store.getState()?.taskMonitor?.ui?.panelOpen)
         .filter(() => !!store.getState()?.security?.user)
-        .switchMap(() => {
-            const filter = store.getState()?.taskMonitor?.ui?.filter || 'active';
-            const params = filterToParams(filter);
-            // For 'active' filter, fetch the recent process list (not just
-            // currently-active) so taskCompleteLayerEpic can see completion
-            // transitions. UI filters by status for display.
-            if (filter === 'active') {
-                return Rx.Observable.timer(0, 3000)
-                    .takeUntil(
-                        action$.ofType(TM_TOGGLE_PANEL).filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
-                            .merge(action$.ofType(TM_STOP_POLLING))
-                    )
-                    .filter(() => !!getProjectId(store.getState()))
-                    .exhaustMap(() => {
-                        const projectId = getProjectId(store.getState());
-                        return Rx.Observable.from(
-                            taskMonitorApi.getProcesses({ project_id: projectId, limit: 10 })
-                        )
-                            .concatMap(response => {
-                                const raw = response.data?.results || response.data || [];
-                                // W7 (TASK-1045): drop terminal rows BEFORE re-emission
-                                // so the panel never shows stale completions as in-progress.
-                                const processes = filterTerminalProcesses(raw);
-                                return Rx.Observable.of(
-                                    setProcesses(processes),
-                                    setActiveCount(processes.filter(p => ACTIVE_STATES.includes(p.status)).length)
-                                );
-                            })
-                            .catch(() => Rx.Observable.empty());
-                    });
-            }
-            return Rx.Observable.timer(0, 3000)
+        .switchMap(() =>
+            Rx.Observable.timer(0, 3000)
                 .takeUntil(
                     action$.ofType(TM_TOGGLE_PANEL).filter(() => !store.getState()?.taskMonitor?.ui?.panelOpen)
                         .merge(action$.ofType(TM_STOP_POLLING))
                 )
                 .filter(() => !!getProjectId(store.getState()))
                 .exhaustMap(() => {
-                    const projectId = getProjectId(store.getState());
-                    return Rx.Observable.from(
-                        taskMonitorApi.getProcesses({ ...params, project_id: projectId })
-                    )
-                        // W7 (TASK-1045): drop terminal rows BEFORE re-emission. Spec
-                        // applies the filter to BOTH branches — the open-panel pollers
-                        // surface "live work in flight" exclusively. The 'completed' /
-                        // 'failed' history panels are served by a separate one-shot
-                        // fetch in TaskMonitor history view, so dropping terminals here
-                        // does not regress that surface.
-                        .map(response => setProcesses(filterTerminalProcesses(response.data?.results || response.data || [])))
+                    const state = store.getState();
+                    const projectId = getProjectId(state);
+                    const filter = state?.taskMonitor?.ui?.filter || 'active';
+                    const params = filter === 'active'
+                        ? { project_id: projectId, limit: 10 }
+                        : { ...filterToParams(filter), project_id: projectId };
+                    return Rx.Observable.from(taskMonitorApi.getProcesses(params))
+                        .map(response => response.data?.results || response.data || [])
                         .catch(() => Rx.Observable.empty());
-                });
-        });
+                })
+                .distinctUntilChanged(processListsEqual)
+                .concatMap(processes => {
+                    const filter = store.getState()?.taskMonitor?.ui?.filter || 'active';
+                    const emissions = [setProcesses(processes)];
+                    if (filter === 'active') {
+                        emissions.push(setActiveCount(
+                            processes.filter(p => ACTIVE_STATES.includes(p.status)).length
+                        ));
+                    }
+                    return Rx.Observable.of(...emissions);
+                })
+        );
 
 /**
  * Load expanded process detail (with subtasks + log).
