@@ -38,6 +38,7 @@ class ProcessRow extends React.Component {
         const icon = typeIcons[process.process_type] || 'glyphicon-cog';
         // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         const showProgress = process.status === 'running' && process.progress_pct != null;
+        const detailAsBadge = process.status === 'pending' && !!process.status_detail;
 
         return (
             <div
@@ -49,10 +50,12 @@ class ProcessRow extends React.Component {
                     <div className="tm-row-header">
                         <span className="tm-process-name">{process.name}</span>
                         <span className={statusBadgeClass(process.status)}>
-                            <Message msgId={statusMsgId(process.status)} />
+                            {detailAsBadge
+                                ? process.status_detail.charAt(0).toUpperCase() + process.status_detail.slice(1)
+                                : <Message msgId={statusMsgId(process.status)} />}
                         </span>
                     </div>
-                    {process.status_detail ? (
+                    {!detailAsBadge && process.status_detail ? (
                         <span className="tm-status-detail">{process.status_detail}</span>
                     ) : null}
                     {showProgress ? (
