@@ -113,6 +113,20 @@ class MenuRowsClass extends React.Component {
         trackEvent('button', 'click', `simpleview-rail-select-${subHeading}`);
     };
 
+    // TASK-1010 B5 — rail callbacks as arrow class fields so refs stay
+    // stable across renders. Prerequisite for CategoryRail React.memo
+    // eligibility in a later polish task. Bodies match the pre-polish
+    // inline arrows byte-identical.
+    onToggleGroupVisibility = (groupLayers, nextVisible, subHeading) => {
+        this.props.toggleGroupVisibility(groupLayers, nextVisible);
+        this.trackGroupToggle(subHeading, nextVisible);
+    };
+
+    onZoomToGroup = (groupLayers, subHeading) => {
+        this.props.zoomToGroup(groupLayers);
+        this.trackGroupZoom(subHeading);
+    };
+
     getGroupLayers(subHeading) {
         return this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading) || [];
     }
@@ -135,14 +149,8 @@ class MenuRowsClass extends React.Component {
                 items={items}
                 selectedSubHeading={this.state.selectedSubHeading}
                 onSelect={this.handleSelectSubHeading}
-                onToggleGroupVisibility={(groupLayers, nextVisible, subHeading) => {
-                    this.props.toggleGroupVisibility(groupLayers, nextVisible);
-                    this.trackGroupToggle(subHeading, nextVisible);
-                }}
-                onZoomToGroup={(groupLayers, subHeading) => {
-                    this.props.zoomToGroup(groupLayers);
-                    this.trackGroupZoom(subHeading);
-                }}
+                onToggleGroupVisibility={this.onToggleGroupVisibility}
+                onZoomToGroup={this.onZoomToGroup}
             />
         );
     }
