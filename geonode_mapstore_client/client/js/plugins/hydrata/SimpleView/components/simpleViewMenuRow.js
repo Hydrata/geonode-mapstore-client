@@ -483,6 +483,75 @@ class MenuRowClass extends React.Component {
             this.props.svDownloadLayer(this.props.layer);
             trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
         };
+        // TASK-1010 B2 — secondary toolbar (delete glyph + always-mounted
+        // confirm overlay + SWAMM-only upload) is now a `secondaryActions`
+        // payload passed to LayerActionToolbar. The primitive owns the
+        // `.menu-row-toolbar-secondary` wrapper so the className contract
+        // (R03) lives in one place. The confirm overlay is itself a `<span>`
+        // (not a glyph) so it uses the primitive's `render` escape hatch.
+        const secondaryActions = [];
+        if (canDelete) {
+            secondaryActions.push({
+                key: 'delete',
+                glyph: 'glyphicon-trash',
+                className: 'glyph-delete'
+                    + (deleting ? ' glyph-disabled' : '')
+                    + (this.state.deleteConfirmVisible ? ' glyph-hidden' : ''),
+                onClick: deleting ? undefined : this.handleDeleteClick,
+                ariaDisabled: !!deleting
+            });
+            secondaryActions.push({
+                key: 'delete-confirm',
+                render: () => (
+                    <span
+                        className={
+                            "menu-row-delete-confirm"
+                            + (this.state.deleteConfirmVisible ? " is-open" : "")
+                        }
+                        role="alertdialog"
+                        aria-label="Confirm delete"
+                        aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
+                    >
+                        <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
+                        <span className="menu-row-delete-confirm-text">
+                            <Message msgId="hydrata.simpleView.confirmDelete"/>
+                            {' "'}{this.props.layer?.title}{'"?'}
+                        </span>
+                        <button
+                            type="button"
+                            className="save-confirm-btn danger"
+                            onClick={this.performDelete}
+                        >
+                            <Message msgId="hydrata.simpleView.delete"/>
+                        </button>
+                        <button
+                            type="button"
+                            className="save-confirm-btn cancel"
+                            onClick={this.cancelDelete}
+                        >
+                            <Message msgId="hydrata.simpleView.cancel"/>
+                        </button>
+                    </span>
+                )
+            });
+        }
+        // TASK-602: erosion is a SWAMM-only feature. Hide the upload
+        // button on hydratabase (hydrata.com) — the hardcoded "erosion"
+        // importerConfigKey has no matching entry in
+        // AnugaProject.simple_view_config.importer_config (which only
+        // contains "terrain") and the button used to dispatch a useless
+        // action that confused users.
+        if (this.props.canUploadErosion) {
+            secondaryActions.push({
+                key: 'upload',
+                glyph: 'glyphicon-upload',
+                className: 'glyph-active',
+                onClick: () => {
+                    this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
+                    trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
+                }
+            });
+        }
         return (
             <div className={"menu-row"}>
                 <span className={"menu-row-left"}>
@@ -494,81 +563,9 @@ class MenuRowClass extends React.Component {
                         onZoom={onZoom}
                         onEdit={onEdit}
                         onDownload={onDownload}
+                        secondaryActions={secondaryActions}
                     />
-                    {
-                        // TASK-1010 W6-polish — download/delete swapped.
-                        // Secondary toolbar now carries delete (trash + always-
-                        // mounted confirm overlay) and upload. The delete-confirm
-                        // overlay stays a sibling of the trash glyph so
-                        // `.menu-row-delete-confirm .save-confirm-btn.danger`
-                        // continues to resolve (R03 / R04 always-in-DOM dialog).
-                        (canDelete || this.props.canUploadErosion) ?
-                            <span className={"menu-row-toolbar-secondary"}>
-                                {
-                                    canDelete ?
-                                        <span
-                                            className={
-                                                "btn glyphicon menu-row-glyph glyphicon-trash glyph-delete"
-                                                + (deleting ? " glyph-disabled" : "")
-                                                + (this.state.deleteConfirmVisible ? " glyph-hidden" : "")
-                                            }
-                                            onClick={deleting ? undefined : this.handleDeleteClick}
-                                            aria-disabled={deleting ? true : undefined}
-                                        /> : null
-                                }
-                                {
-                                    canDelete ?
-                                        <span
-                                            className={
-                                                "menu-row-delete-confirm"
-                                                + (this.state.deleteConfirmVisible ? " is-open" : "")
-                                            }
-                                            role="alertdialog"
-                                            aria-label="Confirm delete"
-                                            aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
-                                        >
-                                            <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
-                                            <span className="menu-row-delete-confirm-text">
-                                                <Message msgId="hydrata.simpleView.confirmDelete"/>
-                                                {' "'}{this.props.layer?.title}{'"?'}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                className="save-confirm-btn danger"
-                                                onClick={this.performDelete}
-                                            >
-                                                <Message msgId="hydrata.simpleView.delete"/>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="save-confirm-btn cancel"
-                                                onClick={this.cancelDelete}
-                                            >
-                                                <Message msgId="hydrata.simpleView.cancel"/>
-                                            </button>
-                                        </span>
-                                        : null
-                                }
-                                {
-                                    // TASK-602: erosion is a SWAMM-only feature. Hide the upload
-                                    // button on hydratabase (hydrata.com) — the hardcoded "erosion"
-                                    // importerConfigKey has no matching entry in
-                                    // AnugaProject.simple_view_config.importer_config (which only
-                                    // contains "terrain") and the button used to dispatch a useless
-                                    // action that confused users.
-                                    this.props.canUploadErosion ? (
-                                        <span
-                                            className={"btn glyphicon menu-row-glyph glyphicon-upload glyph-active"}
-                                            onClick={() => {
-                                                this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
-                                                trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
-                                            }}
-                                        />
-                                    ) : null
-                                }
-                            </span>
-                            : null
-                    }
+
                     <div className={"menu-row-title"}>
                         {canEdit ? (
                             <React.Fragment>
