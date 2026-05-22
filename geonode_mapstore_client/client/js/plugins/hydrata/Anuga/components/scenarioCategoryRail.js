@@ -185,4 +185,10 @@ ScenarioCategoryRail.contextTypes = {
     messages: PropTypes.object
 };
 
-export {ScenarioCategoryRail, CATEGORIES, SECTIONS};
+// Wave 3D Tier B7 — category rail is pure on its props. Default shallow
+// comparator is sufficient: scenario object reference change drives
+// per-category progress recomputation; selectedCategoryId is a string;
+// onSelectCategory identity is stable from the parent's bound method.
+const MemoScenarioCategoryRail = React.memo(ScenarioCategoryRail);
+
+export {MemoScenarioCategoryRail as ScenarioCategoryRail, CATEGORIES, SECTIONS};

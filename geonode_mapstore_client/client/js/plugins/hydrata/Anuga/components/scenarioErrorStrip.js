@@ -45,4 +45,9 @@ ScenarioErrorStrip.propTypes = {
     scenario: PropTypes.object
 };
 
-export {ScenarioErrorStrip};
+// Wave 3D Tier B7 — error strip is pure on its scenario prop and only
+// renders when the scenario lifecycle resolves to 'error'. Default shallow
+// comparator is sufficient.
+const MemoScenarioErrorStrip = React.memo(ScenarioErrorStrip);
+
+export {MemoScenarioErrorStrip as ScenarioErrorStrip};

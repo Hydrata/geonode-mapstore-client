@@ -307,4 +307,10 @@ ScenarioActionToolbar.defaultProps = {
   canRunScenario: false
 };
 
-export {ScenarioActionToolbar};
+// Wave 3D Tier B7 — toolbar renders in the Status and actions pane and is
+// pure on its props. The locale messages dictionary is set once at app
+// boot, so the default shallow comparator is sufficient even though the
+// component reads from React legacy context.
+const MemoScenarioActionToolbar = React.memo(ScenarioActionToolbar);
+
+export {MemoScenarioActionToolbar as ScenarioActionToolbar};

@@ -156,4 +156,9 @@ ScenarioStatusPill.defaultProps = {
   compact: false
 };
 
-export {ScenarioStatusPill};
+// Wave 3D Tier B7 — pill is rendered N times per rail (once per scenario row)
+// plus once on the status card. Memoising trims wasted reconciliation when
+// the parent re-renders for unrelated state.
+const MemoScenarioStatusPill = React.memo(ScenarioStatusPill);
+
+export {MemoScenarioStatusPill as ScenarioStatusPill};
