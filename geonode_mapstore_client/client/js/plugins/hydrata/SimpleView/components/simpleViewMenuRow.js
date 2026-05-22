@@ -403,7 +403,6 @@ class MenuRowClass extends React.Component {
                 </div>
             );
         }
-        const hasValidBbox = this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds);
         // TASK-1010 W6-polish — download and delete positions swapped.
         // Locked 4-icon toolbar order is now: vis | zoom | edit | download.
         // Trash + delete-confirm overlay moved to the secondary toolbar
@@ -414,71 +413,6 @@ class MenuRowClass extends React.Component {
         const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
         const canDownload = this.props.canEditMap && this.canExportLayer(this.props.layer);
         const deleting = !!this.props.deleteRow?.deleting;
-        const onToggleVisibility = () => {
-            this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
-            trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
-        };
-        const onZoom = () => {
-            if (hasValidBbox) {
-                const {bounds, crs} = this.props.layer.bbox;
-                this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
-                trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
-            } else {
-                this.fetchAndZoomToLayer();
-            }
-        };
-        const onEdit = () => {
-            const layer = this.props.layer;
-            trackEvent('button', `click`, `simpleview-menu-row-edit-${layer.title}`);
-            const prefix = getAnugaPrefix(layer.name);
-            if (prefix) {
-                const cfg = ANUGA_FEATURE_CONFIG[prefix];
-                // Raster early-return: rasters have no VectorDraw editing AND
-                // would crash the legacy FeatureGrid (no WFS features). Per-
-                // raster replace-upload is launched from anugaInputMenu.js, not
-                // from the menu-row pencil. The pencil renders (canEditLayer
-                // doesn't distinguish raster vs vector) but clicks are inert.
-                if (cfg.geomType === 'Raster') {
-                    return;
-                }
-                // VectorDraw path — bdy_/inf_/fri_/mes_/str_. setPermission /
-                // svSelectLayer omitted per pre-flight audit (TASK-793): no
-                // downstream consumers outside the FeatureGrid we're abandoning.
-                //
-                // Panel hide: <AnugaInputMenu/> is gated by
-                // state.anuga.ui.showAnugaInputMenu; state.simpleView.openMenuGroupId
-                // controls a different panel rendered in simpleViewContainer.js
-                // for non-Anuga maps. Anuga's uiReducer's SET_OPEN_MENU_GROUP_ID
-                // case only acts when truthy — so dispatching setOpenMenuGroupId(null)
-                // alone does NOT close the Anuga panel. We dispatch BOTH so each
-                // panel closes via its own slice. Toolbar buttons portal'd into
-                // .simple-view-left-toolbar by AnugaContainer stay visible.
-                this.props.closeFeatureGrid();
-                this.props.selectFeatures([]);
-                this.props.setOpenMenuGroupId(null);
-                this.props.setAnugaInputMenu(false);
-                this.props.startVectorDraw({
-                    layerName: layer.name,
-                    geomType: cfg.geomType,
-                    featureId: null,
-                    allowPick: true,
-                    owner: 'anuga',
-                    formConfig: cfg.formConfig,
-                    onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
-                    onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED',
-                    meta: { prefix, layerId: layer.id }
-                });
-            } else {
-                // Legacy FeatureGrid path for non-migrated prefixes
-                // (terrain_/ele_/cat_/nod_/lin_/full_mesh_/network_).
-                this.props.closeFeatureGrid();
-                this.props.selectFeatures([]);
-                this.props.setOpenMenuGroupId(null);
-                this.props.setPermission({canEdit: true});
-                this.props.svSelectLayer(layer);
-                this.props.browseData(layer);
-            }
-        };
         const onDownload = () => {
             this.props.svDownloadLayer(this.props.layer);
             trackEvent('button', `click`, `simpleview-menu-row-download-${this.props.layer.title}`);
@@ -559,9 +493,9 @@ class MenuRowClass extends React.Component {
                         layer={this.props.layer}
                         canEdit={canEdit}
                         canDownload={canDownload}
-                        onToggleVisibility={onToggleVisibility}
-                        onZoom={onZoom}
-                        onEdit={onEdit}
+                        onToggleVisibility={this.onToggleVisibility}
+                        onZoom={this.onZoom}
+                        onEdit={this.onEdit}
                         onDownload={onDownload}
                         secondaryActions={secondaryActions}
                     />
@@ -611,6 +545,81 @@ class MenuRowClass extends React.Component {
             </div>
         );
     }
+
+    // TASK-1010 B4 — primary toolbar callbacks as arrow class fields so refs
+    // are stable across renders (prerequisite for LayerActionToolbar
+    // React.memo eligibility in a follow-up task). Bodies preserve the
+    // pre-polish behaviour byte-identical, including the ~85-line VectorDraw
+    // 6-action onClick in onEdit (W2 R07 sealing).
+    onToggleVisibility = () => {
+        this.props.toggleLayer(this.props.layer?.id, this.props.layer?.visibility);
+        trackEvent('button', `click`, `simpleview-menu-row-turn-${this.props.layer?.visibility ? "off" : "on"}-${this.props.layer.title}`);
+    };
+
+    onZoom = () => {
+        const hasValidBbox = this.props.layer?.bbox?.bounds && !isGlobalExtent(this.props.layer.bbox.bounds);
+        if (hasValidBbox) {
+            const {bounds, crs} = this.props.layer.bbox;
+            this.props.zoomToLayer([bounds.minx, bounds.miny, bounds.maxx, bounds.maxy], crs || "EPSG:4326");
+            trackEvent('button', 'click', `simpleview-menu-row-zoom-to-${this.props.layer.title}`);
+        } else {
+            this.fetchAndZoomToLayer();
+        }
+    };
+
+    onEdit = () => {
+        const layer = this.props.layer;
+        trackEvent('button', `click`, `simpleview-menu-row-edit-${layer.title}`);
+        const prefix = getAnugaPrefix(layer.name);
+        if (prefix) {
+            const cfg = ANUGA_FEATURE_CONFIG[prefix];
+            // Raster early-return: rasters have no VectorDraw editing AND
+            // would crash the legacy FeatureGrid (no WFS features). Per-
+            // raster replace-upload is launched from anugaInputMenu.js, not
+            // from the menu-row pencil. The pencil renders (canEditLayer
+            // doesn't distinguish raster vs vector) but clicks are inert.
+            if (cfg.geomType === 'Raster') {
+                return;
+            }
+            // VectorDraw path — bdy_/inf_/fri_/mes_/str_. setPermission /
+            // svSelectLayer omitted per pre-flight audit (TASK-793): no
+            // downstream consumers outside the FeatureGrid we're abandoning.
+            //
+            // Panel hide: <AnugaInputMenu/> is gated by
+            // state.anuga.ui.showAnugaInputMenu; state.simpleView.openMenuGroupId
+            // controls a different panel rendered in simpleViewContainer.js
+            // for non-Anuga maps. Anuga's uiReducer's SET_OPEN_MENU_GROUP_ID
+            // case only acts when truthy — so dispatching setOpenMenuGroupId(null)
+            // alone does NOT close the Anuga panel. We dispatch BOTH so each
+            // panel closes via its own slice. Toolbar buttons portal'd into
+            // .simple-view-left-toolbar by AnugaContainer stay visible.
+            this.props.closeFeatureGrid();
+            this.props.selectFeatures([]);
+            this.props.setOpenMenuGroupId(null);
+            this.props.setAnugaInputMenu(false);
+            this.props.startVectorDraw({
+                layerName: layer.name,
+                geomType: cfg.geomType,
+                featureId: null,
+                allowPick: true,
+                owner: 'anuga',
+                formConfig: cfg.formConfig,
+                onComplete: 'ANUGA:VECTOR_DRAW_COMPLETE',
+                onCancel: 'ANUGA:VECTOR_DRAW_CANCELLED',
+                meta: { prefix, layerId: layer.id }
+            });
+        } else {
+            // Legacy FeatureGrid path for non-migrated prefixes
+            // (terrain_/ele_/cat_/nod_/lin_/full_mesh_/network_).
+            this.props.closeFeatureGrid();
+            this.props.selectFeatures([]);
+            this.props.setOpenMenuGroupId(null);
+            this.props.setPermission({canEdit: true});
+            this.props.svSelectLayer(layer);
+            this.props.browseData(layer);
+        }
+    };
+
     fetchAndZoomToLayer = () => {
         const layerName = this.props.layer?.name?.replace('geonode:', '');
         if (!layerName) {
