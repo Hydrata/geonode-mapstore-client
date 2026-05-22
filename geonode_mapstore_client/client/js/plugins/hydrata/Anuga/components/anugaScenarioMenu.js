@@ -41,6 +41,7 @@ import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import {validateScenario} from './scenarioHelpers';
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane} from './scenarioPane';
+import {SectionHeader} from "../../SimpleView/components/primitives";
 
 /**
  * Miller-columns container for the ANUGA scenarios panel.
@@ -404,8 +405,12 @@ class AnugaScenarioMenuClass extends React.Component {
     const {compareMode} = this.state;
     const hasSelected = !!(selectedScenario && selectedScenario.id);
     const canDuplicateNow = canCreate && hasSelected;
+    // Use the shared SectionHeader primitive (also used by anugaInputMenu /
+    // InputSection / swammInputMenu) instead of a hand-written .row.menu-row
+    // .menu-row-header className chain. extraClassName preserves the per-site
+    // anuga-section-header and scenario-menu-header CSS hooks.
     return (
-      <div className={"row menu-row menu-row-header anuga-section-header scenario-menu-header"}>
+      <SectionHeader extraClassName="anuga-section-header scenario-menu-header">
         <Message msgId="hydrata.anuga.scenarios" />
         <span id={"scenario-header-actions"} className="scenario-header-actions">
           {canCreate ?
@@ -456,7 +461,7 @@ class AnugaScenarioMenuClass extends React.Component {
             <Message msgId="hydrata.anuga.btnDuplicate" />
           </Button>
         </span>
-      </div>
+      </SectionHeader>
     );
   }
 
