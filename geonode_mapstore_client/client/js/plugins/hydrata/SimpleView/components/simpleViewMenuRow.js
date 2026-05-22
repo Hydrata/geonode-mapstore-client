@@ -1,5 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
+import {debounce} from 'lodash';
 const PropTypes = require('prop-types');
 
 import {
@@ -536,14 +537,34 @@ class MenuRowClass extends React.Component {
                 <OpacitySlider
                     opacity={this.props.layer?.opacity}
                     hidden={this.state.deleteConfirmVisible}
-                    onChange={(values) => {
-                        this.props.setOpacity(this.props.layer?.id, values);
-                        trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${this.props.layer.title} -> ${values}`);
-                    }}
+                    onChange={this.onOpacityChange}
                 />
                 {this.renderDeleteFeedback()}
             </div>
         );
+    }
+
+    // TASK-1010 B6 — debounced analytics for opacity-slider drag. nouislider
+    // can fire intermediate values 30+/sec while the user drags; we still
+    // dispatch setOpacity on every tick so the visible layer transparency
+    // tracks the handle in real time, but coalesce the trackEvent calls to
+    // at most ~4/sec via lodash debounce. Trailing-edge so the captured
+    // value matches the final handle position. Per-instance so each row
+    // owns its own debounced fn (a shared module-level debounce would
+    // squash drag events across rows).
+    trackOpacityDebounced = debounce((title, values) => {
+        trackEvent('button', `click`, `tracking simpleview-menu-row-set-opacity-${title} -> ${values}`);
+    }, 250);
+
+    onOpacityChange = (values) => {
+        this.props.setOpacity(this.props.layer?.id, values);
+        this.trackOpacityDebounced(this.props.layer?.title, values);
+    };
+
+    componentWillUnmount() {
+        // Flush any pending trackEvent so the user's final drag value is
+        // recorded even if the row unmounts immediately after release.
+        if (this.trackOpacityDebounced) this.trackOpacityDebounced.flush();
     }
 
     // TASK-1010 B4 — primary toolbar callbacks as arrow class fields so refs
