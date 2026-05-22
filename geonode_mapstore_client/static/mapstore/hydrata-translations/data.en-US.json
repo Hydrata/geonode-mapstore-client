@@ -316,7 +316,16 @@
         "emptyScenariosSubcopy": "Click \"+ New scenario\" above to create your first run.",
         "readOnlyPaneHint": "Read-only, your role does not allow editing.",
         "pollingPaused": "Live updates paused",
-        "resumePolling": "Resume polling"
+        "resumePolling": "Resume polling",
+        "exitCompareModeTooltip": "Exit compare mode",
+        "enterCompareModeTooltip": "Enter compare mode, then select 2 scenarios to compare",
+        "duplicateSelectedTooltip": "Duplicate the selected scenario",
+        "duplicateDisabledTooltip": "Select a saved scenario to duplicate",
+        "thisScenario": "this scenario",
+        "buildValidationAriaLabel": "Build validation error",
+        "categoryRailAriaLabel": "Scenario categories",
+        "railUnsavedAriaLabel": "Unsaved",
+        "railArchivedAriaLabel": "Archived"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

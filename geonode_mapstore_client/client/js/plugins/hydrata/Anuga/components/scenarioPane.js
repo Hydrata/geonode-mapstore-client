@@ -291,10 +291,13 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
     );
 }
 
+// Wave 3C — Duplicate moved to the scenario panel header (next to New
+// Scenario), so canDuplicateScenario + onDuplicateClick are no longer
+// forwarded into ScenarioActionToolbar.
 function renderStatusActionsPane({
-    scenario, canEdit, canRunScenario, canDuplicateScenario,
+    scenario, canEdit, canRunScenario,
     onBuildClick, onRunClick, onRetryClick,
-    onDuplicateClick, onArchiveClick, onUnarchiveClick,
+    onArchiveClick, onUnarchiveClick,
     onConfirmDelete, onConfirmCancelRun
 }) {
     return (
@@ -306,11 +309,9 @@ function renderStatusActionsPane({
                     scenario={scenario}
                     canEdit={canEdit}
                     canRunScenario={canRunScenario}
-                    canDuplicateScenario={canDuplicateScenario}
                     onBuildClick={onBuildClick}
                     onRunClick={onRunClick}
                     onRetryClick={onRetryClick}
-                    onDuplicateClick={onDuplicateClick}
                     onArchiveClick={onArchiveClick}
                     onUnarchiveClick={onUnarchiveClick}
                     onConfirmDelete={onConfirmDelete}
@@ -414,7 +415,6 @@ ScenarioPane.propTypes = {
     onSelectCategory: PropTypes.func,
     canEdit: PropTypes.bool,
     canRunScenario: PropTypes.bool,
-    canDuplicateScenario: PropTypes.bool,
     currentUserId: PropTypes.number,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,
@@ -429,7 +429,6 @@ ScenarioPane.propTypes = {
     onBuildClick: PropTypes.func,
     onRunClick: PropTypes.func,
     onRetryClick: PropTypes.func,
-    onDuplicateClick: PropTypes.func,
     onArchiveClick: PropTypes.func,
     onUnarchiveClick: PropTypes.func,
     onConfirmDelete: PropTypes.func,
@@ -439,8 +438,7 @@ ScenarioPane.propTypes = {
 ScenarioPane.defaultProps = {
     selectedCategoryId: 'inputs',
     canEdit: false,
-    canRunScenario: false,
-    canDuplicateScenario: false
+    canRunScenario: false
 };
 
 export {ScenarioPane, VALID_CATEGORIES};

@@ -1,6 +1,7 @@
 import React from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
 import {validateCategoryProgress} from './scenarioHelpers';
 
@@ -82,17 +83,20 @@ const ITEMS_BY_SECTION = SECTIONS.reduce((acc, s) => {
     return acc;
 }, {});
 
-const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}) => {
+const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, context) => {
     const handleSelect = (categoryId) => {
         if (onSelectCategory) onSelectCategory(categoryId);
         trackEvent('button', 'click', `anuga-scenario-menu-category-${categoryId}`);
     };
+    const messages = (context && context.messages) || {};
+    const railAriaLabel = getMessageById(messages, 'hydrata.anuga.categoryRailAriaLabel')
+        || 'Scenario categories';
 
     return (
         <div
             className="anuga-scenario-category-rail"
             role="tablist"
-            aria-label="Scenario categories"
+            aria-label={railAriaLabel}
         >
             {SECTIONS.map(section => (
                 <div
@@ -175,4 +179,16 @@ ScenarioCategoryRail.defaultProps = {
     selectedCategoryId: 'inputs'
 };
 
-export {ScenarioCategoryRail, CATEGORIES, SECTIONS};
+// Pull intl messages off React legacy context so the tablist aria-label can
+// be localised at render time.
+ScenarioCategoryRail.contextTypes = {
+    messages: PropTypes.object
+};
+
+// Wave 3D Tier B7 — category rail is pure on its props. Default shallow
+// comparator is sufficient: scenario object reference change drives
+// per-category progress recomputation; selectedCategoryId is a string;
+// onSelectCategory identity is stable from the parent's bound method.
+const MemoScenarioCategoryRail = React.memo(ScenarioCategoryRail);
+
+export {MemoScenarioCategoryRail as ScenarioCategoryRail, CATEGORIES, SECTIONS};

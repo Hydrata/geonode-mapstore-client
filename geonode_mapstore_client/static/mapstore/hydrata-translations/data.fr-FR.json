@@ -316,7 +316,16 @@
         "emptyScenariosSubcopy": "Cliquez sur \"+ Nouveau scénario\" ci-dessus pour créer votre première exécution.",
         "readOnlyPaneHint": "Lecture seule, votre rôle ne permet pas la modification.",
         "pollingPaused": "Mises à jour en direct suspendues",
-        "resumePolling": "Reprendre"
+        "resumePolling": "Reprendre",
+        "exitCompareModeTooltip": "Quitter le mode comparaison",
+        "enterCompareModeTooltip": "Entrer en mode comparaison puis sélectionner 2 scénarios à comparer",
+        "duplicateSelectedTooltip": "Dupliquer le scénario sélectionné",
+        "duplicateDisabledTooltip": "Sélectionner un scénario enregistré à dupliquer",
+        "thisScenario": "ce scénario",
+        "buildValidationAriaLabel": "Erreur de validation de la construction",
+        "categoryRailAriaLabel": "Catégories de scénario",
+        "railUnsavedAriaLabel": "Non enregistré",
+        "railArchivedAriaLabel": "Archivé"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

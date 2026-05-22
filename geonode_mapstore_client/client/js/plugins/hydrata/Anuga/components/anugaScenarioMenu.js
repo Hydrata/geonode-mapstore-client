@@ -6,6 +6,7 @@ import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {
@@ -40,6 +41,7 @@ import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import {validateScenario} from './scenarioHelpers';
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane} from './scenarioPane';
+import {SectionHeader} from "../../SimpleView/components/primitives";
 
 /**
  * Miller-columns container for the ANUGA scenarios panel.
@@ -61,15 +63,54 @@ import {ScenarioPane} from './scenarioPane';
  * status/action-button renders to ScenarioActionToolbar (via ScenarioPane),
  * all rail item renders to ScenarioRailItem.
  */
-// Body + confirm-button msgId pair, keyed off confirmingAction state. ICU
-// MessageFormat (used by react-intl) tolerates an unused {name} placeholder,
-// so each entry can interpolate the scenario name via msgParams uniformly.
-const CONFIRM_DIALOG_MSG_IDS = {
-  duplicate:    {body: 'hydrata.anuga.confirmDuplicateScenario',   confirm: 'hydrata.anuga.btnDuplicate'},
-  archive:      {body: 'hydrata.anuga.confirmArchiveScenario',     confirm: 'hydrata.anuga.btnArchive'},
-  unarchive:    {body: 'hydrata.anuga.confirmUnarchiveScenario',   confirm: 'hydrata.anuga.btnRestore'},
-  delete:       {body: 'hydrata.anuga.confirmDeleteScenario',      confirm: 'hydrata.anuga.btnDelete'},
-  'cancel-run': {body: 'hydrata.anuga.confirmCancelRunScenario',   confirm: 'hydrata.anuga.btnCancelRun'}
+// Unified registry for the 5 inline-confirm dialog actions. One entry per
+// confirmingAction state; both renderConfirmDialog (body + confirm msgIds)
+// and performConfirm (dispatchProp + analyticsEvent + argSelector) consult
+// the same record so a new action lands in one place.
+//
+// ICU MessageFormat (used by react-intl) tolerates an unused {name}
+// placeholder, so each entry can interpolate the scenario name via
+// msgParams uniformly.
+//
+// `argSelector` returns the value passed into the dispatch function. Most
+// entries pass the scenario through, but cancel-run breaks symmetry by
+// dispatching on the nested latest_run.id integer.
+const CONFIRM_DIALOG_REGISTRY = {
+  duplicate: {
+    body: 'hydrata.anuga.confirmDuplicateScenario',
+    confirm: 'hydrata.anuga.btnDuplicate',
+    dispatchProp: 'duplicateAnugaScenario',
+    analyticsEvent: 'anuga-scenario-menu-duplicate-scenario-confirm',
+    argSelector: (scenario) => scenario
+  },
+  archive: {
+    body: 'hydrata.anuga.confirmArchiveScenario',
+    confirm: 'hydrata.anuga.btnArchive',
+    dispatchProp: 'archiveAnugaScenario',
+    analyticsEvent: 'anuga-scenario-menu-archive-scenario-confirm',
+    argSelector: (scenario) => scenario
+  },
+  unarchive: {
+    body: 'hydrata.anuga.confirmUnarchiveScenario',
+    confirm: 'hydrata.anuga.btnRestore',
+    dispatchProp: 'unarchiveAnugaScenario',
+    analyticsEvent: 'anuga-scenario-menu-unarchive-scenario-confirm',
+    argSelector: (scenario) => scenario
+  },
+  delete: {
+    body: 'hydrata.anuga.confirmDeleteScenario',
+    confirm: 'hydrata.anuga.btnDelete',
+    dispatchProp: 'deleteAnugaScenario',
+    analyticsEvent: 'anuga-scenario-menu-delete-scenario-confirm',
+    argSelector: (scenario) => scenario
+  },
+  'cancel-run': {
+    body: 'hydrata.anuga.confirmCancelRunScenario',
+    confirm: 'hydrata.anuga.btnCancelRun',
+    dispatchProp: 'cancelAnugaRun',
+    analyticsEvent: 'anuga-scenario-menu-cancel-run-confirm',
+    argSelector: (scenario) => scenario?.latest_run?.id
+  }
 };
 
 class AnugaScenarioMenuClass extends React.Component {
@@ -276,22 +317,12 @@ class AnugaScenarioMenuClass extends React.Component {
     const {confirmingAction, confirmingScenario} = this.state;
     this.setState({confirmingAction: null, confirmingScenario: null});
     if (!confirmingScenario) return;
-    if (confirmingAction === 'duplicate' && this.props.duplicateAnugaScenario) {
-      this.props.duplicateAnugaScenario(confirmingScenario);
-      trackEvent('button', 'click', 'anuga-scenario-menu-duplicate-scenario-confirm');
-    } else if (confirmingAction === 'archive' && this.props.archiveAnugaScenario) {
-      this.props.archiveAnugaScenario(confirmingScenario);
-      trackEvent('button', 'click', 'anuga-scenario-menu-archive-scenario-confirm');
-    } else if (confirmingAction === 'unarchive' && this.props.unarchiveAnugaScenario) {
-      this.props.unarchiveAnugaScenario(confirmingScenario);
-      trackEvent('button', 'click', 'anuga-scenario-menu-unarchive-scenario-confirm');
-    } else if (confirmingAction === 'delete' && this.props.deleteAnugaScenario) {
-      this.props.deleteAnugaScenario(confirmingScenario);
-      trackEvent('button', 'click', 'anuga-scenario-menu-delete-scenario-confirm');
-    } else if (confirmingAction === 'cancel-run' && this.props.cancelAnugaRun) {
-      this.props.cancelAnugaRun(confirmingScenario?.latest_run?.id);
-      trackEvent('button', 'click', 'anuga-scenario-menu-cancel-run-confirm');
-    }
+    const entry = CONFIRM_DIALOG_REGISTRY[confirmingAction];
+    if (!entry) return;
+    const dispatch = this.props[entry.dispatchProp];
+    if (!dispatch) return;
+    dispatch(entry.argSelector(confirmingScenario));
+    trackEvent('button', 'click', entry.analyticsEvent);
   };
 
   dismissBuildValidation = () => {
@@ -329,6 +360,9 @@ class AnugaScenarioMenuClass extends React.Component {
       computeInstances
     } = this.props;
     const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
+    // Wave 3C — Duplicate moved to the scenario panel header (next to New
+    // Scenario), so canDuplicateScenario + onDuplicateClick are no longer
+    // forwarded into ScenarioPane.
     return (
       <ScenarioPane
         scenario={selectedScenario}
@@ -336,7 +370,6 @@ class AnugaScenarioMenuClass extends React.Component {
         onSelectCategory={this.handleSelectCategory}
         canEdit={canEdit}
         canRunScenario={this.props.canRunScenario}
-        canDuplicateScenario={this.props.canCreateScenario}
         currentUserId={currentUserId}
         terrain={terrain}
         boundaries={boundaries}
@@ -351,7 +384,6 @@ class AnugaScenarioMenuClass extends React.Component {
         onBuildClick={this.handleBuildClick}
         onRunClick={this.handleRunClick}
         onRetryClick={this.handleRetryClick}
-        onDuplicateClick={(s) => this.openConfirm('duplicate', s)}
         onArchiveClick={(s) => this.openConfirm('archive', s)}
         onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
         onConfirmDelete={(s) => this.openConfirm('delete', s)}
@@ -360,13 +392,25 @@ class AnugaScenarioMenuClass extends React.Component {
     );
   }
 
+  // Wrapper around getMessageById that returns the English fallback when the
+  // messages dictionary is not yet populated (initial render, locale boot).
+  // Keeps tooltip + aria-label semantics intact even before i18n resolves.
+  tr = (msgId, fallback) => {
+    const messages = (this.context && this.context.messages) || {};
+    return getMessageById(messages, msgId) || fallback;
+  };
+
   renderHeader() {
     const {canCreateScenario: canCreate, readyToCompare, selectedScenario} = this.props;
     const {compareMode} = this.state;
     const hasSelected = !!(selectedScenario && selectedScenario.id);
     const canDuplicateNow = canCreate && hasSelected;
+    // Use the shared SectionHeader primitive (also used by anugaInputMenu /
+    // InputSection / swammInputMenu) instead of a hand-written .row.menu-row
+    // .menu-row-header className chain. extraClassName preserves the per-site
+    // anuga-section-header and scenario-menu-header CSS hooks.
     return (
-      <div className={"row menu-row menu-row-header anuga-section-header scenario-menu-header"}>
+      <SectionHeader extraClassName="anuga-section-header scenario-menu-header">
         <Message msgId="hydrata.anuga.scenarios" />
         <span id={"scenario-header-actions"} className="scenario-header-actions">
           {canCreate ?
@@ -385,8 +429,9 @@ class AnugaScenarioMenuClass extends React.Component {
             className={"anuga-btn anuga-btn-compare" + (compareMode ? ' is-active' : '')}
             onClick={this.handleToggleCompareMode}
             title={compareMode
-              ? 'Exit compare mode'
-              : 'Enter compare mode, then select 2 scenarios to compare'}
+              ? this.tr('hydrata.anuga.exitCompareModeTooltip', 'Exit compare mode')
+              : this.tr('hydrata.anuga.enterCompareModeTooltip',
+                  'Enter compare mode, then select 2 scenarios to compare')}
           >
             <Message msgId="hydrata.anuga.compare" />
           </Button>
@@ -410,32 +455,28 @@ class AnugaScenarioMenuClass extends React.Component {
               if (canDuplicateNow) this.openConfirm('duplicate', selectedScenario);
             }}
             title={canDuplicateNow
-              ? 'Duplicate the selected scenario'
-              : 'Select a saved scenario to duplicate'}
+              ? this.tr('hydrata.anuga.duplicateSelectedTooltip', 'Duplicate the selected scenario')
+              : this.tr('hydrata.anuga.duplicateDisabledTooltip', 'Select a saved scenario to duplicate')}
           >
             <Message msgId="hydrata.anuga.btnDuplicate" />
           </Button>
         </span>
-      </div>
+      </SectionHeader>
     );
   }
 
   renderConfirmDialog() {
     const {confirmingAction, confirmingScenario} = this.state;
     const isOpen = !!confirmingAction;
-    const dialogEntry = CONFIRM_DIALOG_MSG_IDS[confirmingAction] || {};
+    const dialogEntry = CONFIRM_DIALOG_REGISTRY[confirmingAction] || {};
     const {body: bodyMsgId, confirm: confirmLabelMsgId} = dialogEntry;
-    const name = confirmingScenario?.name || 'this scenario';
+    const name = confirmingScenario?.name
+      || this.tr('hydrata.anuga.thisScenario', 'this scenario');
     return (
       <span
         className={"anuga-scenario-confirm-dialog" + (isOpen ? " is-open" : "")}
         role="alertdialog"
-        // TODO i18n: aria-label needs a plain string, not JSX. Matches the
-        // pattern used by the sibling anuga-build-validation-dialog below
-        // and other Anuga dialogs in this directory. Wire to getMessageById
-        // once a static contextTypes.messages plumbing pass is done across
-        // the surface.
-        aria-label="Confirm scenario action"
+        aria-label={this.tr('hydrata.anuga.confirmActionAriaLabel', 'Confirm scenario action')}
         aria-hidden={isOpen ? undefined : true}
       >
         <span className="anuga-scenario-confirm-text">
@@ -470,7 +511,7 @@ class AnugaScenarioMenuClass extends React.Component {
           + (buildValidationError ? " is-open" : "")
         }
         role="alertdialog"
-        aria-label="Build validation error"
+        aria-label={this.tr('hydrata.anuga.buildValidationAriaLabel', 'Build validation error')}
         aria-hidden={buildValidationError ? undefined : true}
       >
         <span className="menu-row-delete-confirm-text">
@@ -509,6 +550,14 @@ class AnugaScenarioMenuClass extends React.Component {
     );
   }
 }
+
+// Pull intl messages off React legacy context so getMessageById can resolve
+// tooltip + aria-label keys at render time. Matches the pattern used by
+// hydrata/HGeval/components/hgevalSignupForm.js and the surrounding Anuga
+// surface (anugaInputMenu.js, anugaInputStarterCard.js).
+AnugaScenarioMenuClass.contextTypes = {
+  messages: PropTypes.object
+};
 
 const mapStateToProps = (state) => {
   const selected = selectedScenariosSelector(state);

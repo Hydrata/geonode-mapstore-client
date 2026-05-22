@@ -79,6 +79,11 @@ ScenarioResourceSummary.propTypes = {
     extraClassName: PropTypes.string
 };
 
+// Wave 3D Tier B7 — summary card renders once per dropdown (up to 8 times
+// per pane) and is pure on its props. Memoising trims rework on unrelated
+// re-renders of the parent pane.
+const MemoScenarioResourceSummary = React.memo(ScenarioResourceSummary);
+
 /**
  * Convenience helper: derive a one-line summary string from a resource
  * object (terrain/boundary/inflow/rainfall/friction/etc). Falls back to
@@ -117,4 +122,4 @@ function summariseResource(resourceList, assignedId, kind) {
     };
 }
 
-export {ScenarioResourceSummary, summariseResource};
+export {MemoScenarioResourceSummary as ScenarioResourceSummary, summariseResource};

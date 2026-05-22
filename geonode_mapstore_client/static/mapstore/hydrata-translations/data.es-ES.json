@@ -316,7 +316,16 @@
         "emptyScenariosSubcopy": "Haz clic en \"+ Nuevo escenario\" arriba para crear tu primera ejecución.",
         "readOnlyPaneHint": "Solo lectura, tu rol no permite editar.",
         "pollingPaused": "Actualizaciones en vivo en pausa",
-        "resumePolling": "Reanudar"
+        "resumePolling": "Reanudar",
+        "exitCompareModeTooltip": "Salir del modo de comparación",
+        "enterCompareModeTooltip": "Entrar en modo de comparación y luego seleccionar 2 escenarios para comparar",
+        "duplicateSelectedTooltip": "Duplicar el escenario seleccionado",
+        "duplicateDisabledTooltip": "Seleccione un escenario guardado para duplicar",
+        "thisScenario": "este escenario",
+        "buildValidationAriaLabel": "Error de validación de construcción",
+        "categoryRailAriaLabel": "Categorías de escenario",
+        "railUnsavedAriaLabel": "No guardado",
+        "railArchivedAriaLabel": "Archivado"
       },
       "hydrology": {
         "ari05yr": "0.5yr",

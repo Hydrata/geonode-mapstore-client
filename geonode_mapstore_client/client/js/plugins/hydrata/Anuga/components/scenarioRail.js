@@ -1,6 +1,7 @@
 import React from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
 import {ScenarioStatusPill} from './scenarioStatusPill';
 
@@ -34,8 +35,13 @@ const ScenarioRailItem = ({
   currentUserId,
   onSelect,
   onToggleSelected
-}) => {
+}, context) => {
   if (!scenario) return null;
+  const messages = (context && context.messages) || {};
+  const unsavedAriaLabel = getMessageById(messages, 'hydrata.anuga.railUnsavedAriaLabel')
+    || 'Unsaved';
+  const archivedAriaLabel = getMessageById(messages, 'hydrata.anuga.railArchivedAriaLabel')
+    || 'Archived';
   const isUnsaved = !scenario.id;
   const isArchived = !!scenario.archived_at;
   const isSelected = !!scenario.selected;
@@ -124,7 +130,7 @@ const ScenarioRailItem = ({
         <div className="scenario-rail-item-top">
           <span className="scenario-rail-item-id">{idLabel}</span>
           {isUnsaved ?
-            <span className="scenario-rail-item-unsaved" aria-label="Unsaved">*</span> : null
+            <span className="scenario-rail-item-unsaved" aria-label={unsavedAriaLabel}>*</span> : null
           }
           <h5 className="sv-category-rail-item-label scenario-rail-item-name">
             {scenario.name || ''}
@@ -132,7 +138,7 @@ const ScenarioRailItem = ({
           {isArchived ?
             <span
               className="scenario-rail-item-archived-dot glyphicon glyphicon-folder-close"
-              aria-label="Archived"
+              aria-label={archivedAriaLabel}
             /> : null
           }
         </div>
@@ -157,6 +163,12 @@ ScenarioRailItem.propTypes = {
 ScenarioRailItem.defaultProps = {
   isActive: false,
   compareMode: false
+};
+
+// Pull intl messages off React legacy context so unsaved / archived
+// aria-labels can be localised at render time.
+ScenarioRailItem.contextTypes = {
+  messages: PropTypes.object
 };
 
 /**

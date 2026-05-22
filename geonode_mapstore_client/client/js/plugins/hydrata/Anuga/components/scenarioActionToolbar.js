@@ -2,6 +2,7 @@ import React from "react";
 const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
 import {findScenarioStatus} from './scenarioHelpers';
 import {TERMINAL_RUN_STATES} from '../anugaConstants';
@@ -35,118 +36,145 @@ import {TERMINAL_RUN_STATES} from '../anugaConstants';
  * window.confirm sites in ScenarioTableRow.js lines 657-674).
  */
 
+// Dispatch table for renderRunControl. One entry per scenario status; the
+// 4 mid-run statuses (queued/computing/processing/building) share the
+// `spinner` shape via a shared reference. Each entry returns a Button-shaped
+// descriptor; the renderer wires it into the DOM, taking care of the
+// canRunScenario gate (per-entry `gateOnCanRun`), the Build-disabled-when-
+// not-unsaved suffix, and the download anchor extras.
+//
+// Analytics event names (trackEvent third argument) are preserved 1:1 with
+// the legacy ScenarioTableRow.js per the file-level guarantee.
+const SPINNER_RUN_CONTROL = {
+  className: 'scenario-action-run disabled',
+  spinner: true,
+  gateOnCanRun: false
+};
+
+const RUN_CONTROL_BY_STATUS = {
+  built: {
+    className: 'scenario-action-run',
+    msgId: 'hydrata.anuga.run',
+    trackEvent: 'anuga-scenario-menu-run',
+    onClickHandler: 'onRunClick',
+    bsStyle: 'success',
+    gateOnCanRun: true
+  },
+  complete: {
+    className: 'scenario-action-download',
+    iconGlyph: 'glyphicon-download',
+    trackEvent: 'anuga-scenario-menu-download',
+    download: true,
+    bsStyle: 'success',
+    gateOnCanRun: false
+  },
+  error: {
+    className: 'scenario-action-retry',
+    msgId: 'hydrata.anuga.retry',
+    trackEvent: 'anuga-scenario-menu-retry',
+    onClickHandler: 'onRetryClick',
+    bsStyle: 'warning',
+    gateOnCanRun: true
+  },
+  cancelled: {
+    className: 'scenario-action-rerun',
+    msgId: 'hydrata.anuga.run',
+    trackEvent: 'anuga-scenario-menu-rerun',
+    onClickHandler: 'onRunClick',
+    bsStyle: 'success',
+    gateOnCanRun: true
+  },
+  queued: SPINNER_RUN_CONTROL,
+  computing: SPINNER_RUN_CONTROL,
+  processing: SPINNER_RUN_CONTROL,
+  building: SPINNER_RUN_CONTROL,
+  created: {
+    className: 'scenario-action-build',
+    msgId: 'hydrata.anuga.build',
+    trackEvent: 'anuga-scenario-menu-build',
+    onClickHandler: 'onBuildClick',
+    bsStyle: 'success',
+    gateOnCanRun: true,
+    disableWhenNotUnsaved: true
+  }
+};
+
 // Run / Build / Retry / Download / Re-run renderer. Returns null when the
-// caller cannot run (read-only role).
+// status has no entry in RUN_CONTROL_BY_STATUS or when the entry is gated
+// on canRunScenario and the caller cannot run (read-only role).
 function renderRunControl({scenario, canRunScenario, onBuildClick, onRunClick, onRetryClick}) {
   const status = findScenarioStatus(scenario);
+  const entry = RUN_CONTROL_BY_STATUS[status];
+  if (!entry) return null;
+  if (entry.gateOnCanRun && !canRunScenario) return null;
+
+  const handlers = {onBuildClick, onRunClick, onRetryClick};
   const isUnsaved = !!scenario?.unsaved;
-  switch (status) {
-  case 'built':
-    if (!canRunScenario) return null;
+  const extraDisabled = entry.disableWhenNotUnsaved && !isUnsaved ? ' disabled' : '';
+  const className = 'anuga-btn scenario-action-toolbar-btn ' + entry.className + extraDisabled;
+
+  if (entry.spinner) {
     return (
-      <Button
-        bsStyle={'success'}
-        bsSize={'xsmall'}
-        className="anuga-btn scenario-action-toolbar-btn scenario-action-run"
-        onClick={() => {
-          if (onRunClick) onRunClick(scenario);
-          trackEvent('button', 'click', 'anuga-scenario-menu-run');
-        }}
-      >
-        <Message msgId="hydrata.anuga.run" />
+      <Button bsStyle={'success'} bsSize={'xsmall'} className={className}>
+        <span className="glyphicon glyphicon-refresh glyphicon-spin" aria-hidden="true" />
       </Button>
     );
-  case 'complete':
+  }
+
+  const onClickHandler = entry.onClickHandler ? handlers[entry.onClickHandler] : null;
+  const onClick = () => {
+    if (onClickHandler) onClickHandler(scenario);
+    trackEvent('button', 'click', entry.trackEvent);
+  };
+
+  if (entry.download) {
     return (
       <Button
         download
         href={scenario?.latest_run?.s3_package_url}
-        bsStyle={'success'}
+        bsStyle={entry.bsStyle}
         bsSize={'xsmall'}
-        className="anuga-btn scenario-action-toolbar-btn scenario-action-download"
-        onClick={() => trackEvent('button', 'click', 'anuga-scenario-menu-download')}
+        className={className}
+        onClick={() => trackEvent('button', 'click', entry.trackEvent)}
       >
-        <span className="glyphicon glyphicon-download" aria-hidden="true" />
+        <span className={'glyphicon ' + entry.iconGlyph} aria-hidden="true" />
       </Button>
     );
-  case 'error':
-    if (!canRunScenario) return null;
-    return (
-      <Button
-        bsStyle={'warning'}
-        bsSize={'xsmall'}
-        className="anuga-btn scenario-action-toolbar-btn scenario-action-retry"
-        onClick={() => {
-          if (onRetryClick) onRetryClick(scenario);
-          trackEvent('button', 'click', 'anuga-scenario-menu-retry');
-        }}
-      >
-        <Message msgId="hydrata.anuga.retry" />
-      </Button>
-    );
-  case 'cancelled':
-    if (!canRunScenario) return null;
-    return (
-      <Button
-        bsStyle={'success'}
-        bsSize={'xsmall'}
-        className="anuga-btn scenario-action-toolbar-btn scenario-action-rerun"
-        onClick={() => {
-          if (onRunClick) onRunClick(scenario);
-          trackEvent('button', 'click', 'anuga-scenario-menu-rerun');
-        }}
-      >
-        <Message msgId="hydrata.anuga.run" />
-      </Button>
-    );
-  case 'queued':
-  case 'computing':
-  case 'processing':
-  case 'building':
-    return (
-      <Button
-        bsStyle={'success'}
-        bsSize={'xsmall'}
-        className="anuga-btn scenario-action-toolbar-btn scenario-action-run disabled"
-      >
-        <span className="glyphicon glyphicon-refresh glyphicon-spin" aria-hidden="true" />
-      </Button>
-    );
-  case 'created':
-    if (!canRunScenario) return null;
-    return (
-      <Button
-        bsStyle={'success'}
-        bsSize={'xsmall'}
-        className={"anuga-btn scenario-action-toolbar-btn scenario-action-build"
-          + (isUnsaved ? '' : ' disabled')}
-        onClick={() => {
-          if (onBuildClick) onBuildClick(scenario);
-          trackEvent('button', 'click', 'anuga-scenario-menu-build');
-        }}
-      >
-        <Message msgId="hydrata.anuga.build" />
-      </Button>
-    );
-  default:
-    return null;
   }
+
+  return (
+    <Button
+      bsStyle={entry.bsStyle}
+      bsSize={'xsmall'}
+      className={className}
+      onClick={onClick}
+    >
+      <Message msgId={entry.msgId} />
+    </Button>
+  );
 }
 
+// Wave 3C — Duplicate moved to the scenario panel header (next to New
+// Scenario), so canDuplicateScenario + onDuplicateClick props are no longer
+// destructured here. The header owns the openConfirm('duplicate', ...) dispatch.
 const ScenarioActionToolbar = ({
   scenario,
   canEdit,
   canRunScenario,
-  canDuplicateScenario,
   onBuildClick,
   onRunClick,
   onRetryClick,
-  onDuplicateClick,
   onArchiveClick,
   onUnarchiveClick,
   onConfirmDelete,
   onConfirmCancelRun
-}) => {
+}, context) => {
+  // Resolve archive-disabled tooltip via the locale dictionary, falling back
+  // to English so the title still surfaces before i18n has loaded.
+  const tr = (msgId, fallback) => {
+    const messages = (context && context.messages) || {};
+    return getMessageById(messages, msgId) || fallback;
+  };
   if (!scenario) return null;
   const status = findScenarioStatus(scenario);
   // W7 (TASK-1045) — add 'processing' to the cancellable set. The status
@@ -210,12 +238,9 @@ const ScenarioActionToolbar = ({
           + (showArchive ? '' : ' is-hidden')
           + (isArchiveDisabled ? ' disabled' : '')}
         disabled={isArchiveDisabled}
-        // Wave 3C C1: title is plain English here (matches the pattern used
-        // by anuga-scenario-confirm-dialog's aria-label). TODO i18n: wire
-        // to getMessageById once contextTypes.messages plumbing lands.
-        // Locale key reserved: hydrata.anuga.archiveDisabledWhileRunning.
         title={isArchiveDisabled
-          ? 'Cannot archive while a run is in progress. Cancel the run first.'
+          ? tr('hydrata.anuga.archiveDisabledWhileRunning',
+              'Cannot archive while a run is in progress. Cancel the run first.')
           : undefined}
         onClick={() => {
           if (isArchiveDisabled) return;
@@ -262,21 +287,30 @@ ScenarioActionToolbar.propTypes = {
   scenario: PropTypes.object,
   canEdit: PropTypes.bool,
   canRunScenario: PropTypes.bool,
-  canDuplicateScenario: PropTypes.bool,
   onBuildClick: PropTypes.func,
   onRunClick: PropTypes.func,
   onRetryClick: PropTypes.func,
-  onDuplicateClick: PropTypes.func,
   onArchiveClick: PropTypes.func,
   onUnarchiveClick: PropTypes.func,
   onConfirmDelete: PropTypes.func,
   onConfirmCancelRun: PropTypes.func
 };
 
-ScenarioActionToolbar.defaultProps = {
-  canEdit: false,
-  canRunScenario: false,
-  canDuplicateScenario: false
+// Pull intl messages off React legacy context so getMessageById can resolve
+// the archive-disabled tooltip key at render time.
+ScenarioActionToolbar.contextTypes = {
+  messages: PropTypes.object
 };
 
-export {ScenarioActionToolbar};
+ScenarioActionToolbar.defaultProps = {
+  canEdit: false,
+  canRunScenario: false
+};
+
+// Wave 3D Tier B7 — toolbar renders in the Status and actions pane and is
+// pure on its props. The locale messages dictionary is set once at app
+// boot, so the default shallow comparator is sufficient even though the
+// component reads from React legacy context.
+const MemoScenarioActionToolbar = React.memo(ScenarioActionToolbar);
+
+export {MemoScenarioActionToolbar as ScenarioActionToolbar};

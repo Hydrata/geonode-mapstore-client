@@ -98,4 +98,9 @@ ScenarioStatusCard.propTypes = {
     scenario: PropTypes.object
 };
 
-export {ScenarioStatusCard};
+// Wave 3D Tier B7 — card renders inside the Status and actions pane and
+// pulls only from scenario.latest_run. Default shallow comparator skips
+// re-render when the parent re-renders without a scenario change.
+const MemoScenarioStatusCard = React.memo(ScenarioStatusCard);
+
+export {MemoScenarioStatusCard as ScenarioStatusCard};
