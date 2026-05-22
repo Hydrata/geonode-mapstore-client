@@ -1,5 +1,6 @@
 import React from "react";
 import {connect} from "react-redux";
+import {createSelector} from 'reselect';
 const PropTypes = require('prop-types');
 
 import {MenuRow} from "./simpleViewMenuRow";
@@ -15,6 +16,50 @@ import {trackEvent} from "@js/utils/analytics";
 
 const isGlobalExtent = (bounds) =>
     bounds.minx <= -180 && bounds.miny <= -90 && bounds.maxx >= 180 && bounds.maxy >= 90;
+
+const EMPTY_ARRAY = [];
+
+// TASK-1010 B7 — memoized rail-item derivation. `state.layers.flat` is a
+// long array (50-150 layers) and `buildRailItems` previously filtered it
+// once per subheading per render = O(N×S) work on every connected
+// component re-render — even when neither `layers.flat` nor the
+// openMenuGroupId changed. Hoisting the derivation into a reselect
+// selector keyed on the two real inputs short-circuits all that work on
+// unrelated state-shape changes (controls, security, gnresource, etc.).
+//
+// Output shape mirrors the previous `buildRailItems(subHeadings)` return
+// so the component's rail + pane render paths can read straight from the
+// prop. `groupLayers` is precomputed per subHeading (replaces the inner
+// `getGroupLayers(subHeading)` filter).
+const _selectLayerList = createSelector(
+    [(state) => state?.layers?.flat || EMPTY_ARRAY,
+        (state) => state?.simpleView?.openMenuGroupId],
+    (flat, openMenuGroupId) =>
+        flat.filter((layer) => layer?.group?.split('.')[0] === openMenuGroupId)
+);
+
+const _selectLayerSubheadings = createSelector(
+    [_selectLayerList],
+    (layerList) => [...new Set(layerList.map(layer => layer.group.split('.')[1]))]
+);
+
+const _selectRailItems = createSelector(
+    [_selectLayerList, _selectLayerSubheadings],
+    (layerList, subHeadings) =>
+        subHeadings.map((subHeading) => {
+            const groupLayers = layerList.filter(
+                (layer) => layer.group.split('.')[1] === subHeading
+            );
+            const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
+            const noneVisible = groupLayers.every(l => !l.visibility);
+            return {subHeading, groupLayers, allVisible, noneVisible};
+        })
+);
+
+const _selectBaseMapLayers = createSelector(
+    [(state) => state?.layers?.flat || EMPTY_ARRAY],
+    (flat) => flat.filter((layer) => layer?.group === 'background')
+);
 
 const COLLAPSE_STORAGE_PREFIX = 'simpleview-subgroup-collapsed';
 
@@ -48,6 +93,12 @@ class MenuRowsClass extends React.Component {
         flatLayers: PropTypes.array,
         layerList: PropTypes.array,
         layerSubheadings: PropTypes.array,
+        // TASK-1010 B7 — memoized per-subHeading rail payload from a
+        // reselect selector. `[{subHeading, groupLayers, allVisible,
+        // noneVisible}]`. Read in renderRail (build CategoryRail items),
+        // renderPane (rows for the selected pane), and the legacy
+        // single-subHeading accordion fallback.
+        railItems: PropTypes.array,
         menuDatasets: PropTypes.array,
         openMenuGroupId: PropTypes.string,
         baseMapLayers: PropTypes.array,
@@ -127,23 +178,35 @@ class MenuRowsClass extends React.Component {
         this.trackGroupZoom(subHeading);
     };
 
-    getGroupLayers(subHeading) {
-        return this.props.layerList?.filter(layer => layer.group.split('.')[1] === subHeading) || [];
+    // TASK-1010 B7 — read from the memoized `railItems` prop instead of
+    // re-filtering `layerList` on every render. Falls back to the previous
+    // filter for safety if a test renders the class unconnected (no
+    // railItems prop) — the unwrapped MenuRowsClass is also exported for
+    // tests that bypass the Provider tree.
+    getRailItem(subHeading) {
+        const items = this.props.railItems;
+        if (items && items.length > 0) {
+            const item = items.find(i => i.subHeading === subHeading);
+            if (item) return item;
+        }
+        const groupLayers = this.props.layerList?.filter(
+            layer => layer.group.split('.')[1] === subHeading
+        ) || [];
+        const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
+        const noneVisible = groupLayers.every(l => !l.visibility);
+        return {subHeading, groupLayers, allVisible, noneVisible};
     }
 
-    // Per-rail-item derivation: trackEvent stays HERE (the container);
-    // primitives emit no analytics.
-    buildRailItems(subHeadings) {
-        return (subHeadings || []).map(subHeading => {
-            const groupLayers = this.getGroupLayers(subHeading);
-            const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
-            const noneVisible = groupLayers.every(l => !l.visibility);
-            return {subHeading, groupLayers, allVisible, noneVisible};
-        });
+    getGroupLayers(subHeading) {
+        return this.getRailItem(subHeading).groupLayers;
     }
 
     renderRail(subHeadings) {
-        const items = this.buildRailItems(subHeadings);
+        // Iterate `subHeadings` (already ordered for the UI) and look up
+        // each rail item via the memoized selector. Keeps rail order
+        // deterministic regardless of the upstream sort order of
+        // `state.layers.flat`.
+        const items = subHeadings.map(sh => this.getRailItem(sh));
         return (
             <CategoryRail
                 items={items}
@@ -181,9 +244,7 @@ class MenuRowsClass extends React.Component {
         // localStorage collapse helpers stay exercised. Miller rail+pane
         // activates at 2+ subheadings where a 1-button rail would be a
         // strictly worse UX than the accordion.
-        const groupLayers = this.getGroupLayers(subHeading);
-        const allVisible = groupLayers.length > 0 && groupLayers.every(l => l.visibility);
-        const noneVisible = groupLayers.every(l => !l.visibility);
+        const {groupLayers, allVisible, noneVisible} = this.getRailItem(subHeading);
         const collapsed = this.isCollapsed(subHeading);
         const chevronGlyph = collapsed ? 'glyphicon-chevron-right' : 'glyphicon-chevron-down';
         return (
@@ -268,13 +329,20 @@ class MenuRowsClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    // TASK-1010 B7 — `layerList`, `layerSubheadings`, `railItems`, and
+    // `baseMapLayers` are memoized via reselect selectors. The previous
+    // inline-filter implementation rebuilt all four arrays on every
+    // mapStateToProps invocation; with `state.layers.flat` ~50-150 long
+    // and the rail iterating once per subheading per render, this
+    // dominated CPU on unrelated state changes (controls, security, etc.).
     return {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         menuGroups: state?.layers?.groups,
         flatLayers: state?.layers?.flat,
-        layerList: state?.layers?.flat?.filter((layer) => layer?.group?.split('.')[0] === state?.simpleView?.openMenuGroupId),
-        layerSubheadings: [...new Set(state?.layers?.flat?.filter((layer) => layer?.group?.split('.')[0] === state?.simpleView?.openMenuGroupId).map(layer => layer.group.split('.')[1]))],
-        baseMapLayers: state?.layers?.flat.filter((layer) => layer?.group === 'background')
+        layerList: _selectLayerList(state),
+        layerSubheadings: _selectLayerSubheadings(state),
+        railItems: _selectRailItems(state),
+        baseMapLayers: _selectBaseMapLayers(state)
     };
 };
 
