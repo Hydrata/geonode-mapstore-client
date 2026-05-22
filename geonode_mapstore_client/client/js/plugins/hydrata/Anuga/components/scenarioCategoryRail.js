@@ -89,8 +89,10 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, 
         trackEvent('button', 'click', `anuga-scenario-menu-category-${categoryId}`);
     };
     const messages = (context && context.messages) || {};
-    const railAriaLabel = getMessageById(messages, 'hydrata.anuga.categoryRailAriaLabel')
-        || 'Scenario categories';
+    const resolvedRailLabel = getMessageById(messages, 'hydrata.anuga.categoryRailAriaLabel');
+    const railAriaLabel = resolvedRailLabel === 'hydrata.anuga.categoryRailAriaLabel'
+        ? 'Scenario categories'
+        : resolvedRailLabel;
 
     return (
         <div

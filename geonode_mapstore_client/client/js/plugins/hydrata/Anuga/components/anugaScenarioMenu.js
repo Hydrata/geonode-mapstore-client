@@ -394,10 +394,12 @@ class AnugaScenarioMenuClass extends React.Component {
 
   // Wrapper around getMessageById that returns the English fallback when the
   // messages dictionary is not yet populated (initial render, locale boot).
-  // Keeps tooltip + aria-label semantics intact even before i18n resolves.
+  // getMessageById returns the msgId itself on lookup miss, so compare against
+  // the input id to detect that case.
   tr = (msgId, fallback) => {
     const messages = (this.context && this.context.messages) || {};
-    return getMessageById(messages, msgId) || fallback;
+    const resolved = getMessageById(messages, msgId);
+    return resolved === msgId ? fallback : resolved;
   };
 
   renderHeader() {

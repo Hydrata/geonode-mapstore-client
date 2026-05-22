@@ -171,9 +171,13 @@ const ScenarioActionToolbar = ({
 }, context) => {
   // Resolve archive-disabled tooltip via the locale dictionary, falling back
   // to English so the title still surfaces before i18n has loaded.
+  // getMessageById returns the msgId itself when the key is missing from the
+  // locale dictionary, so a plain `|| fallback` never fires. Compare against
+  // the input id to detect the unresolved case.
   const tr = (msgId, fallback) => {
     const messages = (context && context.messages) || {};
-    return getMessageById(messages, msgId) || fallback;
+    const resolved = getMessageById(messages, msgId);
+    return resolved === msgId ? fallback : resolved;
   };
   if (!scenario) return null;
   const status = findScenarioStatus(scenario);

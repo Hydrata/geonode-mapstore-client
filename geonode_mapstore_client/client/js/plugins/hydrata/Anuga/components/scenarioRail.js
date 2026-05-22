@@ -38,10 +38,12 @@ const ScenarioRailItem = ({
 }, context) => {
   if (!scenario) return null;
   const messages = (context && context.messages) || {};
-  const unsavedAriaLabel = getMessageById(messages, 'hydrata.anuga.railUnsavedAriaLabel')
-    || 'Unsaved';
-  const archivedAriaLabel = getMessageById(messages, 'hydrata.anuga.railArchivedAriaLabel')
-    || 'Archived';
+  const tr = (msgId, fallback) => {
+    const resolved = getMessageById(messages, msgId);
+    return resolved === msgId ? fallback : resolved;
+  };
+  const unsavedAriaLabel = tr('hydrata.anuga.railUnsavedAriaLabel', 'Unsaved');
+  const archivedAriaLabel = tr('hydrata.anuga.railArchivedAriaLabel', 'Archived');
   const isUnsaved = !scenario.id;
   const isArchived = !!scenario.archived_at;
   const isSelected = !!scenario.selected;
