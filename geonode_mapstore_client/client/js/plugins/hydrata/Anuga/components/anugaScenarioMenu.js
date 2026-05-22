@@ -330,6 +330,9 @@ class AnugaScenarioMenuClass extends React.Component {
       computeInstances
     } = this.props;
     const canEdit = canEditScenarioByRole(myRole, currentUserId, selectedScenario?.created_by);
+    // Wave 3C — Duplicate moved to the scenario panel header (next to New
+    // Scenario), so canDuplicateScenario + onDuplicateClick are no longer
+    // forwarded into ScenarioPane.
     return (
       <ScenarioPane
         scenario={selectedScenario}
@@ -337,7 +340,6 @@ class AnugaScenarioMenuClass extends React.Component {
         onSelectCategory={this.handleSelectCategory}
         canEdit={canEdit}
         canRunScenario={this.props.canRunScenario}
-        canDuplicateScenario={this.props.canCreateScenario}
         currentUserId={currentUserId}
         terrain={terrain}
         boundaries={boundaries}
@@ -352,7 +354,6 @@ class AnugaScenarioMenuClass extends React.Component {
         onBuildClick={this.handleBuildClick}
         onRunClick={this.handleRunClick}
         onRetryClick={this.handleRetryClick}
-        onDuplicateClick={(s) => this.openConfirm('duplicate', s)}
         onArchiveClick={(s) => this.openConfirm('archive', s)}
         onUnarchiveClick={(s) => this.openConfirm('unarchive', s)}
         onConfirmDelete={(s) => this.openConfirm('delete', s)}

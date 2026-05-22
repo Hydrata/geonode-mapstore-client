@@ -154,15 +154,16 @@ function renderRunControl({scenario, canRunScenario, onBuildClick, onRunClick, o
   );
 }
 
+// Wave 3C — Duplicate moved to the scenario panel header (next to New
+// Scenario), so canDuplicateScenario + onDuplicateClick props are no longer
+// destructured here. The header owns the openConfirm('duplicate', ...) dispatch.
 const ScenarioActionToolbar = ({
   scenario,
   canEdit,
   canRunScenario,
-  canDuplicateScenario,
   onBuildClick,
   onRunClick,
   onRetryClick,
-  onDuplicateClick,
   onArchiveClick,
   onUnarchiveClick,
   onConfirmDelete,
@@ -286,11 +287,9 @@ ScenarioActionToolbar.propTypes = {
   scenario: PropTypes.object,
   canEdit: PropTypes.bool,
   canRunScenario: PropTypes.bool,
-  canDuplicateScenario: PropTypes.bool,
   onBuildClick: PropTypes.func,
   onRunClick: PropTypes.func,
   onRetryClick: PropTypes.func,
-  onDuplicateClick: PropTypes.func,
   onArchiveClick: PropTypes.func,
   onUnarchiveClick: PropTypes.func,
   onConfirmDelete: PropTypes.func,
@@ -305,8 +304,7 @@ ScenarioActionToolbar.contextTypes = {
 
 ScenarioActionToolbar.defaultProps = {
   canEdit: false,
-  canRunScenario: false,
-  canDuplicateScenario: false
+  canRunScenario: false
 };
 
 export {ScenarioActionToolbar};
