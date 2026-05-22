@@ -2,6 +2,7 @@ import React from "react";
 const PropTypes = require('prop-types');
 import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
 import {findScenarioStatus} from './scenarioHelpers';
 import {TERMINAL_RUN_STATES} from '../anugaConstants';
@@ -146,7 +147,13 @@ const ScenarioActionToolbar = ({
   onUnarchiveClick,
   onConfirmDelete,
   onConfirmCancelRun
-}) => {
+}, context) => {
+  // Resolve archive-disabled tooltip via the locale dictionary, falling back
+  // to English so the title still surfaces before i18n has loaded.
+  const tr = (msgId, fallback) => {
+    const messages = (context && context.messages) || {};
+    return getMessageById(messages, msgId) || fallback;
+  };
   if (!scenario) return null;
   const status = findScenarioStatus(scenario);
   // W7 (TASK-1045) — add 'processing' to the cancellable set. The status
@@ -210,12 +217,9 @@ const ScenarioActionToolbar = ({
           + (showArchive ? '' : ' is-hidden')
           + (isArchiveDisabled ? ' disabled' : '')}
         disabled={isArchiveDisabled}
-        // Wave 3C C1: title is plain English here (matches the pattern used
-        // by anuga-scenario-confirm-dialog's aria-label). TODO i18n: wire
-        // to getMessageById once contextTypes.messages plumbing lands.
-        // Locale key reserved: hydrata.anuga.archiveDisabledWhileRunning.
         title={isArchiveDisabled
-          ? 'Cannot archive while a run is in progress. Cancel the run first.'
+          ? tr('hydrata.anuga.archiveDisabledWhileRunning',
+              'Cannot archive while a run is in progress. Cancel the run first.')
           : undefined}
         onClick={() => {
           if (isArchiveDisabled) return;
@@ -271,6 +275,12 @@ ScenarioActionToolbar.propTypes = {
   onUnarchiveClick: PropTypes.func,
   onConfirmDelete: PropTypes.func,
   onConfirmCancelRun: PropTypes.func
+};
+
+// Pull intl messages off React legacy context so getMessageById can resolve
+// the archive-disabled tooltip key at render time.
+ScenarioActionToolbar.contextTypes = {
+  messages: PropTypes.object
 };
 
 ScenarioActionToolbar.defaultProps = {

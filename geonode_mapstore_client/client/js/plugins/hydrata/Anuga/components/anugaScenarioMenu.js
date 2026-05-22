@@ -6,6 +6,7 @@ import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 
 import Message from '@mapstore/framework/components/I18N/Message';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
 import {setOpenMenuGroupId} from "../../SimpleView/actionsSimpleView";
 import {
@@ -360,6 +361,14 @@ class AnugaScenarioMenuClass extends React.Component {
     );
   }
 
+  // Wrapper around getMessageById that returns the English fallback when the
+  // messages dictionary is not yet populated (initial render, locale boot).
+  // Keeps tooltip + aria-label semantics intact even before i18n resolves.
+  tr = (msgId, fallback) => {
+    const messages = (this.context && this.context.messages) || {};
+    return getMessageById(messages, msgId) || fallback;
+  };
+
   renderHeader() {
     const {canCreateScenario: canCreate, readyToCompare, selectedScenario} = this.props;
     const {compareMode} = this.state;
@@ -385,8 +394,9 @@ class AnugaScenarioMenuClass extends React.Component {
             className={"anuga-btn anuga-btn-compare" + (compareMode ? ' is-active' : '')}
             onClick={this.handleToggleCompareMode}
             title={compareMode
-              ? 'Exit compare mode'
-              : 'Enter compare mode, then select 2 scenarios to compare'}
+              ? this.tr('hydrata.anuga.exitCompareModeTooltip', 'Exit compare mode')
+              : this.tr('hydrata.anuga.enterCompareModeTooltip',
+                  'Enter compare mode, then select 2 scenarios to compare')}
           >
             <Message msgId="hydrata.anuga.compare" />
           </Button>
@@ -410,8 +420,8 @@ class AnugaScenarioMenuClass extends React.Component {
               if (canDuplicateNow) this.openConfirm('duplicate', selectedScenario);
             }}
             title={canDuplicateNow
-              ? 'Duplicate the selected scenario'
-              : 'Select a saved scenario to duplicate'}
+              ? this.tr('hydrata.anuga.duplicateSelectedTooltip', 'Duplicate the selected scenario')
+              : this.tr('hydrata.anuga.duplicateDisabledTooltip', 'Select a saved scenario to duplicate')}
           >
             <Message msgId="hydrata.anuga.btnDuplicate" />
           </Button>
@@ -425,17 +435,13 @@ class AnugaScenarioMenuClass extends React.Component {
     const isOpen = !!confirmingAction;
     const dialogEntry = CONFIRM_DIALOG_MSG_IDS[confirmingAction] || {};
     const {body: bodyMsgId, confirm: confirmLabelMsgId} = dialogEntry;
-    const name = confirmingScenario?.name || 'this scenario';
+    const name = confirmingScenario?.name
+      || this.tr('hydrata.anuga.thisScenario', 'this scenario');
     return (
       <span
         className={"anuga-scenario-confirm-dialog" + (isOpen ? " is-open" : "")}
         role="alertdialog"
-        // TODO i18n: aria-label needs a plain string, not JSX. Matches the
-        // pattern used by the sibling anuga-build-validation-dialog below
-        // and other Anuga dialogs in this directory. Wire to getMessageById
-        // once a static contextTypes.messages plumbing pass is done across
-        // the surface.
-        aria-label="Confirm scenario action"
+        aria-label={this.tr('hydrata.anuga.confirmActionAriaLabel', 'Confirm scenario action')}
         aria-hidden={isOpen ? undefined : true}
       >
         <span className="anuga-scenario-confirm-text">
@@ -470,7 +476,7 @@ class AnugaScenarioMenuClass extends React.Component {
           + (buildValidationError ? " is-open" : "")
         }
         role="alertdialog"
-        aria-label="Build validation error"
+        aria-label={this.tr('hydrata.anuga.buildValidationAriaLabel', 'Build validation error')}
         aria-hidden={buildValidationError ? undefined : true}
       >
         <span className="menu-row-delete-confirm-text">
@@ -509,6 +515,14 @@ class AnugaScenarioMenuClass extends React.Component {
     );
   }
 }
+
+// Pull intl messages off React legacy context so getMessageById can resolve
+// tooltip + aria-label keys at render time. Matches the pattern used by
+// hydrata/HGeval/components/hgevalSignupForm.js and the surrounding Anuga
+// surface (anugaInputMenu.js, anugaInputStarterCard.js).
+AnugaScenarioMenuClass.contextTypes = {
+  messages: PropTypes.object
+};
 
 const mapStateToProps = (state) => {
   const selected = selectedScenariosSelector(state);

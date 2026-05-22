@@ -316,7 +316,16 @@
         "emptyScenariosSubcopy": "Klike sou \"+ Nouvo senaryo\" anwo a pou kreye premye egzekisyon ou.",
         "readOnlyPaneHint": "Lekti sèlman, wòl ou pa pèmèt edisyon.",
         "pollingPaused": "Mizajou an dirèk an poz",
-        "resumePolling": "Rekòmanse"
+        "resumePolling": "Rekòmanse",
+        "exitCompareModeTooltip": "Soti nan mòd konparezon",
+        "enterCompareModeTooltip": "Antre nan mòd konparezon, lè sa a chwazi 2 senaryo pou konpare",
+        "duplicateSelectedTooltip": "Duplike senaryo a chwazi a",
+        "duplicateDisabledTooltip": "Chwazi yon senaryo sove pou duplike",
+        "thisScenario": "senaryo sa a",
+        "buildValidationAriaLabel": "Erè validasyon konstriksyon",
+        "categoryRailAriaLabel": "Kategori senaryo",
+        "railUnsavedAriaLabel": "Pa sove",
+        "railArchivedAriaLabel": "Achive"
       },
       "hydrology": {
         "ari05yr": "0.5yr",
