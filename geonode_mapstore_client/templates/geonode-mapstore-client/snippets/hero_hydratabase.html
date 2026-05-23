@@ -5,7 +5,7 @@
 <div id="gn-hero" class="gn-hero hydrata-hero-background">
     <div class="jumbotron">
         <div class="gn-hero-description">
-            <h1 class="hydrata-hero-h1">{% trans "Hydraulic model verification" %}<span class="sr-only">. Hydrata.</span></h1>
+            <h1 class="hydrata-hero-h1">{% trans "Hydrata" %}</h1>
             <p class="hydrata-hero-verbs">{% trans "Validate. Verify. Comply. Communicate." %}</p>
             <p>{% trans "The verification platform that lets consultants prove, with evidence, that their hydraulic models are right." %}</p>
             <p class="hydrata-hero-tagline">{% trans "Defensible flood modelling" %}</p>
@@ -35,7 +35,7 @@
 
 <div class="hydrata-trust-bar">
     <div class="container">
-        <p class="hydrata-trust-engines">{% blocktrans %}Designed by engineers, for engineers. Verification supported for HEC-RAS and <a href="https://github.com/anuga-community/anuga_core">ANUGA</a>, <a href="/docs/validation/">validated against 30+ benchmark problems</a>.{% endblocktrans %}</p>
+        <p class="hydrata-trust-engines">{% trans "Designed by engineers, for engineers." %}</p>
     </div>
 </div>
 
@@ -179,7 +179,7 @@
 </div>
 
 <div class="container">
-    <section>
+    <section class="hydrata-what-we-do">
         <h2>{% trans "What we do" %}</h2>
         <div class="hydrata-value-cards">
             <div class="hydrata-value-card">
@@ -188,7 +188,7 @@
             </div>
             <div class="hydrata-value-card">
                 <h3>{% trans "Verify" %}</h3>
-                <p>{% trans "Bring your existing HEC-RAS or ANUGA model. Get a signed advisory PDF in 5 working days, with every check traceable to its evidence." %}</p>
+                <p>{% trans "Bring whatever existing hydraulic model input data and results you have. Get a signed advisory PDF in 5 working days, with every check traceable to its evidence." %}</p>
             </div>
             <div class="hydrata-value-card">
                 <h3>{% trans "Comply" %}</h3>
@@ -200,9 +200,9 @@
             </div>
         </div>
     </section>
-    <div class="hydrata-principle-callout">
+    <aside class="hydrata-principle-callout">
         <p>{% trans "When your models disagree, the answer is in the inputs. We find it." %}</p>
-    </div>
+    </aside>
 </div>
 {% endif %}
 
