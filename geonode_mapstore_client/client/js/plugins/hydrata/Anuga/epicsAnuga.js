@@ -85,5 +85,6 @@ export {
 // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker.
 export {
     terrainBboxEndDrawingEpic,
-    createTerrainFromBboxEpic
+    createTerrainFromBboxEpic,
+    createTerrainFromBboxErrorEpic
 } from './epics/terrainBboxEpic';

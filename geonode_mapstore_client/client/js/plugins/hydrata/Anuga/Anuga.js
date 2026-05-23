@@ -68,7 +68,8 @@ import {
     vectorDrawAnugaCancelledEpic,
     // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker.
     terrainBboxEndDrawingEpic,
-    createTerrainFromBboxEpic
+    createTerrainFromBboxEpic,
+    createTerrainFromBboxErrorEpic
 } from "./epicsAnuga";
 import {
     fetchMembershipsEpic,
@@ -155,6 +156,7 @@ export default createPlugin('Anuga', {
         vectorDrawAnugaCancelledEpic,
         // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker epics.
         terrainBboxEndDrawingEpic,
-        createTerrainFromBboxEpic
+        createTerrainFromBboxEpic,
+        createTerrainFromBboxErrorEpic
     }
 });

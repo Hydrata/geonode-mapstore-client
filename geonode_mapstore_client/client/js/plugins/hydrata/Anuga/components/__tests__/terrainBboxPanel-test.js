@@ -6,9 +6,11 @@
  *   - Title input updates internal state
  *   - "Draw bbox" button dispatches a CHANGE_DRAWING_STATUS action with
  *     owner='terrain-bbox'
- *   - Create button disabled until bbox is set + validation passes + title
+ *   - Confirm-dialog Accept button disabled when the geodesic area exceeds
+ *     MAX_AREA_KM2 (the too-large message shows), enabled otherwise
  *   - Inline error renders when state.anuga.ui.terrainBboxError is set
- *   - Create button dispatches CREATE_TERRAIN_FROM_BBOX with (title, bbox)
+ *   - Confirm-dialog Accept dispatches CREATE_TERRAIN_FROM_BBOX with
+ *     (title, bbox) and closes the panel via SET_VISIBLE_TERRAIN_BBOX_PANEL=false
  *   - Cancel button hides the panel via SET_VISIBLE_TERRAIN_BBOX_PANEL=false
  */
 import expect from 'expect';
@@ -108,22 +110,34 @@ describe('TASK-930 TerrainBboxPanel', () => {
         });
     });
 
-    it('Create button is DISABLED when terrainBbox is null', () => {
-        return mount({ terrainBboxPanelVisible: true }).then(() => {
-            const create = container.querySelector('[data-testid="terrain-bbox-create-submit"]');
-            expect(create).toExist();
-            expect(create.disabled).toBe(true);
+    it('Confirm-dialog Accept button is present when the confirm popup is open', () => {
+        return mount({
+            terrainBboxPanelVisible: true,
+            terrainBboxConfirmVisible: true,
+            terrainBbox: [115.7, -32.1, 116.2, -31.6],
+            terrainBboxAreaKm2: 1752
+        }).then(() => {
+            const dialog = container.querySelector('[data-testid="terrain-bbox-confirm-dialog"]');
+            expect(dialog).toExist();
+            expect(dialog.className).toMatch(/is-open/);
+            const accept = container.querySelector('[data-testid="terrain-bbox-confirm-accept"]');
+            expect(accept).toExist();
         });
     });
 
-    it('Create button is DISABLED when error is set (e.g. bbox > 5x5°)', () => {
+    it('Confirm-dialog Accept is DISABLED and the too-large message shows when areaKm2 > 40000', () => {
         return mount({
             terrainBboxPanelVisible: true,
+            terrainBboxConfirmVisible: true,
             terrainBbox: [110, -30, 120, -20],
-            terrainBboxError: 'hydrata.anuga.terrainBboxTooLarge'
+            terrainBboxAreaKm2: 50000
         }).then(() => {
-            const create = container.querySelector('[data-testid="terrain-bbox-create-submit"]');
-            expect(create.disabled).toBe(true);
+            const accept = container.querySelector('[data-testid="terrain-bbox-confirm-accept"]');
+            expect(accept).toExist();
+            expect(accept.disabled).toBe(true);
+            // The too-large warning replaces the area/cells/time stats.
+            const tooLarge = container.querySelector('[data-testid="terrain-bbox-confirm-toolarge"]');
+            expect(tooLarge).toExist();
         });
     });
 
@@ -131,7 +145,7 @@ describe('TASK-930 TerrainBboxPanel', () => {
         return mount({
             terrainBboxPanelVisible: true,
             terrainBbox: [110, -30, 120, -20],
-            terrainBboxError: 'hydrata.anuga.terrainBboxTooLarge'
+            terrainBboxError: 'hydrata.anuga.terrainBboxInvalid'
         }).then(() => {
             const errorBlock = container.querySelector('[data-testid="terrain-bbox-error"]');
             expect(errorBlock).toExist();
@@ -141,13 +155,19 @@ describe('TASK-930 TerrainBboxPanel', () => {
         });
     });
 
-    it('Create button is ENABLED when bbox set, no error, title non-empty', () => {
+    it('Confirm-dialog Accept is ENABLED when bbox + title set and areaKm2 <= 40000', () => {
         return mount({
             terrainBboxPanelVisible: true,
-            terrainBbox: [115.7, -32.1, 116.2, -31.6]
+            terrainBboxConfirmVisible: true,
+            terrainBbox: [115.7, -32.1, 116.2, -31.6],
+            terrainBboxAreaKm2: 1752
         }).then(() => {
-            const create = container.querySelector('[data-testid="terrain-bbox-create-submit"]');
-            expect(create.disabled).toBe(false);
+            // Default title is seeded; bbox present; area under the cap.
+            const accept = container.querySelector('[data-testid="terrain-bbox-confirm-accept"]');
+            expect(accept).toExist();
+            expect(accept.disabled).toBe(false);
+            const titleInput = container.querySelector('[data-testid="terrain-bbox-title-input"]');
+            expect(titleInput.value).toBe('Copernicus GLO-30 DEM');
         });
     });
 
@@ -162,13 +182,15 @@ describe('TASK-930 TerrainBboxPanel', () => {
         });
     });
 
-    it('Create button click dispatches CREATE_TERRAIN_FROM_BBOX with (title, bbox)', () => {
+    it('Confirm-dialog Accept click dispatches CREATE_TERRAIN_FROM_BBOX with (title, bbox) and closes the panel', () => {
         return mount({
             terrainBboxPanelVisible: true,
-            terrainBbox: [115.7, -32.1, 116.2, -31.6]
+            terrainBboxConfirmVisible: true,
+            terrainBbox: [115.7, -32.1, 116.2, -31.6],
+            terrainBboxAreaKm2: 1752
         }).then(({ store }) => {
-            const create = container.querySelector('[data-testid="terrain-bbox-create-submit"]');
-            TestUtils.Simulate.click(create);
+            const accept = container.querySelector('[data-testid="terrain-bbox-confirm-accept"]');
+            TestUtils.Simulate.click(accept);
             const createAction = store.dispatched.find(a => a.type === 'ANUGA:CREATE_TERRAIN_FROM_BBOX');
             expect(createAction).toExist();
             expect(createAction.title).toBe('Copernicus GLO-30 DEM');

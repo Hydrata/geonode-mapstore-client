@@ -12,6 +12,9 @@ const SET_VISIBLE_TERRAIN_BBOX_PANEL = 'SET_VISIBLE_TERRAIN_BBOX_PANEL';
 const SET_TERRAIN_BBOX_DRAWING = 'SET_TERRAIN_BBOX_DRAWING';
 const SET_TERRAIN_BBOX = 'SET_TERRAIN_BBOX';
 const SET_TERRAIN_BBOX_ERROR = 'SET_TERRAIN_BBOX_ERROR';
+// Confirmation popup shown after the bbox is drawn (geodesic-area review +
+// cells/time estimate) before the create POST fires.
+const SET_TERRAIN_BBOX_CONFIRM = 'SET_TERRAIN_BBOX_CONFIRM';
 
 function initAnuga() {
     return { type: INIT_ANUGA };
@@ -73,6 +76,13 @@ function setTerrainBboxError(error) {
     return { type: SET_TERRAIN_BBOX_ERROR, error };
 }
 
+// Show/hide the post-draw confirmation popup. `areaKm2` is the geodesic area
+// of the drawn extent (turf), stashed on the ui slice so the popup can render
+// the cells/time estimate without recomputing. Pass visible=false to dismiss.
+function setTerrainBboxConfirm(visible, areaKm2) {
+    return { type: SET_TERRAIN_BBOX_CONFIRM, visible, areaKm2 };
+}
+
 module.exports = {
     INIT_ANUGA, initAnuga,
     SET_ANUGA_INPUT_MENU, setAnugaInputMenu,
@@ -87,5 +97,6 @@ module.exports = {
     SET_VISIBLE_TERRAIN_BBOX_PANEL, setVisibleTerrainBboxPanel,
     SET_TERRAIN_BBOX_DRAWING, setTerrainBboxDrawing,
     SET_TERRAIN_BBOX, setTerrainBbox,
-    SET_TERRAIN_BBOX_ERROR, setTerrainBboxError
+    SET_TERRAIN_BBOX_ERROR, setTerrainBboxError,
+    SET_TERRAIN_BBOX_CONFIRM, setTerrainBboxConfirm
 };

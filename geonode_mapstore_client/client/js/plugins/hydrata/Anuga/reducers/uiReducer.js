@@ -10,7 +10,8 @@ import {
     SET_VISIBLE_TERRAIN_BBOX_PANEL,
     SET_TERRAIN_BBOX_DRAWING,
     SET_TERRAIN_BBOX,
-    SET_TERRAIN_BBOX_ERROR
+    SET_TERRAIN_BBOX_ERROR,
+    SET_TERRAIN_BBOX_CONFIRM
 } from "../actionsAnuga";
 
 import {
@@ -33,7 +34,11 @@ const initialState = {
     terrainBboxPanelVisible: false,
     terrainBboxDrawingActive: false,
     terrainBbox: null,
-    terrainBboxError: null
+    terrainBboxError: null,
+    // Post-draw confirmation popup: visibility + the geodesic area (km2) of the
+    // drawn extent so the popup can render cells/time estimates.
+    terrainBboxConfirmVisible: false,
+    terrainBboxAreaKm2: null
 };
 
 export default (state = initialState, action) => {
@@ -109,13 +114,21 @@ export default (state = initialState, action) => {
         // Closing the panel resets transient draw state so re-opening is clean.
         return action.visible
             ? { ...state, terrainBboxPanelVisible: true }
-            : { ...state, terrainBboxPanelVisible: false, terrainBboxDrawingActive: false, terrainBbox: null, terrainBboxError: null };
+            : { ...state, terrainBboxPanelVisible: false, terrainBboxDrawingActive: false, terrainBbox: null, terrainBboxError: null, terrainBboxConfirmVisible: false, terrainBboxAreaKm2: null };
     case SET_TERRAIN_BBOX_DRAWING:
         return { ...state, terrainBboxDrawingActive: action.active };
     case SET_TERRAIN_BBOX:
-        return { ...state, terrainBbox: action.bbox, terrainBboxDrawingActive: false };
+        // Clearing the bbox (Re-select / Draw-again) also dismisses the confirm
+        // popup; setting a new bbox leaves popup visibility to SET_TERRAIN_BBOX_CONFIRM.
+        return action.bbox
+            ? { ...state, terrainBbox: action.bbox, terrainBboxDrawingActive: false }
+            : { ...state, terrainBbox: null, terrainBboxDrawingActive: false, terrainBboxConfirmVisible: false, terrainBboxAreaKm2: null };
     case SET_TERRAIN_BBOX_ERROR:
         return { ...state, terrainBboxError: action.error };
+    case SET_TERRAIN_BBOX_CONFIRM:
+        return action.visible
+            ? { ...state, terrainBboxConfirmVisible: true, terrainBboxAreaKm2: action.areaKm2 }
+            : { ...state, terrainBboxConfirmVisible: false };
     default:
         return state;
     }

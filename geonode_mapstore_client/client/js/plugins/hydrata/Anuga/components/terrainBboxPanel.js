@@ -8,15 +8,20 @@
  * so visual styling matches the existing modal pattern (no new CSS).
  *
  * The bbox is drawn via MapStore's draw interaction (BBOX method, owner
- * 'terrain-bbox'); terrainBboxEpic listens for END_DRAWING on that owner,
- * validates 5x5° span, then dispatches setTerrainBbox or setTerrainBboxError.
- * That keeps the bbox lifecycle on the redux side rather than in component
- * state — same pattern the existing VectorDraw flow uses for ANUGA polygons.
+ * 'terrain-bbox'); terrainBboxEndDrawingEpic listens for END_DRAWING on that
+ * owner, computes the geodesic area, stashes the bbox + area, then OPENS the
+ * confirmation popup (terrainBboxConfirmVisible). The user reviews the
+ * selection (area / estimated cells / estimated time) and either Confirms
+ * (fires the create POST) or Re-selects (clears the bbox to draw again).
  *
- * Why inline (not toast) error: project preference is inline validation so
- * the user sees the error without losing modal context; see
- * `feedback-no-em-dashes-in-copy` + the spec's "5x5 degree validation must
- * surface inline (not toast)".
+ * The confirm popup reuses the same `.anuga-scenario-confirm-dialog` +
+ * `.is-open` always-rendered pattern as anugaScenarioMenu so the visual
+ * language stays consistent and Karma stays deterministic.
+ *
+ * Why inline (not toast) error for draw validation: project preference is
+ * inline validation so the user sees the error without losing modal context.
+ * BE create errors (post-Confirm) DO surface as a toast via
+ * createTerrainFromBboxErrorEpic, since the panel is closed by then.
  */
 import React from 'react';
 import { connect } from 'react-redux';
@@ -32,6 +37,14 @@ import {
 } from "../actionsAnuga";
 import { changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import { trackEvent } from "@js/utils/analytics";
+import {
+    MAX_AREA_KM2,
+    estimateCells,
+    formatCells,
+    formatTimeToReady,
+    formatAreaKm2,
+    bboxDimsKm
+} from './terrainBboxEstimate';
 import '../../SimpleView/simpleView.css';
 import '../anuga.css';
 
@@ -43,6 +56,8 @@ export class TerrainBboxPanelClass extends React.Component {
         drawingActive: PropTypes.bool,
         bbox: PropTypes.array,
         error: PropTypes.string,
+        confirmVisible: PropTypes.bool,
+        areaKm2: PropTypes.number,
         setVisibleTerrainBboxPanel: PropTypes.func,
         setTerrainBboxDrawing: PropTypes.func,
         setTerrainBbox: PropTypes.func,
@@ -59,7 +74,8 @@ export class TerrainBboxPanelClass extends React.Component {
     }
 
     handleDrawClick = () => {
-        // Clear any previous bbox + error so the next draw starts fresh.
+        // Clear any previous bbox + error + open confirm so the next draw starts
+        // fresh. Clearing the bbox (null) also dismisses the confirm popup.
         this.props.setTerrainBbox(null);
         this.props.setTerrainBboxError(null);
         this.props.setTerrainBboxDrawing(true);
@@ -69,12 +85,25 @@ export class TerrainBboxPanelClass extends React.Component {
         trackEvent('button', 'click', 'anuga-terrain-bbox-draw-start');
     };
 
-    handleCreate = () => {
+    // Confirm in the popup -> fire the create POST and close the whole panel.
+    handleConfirm = () => {
         const title = (this.state.title || '').trim() || DEFAULT_TITLE_FALLBACK;
         this.props.createTerrainFromBbox(title, this.props.bbox);
-        // Reset transient state via panel close; reducer clears bbox + error.
+        // Reset transient state via panel close; reducer clears bbox + confirm.
         this.props.setVisibleTerrainBboxPanel(false);
         trackEvent('button', 'click', 'anuga-terrain-bbox-create');
+    };
+
+    // Re-select in the popup -> drop the bbox so the user can draw again. The
+    // reducer clears the confirm popup when the bbox is set to null. We re-enter
+    // draw mode immediately so the next box-draw is one click away.
+    handleReselect = () => {
+        this.props.changeDrawingStatus('clean', '', 'terrain-bbox', [], {});
+        this.props.setTerrainBbox(null);
+        this.props.setTerrainBboxError(null);
+        this.props.setTerrainBboxDrawing(true);
+        this.props.changeDrawingStatus('start', 'BBOX', 'terrain-bbox', [], {});
+        trackEvent('button', 'click', 'anuga-terrain-bbox-reselect');
     };
 
     handleCancel = () => {
@@ -99,12 +128,80 @@ export class TerrainBboxPanelClass extends React.Component {
         return <span data-testid="terrain-bbox-summary"><Message msgId="hydrata.anuga.terrainBboxNoBbox" /></span>;
     }
 
+    // Post-draw confirmation popup. Always rendered; `.is-open` toggled via CSS
+    // so the test harness stays deterministic (same pattern as the scenarios
+    // confirm dialog). Confirm is disabled when the geodesic area exceeds the
+    // hard ceiling (MAX_AREA_KM2) — identical to the BE backstop.
+    renderConfirmDialog() {
+        const areaKm2 = this.props.areaKm2 || 0;
+        const isOpen = !!this.props.confirmVisible;
+        const tooLarge = areaKm2 > MAX_AREA_KM2;
+        const dims = bboxDimsKm(this.props.bbox);
+        const areaStr = formatAreaKm2(areaKm2);
+        const cellsStr = formatCells(estimateCells(areaKm2));
+        const timeStr = formatTimeToReady(areaKm2);
+        const maxStr = MAX_AREA_KM2.toLocaleString('en-US');
+        return (
+            <div
+                className={"anuga-scenario-confirm-dialog terrain-bbox-confirm-dialog" + (isOpen ? " is-open" : "")}
+                data-testid="terrain-bbox-confirm-dialog"
+                role="alertdialog"
+                aria-label="Confirm terrain selection"
+                aria-hidden={isOpen ? undefined : true}
+            >
+                <div className="terrain-bbox-confirm-body">
+                    <div className="terrain-bbox-confirm-heading">
+                        <Message msgId="hydrata.anuga.terrainBboxConfirmHeading" />
+                    </div>
+                    {tooLarge ? (
+                        <div className="terrain-bbox-confirm-toolarge alert alert-danger" data-testid="terrain-bbox-confirm-toolarge">
+                            <Message msgId="hydrata.anuga.terrainBboxConfirmTooLarge" msgParams={{max: maxStr}} />
+                        </div>
+                    ) : (
+                        <React.Fragment>
+                            <div className="terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-area">
+                                <Message
+                                    msgId="hydrata.anuga.terrainBboxConfirmArea"
+                                    msgParams={{areaKm2: areaStr, widthKm: dims.widthKm, heightKm: dims.heightKm}}
+                                />
+                            </div>
+                            <div className="terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-cells">
+                                <Message msgId="hydrata.anuga.terrainBboxConfirmCells" msgParams={{cells: cellsStr}} />
+                            </div>
+                            <div className="terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-time">
+                                <Message msgId="hydrata.anuga.terrainBboxConfirmTime" msgParams={{time: timeStr}} />
+                            </div>
+                            <div className="terrain-bbox-confirm-note">
+                                <Message msgId="hydrata.anuga.terrainBboxConfirmNote" />
+                            </div>
+                        </React.Fragment>
+                    )}
+                </div>
+                <div className="terrain-bbox-confirm-actions">
+                    <button
+                        type="button"
+                        className="save-confirm-btn confirm"
+                        data-testid="terrain-bbox-confirm-accept"
+                        disabled={tooLarge}
+                        onClick={this.handleConfirm}
+                    >
+                        <Message msgId="hydrata.anuga.terrainBboxConfirmAccept" />
+                    </button>
+                    <button
+                        type="button"
+                        className="save-confirm-btn cancel"
+                        data-testid="terrain-bbox-confirm-reselect"
+                        onClick={this.handleReselect}
+                    >
+                        <Message msgId="hydrata.anuga.terrainBboxConfirmReselect" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     render() {
         if (!this.props.visible) return null;
-        const hasBbox = Array.isArray(this.props.bbox) && this.props.bbox.length === 4;
-        const hasError = !!this.props.error;
-        const hasTitle = !!(this.state.title || '').trim();
-        const createDisabled = !hasBbox || hasError || !hasTitle;
         return (
             <div className={'simple-view-panel uploader-panel'} data-testid="terrain-bbox-panel">
                 <div className={"row h4 legend-heading"}>
@@ -140,7 +237,10 @@ export class TerrainBboxPanelClass extends React.Component {
                         </Button>
                         <span style={{marginLeft: "10px"}}>{this.renderBboxSummary()}</span>
                     </div>
-                    {hasError ?
+                    <div className="terrain-bbox-hint">
+                        <Message msgId="hydrata.anuga.terrainBboxHint" />
+                    </div>
+                    {this.props.error ?
                         <div
                             className={"alert alert-danger"}
                             data-testid="terrain-bbox-error"
@@ -152,22 +252,14 @@ export class TerrainBboxPanelClass extends React.Component {
                 </div>
                 <div className={"simple-view-panel-footer"}>
                     <Button
-                        data-testid="terrain-bbox-create-submit"
-                        bsStyle="success"
-                        disabled={createDisabled}
-                        onClick={this.handleCreate}
-                    >
-                        <Message msgId="hydrata.anuga.terrainBboxCreate" />
-                    </Button>
-                    <Button
                         data-testid="terrain-bbox-cancel"
                         bsStyle="default"
                         onClick={this.handleCancel}
-                        style={{marginLeft: "8px"}}
                     >
                         <Message msgId="hydrata.anuga.terrainBboxCancel" />
                     </Button>
                 </div>
+                {this.renderConfirmDialog()}
             </div>
         );
     }
@@ -177,7 +269,9 @@ const mapStateToProps = (state) => ({
     visible: !!state?.anuga?.ui?.terrainBboxPanelVisible,
     drawingActive: !!state?.anuga?.ui?.terrainBboxDrawingActive,
     bbox: state?.anuga?.ui?.terrainBbox || null,
-    error: state?.anuga?.ui?.terrainBboxError || null
+    error: state?.anuga?.ui?.terrainBboxError || null,
+    confirmVisible: !!state?.anuga?.ui?.terrainBboxConfirmVisible,
+    areaKm2: state?.anuga?.ui?.terrainBboxAreaKm2 || 0
 });
 
 const mapDispatchToProps = (dispatch) => ({

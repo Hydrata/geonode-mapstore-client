@@ -1,35 +1,59 @@
 /**
  * TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM bbox-picker epics.
  *
- * Two epics:
+ * Three epics:
  *   1. terrainBboxEndDrawingEpic — listens for MapStore's END_DRAWING on
  *      owner='terrain-bbox', computes the bbox [minLon, minLat, maxLon,
- *      maxLat] from the drawn rectangle, validates the 5x5° span, then
- *      either dispatches setTerrainBbox or setTerrainBboxError.
- *   2. createTerrainFromBboxEpic — catches CREATE_TERRAIN_FROM_BBOX and
- *      POSTs to the BE endpoint shipped in TASK-929. On 202 the BE kicks
- *      off the async GLO-30 fetch on the anuga Celery pool; the new
- *      Terrain layer appears via the existing taskCompleteLayerEpic.
+ *      maxLat] from the drawn rectangle, computes the geodesic area (turf),
+ *      stashes the bbox + area, then OPENS the confirmation popup so the user
+ *      reviews "selected area / estimated cells / estimated time" before any
+ *      POST fires. Areas over the 40,000 km2 ceiling still open the popup (the
+ *      popup disables Confirm and asks the user to re-select).
+ *   2. createTerrainFromBboxEpic — catches CREATE_TERRAIN_FROM_BBOX (fired from
+ *      the popup's Confirm) and POSTs to the BE endpoint shipped in TASK-929.
+ *      On 202 the BE kicks off the async GLO-30 fetch on the anuga Celery pool;
+ *      the new Terrain layer appears via the existing taskCompleteLayerEpic.
+ *   3. createTerrainFromBboxErrorEpic — surfaces a BE rejection (e.g. the
+ *      40,000 km2 backstop, perms, or any failure) as a VISIBLE error toast.
+ *      Previously the error action was unhandled and the panel was already
+ *      closed, so BE errors surfaced nowhere.
  *
- * The 5x5° span cap is a defence-in-depth check on the FE side; the BE
- * applies its own cap inside the create-from-bbox view. Surfacing the
- * error INLINE (not toast) matches user preference [[feedback-…inline
- * validation]] — the user sees the error without losing modal context.
+ * The real gate is the geodesic area ceiling (MAX_AREA_KM2, identical to the
+ * BE backstop). MAX_BBOX_SPAN_DEG is kept only as a coarse, cheap pre-check to
+ * reject pathological / unreadable extents before the area math runs.
  */
 import Rx from 'rxjs';
+import area from '@turf/area';
+import bboxPolygon from '@turf/bbox-polygon';
 import {
     CREATE_TERRAIN_FROM_BBOX,
+    CREATE_TERRAIN_FROM_BBOX_ERROR,
     createTerrainFromBboxSuccess,
     createTerrainFromBboxError,
     setTerrainBbox,
-    setTerrainBboxError
+    setTerrainBboxError,
+    setTerrainBboxConfirm
 } from "../actionsAnuga";
 import { END_DRAWING } from '../../../../../MapStore2/web/client/actions/draw';
 import { reproject } from '../../../../../MapStore2/web/client/utils/CoordinatesUtils';
+import { show } from '../../../../../MapStore2/web/client/actions/notifications';
 import * as anugaApi from '../api/anugaApi';
 import { getProjectId } from "../selectorsAnuga";
 
-const MAX_BBOX_SPAN_DEG = 5;
+// Coarse pre-check only — a box wider/taller than this in raw degrees is almost
+// certainly a mis-draw. The authoritative gate is the geodesic area ceiling.
+const MAX_BBOX_SPAN_DEG = 90;
+
+/**
+ * Geodesic area (km2) of a [minLon, minLat, maxLon, maxLat] WGS84 extent.
+ * @turf/area returns m2; divide by 1e6 for km2.
+ */
+export function bboxAreaKm2(bbox) {
+    if (!Array.isArray(bbox) || bbox.length !== 4) return 0;
+    const [minLon, minLat, maxLon, maxLat] = bbox;
+    const areaM2 = area(bboxPolygon([minLon, minLat, maxLon, maxLat]));
+    return areaM2 / 1e6;
+}
 
 /**
  * Pull a bbox out of an END_DRAWING action payload and reproject the corners
@@ -77,9 +101,12 @@ export function extractBboxFromDrawAction(action) {
 }
 
 /**
- * Listen for END_DRAWING events tagged for 'terrain-bbox'. On valid extent,
- * dispatch setTerrainBbox; on > 5x5° span, dispatch setTerrainBboxError with
- * the i18n key so the panel can render inline.
+ * Listen for END_DRAWING events tagged for 'terrain-bbox'. On a readable
+ * extent, stash the bbox + its geodesic area and OPEN the confirmation popup
+ * (setTerrainBboxConfirm) so the user reviews the selection before the create
+ * POST fires. The popup itself decides whether Confirm is enabled (area must be
+ * <= MAX_AREA_KM2). The coarse degree-span pre-check only rejects unreadable /
+ * pathological extents up front; the real ceiling is enforced in the popup.
  */
 export const terrainBboxEndDrawingEpic = (action$) =>
     action$.ofType(END_DRAWING)
@@ -93,21 +120,45 @@ export const terrainBboxEndDrawingEpic = (action$) =>
             const spanLon = Math.abs(maxLon - minLon);
             const spanLat = Math.abs(maxLat - minLat);
             if (spanLon > MAX_BBOX_SPAN_DEG || spanLat > MAX_BBOX_SPAN_DEG) {
-                // Stash the bbox AND the error so the user can see what they drew
-                // alongside the validation failure.
+                // Almost certainly a mis-draw (e.g. spanning the antimeridian).
+                // Stash the bbox so the user sees what they drew, plus the error.
                 return Rx.Observable.of(
                     setTerrainBbox(bbox),
-                    setTerrainBboxError('hydrata.anuga.terrainBboxTooLarge')
+                    setTerrainBboxError('hydrata.anuga.terrainBboxInvalid')
                 );
             }
-            return Rx.Observable.of(setTerrainBbox(bbox));
+            const areaKm2 = bboxAreaKm2(bbox);
+            // Stash the bbox, clear any prior inline error, then open the popup
+            // with the computed area. Confirm/Re-select live in the popup.
+            return Rx.Observable.of(
+                setTerrainBbox(bbox),
+                setTerrainBboxError(null),
+                setTerrainBboxConfirm(true, areaKm2)
+            );
         });
+
+/**
+ * Pull a human-readable message out of an axios error. The DRF error body is
+ * { error_code, detail }; prefer `detail`. Never return a raw object — the
+ * error toast feeds this string straight to a notification message slot.
+ */
+export function extractCreateErrorMessage(err) {
+    const data = err?.response?.data;
+    if (data && typeof data === 'object') {
+        if (typeof data.detail === 'string' && data.detail) return data.detail;
+        if (typeof data.error === 'string' && data.error) return data.error;
+    }
+    if (typeof data === 'string' && data) return data;
+    if (typeof err?.message === 'string' && err.message) return err.message;
+    return 'create failed';
+}
 
 /**
  * POST CREATE_TERRAIN_FROM_BBOX to the BE GLO-30 ingest endpoint. On 202 we
  * dispatch success (no-op reducer; layer arrival is handled by the existing
- * taskCompleteLayerEpic via TaskMonitor). On failure dispatch the error
- * action; the reducer can surface that to a future per-panel error view.
+ * taskCompleteLayerEpic via TaskMonitor). On failure dispatch the error action
+ * with a clean message string, which createTerrainFromBboxErrorEpic surfaces
+ * as a visible toast.
  */
 export const createTerrainFromBboxEpic = (action$, store) =>
     action$.ofType(CREATE_TERRAIN_FROM_BBOX)
@@ -124,6 +175,29 @@ export const createTerrainFromBboxEpic = (action$, store) =>
                 }))
                 .switchMap((response) => Rx.Observable.of(createTerrainFromBboxSuccess(response?.data)))
                 .catch((err) => Rx.Observable.of(
-                    createTerrainFromBboxError(err?.response?.data || err?.message || 'create failed')
+                    createTerrainFromBboxError(extractCreateErrorMessage(err))
                 ));
+        });
+
+/**
+ * Surface a CREATE_TERRAIN_FROM_BBOX_ERROR as a visible error toast. The error
+ * payload is always a clean string by the time it reaches here (see
+ * extractCreateErrorMessage). We pass it via msgParams.detail so the i18n copy
+ * owns the wording and only the BE-supplied detail is interpolated — the
+ * `message` key resolves to a translation, never a raw object.
+ */
+export const createTerrainFromBboxErrorEpic = (action$) =>
+    action$.ofType(CREATE_TERRAIN_FROM_BBOX_ERROR)
+        .map((action) => {
+            const detail = typeof action.error === 'string' && action.error
+                ? action.error
+                : 'create failed';
+            return show({
+                title: 'hydrata.anuga.terrainBboxCreateErrorTitle',
+                message: 'hydrata.anuga.terrainBboxCreateErrorBody',
+                values: { detail },
+                position: 'tc',
+                autoDismiss: 10,
+                level: 'error'
+            });
         });

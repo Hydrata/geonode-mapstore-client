@@ -353,6 +353,18 @@ class AnugaInputMenuClass extends React.Component {
         );
     }
 
+    // Richer terrain-pane empty state: makes it obvious there are TWO ways to
+    // get terrain (upload a GeoTIFF, or download free global GLO-30 for any
+    // area on Earth), pointing at the two header icons. Other panes keep the
+    // bare renderPaneEmpty single-line state.
+    renderTerrainEmpty() {
+        return (
+            <div className="row menu-row anuga-section-empty-row anuga-terrain-empty-help">
+                <Message msgId="hydrata.anuga.noTerrainHelp" />
+            </div>
+        );
+    }
+
     renderPendingRow(item, idx) {
         return (
             <div
@@ -450,7 +462,7 @@ class AnugaInputMenuClass extends React.Component {
                 {this.renderPaneHead('terrain', actions)}
                 <div className="anuga-pane-rows">
                     {layers.map(t => <MenuRow key={t?.name || t?.id} layer={t}/>)}
-                    {layers.length === 0 ? this.renderPaneEmpty('hydrata.anuga.noTerrainAvailable', false) : null}
+                    {layers.length === 0 ? this.renderTerrainEmpty() : null}
                 </div>
             </div>
         );
