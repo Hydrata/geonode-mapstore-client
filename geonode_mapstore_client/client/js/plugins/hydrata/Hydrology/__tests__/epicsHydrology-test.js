@@ -13,9 +13,7 @@
  */
 import expect from 'expect';
 import Rx from 'rxjs';
-import MockAdapter from 'axios-mock-adapter';
-
-const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+import { mockAxios as setupMockAxios } from '../../../../__tests__/helpers';
 
 const {
     fetchTimeSeriesEpic,
@@ -74,12 +72,10 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
     };
 
     beforeEach(() => {
-        mockAxios = new MockAdapter(axios);
+        // TASK-740 AC3: use the shared mockAxios helper (binds to the
+        // libs/ajax instance + auto-restores via its own afterEach).
+        mockAxios = setupMockAxios();
         mockAxios.onAny().reply(200, []);
-    });
-
-    afterEach(() => {
-        mockAxios.restore();
     });
 
     it('fetchIdfTableEpic GETs /api/v2/anuga/projects/{pid}/idf-tables/', (done) => {
