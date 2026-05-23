@@ -8,6 +8,7 @@ module.exports = (devServerDefault, projectConfig) => {
 
     const appDirectory = projectConfig.appDirectory;
     const devServerHost = envConfig.DEV_SERVER_HOSTNAME || 'localhost';
+    const devServerPort = envConfig.DEV_SERVER_PORT || 8081;
     const proxyTargetHost = envConfig.DEV_TARGET_GEONODE_HOST || 'localhost:8000';
     const protocol = envConfig.DEV_SERVER_PROTOCOL || 'http';
 
@@ -83,7 +84,7 @@ module.exports = (devServerDefault, projectConfig) => {
                     '/docs/**',
                     '/static/mapstore/dist/js/web-ifc/**'
                 ],
-                target: `${protocol}://${devServerHost}:8081`,
+                target: `${protocol}://${devServerHost}:${devServerPort}`,
                 secure: false,
                 changeOrigin: true,
                 pathRewrite: {
