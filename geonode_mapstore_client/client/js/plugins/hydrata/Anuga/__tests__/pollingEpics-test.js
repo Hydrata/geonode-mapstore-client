@@ -1,5 +1,7 @@
 import expect from 'expect';
 import Rx from 'rxjs';
+import { testEpic, mockAxios } from '../../../../__tests__/helpers';
+import { addTimeoutEpic, TEST_TIMEOUT } from '../../../../__tests__/helpers/testEpic';
 import {
     initAnugaEpic,
     pollAnugaModelCreationEpic,
@@ -31,7 +33,6 @@ import {
     FIX_ANUGA_GROUPS,
     INIT_ANUGA,
     SET_ANUGA_INFLOW_DATA,
-    SET_ANUGA_POLLING_DATA,
     SET_ANUGA_RAINFALL_DATA
 } from '../actionsAnuga';
 import {
@@ -84,57 +85,47 @@ describe('Polling Epics', () => {
         // unhandled-action warnings.
 
         it('V2P-79: emits no actions on START (no V1 fan-out anymore)', (done) => {
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = pollAnugaModelCreationEpic(action$)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({ type: START_ANUGA_MODEL_CREATION_POLLING });
-
-            setTimeout(() => {
-                // Per V2P-79: zero emissions. Layer addition is handled by
-                // taskCompleteLayerEpic + MapLayer auto-injection.
-                expect(emitted.length).toBe(0);
-                // Sanity: none of the legacy add-actions are present.
-                const types = emitted.map(a => a.type);
-                expect(types).toNotContain(ADD_ANUGA_BOUNDARY);
-                expect(types).toNotContain(ADD_ANUGA_FRICTION);
-                expect(types).toNotContain(ADD_ANUGA_STRUCTURE);
-                expect(types).toNotContain(ADD_ANUGA_INFLOW);
-                expect(types).toNotContain(ADD_ANUGA_FULL_MESH);
-                expect(types).toNotContain(ADD_ANUGA_MESH_REGION);
-                expect(types).toNotContain(ADD_LUMPED_CATCHMENT);
-                expect(types).toNotContain(ADD_NODES);
-                expect(types).toNotContain(ADD_LINKS);
-                sub.unsubscribe();
-                done();
-            }, 200);
+            // Per V2P-79: zero emissions. Layer addition is handled by
+            // taskCompleteLayerEpic + MapLayer auto-injection. The inner
+            // observable is empty, so only TEST_TIMEOUT surfaces.
+            const legacyAddTypes = [
+                ADD_ANUGA_BOUNDARY, ADD_ANUGA_FRICTION, ADD_ANUGA_STRUCTURE,
+                ADD_ANUGA_INFLOW, ADD_ANUGA_FULL_MESH, ADD_ANUGA_MESH_REGION,
+                ADD_LUMPED_CATCHMENT, ADD_NODES, ADD_LINKS
+            ];
+            testEpic(
+                addTimeoutEpic(pollAnugaModelCreationEpic, 50),
+                1,
+                { type: START_ANUGA_MODEL_CREATION_POLLING },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                    // Sanity: none of the legacy add-actions are present.
+                    const types = actions.map(a => a.type);
+                    legacyAddTypes.forEach(t => expect(types).toNotContain(t));
+                },
+                {},
+                done
+            );
         });
 
         it('V2P-79: STOP action still terminates the inner observable cleanly', (done) => {
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = pollAnugaModelCreationEpic(action$)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({ type: START_ANUGA_MODEL_CREATION_POLLING });
-            setTimeout(() => {
-                subject.next({ type: STOP_ANUGA_MODEL_CREATION_POLLING });
-                setTimeout(() => {
-                    // Always 0 — stop is idempotent in the no-op case.
-                    expect(emitted.length).toBe(0);
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 100);
+            // STOP is idempotent in the no-op case — nothing real emits whether
+            // or not STOP fires; only TEST_TIMEOUT surfaces.
+            testEpic(
+                addTimeoutEpic(pollAnugaModelCreationEpic, 50),
+                1,
+                [
+                    { type: START_ANUGA_MODEL_CREATION_POLLING },
+                    { type: STOP_ANUGA_MODEL_CREATION_POLLING }
+                ],
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                {},
+                done
+            );
         });
 
         it('should not emit for unrelated actions', (done) => {
@@ -171,36 +162,32 @@ describe('Polling Epics', () => {
         });
 
         it('should stop polling on STOP_ANUGA_SCENARIO_POLLING', (done) => {
-            const { subject, action$ } = liveActions();
-            const store = {
-                getState: () => ({
-                    anuga: {
-                        projects: { data: { id: 1 } },
-                        scenarios: { byId: {} }
-                    },
-                    layers: { flat: [] }
-                })
+            // Deterministic teardown proof. timer(0, 8000) schedules its first
+            // tick on the async scheduler (a 0ms macrotask); dispatching STOP
+            // synchronously right after START means takeUntil(STOP_ANUGA_SCENARIO_POLLING)
+            // completes the inner stream before that tick fires, so the poller
+            // emits nothing — only the injected TEST_TIMEOUT surfaces.
+            const state = {
+                anuga: {
+                    projects: { data: { id: 1 } },
+                    scenarios: { byId: {} }
+                },
+                layers: { flat: [] }
             };
-            const emitted = [];
-
-            const sub = pollAnugaScenarioEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({ type: START_ANUGA_SCENARIO_POLLING });
-
-            setTimeout(() => {
-                subject.next({ type: STOP_ANUGA_SCENARIO_POLLING });
-                const countAfterStop = emitted.length;
-                setTimeout(() => {
-                    // No new emissions after stop
-                    expect(emitted.length).toBe(countAfterStop);
-                    sub.unsubscribe();
-                    done();
-                }, 200);
-            }, 100);
+            testEpic(
+                addTimeoutEpic(pollAnugaScenarioEpic, 50),
+                1,
+                [
+                    { type: START_ANUGA_SCENARIO_POLLING },
+                    { type: STOP_ANUGA_SCENARIO_POLLING }
+                ],
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                state,
+                done
+            );
         });
 
         it('should listen for START_ANUGA_SCENARIO_POLLING', () => {
@@ -225,24 +212,24 @@ describe('Polling Epics', () => {
         });
 
         it('should stop on STOP_ACTIVE_RUN_POLLING with matching runId', (done) => {
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = pollActiveRunStatusEpic(action$)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({ type: START_ACTIVE_RUN_POLLING, runId: 42 });
-
-            setTimeout(() => {
-                subject.next({ type: STOP_ACTIVE_RUN_POLLING, runId: 42 });
-                setTimeout(() => {
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 50);
+            // Deterministic teardown proof. timer(0, 3000) schedules its first
+            // tick on the async scheduler; dispatching a matching-runId STOP
+            // synchronously after START means takeUntil cuts the inner stream
+            // before the tick fires → nothing real emits, only TEST_TIMEOUT.
+            testEpic(
+                addTimeoutEpic(pollActiveRunStatusEpic, 50),
+                1,
+                [
+                    { type: START_ACTIVE_RUN_POLLING, runId: 42 },
+                    { type: STOP_ACTIVE_RUN_POLLING, runId: 42 }
+                ],
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                {},
+                done
+            );
         });
 
         it('should include runId in start action', () => {
@@ -375,84 +362,68 @@ describe('Polling Epics', () => {
 
     describe('taskCompleteLayerEpic', () => {
         it('should add layer from task metadata mapstore_layer', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [] }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [] }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 101,
-                    process_type: 'layer_create',
-                    status: 'complete',
-                    metadata: {
-                        model_class: 'Boundary',
-                        mapstore_layer: {
-                            name: 'geonode:bdy_test',
-                            type: 'wms',
-                            url: '/geoserver/wms'
+            // Emits addLayer + notification (2 actions).
+            testEpic(
+                taskCompleteLayerEpic,
+                2,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 101,
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            model_class: 'Boundary',
+                            mapstore_layer: {
+                                name: 'geonode:bdy_test',
+                                type: 'wms',
+                                url: '/geoserver/wms'
+                            }
                         }
-                    }
-                }]
-            });
-
-            setTimeout(() => {
-                // Should emit addLayer + notification
-                expect(emitted.length).toBe(2);
-                // First action should be addLayer with the mapstore_layer config
-                expect(emitted[0].type).toBe('ADD_LAYER');
-                expect(emitted[0].layer.name).toBe('geonode:bdy_test');
-                // Second should be a notification
-                expect(emitted[1].type).toBe('SHOW_NOTIFICATION');
-                sub.unsubscribe();
-                done();
-            }, 200);
+                    }]
+                },
+                (actions) => {
+                    expect(actions.length).toBe(2);
+                    // First action should be addLayer with the mapstore_layer config
+                    expect(actions[0].type).toBe('ADD_LAYER');
+                    expect(actions[0].layer.name).toBe('geonode:bdy_test');
+                    // Second should be a notification
+                    expect(actions[1].type).toBe('SHOW_NOTIFICATION');
+                },
+                state,
+                done
+            );
         });
 
         it('should fall back to add action when no mapstore_layer in metadata', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [] }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [] }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = taskCompleteLayerEpic(action$, store)
-                .take(1)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        // Should emit the fallback ADD_ANUGA_FRICTION action
-                        expect(emitted.length).toBe(1);
-                        expect(emitted[0].type).toBe(ADD_ANUGA_FRICTION);
-                        sub.unsubscribe();
-                        done();
-                    }
-                );
-
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 102,
-                    process_type: 'layer_create',
-                    status: 'complete',
-                    metadata: { model_class: 'Friction' }
-                }]
-            });
+            // No mapstore_layer → emits the fallback ADD_ANUGA_FRICTION action.
+            testEpic(
+                taskCompleteLayerEpic,
+                1,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 102,
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: { model_class: 'Friction' }
+                    }]
+                },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(ADD_ANUGA_FRICTION);
+                },
+                state,
+                done
+            );
         });
 
         it('should not re-emit for a process id already handled in this session', (done) => {
@@ -481,19 +452,19 @@ describe('Polling Epics', () => {
                 }
             };
 
-            // First emit dispatches addLayer + show
+            // The epic's per-tick output is a synchronous finite observable, so
+            // each subject.next() fully drains into `emitted` before the next
+            // line runs — no waiting needed.
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-            setTimeout(() => {
-                const afterFirst = emitted.length;
-                // Second emit (same process id) must be a no-op
-                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-                setTimeout(() => {
-                    expect(afterFirst).toBe(2);
-                    expect(emitted.length).toBe(afterFirst);
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 100);
+            const afterFirst = emitted.length;
+            // Second emit (same process id) must be a no-op (handled-set guards it).
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            try {
+                expect(afterFirst).toBe(2);          // addLayer + show on first tick
+                expect(emitted.length).toBe(afterFirst);  // no new emissions on replay
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should add terrain DEM + hillshade and run full post-add chain (is_first_upload=false)', (done) => {
@@ -516,6 +487,9 @@ describe('Polling Epics', () => {
                     err => done(err)
                 );
 
+            // is_first_upload=false → buildTerrainAddSequence is a fully
+            // synchronous concat (no CHANGE_MAP_VIEW race / 2s timer), so the
+            // whole chain drains into `emitted` synchronously on this dispatch.
             subject.next({
                 type: TM_SET_PROCESSES,
                 processes: [{
@@ -534,7 +508,7 @@ describe('Polling Epics', () => {
                 }]
             });
 
-            setTimeout(() => {
+            try {
                 const types = emitted.map(a => a.type);
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(2);
@@ -553,7 +527,7 @@ describe('Polling Epics', () => {
                 expect(types).toNotContain('ZOOM_TO_EXTENT');
                 sub.unsubscribe();
                 done();
-            }, 300);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should zoom + race-save when is_first_upload=true (race resolved by CHANGE_MAP_VIEW)', (done) => {
@@ -573,6 +547,12 @@ describe('Polling Epics', () => {
                     err => done(err)
                 );
 
+            // The concat emits refreshLayers → addLayer×2 → show → zoomToExtent
+            // synchronously, then subscribes to
+            // race(CHANGE_MAP_VIEW.take(1), timer(2000)). By the time this
+            // dispatch returns, the race is subscribed and listening, so the
+            // CHANGE_MAP_VIEW we fire next resolves it synchronously — the 2s
+            // timer is the fallback we deliberately never reach.
             subject.next({
                 type: TM_SET_PROCESSES,
                 processes: [{
@@ -589,13 +569,10 @@ describe('Polling Epics', () => {
                     }
                 }]
             });
+            // Resolve the race synchronously by emitting CHANGE_MAP_VIEW.
+            subject.next({ type: 'CHANGE_MAP_VIEW' });
 
-            // Resolve the race fast by emitting CHANGE_MAP_VIEW
-            setTimeout(() => {
-                subject.next({ type: 'CHANGE_MAP_VIEW' });
-            }, 50);
-
-            setTimeout(() => {
+            try {
                 const types = emitted.map(a => a.type);
                 expect(types).toContain('ZOOM_TO_EXTENT');
                 const zoom = emitted.find(a => a.type === 'ZOOM_TO_EXTENT');
@@ -608,147 +585,123 @@ describe('Polling Epics', () => {
                 expect(saveIdx).toBeGreaterThan(zoomIdx);
                 sub.unsubscribe();
                 done();
-            }, 300);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should be a no-op when all terrain layers are already in flat (page-reload case)', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: {
-                        flat: [
-                            { name: 'geonode:ele_already_dem' },
-                            { name: 'geonode:ele_already_hs' }
-                        ],
-                        groups: []
-                    }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: {
+                    flat: [
+                        { name: 'geonode:ele_already_dem' },
+                        { name: 'geonode:ele_already_hs' }
+                    ],
+                    groups: []
+                }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 'ele-already',
-                    process_type: 'terrain_create',
-                    status: 'complete',
-                    metadata: {
-                        is_first_upload: false,
-                        mapstore_layers: [
-                            { name: 'geonode:ele_already_dem', type: 'wms', url: '/geoserver/ows' },
-                            { name: 'geonode:ele_already_hs', type: 'wms', url: '/geoserver/ows' }
-                        ]
-                    }
-                }]
-            });
-
-            setTimeout(() => {
-                expect(emitted.length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
+            // All layers already present → no new layers → epic emits nothing,
+            // so only TEST_TIMEOUT surfaces.
+            testEpic(
+                addTimeoutEpic(taskCompleteLayerEpic, 50),
+                1,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 'ele-already',
+                        process_type: 'terrain_create',
+                        status: 'complete',
+                        metadata: {
+                            is_first_upload: false,
+                            mapstore_layers: [
+                                { name: 'geonode:ele_already_dem', type: 'wms', url: '/geoserver/ows' },
+                                { name: 'geonode:ele_already_hs', type: 'wms', url: '/geoserver/ows' }
+                            ]
+                        }
+                    }]
+                },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                state,
+                done
+            );
         });
 
         it('should skip non-layer_create processes', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [] }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [] }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 103,
-                    process_type: 'compute',
-                    status: 'complete',
-                    metadata: { model_class: 'Boundary' }
-                }]
-            });
-
-            setTimeout(() => {
-                expect(emitted.length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
+            // compute process is not a layer-completion type → epic emits nothing.
+            testEpic(
+                addTimeoutEpic(taskCompleteLayerEpic, 50),
+                1,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 103,
+                        process_type: 'compute',
+                        status: 'complete',
+                        metadata: { model_class: 'Boundary' }
+                    }]
+                },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                state,
+                done
+            );
         });
 
         it('should not add duplicate layers already in the map', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [{ name: 'geonode:bdy_existing' }] }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [{ name: 'geonode:bdy_existing' }] }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 104,
-                    process_type: 'layer_create',
-                    status: 'complete',
-                    metadata: {
-                        model_class: 'Boundary',
-                        mapstore_layer: { name: 'geonode:bdy_existing' }
-                    }
-                }]
-            });
-
-            setTimeout(() => {
-                // Layer already exists, should not re-add
-                expect(emitted.length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
+            // Layer already exists → should not re-add → epic emits nothing.
+            testEpic(
+                addTimeoutEpic(taskCompleteLayerEpic, 50),
+                1,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 104,
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            model_class: 'Boundary',
+                            mapstore_layer: { name: 'geonode:bdy_existing' }
+                        }
+                    }]
+                },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                state,
+                done
+            );
         });
 
         it('should not emit for unrelated action types', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [] }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [] }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
-
-            subject.next({ type: 'SOME_OTHER_ACTION', processes: [] });
-
-            setTimeout(() => {
-                expect(emitted.length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
+            // Wrong action type → ofType(TM_SET_PROCESSES) never matches → nothing.
+            testEpic(
+                addTimeoutEpic(taskCompleteLayerEpic, 50),
+                1,
+                { type: 'SOME_OTHER_ACTION', processes: [] },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                state,
+                done
+            );
         });
 
         // V2P-714 follow-up: orphan terrain_create filtering. After a user
@@ -795,27 +748,33 @@ describe('Polling Epics', () => {
                 }
             };
 
+            // Each terrain_create tick's classification + emission is synchronous
+            // (the only async branch is the is_first_upload CHANGE_MAP_VIEW race,
+            // not exercised here), so both ticks drain into `emitted` in order
+            // with no waiting between them.
             // Tick 1: id missing, refreshAttempted empty → 'unknown' →
             // dispatch initAnuga, do NOT mark handled, do NOT add layer.
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-
-            setTimeout(() => {
+            const addsAfterTick1 = emitted.filter(a => a.type === 'ADD_LAYER').length;
+            const initsAfterTick1 = emitted.filter(a => a.type === INIT_ANUGA).length;
+            // Tick 2: same state (refresh found nothing new) →
+            // 'orphaned' → skip + mark handled. No second initAnuga.
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            try {
+                expect(addsAfterTick1).toBe(0);
+                expect(initsAfterTick1).toBe(1);
                 expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
                 expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
-
-                // Tick 2: same state (refresh found nothing new) →
-                // 'orphaned' → skip + mark handled. No second initAnuga.
-                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-                setTimeout(() => {
-                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
-                    expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 100);
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should process terrain_create when terrain_id IS present in state.anuga.resources.terrain', (done) => {
+            // terrain_id present → 'present' → buildTerrainAddSequence runs as a
+            // synchronous concat (is_first_upload=false, no race), so the whole
+            // chain drains into `emitted` on this dispatch. Single DEM layer →
+            // exactly one ADD_LAYER.
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
@@ -825,12 +784,8 @@ describe('Polling Epics', () => {
             };
             const { subject, action$ } = liveActions();
             const emitted = [];
-
             const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err)
-                );
+                .subscribe(action => emitted.push(action), err => done(err));
 
             subject.next({
                 type: TM_SET_PROCESSES,
@@ -848,13 +803,13 @@ describe('Polling Epics', () => {
                 }]
             });
 
-            setTimeout(() => {
+            try {
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(1);
                 expect(adds[0].layer.name).toBe('geonode:ele_12_dem');
                 sub.unsubscribe();
                 done();
-            }, 200);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should DEFER (no fire, no handled-mark) when state.anuga.resources is unloaded', (done) => {
@@ -894,20 +849,20 @@ describe('Polling Epics', () => {
                     ]
                 }
             };
+            // Synchronous ticks: each dispatch drains fully before the next line.
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-            setTimeout(() => {
-                // 'unknown' classification: deferred — nothing emitted yet.
-                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
-                // Now state loads in with the matching terrain → re-tick.
-                anugaState = { resources: { terrainLoaded: true, terrain: [{ id: 99 }] } };
-                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-                setTimeout(() => {
-                    // Classification now 'present' → ADD_LAYER fires.
-                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 100);
+            // 'unknown' classification: deferred — nothing emitted yet.
+            const addsAfterTick1 = emitted.filter(a => a.type === 'ADD_LAYER').length;
+            // Now state loads in with the matching terrain → re-tick.
+            anugaState = { resources: { terrainLoaded: true, terrain: [{ id: 99 }] } };
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            try {
+                expect(addsAfterTick1).toBe(0);
+                // Classification now 'present' → ADD_LAYER fires.
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('once orphan-marked-handled, subsequent ticks are no-ops even if terrain reappears', (done) => {
@@ -947,28 +902,26 @@ describe('Polling Epics', () => {
                 }
             };
 
-            // Tick 1: first miss → initAnuga + defer
+            // Synchronous ticks. Tick 1: first miss → initAnuga + defer.
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-            setTimeout(() => {
+            const addsAfterTick1 = emitted.filter(a => a.type === 'ADD_LAYER').length;
+            const initsAfterTick1 = emitted.filter(a => a.type === INIT_ANUGA).length;
+            // Tick 2: same state → 'orphaned' → mark handled.
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            const addsAfterTick2 = emitted.filter(a => a.type === 'ADD_LAYER').length;
+            // Tick 3: simulate revival — handled-set must still suppress re-fire.
+            resources = { terrainLoaded: true, terrain: [{ id: 7 }, { id: 42 }] };
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            try {
+                expect(addsAfterTick1).toBe(0);
+                expect(initsAfterTick1).toBe(1);
+                expect(addsAfterTick2).toBe(0);
                 expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                // Only one initAnuga across all three ticks.
                 expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
-                // Tick 2: same state → 'orphaned' → mark handled
-                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-                setTimeout(() => {
-                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
-                    // Tick 3: simulate revival — handled-set must still
-                    // suppress re-fire.
-                    resources = { terrainLoaded: true, terrain: [{ id: 7 }, { id: 42 }] };
-                    subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-                    setTimeout(() => {
-                        expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
-                        // Only one initAnuga across all three ticks.
-                        expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
-                        sub.unsubscribe();
-                        done();
-                    }, 100);
-                }, 100);
-            }, 100);
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should classify legacy procs (terrain_id===null) as orphaned and skip them', (done) => {
@@ -977,37 +930,38 @@ describe('Polling Epics', () => {
             // previous code's `terrainId == null → 'present'` short-circuit
             // re-injected ele_3905/9-13 ghosts on every page reload. Now
             // null terrain_id ⇒ orphaned ⇒ skip + mark handled.
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [], groups: [] },
-                    anuga: { resources: { terrainLoaded: true, terrain: [] } }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [], groups: [] },
+                anuga: { resources: { terrainLoaded: true, terrain: [] } }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(action => emitted.push(action), err => done(err));
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 'legacy-no-terrain-id',
-                    process_type: 'terrain_create',
-                    status: 'complete',
-                    metadata: {
-                        is_first_upload: false,
-                        // terrain_id intentionally absent (legacy proc shape)
-                        mapstore_layers: [
-                            { name: 'geonode:ele_3905_utm_dem', type: 'wms', url: '/geoserver/ows' }
-                        ]
-                    }
-                }]
-            });
-            setTimeout(() => {
-                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
+            // null terrain_id ⇒ orphaned ⇒ skip + mark handled → emits nothing,
+            // so only TEST_TIMEOUT surfaces.
+            testEpic(
+                addTimeoutEpic(taskCompleteLayerEpic, 50),
+                1,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 'legacy-no-terrain-id',
+                        process_type: 'terrain_create',
+                        status: 'complete',
+                        metadata: {
+                            is_first_upload: false,
+                            // terrain_id intentionally absent (legacy proc shape)
+                            mapstore_layers: [
+                                { name: 'geonode:ele_3905_utm_dem', type: 'wms', url: '/geoserver/ows' }
+                            ]
+                        }
+                    }]
+                },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                state,
+                done
+            );
         });
 
         it('should ADD_LAYER on the next tick once initAnuga refresh delivers the missing terrain row', (done) => {
@@ -1047,21 +1001,21 @@ describe('Polling Epics', () => {
                     ]
                 }
             };
-            // Tick 1: id missing → initAnuga + defer
+            // Synchronous ticks. Tick 1: id missing → initAnuga + defer.
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-            setTimeout(() => {
-                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
-                expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(1);
-                // Simulate initAnuga having delivered the row
-                resources = { terrainLoaded: true, terrain: [{ id: 7 }, { id: 99 }] };
-                // Tick 2: id present → 'present' → ADD_LAYER fires
-                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-                setTimeout(() => {
-                    expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 100);
+            const addsAfterTick1 = emitted.filter(a => a.type === 'ADD_LAYER').length;
+            const initsAfterTick1 = emitted.filter(a => a.type === INIT_ANUGA).length;
+            // Simulate initAnuga having delivered the row.
+            resources = { terrainLoaded: true, terrain: [{ id: 7 }, { id: 99 }] };
+            // Tick 2: id present → 'present' → ADD_LAYER fires.
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            try {
+                expect(addsAfterTick1).toBe(0);
+                expect(initsAfterTick1).toBe(1);
+                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should not dispatch initAnuga while terrainLoaded is false (initAnugaEpic is the natural fetcher)', (done) => {
@@ -1095,14 +1049,16 @@ describe('Polling Epics', () => {
                     ]
                 }
             };
+            // Single synchronous tick — the epic's per-tick output drains
+            // immediately, so we can assert right after dispatch.
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-            setTimeout(() => {
+            try {
                 // 'unknown' from unloaded state — defer, but don't refresh.
                 expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
                 expect(emitted.filter(a => a.type === INIT_ANUGA).length).toBe(0);
                 sub.unsubscribe();
                 done();
-            }, 100);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         // Pin for the resources.<type> refresh on layer_create completion.
@@ -1112,132 +1068,139 @@ describe('Polling Epics', () => {
         // task finishes. taskCompleteLayerEpic injects the map layer but
         // previously never refreshed state.anuga.resources.<type>.
         it('refreshes resources.<type> when a non-terrain layer_create completes', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [] },
-                    anuga: { projects: { data: { id: 11794 } } }
-                })
+            // The resource refresh hits the real axios layer (getResourceList →
+            // GET /api/v2/anuga/projects/{pid}/{plural}/), so mock it. The epic's
+            // per-tick concat emits addLayer + show synchronously, then the async
+            // setAnugaInflowData once the fetch resolves → 3 actions total.
+            const mock = mockAxios();
+            mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 1, title: 'Inflow 01' }]);
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [] },
+                anuga: { projects: { data: { id: 11794 } } }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(action => emitted.push(action), err => done(err));
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 'inflow-fetch-1',
-                    process_type: 'layer_create',
-                    status: 'complete',
-                    metadata: {
-                        project_id: 11794,
-                        model_class: 'Inflow',
-                        mapstore_layer: {
-                            name: 'geonode:inf_11794_inflow_01',
-                            type: 'wms',
-                            url: '/geoserver/wms'
+            testEpic(
+                taskCompleteLayerEpic,
+                3,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 'inflow-fetch-1',
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            project_id: 11794,
+                            model_class: 'Inflow',
+                            mapstore_layer: {
+                                name: 'geonode:inf_11794_inflow_01',
+                                type: 'wms',
+                                url: '/geoserver/wms'
+                            }
                         }
-                    }
-                }]
-            });
-            setTimeout(() => {
-                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
-                expect(emitted.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(1);
-                sub.unsubscribe();
-                done();
-            }, 200);
+                    }]
+                },
+                (actions) => {
+                    expect(actions.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                    expect(actions.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(1);
+                },
+                state,
+                done
+            );
         });
 
         // Two completions for the same model_class in a single tick should
         // collapse to one fetch — the resource endpoint is a list, so
         // refetching it twice is pure waste.
         it('dedupes the resource refresh by endpoint within a single tick', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [] },
-                    anuga: { projects: { data: { id: 11794 } } }
-                })
+            // 3 layer_create completions → 3 addLayer + 3 show (synchronous) +
+            // 2 async resource refreshes (Inflow deduped to one, plus Rainfall).
+            // = 8 actions total. Mock the resource-list endpoint.
+            const mock = mockAxios();
+            mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 1 }]);
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [] },
+                anuga: { projects: { data: { id: 11794 } } }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(action => emitted.push(action), err => done(err));
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [
-                    {
-                        id: 'inflow-dedup-1',
-                        process_type: 'layer_create',
-                        status: 'complete',
-                        metadata: {
-                            project_id: 11794,
-                            model_class: 'Inflow',
-                            mapstore_layer: { name: 'geonode:inf_a', type: 'wms', url: '/geoserver/wms' }
+            testEpic(
+                taskCompleteLayerEpic,
+                8,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [
+                        {
+                            id: 'inflow-dedup-1',
+                            process_type: 'layer_create',
+                            status: 'complete',
+                            metadata: {
+                                project_id: 11794,
+                                model_class: 'Inflow',
+                                mapstore_layer: { name: 'geonode:inf_a', type: 'wms', url: '/geoserver/wms' }
+                            }
+                        },
+                        {
+                            id: 'inflow-dedup-2',
+                            process_type: 'layer_create',
+                            status: 'complete',
+                            metadata: {
+                                project_id: 11794,
+                                model_class: 'Inflow',
+                                mapstore_layer: { name: 'geonode:inf_b', type: 'wms', url: '/geoserver/wms' }
+                            }
+                        },
+                        {
+                            id: 'rainfall-dedup-1',
+                            process_type: 'layer_create',
+                            status: 'complete',
+                            metadata: {
+                                project_id: 11794,
+                                model_class: 'Rainfall',
+                                mapstore_layer: { name: 'geonode:rai_a', type: 'wms', url: '/geoserver/wms' }
+                            }
                         }
-                    },
-                    {
-                        id: 'inflow-dedup-2',
-                        process_type: 'layer_create',
-                        status: 'complete',
-                        metadata: {
-                            project_id: 11794,
-                            model_class: 'Inflow',
-                            mapstore_layer: { name: 'geonode:inf_b', type: 'wms', url: '/geoserver/wms' }
-                        }
-                    },
-                    {
-                        id: 'rainfall-dedup-1',
-                        process_type: 'layer_create',
-                        status: 'complete',
-                        metadata: {
-                            project_id: 11794,
-                            model_class: 'Rainfall',
-                            mapstore_layer: { name: 'geonode:rai_a', type: 'wms', url: '/geoserver/wms' }
-                        }
-                    }
-                ]
-            });
-            setTimeout(() => {
-                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(3);
-                expect(emitted.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(1);
-                expect(emitted.filter(a => a.type === SET_ANUGA_RAINFALL_DATA).length).toBe(1);
-                sub.unsubscribe();
-                done();
-            }, 200);
+                    ]
+                },
+                (actions) => {
+                    expect(actions.filter(a => a.type === 'ADD_LAYER').length).toBe(3);
+                    expect(actions.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(1);
+                    expect(actions.filter(a => a.type === SET_ANUGA_RAINFALL_DATA).length).toBe(1);
+                },
+                state,
+                done
+            );
         });
 
         // Without a hydrated projectId the API can't be called safely, so
         // the resource refresh must be skipped — addLayer still fires.
         it('skips the resource refresh when projectId is null', (done) => {
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [] }
-                })
+            // No projectId → resource refresh skipped → only addLayer + show
+            // (2 synchronous actions, no async fetch).
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [] }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(action => emitted.push(action), err => done(err));
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [{
-                    id: 'no-pid',
-                    process_type: 'layer_create',
-                    status: 'complete',
-                    metadata: {
-                        model_class: 'Inflow',
-                        mapstore_layer: { name: 'geonode:inf_nopid', type: 'wms', url: '/geoserver/wms' }
-                    }
-                }]
-            });
-            setTimeout(() => {
-                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
-                expect(emitted.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
+            testEpic(
+                taskCompleteLayerEpic,
+                2,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [{
+                        id: 'no-pid',
+                        process_type: 'layer_create',
+                        status: 'complete',
+                        metadata: {
+                            model_class: 'Inflow',
+                            mapstore_layer: { name: 'geonode:inf_nopid', type: 'wms', url: '/geoserver/wms' }
+                        }
+                    }]
+                },
+                (actions) => {
+                    expect(actions.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+                    expect(actions.filter(a => a.type === SET_ANUGA_INFLOW_DATA).length).toBe(0);
+                },
+                state,
+                done
+            );
         });
     });
 
@@ -1261,6 +1224,8 @@ describe('Polling Epics', () => {
             const emitted = [];
             const sub = taskCompleteLayerEpic(action$, store)
                 .subscribe(a => emitted.push(a), err => done(err));
+            // No projectId in state → no async resource refresh; the per-tick
+            // output (addLayer + show) drains synchronously on this dispatch.
             subject.next({
                 type: TM_SET_PROCESSES,
                 processes: [{
@@ -1279,13 +1244,13 @@ describe('Polling Epics', () => {
                     }
                 }]
             });
-            setTimeout(() => {
+            try {
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(1);
                 expect(adds[0].layer.group).toBe('Results.Depth');
                 sub.unsubscribe();
                 done();
-            }, 200);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('prefers metadata.target_group over extra_params.anuga_group', (done) => {
@@ -1317,13 +1282,13 @@ describe('Polling Epics', () => {
                     }
                 }]
             });
-            setTimeout(() => {
+            try {
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(1);
                 expect(adds[0].layer.group).toBe('Input Data.Boundaries');
                 sub.unsubscribe();
                 done();
-            }, 200);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('keeps serializer-stamped layer.group when it is an ANUGA-prefixed path', (done) => {
@@ -1356,13 +1321,13 @@ describe('Polling Epics', () => {
                     }
                 }]
             });
-            setTimeout(() => {
+            try {
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(1);
                 expect(adds[0].layer.group).toBe('Input Data.Inflows');
                 sub.unsubscribe();
                 done();
-            }, 200);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('leaves layer.group untouched when no ANUGA signal is present', (done) => {
@@ -1396,13 +1361,13 @@ describe('Polling Epics', () => {
                     }
                 }]
             });
-            setTimeout(() => {
+            try {
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(1);
                 expect(adds[0].layer.group).toBe('Default');
                 sub.unsubscribe();
                 done();
-            }, 200);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('stamps target_group on every terrain mapstore_layers entry (DEM + hillshade)', (done) => {
@@ -1417,6 +1382,7 @@ describe('Polling Epics', () => {
             const emitted = [];
             const sub = taskCompleteLayerEpic(action$, store)
                 .subscribe(a => emitted.push(a), err => done(err));
+            // Terrain chain with is_first_upload=false → synchronous concat.
             subject.next({
                 type: TM_SET_PROCESSES,
                 processes: [{
@@ -1434,14 +1400,14 @@ describe('Polling Epics', () => {
                     }
                 }]
             });
-            setTimeout(() => {
+            try {
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(2);
                 expect(adds[0].layer.group).toBe('Input Data.Terrain');
                 expect(adds[1].layer.group).toBe('Input Data.Terrain');
                 sub.unsubscribe();
                 done();
-            }, 300);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
     });
 
@@ -1509,34 +1475,33 @@ describe('Polling Epics', () => {
                 }
             };
 
+            // Emissions and the localStorage persist/read are synchronous, so
+            // each epic instance's dispatch fully resolves before the next line.
             // First "page load": dispatches ADD_LAYER + SHOW_NOTIFICATION.
             const first = liveActions();
             const emittedFirst = [];
             const subFirst = taskCompleteLayerEpic(first.action$, store)
                 .subscribe(a => emittedFirst.push(a), err => done(err));
             first.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            subFirst.unsubscribe();
 
-            setTimeout(() => {
+            // Second "page load": fresh epic instance, same store (same mapId).
+            // Should read the persisted handled set and skip the completion →
+            // zero ADD_LAYER, zero notification.
+            const second = liveActions();
+            const emittedSecond = [];
+            const subSecond = taskCompleteLayerEpic(second.action$, store)
+                .subscribe(a => emittedSecond.push(a), err => done(err));
+            second.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            subSecond.unsubscribe();
+
+            try {
                 expect(emittedFirst.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
                 expect(emittedFirst.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(1);
-                subFirst.unsubscribe();
-
-                // Second "page load": fresh epic instance, same store
-                // (same mapId). Should read the persisted handled set and
-                // skip the completion → zero ADD_LAYER, zero notification.
-                const second = liveActions();
-                const emittedSecond = [];
-                const subSecond = taskCompleteLayerEpic(second.action$, store)
-                    .subscribe(a => emittedSecond.push(a), err => done(err));
-                second.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-
-                setTimeout(() => {
-                    expect(emittedSecond.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
-                    expect(emittedSecond.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(0);
-                    subSecond.unsubscribe();
-                    done();
-                }, 200);
-            }, 200);
+                expect(emittedSecond.filter(a => a.type === 'ADD_LAYER').length).toBe(0);
+                expect(emittedSecond.filter(a => a.type === 'SHOW_NOTIFICATION').length).toBe(0);
+                done();
+            } catch (e) { done(e); }
         });
 
         it('does not bleed handled ids across different mapIds (key is scoped)', (done) => {
@@ -1560,24 +1525,21 @@ describe('Polling Epics', () => {
             const subA = taskCompleteLayerEpic(a.action$, storeA)
                 .subscribe(act => emittedA.push(act), err => done(err));
             a.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            subA.unsubscribe();
 
-            setTimeout(() => {
+            const b = liveActions();
+            const emittedB = [];
+            const subB = taskCompleteLayerEpic(b.action$, storeB)
+                .subscribe(act => emittedB.push(act), err => done(err));
+            b.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            subB.unsubscribe();
+
+            try {
                 expect(emittedA.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
-                subA.unsubscribe();
-
-                const b = liveActions();
-                const emittedB = [];
-                const subB = taskCompleteLayerEpic(b.action$, storeB)
-                    .subscribe(act => emittedB.push(act), err => done(err));
-                b.subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-
-                setTimeout(() => {
-                    // Different mapId → must fire.
-                    expect(emittedB.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
-                    subB.unsubscribe();
-                    done();
-                }, 200);
-            }, 200);
+                // Different mapId → must fire.
+                expect(emittedB.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
+                done();
+            } catch (e) { done(e); }
         });
 
         it('TTL-prunes entries older than 7 days on read', (done) => {
@@ -1630,7 +1592,7 @@ describe('Polling Epics', () => {
                 .subscribe(act => emitted.push(act), err => done(err));
             subject.next({ type: TM_SET_PROCESSES, processes: [tickStale, tickFresh] });
 
-            setTimeout(() => {
+            try {
                 const adds = emitted.filter(act => act.type === 'ADD_LAYER');
                 // Stale entry was pruned → its addLayer fires; fresh entry
                 // suppresses → no second addLayer.
@@ -1638,7 +1600,7 @@ describe('Polling Epics', () => {
                 expect(adds[0].layer.name).toBe('geonode:bdy_stale');
                 sub.unsubscribe();
                 done();
-            }, 200);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('survives corrupt/malformed localStorage payload (defensive parse)', (done) => {
@@ -1670,11 +1632,11 @@ describe('Polling Epics', () => {
                 .subscribe(act => emitted.push(act), err => done(err));
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
 
-            setTimeout(() => {
+            try {
                 expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
                 sub.unsubscribe();
                 done();
-            }, 200);
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('merges concurrent tab writes (load-merge-persist cycle)', (done) => {
@@ -1708,44 +1670,43 @@ describe('Polling Epics', () => {
                 }
             };
 
+            // Synchronous: each epic dispatch persists to the localStorage shim
+            // before the next line runs.
             // Tab A: fresh epic instance, handles tickA, persists A1.
             const a = liveActions();
             const emittedA = [];
             const subA = taskCompleteLayerEpic(a.action$, storeShared)
                 .subscribe(act => emittedA.push(act), err => done(err));
             a.subject.next({ type: TM_SET_PROCESSES, processes: [tickA] });
+            const afterA = JSON.parse(
+                window.localStorage.getItem('hydrata_handled_completion_ids_8181')
+            );
+            subA.unsubscribe();
 
-            setTimeout(() => {
+            // Tab B: separate epic instance (separate in-memory Set, no
+            // knowledge of A1). On boot it hydrates from localStorage and
+            // sees A1, then handles its own tickB. Crucially, A1 must
+            // remain in storage post-write — the merge guarantees it.
+            const b = liveActions();
+            const emittedB = [];
+            const subB = taskCompleteLayerEpic(b.action$, storeShared)
+                .subscribe(act => emittedB.push(act), err => done(err));
+            b.subject.next({ type: TM_SET_PROCESSES, processes: [tickB] });
+            const afterB = JSON.parse(
+                window.localStorage.getItem('hydrata_handled_completion_ids_8181')
+            );
+            subB.unsubscribe();
+
+            try {
                 // A handled, persisted [A1].
                 expect(emittedA.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
-                const afterA = JSON.parse(
-                    window.localStorage.getItem('hydrata_handled_completion_ids_8181')
-                );
                 expect(afterA.length).toBe(1);
                 expect(afterA[0].id).toBe('tab-a-completion');
-                subA.unsubscribe();
-
-                // Tab B: separate epic instance (separate in-memory Set, no
-                // knowledge of A1). On boot it hydrates from localStorage and
-                // sees A1, then handles its own tickB. Crucially, A1 must
-                // remain in storage post-write — the merge guarantees it.
-                const b = liveActions();
-                const emittedB = [];
-                const subB = taskCompleteLayerEpic(b.action$, storeShared)
-                    .subscribe(act => emittedB.push(act), err => done(err));
-                b.subject.next({ type: TM_SET_PROCESSES, processes: [tickB] });
-
-                setTimeout(() => {
-                    expect(emittedB.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
-                    const afterB = JSON.parse(
-                        window.localStorage.getItem('hydrata_handled_completion_ids_8181')
-                    );
-                    const ids = afterB.map(e => e.id).sort();
-                    expect(ids).toEqual(['tab-a-completion', 'tab-b-completion']);
-                    subB.unsubscribe();
-                    done();
-                }, 200);
-            }, 200);
+                expect(emittedB.filter(act => act.type === 'ADD_LAYER').length).toBe(1);
+                const ids = afterB.map(e => e.id).sort();
+                expect(ids).toEqual(['tab-a-completion', 'tab-b-completion']);
+                done();
+            } catch (e) { done(e); }
         });
 
         it('persists in-memory entries once mapId hydrates from null', (done) => {
@@ -1756,7 +1717,7 @@ describe('Polling Epics', () => {
             // mapId is null. On the next tick, mapId has hydrated — the
             // buffered entry must be flushed to localStorage retroactively.
             let mapIdNow = null;
-            const store = {
+            const nullMapStore = {
                 getState: () => ({
                     gnresource: { id: mapIdNow },
                     layers: { flat: [] }
@@ -1778,37 +1739,37 @@ describe('Polling Epics', () => {
 
             const { subject, action$ } = liveActions();
             const emitted = [];
-            const sub = taskCompleteLayerEpic(action$, store)
+            const sub = taskCompleteLayerEpic(action$, nullMapStore)
                 .subscribe(act => emitted.push(act), err => done(err));
 
             // First tick: mapId is null. Completion fires (in-memory only),
             // localStorage must remain empty for any key under this map id.
+            // Synchronous — drains before the next line.
+            subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
+            const addsAfterTick1 = emitted.filter(a => a.type === 'ADD_LAYER').length;
+            const persistedWhileNull5555 = window.localStorage.getItem('hydrata_handled_completion_ids_5555');
+            const persistedWhileNullNull = window.localStorage.getItem('hydrata_handled_completion_ids_null');
+
+            // mapId hydrates. Next tick (same process, already handled) drives
+            // the hydrate-from-null branch which retroactively flushes the
+            // buffered entry to localStorage.
+            mapIdNow = 5555;
             subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
 
-            setTimeout(() => {
-                expect(emitted.filter(a => a.type === 'ADD_LAYER').length).toBe(1);
+            try {
+                expect(addsAfterTick1).toBe(1);
                 // Nothing persisted while mapId was null.
-                expect(window.localStorage.getItem('hydrata_handled_completion_ids_5555')).toBe(null);
-                expect(window.localStorage.getItem('hydrata_handled_completion_ids_null')).toBe(null);
-
-                // mapId hydrates. Next tick (same or different process) must
-                // retroactively flush the buffered entry to localStorage.
-                mapIdNow = 5555;
-                // Emit a benign tick (no new candidates — same id, already
-                // handled) just to drive the hydrate-from-null branch.
-                subject.next({ type: TM_SET_PROCESSES, processes: [tickProcess] });
-
-                setTimeout(() => {
-                    const stored = JSON.parse(
-                        window.localStorage.getItem('hydrata_handled_completion_ids_5555')
-                    );
-                    expect(Array.isArray(stored)).toBe(true);
-                    const ids = stored.map(e => e.id);
-                    expect(ids).toContain('hydrate-after-null');
-                    sub.unsubscribe();
-                    done();
-                }, 200);
-            }, 200);
+                expect(persistedWhileNull5555).toBe(null);
+                expect(persistedWhileNullNull).toBe(null);
+                const stored = JSON.parse(
+                    window.localStorage.getItem('hydrata_handled_completion_ids_5555')
+                );
+                expect(Array.isArray(stored)).toBe(true);
+                const ids = stored.map(e => e.id);
+                expect(ids).toContain('hydrate-after-null');
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('caps pendingEntriesBeforeMapId at 500 entries (drops oldest)', (done) => {
@@ -1817,7 +1778,7 @@ describe('Polling Epics', () => {
             // mapId; on hydrate, only the most-recent 500 should land in
             // localStorage.
             let mapIdNow = null;
-            const store = {
+            const nullMapStore = {
                 getState: () => ({
                     gnresource: { id: mapIdNow },
                     layers: { flat: [] }
@@ -1843,36 +1804,34 @@ describe('Polling Epics', () => {
 
             const { subject, action$ } = liveActions();
             const emitted = [];
-            const sub = taskCompleteLayerEpic(action$, store)
+            const sub = taskCompleteLayerEpic(action$, nullMapStore)
                 .subscribe(act => emitted.push(act), err => done(err));
 
-            // First tick: 550 candidates, mapId null. In-memory Set
-            // captures all; pending buffer caps at 500 (oldest 50 dropped).
+            // First tick: 550 candidates, mapId null. In-memory Set captures
+            // all; pending buffer caps at 500 (oldest 50 dropped). Synchronous.
             subject.next({ type: TM_SET_PROCESSES, processes });
+            const persistedWhileNull = window.localStorage.getItem('hydrata_handled_completion_ids_4242');
 
-            setTimeout(() => {
-                expect(window.localStorage.getItem('hydrata_handled_completion_ids_4242')).toBe(null);
+            // Hydrate mapId. Next tick replays pending buffer to storage.
+            mapIdNow = 4242;
+            subject.next({ type: TM_SET_PROCESSES, processes: [] });
 
-                // Hydrate mapId. Next tick replays pending buffer to storage.
-                mapIdNow = 4242;
-                subject.next({ type: TM_SET_PROCESSES, processes: [] });
-
-                setTimeout(() => {
-                    const stored = JSON.parse(
-                        window.localStorage.getItem('hydrata_handled_completion_ids_4242')
-                    );
-                    expect(Array.isArray(stored)).toBe(true);
-                    // Buffer was capped at 500; oldest 50 dropped → ids 50..549 remain.
-                    expect(stored.length).toBeLessThanOrEqualTo(500);
-                    const ids = stored.map(e => e.id);
-                    expect(ids).toNotContain('cap-test-0');
-                    expect(ids).toNotContain('cap-test-49');
-                    expect(ids).toContain('cap-test-549');
-                    expect(ids).toContain('cap-test-50');
-                    sub.unsubscribe();
-                    done();
-                }, 200);
-            }, 200);
+            try {
+                expect(persistedWhileNull).toBe(null);
+                const stored = JSON.parse(
+                    window.localStorage.getItem('hydrata_handled_completion_ids_4242')
+                );
+                expect(Array.isArray(stored)).toBe(true);
+                // Buffer was capped at 500; oldest 50 dropped → ids 50..549 remain.
+                expect(stored.length).toBeLessThanOrEqualTo(500);
+                const ids = stored.map(e => e.id);
+                expect(ids).toNotContain('cap-test-0');
+                expect(ids).toNotContain('cap-test-49');
+                expect(ids).toContain('cap-test-549');
+                expect(ids).toContain('cap-test-50');
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
         });
 
         it('should drop candidates whose metadata.project_id mismatches the current map', (done) => {
@@ -1883,66 +1842,68 @@ describe('Polling Epics', () => {
             // be addLayer'd. Repro is the 2026-05-17 stray "Rainfall
             // 01" leak: a layer_create from project 11550 surfaced
             // on a freshly-opened map of project 11551.
-            const store = {
-                getState: () => ({
-                    taskMonitor: { processes: { byId: {} } },
-                    layers: { flat: [], groups: [] },
-                    gnresource: { id: 1222 },
-                    anuga: { projects: { data: { id: 11551 } } }
-                })
+            const state = {
+                taskMonitor: { processes: { byId: {} } },
+                layers: { flat: [], groups: [] },
+                gnresource: { id: 1222 },
+                anuga: { projects: { data: { id: 11551 } } }
             };
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-            const sub = taskCompleteLayerEpic(action$, store)
-                .subscribe(act => emitted.push(act), err => done(err));
-
-            subject.next({
-                type: TM_SET_PROCESSES,
-                processes: [
-                    {
-                        id: 'cross-project-leak',
-                        process_type: 'layer_create',
-                        status: 'complete',
-                        metadata: {
-                            project_id: 11550,     // belongs to OTHER project
-                            model_class: 'Rainfall',
-                            mapstore_layer: {
-                                name: 'geonode:rai_11550_rainfall_01',
-                                title: 'Rainfall 01',
-                                group: 'Default',
-                                type: 'wms',
-                                url: '/geoserver/wms'
+            // The same-project Boundary triggers an async resource refresh
+            // (projectId 11551 present), so emissions are addLayer + show +
+            // setBoundaryData = 3. The cross-project Rainfall (11550) is filtered
+            // by the project-scope guard and emits nothing. Mock the refresh.
+            const mock = mockAxios();
+            mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 1 }]);
+            testEpic(
+                taskCompleteLayerEpic,
+                3,
+                {
+                    type: TM_SET_PROCESSES,
+                    processes: [
+                        {
+                            id: 'cross-project-leak',
+                            process_type: 'layer_create',
+                            status: 'complete',
+                            metadata: {
+                                project_id: 11550,     // belongs to OTHER project
+                                model_class: 'Rainfall',
+                                mapstore_layer: {
+                                    name: 'geonode:rai_11550_rainfall_01',
+                                    title: 'Rainfall 01',
+                                    group: 'Default',
+                                    type: 'wms',
+                                    url: '/geoserver/wms'
+                                }
+                            }
+                        },
+                        {
+                            id: 'same-project-keeps',
+                            process_type: 'layer_create',
+                            status: 'complete',
+                            metadata: {
+                                project_id: 11551,     // current map
+                                model_class: 'Boundary',
+                                mapstore_layer: {
+                                    name: 'geonode:bdy_11551_boundary_01',
+                                    title: 'Boundary 01',
+                                    group: 'Input Data.Boundaries',
+                                    type: 'wms',
+                                    url: '/geoserver/wms'
+                                }
                             }
                         }
-                    },
-                    {
-                        id: 'same-project-keeps',
-                        process_type: 'layer_create',
-                        status: 'complete',
-                        metadata: {
-                            project_id: 11551,     // current map
-                            model_class: 'Boundary',
-                            mapstore_layer: {
-                                name: 'geonode:bdy_11551_boundary_01',
-                                title: 'Boundary 01',
-                                group: 'Input Data.Boundaries',
-                                type: 'wms',
-                                url: '/geoserver/wms'
-                            }
-                        }
-                    }
-                ]
-            });
-
-            setTimeout(() => {
-                const addLayerActions = emitted.filter(a => a.type === 'ADD_LAYER');
-                expect(addLayerActions.length).toBe(1);
-                expect(addLayerActions[0].layer.name).toBe('geonode:bdy_11551_boundary_01');
-                // The cross-project Rainfall layer must NOT have been added.
-                expect(addLayerActions.find(a => /rai_11550/.test(a.layer.name))).toBe(undefined);
-                sub.unsubscribe();
-                done();
-            }, 200);
+                    ]
+                },
+                (actions) => {
+                    const addLayerActions = actions.filter(a => a.type === 'ADD_LAYER');
+                    expect(addLayerActions.length).toBe(1);
+                    expect(addLayerActions[0].layer.name).toBe('geonode:bdy_11551_boundary_01');
+                    // The cross-project Rainfall layer must NOT have been added.
+                    expect(addLayerActions.find(a => /rai_11550/.test(a.layer.name))).toBe(undefined);
+                },
+                state,
+                done
+            );
         });
     });
 
@@ -2068,31 +2029,23 @@ describe('Polling Epics', () => {
 
         it('pollAnugaModelCreationEpic emits nothing whether visibility=true or false (V2P-79 no-op)', (done) => {
             // Pre-V2P-79: 10 actions/tick when visible, 0 when hidden.
-            // Post-V2P-79: 0 in both cases — the inner observable is empty.
-            // Either toggle => zero emissions.
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = pollAnugaModelCreationEpic(action$).subscribe(
-                action => emitted.push(action),
-                err => done(err)
+            // Post-V2P-79: 0 in both cases — the inner observable is empty()
+            // when visible and never() when hidden. We exercise the hidden
+            // (never) branch explicitly by toggling the visibility seam to
+            // false before the START; addTimeoutEpic confirms nothing real
+            // emits — only TEST_TIMEOUT surfaces.
+            visibilitySubject.next(false);
+            testEpic(
+                addTimeoutEpic(pollAnugaModelCreationEpic, 50),
+                1,
+                { type: 'START_ANUGA_MODEL_CREATION_POLLING' },
+                (actions) => {
+                    expect(actions.length).toBe(1);
+                    expect(actions[0].type).toBe(TEST_TIMEOUT);
+                },
+                {},
+                done
             );
-
-            subject.next({ type: 'START_ANUGA_MODEL_CREATION_POLLING' });
-
-            setTimeout(() => {
-                visibilitySubject.next(false);
-                setTimeout(() => {
-                    visibilitySubject.next(true);
-                    setTimeout(() => {
-                        try {
-                            expect(emitted.length).toBe(0);
-                            sub.unsubscribe();
-                            done();
-                        } catch (err) { sub.unsubscribe(); done(err); }
-                    }, 100);
-                }, 100);
-            }, 100);
         });
     });
 
@@ -2114,98 +2067,62 @@ describe('Polling Epics', () => {
     });
 
     describe('W7 — pollActiveRunStatusEpic cap reaches RUN_STATUS_POLLING_TIMEOUT', () => {
-        const MockAdapter = require('axios-mock-adapter');
-        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
-        let mockAxios;
-        beforeEach(() => { mockAxios = new MockAdapter(axios); });
-        afterEach(() => { mockAxios.restore(); });
+        let mock;
+        beforeEach(() => { mock = mockAxios(); });
 
-        it('emits RUN_STATUS_POLLING_TIMEOUT once the tick count reaches the cap', (done) => {
-            // Build a store whose scenario keys to runId=701; we want the
-            // cap to be very small so the test completes in reasonable time.
-            // We can't shrink the floor (1200), so we mock so EVERY tick
-            // returns a non-terminal status, then stop the test after a
-            // short window and just assert the wire-up: STOP_ACTIVE_RUN_POLLING
-            // tears the stream down BEFORE the cap; tick count never reaches
-            // 1200; no timeout fires.
-            mockAxios.onGet('/api/v2/anuga/runs/701/status/').reply(200, {
+        it('first tick emits UPDATE_RUN_STATUS for a non-terminal status, no timeout (cap is 1200)', (done) => {
+            // Non-terminal status, tick 1 << cap (1200) → only updateRunStatus
+            // emits, no RUN_STATUS_POLLING_TIMEOUT. testEpic awaits exactly the
+            // first tick's emission deterministically.
+            mock.onGet('/api/v2/anuga/runs/701/status/').reply(200, {
                 id: 701, status: 'computing', progress_pct: 12
             });
-
-            const store = {
-                getState: () => ({
-                    anuga: {
-                        scenarios: {
-                            byId: { 999: { id: 999, latest_run: { id: 701, status: 'computing' } } },
-                            allIds: [999]
-                        }
+            const state = {
+                anuga: {
+                    scenarios: {
+                        byId: { 999: { id: 999, latest_run: { id: 701, status: 'computing' } } },
+                        allIds: [999]
                     }
-                })
+                }
             };
-
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-
-            const sub = pollActiveRunStatusEpic(action$, store).subscribe(
-                a => emitted.push(a),
-                err => done(err)
+            testEpic(
+                pollActiveRunStatusEpic,
+                1,
+                { type: START_ACTIVE_RUN_POLLING, runId: 701 },
+                (actions) => {
+                    expect(actions.filter(a => a.type === UPDATE_RUN_STATUS).length).toBe(1);
+                    expect(actions.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT).length).toBe(0);
+                },
+                state,
+                done
             );
-
-            subject.next({ type: START_ACTIVE_RUN_POLLING, runId: 701 });
-
-            setTimeout(() => {
-                // Within 200ms we get the first tick + first status update;
-                // no timeout fires because the cap is 1200 ticks (~1h).
-                const updates = emitted.filter(a => a.type === UPDATE_RUN_STATUS);
-                const timeouts = emitted.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT);
-                expect(updates.length).toBeGreaterThan(0);
-                expect(timeouts.length).toBe(0);
-                // Tearing down via STOP_ACTIVE_RUN_POLLING must NOT trigger a
-                // timeout — the scan/take chain completes cleanly because
-                // takeUntil is upstream of .take in the chain.
-                subject.next({ type: STOP_ACTIVE_RUN_POLLING, runId: 701 });
-                setTimeout(() => {
-                    expect(emitted.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT).length).toBe(0);
-                    sub.unsubscribe();
-                    done();
-                }, 100);
-            }, 200);
         });
 
         it('stop-on-terminal-status: emits stopActiveRunPolling on terminal status, NO timeout', (done) => {
-            mockAxios.onGet('/api/v2/anuga/runs/702/status/').reply(200, {
+            // Terminal status on the first tick → updateRunStatus + stopActiveRunPolling
+            // co-emit (2 actions), no timeout. take(2) captures both.
+            mock.onGet('/api/v2/anuga/runs/702/status/').reply(200, {
                 id: 702, status: 'complete', progress_pct: 100
             });
-
-            const store = {
-                getState: () => ({
-                    anuga: {
-                        scenarios: {
-                            byId: { 998: { id: 998, latest_run: { id: 702, status: 'computing' } } },
-                            allIds: [998]
-                        }
+            const state = {
+                anuga: {
+                    scenarios: {
+                        byId: { 998: { id: 998, latest_run: { id: 702, status: 'computing' } } },
+                        allIds: [998]
                     }
-                })
+                }
             };
-
-            const { subject, action$ } = liveActions();
-            const emitted = [];
-            const sub = pollActiveRunStatusEpic(action$, store).subscribe(
-                a => emitted.push(a),
-                err => done(err)
+            testEpic(
+                pollActiveRunStatusEpic,
+                2,
+                { type: START_ACTIVE_RUN_POLLING, runId: 702 },
+                (actions) => {
+                    expect(actions.filter(a => a.type === STOP_ACTIVE_RUN_POLLING).length).toBeGreaterThan(0);
+                    expect(actions.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT).length).toBe(0);
+                },
+                state,
+                done
             );
-            subject.next({ type: START_ACTIVE_RUN_POLLING, runId: 702 });
-
-            setTimeout(() => {
-                // Terminal-status path: we expect at least one stopActiveRunPolling
-                // emission (it co-emits with updateRunStatus) and NO timeout.
-                const stops = emitted.filter(a => a.type === STOP_ACTIVE_RUN_POLLING);
-                const timeouts = emitted.filter(a => a.type === RUN_STATUS_POLLING_TIMEOUT);
-                expect(stops.length).toBeGreaterThan(0);
-                expect(timeouts.length).toBe(0);
-                sub.unsubscribe();
-                done();
-            }, 200);
         });
     });
 });

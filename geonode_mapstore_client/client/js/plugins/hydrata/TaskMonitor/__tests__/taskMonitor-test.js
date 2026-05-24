@@ -1,5 +1,7 @@
 import expect from 'expect';
 import Rx from 'rxjs';
+import { testEpic, mockAxios } from '../../../../__tests__/helpers';
+import { addTimeoutEpic, TEST_TIMEOUT } from '../../../../__tests__/helpers/testEpic';
 import {
     autoStartTaskMonitorEpic,
     pollActiveCountEpic,
@@ -59,16 +61,6 @@ const mockActions = (actions) => {
         subject.complete();
     }, 0);
     return action$;
-};
-
-/**
- * Helper: create a live Subject-based action$ that stays open for interactive tests.
- */
-const liveActions = () => {
-    const subject = new Rx.Subject();
-    const action$ = subject.asObservable();
-    action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
-    return { subject, action$ };
 };
 
 describe('TaskMonitor', () => {
@@ -611,83 +603,82 @@ describe('TaskMonitor', () => {
             const authUser = { username: 'alice', pk: 1 };
 
             it('should start polling on TM_START_POLLING when panel is closed', (done) => {
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false } },
-                        security: { user: authUser },
-                        anuga: { projects: { data: { id: 42 } } }
-                    })
+                const mock = mockAxios();
+                mock.onGet(/\/api\/v2\/tasks\/processes\//).reply(200, {
+                    results: [
+                        { id: 1, status: 'running', process_type: 'layer_create' },
+                        { id: 2, status: 'complete', process_type: 'layer_create' }
+                    ]
+                });
+                const state = {
+                    taskMonitor: { ui: { panelOpen: false } },
+                    security: { user: authUser },
+                    anuga: { projects: { data: { id: 42 } } }
                 };
-                const emitted = [];
-
-                const sub = pollActiveCountEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_START_POLLING });
-
-                // API call will fail (no server), catch returns empty
-                setTimeout(() => {
-                    sub.unsubscribe();
-                    done();
-                }, 200);
+                // First tick (timer(0)) fetches + dispatches setProcesses + setActiveCount.
+                testEpic(
+                    pollActiveCountEpic,
+                    2,
+                    { type: TM_START_POLLING },
+                    (actions) => {
+                        expect(actions.length).toBe(2);
+                        expect(actions[0].type).toBe(TM_SET_PROCESSES);
+                        expect(actions[0].processes.length).toBe(2);
+                        expect(actions[1].type).toBe(TM_SET_ACTIVE_COUNT);
+                        // Only the 'running' row is active.
+                        expect(actions[1].count).toBe(1);
+                    },
+                    state,
+                    done
+                );
             });
 
             it('should not poll when panel is open', (done) => {
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true } },
-                        security: { user: authUser },
-                        anuga: { projects: { data: { id: 42 } } }
-                    })
+                const state = {
+                    taskMonitor: { ui: { panelOpen: true } },
+                    security: { user: authUser },
+                    anuga: { projects: { data: { id: 42 } } }
                 };
-                const emitted = [];
-
-                const sub = pollActiveCountEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_START_POLLING });
-
-                setTimeout(() => {
-                    // Filter blocks emission when panelOpen is true
-                    expect(emitted.length).toBe(0);
-                    sub.unsubscribe();
-                    done();
-                }, 200);
+                // panelOpen=true filter blocks the closed-panel poll → only the
+                // injected TEST_TIMEOUT comes through.
+                testEpic(
+                    addTimeoutEpic(pollActiveCountEpic, 50),
+                    1,
+                    { type: TM_START_POLLING },
+                    (actions) => {
+                        expect(actions.length).toBe(1);
+                        expect(actions[0].type).toBe(TEST_TIMEOUT);
+                    },
+                    state,
+                    done
+                );
             });
 
             it('should stop on TM_STOP_POLLING', (done) => {
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false } },
-                        security: { user: authUser },
-                        anuga: { projects: { data: { id: 42 } } }
-                    })
+                // Deterministic teardown proof. timer(0, 10000) schedules its
+                // first tick on the async scheduler (a 0ms macrotask); dispatching
+                // TM_STOP_POLLING synchronously right after TM_START_POLLING means
+                // takeUntil(TM_STOP_POLLING) completes the inner stream BEFORE that
+                // first tick fires, so the poller emits nothing. The injected
+                // TEST_TIMEOUT is the only action that surfaces. (The positive
+                // "first tick emits" contract is covered by the test above, so this
+                // pair proves both: ticks emit on START, and STOP suppresses them.)
+                const state = {
+                    taskMonitor: { ui: { panelOpen: false } },
+                    security: { user: authUser },
+                    anuga: { projects: { data: { id: 42 } } }
                 };
-                const emitted = [];
-
-                const sub = pollActiveCountEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_START_POLLING });
-                setTimeout(() => {
-                    subject.next({ type: TM_STOP_POLLING });
-                    setTimeout(() => {
-                        sub.unsubscribe();
-                        done();
-                    }, 100);
-                }, 50);
+                testEpic(
+                    addTimeoutEpic(pollActiveCountEpic, 50),
+                    1,
+                    [{ type: TM_START_POLLING }, { type: TM_STOP_POLLING }],
+                    (actions) => {
+                        expect(actions.length).toBe(1);
+                        expect(actions[0].type).toBe(TEST_TIMEOUT);
+                    },
+                    state,
+                    done
+                );
             });
 
             it('should not emit for unrelated actions', (done) => {
@@ -713,59 +704,47 @@ describe('TaskMonitor', () => {
             });
 
             it('should NOT poll for anon user even on TM_START_POLLING', (done) => {
-                // TASK-673 D1.4 (B5 C3): defense-in-depth.
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false } },
-                        security: { user: null }
-                    })
+                // TASK-673 D1.4 (B5 C3): defense-in-depth. The security.user
+                // filter blocks every tick → only TEST_TIMEOUT surfaces.
+                const state = {
+                    taskMonitor: { ui: { panelOpen: false } },
+                    security: { user: null }
                 };
-                const emitted = [];
-
-                const sub = pollActiveCountEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_START_POLLING });
-
-                setTimeout(() => {
-                    expect(emitted.length).toBe(0);
-                    sub.unsubscribe();
-                    done();
-                }, 200);
+                testEpic(
+                    addTimeoutEpic(pollActiveCountEpic, 50),
+                    1,
+                    { type: TM_START_POLLING },
+                    (actions) => {
+                        expect(actions.length).toBe(1);
+                        expect(actions[0].type).toBe(TEST_TIMEOUT);
+                    },
+                    state,
+                    done
+                );
             });
 
             it('should NOT poll while project_id is unhydrated', (done) => {
                 // The Process list endpoint requires ?project_id=<int> (see
                 // taskmonitor/views.py). Polling without it once leaked
                 // cross-project layer_create completes into the wrong map's
-                // TOC. Skip ticks until state.anuga.projects.data.id is set.
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: false } },
-                        security: { user: authUser },
-                        anuga: { projects: { data: null } }
-                    })
+                // TOC. Skip ticks until state.anuga.projects.data.id is set —
+                // the getProjectId filter blocks, so only TEST_TIMEOUT surfaces.
+                const state = {
+                    taskMonitor: { ui: { panelOpen: false } },
+                    security: { user: authUser },
+                    anuga: { projects: { data: null } }
                 };
-                const emitted = [];
-
-                const sub = pollActiveCountEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_START_POLLING });
-
-                setTimeout(() => {
-                    expect(emitted.length).toBe(0);
-                    sub.unsubscribe();
-                    done();
-                }, 200);
+                testEpic(
+                    addTimeoutEpic(pollActiveCountEpic, 50),
+                    1,
+                    { type: TM_START_POLLING },
+                    (actions) => {
+                        expect(actions.length).toBe(1);
+                        expect(actions[0].type).toBe(TEST_TIMEOUT);
+                    },
+                    state,
+                    done
+                );
             });
         });
 
@@ -775,29 +754,33 @@ describe('TaskMonitor', () => {
             const authUser = { username: 'alice', pk: 1 };
 
             it('should start polling on TM_TOGGLE_PANEL when panel is open', (done) => {
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
-                        security: { user: authUser },
-                        anuga: { projects: { data: { id: 42 } } }
-                    })
+                const mock = mockAxios();
+                mock.onGet(/\/api\/v2\/tasks\/processes\//).reply(200, {
+                    results: [
+                        { id: 1, status: 'running', process_type: 'layer_create' },
+                        { id: 2, status: 'pending', process_type: 'layer_create' }
+                    ]
+                });
+                const state = {
+                    taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                    security: { user: authUser },
+                    anuga: { projects: { data: { id: 42 } } }
                 };
-                const emitted = [];
-
-                const sub = pollProcessListEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_TOGGLE_PANEL });
-
-                // API call will fail (no server) -> catch -> empty
-                setTimeout(() => {
-                    sub.unsubscribe();
-                    done();
-                }, 200);
+                // active filter → first tick dispatches setProcesses + setActiveCount.
+                testEpic(
+                    pollProcessListEpic,
+                    2,
+                    { type: TM_TOGGLE_PANEL },
+                    (actions) => {
+                        expect(actions.length).toBe(2);
+                        expect(actions[0].type).toBe(TM_SET_PROCESSES);
+                        expect(actions[0].processes.length).toBe(2);
+                        expect(actions[1].type).toBe(TM_SET_ACTIVE_COUNT);
+                        expect(actions[1].count).toBe(2);
+                    },
+                    state,
+                    done
+                );
             });
 
             it('should not emit when panel is closed', (done) => {
@@ -823,28 +806,29 @@ describe('TaskMonitor', () => {
             });
 
             it('should respond to TM_SET_FILTER when panel is open', (done) => {
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true, filter: 'completed' } },
-                        security: { user: authUser },
-                        anuga: { projects: { data: { id: 42 } } }
-                    })
+                const mock = mockAxios();
+                mock.onGet(/\/api\/v2\/tasks\/processes\//).reply(200, {
+                    results: [{ id: 9, status: 'complete', process_type: 'layer_create' }]
+                });
+                const state = {
+                    taskMonitor: { ui: { panelOpen: true, filter: 'completed' } },
+                    security: { user: authUser },
+                    anuga: { projects: { data: { id: 42 } } }
                 };
-                const emitted = [];
-
-                const sub = pollProcessListEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_SET_FILTER, filter: 'completed' });
-
-                setTimeout(() => {
-                    sub.unsubscribe();
-                    done();
-                }, 200);
+                // completed filter → first tick dispatches setProcesses only
+                // (no setActiveCount on non-active filters).
+                testEpic(
+                    pollProcessListEpic,
+                    1,
+                    { type: TM_SET_FILTER, filter: 'completed' },
+                    (actions) => {
+                        expect(actions.length).toBe(1);
+                        expect(actions[0].type).toBe(TM_SET_PROCESSES);
+                        expect(actions[0].processes.length).toBe(1);
+                    },
+                    state,
+                    done
+                );
             });
 
             it('should not emit for unrelated actions', (done) => {
@@ -894,38 +878,29 @@ describe('TaskMonitor', () => {
             it('should NOT poll while project_id is unhydrated', (done) => {
                 // Matches pollActiveCountEpic gate; the open-panel poller
                 // must also wait for state.anuga.projects.data.id before
-                // hitting the API.
-                const { subject, action$ } = liveActions();
-                const store = {
-                    getState: () => ({
-                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
-                        security: { user: authUser },
-                        anuga: { projects: { data: null } }
-                    })
+                // hitting the API. getProjectId filter blocks → only
+                // TEST_TIMEOUT surfaces.
+                const state = {
+                    taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                    security: { user: authUser },
+                    anuga: { projects: { data: null } }
                 };
-                const emitted = [];
-
-                const sub = pollProcessListEpic(action$, store)
-                    .subscribe(
-                        action => emitted.push(action),
-                        err => done(err)
-                    );
-
-                subject.next({ type: TM_TOGGLE_PANEL });
-
-                setTimeout(() => {
-                    expect(emitted.length).toBe(0);
-                    sub.unsubscribe();
-                    done();
-                }, 200);
+                testEpic(
+                    addTimeoutEpic(pollProcessListEpic, 50),
+                    1,
+                    { type: TM_TOGGLE_PANEL },
+                    (actions) => {
+                        expect(actions.length).toBe(1);
+                        expect(actions[0].type).toBe(TEST_TIMEOUT);
+                    },
+                    state,
+                    done
+                );
             });
 
             describe('open-panel poller payload', () => {
-                const MockAdapter = require('axios-mock-adapter');
-                const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
-                let mockAxios;
-                beforeEach(() => { mockAxios = new MockAdapter(axios); });
-                afterEach(() => { mockAxios.restore(); });
+                let mock;
+                beforeEach(() => { mock = mockAxios(); });
 
                 it('passes all rows through unfiltered on the active-filter branch', (done) => {
                     const mixedRows = [
@@ -935,35 +910,30 @@ describe('TaskMonitor', () => {
                         { id: 4, status: 'error', process_type: 'layer_create' },
                         { id: 5, status: 'cancelled', process_type: 'layer_create' }
                     ];
-                    mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: mixedRows });
+                    mock.onGet('/api/v2/tasks/processes/').reply(200, { results: mixedRows });
 
-                    const { subject, action$ } = liveActions();
-                    const store = {
-                        getState: () => ({
-                            taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
-                            security: { user: authUser },
-                            anuga: { projects: { data: { id: 42 } } }
-                        })
+                    const state = {
+                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     };
-                    const emitted = [];
-                    const sub = pollProcessListEpic(action$, store)
-                        .subscribe(a => emitted.push(a), err => done(err));
-
-                    subject.next({ type: TM_TOGGLE_PANEL });
-
-                    setTimeout(() => {
-                        try {
-                            const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
-                            expect(setActions.length).toBeGreaterThan(0);
+                    // active filter → setProcesses (all 5 rows, unfiltered) + setActiveCount.
+                    testEpic(
+                        pollProcessListEpic,
+                        2,
+                        { type: TM_TOGGLE_PANEL },
+                        (actions) => {
+                            const setActions = actions.filter(a => a.type === TM_SET_PROCESSES);
+                            expect(setActions.length).toBe(1);
                             const surfaced = setActions[0].processes;
                             expect(surfaced.length).toBe(5);
                             expect(surfaced.map(p => p.id).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
-                            const countActions = emitted.filter(a => a.type === TM_SET_ACTIVE_COUNT);
+                            const countActions = actions.filter(a => a.type === TM_SET_ACTIVE_COUNT);
                             expect(countActions[0].count).toBe(2);
-                            done();
-                        } catch (e) { done(e); }
-                        finally { sub.unsubscribe(); }
-                    }, 200);
+                        },
+                        state,
+                        done
+                    );
                 });
 
                 it('passes completed rows through unfiltered on the completed-filter branch', (done) => {
@@ -971,40 +941,37 @@ describe('TaskMonitor', () => {
                         { id: 10, status: 'complete', process_type: 'layer_create' },
                         { id: 11, status: 'complete', process_type: 'terrain_create' }
                     ];
-                    mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: completedRows });
+                    mock.onGet('/api/v2/tasks/processes/').reply(200, { results: completedRows });
 
-                    const { subject, action$ } = liveActions();
-                    const store = {
-                        getState: () => ({
-                            taskMonitor: { ui: { panelOpen: true, filter: 'completed' } },
-                            security: { user: authUser },
-                            anuga: { projects: { data: { id: 42 } } }
-                        })
+                    const state = {
+                        taskMonitor: { ui: { panelOpen: true, filter: 'completed' } },
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     };
-                    const emitted = [];
-                    const sub = pollProcessListEpic(action$, store)
-                        .subscribe(a => emitted.push(a), err => done(err));
-
-                    subject.next({ type: TM_SET_FILTER, filter: 'completed' });
-
-                    setTimeout(() => {
-                        try {
-                            const setActions = emitted.filter(a => a.type === TM_SET_PROCESSES);
-                            expect(setActions.length).toBeGreaterThan(0);
+                    // completed filter → setProcesses only (no setActiveCount).
+                    testEpic(
+                        pollProcessListEpic,
+                        1,
+                        { type: TM_SET_FILTER, filter: 'completed' },
+                        (actions) => {
+                            const setActions = actions.filter(a => a.type === TM_SET_PROCESSES);
+                            expect(setActions.length).toBe(1);
                             expect(setActions[0].processes.length).toBe(2);
                             expect(setActions[0].processes.map(p => p.id).sort((a, b) => a - b)).toEqual([10, 11]);
-                            done();
-                        } catch (e) { done(e); }
-                        finally { sub.unsubscribe(); }
-                    }, 200);
+                        },
+                        state,
+                        done
+                    );
                 });
 
                 it('preserves terminal terrain_create completions for action$ listeners', (done) => {
                     // Regression guard: a payload-shape assertion would still pass
                     // even if the dispatched action never reached redux-observable
-                    // listeners. This test wires an independent action$ subscriber
-                    // (mimicking taskCompleteLayerEpic) and asserts it sees the
-                    // terminal row — the surface where the original bug hid.
+                    // listeners. testEpic collects the epic's emitted stream
+                    // (the same surface listeners like taskCompleteLayerEpic see
+                    // on TM_SET_PROCESSES); we assert the dispatched action carries
+                    // the terminal terrain_create row — the surface where the
+                    // original bug hid.
                     const rows = [
                         { id: 'in-flight', status: 'running', process_type: 'layer_create' },
                         {
@@ -1014,39 +981,28 @@ describe('TaskMonitor', () => {
                             metadata: { project_id: 42, terrain_id: 9999, mapstore_layers: [{ name: 'geonode:ele_9999' }] }
                         }
                     ];
-                    mockAxios.onGet('/api/v2/tasks/processes/').reply(200, { results: rows });
+                    mock.onGet('/api/v2/tasks/processes/').reply(200, { results: rows });
 
-                    const { subject, action$ } = liveActions();
-                    const store = {
-                        getState: () => ({
-                            taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
-                            security: { user: authUser },
-                            anuga: { projects: { data: { id: 42 } } }
-                        })
+                    const state = {
+                        taskMonitor: { ui: { panelOpen: true, filter: 'active' } },
+                        security: { user: authUser },
+                        anuga: { projects: { data: { id: 42 } } }
                     };
-
-                    const seenByListener = [];
-                    const listenerSub = action$.ofType(TM_SET_PROCESSES)
-                        .subscribe(a => seenByListener.push(a));
-                    const epicSub = pollProcessListEpic(action$, store)
-                        .subscribe(a => subject.next(a), err => done(err));
-
-                    subject.next({ type: TM_TOGGLE_PANEL });
-
-                    setTimeout(() => {
-                        try {
-                            expect(seenByListener.length).toBeGreaterThan(0);
-                            const lastSetProc = seenByListener[seenByListener.length - 1];
-                            const terrainProc = lastSetProc.processes.find(p => p.process_type === 'terrain_create');
+                    // active filter → setProcesses + setActiveCount per tick.
+                    testEpic(
+                        pollProcessListEpic,
+                        2,
+                        { type: TM_TOGGLE_PANEL },
+                        (actions) => {
+                            const setProc = actions.find(a => a.type === TM_SET_PROCESSES);
+                            expect(setProc).toBeTruthy();
+                            const terrainProc = setProc.processes.find(p => p.process_type === 'terrain_create');
                             expect(terrainProc).toBeTruthy();
                             expect(terrainProc.status).toBe('complete');
-                            done();
-                        } catch (e) { done(e); }
-                        finally {
-                            epicSub.unsubscribe();
-                            listenerSub.unsubscribe();
-                        }
-                    }, 200);
+                        },
+                        state,
+                        done
+                    );
                 });
             });
         });
