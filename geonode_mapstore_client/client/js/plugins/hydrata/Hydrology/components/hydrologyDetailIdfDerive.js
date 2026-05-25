@@ -79,6 +79,7 @@ const buildResultColumns = (idfTable) => {
         cols.push(helper.accessor(`rp${rp}_intensity`, {
             cell: info => {
                 const v = info.getValue();
+                // eslint-disable-next-line no-eq-null, eqeqeq
                 return v == null ? '' : Number(v).toFixed(1);
             },
             header: () => <span>{`${rp}-yr (mm/hr)`}</span>,
@@ -87,6 +88,7 @@ const buildResultColumns = (idfTable) => {
         cols.push(helper.accessor(`rp${rp}_ci_lower`, {
             cell: info => {
                 const v = info.getValue();
+                // eslint-disable-next-line no-eq-null, eqeqeq
                 return v == null ? '' : Number(v).toFixed(1);
             },
             header: () => <span>{`${rp}-yr CI low`}</span>,
@@ -95,6 +97,7 @@ const buildResultColumns = (idfTable) => {
         cols.push(helper.accessor(`rp${rp}_ci_upper`, {
             cell: info => {
                 const v = info.getValue();
+                // eslint-disable-next-line no-eq-null, eqeqeq
                 return v == null ? '' : Number(v).toFixed(1);
             },
             header: () => <span>{`${rp}-yr CI high`}</span>,
@@ -284,6 +287,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         id={'idf-derive-lat'}
                         type={'number'}
                         className={'hydrology-text-input'}
+                        // eslint-disable-next-line no-eq-null, eqeqeq
                         value={this.props.lat == null ? '' : this.props.lat}
                         onChange={(e) => this.props.setIdfDeriveLat(
                             e.target.value === '' ? null : Number(e.target.value)
@@ -296,6 +300,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         id={'idf-derive-lon'}
                         type={'number'}
                         className={'hydrology-text-input'}
+                        // eslint-disable-next-line no-eq-null, eqeqeq
                         value={this.props.lon == null ? '' : this.props.lon}
                         onChange={(e) => this.props.setIdfDeriveLon(
                             e.target.value === '' ? null : Number(e.target.value)

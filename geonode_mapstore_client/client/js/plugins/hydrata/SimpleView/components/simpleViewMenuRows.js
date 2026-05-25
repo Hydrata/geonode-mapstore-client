@@ -132,11 +132,13 @@ class MenuRowsClass extends React.Component {
     componentDidUpdate(prevProps) {
         if (prevProps.openMenuGroupId !== this.props.openMenuGroupId) {
             const subHeadings = this.props.layerSubheadings || [];
+            // eslint-disable-next-line react/no-did-update-set-state
             this.setState({selectedSubHeading: subHeadings[0] || null});
             return;
         }
         const subHeadings = this.props.layerSubheadings || [];
         if (this.state.selectedSubHeading && !subHeadings.includes(this.state.selectedSubHeading)) {
+            // eslint-disable-next-line react/no-did-update-set-state
             this.setState({selectedSubHeading: subHeadings[0] || null});
         }
     }

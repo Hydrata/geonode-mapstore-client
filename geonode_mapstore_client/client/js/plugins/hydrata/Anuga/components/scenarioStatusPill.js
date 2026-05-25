@@ -29,131 +29,131 @@ import {findScenarioStatus} from './scenarioHelpers';
  *         tooltip on hover, same UX as the legacy 30-char inline detail.
  */
 const ScenarioStatusPill = ({scenario, compact}) => {
-  const status = findScenarioStatus(scenario);
-  const latestRun = scenario?.latest_run;
+    const status = findScenarioStatus(scenario);
+    const latestRun = scenario?.latest_run;
 
-  switch (status) {
-  case 'building':
-    return (
-      <span className={"scenario-status-pill status-building" + (compact ? " is-compact" : "")}>
-        <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
-        <Message msgId="hydrata.anuga.statusBuilding" />
-      </span>
-    );
-  case 'queued':
-    return (
-      <span className={"scenario-status-pill status-queued" + (compact ? " is-compact" : "")}>
-        <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
-        <Message msgId="hydrata.anuga.statusQueued" />
-      </span>
-    );
-  case 'computing': {
-    const pct = latestRun?.progress_pct || 0;
-    const eta = latestRun?.eta_seconds;
-    if (compact) {
-      // Wave 3B (B1) — R2 mitigation. Compact rail pill loses the full
-      // progress track + numeric pct vs the Pane 3 status card. Replace
-      // the legacy spinner with a thin 2px progress sliver UNDER the pulse
-      // so the rail row still gives at-a-glance progress feedback.
-      return (
-        <span className="scenario-status-pill status-computing is-compact">
-          <span className="scenario-status-mini-pulse" aria-hidden="true" />
-          <span className="scenario-status-mini-label">
-            <Message msgId="hydrata.anuga.statusComputing" />
-          </span>
-          <span
-            className="scenario-status-mini-bar"
-            style={{width: `${Math.max(0, Math.min(100, pct))}%`}}
-            aria-hidden="true"
-          />
-        </span>
-      );
-    }
-    return (
-      <span className="scenario-status-pill status-computing">
-        <span className="scenario-status-progress-track">
-          <span
-            className="scenario-status-progress-fill"
-            style={{width: `${pct}%`}}
-          />
-        </span>
-        <span className="scenario-status-progress-pct">{Math.round(pct)}%</span>
-        {eta ?
-          <span className="scenario-status-progress-eta">{Math.ceil(eta / 60)}m</span> : null
+    switch (status) {
+    case 'building':
+        return (
+            <span className={"scenario-status-pill status-building" + (compact ? " is-compact" : "")}>
+                <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
+                <Message msgId="hydrata.anuga.statusBuilding" />
+            </span>
+        );
+    case 'queued':
+        return (
+            <span className={"scenario-status-pill status-queued" + (compact ? " is-compact" : "")}>
+                <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
+                <Message msgId="hydrata.anuga.statusQueued" />
+            </span>
+        );
+    case 'computing': {
+        const pct = latestRun?.progress_pct || 0;
+        const eta = latestRun?.eta_seconds;
+        if (compact) {
+            // Wave 3B (B1) — R2 mitigation. Compact rail pill loses the full
+            // progress track + numeric pct vs the Pane 3 status card. Replace
+            // the legacy spinner with a thin 2px progress sliver UNDER the pulse
+            // so the rail row still gives at-a-glance progress feedback.
+            return (
+                <span className="scenario-status-pill status-computing is-compact">
+                    <span className="scenario-status-mini-pulse" aria-hidden="true" />
+                    <span className="scenario-status-mini-label">
+                        <Message msgId="hydrata.anuga.statusComputing" />
+                    </span>
+                    <span
+                        className="scenario-status-mini-bar"
+                        style={{width: `${Math.max(0, Math.min(100, pct))}%`}}
+                        aria-hidden="true"
+                    />
+                </span>
+            );
         }
-      </span>
-    );
-  }
-  case 'processing':
-    return (
-      <span className={"scenario-status-pill status-processing" + (compact ? " is-compact" : "")}>
-        <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
-        <Message msgId="hydrata.anuga.statusProcessing" />
-      </span>
-    );
-  case 'complete':
-    return (
-      <span className={"scenario-status-pill status-complete" + (compact ? " is-compact" : "")}>
-        <span className="glyphicon glyphicon-ok status-icon" />
-        <Message msgId="hydrata.anuga.statusComplete" />
-      </span>
-    );
-  case 'error': {
+        return (
+            <span className="scenario-status-pill status-computing">
+                <span className="scenario-status-progress-track">
+                    <span
+                        className="scenario-status-progress-fill"
+                        style={{width: `${pct}%`}}
+                    />
+                </span>
+                <span className="scenario-status-progress-pct">{Math.round(pct)}%</span>
+                {eta ?
+                    <span className="scenario-status-progress-eta">{Math.ceil(eta / 60)}m</span> : null
+                }
+            </span>
+        );
+    }
+    case 'processing':
+        return (
+            <span className={"scenario-status-pill status-processing" + (compact ? " is-compact" : "")}>
+                <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
+                <Message msgId="hydrata.anuga.statusProcessing" />
+            </span>
+        );
+    case 'complete':
+        return (
+            <span className={"scenario-status-pill status-complete" + (compact ? " is-compact" : "")}>
+                <span className="glyphicon glyphicon-ok status-icon" />
+                <Message msgId="hydrata.anuga.statusComplete" />
+            </span>
+        );
+    case 'error': {
     // Wave 3B (B2) — R3 mitigation. Compact rail pill is icon-only so the
     // legacy 30-char preview is hidden. Surface the full error message as
     // a native `title=` tooltip on the pill wrapper so hovering the rail
     // row still shows the failure reason. Truncate to 200 chars so a
     // multi-page stack trace doesn't make the tooltip unreadable.
-    const fullMsg = latestRun?.error_message;
-    const tooltip = (compact && fullMsg)
-      ? (fullMsg.length > 200 ? fullMsg.substring(0, 200) + '...' : fullMsg)
-      : undefined;
-    return (
-      <span
-        className={"scenario-status-pill status-error" + (compact ? " is-compact" : "")}
-        title={tooltip}
-      >
-        <Message msgId="hydrata.anuga.statusError" />
-        {fullMsg && !compact ?
-          <span
-            className="scenario-status-error-detail"
-            title={fullMsg}
-          >
-            {fullMsg.substring(0, 30)}{fullMsg.length > 30 ? '...' : ''}
-          </span> : null
-        }
-      </span>
-    );
-  }
-  case 'cancelled':
-    return (
-      <span className={"scenario-status-pill status-cancelled" + (compact ? " is-compact" : "")}>
-        <Message msgId="hydrata.anuga.statusCancelled" />
-      </span>
-    );
-  case 'built':
-    return (
-      <span className={"scenario-status-pill status-built" + (compact ? " is-compact" : "")}>
-        <Message msgId="hydrata.anuga.statusBuilt" />
-      </span>
-    );
-  case 'created':
-  default:
-    return (
-      <span className={"scenario-status-pill status-created" + (compact ? " is-compact" : "")}>
-        {status}
-      </span>
-    );
-  }
+        const fullMsg = latestRun?.error_message;
+        const tooltip = (compact && fullMsg)
+            ? (fullMsg.length > 200 ? fullMsg.substring(0, 200) + '...' : fullMsg)
+            : undefined;
+        return (
+            <span
+                className={"scenario-status-pill status-error" + (compact ? " is-compact" : "")}
+                title={tooltip}
+            >
+                <Message msgId="hydrata.anuga.statusError" />
+                {fullMsg && !compact ?
+                    <span
+                        className="scenario-status-error-detail"
+                        title={fullMsg}
+                    >
+                        {fullMsg.substring(0, 30)}{fullMsg.length > 30 ? '...' : ''}
+                    </span> : null
+                }
+            </span>
+        );
+    }
+    case 'cancelled':
+        return (
+            <span className={"scenario-status-pill status-cancelled" + (compact ? " is-compact" : "")}>
+                <Message msgId="hydrata.anuga.statusCancelled" />
+            </span>
+        );
+    case 'built':
+        return (
+            <span className={"scenario-status-pill status-built" + (compact ? " is-compact" : "")}>
+                <Message msgId="hydrata.anuga.statusBuilt" />
+            </span>
+        );
+    case 'created':
+    default:
+        return (
+            <span className={"scenario-status-pill status-created" + (compact ? " is-compact" : "")}>
+                {status}
+            </span>
+        );
+    }
 };
 
 ScenarioStatusPill.propTypes = {
-  scenario: PropTypes.object,
-  compact: PropTypes.bool
+    scenario: PropTypes.object,
+    compact: PropTypes.bool
 };
 
 ScenarioStatusPill.defaultProps = {
-  compact: false
+    compact: false
 };
 
 // Wave 3D Tier B7 — pill is rendered N times per rail (once per scenario row)

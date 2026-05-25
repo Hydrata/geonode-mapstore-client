@@ -29,148 +29,148 @@ import {ScenarioStatusPill} from './scenarioStatusPill';
  * freetext scenario names.
  */
 const ScenarioRailItem = ({
-  scenario,
-  isActive,
-  compareMode,
-  currentUserId,
-  onSelect,
-  onToggleSelected
+    scenario,
+    isActive,
+    compareMode,
+    currentUserId,
+    onSelect,
+    onToggleSelected
 }, context) => {
-  if (!scenario) return null;
-  const messages = (context && context.messages) || {};
-  const tr = (msgId, fallback) => {
-    const resolved = getMessageById(messages, msgId);
-    return resolved === msgId ? fallback : resolved;
-  };
-  const unsavedAriaLabel = tr('hydrata.anuga.railUnsavedAriaLabel', 'Unsaved');
-  const archivedAriaLabel = tr('hydrata.anuga.railArchivedAriaLabel', 'Archived');
-  const isUnsaved = !scenario.id;
-  const isArchived = !!scenario.archived_at;
-  const isSelected = !!scenario.selected;
+    if (!scenario) return null;
+    const messages = (context && context.messages) || {};
+    const tr = (msgId, fallback) => {
+        const resolved = getMessageById(messages, msgId);
+        return resolved === msgId ? fallback : resolved;
+    };
+    const unsavedAriaLabel = tr('hydrata.anuga.railUnsavedAriaLabel', 'Unsaved');
+    const archivedAriaLabel = tr('hydrata.anuga.railArchivedAriaLabel', 'Archived');
+    const isUnsaved = !scenario.id;
+    const isArchived = !!scenario.archived_at;
+    const isSelected = !!scenario.selected;
 
-  const idLabel = scenario.id ? `#${scenario.id}` : '#*';
+    const idLabel = scenario.id ? `#${scenario.id}` : '#*';
 
-  const ownerId = scenario.created_by;
-  let ownershipBadge = null;
-  if (scenario.id && ownerId != null) { // eslint-disable-line no-eq-null, eqeqeq
-    if (currentUserId != null && ownerId === currentUserId) { // eslint-disable-line no-eq-null, eqeqeq
-      ownershipBadge = (
-        <span className="scenario-ownership-badge scenario-ownership-mine">
-          <Message msgId="hydrata.anuga.yourScenario" />
-        </span>
-      );
-    } else if (scenario.created_by_username) {
-      ownershipBadge = (
-        <span className="scenario-ownership-badge scenario-ownership-other">
-          <Message msgId="hydrata.anuga.createdByPrefix" /> {scenario.created_by_username}
-        </span>
-      );
-    }
-  }
-
-  const className = [
-    'sv-category-rail-item',
-    'scenario-rail-item',
-    isActive ? 'is-active' : '',
-    isArchived ? 'is-archived' : '',
-    isUnsaved ? 'is-unsaved' : ''
-  ].filter(Boolean).join(' ');
-
-  const handleSelect = () => {
-    if (onSelect) onSelect(scenario);
-    if (scenario?.id) {
-      trackEvent('button', 'click', `anuga-scenario-menu-select-scenario-${scenario.id}`);
-    }
-  };
-
-  const handleCheckboxClick = (e) => {
-    e.stopPropagation();
-    if (onToggleSelected) onToggleSelected(scenario);
-  };
-
-  return (
-    <div
-      className={className}
-      role="tab"
-      aria-selected={isActive}
-      tabIndex={0}
-      onClick={handleSelect}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleSelect();
+    const ownerId = scenario.created_by;
+    let ownershipBadge = null;
+    if (scenario.id && ownerId != null) { // eslint-disable-line no-eq-null, eqeqeq
+        if (currentUserId != null && ownerId === currentUserId) { // eslint-disable-line no-eq-null, eqeqeq
+            ownershipBadge = (
+                <span className="scenario-ownership-badge scenario-ownership-mine">
+                    <Message msgId="hydrata.anuga.yourScenario" />
+                </span>
+            );
+        } else if (scenario.created_by_username) {
+            ownershipBadge = (
+                <span className="scenario-ownership-badge scenario-ownership-other">
+                    <Message msgId="hydrata.anuga.createdByPrefix" /> {scenario.created_by_username}
+                </span>
+            );
         }
-      }}
-    >
-      <span
-        className={
-          'scenario-rail-item-compare-checkbox'
+    }
+
+    const className = [
+        'sv-category-rail-item',
+        'scenario-rail-item',
+        isActive ? 'is-active' : '',
+        isArchived ? 'is-archived' : '',
+        isUnsaved ? 'is-unsaved' : ''
+    ].filter(Boolean).join(' ');
+
+    const handleSelect = () => {
+        if (onSelect) onSelect(scenario);
+        if (scenario?.id) {
+            trackEvent('button', 'click', `anuga-scenario-menu-select-scenario-${scenario.id}`);
+        }
+    };
+
+    const handleCheckboxClick = (e) => {
+        e.stopPropagation();
+        if (onToggleSelected) onToggleSelected(scenario);
+    };
+
+    return (
+        <div
+            className={className}
+            role="tab"
+            aria-selected={isActive}
+            tabIndex={0}
+            onClick={handleSelect}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSelect();
+                }
+            }}
+        >
+            <span
+                className={
+                    'scenario-rail-item-compare-checkbox'
           + (compareMode ? '' : ' is-hidden')
           + (isSelected ? ' is-checked' : '')
-        }
-        role="checkbox"
-        aria-checked={isSelected}
-        aria-hidden={compareMode ? undefined : true}
-        tabIndex={compareMode ? 0 : -1}
-        onClick={handleCheckboxClick}
-        onKeyDown={(e) => {
-          if (compareMode && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (onToggleSelected) onToggleSelected(scenario);
-          }
-        }}
-      >
-        <span
-          className={
-            'glyphicon ' + (isSelected ? 'glyphicon-ok' : 'glyphicon-unchecked')
-          }
-          aria-hidden="true"
-        />
-      </span>
-      <div className="scenario-rail-item-body">
-        <div className="scenario-rail-item-top">
-          <span className="scenario-rail-item-id">{idLabel}</span>
-          {isUnsaved ?
-            <span className="scenario-rail-item-unsaved" aria-label={unsavedAriaLabel}>*</span> : null
-          }
-          <h5 className="sv-category-rail-item-label scenario-rail-item-name">
-            {scenario.name || ''}
-          </h5>
-          {isArchived ?
-            <span
-              className="scenario-rail-item-archived-dot glyphicon glyphicon-folder-close"
-              aria-label={archivedAriaLabel}
-            /> : null
-          }
+                }
+                role="checkbox"
+                aria-checked={isSelected}
+                aria-hidden={compareMode ? undefined : true}
+                tabIndex={compareMode ? 0 : -1}
+                onClick={handleCheckboxClick}
+                onKeyDown={(e) => {
+                    if (compareMode && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (onToggleSelected) onToggleSelected(scenario);
+                    }
+                }}
+            >
+                <span
+                    className={
+                        'glyphicon ' + (isSelected ? 'glyphicon-ok' : 'glyphicon-unchecked')
+                    }
+                    aria-hidden="true"
+                />
+            </span>
+            <div className="scenario-rail-item-body">
+                <div className="scenario-rail-item-top">
+                    <span className="scenario-rail-item-id">{idLabel}</span>
+                    {isUnsaved ?
+                        <span className="scenario-rail-item-unsaved" aria-label={unsavedAriaLabel}>*</span> : null
+                    }
+                    <h5 className="sv-category-rail-item-label scenario-rail-item-name">
+                        {scenario.name || ''}
+                    </h5>
+                    {isArchived ?
+                        <span
+                            className="scenario-rail-item-archived-dot glyphicon glyphicon-folder-close"
+                            aria-label={archivedAriaLabel}
+                        /> : null
+                    }
+                </div>
+                <div className="scenario-rail-item-bottom">
+                    <ScenarioStatusPill scenario={scenario} compact />
+                    {ownershipBadge}
+                </div>
+            </div>
         </div>
-        <div className="scenario-rail-item-bottom">
-          <ScenarioStatusPill scenario={scenario} compact />
-          {ownershipBadge}
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 ScenarioRailItem.propTypes = {
-  scenario: PropTypes.object.isRequired,
-  isActive: PropTypes.bool,
-  compareMode: PropTypes.bool,
-  currentUserId: PropTypes.number,
-  onSelect: PropTypes.func,
-  onToggleSelected: PropTypes.func
+    scenario: PropTypes.object.isRequired,
+    isActive: PropTypes.bool,
+    compareMode: PropTypes.bool,
+    currentUserId: PropTypes.number,
+    onSelect: PropTypes.func,
+    onToggleSelected: PropTypes.func
 };
 
 ScenarioRailItem.defaultProps = {
-  isActive: false,
-  compareMode: false
+    isActive: false,
+    compareMode: false
 };
 
 // Pull intl messages off React legacy context so unsaved / archived
 // aria-labels can be localised at render time.
 ScenarioRailItem.contextTypes = {
-  messages: PropTypes.object
+    messages: PropTypes.object
 };
 
 /**
@@ -184,65 +184,65 @@ ScenarioRailItem.contextTypes = {
  * container in the DOM so the surrounding shell layout is undisturbed.
  */
 const ScenarioRail = ({
-  scenarios,
-  selectedId,
-  compareMode,
-  currentUserId,
-  onSelect,
-  onToggleSelected
+    scenarios,
+    selectedId,
+    compareMode,
+    currentUserId,
+    onSelect,
+    onToggleSelected
 }) => {
-  const list = scenarios || [];
-  if (list.length === 0) {
-    return (
-      <div className="sv-category-rail anuga-scenario-rail" role="tablist">
-        <div className="anuga-scenario-rail-empty">
-          <span
-            className="anuga-scenario-rail-empty-glyph glyphicon glyphicon-list-alt"
-            aria-hidden="true"
-          />
-          <h5 className="anuga-scenario-rail-empty-heading">
-            <Message msgId="hydrata.anuga.emptyScenariosHeading" />
-          </h5>
-          <p className="anuga-scenario-rail-empty-subcopy">
-            <Message msgId="hydrata.anuga.emptyScenariosSubcopy" />
-          </p>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="sv-category-rail anuga-scenario-rail" role="tablist">
-      {list.map(scenario => {
-        const key = scenario.id || scenario._tempId || `unsaved-${scenario.name || 'new'}`;
-        const isActive = !!selectedId && (scenario.id === selectedId || scenario._tempId === selectedId);
+    const list = scenarios || [];
+    if (list.length === 0) {
         return (
-          <ScenarioRailItem
-            key={key}
-            scenario={scenario}
-            isActive={isActive}
-            compareMode={compareMode}
-            currentUserId={currentUserId}
-            onSelect={onSelect}
-            onToggleSelected={onToggleSelected}
-          />
+            <div className="sv-category-rail anuga-scenario-rail" role="tablist">
+                <div className="anuga-scenario-rail-empty">
+                    <span
+                        className="anuga-scenario-rail-empty-glyph glyphicon glyphicon-list-alt"
+                        aria-hidden="true"
+                    />
+                    <h5 className="anuga-scenario-rail-empty-heading">
+                        <Message msgId="hydrata.anuga.emptyScenariosHeading" />
+                    </h5>
+                    <p className="anuga-scenario-rail-empty-subcopy">
+                        <Message msgId="hydrata.anuga.emptyScenariosSubcopy" />
+                    </p>
+                </div>
+            </div>
         );
-      })}
-    </div>
-  );
+    }
+    return (
+        <div className="sv-category-rail anuga-scenario-rail" role="tablist">
+            {list.map(scenario => {
+                const key = scenario.id || scenario._tempId || `unsaved-${scenario.name || 'new'}`;
+                const isActive = !!selectedId && (scenario.id === selectedId || scenario._tempId === selectedId);
+                return (
+                    <ScenarioRailItem
+                        key={key}
+                        scenario={scenario}
+                        isActive={isActive}
+                        compareMode={compareMode}
+                        currentUserId={currentUserId}
+                        onSelect={onSelect}
+                        onToggleSelected={onToggleSelected}
+                    />
+                );
+            })}
+        </div>
+    );
 };
 
 ScenarioRail.propTypes = {
-  scenarios: PropTypes.array,
-  selectedId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-  compareMode: PropTypes.bool,
-  currentUserId: PropTypes.number,
-  onSelect: PropTypes.func,
-  onToggleSelected: PropTypes.func
+    scenarios: PropTypes.array,
+    selectedId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    compareMode: PropTypes.bool,
+    currentUserId: PropTypes.number,
+    onSelect: PropTypes.func,
+    onToggleSelected: PropTypes.func
 };
 
 ScenarioRail.defaultProps = {
-  scenarios: [],
-  compareMode: false
+    scenarios: [],
+    compareMode: false
 };
 
 export {ScenarioRail, ScenarioRailItem};

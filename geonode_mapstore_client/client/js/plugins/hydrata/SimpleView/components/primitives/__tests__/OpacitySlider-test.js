@@ -159,6 +159,7 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
 
         it('the onChange we pass in is the onChange that reaches Slider', () => {
             const spy = () => {};
+            // eslint-disable-next-line new-cap
             const tree = OpacitySlider({opacity: 0.5, onChange: spy});
             // tree is the wrapper <div>; its single child is the <Slider/>
             const sliderEl = tree.props.children;
@@ -168,6 +169,7 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
 
         it('onChange contract: the wrapper passes through whatever onChange returns', () => {
             const raw = (values) => values;
+            // eslint-disable-next-line new-cap
             const tree = OpacitySlider({opacity: 0.5, onChange: raw});
             const sliderEl = tree.props.children;
             expect(sliderEl.props.onChange).toBe(raw);
@@ -175,6 +177,7 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
         });
 
         it('nouislider is configured with range {min:0, max:100} and step 1', () => {
+            // eslint-disable-next-line new-cap
             const tree = OpacitySlider({opacity: 0.5, onChange: () => {}});
             const sliderEl = tree.props.children;
             expect(sliderEl.props.range).toEqual({min: 0, max: 100});

@@ -631,16 +631,16 @@ export const addLinksEpic = noOpEpic(ADD_LINKS);
 //               is the equivalent per-type targeted fetch for non-terrain
 //               layer_create completions. TASK-955 added Rainfall.
 const modelClassDispatch = {
-    'Boundary':   { addAction: addAnugaBoundary,   endpoint: 'boundary',    setAction: setAnugaBoundaryData },
-    'Inflow':     { addAction: addAnugaInflow,     endpoint: 'inflow',      setAction: setAnugaInflowData },
-    'Rainfall':   { addAction: addAnugaRainfall,   endpoint: 'rainfall',    setAction: setAnugaRainfallData },
-    'Friction':   { addAction: addAnugaFriction,   endpoint: 'friction',    setAction: setAnugaFrictionData },
-    'Structure':  { addAction: addAnugaStructure,  endpoint: 'structure',   setAction: setAnugaStructureData },
-    'FullMesh':   { addAction: addAnugaFullMesh,   endpoint: 'full-mesh',   setAction: setAnugaFullMeshData },
+    'Boundary': { addAction: addAnugaBoundary,   endpoint: 'boundary',    setAction: setAnugaBoundaryData },
+    'Inflow': { addAction: addAnugaInflow,     endpoint: 'inflow',      setAction: setAnugaInflowData },
+    'Rainfall': { addAction: addAnugaRainfall,   endpoint: 'rainfall',    setAction: setAnugaRainfallData },
+    'Friction': { addAction: addAnugaFriction,   endpoint: 'friction',    setAction: setAnugaFrictionData },
+    'Structure': { addAction: addAnugaStructure,  endpoint: 'structure',   setAction: setAnugaStructureData },
+    'FullMesh': { addAction: addAnugaFullMesh,   endpoint: 'full-mesh',   setAction: setAnugaFullMeshData },
     'MeshRegion': { addAction: addAnugaMeshRegion, endpoint: 'mesh-region', setAction: setAnugaMeshRegionData },
-    'Catchment':  { addAction: addCatchment,       endpoint: 'catchment',   setAction: setCatchmentData },
-    'Nodes':      { addAction: addNodes,           endpoint: 'nodes',       setAction: setAnugaNodesData },
-    'Links':      { addAction: addLinks,           endpoint: 'links',       setAction: setAnugaLinksData }
+    'Catchment': { addAction: addCatchment,       endpoint: 'catchment',   setAction: setCatchmentData },
+    'Nodes': { addAction: addNodes,           endpoint: 'nodes',       setAction: setAnugaNodesData },
+    'Links': { addAction: addLinks,           endpoint: 'links',       setAction: setAnugaLinksData }
 };
 
 // Multi-layer terrain handoff. Adds DEM + hillshade together, then runs

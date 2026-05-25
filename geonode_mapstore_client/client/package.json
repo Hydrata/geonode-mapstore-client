@@ -12,7 +12,8 @@
       }
     },
     "globals": {
-      "__MAPSTORE_PROJECT_CONFIG__": false
+      "__MAPSTORE_PROJECT_CONFIG__": false,
+      "xit": false
     },
     "rules": {
       "no-unused-vars": [
