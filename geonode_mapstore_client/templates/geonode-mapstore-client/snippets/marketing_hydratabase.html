@@ -6,18 +6,54 @@
 
     <hr class="featurette-divider">
 
+    <div class="hydrata-two-modes">
+        <h2 class="text-center">{% trans "Two Ways to Verify" %}</h2>
+        <div class="row hydrata-mode-columns">
+            <div class="col-md-6 hydrata-mode-column">
+                <div class="hydrata-mode-badge">{% trans "Mode A" %}</div>
+                <h3>{% trans "Verify it yourself" %}</h3>
+                <p class="hydrata-mode-who">{% trans "Self-serve platform. You operate it." %}</p>
+                <p>{% trans "Upload a finished model, the platform runs the automated checks (mass balance, mesh quality, parameter sensitivity, jurisdiction checklist), and you can run ANUGA in the cloud. API and MCP access for power users." %}</p>
+                <ul class="hydrata-mode-features">
+                    <li>{% trans "Import topography and draw model boundaries" %}</li>
+                    <li>{% trans "Run models in your browser using cloud compute" %}</li>
+                    <li>{% trans "View and query results interactively" %}</li>
+                    <li>{% trans "Jurisdiction-checklist comparison" %}</li>
+                    <li>{% trans "Download raw and processed results" %}</li>
+                </ul>
+                <a href="/account/signup/" class="btn hydrata-btn-primary">{% trans "Create your account" %}</a>
+            </div>
+            <div class="col-md-6 hydrata-mode-column">
+                <div class="hydrata-mode-badge">{% trans "Mode B" %}</div>
+                <h3>{% trans "Have Hydrata verify it" %}</h3>
+                <p class="hydrata-mode-who">{% trans "Done-for-you advisory. Our engineers operate it." %}</p>
+                <p>{% trans "Send us your model. A Hydrata analyst runs the verification engagement and delivers a signed advisory report (chartered-engineer sign-off) plus a live review portal. Independent third-party review." %}</p>
+                <ul class="hydrata-mode-features">
+                    <li>{% trans "Model-ingest review and mass-balance audit" %}</li>
+                    <li>{% trans "Mesh-quality assessment and parameter-sensitivity check" %}</li>
+                    <li>{% trans "Jurisdiction-checklist comparison against your design criteria" %}</li>
+                    <li>{% trans "Signed advisory PDF from a chartered engineer" %}</li>
+                    <li>{% trans "Live web portal for reviewer comments in geospatial context" %}</li>
+                </ul>
+                <a href="mailto:david.kennewell@hydrata.com?subject=Verification%20engagement" class="btn hydrata-btn-secondary">{% trans "Talk to us about an engagement" %}</a>
+            </div>
+        </div>
+    </div>
+
+    <hr class="featurette-divider">
+
     <div class="hydrata-how-it-works">
         <h2 class="text-center">{% trans "How It Works" %}</h2>
         <div class="row">
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">1</div>
                 <h3>{% trans "Upload" %}</h3>
-                <p>{% trans "Share your model — HEC-RAS .zip or ANUGA project." %}</p>
+                <p>{% trans "Share your model: HEC-RAS .zip or ANUGA project. Run the checks yourself on the platform, or send it to our team for a done-for-you engagement." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">2</div>
                 <h3>{% trans "Audit" %}</h3>
-                <p>{% trans "We run model-ingest review, mass-balance audit, mesh-quality assessment, parameter-sensitivity check, and jurisdiction-checklist comparison." %}</p>
+                <p>{% trans "Model-ingest review, mass-balance audit, mesh-quality assessment, parameter-sensitivity check, and jurisdiction-checklist comparison." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">3</div>
@@ -37,11 +73,11 @@
                 <p>{% trans "You're submitting to an owner's engineer or independent reviewer. Provide the documentation. It gets you approval on the first cycle." %}</p>
             </div>
             <div class="col-md-6 col-sm-6 text-center">
-                <h3>{% trans "Local authorities & reviewers" %}</h3>
+                <h3>{% trans "Local authorities and reviewers" %}</h3>
                 <p>{% trans "You retain regulatory responsibility but don't have in-house flood capability. Outsource technical review for stormwater and floodplain consultants serving municipal clients. Keep the audit trail." %}</p>
             </div>
             <div class="col-md-6 col-sm-6 text-center">
-                <h3>{% trans "Dam owners & water utilities" %}</h3>
+                <h3>{% trans "Dam owners and water utilities" %}</h3>
                 <p>{% trans "Multi-dam systems, PMP studies, spillway capacity, dam-break inundation. Independent verification of your hydrologic and hydraulic models, with the audit trail to back it up." %}</p>
             </div>
             <div class="col-md-6 col-sm-6 text-center">
