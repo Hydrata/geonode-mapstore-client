@@ -135,6 +135,16 @@ export const deleteTerrainV2 = (projectId, terrainId) =>
 export const createTerrainFromBbox = (projectId, payload) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/terrain/create-from-bbox/`, payload);
 
+// TASK-96 — GET windowed DEM stats for a bbox. Returns {elev_min, elev_max,
+// bbox, env_params: {elevMin, elevOne..elevNine, elevMax}} where env_params
+// is the full GeoServer env() mapping ready to forward verbatim as VIEWPARAMS.
+// bbox is [minLon, minLat, maxLon, maxLat] in WGS84.
+export const getTerrainBboxStats = (projectId, terrainId, bbox) =>
+    axios.get(
+        `/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/bbox-stats/`,
+        { params: { bbox: bbox.join(',') } }
+    );
+
 export const deleteBoundaryV2 = (projectId, boundaryId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/boundaries/${boundaryId}/`);
 

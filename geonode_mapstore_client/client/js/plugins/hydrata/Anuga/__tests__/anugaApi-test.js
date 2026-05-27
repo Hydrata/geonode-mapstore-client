@@ -58,13 +58,13 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 48 API functions', () => {
+        it('should export exactly 49 API functions', () => {
             // 45 baseline + TASK-955 deleteRainfallV2 + TASK-964 getAnugaConfig
-            // + TASK-930 createTerrainFromBbox = 48.
+            // + TASK-930 createTerrainFromBbox + TASK-96 getTerrainBboxStats = 49.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(48);
+            expect(exportedFunctions.length).toBe(49);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {
