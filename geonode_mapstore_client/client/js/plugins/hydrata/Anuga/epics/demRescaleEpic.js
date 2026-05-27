@@ -34,6 +34,7 @@
 import Rx from 'rxjs';
 import { changeLayerProperties } from '../../../../../MapStore2/web/client/actions/layers';
 import { CHANGE_MAP_VIEW } from '../../../../../MapStore2/web/client/actions/map';
+import { reprojectBbox } from '../../../../../MapStore2/web/client/utils/CoordinatesUtils';
 import { getProjectId } from '../selectorsAnuga';
 import * as anugaApi from '../api/anugaApi';
 
@@ -53,9 +54,10 @@ export function buildViewparams(envParams) {
 
 /**
  * Extract a WGS84 bbox [minLon, minLat, maxLon, maxLat] from a CHANGE_MAP_VIEW
- * action.  The action.bbox.bounds object uses {minx, miny, maxx, maxy} when the
- * map CRS is EPSG:4326 (which is what the bbox-stats endpoint requires).
- * Returns null when bbox is absent or not in WGS84.
+ * action.  The action.bbox.bounds object carries coordinates in bbox.crs (often
+ * EPSG:3857 for Web Mercator maps).  This function reprojects them to EPSG:4326
+ * before returning, since the bbox-stats endpoint requires WGS84 degrees.
+ * Returns null when bbox is absent, crs is unknown, or reprojection fails.
  *
  * @param {Object} action - CHANGE_MAP_VIEW action
  * @returns {number[]|null}
@@ -67,7 +69,15 @@ export function extractWgs84Bbox(action) {
     if ([minx, miny, maxx, maxy].some((v) => v === undefined || v === null || isNaN(v))) {
         return null;
     }
-    return [minx, miny, maxx, maxy];
+    const sourceCrs = bbox.crs || 'EPSG:4326';
+    if (sourceCrs === 'EPSG:4326') {
+        return [minx, miny, maxx, maxy];
+    }
+    const reprojected = reprojectBbox([minx, miny, maxx, maxy], sourceCrs, 'EPSG:4326');
+    if (!reprojected || reprojected.some((v) => v === null || v === undefined || isNaN(v))) {
+        return null;
+    }
+    return reprojected;
 }
 
 /**
@@ -157,11 +167,13 @@ export const demRescaleOnMoveEndEpic = (action$, store) =>
                             changeLayerProperties(layer.id, { params: { VIEWPARAMS: viewparams } })
                         );
                     })
-                    .catch(() =>
-                        // Network error or bbox outside raster — skip silently; the
-                        // existing ramp default continues to render correctly.
-                        Rx.Observable.empty()
-                    )
+                    .catch((err) => {
+                        // Network error or bbox outside raster — skip, but warn so
+                        // future failures are visible in the browser console.
+                        // eslint-disable-next-line no-console
+                        console.warn('[demRescaleEpic] bbox-stats request failed:', err && (err.message || err));
+                        return Rx.Observable.empty();
+                    })
             );
 
             return Rx.Observable.merge(

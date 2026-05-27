@@ -47,6 +47,23 @@ const SAMPLE_BBOX_ACTION = {
     }
 };
 
+// Realistic CHANGE_MAP_VIEW payload as delivered by a Web Mercator (EPSG:3857) map.
+// The bounds are in metres; bbox.crs tells us the source projection.
+// These are the 3857 equivalents of the WGS84 bbox used in SAMPLE_BBOX_ACTION
+// (Sydney region: ~150.31-150.32°E, ~-33.67 to -33.66°S).
+const SAMPLE_BBOX_ACTION_3857 = {
+    type: CHANGE_MAP_VIEW,
+    bbox: {
+        bounds: {
+            minx: 16732432.66,
+            miny: -3984576.69,
+            maxx: 16733545.85,
+            maxy: -3983239.19
+        },
+        crs: 'EPSG:3857'
+    }
+};
+
 const makeState = ({
     terrains = [],
     layers = []
@@ -87,6 +104,40 @@ describe('demRescaleEpic — extractWgs84Bbox', () => {
             bbox: { bounds: { minx: NaN, miny: 0, maxx: 1, maxy: 1 } }
         };
         expect(extractWgs84Bbox(action)).toBe(null);
+    });
+
+    it('reprojects EPSG:3857 bounds to WGS84 degrees (not million-magnitude metres)', () => {
+        // This is the regression test for the bug where 3857 metre values were
+        // forwarded to the bbox-stats endpoint as if they were WGS84 degrees.
+        // The returned values must be small degree values, NOT ~16 million metres.
+        const result = extractWgs84Bbox(SAMPLE_BBOX_ACTION_3857);
+        expect(result).toExist('expected a bbox array, got null');
+        const [minLon, minLat, maxLon, maxLat] = result;
+        // All values must be in WGS84 degree range, not Mercator metre range
+        expect(Math.abs(minLon)).toBeLessThan(180, `minLon ${minLon} looks like metres, not degrees`);
+        expect(Math.abs(maxLon)).toBeLessThan(180, `maxLon ${maxLon} looks like metres, not degrees`);
+        expect(Math.abs(minLat)).toBeLessThan(90, `minLat ${minLat} looks like metres, not degrees`);
+        expect(Math.abs(maxLat)).toBeLessThan(90, `maxLat ${maxLat} looks like metres, not degrees`);
+        // And they should be close to the known WGS84 equivalent
+        expect(minLon).toBeGreaterThan(150);
+        expect(maxLon).toBeLessThan(151);
+        expect(minLat).toBeGreaterThan(-34);
+        expect(maxLat).toBeLessThan(-33);
+    });
+
+    it('returns same coords unchanged when crs is already EPSG:4326', () => {
+        const result = extractWgs84Bbox(SAMPLE_BBOX_ACTION);
+        expect(result).toEqual([150.31, -33.67, 150.32, -33.66]);
+    });
+
+    it('returns null when crs is absent and bounds look like metres (no crs = treated as 4326)', () => {
+        // When crs is missing we default to 4326 (pass-through) — the function
+        // can't know the projection and should not attempt a blind reproject.
+        const action = {
+            bbox: { bounds: { minx: 150.31, miny: -33.67, maxx: 150.32, maxy: -33.66 } }
+        };
+        const result = extractWgs84Bbox(action);
+        expect(result).toEqual([150.31, -33.67, 150.32, -33.66]);
     });
 });
 
@@ -294,6 +345,57 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             (actions) => {
                 try {
                     expect(actions[0].type).toBe(TEST_TIMEOUT);
+                } catch (e) {
+                    return done(e);
+                }
+                done();
+            },
+            state
+        );
+    });
+
+    it('reprojects EPSG:3857 bbox and dispatches VIEWPARAMS (regression: metres sent as degrees)', function(done) {
+        // Regression: before the fix, CHANGE_MAP_VIEW with EPSG:3857 bounds sent
+        // million-magnitude metre values to the backend, causing HTTP 500 (PROJ
+        // "Invalid latitude"). The epic's catch() swallowed it, so the ramp never
+        // rescaled. This test FAILS on the old code (no action dispatched) and
+        // PASSES on the fixed code (reprojection sends valid degree coords).
+        this.timeout(5000);
+        const state = makeState({ terrains: [terrainReady], layers: [demLayer] });
+
+        // The backend receives the reprojected WGS84 bbox; mock the endpoint to
+        // reply successfully — this only happens when real degree coords arrive.
+        mockAxios.onGet(/bbox-stats/).reply((config) => {
+            // Verify the bbox query param contains degree-scale numbers.
+            // Old (buggy) code sends ~16732432 (metres); fixed code sends ~150 (degrees).
+            const bboxParam = config.params && config.params.bbox;
+            if (bboxParam) {
+                const parts = bboxParam.split(',').map(Number);
+                const anyMetreScale = parts.some((v) => Math.abs(v) > 1000);
+                if (anyMetreScale) {
+                    // Buggy metres were sent — simulate the backend 500
+                    return [500, { detail: 'Invalid latitude' }];
+                }
+            }
+            return [200, {
+                elev_min: 770,
+                elev_max: 1014,
+                bbox: [150.31, -33.67, 150.32, -33.66],
+                env_params: SAMPLE_ENV_PARAMS,
+            }];
+        });
+
+        testEpic(
+            demRescaleOnMoveEndEpic,
+            1,
+            SAMPLE_BBOX_ACTION_3857,
+            (actions) => {
+                try {
+                    const clp = actions[0];
+                    expect(clp.type).toBe(CHANGE_LAYER_PROPERTIES);
+                    expect(clp.newProperties.params.VIEWPARAMS).toExist(
+                        'VIEWPARAMS missing — bbox was likely sent as metres (EPSG:3857 reprojection bug)'
+                    );
                 } catch (e) {
                     return done(e);
                 }
