@@ -487,6 +487,14 @@
         "statusError": "Error",
         "statusCancelled": "Cancelled"
       }
+    },
+    "gnhome": {
+      "noContentYetTitle": "Welcome to Hydrata",
+      "noContentYetContent": "No projects yet. Create a new project to get started.",
+      "noPublicContentTitle": "Welcome to Hydrata",
+      "noPublicContentContent": "Please sign in to view your projects.",
+      "noResultsWithFilterTitle": "No results",
+      "noResultsWithFilterContent": "No projects match the selected filters. Clear filters and try again."
     }
   }
 }
