@@ -495,6 +495,10 @@
       "noPublicContentContent": "Please sign in to view your projects.",
       "noResultsWithFilterTitle": "No results",
       "noResultsWithFilterContent": "No projects match the selected filters. Clear filters and try again."
+    },
+    "gnviewer": {
+      "pluginLoadError": "A page component failed to load. Please reload to try again.",
+      "reload": "Reload page"
     }
   }
 }

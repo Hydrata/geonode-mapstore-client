@@ -13,7 +13,9 @@ import { Glyphicon, Button } from 'react-bootstrap';
 const iconMap = {
     'gnviewer.accessDenied': 'lock',
     'gnviewer.loginRequired': 'log-in',
-    'gnviewer.resourceNotFound': 'question-sign'
+    'gnviewer.resourceNotFound': 'question-sign',
+    // TASK-1294: chunk-load failure shown as warning, not hard lock.
+    'gnviewer.pluginLoadError': 'refresh'
 };
 
 function MainEventView({
@@ -22,6 +24,9 @@ function MainEventView({
 }) {
     const resolvedIcon = iconMap[msgId] || icon;
     const isLoginRequired = msgId === 'gnviewer.loginRequired';
+    // TASK-1294: offer a reload button for chunk-load failures instead of
+    // leaving the user on a blank screen with only "Return Home".
+    const isPluginLoadError = msgId === 'gnviewer.pluginLoadError';
     return (
         <div className="gn-main-event-container">
             <div className="gn-main-event-content">
@@ -36,7 +41,12 @@ function MainEventView({
                                 <Message msgId="gnviewer.signIn" />
                             </Button>
                         )}
-                        <Button href="/" style={{ marginLeft: isLoginRequired ? '0.5rem' : 0 }}>
+                        {isPluginLoadError && (
+                            <Button bsStyle="primary" onClick={() => window.location.reload()}>
+                                <Message msgId="gnviewer.reload" />
+                            </Button>
+                        )}
+                        <Button href="/" style={{ marginLeft: (isLoginRequired || isPluginLoadError) ? '0.5rem' : 0 }}>
                             <Message msgId="gnviewer.returnHome" />
                         </Button>
                     </div>

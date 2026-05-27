@@ -76,7 +76,7 @@ function ViewerRoute({
     const pluginsConfig = getPluginsConfiguration(name, propPluginsConfig);
     const pluginsCfgLength = pluginsConfig?.length;
 
-    const { plugins: loadedPlugins, pending } = useModulePlugins({
+    const { plugins: loadedPlugins, pending, pluginLoadError } = useModulePlugins({
         pluginsEntries: getPlugins(plugins, 'module'),
         pluginsConfig
     });
@@ -134,6 +134,7 @@ function ViewerRoute({
             />
             {loading && !configError && Loader && <Loader style={loaderStyle}/>}
             {configError && <MainEventView msgId={configError}/>}
+            {pluginLoadError && <MainEventView msgId="gnviewer.pluginLoadError"/>}
         </>
     );
 }
