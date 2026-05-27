@@ -239,12 +239,9 @@ export class simpleViewUploaderPanel extends React.Component {
                 fileToCheck => (fileToCheck.preview === baseFile.preview ? Object.assign(fileToCheck, { status: "uploading" }) : fileToCheck)
             )
         }));
-        let host;
-        if (this.props.serverUrl.includes('localhost')) {
-            host = 'http://localhost:8081/';
-        } else {
-            host = this.props.serverUrl;
-        }
+        // TASK-1287: use window.location.origin so tunnelled envs (e.g. :9091)
+        // and prod both PUT to the right host; localhost:8081 hardcode removed.
+        const host = window.location.origin + '/';
         if (this.props.importerTargetObjectId) {
             const url = `${host}${this.props?.config?.app_name}/api/${this.props.projectId}/${this.props.importerConfigKey}/${this.props.importerTargetObjectId}/importer-config/`;
             axios
