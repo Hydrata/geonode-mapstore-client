@@ -14,7 +14,7 @@ import MockAdapter from 'axios-mock-adapter';
 import axios from '@mapstore/framework/libs/ajax';
 import { testEpic, addTimeoutEpic, TEST_TIMEOUT } from '@mapstore/framework/epics/__tests__/epicTestUtils';
 import { CHANGE_MAP_VIEW } from '@mapstore/framework/actions/map';
-import { CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
+import { CHANGE_LAYER_PROPERTIES, CHANGE_LAYER_PARAMS } from '@mapstore/framework/actions/layers';
 
 import {
     buildEnvString,
@@ -234,7 +234,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
         visibility: true,
     };
 
-    it('dispatches CHANGE_LAYER_PROPERTIES with env= and _v_ bump on moveend', function(done) {
+    it('dispatches CHANGE_LAYER_PARAMS with env= and _v_ bump on moveend', function(done) {
         // Increase mocha timeout: debounce(300ms) + axios response + test overhead
         this.timeout(5000);
         const state = makeState({ terrains: [terrainReady], layers: [demLayer] });
@@ -246,7 +246,9 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             env_params: SAMPLE_ENV_PARAMS,
         });
 
-        // 1 action expected: CHANGE_LAYER_PROPERTIES with env= and _v_
+        // 1 action expected: CHANGE_LAYER_PARAMS carrying env= and _v_
+        // (the epic uses changeLayerParams, not changeLayerProperties, so that
+        // the reducer MERGES into layer.params instead of replacing it).
         // Use NUM_ACTIONS=1 with take(1) — the debounce(300ms) fires before the
         // 5s mocha timeout.
         const before = Date.now();
@@ -257,20 +259,20 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             (actions) => {
                 try {
                     const clp = actions[0];
-                    expect(clp.type).toBe(CHANGE_LAYER_PROPERTIES);
+                    expect(clp.type).toBe(CHANGE_LAYER_PARAMS);
                     expect(clp.layer).toBe('ele-7-uuid');
-                    expect(clp.newProperties.params.env).toExist();
-                    expect(clp.newProperties.params.env).toContain('elevMin:');
-                    expect(clp.newProperties.params.env).toContain('elevMax:');
+                    expect(clp.params.env).toExist();
+                    expect(clp.params.env).toContain('elevMin:');
+                    expect(clp.params.env).toContain('elevMax:');
                     // VIEWPARAMS must NOT be set — GeoServer ignores it for raster
                     // ColorMap env() lookups; sending it would be a wasted param.
-                    expect(clp.newProperties.params.VIEWPARAMS).toBe(undefined);
+                    expect(clp.params.VIEWPARAMS).toBe(undefined);
                     // _v_ must be a monotonically increasing timestamp so MapStore's
                     // WMSLayer recognises the params change as a refresh trigger.
-                    expect(typeof clp.newProperties.params._v_).toBe('number');
-                    expect(clp.newProperties.params._v_).toBeGreaterThanOrEqualTo(before);
+                    expect(typeof clp.params._v_).toBe('number');
+                    expect(clp.params._v_).toBeGreaterThanOrEqualTo(before);
                     // All 11 keys must be present
-                    const envStr = clp.newProperties.params.env;
+                    const envStr = clp.params.env;
                     const keys = ['elevMin', 'elevOne', 'elevTwo', 'elevThree', 'elevFour',
                         'elevFive', 'elevSix', 'elevSeven', 'elevEight', 'elevNine', 'elevMax'];
                     keys.forEach((k) => {
@@ -298,8 +300,9 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             env_params: SAMPLE_ENV_PARAMS,
         });
 
-        // Expect 2 CHANGE_LAYER_PROPERTIES: singleTile stamp + VIEWPARAMS update
-        // take(2) waits for both actions within the 5s mocha timeout.
+        // Expect 2 actions: CHANGE_LAYER_PROPERTIES (singleTile stamp) +
+        // CHANGE_LAYER_PARAMS (env+_v_). take(2) waits for both actions within
+        // the 5s mocha timeout.
         testEpic(
             demRescaleOnMoveEndEpic,
             2,
@@ -406,8 +409,8 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             (actions) => {
                 try {
                     const clp = actions[0];
-                    expect(clp.type).toBe(CHANGE_LAYER_PROPERTIES);
-                    expect(clp.newProperties.params.env).toExist(
+                    expect(clp.type).toBe(CHANGE_LAYER_PARAMS);
+                    expect(clp.params.env).toExist(
                         'env missing — bbox was likely sent as metres (EPSG:3857 reprojection bug)'
                     );
                 } catch (e) {

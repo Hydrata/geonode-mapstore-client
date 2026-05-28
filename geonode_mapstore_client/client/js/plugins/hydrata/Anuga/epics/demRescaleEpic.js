@@ -52,7 +52,7 @@
  * cache explosion that would result from per-pixel env variation.
  */
 import Rx from 'rxjs';
-import { changeLayerProperties } from '../../../../../MapStore2/web/client/actions/layers';
+import { changeLayerParams, changeLayerProperties } from '../../../../../MapStore2/web/client/actions/layers';
 import { CHANGE_MAP_VIEW } from '../../../../../MapStore2/web/client/actions/map';
 import { reprojectBbox } from '../../../../../MapStore2/web/client/utils/CoordinatesUtils';
 import { getProjectId } from '../selectorsAnuga';
@@ -199,10 +199,16 @@ export const demRescaleOnMoveEndEpic = (action$, store) =>
                         // change as a refresh trigger (env is not in its
                         // built-in trigger list). Both must be set together —
                         // see file-header for the empirical proof.
+                        //
+                        // Use changeLayerParams (not changeLayerProperties)
+                        // so layer.params is MERGED, not replaced. The
+                        // CHANGE_LAYER_PROPERTIES reducer treats
+                        // newProperties.params as a top-level field and
+                        // overwrites layer.params; CHANGE_LAYER_PARAMS
+                        // takes the merge branch
+                        // (MapStore2/web/client/reducers/layers.js#149).
                         return Rx.Observable.of(
-                            changeLayerProperties(layer.id, {
-                                params: { env: envString, _v_: Date.now() }
-                            })
+                            changeLayerParams(layer.id, { env: envString, _v_: Date.now() })
                         );
                     })
                     .catch((err) => {
