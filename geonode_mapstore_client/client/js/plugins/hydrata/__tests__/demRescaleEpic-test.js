@@ -1,11 +1,11 @@
 /**
- * TASK-96 — Unit tests for demRescaleEpic.js
+ * TASK-96 / TASK-99 — Unit tests for demRescaleEpic.js
  *
  * Tests cover:
- *   - buildViewparams: formats env_params as a VIEWPARAMS string
+ *   - buildEnvString: formats env_params as a GeoServer env= string
  *   - extractWgs84Bbox: extracts [minLon,minLat,maxLon,maxLat] from CHANGE_MAP_VIEW
  *   - findDynamicDemPairs: finds matching (layer, terrain) pairs from state
- *   - demRescaleOnMoveEndEpic: debounces, fetches stats, dispatches VIEWPARAMS update,
+ *   - demRescaleOnMoveEndEpic: debounces, fetches stats, dispatches env+ _v_ update,
  *     stamps singleTile:true, aborts in-flight on rapid pans
  */
 import expect from 'expect';
@@ -17,6 +17,7 @@ import { CHANGE_MAP_VIEW } from '@mapstore/framework/actions/map';
 import { CHANGE_LAYER_PROPERTIES } from '@mapstore/framework/actions/layers';
 
 import {
+    buildEnvString,
     buildViewparams,
     extractWgs84Bbox,
     findDynamicDemPairs,
@@ -75,17 +76,22 @@ const makeState = ({
     layers: { flat: layers }
 });
 
-describe('demRescaleEpic — buildViewparams', () => {
+describe('demRescaleEpic — buildEnvString', () => {
     it('formats env_params as semicolon-separated key:value pairs', () => {
-        const result = buildViewparams({ elevMin: 100.123456, elevMax: 900.987654 });
+        const result = buildEnvString({ elevMin: 100.123456, elevMax: 900.987654 });
         expect(result).toContain('elevMin:100.123');
         expect(result).toContain('elevMax:900.988');
         expect(result).toContain(';');
     });
 
     it('rounds values to 3 decimal places', () => {
-        const result = buildViewparams({ elevMin: 1.23456789 });
+        const result = buildEnvString({ elevMin: 1.23456789 });
         expect(result).toBe('elevMin:1.235');
+    });
+
+    it('exposes buildViewparams as a back-compat alias of buildEnvString', () => {
+        // Encoding grammar is identical; the rename is semantic-only.
+        expect(buildViewparams).toBe(buildEnvString);
     });
 });
 
@@ -228,7 +234,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
         visibility: true,
     };
 
-    it('dispatches CHANGE_LAYER_PROPERTIES with VIEWPARAMS on moveend', function(done) {
+    it('dispatches CHANGE_LAYER_PROPERTIES with env= and _v_ bump on moveend', function(done) {
         // Increase mocha timeout: debounce(300ms) + axios response + test overhead
         this.timeout(5000);
         const state = makeState({ terrains: [terrainReady], layers: [demLayer] });
@@ -240,9 +246,10 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             env_params: SAMPLE_ENV_PARAMS,
         });
 
-        // 1 action expected: CHANGE_LAYER_PROPERTIES with VIEWPARAMS
+        // 1 action expected: CHANGE_LAYER_PROPERTIES with env= and _v_
         // Use NUM_ACTIONS=1 with take(1) — the debounce(300ms) fires before the
         // 5s mocha timeout.
+        const before = Date.now();
         testEpic(
             demRescaleOnMoveEndEpic,
             1,
@@ -252,16 +259,23 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                     const clp = actions[0];
                     expect(clp.type).toBe(CHANGE_LAYER_PROPERTIES);
                     expect(clp.layer).toBe('ele-7-uuid');
-                    expect(clp.newProperties.params.VIEWPARAMS).toExist();
-                    expect(clp.newProperties.params.VIEWPARAMS).toContain('elevMin:');
-                    expect(clp.newProperties.params.VIEWPARAMS).toContain('elevMax:');
+                    expect(clp.newProperties.params.env).toExist();
+                    expect(clp.newProperties.params.env).toContain('elevMin:');
+                    expect(clp.newProperties.params.env).toContain('elevMax:');
+                    // VIEWPARAMS must NOT be set — GeoServer ignores it for raster
+                    // ColorMap env() lookups; sending it would be a wasted param.
+                    expect(clp.newProperties.params.VIEWPARAMS).toBe(undefined);
+                    // _v_ must be a monotonically increasing timestamp so MapStore's
+                    // WMSLayer recognises the params change as a refresh trigger.
+                    expect(typeof clp.newProperties.params._v_).toBe('number');
+                    expect(clp.newProperties.params._v_).toBeGreaterThanOrEqualTo(before);
                     // All 11 keys must be present
-                    const vpStr = clp.newProperties.params.VIEWPARAMS;
+                    const envStr = clp.newProperties.params.env;
                     const keys = ['elevMin', 'elevOne', 'elevTwo', 'elevThree', 'elevFour',
                         'elevFive', 'elevSix', 'elevSeven', 'elevEight', 'elevNine', 'elevMax'];
                     keys.forEach((k) => {
-                        expect(vpStr).toContain(k + ':',
-                            `VIEWPARAMS missing key: ${k}`);
+                        expect(envStr).toContain(k + ':',
+                            `env missing key: ${k}`);
                     });
                 } catch (e) {
                     return done(e);
@@ -354,7 +368,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
         );
     });
 
-    it('reprojects EPSG:3857 bbox and dispatches VIEWPARAMS (regression: metres sent as degrees)', function(done) {
+    it('reprojects EPSG:3857 bbox and dispatches env= (regression: metres sent as degrees)', function(done) {
         // Regression: before the fix, CHANGE_MAP_VIEW with EPSG:3857 bounds sent
         // million-magnitude metre values to the backend, causing HTTP 500 (PROJ
         // "Invalid latitude"). The epic's catch() swallowed it, so the ramp never
@@ -393,8 +407,8 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                 try {
                     const clp = actions[0];
                     expect(clp.type).toBe(CHANGE_LAYER_PROPERTIES);
-                    expect(clp.newProperties.params.VIEWPARAMS).toExist(
-                        'VIEWPARAMS missing — bbox was likely sent as metres (EPSG:3857 reprojection bug)'
+                    expect(clp.newProperties.params.env).toExist(
+                        'env missing — bbox was likely sent as metres (EPSG:3857 reprojection bug)'
                     );
                 } catch (e) {
                     return done(e);

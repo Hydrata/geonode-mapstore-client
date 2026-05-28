@@ -137,7 +137,8 @@ export const createTerrainFromBbox = (projectId, payload) =>
 
 // TASK-96 — GET windowed DEM stats for a bbox. Returns {elev_min, elev_max,
 // bbox, env_params: {elevMin, elevOne..elevNine, elevMax}} where env_params
-// is the full GeoServer env() mapping ready to forward verbatim as VIEWPARAMS.
+// is the full GeoServer env() mapping ready to forward verbatim as the WMS
+// env= request parameter (not VIEWPARAMS — see demRescaleEpic.js header).
 // bbox is [minLon, minLat, maxLon, maxLat] in WGS84.
 export const getTerrainBboxStats = (projectId, terrainId, bbox) =>
     axios.get(
