@@ -89,8 +89,9 @@ const CATEGORIES = [
     {id: 'boundaries', titleMsgId: 'hydrata.anuga.boundaries', layersKey: 'boundaryLayers'},
     {id: 'inflows', titleMsgId: 'hydrata.anuga.inflows', layersKey: 'inflowLayers'},
     {id: 'rainfalls', titleMsgId: 'hydrata.anuga.rainfalls', layersKey: 'rainfallLayers'},
-    {id: 'fullMesh', titleMsgId: 'hydrata.anuga.fullMesh', layersKey: 'fullMeshLayers'},
-    {id: 'meshRegions', titleMsgId: 'hydrata.anuga.meshRegions', layersKey: 'meshRegionLayers'},
+    // W3.1 (TASK-1266): 'Full Mesh' rail entry removed; 'Mesh Regions' renamed
+    // to 'Mesh' (now the single Mesh pane with mesh regions list + preview).
+    {id: 'meshRegions', titleMsgId: 'hydrata.anuga.mesh', layersKey: 'meshRegionLayers'},
     {id: 'friction', titleMsgId: 'hydrata.anuga.friction', layersKey: 'frictionLayers'},
     {id: 'frictionRasters', titleMsgId: 'hydrata.anuga.frictionRasters', layersKey: 'frictionRasterLayers'},
     {id: 'structures', titleMsgId: 'hydrata.anuga.structures', layersKey: 'structureLayers'},
@@ -111,8 +112,8 @@ const CATEGORY_ICONS = {
     boundaries: svgIcon(<polygon points="4 6 20 4 21 18 6 20" strokeDasharray="3 2"/>),
     inflows: svgIcon(<g><path d="M3 12h13"/><polyline points="13 7 18 12 13 17"/></g>),
     rainfalls: svgIcon(<g><path d="M6 10a5 5 0 1110 0"/><line x1="8" y1="15" x2="7" y2="20"/><line x1="12" y1="15" x2="11" y2="20"/><line x1="16" y1="15" x2="15" y2="20"/></g>),
-    fullMesh: svgIcon(<g><polygon points="12 3 21 8 21 16 12 21 3 16 3 8"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="8" x2="21" y2="16"/><line x1="21" y1="8" x2="3" y2="16"/></g>),
-    meshRegions: svgIcon(<g><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></g>),
+    // W3.1: fullMesh icon removed from rail; meshRegions uses mesh icon (same as old fullMesh)
+    meshRegions: svgIcon(<g><polygon points="12 3 21 8 21 16 12 21 3 16 3 8"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="8" x2="21" y2="16"/><line x1="21" y1="8" x2="3" y2="16"/></g>),
     friction: svgIcon(<g><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="16" x2="20" y2="16"/></g>),
     frictionRasters: svgIcon(<g><path d="M3 20l4-9 4 5 3-3 7 7z"/><rect x="3" y="3" width="5" height="3"/></g>),
     structures: svgIcon(<g><rect x="4" y="9" width="16" height="11"/><polyline points="4 9 12 4 20 9"/></g>),
@@ -215,7 +216,10 @@ class AnugaInputMenuClass extends React.Component {
         nodesModels: PropTypes.array,
         linksModels: PropTypes.array,
         setAnugaInputMenu: PropTypes.func,
-        setNetworkMenu: PropTypes.func
+        setNetworkMenu: PropTypes.func,
+        // W3.1 (TASK-1266)
+        projectId: PropTypes.number,
+        selectedScenarioId: PropTypes.number,
     };
 
     static defaultProps = {}
@@ -241,8 +245,15 @@ class AnugaInputMenuClass extends React.Component {
             networkTitle: '',
             catchmentTitle: '',
             nodesTitle: '',
-            linksTitle: ''
+            linksTitle: '',
+            // W3.1 (TASK-1266) — Mesh preview local state
+            meshPreviewStatus: null,   // null | 'pending' | 'polling' | 'done' | 'error'
+            meshPreviewProcessId: null,
+            meshPreviewResult: null,   // {triangle_count, above_render_threshold, mesh_qa, geometry}
+            meshPreviewError: null,
         };
+        this._meshPreviewPollTimer = null;
+        this._meshPreviewPollCount = 0;
     }
 
     componentDidUpdate(prevProps) {
@@ -261,6 +272,82 @@ class AnugaInputMenuClass extends React.Component {
             this.lastSubmittedCategory = null;
         }
     }
+
+    componentWillUnmount() {
+        if (this._meshPreviewPollTimer) {
+            clearTimeout(this._meshPreviewPollTimer);
+            this._meshPreviewPollTimer = null;
+        }
+    }
+
+    // W3.1 (TASK-1266) — Mesh preview helpers
+    // MAX_PREVIEW_POLLS = 60 ticks × 3s = 3 minutes cap (orphan-proof).
+    _startMeshPreview = () => {
+        const projectId = this.props.projectId;
+        const scenarioId = this.props.selectedScenarioId;
+        if (!projectId || !scenarioId) return;
+
+        if (this._meshPreviewPollTimer) {
+            clearTimeout(this._meshPreviewPollTimer);
+            this._meshPreviewPollTimer = null;
+        }
+        this._meshPreviewPollCount = 0;
+
+        this.setState({
+            meshPreviewStatus: 'pending',
+            meshPreviewProcessId: null,
+            meshPreviewResult: null,
+            meshPreviewError: null,
+        });
+
+        fetch(
+            `/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/preview-mesh/`,
+            {method: 'POST', headers: {'X-CSRFToken': this._getCsrfToken(), 'Content-Type': 'application/json'}}
+        )
+            .then(r => r.json())
+            .then(data => {
+                if (data.process_id) {
+                    this.setState({meshPreviewStatus: 'polling', meshPreviewProcessId: data.process_id});
+                    this._pollMeshPreview(data.process_id, projectId);
+                } else {
+                    this.setState({meshPreviewStatus: 'error', meshPreviewError: 'No process_id in response'});
+                }
+            })
+            .catch(err => {
+                this.setState({meshPreviewStatus: 'error', meshPreviewError: String(err)});
+            });
+    };
+
+    _pollMeshPreview = (processId, projectId) => {
+        const MAX_POLLS = 60;
+        if (this._meshPreviewPollCount >= MAX_POLLS) {
+            this.setState({meshPreviewStatus: 'error', meshPreviewError: 'Preview timed out'});
+            return;
+        }
+        this._meshPreviewPollCount += 1;
+        this._meshPreviewPollTimer = setTimeout(() => {
+            fetch(`/api/v2/tasks/processes/${processId}/`)
+                .then(r => r.json())
+                .then(proc => {
+                    if (proc.status === 'complete') {
+                        this.setState({meshPreviewStatus: 'done', meshPreviewResult: proc.metadata || {}});
+                    } else if (proc.status === 'error') {
+                        this.setState({meshPreviewStatus: 'error', meshPreviewError: proc.error_message || 'Preview failed'});
+                    } else {
+                        // still running — keep polling
+                        this._pollMeshPreview(processId, projectId);
+                    }
+                })
+                .catch(err => {
+                    this.setState({meshPreviewStatus: 'error', meshPreviewError: String(err)});
+                });
+        }, 3000);
+    };
+
+    _getCsrfToken = () => {
+        const match = document.cookie.match(/csrftoken=([^;]+)/);
+        return match ? match[1] : '';
+    };
 
     selectCategory = (catId) => {
         this.setState({selectedCategory: catId});
@@ -491,14 +578,78 @@ class AnugaInputMenuClass extends React.Component {
         );
     }
 
-    renderFullMeshPane() {
-        const layers = this.props.fullMeshLayers || [];
+    // W3.1 (TASK-1266): renderFullMeshPane removed; replaced by renderMeshPane below.
+    renderMeshPane() {
+        // Mesh Regions list (create controls)
+        const conf = CREATE_PANE_CONFIG.meshRegions;
+        const layers = this.props[conf.layersKey] || [];
+        const pending = this.props[conf.pendingKey] || [];
+        const isInitializing = this.props.starterPhase === 'defaults';
+        const canEdit = this.props.canEditAnugaMap;
+        const createActions = canEdit
+            ? this.renderCreateControls('meshRegions', conf.titleKey, conf.createProp, conf.inputId, conf.trackEventName)
+            : null;
+
+        // Preview state
+        const {meshPreviewStatus, meshPreviewResult, meshPreviewError} = this.state;
+        const isPreviewRunning = meshPreviewStatus === 'pending' || meshPreviewStatus === 'polling';
+        const hasScenario = !!this.props.selectedScenarioId;
+
+        let previewLabel = null;
+        if (meshPreviewStatus === 'done' && meshPreviewResult) {
+            const tc = meshPreviewResult.triangle_count;
+            const aboveThreshold = meshPreviewResult.above_render_threshold;
+            const threshold = meshPreviewResult.render_threshold || 150000;
+            if (aboveThreshold) {
+                previewLabel = (
+                    <div className="anuga-mesh-preview-metrics">
+                        <span className="anuga-mesh-preview-count">{tc.toLocaleString()} triangles</span>
+                        <span className="anuga-mesh-preview-note">{'too large to preview on map (> ' + threshold.toLocaleString() + ')'}</span>
+                    </div>
+                );
+            } else {
+                const qa = meshPreviewResult.mesh_qa || {};
+                previewLabel = (
+                    <div className="anuga-mesh-preview-metrics">
+                        <span className="anuga-mesh-preview-count">{(tc || 0).toLocaleString()} triangles</span>
+                        {qa.min_angle_deg != null && <span className="anuga-mesh-preview-qa">{'min angle: ' + qa.min_angle_deg + '°'}</span>}
+                        {qa.sliver_count > 0 && <span className="anuga-mesh-preview-qa anuga-mesh-preview-warn">{qa.sliver_count + ' sliver(s)'}</span>}
+                    </div>
+                );
+                // FE renders geometry if provided — dispatch addLayer handled by the pollingEpic
+                // via TM_SET_PROCESSES on completion; geometry stored in process.metadata.geometry.
+            }
+        } else if (meshPreviewStatus === 'error') {
+            previewLabel = (
+                <div className="anuga-mesh-preview-error">{meshPreviewError || 'Preview failed'}</div>
+            );
+        }
+
         return (
             <div className="menu-rows-pane anuga-pane">
-                {this.renderPaneHead('fullMesh', null)}
+                {this.renderPaneHead('meshRegions', createActions)}
                 <div className="anuga-pane-rows">
-                    {layers.map(m => <MenuRow key={m?.name || m?.id} layer={m}/>)}
-                    {layers.length === 0 ? this.renderPaneEmpty('hydrata.anuga.meshWillAppear', false) : null}
+                    {layers.map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
+                    {pending.map((item, idx) => this.renderPendingRow(item, idx))}
+                    {(layers.length === 0 && pending.length === 0)
+                        ? this.renderPaneEmpty('hydrata.anuga.none', isInitializing)
+                        : null}
+                </div>
+                <div className="anuga-mesh-preview-section">
+                    <button
+                        className={'btn btn-default anuga-mesh-preview-btn' + (isPreviewRunning ? ' disabled' : '')}
+                        disabled={isPreviewRunning || !hasScenario}
+                        title={!hasScenario ? 'Select a scenario to preview mesh' : 'Preview mesh triangulation'}
+                        onClick={this._startMeshPreview}
+                    >
+                        {isPreviewRunning ? (
+                            <React.Fragment>
+                                <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                                {' Previewing...'}
+                            </React.Fragment>
+                        ) : 'Preview mesh'}
+                    </button>
+                    {previewLabel}
                 </div>
             </div>
         );
@@ -602,8 +753,8 @@ class AnugaInputMenuClass extends React.Component {
         case 'boundaries':      return this.renderCreatePane('boundaries');
         case 'inflows':         return this.renderCreatePane('inflows');
         case 'rainfalls':       return this.renderCreatePane('rainfalls');
-        case 'fullMesh':        return this.renderFullMeshPane();
-        case 'meshRegions':     return this.renderCreatePane('meshRegions');
+        // W3.1: 'fullMesh' case removed; 'meshRegions' now renders the unified Mesh pane.
+        case 'meshRegions':     return this.renderMeshPane();
         case 'friction':        return this.renderCreatePane('friction');
         case 'frictionRasters': return this.renderFrictionRastersPane();
         case 'structures':      return this.renderCreatePane('structures');
@@ -688,7 +839,10 @@ const mapStateToProps = (state) => {
         pendingMeshRegions: pendingByModel.MeshRegion,
         starterPhase,
         isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer,
-        canEditAnugaMap: canEditAnugaMap(state)
+        canEditAnugaMap: canEditAnugaMap(state),
+        // W3.1 (TASK-1266) — For preview mesh: project id + selected scenario id
+        projectId: getProjectId(state),
+        selectedScenarioId: state?.anuga?.scenarios?.selectedId || null,
     };
 };
 
