@@ -207,7 +207,10 @@ export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
         name: LAYER_NAME,
         title: 'Mesh triangles',
         visibility: true,
-        group: 'Mesh',
+        // Group matches the 'Input Data.Mesh Regions' convention so the layer
+        // appears in the Mesh section of the Anuga rail. Using a bare 'Mesh'
+        // string would create an orphan group outside the expected hierarchy.
+        group: 'Input Data.Mesh',
         params: {
             LAYERS: LAYER_NAME,
             FORMAT: 'image/png',
