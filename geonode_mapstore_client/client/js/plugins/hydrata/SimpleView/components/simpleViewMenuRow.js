@@ -92,7 +92,9 @@ const _GROUP_TO_DELETE_TYPE = {
     'Input Data.Mesh Regions': 'mesh_region',
     'Input Data.Catchments': 'catchment',
     'Input Data.Nodes': 'nodes',
-    'Input Data.Links': 'links'
+    'Input Data.Links': 'links',
+    // TASK-1271 W4.3 — Breaklines (BE INPUT_DATA_GROUP_MAP maps 'brk_' to 'Breaklines').
+    'Input Data.Breaklines': 'breakline'
 };
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
@@ -303,6 +305,21 @@ const ANUGA_FEATURE_CONFIG = {
                 {name: 'raised_height', type: 'number', label: 'Raised height (m)',
                     "default": DEFAULT_RAISED_HEIGHT_M, step: 0.5, min: 0.0,
                     showWhen: {field: 'method', equals: 'Raised'}}
+            ]
+        }
+    },
+    // TASK-1271 (W4.3) — Breakline: LineString geometry for mesh edge conformance.
+    // Near spacing (m) controls mesh density in the first buffer ring.
+    // null near_spacing inherits Scenario.default_near_spacing (= 2.0m).
+    'brk_': {
+        geomType: 'LineString',
+        formConfig: {
+            title: 'Breakline',
+            fields: [
+                {name: 'description', type: 'text', label: 'Title'},
+                // per-line near-mesh spacing; empty = use scenario default (2m).
+                {name: 'near_spacing', type: 'number', label: 'Near spacing (m)',
+                    "default": null, step: 0.5, min: 0.1}
             ]
         }
     },
