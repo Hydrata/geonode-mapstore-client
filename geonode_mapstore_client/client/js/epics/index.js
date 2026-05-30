@@ -20,6 +20,7 @@ import { setPermission } from '@mapstore/framework/actions/featuregrid';
 import { SELECT_NODE, updateNode, ADD_LAYER } from '@mapstore/framework/actions/layers';
 import { setSelectedDatasetPermissions, setSelectedLayer, updateLayerDataset, setLayerDataset } from '@js/actions/gnresource';
 import { updateMapLayoutEpic as msUpdateMapLayoutEpic } from '@mapstore/framework/epics/maplayout';
+import { gnRouteCatalogLayersToGwcEpic } from '@js/epics/gwcCatalogRouting';
 import isEmpty from 'lodash/isEmpty';
 import { userSelector } from "@mapstore/framework/selectors/security";
 import { getCurrentProcesses } from "@js/selectors/resourceservice";
@@ -179,6 +180,8 @@ export const gnListenToResourcesPendingExecution = (actions$, { getState = () =>
             }).filter((process) => process);
             return Rx.Observable.of(...processesToStart);
         });
+
+export { gnRouteCatalogLayersToGwcEpic };
 
 export default {
     gnCheckSelectedDatasetPermissions,

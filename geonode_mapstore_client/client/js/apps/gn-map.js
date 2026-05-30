@@ -59,7 +59,8 @@ import { updateGeoNodeSettings } from '@js/actions/gnsettings';
 import {
     updateMapLayoutEpic,
     gnCheckSelectedDatasetPermissions,
-    gnSetDatasetsPermissions
+    gnSetDatasetsPermissions,
+    gnRouteCatalogLayersToGwcEpic
 } from '@js/epics';
 
 import timelineEpics from '@mapstore/framework/epics/timeline';
@@ -127,6 +128,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             updateMapLayoutEpic,
                             gnCheckSelectedDatasetPermissions,
                             gnSetDatasetsPermissions,
+                            gnRouteCatalogLayersToGwcEpic,
                             ...gnresourceEpics,
                             ...pluginsDefinition.epics,
                             // needed to initialize the correct time range

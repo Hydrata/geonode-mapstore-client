@@ -67,6 +67,7 @@ import {
     gnFetchMissingLayerData,
     gnCheckSelectedDatasetPermissions,
     gnSetDatasetsPermissions,
+    gnRouteCatalogLayersToGwcEpic,
     // to make the current layout work we need this epic
     // we should improve the layout to avoid the use of side effect to manage the page structure
     updateMapLayoutEpic
@@ -146,6 +147,7 @@ getEndpoints()
                         gnFetchMissingLayerData,
                         gnCheckSelectedDatasetPermissions,
                         gnSetDatasetsPermissions,
+                        gnRouteCatalogLayersToGwcEpic,
                         ...pluginsDefinition.epics,
                         ...gnresourceEpics,
                         ...resourceServiceEpics,
