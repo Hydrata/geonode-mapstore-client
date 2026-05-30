@@ -43,9 +43,11 @@ import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 import {TerrainBboxPanel} from "./terrainBboxPanel";
 import AnugaInputStarterCard from "./anugaInputStarterCard";
 
-import {canEditAnugaMap, getProjectId} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {canEditAnugaMap, getProjectId, getSelectedScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
+// W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
+import {MeshWorkflow} from "./MeshWorkflow";
 
 const ACTIVE_TM_STATES = new Set(['pending', 'running']);
 const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'Structure', 'MeshRegion'];
@@ -217,6 +219,8 @@ class AnugaInputMenuClass extends React.Component {
         // W3.1 (TASK-1266)
         projectId: PropTypes.number,
         selectedScenarioId: PropTypes.number,
+        // W5.1 (TASK-1273)
+        selectedScenario: PropTypes.object,
     };
 
     static defaultProps = {}
@@ -248,10 +252,16 @@ class AnugaInputMenuClass extends React.Component {
             meshPreviewProcessId: null,
             meshPreviewResult: null,   // {triangle_count, above_render_threshold, mesh_qa, geometry}
             meshPreviewError: null,
+            // W5.1 (TASK-1273) — MeshWorkflow panel open/closed
+            meshWorkflowOpen: false
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
     }
+
+    _toggleMeshWorkflow = () => {
+        this.setState(prev => ({meshWorkflowOpen: !prev.meshWorkflowOpen}));
+    };
 
     componentDidUpdate(prevProps) {
         // After a create finishes (isCreatingAnugaLayer falls back to false),
@@ -576,6 +586,8 @@ class AnugaInputMenuClass extends React.Component {
     }
 
     // W3.1 (TASK-1266): renderFullMeshPane removed; replaced by renderMeshPane below.
+    // W5.1 (TASK-1273): renderMeshPane now delegates preview + cost estimate + import/export
+    //   slots to MeshWorkflow, keeping the mesh region list in place.
     renderMeshPane() {
         // Mesh Regions list (create controls)
         const conf = CREATE_PANE_CONFIG.meshRegions;
@@ -587,40 +599,10 @@ class AnugaInputMenuClass extends React.Component {
             ? this.renderCreateControls('meshRegions', conf.titleKey, conf.createProp, conf.inputId, conf.trackEventName)
             : null;
 
-        // Preview state
-        const {meshPreviewStatus, meshPreviewResult, meshPreviewError} = this.state;
-        const isPreviewRunning = meshPreviewStatus === 'pending' || meshPreviewStatus === 'polling';
+        // W5.1: MeshWorkflow state
+        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen} = this.state;
         const hasScenario = !!this.props.selectedScenarioId;
-
-        let previewLabel = null;
-        if (meshPreviewStatus === 'done' && meshPreviewResult) {
-            const tc = meshPreviewResult.triangle_count;
-            const aboveThreshold = meshPreviewResult.above_render_threshold;
-            const threshold = meshPreviewResult.render_threshold || 150000;
-            if (aboveThreshold) {
-                previewLabel = (
-                    <div className="anuga-mesh-preview-metrics">
-                        <span className="anuga-mesh-preview-count">{tc.toLocaleString()} triangles</span>
-                        <span className="anuga-mesh-preview-note">{'too large to preview on map (> ' + threshold.toLocaleString() + ')'}</span>
-                    </div>
-                );
-            } else {
-                const qa = meshPreviewResult.mesh_qa || {};
-                previewLabel = (
-                    <div className="anuga-mesh-preview-metrics">
-                        <span className="anuga-mesh-preview-count">{(tc || 0).toLocaleString()} triangles</span>
-                        {qa.min_angle_deg != null && <span className="anuga-mesh-preview-qa">{'min angle: ' + qa.min_angle_deg + '°'}</span>}
-                        {qa.sliver_count > 0 && <span className="anuga-mesh-preview-qa anuga-mesh-preview-warn">{qa.sliver_count + ' sliver(s)'}</span>}
-                    </div>
-                );
-                // FE renders geometry if provided — dispatch addLayer handled by the pollingEpic
-                // via TM_SET_PROCESSES on completion; geometry stored in process.metadata.geometry.
-            }
-        } else if (meshPreviewStatus === 'error') {
-            previewLabel = (
-                <div className="anuga-mesh-preview-error">{meshPreviewError || 'Preview failed'}</div>
-            );
-        }
+        const scenario = this.props.selectedScenario || null;
 
         return (
             <div className="menu-rows-pane anuga-pane">
@@ -632,22 +614,19 @@ class AnugaInputMenuClass extends React.Component {
                         ? this.renderPaneEmpty('hydrata.anuga.none', isInitializing)
                         : null}
                 </div>
-                <div className="anuga-mesh-preview-section">
-                    <button
-                        className={'btn btn-default anuga-mesh-preview-btn' + (isPreviewRunning ? ' disabled' : '')}
-                        disabled={isPreviewRunning || !hasScenario}
-                        title={!hasScenario ? 'Select a scenario to preview mesh' : 'Preview mesh triangulation'}
-                        onClick={this._startMeshPreview}
-                    >
-                        {isPreviewRunning ? (
-                            <React.Fragment>
-                                <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
-                                {' Previewing...'}
-                            </React.Fragment>
-                        ) : 'Preview mesh'}
-                    </button>
-                    {previewLabel}
-                </div>
+                {/* W5.1 (TASK-1273) — MeshWorkflow panel (preview + cost estimate + import/export slots) */}
+                <MeshWorkflow
+                    isOpen={meshWorkflowOpen}
+                    onToggle={this._toggleMeshWorkflow}
+                    previewState={{
+                        status: meshPreviewStatus,
+                        result: meshPreviewResult,
+                        error: meshPreviewError
+                    }}
+                    onStartPreview={this._startMeshPreview}
+                    hasScenario={hasScenario}
+                    scenario={scenario}
+                />
             </div>
         );
     }
@@ -838,6 +817,8 @@ const mapStateToProps = (state) => {
         // W3.1 (TASK-1266) — For preview mesh: project id + selected scenario id
         projectId: getProjectId(state),
         selectedScenarioId: state?.anuga?.scenarios?.selectedId || null,
+        // W5.1 (TASK-1273) — Full scenario object for cost estimate in MeshWorkflow
+        selectedScenario: getSelectedScenario(state),
     };
 };
 

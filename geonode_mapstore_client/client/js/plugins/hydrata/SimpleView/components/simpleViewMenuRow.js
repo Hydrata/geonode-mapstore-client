@@ -284,7 +284,10 @@ const ANUGA_FEATURE_CONFIG = {
             title: 'Mesh Region',
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
-                {name: 'resolution', type: 'number', label: 'Resolution (m²)', "default": 10, step: 1, min: 0.1}
+                // TASK-1273 W5.1: label updated from 'Resolution (m²)' to clarify the field is a
+                // target EDGE LENGTH (metres), not an area.  The stored value is unchanged — the
+                // backend computes max_area = resolution² / 2.  No migration, no mesh change.
+                {name: 'resolution', type: 'number', label: 'Resolution (m) — target edge length', "default": 10, step: 1, min: 0.1}
             ]
         }
     },
