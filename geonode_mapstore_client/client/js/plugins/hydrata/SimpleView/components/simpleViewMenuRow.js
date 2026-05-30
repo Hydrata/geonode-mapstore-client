@@ -97,9 +97,18 @@ const _GROUP_TO_DELETE_TYPE = {
 const getDeleteDatasetType = (layer) => _GROUP_TO_DELETE_TYPE[layer?.group] || null;
 
 // STRUCTURE_METHODS — keep in sync with /opt/hydrata/apps/gn_anuga/models/scenario.py:STRUCTURE_METHODS
-// 'Holes' / 'Reflective' route via run_anuga.run_utils.make_interior_holes_and_tags;
-// 'Mannings' routes via make_frictions. Default is 'Holes'.
-const STRUCTURE_METHODS = ['Holes', 'Mannings', 'Reflective'];
+// ADR-4 (2026-05-29, TASK-1269): three-method taxonomy.
+//   Reflective — interior void hole; building obstructs/reflects flow.
+//   Mannings   — high-roughness friction zone; building adds drag, not void.
+//   Raised     — per-structure adjustable post-mesh elevation correction (m).
+// run_utils.make_interior_holes_and_tags routes 'Reflective' (interior-hole path);
+// make_frictions routes 'Mannings'; post-mesh elevation routes 'Raised'.
+// Default is 'Reflective' (safest for flood modelling — void obstructs flow).
+const STRUCTURE_METHODS = ['Reflective', 'Mannings', 'Raised'];
+
+// Default raised height (m) — mirrors BE DEFAULT_RAISED_HEIGHT_M = 5.0.
+// Shown only when method == 'Raised'; user can override per-structure.
+const DEFAULT_RAISED_HEIGHT_M = 5.0;
 
 // TASK-793 — VectorDraw routing config for the 5 migrated Anuga feature
 // types.
@@ -283,8 +292,17 @@ const ANUGA_FEATURE_CONFIG = {
             title: 'Structure',
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
-                {name: 'method', type: 'select', label: 'Method', "default": 'Holes',
-                    options: STRUCTURE_METHODS.map(v => ({value: v, label: v}))}
+                // ADR-4 (TASK-1269): three methods — Reflective / Mannings / Raised.
+                // Default is 'Reflective' (replaces old 'Holes' default).
+                {name: 'method', type: 'select', label: 'Method', "default": 'Reflective',
+                    options: STRUCTURE_METHODS.map(v => ({value: v, label: v}))},
+                // 'Raised height (m)' input — visible only when method == 'Raised'.
+                // Defaults to DEFAULT_RAISED_HEIGHT_M (5.0); user can override
+                // per-structure. The WFS-T property name is 'raised_height' (lowercase,
+                // matching the PostGIS column from Structure.raised_height FloatField).
+                {name: 'raised_height', type: 'number', label: 'Raised height (m)',
+                    "default": DEFAULT_RAISED_HEIGHT_M, step: 0.5, min: 0.0,
+                    showWhen: {field: 'method', equals: 'Raised'}}
             ]
         }
     },
@@ -1048,7 +1066,8 @@ export {
     // logic can be exercised as a pure function.
     getAnugaPrefix,
     ANUGA_FEATURE_CONFIG,
-    // TASK-827 (W4.1) — canonical Method values for Structure; FE single
+    // TASK-1269 (W4.1) — canonical Method values for Structure; FE single
     // source of truth, mirrors BE gn_anuga.models.STRUCTURE_METHODS.
+    // ADR-4: three methods {Reflective, Mannings, Raised}.
     STRUCTURE_METHODS
 };
