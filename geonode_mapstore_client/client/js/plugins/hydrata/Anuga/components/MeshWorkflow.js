@@ -33,6 +33,7 @@
 
 import React from 'react';
 const PropTypes = require('prop-types');
+import { buildGwcMvtTileUrls, GWC_WMTS_ENDPOINT } from '../gwcTileRouting';
 
 // Inline Spinner from React-Spinner (already a MapStore2 dep via anugaInputMenu).
 // We lazily require it so this file does not add a new npm dep.
@@ -203,7 +204,9 @@ export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
     const LAYER_NAME = 'geonode:mesh_triangle_render';
     const meshLayer = {
         type: 'wms',
-        url: '/geoserver/ows',
+        // Route via centralized GWC WMTS helper (TASK-1323 W2).
+        // Mesh triangles are a shareable MVT layer — no per-session env= or CQL.
+        url: GWC_WMTS_ENDPOINT,
         name: LAYER_NAME,
         title: 'Mesh triangles',
         visibility: true,
@@ -218,10 +221,9 @@ export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
             VERSION: '1.1.1',
             TILED: true
         },
-        // GWC tile URL for MVT when vectortiles plugin is installed
-        tileUrls: [
-            `/geoserver/gwc/service/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${LAYER_NAME}&STYLE=&TILEMATRIXSET=EPSG:900913&TILEMATRIX=EPSG:900913:{z}&TILEROW={y}&TILECOL={x}&FORMAT=application/vnd.mapbox-vector-tile`
-        ]
+        // GWC tile URL for MVT when vectortiles plugin is installed.
+        // Built via centralized helper — ensures EPSG:900913 gridset fleet-wide.
+        tileUrls: buildGwcMvtTileUrls(LAYER_NAME)
     };
 
     if (isLayerAdded) {
