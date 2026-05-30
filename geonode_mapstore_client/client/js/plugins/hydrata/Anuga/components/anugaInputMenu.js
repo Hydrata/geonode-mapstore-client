@@ -48,6 +48,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
+import {addLayer} from "../../../../../MapStore2/web/client/actions/layers";
 
 const ACTIVE_TM_STATES = new Set(['pending', 'running']);
 const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'Structure', 'MeshRegion'];
@@ -221,6 +222,9 @@ class AnugaInputMenuClass extends React.Component {
         selectedScenarioId: PropTypes.number,
         // W5.1 (TASK-1273)
         selectedScenario: PropTypes.object,
+        // W5.3 (TASK-1275)
+        flatLayers: PropTypes.array,
+        onAddMeshLayer: PropTypes.func,
     };
 
     static defaultProps = {}
@@ -603,6 +607,9 @@ class AnugaInputMenuClass extends React.Component {
         const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen} = this.state;
         const hasScenario = !!this.props.selectedScenarioId;
         const scenario = this.props.selectedScenario || null;
+        // W5.3: check if the mesh triangle render layer is already in the flat layer list
+        const MESH_RENDER_LAYER = 'geonode:mesh_triangle_render';
+        const isMeshLayerAdded = (this.props.flatLayers || []).some(l => l?.name === MESH_RENDER_LAYER);
 
         return (
             <div className="menu-rows-pane anuga-pane">
@@ -614,7 +621,7 @@ class AnugaInputMenuClass extends React.Component {
                         ? this.renderPaneEmpty('hydrata.anuga.none', isInitializing)
                         : null}
                 </div>
-                {/* W5.1 (TASK-1273) — MeshWorkflow panel (preview + cost estimate + import/export slots) */}
+                {/* W5.1 (TASK-1273) / W5.3 (TASK-1275) — MeshWorkflow panel */}
                 <MeshWorkflow
                     isOpen={meshWorkflowOpen}
                     onToggle={this._toggleMeshWorkflow}
@@ -626,6 +633,8 @@ class AnugaInputMenuClass extends React.Component {
                     onStartPreview={this._startMeshPreview}
                     hasScenario={hasScenario}
                     scenario={scenario}
+                    onAddMeshLayer={this.props.onAddMeshLayer}
+                    isMeshLayerAdded={isMeshLayerAdded}
                 />
             </div>
         );
@@ -819,6 +828,8 @@ const mapStateToProps = (state) => {
         selectedScenarioId: state?.anuga?.scenarios?.selectedId || null,
         // W5.1 (TASK-1273) — Full scenario object for cost estimate in MeshWorkflow
         selectedScenario: getSelectedScenario(state),
+        // W5.3 (TASK-1275) — Layer list to detect if mesh_triangle_render is already added
+        flatLayers: state?.layers?.flat || [],
     };
 };
 
@@ -847,7 +858,9 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
-        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle))
+        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle)),
+        // W5.3 (TASK-1275) — Add mesh triangle render layer to map
+        onAddMeshLayer: (layer) => dispatch(addLayer(layer))
     };
 };
 

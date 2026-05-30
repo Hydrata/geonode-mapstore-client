@@ -183,12 +183,88 @@ export function ImportExportSection() {
     );
 }
 
+/**
+ * MeshTriangleLayerSection — W5.3 (TASK-1275)
+ *
+ * Shown when the last preview result is below the render threshold and
+ * the MeshElement geometry has been published to GeoServer as the
+ * `geonode:mesh_triangle_render` layer (via populate_mesh_triangle_geom /
+ * publish_mesh_triangle_layer_geoserver on the backend).
+ *
+ * Renders an "Add mesh layer to map" button that dispatches `addLayer`
+ * with a WMS config pointing to `geonode:mesh_triangle_render` via GWC
+ * (which serves MVT when the gs-vectortiles plugin is installed — W5.0).
+ *
+ * When the vectortiles plugin is NOT installed (sandbox tinyproxy blocks
+ * the download — see docs/reports/w5-task-1304-live-install-fallback.txt),
+ * the layer falls back to WMS PNG tiles, which still works.
+ */
+export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
+    const LAYER_NAME = 'geonode:mesh_triangle_render';
+    const meshLayer = {
+        type: 'wms',
+        url: '/geoserver/ows',
+        name: LAYER_NAME,
+        title: 'Mesh triangles',
+        visibility: true,
+        group: 'Mesh',
+        params: {
+            LAYERS: LAYER_NAME,
+            FORMAT: 'image/png',
+            TRANSPARENT: true,
+            VERSION: '1.1.1',
+            TILED: true
+        },
+        // GWC tile URL for MVT when vectortiles plugin is installed
+        tileUrls: [
+            `/geoserver/gwc/service/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${LAYER_NAME}&STYLE=&TILEMATRIXSET=EPSG:900913&TILEMATRIX=EPSG:900913:{z}&TILEROW={y}&TILECOL={x}&FORMAT=application/vnd.mapbox-vector-tile`
+        ]
+    };
+
+    if (isLayerAdded) {
+        return (
+            <div className="anuga-mesh-workflow-section anuga-mesh-triangle-layer">
+                <span className="anuga-mesh-triangle-layer-added">
+                    {'Mesh layer added to map'}
+                </span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="anuga-mesh-workflow-section anuga-mesh-triangle-layer">
+            <button
+                className="btn btn-default anuga-mesh-add-layer-btn"
+                onClick={() => onAddLayer && onAddLayer(meshLayer)}
+                title="Add the derived mesh triangle layer (GeoServer MVT / WMS) to the map"
+                data-testid="anuga-mesh-add-layer-btn"
+            >
+                {'Add mesh layer to map'}
+            </button>
+        </div>
+    );
+}
+
+MeshTriangleLayerSection.propTypes = {
+    onAddLayer: PropTypes.func,
+    isLayerAdded: PropTypes.bool
+};
+MeshTriangleLayerSection.defaultProps = {
+    onAddLayer: null,
+    isLayerAdded: false
+};
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
 /**
  * MeshWorkflow — the collapsible workflow panel attached to the Mesh pane.
+ *
+ * W5.3 additions: onAddMeshLayer / isMeshLayerAdded props wire up the
+ * MeshTriangleLayerSection for adding the GeoServer MVT render layer to the map.
+ * These are only shown when the last preview result is below the render threshold
+ * (above_render_threshold === false).
  */
 export function MeshWorkflow({
     isOpen,
@@ -196,8 +272,17 @@ export function MeshWorkflow({
     previewState,
     onStartPreview,
     hasScenario,
-    scenario
+    scenario,
+    onAddMeshLayer,
+    isMeshLayerAdded
 }) {
+    // Only show the mesh triangle layer button when the last preview confirmed
+    // the mesh is below the render threshold.
+    const previewBelowThreshold =
+        previewState.status === 'done' &&
+        previewState.result &&
+        !previewState.result.above_render_threshold;
+
     return (
         <div className="anuga-mesh-workflow-container">
             <button
@@ -218,6 +303,13 @@ export function MeshWorkflow({
                         onStart={onStartPreview}
                     />
                     <CostEstimateSection scenario={scenario}/>
+                    {/* W5.3 (TASK-1275) — Add mesh triangle layer button (below render threshold only) */}
+                    {previewBelowThreshold && (
+                        <MeshTriangleLayerSection
+                            onAddLayer={onAddMeshLayer}
+                            isLayerAdded={isMeshLayerAdded}
+                        />
+                    )}
                     <ImportExportSection/>
                     <div className="anuga-mesh-workflow-section anuga-mesh-workflow-hint">
                         <span className="anuga-mesh-workflow-hint-text">
@@ -241,14 +333,19 @@ MeshWorkflow.propTypes = {
     }),
     onStartPreview: PropTypes.func.isRequired,
     hasScenario: PropTypes.bool,
-    scenario: PropTypes.object
+    scenario: PropTypes.object,
+    // W5.3
+    onAddMeshLayer: PropTypes.func,
+    isMeshLayerAdded: PropTypes.bool
 };
 
 MeshWorkflow.defaultProps = {
     isOpen: false,
     previewState: {status: null, result: null, error: null},
     hasScenario: false,
-    scenario: null
+    scenario: null,
+    onAddMeshLayer: null,
+    isMeshLayerAdded: false
 };
 
 export default MeshWorkflow;
