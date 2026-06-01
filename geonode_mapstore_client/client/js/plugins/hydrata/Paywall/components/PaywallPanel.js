@@ -26,7 +26,7 @@
 
 import React from 'react';
 const PropTypes = require('prop-types');
-import { getStatePayload, CONTRACT_FIXTURE } from '../paywallContract';
+import { getStatePayload } from '../paywallContract';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
