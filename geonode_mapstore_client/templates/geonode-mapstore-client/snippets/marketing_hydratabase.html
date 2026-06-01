@@ -6,35 +6,45 @@
 
     <hr class="featurette-divider">
 
-    <div class="hydrata-two-modes">
-        <h2 class="text-center">{% trans "Two Ways to Verify" %}</h2>
-        <div class="row hydrata-mode-columns">
-            <div class="col-md-6 hydrata-mode-column">
-                <div class="hydrata-mode-badge">{% trans "Mode A" %}</div>
-                <h3>{% trans "Verify it yourself" %}</h3>
-                <p class="hydrata-mode-who">{% trans "Self-serve platform. You operate it." %}</p>
-                <p>{% trans "Upload a finished model, the platform runs the automated checks (mass balance, mesh quality, parameter sensitivity, jurisdiction checklist), and you can run ANUGA in the cloud. API and MCP access for power users." %}</p>
-                <ul class="hydrata-mode-features">
-                    <li>{% trans "Import topography and draw model boundaries" %}</li>
-                    <li>{% trans "Run models in your browser using cloud compute" %}</li>
-                    <li>{% trans "View and query results interactively" %}</li>
-                    <li>{% trans "Jurisdiction-checklist comparison" %}</li>
-                    <li>{% trans "Download raw and processed results" %}</li>
-                </ul>
-                <a href="/" class="btn hydrata-btn-primary">{% trans "Create your account" %}</a>
+    <div class="hydrata-platform-primary">
+        <h2 class="text-center">{% trans "The hydraulic modelling platform" %}</h2>
+        <div class="row">
+            <div class="col-md-8 col-md-offset-2 text-center">
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.7;">
+                    {% trans "Build and run 2D hydraulic models in the browser. Shared models are free — discoverable by the community. Make any model private when your project requires it." %}
+                </p>
             </div>
-            <div class="col-md-6 hydrata-mode-column">
-                <div class="hydrata-mode-badge">{% trans "Mode B" %}</div>
-                <h3>{% trans "Have Hydrata verify it" %}</h3>
-                <p class="hydrata-mode-who">{% trans "Done-for-you advisory. Our engineers operate it." %}</p>
-                <p>{% trans "Send us your model. A Hydrata analyst runs the verification engagement and delivers a signed verification in a live review portal, with a chartered-engineer sign-off. Independent third-party review." %}</p>
-                <ul class="hydrata-mode-features">
-                    <li>{% trans "Model-ingest review and mass-balance audit" %}</li>
-                    <li>{% trans "Mesh-quality assessment and parameter-sensitivity check" %}</li>
-                    <li>{% trans "Jurisdiction-checklist comparison against your design criteria" %}</li>
-                    <li>{% trans "Chartered-engineer sign-off on the verification" %}</li>
-                    <li>{% trans "Live web portal for reviewer comments in geospatial context" %}</li>
-                </ul>
+        </div>
+        <div class="row hydrata-platform-features" style="margin-top: 28px;">
+            <div class="col-md-4 text-center">
+                <h3>{% trans "Model in the browser" %}</h3>
+                <p>{% trans "Import topography, draw boundaries, configure scenarios — no local install, no infrastructure to manage." %}</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <h3>{% trans "Run ANUGA in the cloud" %}</h3>
+                <p>{% trans "Submit a simulation and watch results appear in the live portal as the run completes. Raw outputs downloadable at any time." %}</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <h3>{% trans "Shared or private — your choice" %}</h3>
+                <p>{% trans "Shared models are the default: discoverable by the community. Upgrade to Private models when confidentiality matters." %}</p>
+            </div>
+        </div>
+        <div class="row" style="margin-top: 24px;">
+            <div class="col-md-12 text-center">
+                <a href="/" class="btn hydrata-btn-primary btn-lg">{% trans "Create your account" %}</a>
+            </div>
+        </div>
+    </div>
+
+    <hr class="featurette-divider">
+
+    <div class="hydrata-engagement-secondary">
+        <div class="row">
+            <div class="col-md-8 col-md-offset-2 text-center">
+                <h3>{% trans "Need a done-for-you review?" %}</h3>
+                <p style="color: #4a5568; font-size: 15px; line-height: 1.7;">
+                    {% trans "Talk to us about an engagement. A Hydrata analyst runs the verification on your model and delivers a chartered-engineer sign-off in a live review portal. Independent third-party review." %}
+                </p>
                 <a href="mailto:david.kennewell@hydrata.com?subject=Verification%20engagement" class="btn hydrata-btn-secondary">{% trans "Talk to us about an engagement" %}</a>
             </div>
         </div>
@@ -47,18 +57,18 @@
         <div class="row">
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">1</div>
-                <h3>{% trans "Upload" %}</h3>
-                <p>{% trans "Share your model: HEC-RAS .zip or ANUGA project. Run the checks yourself on the platform, or send it to our team for a done-for-you engagement." %}</p>
+                <h3>{% trans "Build" %}</h3>
+                <p>{% trans "Import topography and draw your model boundaries in the browser. Add scenarios and configure friction and rainfall parameters." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">2</div>
-                <h3>{% trans "Audit" %}</h3>
-                <p>{% trans "Model-ingest review, mass-balance audit, mesh-quality assessment, parameter-sensitivity check, and jurisdiction-checklist comparison." %}</p>
+                <h3>{% trans "Run" %}</h3>
+                <p>{% trans "Submit a simulation. ANUGA runs in the cloud and streams results back to your live portal — no local compute required." %}</p>
             </div>
             <div class="col-md-4 text-center">
                 <div class="hydrata-step-number">3</div>
-                <h3>{% trans "Deliver" %}</h3>
-                <p>{% trans "A signed verification in a live web portal: raw outputs and reviewer comments in context, every check traceable to its evidence. Five working days, end to end." %}</p>
+                <h3>{% trans "Share or keep private" %}</h3>
+                <p>{% trans "Shared models are discoverable by the community. Switch a model to Private anytime — your data stays under your control." %}</p>
             </div>
         </div>
     </div>
@@ -98,7 +108,7 @@
             </div>
             <div class="col-md-6 col-sm-6 text-center">
                 <h3>{% trans "Researchers (ANUGA + Python)" %}</h3>
-                <p>{% trans "Run ANUGA in the cloud, no infrastructure required. Open-source codebase." %}</p>
+                <p>{% trans "Model and run ANUGA in the cloud, no infrastructure required. Share your models with the community or keep them private." %}</p>
             </div>
         </div>
     </div>
