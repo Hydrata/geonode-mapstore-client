@@ -6,9 +6,9 @@
     <div class="jumbotron">
         <div class="gn-hero-description">
             <h1 class="hydrata-hero-h1">{% trans "Hydrata" %}</h1>
-            <p class="hydrata-hero-verbs">{% trans "Validate. Verify. Comply. Communicate." %}</p>
-            <p>{% trans "The verification platform that lets consultants prove, with evidence, that their hydraulic models are right." %}</p>
-            <p class="hydrata-hero-tagline">{% trans "Defensible flood modelling" %}</p>
+            <p class="hydrata-hero-verbs">{% trans "Model floods in the browser." %}</p>
+            <p>{% trans "Build and run hydraulic models on the platform. Shared models are free — make one private anytime." %}</p>
+            <p class="hydrata-hero-tagline">{% trans "Verified by independent chartered engineers." %}</p>
             <a href="#signup_form" class="btn btn-success btn-lg hydrata-hero-cta">{% trans "Create your account" %}</a>
         </div>
     </div>
@@ -35,7 +35,7 @@
 
 <div class="hydrata-trust-bar">
     <div class="container">
-        <p class="hydrata-trust-engines">{% trans "Designed by engineers, for engineers." %}</p>
+        <p class="hydrata-trust-engines">{% trans "Browser-based hydraulic modelling for engineers and researchers." %}</p>
     </div>
 </div>
 
@@ -180,28 +180,28 @@
 
 <div class="container">
     <section class="hydrata-what-we-do">
-        <h2>{% trans "What we do" %}</h2>
+        <h2>{% trans "What you can do" %}</h2>
         <div class="hydrata-value-cards">
             <div class="hydrata-value-card">
-                <h3>{% trans "Validate" %}</h3>
-                <p>{% trans "Mass-balance audit, mesh-quality assessment, parameter sensitivity. Catch the issues a reviewer would catch, before the model leaves your office." %}</p>
+                <h3>{% trans "Model" %}</h3>
+                <p>{% trans "Import topography, draw boundaries, and build a 2D hydraulic model in the browser. No local install required." %}</p>
+            </div>
+            <div class="hydrata-value-card">
+                <h3>{% trans "Run" %}</h3>
+                <p>{% trans "Execute ANUGA simulations in the cloud. Results appear in the live portal as the run completes." %}</p>
+            </div>
+            <div class="hydrata-value-card">
+                <h3>{% trans "Share" %}</h3>
+                <p>{% trans "Shared models are discoverable by default. Make a model private anytime — your data, your choice." %}</p>
             </div>
             <div class="hydrata-value-card">
                 <h3>{% trans "Verify" %}</h3>
-                <p>{% trans "Bring whatever existing hydraulic model input data and results you have. Get a signed verification in 5 working days, every check traceable to its evidence in a live review portal." %}</p>
-            </div>
-            <div class="hydrata-value-card">
-                <h3>{% trans "Comply" %}</h3>
-                <p>{% trans "Jurisdiction-checklist comparison against your design criteria. Every item ticked, every tick linked to its source." %}</p>
-            </div>
-            <div class="hydrata-value-card">
-                <h3>{% trans "Communicate" %}</h3>
-                <p>{% trans "Live web portal. Reviewers drop comments tied to the geospatial context of the model, not as generic input-variable changes that ripple across the project." %}</p>
+                <p>{% trans "Need an independent sign-off? A chartered-engineer verification is available as an add-on engagement." %}</p>
             </div>
         </div>
     </section>
     <aside class="hydrata-principle-callout">
-        <p>{% trans "When your models disagree, the answer is in the inputs. We find it." %}</p>
+        <p>{% trans "Shared models are free. Keep it private if your project requires it." %}</p>
     </aside>
 </div>
 {% endif %}
