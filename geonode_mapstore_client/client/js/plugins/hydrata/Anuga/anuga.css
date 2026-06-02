@@ -1850,6 +1850,17 @@ div that holds the feature-grid */
     color: #d6e0f0;
 }
 
+/* TASK-1432 (ISSUE 5): 'Export Data' modal (id=mapstore-export) opens with its
+   header clipped under the fixed navbar because Bootstrap's default modal-dialog
+   margin-top (30px) is less than the navbar height (~65px).
+   Fix: push the dialog down so the header + close button clear the navbar.
+   Scoped to #mapstore-export so no other MapStore dialogs are affected.
+   The outer .fade.in.modal covers the full viewport; the inner container
+   is what gets the top margin adjustment. */
+#mapstore-export.modal-dialog-container {
+    margin-top: 80px;
+}
+
 /* ISSUE 32 (TASK-1429): View Results bar shown on run completion, above the
    scenario rail+pane shell. Compact row with success-green button. */
 .anuga-view-results-bar {
