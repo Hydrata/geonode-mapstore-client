@@ -163,20 +163,52 @@
     cursor: not-allowed;
 }
 
+/* TASK-1411 (ISSUE 20.2): Restyle Hydrata-plugin native <select> elements to
+ * match the panel's dark-blue aesthetic. Scope: .scenario-select class used
+ * within the ANUGA scenario-config panel and other Hydrata plugin selects
+ * (NOT a MapStore-wide restyle). Uses a custom SVG chevron via
+ * appearance:none + background-image to replace the OS-native arrow.
+ * Scope-bound: only applies to .scenario-select — MapStore core and
+ * non-Hydrata plugin selects are untouched. */
 .scenario-select {
-    border-radius: 3px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 4px;
     width: 100px;
-    height: 22px;
-    font-size: 14px;
+    height: 26px;
+    font-size: 13px;
     white-space: nowrap;
-    padding-left: 3px;
+    padding: 0 24px 0 8px;
     vertical-align: middle;
-    text-overflow: ellipsis ellipsis;
     overflow: hidden;
-    border: white;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.22);
-    color: #f4f4f4;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    text-align: left;
+    background-color: rgba(0, 60, 136, 0.45);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.7)'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 7px center;
+    color: #f0f4fa;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.scenario-select:hover:not([disabled]),
+.scenario-select:focus {
+    border-color: rgba(255, 255, 255, 0.55);
+    background-color: rgba(0, 60, 136, 0.65);
+    outline: none;
+}
+
+.scenario-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Keep option list readable in browser dropdown */
+.scenario-select option {
+    background-color: #1a3a6a;
+    color: #f0f4fa;
 }
 
 /* Scenario pane (Miller-columns Pane 3) selects fill the available field
@@ -185,9 +217,8 @@
 .anuga-scenario-pane-field > .scenario-select {
     width: 100%;
     min-width: 0;
-    text-align: left;
-    padding-left: 6px;
-    padding-right: 6px;
+    padding-left: 8px;
+    padding-right: 28px;
 }
 
 .add-data-input {
