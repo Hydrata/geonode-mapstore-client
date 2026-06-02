@@ -257,6 +257,51 @@ describe('TASK-C Wave 3A validateCategoryProgress', () => {
         });
     });
 
+    // TASK-1416: merged 'run' category tests.
+    describe('run category (TASK-1416: merged runConfig + statusActions)', () => {
+        it('returns execution status tag when scenario is computing', () => {
+            const s = {status: 'computing', latest_run: {progress_pct: 55.2}, resolution: 1000, duration: 3600};
+            const result = validateCategoryProgress('run', s);
+            expect(result.tag).toBe('55%');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns err when status is error (regardless of config)', () => {
+            const s = {status: 'error', resolution: 1000, duration: 3600};
+            const result = validateCategoryProgress('run', s);
+            expect(result.tag).toBe('err');
+            expect(result.severity).toBe('err');
+        });
+
+        it('returns 100% + ok when status is complete', () => {
+            const s = {status: 'complete', resolution: 1000, duration: 3600};
+            const result = validateCategoryProgress('run', s);
+            expect(result.tag).toBe('100%');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns built + ok when status is built', () => {
+            const s = {status: 'built', resolution: 1000, duration: 3600};
+            const result = validateCategoryProgress('run', s);
+            expect(result.tag).toBe('built');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns config OK + ok when status is created and config ready', () => {
+            const s = {status: 'created', resolution: 1000, duration: 3600};
+            const result = validateCategoryProgress('run', s);
+            expect(result.tag).toBe('OK');
+            expect(result.severity).toBe('ok');
+        });
+
+        it('returns 1/2 + warn when status is created and only resolution is set', () => {
+            const s = {status: 'created', resolution: 1000};
+            const result = validateCategoryProgress('run', s);
+            expect(result.tag).toBe('1/2');
+            expect(result.severity).toBe('warn');
+        });
+    });
+
     describe('statusActions category', () => {
         it('returns rounded pct + ok when computing', () => {
             const s = {status: 'computing', latest_run: {progress_pct: 47.3}};

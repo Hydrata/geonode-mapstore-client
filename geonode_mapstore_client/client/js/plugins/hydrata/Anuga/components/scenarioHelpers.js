@@ -171,6 +171,43 @@ export const validateCategoryProgress = (category, scenario) => {
         return {satisfied, total, tag: `${satisfied}/${total}`, severity: 'warn', unsaved};
     }
 
+    // TASK-1416 (ISSUE 20.7): merged 'run' category combines runConfig config
+    // fields (resolution/duration) with the execution status signal. Tag
+    // priority: execution status (error/computing/complete/built) > config
+    // completeness — the user is most interested in whether the scenario ran.
+    if (category === 'run') {
+        const status = findScenarioStatus(scenario);
+        const pct = scenario?.latest_run?.progress_pct;
+        const hasResolution = (scenario.resolution || 0) > 0;
+        const hasDuration = (scenario.duration || 0) > 0;
+        const configReady = hasResolution && hasDuration;
+        // If the scenario has run (or is running), show execution status as tag.
+        if (status === 'computing') {
+            return {satisfied: 0, total: 1, tag: Number.isFinite(pct) ? `${Math.round(pct)}%` : '...', severity: 'ok', unsaved};
+        }
+        if (status === 'error') {
+            return {satisfied: 0, total: 1, tag: 'err', severity: 'err', unsaved};
+        }
+        if (status === 'complete') {
+            return {satisfied: 1, total: 1, tag: '100%', severity: 'ok', unsaved};
+        }
+        if (status === 'built') {
+            return {satisfied: 1, total: 1, tag: 'built', severity: 'ok', unsaved};
+        }
+        if (status === 'cancelled') {
+            return {satisfied: 0, total: 1, tag: '—', severity: 'warn', unsaved};
+        }
+        if (status === 'queued' || status === 'processing' || status === 'building') {
+            return {satisfied: 0, total: 1, tag: '...', severity: 'warn', unsaved};
+        }
+        // status === 'created' — show config completeness tag instead.
+        if (configReady) {
+            return {satisfied: 1, total: 1, tag: 'OK', severity: 'ok', unsaved};
+        }
+        const configSatisfied = (hasResolution ? 1 : 0) + (hasDuration ? 1 : 0);
+        return {satisfied: configSatisfied, total: 2, tag: `${configSatisfied}/2`, severity: configSatisfied === 0 ? 'err' : 'warn', unsaved};
+    }
+
     if (category === 'statusActions') {
         const status = findScenarioStatus(scenario);
         const pct = scenario?.latest_run?.progress_pct;

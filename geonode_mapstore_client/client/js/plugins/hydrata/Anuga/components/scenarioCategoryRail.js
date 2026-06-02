@@ -35,6 +35,9 @@ import {validateCategoryProgress} from './scenarioHelpers';
  * the locale-dependent label, keeping the event keyspace bounded.
  */
 
+// TASK-1416 (ISSUE 20.7): 'runConfig' + 'statusActions' merged into single
+// 'run' category. Reduces the rail from 4 items / 3 sections to 3 items /
+// 2 sections (INPUTS group + single RUN item).
 const CATEGORIES = [
     {
         id: 'inputs',
@@ -47,21 +50,15 @@ const CATEGORIES = [
         msgId: 'hydrata.anuga.optionalInputs'
     },
     {
-        id: 'runConfig',
-        section: 'configuration',
-        msgId: 'hydrata.anuga.runConfig'
-    },
-    {
-        id: 'statusActions',
-        section: 'execution',
-        msgId: 'hydrata.anuga.statusActions'
+        id: 'run',
+        section: 'run',
+        msgId: 'hydrata.anuga.run'
     }
 ];
 
 const SECTIONS = [
     {id: 'inputs', msgId: 'hydrata.anuga.sectionInputs'},
-    {id: 'configuration', msgId: 'hydrata.anuga.sectionConfiguration'},
-    {id: 'execution', msgId: 'hydrata.anuga.sectionExecution'}
+    {id: 'run', msgId: 'hydrata.anuga.sectionExecution'}
 ];
 
 // Per-category glyph icons. Plain glyphicon classes from Bootstrap 3 (the
@@ -71,8 +68,7 @@ const SECTIONS = [
 const CATEGORY_GLYPHS = {
     inputs: 'glyphicon-th-large',
     advanced: 'glyphicon-cog',
-    runConfig: 'glyphicon-wrench',
-    statusActions: 'glyphicon-play-circle'
+    run: 'glyphicon-play-circle'
 };
 
 // SECTIONS + CATEGORIES are module-level constants, so the per-section

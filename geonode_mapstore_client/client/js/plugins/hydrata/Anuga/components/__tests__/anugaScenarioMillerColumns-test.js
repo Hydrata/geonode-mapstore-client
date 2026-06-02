@@ -266,7 +266,8 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    expect(items.length).toBe(4);
+                    // TASK-1416: merged 'run' category → 3 items (inputs/advanced/run).
+                    expect(items.length).toBe(3);
                     // Default: Inputs is active.
                     expect(items[0].className).toInclude('is-active');
                     expect(items[1].className).toNotInclude('is-active');
@@ -317,30 +318,8 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
             );
         });
 
-        it('clicking Run config (items[2]) renders resolution + duration + compute_backend', (done) => {
-            const s1 = makeScenario(21, 'Baseline');
-            const store = createMockStore({
-                anuga: {
-                    scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
-                }
-            });
-            ReactDOM.render(
-                <Provider store={store}><AnugaScenarioMenu /></Provider>,
-                container,
-                () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    items[2].click(); // runConfig
-                    setTimeout(() => {
-                        expect(container.querySelector('#resolution')).toExist();
-                        expect(container.querySelector('#duration')).toExist();
-                        expect(container.querySelector('#compute_backend')).toExist();
-                        done();
-                    });
-                }
-            );
-        });
-
-        it('clicking Status and actions (items[3]) shows the status card + action toolbar', (done) => {
+        // TASK-1416: items[2] is now merged 'run' pane (was runConfig at [2]).
+        it('clicking Run (items[2]) renders resolution + duration + status card + toolbar', (done) => {
             const s1 = makeScenario(21, 'Baseline', {status: 'built'});
             const store = createMockStore({
                 anuga: {
@@ -352,9 +331,35 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    items[3].click(); // statusActions
+                    items[2].click(); // run (merged)
                     setTimeout(() => {
-                        expect(container.querySelector('.anuga-scenario-pane-rows-status-actions')).toExist();
+                        expect(container.querySelector('#resolution')).toExist();
+                        expect(container.querySelector('#duration')).toExist();
+                        // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
+                        expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
+                        expect(container.querySelector('.anuga-scenario-status-card')).toExist();
+                        expect(container.querySelector('.scenario-action-toolbar')).toExist();
+                        done();
+                    });
+                }
+            );
+        });
+
+        it('Run pane (items[2]) also shows the status card + action toolbar', (done) => {
+            const s1 = makeScenario(21, 'Baseline', {status: 'built'});
+            const store = createMockStore({
+                anuga: {
+                    scenarios: {byId: {21: s1}, allIds: [21], archiveFilter: 'none', selectedId: 21}
+                }
+            });
+            ReactDOM.render(
+                <Provider store={store}><AnugaScenarioMenu /></Provider>,
+                container,
+                () => {
+                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    items[2].click(); // run (merged)
+                    setTimeout(() => {
+                        expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
                         expect(container.querySelector('.anuga-scenario-status-card')).toExist();
                         expect(container.querySelector('.scenario-action-toolbar')).toExist();
                         done();
@@ -377,8 +382,8 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    // Click the 4th category (Status and actions).
-                    items[3].click();
+                    // TASK-1416: Click the 3rd (Run) category — was 4th (Status and actions).
+                    items[2].click();
                     setTimeout(() => {
                         const log = container.querySelector('.anuga-scenario-pane-log');
                         expect(log).toExist();
@@ -417,7 +422,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    items[3].click(); // statusActions
+                    items[2].click(); // run (TASK-1416: was statusActions at items[3])
                     setTimeout(() => {
                         const title = container.querySelector('.anuga-scenario-pane-log-title');
                         expect(title).toExist();

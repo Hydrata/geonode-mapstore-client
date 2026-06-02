@@ -27,7 +27,10 @@ import {ScenarioErrorStrip} from './scenarioErrorStrip';
  * ScenarioActionToolbar.
  */
 
-const VALID_CATEGORIES = ['inputs', 'advanced', 'runConfig', 'statusActions'];
+// TASK-1416 (ISSUE 20.7): 'runConfig' + 'statusActions' merged into single 'run'
+// category. Both old IDs kept in the array for graceful fallback (existing Redux
+// state may carry either; they redirect to 'run' via resolvedCategory below).
+const VALID_CATEGORIES = ['inputs', 'advanced', 'run', 'runConfig', 'statusActions'];
 
 /**
  * Inline log tail rendered at the bottom of the Run (statusActions) pane.
@@ -332,6 +335,11 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
 // Wave 3C — Duplicate moved to the scenario panel header (next to New
 // Scenario), so canDuplicateScenario + onDuplicateClick are no longer
 // forwarded into ScenarioActionToolbar.
+//
+// TASK-1416 (ISSUE 20.7): renderStatusActionsPane kept for internal use but
+// the public entry-point is renderRunPane below, which merges Run config +
+// Run into one panel: (a) config fields, (b) status/error feedback, (c)
+// Build/Run/delete toolbar, (d) LOG output at the bottom.
 function renderStatusActionsPane({
     scenario, canEdit, canRunScenario,
     onBuildClick, onRunClick, onRetryClick,
@@ -364,6 +372,56 @@ function renderStatusActionsPane({
     );
 }
 
+/**
+ * TASK-1416 (ISSUE 20.7): Merged Run pane — replaces the two separate
+ * "Run config" and "Run" (statusActions) categories with a single "Run"
+ * panel laid out top-to-bottom:
+ *   (a) Resolution / Duration / Compute config fields
+ *   (b) Error strip (only when status=error) + Status card (ETA/progress)
+ *   (c) Build / Run / Cancel / Delete action toolbar
+ *   (d) LOG output viewer
+ *
+ * The former separate feedback panel (ScenarioStatusCard + ScenarioErrorStrip)
+ * is preserved — it shows ETA, progress, and error messages which the user
+ * needs before deciding to retry or cancel. No data is dropped.
+ */
+function renderRunPane(props) {
+    const {
+        scenario, canEdit, canRunScenario, isSuperuser, onUpdateScenario,
+        computeInstances, onBuildClick, onRunClick, onRetryClick,
+        onArchiveClick, onUnarchiveClick, onConfirmDelete, onConfirmCancelRun
+    } = props;
+    return (
+        <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-run">
+            {/* Section (a): config fields */}
+            {renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstances, isSuperuser})}
+            {/* Section (b): status feedback (ETA, progress, error) */}
+            <ScenarioErrorStrip scenario={scenario} />
+            <ScenarioStatusCard scenario={scenario} />
+            {/* Section (c): action toolbar */}
+            <div className="anuga-scenario-pane-actions">
+                <ScenarioActionToolbar
+                    scenario={scenario}
+                    canEdit={canEdit}
+                    canRunScenario={canRunScenario}
+                    onBuildClick={onBuildClick}
+                    onRunClick={onRunClick}
+                    onRetryClick={onRetryClick}
+                    onArchiveClick={onArchiveClick}
+                    onUnarchiveClick={onUnarchiveClick}
+                    onConfirmDelete={onConfirmDelete}
+                    onConfirmCancelRun={onConfirmCancelRun}
+                />
+            </div>
+            {/* Section (d): LOG output */}
+            <ScenarioRunLog
+                log={scenario?.latest_run?.log}
+                lineCount={scenario?.latest_run?.log_line_count}
+            />
+        </div>
+    );
+}
+
 // ------------------------------------------------------------------------
 // Pane head (above Pane 3)
 // ------------------------------------------------------------------------
@@ -372,8 +430,10 @@ function renderDetailHead(selectedCategoryId) {
     const labelMap = {
         inputs: 'hydrata.anuga.requiredInputs',
         advanced: 'hydrata.anuga.optionalInputs',
-        runConfig: 'hydrata.anuga.runConfig',
-        statusActions: 'hydrata.anuga.statusActions'
+        run: 'hydrata.anuga.run',
+        // Legacy keys kept for redirect-safety (shouldn't normally render as heads)
+        runConfig: 'hydrata.anuga.run',
+        statusActions: 'hydrata.anuga.run'
     };
     const msgId = labelMap[selectedCategoryId] || labelMap.inputs;
     return (
@@ -421,9 +481,13 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
 
 const ScenarioPane = (props) => {
     const {scenario, selectedCategoryId, onSelectCategory, canEdit} = props;
-    const resolvedCategory = VALID_CATEGORIES.includes(selectedCategoryId)
+    // TASK-1416: redirect legacy 'runConfig'/'statusActions' ids → 'run'
+    const _rawCategory = VALID_CATEGORIES.includes(selectedCategoryId)
         ? selectedCategoryId
         : 'inputs';
+    const resolvedCategory = (_rawCategory === 'runConfig' || _rawCategory === 'statusActions')
+        ? 'run'
+        : _rawCategory;
 
     // TASK-1410: auto-populate required dropdowns for new scenarios.
     useAutoPopulateDefaults(
@@ -474,8 +538,7 @@ const ScenarioPane = (props) => {
                             <div className="anuga-scenario-pane-detail-body">
                                 {resolvedCategory === 'inputs' && renderInputsPane(props)}
                                 {resolvedCategory === 'advanced' && renderAdvancedPane(props)}
-                                {resolvedCategory === 'runConfig' && renderRunConfigPane(props)}
-                                {resolvedCategory === 'statusActions' && renderStatusActionsPane(props)}
+                                {resolvedCategory === 'run' && renderRunPane(props)}
                             </div>
                         </React.Fragment>
                     }

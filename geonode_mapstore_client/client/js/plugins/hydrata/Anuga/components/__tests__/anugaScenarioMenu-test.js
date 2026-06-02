@@ -376,7 +376,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 container
             );
             const items = container.querySelectorAll('.anuga-scenario-category-item');
-            expect(items.length).toBe(4);
+            expect(items.length).toBe(3); // TASK-1416: merged run (was 4)
         });
 
         it('does NOT render .anuga-scenario-category-section-label anywhere', () => {

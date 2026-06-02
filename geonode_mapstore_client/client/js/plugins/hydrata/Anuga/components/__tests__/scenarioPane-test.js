@@ -65,7 +65,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     // Category rail (Pane 2)
     // ------------------------------------------------------------------
     describe('Category rail', () => {
-        it('renders the vertical category rail with 4 items', (done) => {
+        // TASK-1416: merged 'run' category → rail now has 3 items (inputs/advanced/run).
+        it('renders the vertical category rail with 3 items (TASK-1416: runConfig+statusActions merged)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
                 container,
@@ -73,25 +74,20 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     const rail = container.querySelector('.anuga-scenario-category-rail');
                     expect(rail).toExist();
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    expect(items.length).toBe(4);
+                    expect(items.length).toBe(3);
                     done();
                 }
             );
         });
 
-        // Section subhead labels have been removed per UX (Wave 3C) — the
-        // category items still group into 3 .anuga-scenario-category-section
-        // wrappers (for spacing/visual grouping), but no
-        // .anuga-scenario-category-section-label divs render anymore.
-        // Regression guard so a future re-add to scenarioCategoryRail.js
-        // surfaces here.
-        it('renders 3 section group wrappers and zero subhead labels (subheadings removed)', (done) => {
+        // TASK-1416: now 2 sections (inputs + run), not 3. No subhead labels.
+        it('renders 2 section group wrappers and zero subhead labels (TASK-1416)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={baseScenario} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
                     const sections = container.querySelectorAll('.anuga-scenario-category-section');
-                    expect(sections.length).toBe(3);
+                    expect(sections.length).toBe(2);
                     const labels = container.querySelectorAll('.anuga-scenario-category-section-label');
                     expect(labels.length).toBe(0);
                     done();
@@ -101,7 +97,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
 
         it('flips is-active on the selected category', (done) => {
             ReactDOM.render(
-                <ScenarioPane scenario={baseScenario} selectedCategoryId={'runConfig'} />,
+                <ScenarioPane scenario={baseScenario} selectedCategoryId={'run'} />,
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
@@ -123,10 +119,9 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    // Order matches CATEGORIES in scenarioCategoryRail.js (4 items):
-                    // inputs (idx 0), advanced (1), runConfig (2), statusActions (3).
+                    // TASK-1416: 3 items: inputs (0), advanced (1), run (2).
                     items[2].click();
-                    expect(captured).toBe('runConfig');
+                    expect(captured).toBe('run');
                     done();
                 }
             );
@@ -165,17 +160,18 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('Status and actions item shows err tag when scenario.status === error', (done) => {
+        // TASK-1416: 'run' is now index 2 (statusActions was index 3 before merge).
+        it('Run item shows err tag when scenario.status === error (TASK-1416)', (done) => {
             const s = {...baseScenario, status: 'error', latest_run: {status: 'error'}};
             ReactDOM.render(
                 <ScenarioPane scenario={s} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    // statusActions is index 3.
-                    const statusTag = items[3].querySelector('.anuga-scenario-category-item-tag');
-                    expect(statusTag.textContent).toBe('err');
-                    expect(statusTag.className).toInclude('is-err');
+                    // run is index 2 (was statusActions at index 3).
+                    const runTag = items[2].querySelector('.anuga-scenario-category-item-tag');
+                    expect(runTag.textContent).toBe('err');
+                    expect(runTag.className).toInclude('is-err');
                     done();
                 }
             );
@@ -684,7 +680,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={{...baseScenario, status: 'built'}}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                 />,
                 container,
@@ -703,7 +699,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                 />,
                 container,
@@ -719,7 +715,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={{...baseScenario, status: 'created', unsaved: true}}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                     onBuildClick={(s) => { captured = s; }}
                 />,
@@ -737,7 +733,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                     onConfirmDelete={(s) => { captured = s; }}
                 />,
@@ -759,7 +755,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={s}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit
                 />,
                 container,
@@ -774,7 +770,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={{...baseScenario, status: 'built'}}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit
                 />,
                 container,
@@ -802,7 +798,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={s}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                 />,
                 container,
@@ -825,7 +821,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={{...baseScenario, latest_run: null}}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                 />,
                 container,
@@ -844,7 +840,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={{...baseScenario, latest_run: {id: 99, log_line_count: 0}}}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                 />,
                 container,
@@ -871,7 +867,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={initial}
-                    selectedCategoryId={'statusActions'}
+                    selectedCategoryId={'run'}
                     canEdit canRunScenario
                 />,
                 container,
@@ -895,7 +891,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     ReactDOM.render(
                         <ScenarioPane
                             scenario={next}
-                            selectedCategoryId={'statusActions'}
+                            selectedCategoryId={'run'}
                             canEdit canRunScenario
                         />,
                         container,
