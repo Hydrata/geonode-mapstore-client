@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect} from "react";
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {toHHMM, getSecondsFromHHMM} from './scenarioHelpers';
@@ -371,11 +371,49 @@ function renderDetailHead(selectedCategoryId) {
 // Top-level pane render
 // ------------------------------------------------------------------------
 
+/**
+ * TASK-1410 (ISSUE 20.1): Auto-populate Required-tab selects for new
+ * (unsaved) scenarios so the user doesn't have to touch every dropdown
+ * before building. Only fires when the scenario is new (id===null) AND
+ * canEdit is true AND a given field is not already set AND options exist.
+ * Picks the first available option per field.
+ */
+function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario) {
+    const {terrain, boundaries, inflows} = resources;
+    // Depend on scenario identity (new vs existing) + first-option ids.
+    const scenarioId = scenario ? (scenario.id || scenario._tempId) : null;
+    const firstTerrainId = terrain && terrain[0] ? terrain[0].id : null;
+    const firstBoundaryId = boundaries && boundaries[0] ? boundaries[0].id : null;
+    const firstInflowId = inflows && inflows[0] ? inflows[0].id : null;
+
+    useEffect(() => {
+        if (!scenario || !canEdit || !onUpdateScenario) return;
+        // Only auto-populate for new (unsaved) scenarios — don't overwrite
+        // user choices on existing saved scenarios that genuinely have no input.
+        if (scenario.id !== null && scenario.id !== undefined) return; // eslint-disable-line no-eq-null, eqeqeq
+        const updates = {};
+        if (!scenario.terrain && firstTerrainId != null) updates.terrain = firstTerrainId; // eslint-disable-line no-eq-null, eqeqeq
+        if (!scenario.boundary && firstBoundaryId != null) updates.boundary = firstBoundaryId; // eslint-disable-line no-eq-null, eqeqeq
+        if (!scenario.inflow && !scenario.rainfall && firstInflowId != null) updates.inflow = firstInflowId; // eslint-disable-line no-eq-null, eqeqeq
+        if (Object.keys(updates).length > 0) {
+            onUpdateScenario(scenario, updates);
+        }
+    }, [scenarioId, firstTerrainId, firstBoundaryId, firstInflowId]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 const ScenarioPane = (props) => {
     const {scenario, selectedCategoryId, onSelectCategory, canEdit} = props;
     const resolvedCategory = VALID_CATEGORIES.includes(selectedCategoryId)
         ? selectedCategoryId
         : 'inputs';
+
+    // TASK-1410: auto-populate required dropdowns for new scenarios.
+    useAutoPopulateDefaults(
+        scenario,
+        canEdit,
+        {terrain: props.terrain, boundaries: props.boundaries, inflows: props.inflows},
+        props.onUpdateScenario
+    );
 
     return (
         <div className="menu-rows-pane anuga-pane anuga-scenario-pane">

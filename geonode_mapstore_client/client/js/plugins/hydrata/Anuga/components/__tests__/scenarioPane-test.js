@@ -913,4 +913,74 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
     });
+
+    // ------------------------------------------------------------------
+    // TASK-1410 (ISSUE 20.1): auto-populate Required dropdowns for new scenarios
+    // ------------------------------------------------------------------
+    describe('auto-populate defaults for new scenarios (TASK-1410)', () => {
+        it('dispatches onUpdateScenario with first terrain + boundary + inflow for a new scenario', (done) => {
+            // A new scenario has id===null (not yet saved).
+            const newScenario = {
+                id: null, _tempId: 'new_1', name: '', status: 'new', computed_status: 'created',
+                terrain: null, boundary: null, inflow: null, rainfall: null,
+                resolution: 1000, duration: null, unsaved: false
+            };
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={newScenario}
+                    selectedCategoryId={'inputs'}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    rainfalls={rainfallOpts}
+                    onUpdateScenario={(s, kv) => { captured = kv; }}
+                />,
+                container,
+                () => {
+                    setTimeout(() => {
+                        // The hook fires asynchronously via useEffect; captured
+                        // should contain the three required defaults.
+                        expect(captured).toExist();
+                        expect(captured.terrain).toBe(3);
+                        expect(captured.boundary).toBe(4);
+                        expect(captured.inflow).toBe(5);
+                        done();
+                    }, 20);
+                }
+            );
+        });
+
+        it('does NOT auto-populate for an existing saved scenario (preserves intentionally-empty fields)', (done) => {
+            // A saved scenario (id !== null) should not be auto-populated —
+            // the user may have intentionally cleared the fields or it may
+            // have been saved before optional fields were available.
+            const savedScenario = {
+                id: 99, name: 'Saved', status: 'built',
+                terrain: null, boundary: null, inflow: null, rainfall: null,
+                resolution: 1000, duration: 1800, unsaved: false
+            };
+            let captured = null;
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={savedScenario}
+                    selectedCategoryId={'inputs'}
+                    canEdit
+                    terrain={terrainOpts}
+                    boundaries={boundaryOpts}
+                    inflows={inflowOpts}
+                    onUpdateScenario={(s, kv) => { captured = kv; }}
+                />,
+                container,
+                () => {
+                    setTimeout(() => {
+                        expect(captured).toNotExist();
+                        done();
+                    }, 20);
+                }
+            );
+        });
+    });
 });
+
