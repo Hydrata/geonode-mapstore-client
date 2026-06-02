@@ -14,6 +14,12 @@ import './boundaryTranslate';
 // time so wfstInsert/wfstUpdate on inf_* layers routes through the
 // Constant/TimeSeries translateOut instead of the IDENTITY fallback.
 import './inflowTranslate';
+// TASK-1404 (W2 FE) — Rainfall translator (rai_ prefix). Rainfall shares the
+// same FeatureDataMixin wire schema as Inflow (data_constant / data_timeseries_id
+// XOR). Without this import the identity fallback stringifies the structured
+// `data` object as '[object Object]' and leaves both XOR cols NULL → rai_data_xor
+// CHECK violation on every save.
+import './rainfallTranslate';
 import { getTranslate, deriveTranslateKey } from './translateRegistry';
 
 /**
