@@ -90,6 +90,12 @@ export default function vectorDraw(state = initialState, action) {
             // brand-new external startVectorDraw from a plugin won't set
             // this, so the flag stays false and behaviour is unchanged.
             cameFromPicker: !!action.config?.cameFromPicker,
+            // TASK-1408 (ISSUE 11) — preserve the feature list when re-entering
+            // via the picker (vectorDrawSelectExistingEpic sets cameFromPicker).
+            // Without this, START_VECTOR_DRAW's spread of initialState resets
+            // featureList=[] so vectorDrawCancelEpic's returnToPicker(vd.featureList)
+            // returns an empty list even though the underlying WFS data is intact.
+            featureList: action.config?.cameFromPicker ? (state.featureList || []) : [],
             // TASK-795 review NIT-1 (TASK-804) — explicitly clear
             // previousPhase on every fresh START. The spread of initialState
             // already does this, but a future refactor that diverges from
