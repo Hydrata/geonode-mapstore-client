@@ -33,6 +33,51 @@ import {ScenarioErrorStrip} from './scenarioErrorStrip';
 const VALID_CATEGORIES = ['inputs', 'advanced', 'run', 'runConfig', 'statusActions'];
 
 /**
+ * TASK-1420 (ISSUE 30) — Format the build-log string for human readability.
+ *
+ * The BE (gn_anuga/models/scenario.py) appends two mesh-stat lines:
+ *   "mesh area: 1234567 m2"              — large integer metres²
+ *   "average triangle area: 123.45 m2"  — float metres²
+ *
+ * Transformations applied (pure, no side effects):
+ *   1. "mesh area: N m2"               → "mesh area: X.XX km²"
+ *      (N / 1e6 converted to km², shown with up to 2 decimal places,
+ *       trailing zeros stripped, e.g. 1.0 → "1" not "1.00")
+ *   2. "average triangle area: F m2"   → "average triangle area: INT m²"
+ *      (rounded to nearest integer, formatted with locale-style commas)
+ *
+ * The "m2" suffix emitted by Python :, format and the "m²" Unicode
+ * superscript are treated as equivalent on the way in (both matched).
+ *
+ * @param {string} log - raw log string from latest_run.log
+ * @returns {string} formatted log (input returned unchanged when null/empty)
+ */
+export function formatBuildLog(log) {
+    if (!log) return log;
+    return log
+        // 1. mesh area: N m2 → X.XX km²
+        .replace(
+            /^(mesh area: )(\d+)( m2| m²)/m,
+            (_, prefix, numStr) => {
+                const km2 = parseFloat(numStr) / 1e6;
+                // toFixed(2) then strip trailing ".0" or ".00" — e.g. 1.00→"1", 1.50→"1.5"
+                const formatted = parseFloat(km2.toFixed(2)).toLocaleString('en-US', {
+                    maximumFractionDigits: 2
+                });
+                return `${prefix}${formatted} km²`;
+            }
+        )
+        // 2. average triangle area: F m2 → INT m² with comma grouping
+        .replace(
+            /^(average triangle area: )([0-9.]+)( m2| m²)/m,
+            (_, prefix, numStr) => {
+                const intVal = Math.round(parseFloat(numStr));
+                return `${prefix}${intVal.toLocaleString('en-US')} m²`;
+            }
+        );
+}
+
+/**
  * Inline log tail rendered at the bottom of the Run (statusActions) pane.
  * Auto-scrolls to the latest line when the log prop changes. Pulled from
  * `scenario?.latest_run?.log` upstream (the same string the TaskMonitor
@@ -65,7 +110,7 @@ class ScenarioRunLog extends React.Component {
                     </span>
                 </div>
                 <pre ref={this.logRef} className="anuga-scenario-pane-log-viewer">
-                    {log || ''}
+                    {formatBuildLog(log) || ''}
                 </pre>
             </div>
         );

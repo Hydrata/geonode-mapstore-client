@@ -2,7 +2,7 @@ import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import {Simulate} from 'react-dom/test-utils';
-import {ScenarioPane} from '../scenarioPane';
+import {ScenarioPane, formatBuildLog} from '../scenarioPane';
 
 /**
  * TASK-C-scenarios-miller Wave 3A — per-category pane assertions.
@@ -1006,6 +1006,68 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 }
             );
         });
+    });
+});
+
+// ------------------------------------------------------------------
+// TASK-1420 (ISSUE 30) — formatBuildLog pure-function unit tests
+// ------------------------------------------------------------------
+describe('formatBuildLog (TASK-1420)', () => {
+    it('converts mesh area from m² to km² with 2 dp max', () => {
+        const log = 'INFO build started\nmesh area: 1234567 m2\nINFO done';
+        const out = formatBuildLog(log);
+        expect(out).toInclude('mesh area: 1.23 km²');
+        expect(out).toNotInclude('m2');
+    });
+
+    it('converts large mesh area (whole km²) without spurious decimals', () => {
+        // 5,000,000 m² = 5 km² exactly → should not show "5.00"
+        const log = 'mesh area: 5000000 m2';
+        const out = formatBuildLog(log);
+        expect(out).toInclude('mesh area: 5 km²');
+    });
+
+    it('converts average triangle area to comma-grouped integer', () => {
+        const log = 'average triangle area: 1234.56 m2';
+        const out = formatBuildLog(log);
+        expect(out).toInclude('average triangle area: 1,235 m²');
+        expect(out).toNotInclude('1234.56');
+    });
+
+    it('rounds average triangle area < 1000 without comma', () => {
+        const log = 'average triangle area: 99.9 m2';
+        const out = formatBuildLog(log);
+        expect(out).toInclude('average triangle area: 100 m²');
+    });
+
+    it('handles both lines together', () => {
+        const log = [
+            'INFO build complete',
+            'mesh area: 2500000 m2',
+            'average triangle area: 500.0 m2',
+            'mesh_qa: triangles=5000'
+        ].join('\n');
+        const out = formatBuildLog(log);
+        expect(out).toInclude('mesh area: 2.5 km²');
+        expect(out).toInclude('average triangle area: 500 m²');
+        expect(out).toInclude('mesh_qa: triangles=5000');
+    });
+
+    it('leaves other log lines untouched', () => {
+        const log = 'INFO CRITICAL Generating output rasters on 8 CPUs';
+        expect(formatBuildLog(log)).toBe(log);
+    });
+
+    it('returns null/undefined/empty unchanged', () => {
+        expect(formatBuildLog(null)).toBe(null);
+        expect(formatBuildLog(undefined)).toBe(undefined);
+        expect(formatBuildLog('')).toBe('');
+    });
+
+    it('also accepts the Unicode m² suffix from the BE', () => {
+        const log = 'mesh area: 1000000 m²';
+        const out = formatBuildLog(log);
+        expect(out).toInclude('mesh area: 1 km²');
     });
 });
 
