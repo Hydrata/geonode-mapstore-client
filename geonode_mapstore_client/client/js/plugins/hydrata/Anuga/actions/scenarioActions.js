@@ -52,7 +52,7 @@ function saveAnugaScenarioSuccess(scenario) {
             title: 'Success',
             autoDismiss: 6,
             position: 'tc',
-            message: `Scenario ID: ${scenario.id} building`,
+            message: scenario.id ? `Scenario ${scenario.id} building` : (scenario.name ? `'${scenario.name}' building` : 'Scenario building'),
             uid: uuidv1(),
             level: 'success'
         });

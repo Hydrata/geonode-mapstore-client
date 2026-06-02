@@ -88,7 +88,7 @@ function buildScenarioSuccess(scenarioId) {
             title: 'Build started',
             autoDismiss: 6,
             position: 'tc',
-            message: `Scenario ID: ${scenarioId} building`,
+            message: scenarioId ? `Scenario ${scenarioId} building` : 'Scenario building',
             uid: uuidv1(),
             level: 'success'
         });
