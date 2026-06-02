@@ -25,17 +25,21 @@
                         <li><a href="{{ settings.GEOSERVER_WEB_UI_LOCATION }}">{% trans "GeoServer" %}</a></li>
                         <li role="separator" class="divider"></li>
                     {% endif %}
-                    <li><a href="/people/">{% trans "People" %}</a></li>
-                    <li><a href="/groups/">{% trans "Groups" %}</a></li>
-                    <li role="separator" class="divider"></li>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                        <li><a href="/people/">{% trans "People" %}</a></li>
+                        <li><a href="/groups/">{% trans "Groups" %}</a></li>
+                        <li role="separator" class="divider"></li>
+                    {% endif %}
                     {% if request.user.is_superuser %}
                         <li><a href="/invitations/geonode-send-invite/" >{% trans "Invite users" %}</a></li>
                         <li><a href="/admin/people/profile/add/" >{% trans "Add user" %}</a></li>
                         <li><a href="/groups/create/" >{% trans "Create group" %}</a></li>
                         <li role="separator" class="divider"></li>
                     {% endif %}
-                    <li><a  href="/help/">{% trans "Help" %}</a></li>
-                    <li role="separator" class="divider"></li>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                        <li><a  href="/help/">{% trans "Help" %}</a></li>
+                        <li role="separator" class="divider"></li>
+                    {% endif %}
                 {% endif %}
                 <li><a href="/account/logout/?next=/">{% trans "Log out" %}</a></li>
             </ul>
