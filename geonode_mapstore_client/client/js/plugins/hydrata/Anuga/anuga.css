@@ -1872,3 +1872,260 @@ div that holds the feature-grid */
 .anuga-btn-view-results {
     font-size: 12px;
 }
+
+/* ── TASK-1433 (ISSUE 23): Mesh Regions / MeshWorkflow panel control stack ──
+ *
+ * MeshWorkflow (MeshWorkflow.js) renders a collapsible workflow panel beneath
+ * the mesh region list.  Before this rule-set there was NO CSS for any of the
+ * anuga-mesh-workflow-* classes, so the toggle button, preview button, estimate
+ * label, import/export buttons and hint text all crowded into an unstyled block.
+ *
+ * Fix: give the container a clean vertical-stack layout so every control sits
+ * on its own line with consistent padding/gap, matching the panel's dark-blue
+ * chrome (white text, rgba borders).
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Outer container — sits below .anuga-pane-rows, flex column */
+.anuga-mesh-workflow-container {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    padding-top: 4px;
+    margin-top: 4px;
+}
+
+/* Toggle button (btn btn-xs) — full-width, left-aligned */
+.anuga-mesh-workflow-toggle {
+    width: 100%;
+    text-align: left;
+    background-color: rgba(0, 0, 0, 0.15);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    border-radius: 3px;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.anuga-mesh-workflow-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.25);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.anuga-mesh-workflow-toggle.active {
+    background-color: rgba(0, 60, 136, 0.35);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Expanded panel — flex column, each section stacked with gap */
+.anuga-mesh-workflow-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 4px 4px;
+}
+
+/* Each workflow section (preview, estimate, import/export, hint) */
+.anuga-mesh-workflow-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Preview section: button + progress/result stacked */
+.anuga-mesh-workflow-preview {
+    align-items: flex-start;
+}
+
+.anuga-mesh-preview-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+}
+
+/* Progress bar track + fill */
+.anuga-mesh-preview-progress {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.anuga-mesh-preview-progress-bar-track {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.anuga-mesh-preview-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #397AAB 0%, #5a9dd1 100%);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+.anuga-mesh-preview-progress-pct {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.65);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.anuga-mesh-preview-progress-detail {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.60);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Preview result metrics / error */
+.anuga-mesh-preview-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.anuga-mesh-preview-count {
+    font-weight: 600;
+}
+
+.anuga-mesh-preview-qa {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 11px;
+}
+
+.anuga-mesh-preview-warn {
+    color: #f0ad4e;
+}
+
+/* "Too large" banner */
+.anuga-mesh-preview-too-large {
+    background: rgba(240, 173, 78, 0.12);
+    border-left: 3px solid #f0ad4e;
+    border-radius: 2px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.anuga-mesh-preview-warn-icon {
+    color: #f0ad4e;
+}
+
+.anuga-mesh-preview-note {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.anuga-mesh-preview-error {
+    font-size: 11.5px;
+    color: #f4b9b7;
+    background: rgba(217, 83, 79, 0.12);
+    border-left: 3px solid #d9534f;
+    padding: 4px 8px;
+    border-radius: 2px;
+}
+
+/* Cost estimate row */
+.anuga-mesh-workflow-estimate {
+    padding: 2px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.anuga-scenario-estimate-label {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* Import / Export buttons — side by side */
+.anuga-mesh-workflow-importexport {
+    flex-direction: row;
+    gap: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    padding-top: 2px;
+}
+
+.anuga-mesh-import-btn,
+.anuga-mesh-export-btn {
+    font-size: 11.5px;
+    padding: 3px 8px;
+}
+
+/* Mesh triangle layer section */
+.anuga-mesh-triangle-layer {
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    padding-top: 2px;
+}
+
+.anuga-mesh-add-layer-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+}
+
+.anuga-mesh-triangle-layer-added {
+    font-size: 11.5px;
+    color: #5cb85c;
+}
+
+/* Helper text */
+.anuga-mesh-workflow-hint {
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    padding-top: 4px;
+}
+
+.anuga-mesh-workflow-hint-text {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.45;
+    display: block;
+}
+
+/* Built meshes roster table */
+.anuga-built-mesh-roster {
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    padding-top: 4px;
+}
+
+.anuga-built-mesh-roster-header {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 4px;
+}
+
+.anuga-built-mesh-roster-empty {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    font-style: italic;
+}
+
+.anuga-built-mesh-roster-table {
+    width: 100%;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.80);
+    border-collapse: collapse;
+}
+
+.anuga-built-mesh-roster-table th {
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 600;
+    text-align: left;
+    padding: 2px 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.anuga-built-mesh-roster-table td {
+    padding: 3px 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── End TASK-1433 MeshWorkflow CSS ── */
