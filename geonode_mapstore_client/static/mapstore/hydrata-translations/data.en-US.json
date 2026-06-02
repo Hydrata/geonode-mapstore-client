@@ -203,6 +203,7 @@
         "memberRole": "Role",
         "memberUser": "User",
         "members": "Permissions",
+        "mesh": "Mesh",
         "meshRegions": "Mesh",
         "meshWillAppear": "Mesh will appear here when a Scenario is built.",
         "method": "Method",

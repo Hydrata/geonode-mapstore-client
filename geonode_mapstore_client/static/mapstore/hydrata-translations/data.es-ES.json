@@ -203,6 +203,7 @@
         "memberRole": "Rol",
         "memberUser": "Usuario",
         "members": "Miembros",
+        "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "El Mesh aparecerá aquí cuando se construya un escenario.",
         "method": "Método",
