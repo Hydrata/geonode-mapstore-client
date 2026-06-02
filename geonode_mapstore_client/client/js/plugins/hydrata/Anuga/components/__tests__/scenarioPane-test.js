@@ -925,13 +925,14 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
+        // TASK-1416: merged 'run' category → 3 items now.
         it('still renders the category rail when scenario is null (so user can browse)', (done) => {
             ReactDOM.render(
                 <ScenarioPane scenario={null} selectedCategoryId={'inputs'} />,
                 container,
                 () => {
                     const items = container.querySelectorAll('.anuga-scenario-category-item');
-                    expect(items.length).toBe(4);
+                    expect(items.length).toBe(3);
                     done();
                 }
             );

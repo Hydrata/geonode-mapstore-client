@@ -592,18 +592,18 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
             expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
         });
 
-        it('does not render a rail item with category id "runLog"', () => {
+        // TASK-1416: 3 items (inputs/advanced/run); runLog + runConfig + statusActions removed.
+        it('does not render a rail item with category id "runLog" (TASK-1416: 3 items now)', () => {
             const s1 = makeScenario(21, 'A');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            // Rail items now have 4 entries (inputs, advanced, runConfig,
-            // statusActions); runLog is removed from the rail data so
-            // the category-runLog label has no DOM hook.
+            // Rail items now have 3 entries (inputs, advanced, run); runLog and
+            // the separate runConfig/statusActions are merged into 'run'.
             const items = container.querySelectorAll('.anuga-scenario-category-item');
-            expect(items.length).toBe(4);
+            expect(items.length).toBe(3);
             // Walk all rail labels — none should textually claim runLog.
             const labels = Array.from(container.querySelectorAll('.anuga-scenario-category-item-label'))
                 .map(n => (n.textContent || '').toLowerCase());
