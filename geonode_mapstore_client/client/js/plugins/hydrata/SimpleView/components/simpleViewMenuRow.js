@@ -268,10 +268,13 @@ const ANUGA_FEATURE_CONFIG = {
             title: 'Rainfall',
             fields: [
                 {name: 'description', type: 'text', label: 'Title'},
+                // TASK-1419 (W5/ISSUE 12): unit='mm/hr' mirrors inf_'s unit='m³/s' pattern.
+                // run_anuga converts mm/hr → m/s via RAINFALL_FACTOR=1e-6. The label is
+                // rendered as a non-interactive suffix by ConstantInput when unit is set.
                 {name: 'data', type: 'discriminator-picker', label: 'Data',
                     choices: [
                         {kind: 'constant', label: 'Constant', render: ConstantInput,
-                            defaultValue: {constant: null}},
+                            defaultValue: {constant: null}, unit: 'mm/hr'},
                         {kind: 'timeseries', label: 'TimeSeries', fetch: fetchTimeSeries,
                             render: TimeSeriesSelect, defaultValue: {timeseries_id: null}}
                     ]}

@@ -511,6 +511,14 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             const constantChoice = f.choices.find(c => c.kind === 'constant');
             expect(constantChoice.unit).toBe('m³/s');
         });
+
+        it('rai_ data constant choice declares unit "mm/hr" (TASK-1419 / ISSUE 12)', () => {
+            // run_anuga converts mm/hr → m/s via RAINFALL_FACTOR=1e-6; the stored
+            // value is in mm/hr. The unit is rendered as a suffix by ConstantInput.
+            const f = ANUGA_FEATURE_CONFIG.rai_.formConfig.fields.find(x => x.name === 'data');
+            const constantChoice = f.choices.find(c => c.kind === 'constant');
+            expect(constantChoice.unit).toBe('mm/hr');
+        });
     });
 
     // Regression guard: text→select restoration. Originally a FeatureGrid
