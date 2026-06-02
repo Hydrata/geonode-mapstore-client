@@ -288,14 +288,14 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                 </span>
             </div>
             {/* W3.2 (TASK-1267) — pre-dispatch triangle count + cost estimate */}
-            {(scenario?.mesh_triangle_count_estimate != null || scenario?.compute_cost_estimate != null) && (
+            {((scenario?.mesh_triangle_count_estimate !== null && scenario?.mesh_triangle_count_estimate !== undefined) || (scenario?.compute_cost_estimate !== null && scenario?.compute_cost_estimate !== undefined)) && (
                 <div className="anuga-scenario-pane-section anuga-scenario-estimate-section">
                     <span className="anuga-scenario-estimate-label">
                         {'Estimate: '}
-                        {scenario.mesh_triangle_count_estimate != null
+                        {scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined
                             ? `~${Number(scenario.mesh_triangle_count_estimate).toLocaleString()} triangles`
                             : ''}
-                        {scenario.compute_cost_estimate != null
+                        {scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined
                             ? ` — ~$${scenario.compute_cost_estimate.toFixed(2)} vCPU-h`
                             : ''}
                     </span>

@@ -487,6 +487,18 @@
         "statusError": "Error",
         "statusCancelled": "Cancelada"
       }
+    },
+    "gnhome": {
+      "noContentYetTitle": "Bienvenido a Hydrata",
+      "noContentYetContent": "Aún no hay proyectos. Cree un nuevo proyecto para empezar.",
+      "noPublicContentTitle": "Bienvenido a Hydrata",
+      "noPublicContentContent": "Inicie sesión para ver sus proyectos.",
+      "noResultsWithFilterTitle": "Sin resultados",
+      "noResultsWithFilterContent": "Ningún proyecto coincide con los filtros seleccionados. Borre los filtros e inténtelo de nuevo."
+    },
+    "gnviewer": {
+      "pluginLoadError": "No se pudo cargar un componente de la página. Vuelva a cargar para intentarlo de nuevo.",
+      "reload": "Volver a cargar la página"
     }
   }
 }

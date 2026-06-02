@@ -9,7 +9,6 @@
  *     stamps singleTile:true, aborts in-flight on rapid pans
  */
 import expect from 'expect';
-import Rx from 'rxjs';
 import MockAdapter from 'axios-mock-adapter';
 import axios from '@mapstore/framework/libs/ajax';
 import { testEpic, addTimeoutEpic, TEST_TIMEOUT } from '@mapstore/framework/epics/__tests__/epicTestUtils';
@@ -37,7 +36,7 @@ const SAMPLE_ENV_PARAMS = {
     elevSeven: 660.000,
     elevEight: 740.000,
     elevNine: 820.000,
-    elevMax: 900.000,
+    elevMax: 900.000
 };
 
 const SAMPLE_BBOX_ACTION = {
@@ -152,7 +151,7 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
         id: 7,
         rendering_type: 'dynamic_dem',
         gn_layer_name: 'ele_7_my_dem_cog',
-        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/',
+        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/'
     };
     const demLayer = {
         id: 'ele-7-uuid',
@@ -160,13 +159,13 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
         name: 'ele_7_my_dem_cog',
         group: 'Input Data.Terrain',
         singleTile: false,
-        visibility: true,
+        visibility: true
     };
 
     it('returns pairs for matching dynamic_dem terrain + layer', () => {
         const state = makeState({
             terrains: [terrainReady],
-            layers: [demLayer],
+            layers: [demLayer]
         });
         const pairs = findDynamicDemPairs(state);
         expect(pairs.length).toBe(1);
@@ -177,7 +176,7 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
     it('returns empty when no layers match the terrain gn_layer_name', () => {
         const state = makeState({
             terrains: [terrainReady],
-            layers: [{ ...demLayer, name: 'completely_different_layer' }],
+            layers: [{ ...demLayer, name: 'completely_different_layer' }]
         });
         expect(findDynamicDemPairs(state)).toEqual([]);
     });
@@ -185,7 +184,7 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
     it('returns empty when rendering_type is not dynamic_dem', () => {
         const state = makeState({
             terrains: [{ ...terrainReady, rendering_type: 'static' }],
-            layers: [demLayer],
+            layers: [demLayer]
         });
         expect(findDynamicDemPairs(state)).toEqual([]);
     });
@@ -193,7 +192,7 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
     it('matches layer with geonode: prefix on the name', () => {
         const state = makeState({
             terrains: [terrainReady],
-            layers: [{ ...demLayer, name: 'geonode:ele_7_my_dem_cog' }],
+            layers: [{ ...demLayer, name: 'geonode:ele_7_my_dem_cog' }]
         });
         const pairs = findDynamicDemPairs(state);
         expect(pairs.length).toBe(1);
@@ -202,7 +201,7 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
     it('ignores non-terrain-group layers', () => {
         const state = makeState({
             terrains: [terrainReady],
-            layers: [{ ...demLayer, group: 'Results.Depth' }],
+            layers: [{ ...demLayer, group: 'Results.Depth' }]
         });
         expect(findDynamicDemPairs(state)).toEqual([]);
     });
@@ -223,7 +222,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
         id: 7,
         rendering_type: 'dynamic_dem',
         gn_layer_name: 'ele_7_my_dem_cog',
-        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/',
+        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/'
     };
     const demLayer = {
         id: 'ele-7-uuid',
@@ -231,7 +230,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
         name: 'ele_7_my_dem_cog',
         group: 'Input Data.Terrain',
         singleTile: true,
-        visibility: true,
+        visibility: true
     };
 
     it('dispatches CHANGE_LAYER_PARAMS with env= and _v_ bump on moveend', function(done) {
@@ -243,7 +242,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             elev_min: 100,
             elev_max: 900,
             bbox: [150.31, -33.67, 150.32, -33.66],
-            env_params: SAMPLE_ENV_PARAMS,
+            env_params: SAMPLE_ENV_PARAMS
         });
 
         // 1 action expected: CHANGE_LAYER_PARAMS carrying env= and _v_
@@ -280,7 +279,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                             `env missing key: ${k}`);
                     });
                 } catch (e) {
-                    return done(e);
+                    done(e); return;
                 }
                 done();
             },
@@ -297,7 +296,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
             elev_min: 100,
             elev_max: 900,
             bbox: [150.31, -33.67, 150.32, -33.66],
-            env_params: SAMPLE_ENV_PARAMS,
+            env_params: SAMPLE_ENV_PARAMS
         });
 
         // Expect 2 actions: CHANGE_LAYER_PROPERTIES (singleTile stamp) +
@@ -316,7 +315,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                         'singleTile:true stamp action not found'
                     );
                 } catch (e) {
-                    return done(e);
+                    done(e); return;
                 }
                 done();
             },
@@ -337,7 +336,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                 try {
                     expect(actions[0].type).toBe(TEST_TIMEOUT);
                 } catch (e) {
-                    return done(e);
+                    done(e); return;
                 }
                 done();
             },
@@ -363,7 +362,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                 try {
                     expect(actions[0].type).toBe(TEST_TIMEOUT);
                 } catch (e) {
-                    return done(e);
+                    done(e); return;
                 }
                 done();
             },
@@ -398,7 +397,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                 elev_min: 770,
                 elev_max: 1014,
                 bbox: [150.31, -33.67, 150.32, -33.66],
-                env_params: SAMPLE_ENV_PARAMS,
+                env_params: SAMPLE_ENV_PARAMS
             }];
         });
 
@@ -414,7 +413,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                         'env missing — bbox was likely sent as metres (EPSG:3857 reprojection bug)'
                     );
                 } catch (e) {
-                    return done(e);
+                    done(e); return;
                 }
                 done();
             },
@@ -444,7 +443,7 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
                     // singleTile is already true; API error caught; only timeout fires
                     expect(actions[0].type).toBe(TEST_TIMEOUT);
                 } catch (e) {
-                    return done(e);
+                    done(e); return;
                 }
                 done();
             },

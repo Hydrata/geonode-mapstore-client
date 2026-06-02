@@ -17,7 +17,6 @@ import {
     addAnugaInflow,
     addAnugaRainfall,
     addAnugaStructure,
-    addAnugaFullMesh,
     addAnugaMeshRegion,
     addNetwork,
     addCatchment,
@@ -224,7 +223,7 @@ class AnugaInputMenuClass extends React.Component {
         selectedScenario: PropTypes.object,
         // W5.3 (TASK-1275)
         flatLayers: PropTypes.array,
-        onAddMeshLayer: PropTypes.func,
+        onAddMeshLayer: PropTypes.func
     };
 
     static defaultProps = {}
@@ -308,7 +307,7 @@ class AnugaInputMenuClass extends React.Component {
             meshPreviewStatus: 'pending',
             meshPreviewProcessId: null,
             meshPreviewResult: null,
-            meshPreviewError: null,
+            meshPreviewError: null
         });
 
         fetch(
@@ -829,7 +828,7 @@ const mapStateToProps = (state) => {
         // W5.1 (TASK-1273) — Full scenario object for cost estimate in MeshWorkflow
         selectedScenario: getSelectedScenario(state),
         // W5.3 (TASK-1275) — Layer list to detect if mesh_triangle_render is already added
-        flatLayers: state?.layers?.flat || [],
+        flatLayers: state?.layers?.flat || []
     };
 };
 

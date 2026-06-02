@@ -153,9 +153,10 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             expect(names).toEqual(['description', 'mannings']);
         });
 
-        it('str_ exposes [description, method] in that order', () => {
+        it('str_ exposes [description, method, raised_height] in that order', () => {
+            // ADR-4 (TASK-1269) added the 'raised_height' field (shown when method=Raised).
             const names = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.map(f => f.name);
-            expect(names).toEqual(['description', 'method']);
+            expect(names).toEqual(['description', 'method', 'raised_height']);
         });
 
         it('mes_ exposes [description, resolution] in that order', () => {
@@ -490,9 +491,9 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             const f = ANUGA_FEATURE_CONFIG.mes_.formConfig.fields.find(x => x.name === 'resolution');
             expect(f.default).toBe(10);
         });
-        it('str_ method default is "Holes"', () => {
+        it('str_ method default is "Reflective"', () => {
             const f = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method');
-            expect(f.default).toBe('Holes');
+            expect(f.default).toBe('Reflective');
         });
         it('inf_ no longer has a type field (TASK-955 — Rainfall is now its own model)', () => {
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'type');
@@ -547,17 +548,17 @@ describe('TASK-793 SimpleView MenuRow routing', () => {
             const f = ANUGA_FEATURE_CONFIG.inf_.formConfig.fields.find(x => x.name === 'type');
             expect(f).toBe(undefined);
         });
-        it('str_ method is a select with Holes, Mannings, Reflective', () => {
+        it('str_ method is a select with Reflective, Mannings, Raised', () => {
             const f = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method');
             expect(f.type).toBe('select');
             const values = (f.options || []).map(o => o.value);
-            expect(values).toEqual(['Holes', 'Mannings', 'Reflective']);
+            expect(values).toEqual(['Reflective', 'Mannings', 'Raised']);
         });
         // TASK-827 (W4.1) — STRUCTURE_METHODS is the single source of truth for
         // the str_ method select. Mirrors the BE constant in
         // /opt/hydrata/apps/gn_anuga/models/scenario.py:STRUCTURE_METHODS.
         it('STRUCTURE_METHODS export matches str_ method options', () => {
-            expect(STRUCTURE_METHODS).toEqual(['Holes', 'Mannings', 'Reflective']);
+            expect(STRUCTURE_METHODS).toEqual(['Reflective', 'Mannings', 'Raised']);
             const opts = ANUGA_FEATURE_CONFIG.str_.formConfig.fields.find(x => x.name === 'method').options.map(o => o.value);
             expect(opts).toEqual(STRUCTURE_METHODS);
         });

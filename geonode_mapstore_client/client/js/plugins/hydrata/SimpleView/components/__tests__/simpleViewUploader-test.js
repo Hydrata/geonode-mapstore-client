@@ -111,7 +111,8 @@ describe('simpleViewUploader (TASK-599 /undefined/ URL guard)', () => {
             expect(url).toNotInclude('/undefined/');
             expect(url).toNotInclude('undefined');
             // Correct shape for the importer-create endpoint.
-            expect(url).toBe('https://hydrata.com/anuga/api/42/terrain/importer-create/');
+            // TASK-1287: host comes from window.location.origin (tunnel-aware), not serverUrl.
+            expect(url).toBe(`${window.location.origin}/anuga/api/42/terrain/importer-create/`);
             done();
         }, 50);
     });

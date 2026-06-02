@@ -487,6 +487,18 @@
         "statusError": "Erè",
         "statusCancelled": "Anile"
       }
+    },
+    "gnhome": {
+      "noContentYetTitle": "Byenveni nan Hydrata",
+      "noContentYetContent": "Pa gen pwojè pou kounye a. Kreye yon nouvo pwojè pou kòmanse.",
+      "noPublicContentTitle": "Byenveni nan Hydrata",
+      "noPublicContentContent": "Tanpri konekte pou wè pwojè ou yo.",
+      "noResultsWithFilterTitle": "Pa gen rezilta",
+      "noResultsWithFilterContent": "Pa gen pwojè ki koresponn ak filt ou chwazi yo. Efase filt yo epi eseye ankò."
+    },
+    "gnviewer": {
+      "pluginLoadError": "Yon eleman paj la pa t kapab chaje. Tanpri rechaje pou eseye ankò.",
+      "reload": "Rechaje paj la"
     }
   }
 }

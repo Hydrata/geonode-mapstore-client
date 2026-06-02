@@ -128,7 +128,8 @@ describe('TASK-743 simpleViewUploader DOM', () => {
             const url = putCalls[0];
             expect(url).toNotInclude('/undefined/');
             expect(url).toNotInclude('undefined');
-            expect(url).toBe('https://hydrata.com/anuga/api/42/terrain/importer-create/');
+            // TASK-1287: host comes from window.location.origin (tunnel-aware), not serverUrl.
+            expect(url).toBe(`${window.location.origin}/anuga/api/42/terrain/importer-create/`);
             done();
         }, 50);
     });
@@ -150,7 +151,8 @@ describe('TASK-743 simpleViewUploader DOM', () => {
             expect(putCalls.length).toBe(1);
             const url = putCalls[0];
             expect(url).toNotInclude('/undefined/');
-            expect(url).toBe('https://hydrata.com/anuga/api/42/terrain/9999/importer-config/');
+            // TASK-1287: host comes from window.location.origin (tunnel-aware), not serverUrl.
+            expect(url).toBe(`${window.location.origin}/anuga/api/42/terrain/9999/importer-config/`);
             done();
         }, 50);
     });

@@ -75,7 +75,7 @@ export function PreviewSection({status, result, error, hasScenario, onStart}) {
             resultLabel = (
                 <div className="anuga-mesh-preview-metrics">
                     <span className="anuga-mesh-preview-count">{(tc || 0).toLocaleString()} triangles</span>
-                    {qa.min_angle_deg != null && (
+                    {qa.min_angle_deg !== null && qa.min_angle_deg !== undefined && (
                         <span className="anuga-mesh-preview-qa">{'min angle: ' + qa.min_angle_deg + '°'}</span>
                     )}
                     {qa.sliver_count > 0 && (
@@ -135,8 +135,8 @@ PreviewSection.defaultProps = {
  */
 export function CostEstimateSection({scenario}) {
     if (!scenario) return null;
-    const hasTriangles = scenario.mesh_triangle_count_estimate != null;
-    const hasCost = scenario.compute_cost_estimate != null;
+    const hasTriangles = scenario.mesh_triangle_count_estimate !== null && scenario.mesh_triangle_count_estimate !== undefined;
+    const hasCost = scenario.compute_cost_estimate !== null && scenario.compute_cost_estimate !== undefined;
     if (!hasTriangles && !hasCost) return null;
 
     return (
