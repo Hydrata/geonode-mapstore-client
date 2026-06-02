@@ -459,7 +459,8 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     // Advanced pane (Pane 3)
     // ------------------------------------------------------------------
     describe('Advanced pane', () => {
-        it('renders 4 dropdowns', (done) => {
+        // TASK-1412 (ISSUE 20.3): network row removed; 3 dropdowns remain.
+        it('renders 3 dropdowns (network removed per ISSUE 20.3)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
@@ -475,7 +476,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     expect(container.querySelector('#friction')).toExist();
                     expect(container.querySelector('#structure')).toExist();
                     expect(container.querySelector('#mesh_region')).toExist();
-                    expect(container.querySelector('#network')).toExist();
+                    expect(container.querySelector('#network')).toNotExist();
                     done();
                 }
             );

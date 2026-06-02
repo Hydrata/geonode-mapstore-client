@@ -171,7 +171,12 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
     );
 }
 
-function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, structures, meshRegions, networks}) {
+// TASK-1412 (ISSUE 20.3): 'Network' row removed — not applicable in the
+// scenario-config context (per glossary: Mesh spec is the authored skeleton;
+// Network belongs in the Hydrology panel, not scenario inputs).
+// 'networks' prop intentionally not destructured to avoid breaking the
+// parent's prop-passing (anugaScenarioMenu still passes it for future use).
+function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, structures, meshRegions}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -183,8 +188,6 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
             {renderResourceSummary(scenario, 'structure', structures)}
             {renderSelectField('mesh_region', 'hydrata.anuga.meshRegions', scenario?.mesh_region, meshRegions, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'mesh_region', meshRegions)}
-            {renderSelectField('network', 'hydrata.anuga.network', scenario?.network, networks, !canEdit, handleField)}
-            {renderResourceSummary(scenario, 'network', networks)}
         </div>
     );
 }

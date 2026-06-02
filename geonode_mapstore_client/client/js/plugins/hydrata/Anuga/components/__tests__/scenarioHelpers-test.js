@@ -217,17 +217,19 @@ describe('TASK-C Wave 3A validateCategoryProgress', () => {
     });
 
     describe('advanced category', () => {
-        it('returns N/4 + ok even when nothing is assigned (advanced is optional)', () => {
+        // TASK-1412 (ISSUE 20.3): network removed from scenario-config Advanced
+        // pane; tag counts 3 fields (friction, structure, mesh_region) not 4.
+        it('returns N/3 + ok even when nothing is assigned (advanced is optional)', () => {
             const s = {name: 'empty'};
             const result = validateCategoryProgress('advanced', s);
-            expect(result.tag).toBe('0/4');
+            expect(result.tag).toBe('0/3');
             expect(result.severity).toBe('ok');
         });
 
-        it('returns 3/4 + ok when 3 advanced fields are assigned', () => {
+        it('returns 3/3 + ok when all 3 advanced fields are assigned', () => {
             const s = {friction: 1, structure: 2, mesh_region: 3};
             const result = validateCategoryProgress('advanced', s);
-            expect(result.tag).toBe('3/4');
+            expect(result.tag).toBe('3/3');
             expect(result.severity).toBe('ok');
         });
     });

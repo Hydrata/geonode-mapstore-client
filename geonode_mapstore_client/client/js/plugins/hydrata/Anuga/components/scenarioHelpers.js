@@ -148,7 +148,9 @@ export const validateCategoryProgress = (category, scenario) => {
     }
 
     if (category === 'advanced') {
-        const fields = ['friction', 'structure', 'mesh_region', 'network'];
+        // TASK-1412 (ISSUE 20.3): 'network' removed from the scenario-config
+        // advanced pane; the tag counts only the 3 remaining optional fields.
+        const fields = ['friction', 'structure', 'mesh_region'];
         const satisfied = fields.filter(f => scenario[f] != null && scenario[f] !== '').length; // eslint-disable-line no-eq-null, eqeqeq
         const total = fields.length;
         // Advanced fields are optional; never err.
