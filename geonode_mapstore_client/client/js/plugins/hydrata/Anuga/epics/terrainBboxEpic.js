@@ -34,7 +34,7 @@ import {
     setTerrainBboxError,
     setTerrainBboxConfirm
 } from "../actionsAnuga";
-import { END_DRAWING } from '../../../../../MapStore2/web/client/actions/draw';
+import { END_DRAWING, changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import { reproject } from '../../../../../MapStore2/web/client/utils/CoordinatesUtils';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
 import * as anugaApi from '../api/anugaApi';
@@ -101,12 +101,29 @@ export function extractBboxFromDrawAction(action) {
 }
 
 /**
+ * Reset the MapStore draw interaction after a terrain-bbox draw completes.
+ *
+ * TASK-1406 (ISSUE 8): without this, MapStore's draw reducer retains
+ * drawMethod='BBOX' / drawOwner='terrain-bbox' after END_DRAWING fires.
+ * The next consumer (e.g. the boundary editor) sees the stale 'BBOX' drawMethod
+ * and its own changeDrawingStatus('drawOrEdit') starts in rectangle mode instead
+ * of the boundary's polygon/line geometry. Dispatching 'stop' clears the draw
+ * state so owner-isolation is guaranteed: the terrain-bbox tool leaves no
+ * residual drawMethod when it hands off to the next interaction.
+ */
+const TERRAIN_BBOX_DRAW_RESET = changeDrawingStatus('stop', '', 'terrain-bbox', [], {});
+
+/**
  * Listen for END_DRAWING events tagged for 'terrain-bbox'. On a readable
  * extent, stash the bbox + its geodesic area and OPEN the confirmation popup
  * (setTerrainBboxConfirm) so the user reviews the selection before the create
  * POST fires. The popup itself decides whether Confirm is enabled (area must be
  * <= MAX_AREA_KM2). The coarse degree-span pre-check only rejects unreadable /
  * pathological extents up front; the real ceiling is enforced in the popup.
+ *
+ * TASK-1406: the draw interaction is stopped (changeDrawingStatus 'stop') on
+ * EVERY END_DRAWING branch so the draw reducer is always clean when the next
+ * map interaction starts.
  */
 export const terrainBboxEndDrawingEpic = (action$) =>
     action$.ofType(END_DRAWING)
@@ -114,7 +131,10 @@ export const terrainBboxEndDrawingEpic = (action$) =>
         .switchMap((action) => {
             const bbox = extractBboxFromDrawAction(action);
             if (!bbox) {
-                return Rx.Observable.of(setTerrainBboxError('hydrata.anuga.terrainBboxInvalid'));
+                return Rx.Observable.of(
+                    TERRAIN_BBOX_DRAW_RESET,
+                    setTerrainBboxError('hydrata.anuga.terrainBboxInvalid')
+                );
             }
             const [minLon, minLat, maxLon, maxLat] = bbox;
             const spanLon = Math.abs(maxLon - minLon);
@@ -123,6 +143,7 @@ export const terrainBboxEndDrawingEpic = (action$) =>
                 // Almost certainly a mis-draw (e.g. spanning the antimeridian).
                 // Stash the bbox so the user sees what they drew, plus the error.
                 return Rx.Observable.of(
+                    TERRAIN_BBOX_DRAW_RESET,
                     setTerrainBbox(bbox),
                     setTerrainBboxError('hydrata.anuga.terrainBboxInvalid')
                 );
@@ -130,7 +151,10 @@ export const terrainBboxEndDrawingEpic = (action$) =>
             const areaKm2 = bboxAreaKm2(bbox);
             // Stash the bbox, clear any prior inline error, then open the popup
             // with the computed area. Confirm/Re-select live in the popup.
+            // TASK-1406: always reset the draw interaction so the BBOX drawMethod
+            // doesn't leak into the next tool (e.g. boundary editor).
             return Rx.Observable.of(
+                TERRAIN_BBOX_DRAW_RESET,
                 setTerrainBbox(bbox),
                 setTerrainBboxError(null),
                 setTerrainBboxConfirm(true, areaKm2)
