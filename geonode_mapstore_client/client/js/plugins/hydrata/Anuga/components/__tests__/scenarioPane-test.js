@@ -378,19 +378,22 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 );
             });
 
-            it('tags Run config wrappers with .is-readonly when canEdit=false', (done) => {
+            it('tags Run config wrappers with .is-readonly when canEdit=false (superuser sees 3, non-su sees 2)', (done) => {
+                // TASK-1415: compute_backend only rendered for superusers.
+                // Non-superuser: resolution + duration = 2 wrappers.
                 ReactDOM.render(
                     <ScenarioPane
                         scenario={baseScenario}
                         selectedCategoryId={'runConfig'}
+                        isSuperuser={false}
                     />,
                     container,
                     () => {
                         const readonlyWrappers = container.querySelectorAll(
                             '.anuga-scenario-pane-field.is-readonly'
                         );
-                        // resolution + duration + compute_backend = 3 wrappers.
-                        expect(readonlyWrappers.length).toBe(3);
+                        // resolution + duration = 2 wrappers (compute_backend hidden for non-superuser).
+                        expect(readonlyWrappers.length).toBe(2);
                         done();
                     }
                 );
@@ -503,18 +506,41 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     // Run config pane (Pane 3) — NEW
     // ------------------------------------------------------------------
     describe('Run config pane', () => {
-        it('renders resolution + duration + compute_backend', (done) => {
+        it('renders resolution + duration; compute_backend hidden for non-superusers (TASK-1415)', (done) => {
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
                     selectedCategoryId={'runConfig'}
                     canEdit
+                    isSuperuser={false}
                 />,
                 container,
                 () => {
                     expect(container.querySelector('#resolution')).toExist();
                     expect(container.querySelector('#duration')).toExist();
+                    expect(container.querySelector('#compute_backend')).toNotExist();
+                    done();
+                }
+            );
+        });
+
+        it('renders compute_backend for superusers (TASK-1415)', (done) => {
+            ReactDOM.render(
+                <ScenarioPane
+                    scenario={baseScenario}
+                    selectedCategoryId={'runConfig'}
+                    canEdit
+                    isSuperuser
+                />,
+                container,
+                () => {
                     expect(container.querySelector('#compute_backend')).toExist();
+                    // Only Local and Cloud options (no ec2)
+                    const opts = Array.from(container.querySelectorAll('#compute_backend option'));
+                    const vals = opts.map(o => o.value);
+                    expect(vals).toNotInclude('ec2');
+                    expect(vals).toInclude('local');
+                    expect(vals).toInclude('batch');
                     done();
                 }
             );
@@ -628,13 +654,15 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
             );
         });
 
-        it('compute_backend select dispatches onUpdateScenario', (done) => {
+        // TASK-1415: compute_backend visible only for superusers; pass isSuperuser
+        it('compute_backend select dispatches onUpdateScenario (superuser)', (done) => {
             let captured = null;
             ReactDOM.render(
                 <ScenarioPane
                     scenario={baseScenario}
                     selectedCategoryId={'runConfig'}
                     canEdit
+                    isSuperuser
                     onUpdateScenario={(s, kv) => { captured = kv; }}
                 />,
                 container,

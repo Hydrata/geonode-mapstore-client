@@ -128,6 +128,7 @@ class AnugaScenarioMenuClass extends React.Component {
       meshRegions: PropTypes.array,
       networks: PropTypes.array,
       computeInstances: PropTypes.array,
+      isSuperuser: PropTypes.bool,
       canCreateScenario: PropTypes.bool,
       canRunScenario: PropTypes.bool,
       myRole: PropTypes.string,
@@ -349,6 +350,7 @@ class AnugaScenarioMenuClass extends React.Component {
           selectedScenario,
           myRole,
           currentUserId,
+          isSuperuser,
           terrain,
           boundaries,
           inflows,
@@ -371,6 +373,7 @@ class AnugaScenarioMenuClass extends React.Component {
               canEdit={canEdit}
               canRunScenario={this.props.canRunScenario}
               currentUserId={currentUserId}
+              isSuperuser={!!isSuperuser}
               terrain={terrain}
               boundaries={boundaries}
               inflows={inflows}
@@ -576,6 +579,7 @@ const mapStateToProps = (state) => {
         meshRegions: state?.anuga?.resources?.meshRegions,
         networks: state?.anuga?.resources?.networks,
         computeInstances: state?.anuga?.resources?.computeInstances,
+        isSuperuser: !!(state?.security?.user?.is_superuser),
         canCreateScenario: canCreateScenario(state),
         canRunScenario: canRunScenario(state),
         myRole: getProjectMyRole(state),

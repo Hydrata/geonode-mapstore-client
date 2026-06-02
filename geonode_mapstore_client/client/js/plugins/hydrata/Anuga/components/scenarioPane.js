@@ -192,7 +192,16 @@ function renderAdvancedPane({scenario, canEdit, onUpdateScenario, frictions, str
     );
 }
 
-function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstances}) {
+// TASK-1415 (ISSUE 20.6): compute selector is superuser-only (advisory FE gate;
+// real enforcement is server-side in StartRunView.post). Shows Local/Cloud only
+// (not raw enum values like 'ec2'). Mapping: local→"Local", batch→"Cloud".
+const COMPUTE_LABEL_MAP = {local: 'Local', batch: 'Cloud'};
+const SUPERUSER_COMPUTE_OPTIONS = [
+    {value: 'local', label: 'Local'},
+    {value: 'batch', label: 'Cloud'}
+];
+
+function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstances, isSuperuser}) {
     const handleField = (kv) => {
         if (onUpdateScenario) onUpdateScenario(scenario, kv);
     };
@@ -258,36 +267,45 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                     <span className="anuga-scenario-pane-field-unit">hh:mm</span>
                 </div>
             </div>
-            <div className="anuga-scenario-pane-section">
-                <label className="anuga-scenario-pane-label" htmlFor="compute_backend">
-                    <Message msgId="hydrata.anuga.computeBackend" />
-                </label>
-                <div className={selectFieldClass}>
-                    <select
-                        id="compute_backend"
-                        className="scenario-select"
-                        value={scenario?.compute_backend || ''}
-                        disabled={!canEdit}
-                        onChange={handleBackendChange}
-                    >
-                        <option value="">-</option>
-                        {(Array.isArray(computeInstances) && computeInstances.length > 0)
-                            ? computeInstances.map((opt, idx) => (
-                                <option key={idx} value={opt.value || opt.id || opt}>
-                                    {opt.label || opt.title || opt.name || (opt.value || opt.id || opt)}
-                                </option>
-                            ))
-                            : (
-                                <React.Fragment>
-                                    <option value="local">Local</option>
-                                    <option value="ec2">EC2</option>
-                                    <option value="batch">AWS Batch</option>
-                                </React.Fragment>
-                            )
-                        }
-                    </select>
+            {/* TASK-1415: compute selector is superuser-only (FE advisory gate;
+                  server-side enforcement is in StartRunView.post). Non-superusers
+                  never see this field — the backend ignores their compute_backend
+                  and always uses ANUGA_DEFAULT_COMPUTE_BACKEND. */}
+            {isSuperuser ? (
+                <div className="anuga-scenario-pane-section">
+                    <label className="anuga-scenario-pane-label" htmlFor="compute_backend">
+                        <Message msgId="hydrata.anuga.computeBackend" />
+                    </label>
+                    <div className={selectFieldClass}>
+                        <select
+                            id="compute_backend"
+                            className="scenario-select"
+                            value={scenario?.compute_backend || ''}
+                            disabled={!canEdit}
+                            onChange={handleBackendChange}
+                        >
+                            <option value="">-</option>
+                            {(Array.isArray(computeInstances) && computeInstances.length > 0)
+                                ? computeInstances.filter(opt => {
+                                    // Only show options that map to Local or Cloud.
+                                    const val = opt.value || opt.id || opt;
+                                    return COMPUTE_LABEL_MAP[val] !== undefined;
+                                }).map((opt, idx) => {
+                                    const val = opt.value || opt.id || opt;
+                                    return (
+                                        <option key={idx} value={val}>
+                                            {COMPUTE_LABEL_MAP[val] || opt.label || val}
+                                        </option>
+                                    );
+                                })
+                                : SUPERUSER_COMPUTE_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))
+                            }
+                        </select>
+                    </div>
                 </div>
-            </div>
+            ) : null}
             <div className="anuga-scenario-pane-section anuga-scenario-pane-section--help">
                 <span className="anuga-scenario-pane-help">
                     <Message msgId="hydrata.anuga.runConfigHelp" />
@@ -473,6 +491,7 @@ ScenarioPane.propTypes = {
     onSelectCategory: PropTypes.func,
     canEdit: PropTypes.bool,
     canRunScenario: PropTypes.bool,
+    isSuperuser: PropTypes.bool,
     currentUserId: PropTypes.number,
     terrain: PropTypes.array,
     boundaries: PropTypes.array,
@@ -496,7 +515,8 @@ ScenarioPane.propTypes = {
 ScenarioPane.defaultProps = {
     selectedCategoryId: 'inputs',
     canEdit: false,
-    canRunScenario: false
+    canRunScenario: false,
+    isSuperuser: false
 };
 
 export {ScenarioPane, VALID_CATEGORIES};
