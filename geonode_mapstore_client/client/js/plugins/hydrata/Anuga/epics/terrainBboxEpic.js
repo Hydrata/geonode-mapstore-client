@@ -37,6 +37,8 @@ import {
 import { END_DRAWING, changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import { reproject } from '../../../../../MapStore2/web/client/utils/CoordinatesUtils';
 import { show } from '../../../../../MapStore2/web/client/actions/notifications';
+// ISSUE 3 (TASK-1426): auto-open Task Manager when terrain download starts.
+import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
 import * as anugaApi from '../api/anugaApi';
 import { getProjectId } from "../selectorsAnuga";
 
@@ -197,7 +199,12 @@ export const createTerrainFromBboxEpic = (action$, store) =>
                     source: 'copernicus_glo30',
                     bbox: action.bbox
                 }))
-                .switchMap((response) => Rx.Observable.of(createTerrainFromBboxSuccess(response?.data)))
+                .switchMap((response) => Rx.Observable.from([
+                    // ISSUE 3 (TASK-1426): open Task Manager so the user sees the
+                    // download progress immediately after the request is accepted.
+                    toggleTaskMonitorPanel(true),
+                    createTerrainFromBboxSuccess(response?.data)
+                ]))
                 .catch((err) => Rx.Observable.of(
                     createTerrainFromBboxError(extractCreateErrorMessage(err))
                 ));
