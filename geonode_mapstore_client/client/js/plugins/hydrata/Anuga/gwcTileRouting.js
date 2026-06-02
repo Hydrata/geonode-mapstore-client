@@ -164,3 +164,47 @@ export function routeLayerTileSource(layerConfig, format = 'image/png') {
     }
     return applyGwcRouting(layerConfig, format);
 }
+
+/**
+ * Build the MapStore2 layer config for the mesh triangle render layer (W6 TASK-1423).
+ *
+ * Single source of truth for the authenticated GWC MVT layer config used by
+ * both MeshTriangleLayerSection (manual add button) and _autoAddMeshLayerAndZoom
+ * (auto-add on successful preview).  Extracted here so the two call sites share
+ * identical params + tileUrl construction.
+ *
+ * WHY explicit token injection:
+ *   GWC_WMTS_ENDPOINT is a relative URL (/geoserver/gwc/service/wmts).
+ *   MapStore's authenticationRules match absolute GeoServer URLs
+ *   (https://{site}/geoserver/.*), so addAuthenticationParameter() does NOT
+ *   fire for relative URLs — the token must be injected explicitly here.
+ *
+ * @param {string|null} token - OAuth2 access token from SecurityUtils.getToken().
+ *   When null/undefined the layer is built without access_token (anon session).
+ * @returns {Object} MapStore2 WMS layer config ready to dispatch via addLayer().
+ */
+export function buildMeshTriangleLayer(token) {
+    const LAYER_NAME = 'geonode:mesh_triangle_render';
+    const params = {
+        LAYERS: LAYER_NAME,
+        FORMAT: 'image/png',
+        TRANSPARENT: true,
+        VERSION: '1.1.1',
+        TILED: true,
+        ...(token ? {access_token: token} : {})
+    };
+    const baseTileUrls = buildGwcMvtTileUrls(LAYER_NAME);
+    const tileUrls = token
+        ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
+        : baseTileUrls;
+    return {
+        type: 'wms',
+        url: GWC_WMTS_ENDPOINT,
+        name: LAYER_NAME,
+        title: 'Mesh triangles',
+        visibility: true,
+        group: 'Input Data.Mesh',
+        params,
+        tileUrls
+    };
+}

@@ -20,6 +20,7 @@ import {
     buildGwcMvtTileUrls,
     applyGwcRouting,
     routeLayerTileSource,
+    buildMeshTriangleLayer,
     GWC_WMTS_ENDPOINT,
     GWC_TILEMATRIXSET,
     DIRECT_WMS_ENDPOINT
@@ -298,6 +299,56 @@ describe('gwcTileRouting — routeLayerTileSource', () => {
         const originalUrl = layer.url;
         routeLayerTileSource(layer);
         expect(layer.url).toBe(originalUrl);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// buildMeshTriangleLayer — authenticated mesh layer config helper (W6 TASK-1423)
+// ---------------------------------------------------------------------------
+
+describe('gwcTileRouting — buildMeshTriangleLayer', () => {
+
+    it('returns a wms layer with the correct name and GWC url', () => {
+        const layer = buildMeshTriangleLayer(null);
+        expect(layer.type).toBe('wms');
+        expect(layer.name).toBe('geonode:mesh_triangle_render');
+        expect(layer.url).toBe(GWC_WMTS_ENDPOINT);
+        expect(layer.group).toBe('Input Data.Mesh');
+        expect(layer.visibility).toBe(true);
+    });
+
+    it('params include LAYERS, FORMAT, TILED, TRANSPARENT, VERSION when token is null', () => {
+        const layer = buildMeshTriangleLayer(null);
+        expect(layer.params.LAYERS).toBe('geonode:mesh_triangle_render');
+        expect(layer.params.FORMAT).toBe('image/png');
+        expect(layer.params.TILED).toBe(true);
+        expect(layer.params.TRANSPARENT).toBe(true);
+        expect(layer.params.VERSION).toBe('1.1.1');
+        expect(layer.params.access_token).toNotExist();
+    });
+
+    it('params include access_token when token is provided', () => {
+        const layer = buildMeshTriangleLayer('test-token-abc');
+        expect(layer.params.access_token).toBe('test-token-abc');
+    });
+
+    it('tileUrls array contains the WMTS endpoint and layer name', () => {
+        const layer = buildMeshTriangleLayer(null);
+        expect(Array.isArray(layer.tileUrls)).toBe(true);
+        expect(layer.tileUrls.length).toBeGreaterThan(0);
+        expect(layer.tileUrls[0]).toContain(GWC_WMTS_ENDPOINT);
+        expect(layer.tileUrls[0]).toContain('geonode:mesh_triangle_render');
+    });
+
+    it('tileUrls include encoded access_token when token is provided', () => {
+        const layer = buildMeshTriangleLayer('my token');
+        // Token should be URL-encoded in tileUrls
+        expect(layer.tileUrls[0]).toContain('access_token=my%20token');
+    });
+
+    it('tileUrls do NOT include access_token when token is null', () => {
+        const layer = buildMeshTriangleLayer(null);
+        expect(layer.tileUrls[0]).toNotContain('access_token');
     });
 });
 

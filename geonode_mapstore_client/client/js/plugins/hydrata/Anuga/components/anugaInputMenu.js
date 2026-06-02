@@ -50,9 +50,11 @@ import {MeshWorkflow} from "./MeshWorkflow";
 import {addLayer} from "../../../../../MapStore2/web/client/actions/layers";
 // W6 (TASK-1422): zoom to mesh extent after successful preview.
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
-// W6 (TASK-1423): read user token for authenticated mesh tile requests.
+// W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
+import {buildMeshTriangleLayer} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
-import {buildGwcMvtTileUrls, GWC_WMTS_ENDPOINT} from "../gwcTileRouting";
+// W6 (TASK-1422): MapStore2 utility for computing extent from a GeoJSON object.
+import CoordinatesUtils from "../../../../../MapStore2/web/client/utils/CoordinatesUtils";
 
 const ACTIVE_TM_STATES = new Set(['pending', 'running']);
 const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'Structure', 'MeshRegion'];
@@ -426,57 +428,19 @@ class AnugaInputMenuClass extends React.Component {
         const MESH_RENDER_LAYER = 'geonode:mesh_triangle_render';
         const isMeshLayerAdded = (this.props.flatLayers || []).some(l => l?.name === MESH_RENDER_LAYER);
         if (!isMeshLayerAdded) {
-            // Build the authenticated mesh layer — mirrors MeshTriangleLayerSection (W6 TASK-1423).
-            const token = getToken();
-            const params = {
-                LAYERS: MESH_RENDER_LAYER,
-                FORMAT: 'image/png',
-                TRANSPARENT: true,
-                VERSION: '1.1.1',
-                TILED: true,
-                ...(token ? {access_token: token} : {})
-            };
-            const baseTileUrls = buildGwcMvtTileUrls(MESH_RENDER_LAYER);
-            const tileUrls = token
-                ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
-                : baseTileUrls;
-            const meshLayer = {
-                type: 'wms',
-                url: GWC_WMTS_ENDPOINT,
-                name: MESH_RENDER_LAYER,
-                title: 'Mesh triangles',
-                visibility: true,
-                group: 'Input Data.Mesh',
-                params,
-                tileUrls
-            };
-            this.props.onAddMeshLayer && this.props.onAddMeshLayer(meshLayer);
+            // buildMeshTriangleLayer (gwcTileRouting) is the single source of truth
+            // for the authenticated GWC MVT layer config (shared with MeshTriangleLayerSection).
+            this.props.onAddMeshLayer && this.props.onAddMeshLayer(buildMeshTriangleLayer(getToken()));
         }
 
         // W6 (TASK-1422): zoom to mesh bbox from preview GeoJSON FeatureCollection.
         // geometry is WGS84 (EPSG:4326) — preview_mesh_async reprojects to WGS84.
+        // CoordinatesUtils.getGeoJSONExtent handles FeatureCollection → [minX, minY, maxX, maxY].
         const geometry = result.geometry;
         if (!geometry || !geometry.features || geometry.features.length === 0) return;
-
-        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-        geometry.features.forEach(f => {
-            if (f.geometry && f.geometry.coordinates) {
-                f.geometry.coordinates.forEach(ring => {
-                    ring.forEach(([lng, lat]) => {
-                        if (lng < minLng) minLng = lng;
-                        if (lat < minLat) minLat = lat;
-                        if (lng > maxLng) maxLng = lng;
-                        if (lat > maxLat) maxLat = lat;
-                    });
-                });
-            }
-        });
-        if (isFinite(minLng)) {
-            this.props.onZoomToExtent && this.props.onZoomToExtent(
-                [minLng, minLat, maxLng, maxLat],
-                'EPSG:4326',
-                18
-            );
+        const extent = CoordinatesUtils.getGeoJSONExtent(geometry);
+        if (extent && isFinite(extent[0])) {
+            this.props.onZoomToExtent && this.props.onZoomToExtent(extent, 'EPSG:4326', 18);
         }
     };
 
@@ -729,14 +693,12 @@ class AnugaInputMenuClass extends React.Component {
             : null;
 
         // W5.1: MeshWorkflow state
-        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen, meshPreviewProgress} = this.state;
+        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen, meshPreviewProgress, builtMeshes} = this.state;
         const hasScenario = !!this.props.selectedScenarioId;
         const scenario = this.props.selectedScenario || null;
         // W5.3: check if the mesh triangle render layer is already in the flat layer list
         const MESH_RENDER_LAYER = 'geonode:mesh_triangle_render';
         const isMeshLayerAdded = (this.props.flatLayers || []).some(l => l?.name === MESH_RENDER_LAYER);
-        // W6 (TASK-1424): built meshes for the selected scenario (component local state)
-        const builtMeshes = this.state.builtMeshes;
 
         return (
             <div className="menu-rows-pane anuga-pane">
@@ -756,7 +718,7 @@ class AnugaInputMenuClass extends React.Component {
                         status: meshPreviewStatus,
                         result: meshPreviewResult,
                         error: meshPreviewError,
-                        progress: meshPreviewProgress
+                        progress: meshPreviewProgress  // null when not polling
                     }}
                     onStartPreview={this._startMeshPreview}
                     hasScenario={hasScenario}

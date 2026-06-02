@@ -33,7 +33,7 @@
 
 import React from 'react';
 const PropTypes = require('prop-types');
-import { buildGwcMvtTileUrls, GWC_WMTS_ENDPOINT } from '../gwcTileRouting';
+import { buildMeshTriangleLayer } from '../gwcTileRouting';
 import { getToken } from '../../../../../MapStore2/web/client/utils/SecurityUtils';
 
 // Inline Spinner from React-Spinner (already a MapStore2 dep via anugaInputMenu).
@@ -257,47 +257,11 @@ export function ImportExportSection() {
  *   GeoFence rule — see epic 1321 TASK-1372).
  */
 export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
-    const LAYER_NAME = 'geonode:mesh_triangle_render';
-
-    // W6 (TASK-1423): inject access_token so GWC authenticates the tile request.
-    // getToken() returns the current user's OAuth2 access token stored in the
-    // MapStore security state (set by AppUtils when the user logs in).
-    const token = getToken();
-
-    // Build params: include access_token when available (authed-only, not anon).
-    const params = {
-        LAYERS: LAYER_NAME,
-        FORMAT: 'image/png',
-        TRANSPARENT: true,
-        VERSION: '1.1.1',
-        TILED: true,
-        ...(token ? {access_token: token} : {})
-    };
-
-    // Build tile URLs: append access_token query param to each WMTS template.
-    const baseTileUrls = buildGwcMvtTileUrls(LAYER_NAME);
-    const tileUrls = token
-        ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
-        : baseTileUrls;
-
-    const meshLayer = {
-        type: 'wms',
-        // Route via centralized GWC WMTS helper (TASK-1323 W2).
-        // Mesh triangles are a shareable MVT layer — no per-session env= or CQL.
-        url: GWC_WMTS_ENDPOINT,
-        name: LAYER_NAME,
-        title: 'Mesh triangles',
-        visibility: true,
-        // Group matches the 'Input Data.Mesh Regions' convention so the layer
-        // appears in the Mesh section of the Anuga rail. Using a bare 'Mesh'
-        // string would create an orphan group outside the expected hierarchy.
-        group: 'Input Data.Mesh',
-        params,
-        // GWC tile URL for MVT when vectortiles plugin is installed.
-        // Built via centralized helper — ensures EPSG:900913 gridset fleet-wide.
-        // access_token appended for authenticated GWC tile fetches (W6 TASK-1423).
-        tileUrls
-    };
+    // W6 (TASK-1423): build the authenticated mesh layer via the shared helper in
+    // gwcTileRouting.js (buildMeshTriangleLayer).  getToken() is called here so
+    // the token is fresh at button-render time; the helper is the single source of
+    // truth for params + tileUrl construction.
+    const meshLayer = buildMeshTriangleLayer(getToken());
 
     if (isLayerAdded) {
         return (
@@ -444,7 +408,7 @@ export function MeshWorkflow({
                         error={previewState.error}
                         hasScenario={hasScenario}
                         onStart={onStartPreview}
-                        progress={previewState.progress || null}
+                        progress={previewState.progress}
                     />
                     <CostEstimateSection scenario={scenario}/>
                     {/* W5.3 (TASK-1275) — Add mesh triangle layer button (below render threshold only) */}
