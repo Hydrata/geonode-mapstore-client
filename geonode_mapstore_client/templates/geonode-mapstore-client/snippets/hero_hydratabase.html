@@ -7,9 +7,7 @@
         <div class="gn-hero-description">
             <h1 class="hydrata-hero-h1">{% trans "Hydrata" %}</h1>
             <p class="hydrata-hero-verbs">{% trans "Model floods in the browser." %}</p>
-            <p>{% trans "Build and run hydraulic models on the platform. Shared models are free — make one private anytime." %}</p>
-            <p class="hydrata-hero-tagline">{% trans "Verified by independent chartered engineers." %}</p>
-            <a href="#signup_form" class="btn btn-success btn-lg hydrata-hero-cta">{% trans "Create your account" %}</a>
+            <p>{% trans "Build and run hydraulic models on the platform. Publicly shared models are free — make one private anytime." %}</p>
         </div>
     </div>
 </div>
@@ -32,12 +30,6 @@
     </div>
 </div>
 {% else %}
-
-<div class="hydrata-trust-bar">
-    <div class="container">
-        <p class="hydrata-trust-engines">{% trans "Browser-based hydraulic modelling for engineers and researchers." %}</p>
-    </div>
-</div>
 
 <div id="main-content" class="container">
     <div id="home-page-forms">
@@ -179,29 +171,8 @@
 </div>
 
 <div class="container">
-    <section class="hydrata-what-we-do">
-        <h2>{% trans "What you can do" %}</h2>
-        <div class="hydrata-value-cards">
-            <div class="hydrata-value-card">
-                <h3>{% trans "Model" %}</h3>
-                <p>{% trans "Import topography, draw boundaries, and build a 2D hydraulic model in the browser. No local install required." %}</p>
-            </div>
-            <div class="hydrata-value-card">
-                <h3>{% trans "Run" %}</h3>
-                <p>{% trans "Execute ANUGA simulations in the cloud. Results appear in the live portal as the run completes." %}</p>
-            </div>
-            <div class="hydrata-value-card">
-                <h3>{% trans "Share" %}</h3>
-                <p>{% trans "Shared models are discoverable by default. Make a model private anytime — your data, your choice." %}</p>
-            </div>
-            <div class="hydrata-value-card">
-                <h3>{% trans "Verify" %}</h3>
-                <p>{% trans "Need an independent sign-off? A chartered-engineer verification is available as an add-on engagement." %}</p>
-            </div>
-        </div>
-    </section>
     <aside class="hydrata-principle-callout">
-        <p>{% trans "Shared models are free. Keep it private if your project requires it." %}</p>
+        <p>{% trans "Publicly shared models are free. Keep it private if your project requires it." %}</p>
     </aside>
 </div>
 {% endif %}

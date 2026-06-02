@@ -11,7 +11,7 @@
         <div class="row">
             <div class="col-md-8 col-md-offset-2 text-center">
                 <p style="color: #4a5568; font-size: 16px; line-height: 1.7;">
-                    {% trans "Build and run 2D hydraulic models in the browser. Shared models are free — discoverable by the community. Make any model private when your project requires it." %}
+                    {% trans "Build and run 2D hydraulic models in the browser. Publicly shared models are free — discoverable by the community. Make any model private when your project requires it." %}
                 </p>
             </div>
         </div>
@@ -29,11 +29,6 @@
                 <p>{% trans "Shared models are the default: discoverable by the community. Upgrade to Private models when confidentiality matters." %}</p>
             </div>
         </div>
-        <div class="row" style="margin-top: 24px;">
-            <div class="col-md-12 text-center">
-                <a href="/#signup_form" class="btn hydrata-btn-primary btn-lg">{% trans "Create your account" %}</a>
-            </div>
-        </div>
     </div>
 
     <hr class="featurette-divider">
@@ -43,7 +38,7 @@
             <div class="col-md-8 col-md-offset-2 text-center">
                 <h3>{% trans "Need a done-for-you review?" %}</h3>
                 <p style="color: #4a5568; font-size: 15px; line-height: 1.7;">
-                    {% trans "Talk to us about an engagement. A Hydrata analyst runs the verification on your model and delivers a chartered-engineer sign-off in a live review portal. Independent third-party review." %}
+                    {% trans "Talk to us about an engagement. A Hydrata analyst runs the verification on your model and delivers a chartered-engineer advisory in a live review portal. Independent third-party review." %}
                 </p>
                 <a href="mailto:david.kennewell@hydrata.com?subject=Verification%20engagement" class="btn hydrata-btn-secondary">{% trans "Talk to us about an engagement" %}</a>
             </div>
@@ -55,36 +50,25 @@
     <div class="hydrata-how-it-works">
         <h2 class="text-center">{% trans "How It Works" %}</h2>
         <div class="row">
-            <div class="col-md-4 text-center">
+            <div class="col-md-3 text-center">
                 <div class="hydrata-step-number">1</div>
                 <h3>{% trans "Build" %}</h3>
                 <p>{% trans "Import topography and draw your model boundaries in the browser. Add scenarios and configure friction and rainfall parameters." %}</p>
             </div>
-            <div class="col-md-4 text-center">
+            <div class="col-md-3 text-center">
                 <div class="hydrata-step-number">2</div>
                 <h3>{% trans "Run" %}</h3>
                 <p>{% trans "Submit a simulation. ANUGA runs in the cloud and streams results back to your live portal — no local compute required." %}</p>
             </div>
-            <div class="col-md-4 text-center">
+            <div class="col-md-3 text-center">
                 <div class="hydrata-step-number">3</div>
+                <h3>{% trans "Validate" %}</h3>
+                <p>{% trans "Compare with historic flood event data for your specific location." %}</p>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="hydrata-step-number">4</div>
                 <h3>{% trans "Share or keep private" %}</h3>
                 <p>{% trans "Shared models are discoverable by the community. Switch a model to Private anytime — your data stays under your control." %}</p>
-            </div>
-        </div>
-    </div>
-
-    <hr class="featurette-divider">
-
-    <div class="hydrata-verification-proof">
-        <h2 class="text-center">{% trans "Unmodified ANUGA, reproducible results" %}</h2>
-        <div class="row">
-            <div class="col-md-8 col-md-offset-2 text-center">
-                <p style="color: #4a5568; font-size: 15px; line-height: 1.7;">
-                    {% trans "Hydrata runs the unmodified ANUGA solver (Geoscience Australia / ANU) with no proprietary modifications. The same model run twice produces the same result. Every run input is recorded and traceable, so any reviewer can reproduce the verification." %}
-                </p>
-                <p style="margin-top: 16px;">
-                    <a href="/docs/verification/" class="btn hydrata-btn-secondary">{% trans "Read the 12-check verification methodology" %}</a>
-                </p>
             </div>
         </div>
     </div>
@@ -131,6 +115,8 @@
         </div>
     </div>
 
+    {% comment %} Developer Tools section hidden for now (TASK-1387 item 8) {% endcomment %}
+    {% comment %}
     <hr class="featurette-divider">
 
     <div class="hydrata-developer-tools">
@@ -156,6 +142,7 @@
             </div>
         </details>
     </div>
+    {% endcomment %}
 
 </div>
 {% endif %}
