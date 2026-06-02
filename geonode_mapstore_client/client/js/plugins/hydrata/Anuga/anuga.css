@@ -1453,12 +1453,19 @@ div that holds the feature-grid */
 
 /* Inline log tail rendered at the bottom of the Run pane — replaces the
  * former "Run log" category. Auto-scrolls to the latest line on log change
- * (see ScenarioRunLog in scenarioPane.js). */
+ * (see ScenarioRunLog in scenarioPane.js).
+ *
+ * TASK-1418 (ISSUE 31): zero horizontal margin so the log spans the full
+ * Pane-3 detail body width. Previously margin 6px 10px 10px reduced the
+ * viewer to ~60% of the panel. The box-sizing + width:100% ensure the
+ * pre fills the available column without overflow. */
 .anuga-scenario-pane-log {
-    margin: 6px 10px 10px;
+    margin: 6px 0 10px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .anuga-scenario-pane-log-head {
@@ -1486,12 +1493,18 @@ div that holds the feature-grid */
     line-height: 1.4;
     height: 220px;
     min-height: 80px;
+    /* TASK-1418 (ISSUE 31): span the full scenarios-panel width so each
+     * log row is readable on one line. width+box-sizing fill the parent
+     * .anuga-scenario-pane-log column; overflow:auto lets very long lines
+     * scroll horizontally rather than wrap mid-word. */
+    width: 100%;
+    box-sizing: border-box;
     overflow: auto;
     resize: vertical;
     margin: 0;
     text-align: left;
-    white-space: pre-wrap;
-    word-break: break-word;
+    white-space: pre;
+    word-break: normal;
     scrollbar-width: thin;
     scrollbar-color: #5178af transparent;
 }
