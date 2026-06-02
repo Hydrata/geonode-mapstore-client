@@ -373,7 +373,7 @@ class AnugaScenarioMenuClass extends React.Component {
               canEdit={canEdit}
               canRunScenario={this.props.canRunScenario}
               currentUserId={currentUserId}
-              isSuperuser={!!isSuperuser}
+              isSuperuser={isSuperuser}
               terrain={terrain}
               boundaries={boundaries}
               inflows={inflows}

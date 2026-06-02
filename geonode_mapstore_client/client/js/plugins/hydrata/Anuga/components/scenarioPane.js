@@ -332,46 +332,6 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
     );
 }
 
-// Wave 3C — Duplicate moved to the scenario panel header (next to New
-// Scenario), so canDuplicateScenario + onDuplicateClick are no longer
-// forwarded into ScenarioActionToolbar.
-//
-// TASK-1416 (ISSUE 20.7): renderStatusActionsPane kept for internal use but
-// the public entry-point is renderRunPane below, which merges Run config +
-// Run into one panel: (a) config fields, (b) status/error feedback, (c)
-// Build/Run/delete toolbar, (d) LOG output at the bottom.
-function renderStatusActionsPane({
-    scenario, canEdit, canRunScenario,
-    onBuildClick, onRunClick, onRetryClick,
-    onArchiveClick, onUnarchiveClick,
-    onConfirmDelete, onConfirmCancelRun
-}) {
-    return (
-        <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-status-actions">
-            <ScenarioErrorStrip scenario={scenario} />
-            <ScenarioStatusCard scenario={scenario} />
-            <div className="anuga-scenario-pane-actions">
-                <ScenarioActionToolbar
-                    scenario={scenario}
-                    canEdit={canEdit}
-                    canRunScenario={canRunScenario}
-                    onBuildClick={onBuildClick}
-                    onRunClick={onRunClick}
-                    onRetryClick={onRetryClick}
-                    onArchiveClick={onArchiveClick}
-                    onUnarchiveClick={onUnarchiveClick}
-                    onConfirmDelete={onConfirmDelete}
-                    onConfirmCancelRun={onConfirmCancelRun}
-                />
-            </div>
-            <ScenarioRunLog
-                log={scenario?.latest_run?.log}
-                lineCount={scenario?.latest_run?.log_line_count}
-            />
-        </div>
-    );
-}
-
 /**
  * TASK-1416 (ISSUE 20.7): Merged Run pane — replaces the two separate
  * "Run config" and "Run" (statusActions) categories with a single "Run"
