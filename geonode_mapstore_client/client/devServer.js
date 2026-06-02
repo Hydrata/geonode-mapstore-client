@@ -67,8 +67,7 @@ module.exports = (devServerDefault, projectConfig) => {
                     '!**/static/mapstore/symbols/**',
                     '!**/static/mapstore/version.txt',
                     '!**/MapStore2/**',
-                    '!**/node_modules/**',
-                    '!**/docs/**'
+                    '!**/node_modules/**'
                 ],
                 target: proxyTargetURL,
                 headers: {
@@ -81,7 +80,6 @@ module.exports = (devServerDefault, projectConfig) => {
             {
                 context: [
                     '/static/mapstore/ms-translations/**',
-                    '/docs/**',
                     '/static/mapstore/dist/js/web-ifc/**'
                 ],
                 target: `${protocol}://${devServerHost}:${devServerPort}`,
