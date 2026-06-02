@@ -987,3 +987,30 @@ span.menu-row-glyph {
     flex-shrink: 0;
 }
 
+/* ── TASK-1431 (ISSUE 17 part 2): restyle bottom-right map toolbar buttons
+   to match the SimpleView blue.  The .mapToolbar is the bottom-right OL/
+   MapStore navigation toolbar (zoom +/-, 3D, options).  Apply the same
+   background, text colour and border as SimpleView rail buttons so the map
+   controls are visually cohesive with the rest of the SimpleView chrome.
+   Uses --sv-* custom properties (defined in :root above) so any future
+   theme-level change propagates here automatically. ── */
+.mapToolbar .btn {
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
+    color: #ffffff;
+    border: 2px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
+}
+
+.mapToolbar .btn:hover,
+.mapToolbar .btn:focus {
+    background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
+    border-color: var(--sv-button-border-hover, rgba(255, 255, 255, 0.7));
+    color: #ffffff;
+}
+
+.mapToolbar .btn:active,
+.mapToolbar .btn.active {
+    background-color: var(--sv-button-bg-active, rgba(0, 60, 136, 0.9));
+    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
+    color: #ffffff;
+}
+
