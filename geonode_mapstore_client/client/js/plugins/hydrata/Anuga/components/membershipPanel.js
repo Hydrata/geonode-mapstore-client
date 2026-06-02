@@ -73,7 +73,12 @@ class MembershipPanelClass extends React.Component {
             searchResults: [],
             selectedUser: null,
             newRole: 1,
-            searching: false
+            searching: false,
+            // TASK-1409 — inline confirm overlays replace window.confirm.
+            // removeMemberConfirm: {visible, membershipId, username} or null.
+            // visibilityConfirm: {visible, newVisibility} or null.
+            removeMemberConfirm: null,
+            visibilityConfirm: null
         };
     }
 
@@ -116,23 +121,48 @@ class MembershipPanelClass extends React.Component {
         trackEvent('button', 'click', 'membership-change-role');
     }
 
+    // TASK-1409 — replaced window.confirm with inline React confirm overlay.
+    // Opens the overlay; the actual delete fires only on confirmRemoveMember().
     handleRemoveMember = (membershipId, username) => {
-        // eslint-disable-next-line no-alert -- intentional user confirmation
-        if (confirm(`Remove ${username} from project?`)) {
+        this.setState({removeMemberConfirm: {visible: true, membershipId, username}});
+    }
+
+    confirmRemoveMember = () => {
+        const {membershipId} = this.state.removeMemberConfirm || {};
+        this.setState({removeMemberConfirm: null});
+        if (membershipId !== undefined) {
             this.props.deleteMembershipRequest(membershipId);
             trackEvent('button', 'click', 'membership-remove-member');
         }
     }
 
+    cancelRemoveMember = () => {
+        this.setState({removeMemberConfirm: null});
+    }
+
+    // TASK-1409 — replaced window.confirm with inline React confirm overlay.
+    // For non-public transitions no confirm is needed; public transition opens
+    // the overlay. The actual dispatch fires only on confirmVisibilityChange().
     handleVisibilityChange = (newVisibility) => {
         if (newVisibility === 'public' && this.props.visibility !== 'public') {
-            // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
-            if (!confirm('This will expose all project data to anonymous users. Continue?')) {
-                return;
-            }
+            this.setState({visibilityConfirm: {visible: true, newVisibility}});
+            return;
         }
         this.props.updateProjectVisibilityRequest(newVisibility);
         trackEvent('button', 'click', `membership-visibility-${newVisibility}`);
+    }
+
+    confirmVisibilityChange = () => {
+        const {newVisibility} = this.state.visibilityConfirm || {};
+        this.setState({visibilityConfirm: null});
+        if (newVisibility) {
+            this.props.updateProjectVisibilityRequest(newVisibility);
+            trackEvent('button', 'click', `membership-visibility-${newVisibility}`);
+        }
+    }
+
+    cancelVisibilityChange = () => {
+        this.setState({visibilityConfirm: null});
     }
 
     renderVisibilitySection() {
@@ -318,6 +348,27 @@ class MembershipPanelClass extends React.Component {
                     {this.props.permsLoadFailed ? (
                         <div className="alert alert-warning membership-perms-warning">
                             <Message msgId="hydrata.anuga.permsUnavailable.message" />
+                        </div>
+                    ) : null}
+                    {/* TASK-1409 — inline confirm overlays replace window.confirm.
+                        removeMemberConfirm and visibilityConfirm are mutually
+                        exclusive in normal use; both are guarded separately. */}
+                    {this.state.removeMemberConfirm?.visible ? (
+                        <div className="membership-confirm-overlay">
+                            <p>{`Remove ${this.state.removeMemberConfirm.username} from project?`}</p>
+                            <div className="membership-confirm-buttons">
+                                <Button bsSize="small" onClick={this.cancelRemoveMember}>Cancel</Button>
+                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-remove-btn" onClick={this.confirmRemoveMember}>Remove</Button>
+                            </div>
+                        </div>
+                    ) : null}
+                    {this.state.visibilityConfirm?.visible ? (
+                        <div className="membership-confirm-overlay">
+                            <p>This will expose all project data to anonymous users. Continue?</p>
+                            <div className="membership-confirm-buttons">
+                                <Button bsSize="small" onClick={this.cancelVisibilityChange}>Cancel</Button>
+                                <Button bsStyle="danger" bsSize="small" className="membership-confirm-visibility-btn" onClick={this.confirmVisibilityChange}>Make Public</Button>
+                            </div>
                         </div>
                     ) : null}
                     {this.renderVisibilitySection()}

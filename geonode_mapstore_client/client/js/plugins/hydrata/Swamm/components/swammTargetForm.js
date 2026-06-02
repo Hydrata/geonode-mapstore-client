@@ -34,7 +34,9 @@ class SwammTargetFormClass extends React.Component {
         this.handleChange = this.handleChange.bind(this);
         this.handleCheckboxToggle = this.handleCheckboxToggle.bind(this);
         this.state = {
-            openSection: 'group_profiles'
+            openSection: 'group_profiles',
+            // TASK-1409 — inline confirm overlay replaces window.confirm.
+            deleteConfirmVisible: false
         };
     }
 
@@ -204,20 +206,41 @@ class SwammTargetFormClass extends React.Component {
                     >
                         <Message msgId="hydrata.swamm.saveTarget" />
                     </button>
+                    {/* TASK-1409 — inline confirm overlay replaces window.confirm.
+                        Gating preserved: deleteTarget fires only on Confirm click. */}
                     {
                         this.props.targetForm?.id ?
-                            <button
-                                className={"swamm-button"}
-                                style={{backgroundColor: "darkred"}}
-                                onClick={() => {
-                                    // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
-                                    if (window.confirm('This action can not be undone. Are you sure?')) {
-                                        this.props.deleteTarget(this.props.projectId, this.props.targetForm?.id);
-                                    }
-                                }}
-                            >
-                                <Message msgId="hydrata.swamm.deleteTarget" />
-                            </button> :
+                            this.state.deleteConfirmVisible ? (
+                                <React.Fragment>
+                                    <span className="swamm-target-delete-confirm-text" style={{alignSelf: 'center', marginRight: '4px'}}>
+                                        This action can not be undone. Are you sure?
+                                    </span>
+                                    <button
+                                        className={"swamm-button"}
+                                        onClick={() => this.setState({deleteConfirmVisible: false})}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className={"swamm-button swamm-target-delete-confirm-btn"}
+                                        style={{backgroundColor: "darkred"}}
+                                        onClick={() => {
+                                            this.setState({deleteConfirmVisible: false});
+                                            this.props.deleteTarget(this.props.projectId, this.props.targetForm?.id);
+                                        }}
+                                    >
+                                        <Message msgId="hydrata.swamm.deleteTarget" />
+                                    </button>
+                                </React.Fragment>
+                            ) : (
+                                <button
+                                    className={"swamm-button"}
+                                    style={{backgroundColor: "darkred"}}
+                                    onClick={() => this.setState({deleteConfirmVisible: true})}
+                                >
+                                    <Message msgId="hydrata.swamm.deleteTarget" />
+                                </button>
+                            ) :
                             null
                     }
                 </div>

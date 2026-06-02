@@ -1,13 +1,19 @@
 /*
- * TASK-784 picker-delete — trash icon on each picker row.
+ * TASK-784 picker-delete / TASK-1409 React confirm overlay.
+ *
+ * TASK-1409 replaced window.confirm in the picker trash handler with an
+ * inline React confirm overlay (className vector-draw-delete-confirm). The
+ * overlay shows feature label + Delete/Cancel buttons:
+ *   - Cancel (.btn-default or just bsStyle not danger) → no dispatch
+ *   - Delete (.vector-draw-delete-confirm-btn bsStyle=danger) → DELETE_FEATURE
  *
  * Asserts:
  *   1. Each existing-feature row renders a .glyphicon-trash icon.
  *   2. The "+ Add new" row does NOT render a trash icon.
- *   3. Clicking the trash icon stops propagation (does not also trigger
- *      the row's onSelectFeature) and dispatches deleteFeature(featureId)
- *      after the user confirms.
- *   4. If the user cancels the confirm dialog, no action is dispatched.
+ *   3. Clicking the trash icon stops propagation (does not fire onSelectFeature)
+ *      and opens the inline confirm overlay.
+ *   4. Clicking Delete in the overlay dispatches deleteFeature(featureId).
+ *   5. Clicking Cancel in the overlay dispatches nothing.
  */
 import expect from 'expect';
 import React from 'react';
@@ -37,22 +43,19 @@ const PICKER_STATE = {
     draw: { tempFeatures: [], features: [] }
 };
 
-describe('TASK-784 VectorDrawPopup picker trash icon', () => {
+describe('TASK-784 / TASK-1409 VectorDrawPopup picker trash icon (React confirm overlay)', () => {
     let container;
     let dispatched;
-    let originalConfirm;
 
     beforeEach(() => {
         container = document.createElement('div');
         document.body.appendChild(container);
         dispatched = [];
-        originalConfirm = window.confirm;
     });
 
     afterEach(() => {
         ReactDOM.unmountComponentAtNode(container);
         container.remove();
-        window.confirm = originalConfirm;
     });
 
     const render = (state = PICKER_STATE) => {
@@ -82,44 +85,58 @@ describe('TASK-784 VectorDrawPopup picker trash icon', () => {
         expect(addNewRow.querySelector('.glyphicon-trash')).toBe(null);
     });
 
-    it('clicking the trash with confirm=YES dispatches DELETE_FEATURE with the feature id', () => {
-        window.confirm = () => true;
+    it('clicking the trash opens the inline confirm overlay (not DELETE yet)', () => {
         render();
         const trash = container.querySelectorAll('.glyphicon-trash')[1]; // bdy_4_test.2
-        // Synthesise a real MouseEvent so React's synthetic-event pipeline
-        // also fires e.stopPropagation correctly.
         const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
         trash.dispatchEvent(evt);
+        // Overlay must appear.
+        expect(container.querySelector('.vector-draw-delete-confirm')).toExist();
+        // No dispatch yet — user hasn't confirmed.
+        expect(dispatched.find(a => a && a.type === DELETE_FEATURE)).toBe(undefined);
+    });
+
+    it('clicking the trash does NOT fire onSelectFeature (stopPropagation)', () => {
+        render();
+        const trash = container.querySelectorAll('.glyphicon-trash')[0];
+        const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
+        trash.dispatchEvent(evt);
+        // DELETE_FEATURE must NOT have fired yet, and SELECT_EXISTING_FEATURE must not either.
+        expect(dispatched.find(a => a && a.type === SELECT_EXISTING_FEATURE)).toBe(undefined);
+    });
+
+    it('clicking Delete in the overlay dispatches DELETE_FEATURE with the feature id', () => {
+        render();
+        const trash = container.querySelectorAll('.glyphicon-trash')[1]; // bdy_4_test.2
+        const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
+        trash.dispatchEvent(evt);
+
+        // Now click Delete in the overlay.
+        const deleteBtn = container.querySelector('.vector-draw-delete-confirm-btn');
+        expect(deleteBtn).toExist();
+        deleteBtn.click();
 
         const del = dispatched.find(a => a && a.type === DELETE_FEATURE);
         expect(del).toExist();
         expect(del.featureId).toBe('bdy_4_test.2');
     });
 
-    it('clicking the trash with confirm=NO dispatches NOTHING', () => {
-        window.confirm = () => false;
+    it('clicking Cancel in the overlay dispatches NOTHING', () => {
         render();
         const trash = container.querySelectorAll('.glyphicon-trash')[0];
         const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
         trash.dispatchEvent(evt);
+
+        // Find Cancel button (not the Delete button).
+        const overlay = container.querySelector('.vector-draw-delete-confirm');
+        expect(overlay).toExist();
+        const buttons = overlay.querySelectorAll('button');
+        const cancelBtn = Array.from(buttons).find(b => /^cancel$/i.test(b.textContent));
+        expect(cancelBtn).toExist();
+        cancelBtn.click();
 
         expect(dispatched.find(a => a && a.type === DELETE_FEATURE)).toBe(undefined);
-        // And critically, the row's onSelectFeature must ALSO not fire — the
-        // trash handler must e.stopPropagation() before the row's onClick
-        // bubbles up. Otherwise cancelling the confirm would still navigate
-        // into the edit flow for that feature.
-        expect(dispatched.find(a => a && a.type === SELECT_EXISTING_FEATURE)).toBe(undefined);
-    });
-
-    it('clicking the trash with confirm=YES does NOT also fire row onSelectFeature (stopPropagation)', () => {
-        window.confirm = () => true;
-        render();
-        const trash = container.querySelectorAll('.glyphicon-trash')[0];
-        const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
-        trash.dispatchEvent(evt);
-
-        // DELETE_FEATURE fires; SELECT_EXISTING_FEATURE must NOT.
-        expect(dispatched.find(a => a && a.type === DELETE_FEATURE)).toExist();
+        // And the row's onSelectFeature must ALSO not fire.
         expect(dispatched.find(a => a && a.type === SELECT_EXISTING_FEATURE)).toBe(undefined);
     });
 
@@ -148,31 +165,26 @@ describe('TASK-784 VectorDrawPopup picker trash icon', () => {
         });
 
         it('disables pointer events on the in-flight trash so a double-click is a no-op', () => {
-            window.confirm = () => true;
             render(STATE_WITH_DELETE_IN_FLIGHT);
             const trash = container.querySelectorAll('.glyphicon-trash')[1];
-            // pointerEvents:'none' is the primary defence — the click never
-            // reaches the JS handler because the browser stops it at CSS.
+            // pointerEvents:'none' is the primary defence.
             expect(trash.style.pointerEvents).toBe('none');
             expect(trash.style.cursor).toBe('wait');
-            // And as defence in depth, the onClick handler is undefined too,
-            // so even if pointer-events somehow gets bypassed (synthetic
-            // event, test harness, etc.) no DELETE_FEATURE is dispatched.
+            // And as defence in depth, the onClick handler is undefined too.
             const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
             trash.dispatchEvent(evt);
+            // No overlay should open either (onClick is undefined).
             expect(dispatched.find(a => a && a.type === DELETE_FEATURE)).toBe(undefined);
         });
 
-        it('rows that are NOT being deleted remain clickable', () => {
-            window.confirm = () => true;
+        it('rows that are NOT being deleted remain clickable (open confirm overlay)', () => {
             render(STATE_WITH_DELETE_IN_FLIGHT);
-            // Click trash on row 1 (NOT mid-delete) — should still dispatch.
+            // Click trash on row 1 (NOT mid-delete) — should open overlay.
             const trash = container.querySelectorAll('.glyphicon-trash')[0];
             const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
             trash.dispatchEvent(evt);
-            const del = dispatched.find(a => a && a.type === DELETE_FEATURE);
-            expect(del).toExist();
-            expect(del.featureId).toBe('bdy_4_test.1');
+            // Overlay appears for row 1.
+            expect(container.querySelector('.vector-draw-delete-confirm')).toExist();
         });
 
         it('updates the trash title to "Deleting..." mid-flight for clarity', () => {

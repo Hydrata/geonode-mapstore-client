@@ -35,6 +35,10 @@ class HydrologyListDetailContainerClass extends React.Component {
 
     constructor(props) {
         super(props);
+        // TASK-1409 — inline confirm overlay state replaces window.confirm.
+        this.state = {
+            deleteConfirmVisible: false
+        };
     }
 
     render() {
@@ -167,18 +171,37 @@ class HydrologyListDetailContainerClass extends React.Component {
                     </div>
                 </div>
                 <div id={"hydrology-list-detail-footer"}>
-                    <button
-                        className={"hydrology-button"}
-                        style={{backgroundColor: "darkred"}}
-                        onClick={() => {
-                            // eslint-disable-next-line no-alert -- intentional user confirmation for irreversible action
-                            if (window.confirm('This action can not be undone. Are you sure?')) {
-                                this.props.deleteHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem);
-                            }
-                        }}
-                    >
-                        <Message msgId="hydrata.hydrology.delete" />
-                    </button>
+                    {/* TASK-1409 — inline confirm overlay replaces window.confirm.
+                        Gating preserved: deleteHydrologyItem fires only on Confirm. */}
+                    {this.state.deleteConfirmVisible ? (
+                        <div className="hydrology-delete-confirm">
+                            <span>This action can not be undone. Are you sure?</span>
+                            <button
+                                className={"hydrology-button"}
+                                onClick={() => this.setState({deleteConfirmVisible: false})}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className={"hydrology-button hydrology-delete-confirm-btn"}
+                                style={{backgroundColor: "darkred"}}
+                                onClick={() => {
+                                    this.setState({deleteConfirmVisible: false});
+                                    this.props.deleteHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem);
+                                }}
+                            >
+                                <Message msgId="hydrata.hydrology.delete" />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            className={"hydrology-button"}
+                            style={{backgroundColor: "darkred"}}
+                            onClick={() => this.setState({deleteConfirmVisible: true})}
+                        >
+                            <Message msgId="hydrata.hydrology.delete" />
+                        </button>
+                    )}
                     <button
                         className={this.props.activeHydrologyItem?.unsaved ? "hydrology-button" : "hydrology-button-disabled"}
                         style={{backgroundColor: this.props.activeHydrologyItem?.unsaved ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}

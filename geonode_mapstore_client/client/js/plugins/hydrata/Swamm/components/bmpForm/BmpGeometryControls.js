@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 
+// TASK-1409 — converted from arrow-function expression to block body so we
+// can use useState for the inline type-change confirm overlay.
 const BmpGeometryControls = ({
     storedBmpForm,
     complexBmpForm,
@@ -15,7 +17,10 @@ const BmpGeometryControls = ({
     toggleLayer,
     setChangingBmpType,
     onDrawBmpStep1
-}) => (
+}) => {
+    // TASK-1409 — replaces window.confirm; setChangingBmpType fires only on Confirm.
+    const [typeChangeConfirmVisible, setTypeChangeConfirmVisible] = useState(false);
+    return (
     <React.Fragment>
         {
             storedBmpForm?.id ?
@@ -23,17 +28,38 @@ const BmpGeometryControls = ({
                     <div>
                         Type: {storedBmpForm?.type_data?.name}
                     </div>
-                    <button
-                        type={'button'}
-                        className={'swamm-button'}
-                        onClick={() => {
-                            // eslint-disable-next-line no-alert -- intentional user confirmation
-                            if (window.confirm('This will remove any custom data you have entered for the current BMP Type. Are you sure?')) {
-                                setChangingBmpType(true);
-                            }
-                        }}>
-                        Edit Type
-                    </button>
+                    {/* TASK-1409 — inline confirm overlay replaces window.confirm.
+                        Gating preserved: setChangingBmpType fires only on Confirm. */}
+                    {typeChangeConfirmVisible ? (
+                        <React.Fragment>
+                            <span className="swamm-type-change-confirm-text" style={{alignSelf: 'center', marginRight: '4px', fontSize: '0.9em'}}>
+                                This will remove any custom data for the current BMP Type. Are you sure?
+                            </span>
+                            <button
+                                type={'button'}
+                                className={'swamm-button'}
+                                onClick={() => setTypeChangeConfirmVisible(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                type={'button'}
+                                className={'swamm-button swamm-type-change-confirm-btn'}
+                                style={{backgroundColor: "darkorange"}}
+                                onClick={() => {
+                                    setTypeChangeConfirmVisible(false);
+                                    setChangingBmpType(true);
+                                }}>
+                                Edit Type
+                            </button>
+                        </React.Fragment>
+                    ) : (
+                        <button
+                            type={'button'}
+                            className={'swamm-button'}
+                            onClick={() => setTypeChangeConfirmVisible(true)}>
+                            Edit Type
+                        </button>
+                    )}
                 </div> :
                 null
         }
@@ -146,6 +172,7 @@ const BmpGeometryControls = ({
             </React.Fragment> : null
         }
     </React.Fragment>
-);
+    );
+};
 
 export { BmpGeometryControls };

@@ -1,13 +1,16 @@
 /*
- * TASK-795 review C6 — Pre-save guard for the boundary='Time' XOR rule.
+ * TASK-795 review C6 / TASK-1409 — Pre-save guard for the boundary='Time' XOR rule.
+ *
+ * TASK-1409 updated the alert from blocking window.alert to a Redux
+ * SHOW_NOTIFICATION dispatch (toast). Tests updated accordingly.
  *
  * Covers:
  *   1. validateTimeBoundaryFormValues() pure helper — returns null when
  *      OK, an error string when blocked.
- *   2. The form-phase Save button calls window.alert + does NOT dispatch
- *      SUBMIT_FORM when validation blocks.
- *   3. The drawing-phase (inline edit) Save button calls window.alert +
- *      does NOT dispatch DRAWING_COMPLETE when validation blocks.
+ *   2. The form-phase Save button dispatches SHOW_NOTIFICATION + does NOT
+ *      dispatch SUBMIT_FORM when validation blocks.
+ *   3. The drawing-phase (inline edit) Save button dispatches SHOW_NOTIFICATION
+ *      + does NOT dispatch DRAWING_COMPLETE when validation blocks.
  *
  * Why: Without this guard, a user who changes a Reflective row's boundary
  * to Time and clicks Save without touching the picker gets a confusing
@@ -22,6 +25,7 @@ import VectorDrawPopup, {
     validateTimeBoundaryFormValues
 } from '../components/VectorDrawPopup';
 import { SUBMIT_FORM, DRAWING_COMPLETE } from '../actionsVectorDraw';
+import { SHOW_NOTIFICATION } from '../../../../../MapStore2/web/client/actions/notifications';
 
 function makeStore(state, dispatched) {
     return {
@@ -111,11 +115,9 @@ describe('TASK-795 review C6 validateTimeBoundaryFormValues', () => {
     });
 });
 
-describe('TASK-795 review C6 popup Save guard wiring', () => {
+describe('TASK-795 review C6 / TASK-1409 popup Save guard wiring (SHOW_NOTIFICATION)', () => {
     let container;
     let dispatched;
-    let originalAlert;
-    let alertCalls;
 
     const FORM_TIME_NO_DATA_STATE = {
         vectorDraw: {
@@ -155,15 +157,11 @@ describe('TASK-795 review C6 popup Save guard wiring', () => {
         container = document.createElement('div');
         document.body.appendChild(container);
         dispatched = [];
-        originalAlert = window.alert;
-        alertCalls = [];
-        window.alert = (msg) => alertCalls.push(msg);
     });
 
     afterEach(() => {
         ReactDOM.unmountComponentAtNode(container);
         container.remove();
-        window.alert = originalAlert;
     });
 
     const render = (state) => {
@@ -182,12 +180,13 @@ describe('TASK-795 review C6 popup Save guard wiring', () => {
         saveBtn.click();
     };
 
-    it('form-phase Save: blocks SUBMIT_FORM when boundary=Time + no value, alerts user', () => {
+    it('form-phase Save: blocks SUBMIT_FORM when boundary=Time + no value, dispatches SHOW_NOTIFICATION', () => {
         render(FORM_TIME_NO_DATA_STATE);
         clickSave();
-        // Alert was shown to user.
-        expect(alertCalls.length).toBe(1);
-        expect(alertCalls[0]).toMatch(/Time boundaries require a data value/);
+        // TASK-1409 — replaced window.alert with SHOW_NOTIFICATION dispatch.
+        const notif = dispatched.find(a => a && a.type === SHOW_NOTIFICATION);
+        expect(notif).toExist();
+        expect(notif.message).toMatch(/Time boundaries require a data value/);
         // SUBMIT_FORM was NOT dispatched — the user keeps editing the form
         // instead of getting a confusing BE error toast a network round-trip
         // later.
@@ -197,7 +196,7 @@ describe('TASK-795 review C6 popup Save guard wiring', () => {
     it('form-phase Save: dispatches SUBMIT_FORM when boundary=Time + valid constant value', () => {
         render(FORM_TIME_WITH_CONSTANT_STATE);
         clickSave();
-        expect(alertCalls.length).toBe(0);
+        expect(dispatched.find(a => a && a.type === SHOW_NOTIFICATION)).toBe(undefined);
         expect(dispatched.find(a => a && a.type === SUBMIT_FORM)).toExist();
     });
 
@@ -210,11 +209,11 @@ describe('TASK-795 review C6 popup Save guard wiring', () => {
             }
         });
         clickSave();
-        expect(alertCalls.length).toBe(0);
+        expect(dispatched.find(a => a && a.type === SHOW_NOTIFICATION)).toBe(undefined);
         expect(dispatched.find(a => a && a.type === SUBMIT_FORM)).toExist();
     });
 
-    it('inline-edit Save: blocks DRAWING_COMPLETE when boundary=Time + no value', () => {
+    it('inline-edit Save: blocks DRAWING_COMPLETE when boundary=Time + no value, dispatches SHOW_NOTIFICATION', () => {
         // Drawing phase + featureId set + formConfig present = inline form
         // path (the showInlineForm branch in VectorDrawPopup).
         render({
@@ -232,8 +231,10 @@ describe('TASK-795 review C6 popup Save guard wiring', () => {
             }
         });
         clickSave();
-        expect(alertCalls.length).toBe(1);
-        expect(alertCalls[0]).toMatch(/Time boundaries require a data value/);
+        // TASK-1409 — replaced window.alert with SHOW_NOTIFICATION dispatch.
+        const notif = dispatched.find(a => a && a.type === SHOW_NOTIFICATION);
+        expect(notif).toExist();
+        expect(notif.message).toMatch(/Time boundaries require a data value/);
         // Neither DRAWING_COMPLETE nor SUBMIT_FORM should have fired (the
         // inline edit-Save handler dispatches both via onSaveEditAndSubmit
         // when valid).

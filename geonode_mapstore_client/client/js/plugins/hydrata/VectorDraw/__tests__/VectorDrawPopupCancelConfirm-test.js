@@ -1,12 +1,17 @@
 /*
- * TASK-795 review I8 — Cancel discard-warning confirm.
+ * TASK-795 review I8 / TASK-1409 — Cancel discard-warning confirm.
+ *
+ * TASK-1409 updated the confirm from blocking window.confirm to an async
+ * React inline overlay. The overlay renders two buttons:
+ *   - "Keep editing" (className vector-draw-discard-cancel-btn) → no-op
+ *   - "Discard"      (className vector-draw-discard-confirm-btn) → dispatches CANCEL_VECTOR_DRAW
  *
  * Pinned behaviour:
  *   1. formValuesAreDirty() pure helper — JSON-shape comparison.
- *   2. Cancel without unsaved changes: NO confirm prompt, fires onCancel.
- *   3. Cancel with form-value diff: confirm prompt; YES → cancel; NO → no-op.
- *   4. Cancel with geometry drawn (CREATE mode draw started): confirm prompt.
- *   5. Cancel with vertex moved (EDIT mode tempFeatures populated): confirm.
+ *   2. Cancel without unsaved changes: NO overlay shown, fires onCancel.
+ *   3. Cancel with form-value diff: overlay shown; "Discard" → cancel; "Keep editing" → no-op.
+ *   4. Cancel with geometry drawn (CREATE mode draw started): overlay shown.
+ *   5. Cancel with vertex moved (EDIT mode tempFeatures populated): overlay shown.
  *   6. Picker-phase Cancel (no active edit) does NOT warn.
  *   7. Error-phase Close button does NOT warn (just closing the error toast).
  */
@@ -55,12 +60,9 @@ describe('TASK-795 review I8 formValuesAreDirty', () => {
     });
 });
 
-describe('TASK-795 review I8 popup Cancel discard-confirm wiring', () => {
+describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (React overlay)', () => {
     let container;
     let dispatched;
-    let originalConfirm;
-    let confirmCalls;
-    let confirmReturn;
 
     const baseFormConfig = {
         title: 'Boundary',
@@ -100,16 +102,11 @@ describe('TASK-795 review I8 popup Cancel discard-confirm wiring', () => {
         container = document.createElement('div');
         document.body.appendChild(container);
         dispatched = [];
-        originalConfirm = window.confirm;
-        confirmCalls = [];
-        confirmReturn = true;
-        window.confirm = (msg) => { confirmCalls.push(msg); return confirmReturn; };
     });
 
     afterEach(() => {
         ReactDOM.unmountComponentAtNode(container);
         container.remove();
-        window.confirm = originalConfirm;
     });
 
     const render = (state) => {
@@ -134,42 +131,65 @@ describe('TASK-795 review I8 popup Cancel discard-confirm wiring', () => {
         x.click();
     };
 
-    it('clean form Cancel: NO confirm, dispatches CANCEL_VECTOR_DRAW immediately', () => {
+    const clickDiscardButton = () => {
+        const btn = container.querySelector('.vector-draw-discard-confirm-btn');
+        expect(btn).toExist();
+        btn.click();
+    };
+
+    const clickKeepEditingButton = () => {
+        const btn = container.querySelector('.vector-draw-discard-cancel-btn');
+        expect(btn).toExist();
+        btn.click();
+    };
+
+    it('clean form Cancel: NO overlay shown, dispatches CANCEL_VECTOR_DRAW immediately', () => {
         render(FORM_CLEAN);
         clickCancelButton();
-        expect(confirmCalls.length).toBe(0);
+        // Overlay must NOT be present — clean form needs no confirmation.
+        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
     });
 
-    it('dirty form Cancel + confirm=YES: confirm shown, then dispatches CANCEL_VECTOR_DRAW', () => {
+    it('dirty form Cancel: overlay shown, CANCEL_VECTOR_DRAW NOT yet dispatched', () => {
         render(FORM_DIRTY_FIELD);
         clickCancelButton();
-        expect(confirmCalls.length).toBe(1);
-        expect(confirmCalls[0]).toMatch(/Discard unsaved changes/);
-        expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
-    });
-
-    it('dirty form Cancel + confirm=NO: confirm shown, NO dispatch (user keeps editing)', () => {
-        confirmReturn = false;
-        render(FORM_DIRTY_FIELD);
-        clickCancelButton();
-        expect(confirmCalls.length).toBe(1);
+        // Overlay is now visible.
+        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
+        // Action must NOT be dispatched until the user confirms.
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
     });
 
-    it('header X on dirty form: same confirm path as the Cancel button', () => {
-        confirmReturn = false;
+    it('dirty form Cancel + click Discard: dispatches CANCEL_VECTOR_DRAW', () => {
+        render(FORM_DIRTY_FIELD);
+        clickCancelButton();
+        clickDiscardButton();
+        expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
+    });
+
+    it('dirty form Cancel + click Keep editing: no dispatch, overlay dismissed', () => {
+        render(FORM_DIRTY_FIELD);
+        clickCancelButton();
+        clickKeepEditingButton();
+        expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
+        // Overlay dismissed after clicking Keep editing.
+        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
+    });
+
+    it('header X on dirty form: same overlay path as the Cancel button', () => {
         render(FORM_DIRTY_FIELD);
         clickHeaderX();
-        expect(confirmCalls.length).toBe(1);
+        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
+        // Confirm Discard → fires the cancel action.
+        clickDiscardButton();
+        expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
     });
 
-    it('drawing-phase Cancel with tempFeatures populated (vertex dragged): confirm', () => {
+    it('drawing-phase Cancel with tempFeatures populated (vertex dragged): overlay shown', () => {
         // EDIT mode draws populate tempFeatures with the in-progress edit.
         // formValues match seed (user only moved a vertex, didn't type),
         // so the form-diff path is clean — but draw is dirty.
-        confirmReturn = false;
         render({
             vectorDraw: {
                 phase: 'drawing',
@@ -187,13 +207,12 @@ describe('TASK-795 review I8 popup Cancel discard-confirm wiring', () => {
             }
         });
         clickCancelButton();
-        expect(confirmCalls.length).toBe(1);
+        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
     });
 
-    it('drawing-phase Cancel after CREATE-mode draw started (drawFeatures with geometry): confirm', () => {
+    it('drawing-phase Cancel after CREATE-mode draw started (drawFeatures with geometry): overlay shown', () => {
         // CREATE mode: geometry drawn, no featureId.
-        confirmReturn = false;
         render({
             vectorDraw: {
                 phase: 'drawing',
@@ -207,17 +226,13 @@ describe('TASK-795 review I8 popup Cancel discard-confirm wiring', () => {
             }
         });
         clickCancelButton();
-        expect(confirmCalls.length).toBe(1);
+        expect(container.querySelector('.vector-draw-discard-confirm')).toExist();
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toBe(undefined);
     });
 
-    it('picker-phase header X: NO confirm (no active edit, just closing the picker)', () => {
+    it('picker-phase header X: NO overlay (no active edit, just closing the picker)', () => {
         // The picker isn't an "edit session" — closing it just dismisses
-        // the toolbar, no data to lose. Pre-fix this would have warned
-        // unnecessarily because formValues might differ from
-        // initialFormValues if the picker had been re-entered after a
-        // previous edit. The picker render does NOT receive `handleCancel`
-        // — it stays on plain `onCancel`.
+        // the toolbar, no data to lose.
         render({
             vectorDraw: {
                 phase: 'picking',
@@ -229,11 +244,11 @@ describe('TASK-795 review I8 popup Cancel discard-confirm wiring', () => {
             draw: { tempFeatures: [], features: [] }
         });
         clickHeaderX();
-        expect(confirmCalls.length).toBe(0);
+        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
     });
 
-    it('error-phase Close: NO confirm (just closing the error toast)', () => {
+    it('error-phase Close: NO overlay (just closing the error toast)', () => {
         render({
             vectorDraw: {
                 phase: 'error',
@@ -248,8 +263,8 @@ describe('TASK-795 review I8 popup Cancel discard-confirm wiring', () => {
         const closeBtn = Array.from(buttons).find(b => /^close$/i.test(b.textContent));
         expect(closeBtn).toExist();
         closeBtn.click();
-        // No confirm — error close is just dismissal, no edit to lose.
-        expect(confirmCalls.length).toBe(0);
+        // No overlay — error close is just dismissal, no edit to lose.
+        expect(container.querySelector('.vector-draw-discard-confirm')).toBe(null);
         expect(dispatched.find(a => a && a.type === CANCEL_VECTOR_DRAW)).toExist();
     });
 });

@@ -10,6 +10,7 @@ import {
     selectExistingFeature,
     deleteFeature
 } from '../actionsVectorDraw';
+import { show } from '../../../../../MapStore2/web/client/actions/notifications';
 // TASK-795 review I9 (TASK-802) — synthesizeTimeBoundaryFormValue is now
 // invoked once at EDIT-load time (vectorDrawStartEpic) and the structured
 // `data` shape is persisted in Redux from that moment. The popup just
@@ -155,6 +156,11 @@ export const PickerView = ({
     onDeleteFeature
 }) => {
     const [filterText, setFilterText] = useState('');
+    // TASK-1409 — replace window.confirm with an inline React confirm overlay.
+    // pendingDeleteFeature holds the feature waiting for confirmation; null
+    // means the overlay is closed. Gating is preserved: onDeleteFeature only
+    // fires on the Confirm button click, never on cancel or overlay open.
+    const [pendingDeleteFeature, setPendingDeleteFeature] = useState(null);
     const list = featureList || [];
     const showFilter = list.length >= PICKER_FILTER_THRESHOLD;
     const filterLower = filterText.trim().toLowerCase();
@@ -179,16 +185,21 @@ export const PickerView = ({
     };
     const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
     const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; };
-    // Trash icon click — stop propagation so the row's onClick (which
-    // would select the feature for editing) doesn't also fire. Confirm
-    // before destructive action; WFS-T delete is irreversible.
+    // TASK-1409 — Trash icon click opens the inline React confirm overlay
+    // instead of window.confirm. stopPropagation prevents the row's onClick
+    // (select-feature) from firing alongside the delete path.
     const onTrashClick = (feature) => (e) => {
         e.stopPropagation();
-        const label = featureLabel(feature);
-        // eslint-disable-next-line no-alert
-        if (window.confirm(`Delete "${label}"? This cannot be undone.`)) {
-            onDeleteFeature(feature.id);
+        setPendingDeleteFeature(feature);
+    };
+    const onConfirmDelete = () => {
+        if (pendingDeleteFeature) {
+            onDeleteFeature(pendingDeleteFeature.id);
         }
+        setPendingDeleteFeature(null);
+    };
+    const onCancelDelete = () => {
+        setPendingDeleteFeature(null);
     };
     const trashStyle = {
         cursor: 'pointer',
@@ -220,84 +231,105 @@ export const PickerView = ({
                     onClick={onCancel}
                 />
             </div>
-            {showFilter ? (
-                <div style={{padding: '8px 12px 0 12px'}}>
-                    <input
-                        type="text"
-                        className="vector-draw-picker-filter"
-                        placeholder={`Filter ${list.length} features…`}
-                        value={filterText}
-                        onChange={(e) => setFilterText(e.target.value)}
-                        style={{width: '100%', padding: '4px 6px', fontSize: 'inherit'}}
-                    />
-                </div>
-            ) : null}
-            <div style={{ padding: '8px 12px', maxHeight: 240, overflowY: 'auto' }}>
-                <div
-                    className="simple-view-panel-item-row vector-draw-picker-add-new"
-                    style={rowStyle}
-                    onClick={() => onSelectFeature(null)}
-                    onMouseEnter={onRowEnter}
-                    onMouseLeave={onRowLeave}
-                >
-                    <span>+ Add new</span>
-                </div>
-                {filteredList.length === 0 && filterText ? (
-                    <div className="vector-draw-picker-empty" style={{
-                        padding: '8px',
-                        opacity: 0.7,
-                        fontStyle: 'italic'
-                    }}>
-                        No features match &ldquo;{filterText}&rdquo;
+            {/* TASK-1409 — inline delete-confirm overlay replaces window.confirm.
+                Rendered over the picker list when pendingDeleteFeature is set;
+                the guarded onDeleteFeature fires ONLY on the Confirm button. */}
+            {pendingDeleteFeature ? (
+                <div className="vector-draw-delete-confirm" style={{padding: '12px'}}>
+                    <p style={{margin: '0 0 10px 0'}}>
+                        {`Delete "${featureLabel(pendingDeleteFeature)}"? This cannot be undone.`}
+                    </p>
+                    <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px'}}>
+                        <Button bsSize="small" onClick={onCancelDelete}>
+                            Cancel
+                        </Button>
+                        <Button bsStyle="danger" bsSize="small" className="vector-draw-delete-confirm-btn" onClick={onConfirmDelete}>
+                            Delete
+                        </Button>
                     </div>
-                ) : null}
-                {filteredList.map(feature => {
-                    // TASK-795 review I3 — dim + disable the trash icon
-                    // for the row currently being WFS-T-deleted so the
-                    // user can't double-click and trigger a second
-                    // DELETE that would 404 (a confusing error toast on
-                    // what was actually a successful first delete).
-                    const isDeleting = !!deletingFeatureId
-                        && feature.id === deletingFeatureId;
-                    // TASK-795 review NIT-6 (TASK-804) — highlight the
-                    // row the user just committed (set by the save epic
-                    // via RETURN_TO_PICKER's lastSavedFid). Cleared on
-                    // next selection / RESET.
-                    const isLastSaved = !!lastSavedFid
-                        && feature.id === lastSavedFid;
-                    const highlightedRowStyle = isLastSaved
-                        ? { ...rowStyle, backgroundColor: 'rgba(80, 200, 120, 0.25)' }
-                        : rowStyle;
-                    return (
+                </div>
+            ) : (
+                <React.Fragment>
+                    {showFilter ? (
+                        <div style={{padding: '8px 12px 0 12px'}}>
+                            <input
+                                type="text"
+                                className="vector-draw-picker-filter"
+                                placeholder={`Filter ${list.length} features…`}
+                                value={filterText}
+                                onChange={(e) => setFilterText(e.target.value)}
+                                style={{width: '100%', padding: '4px 6px', fontSize: 'inherit'}}
+                            />
+                        </div>
+                    ) : null}
+                    <div style={{ padding: '8px 12px', maxHeight: 240, overflowY: 'auto' }}>
                         <div
-                            key={feature.id || featureLabel(feature)}
-                            className={'simple-view-panel-item-row' + (isLastSaved ? ' vector-draw-picker-row-just-saved' : '')}
-                            style={highlightedRowStyle}
-                            onClick={() => onSelectFeature(feature.id)}
+                            className="simple-view-panel-item-row vector-draw-picker-add-new"
+                            style={rowStyle}
+                            onClick={() => onSelectFeature(null)}
                             onMouseEnter={onRowEnter}
                             onMouseLeave={onRowLeave}
                         >
-                            <span style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                flex: 1
-                            }}>{featureLabel(feature)}</span>
-                            <span
-                                className="glyphicon glyphicon-trash vector-draw-trash"
-                                style={{
-                                    ...trashStyle,
-                                    opacity: isDeleting ? 0.3 : 0.7,
-                                    pointerEvents: isDeleting ? 'none' : 'auto',
-                                    cursor: isDeleting ? 'wait' : 'pointer'
-                                }}
-                                title={isDeleting ? 'Deleting...' : 'Delete this feature'}
-                                onClick={isDeleting ? undefined : onTrashClick(feature)}
-                            />
+                            <span>+ Add new</span>
                         </div>
-                    );
-                })}
-            </div>
+                        {filteredList.length === 0 && filterText ? (
+                            <div className="vector-draw-picker-empty" style={{
+                                padding: '8px',
+                                opacity: 0.7,
+                                fontStyle: 'italic'
+                            }}>
+                                No features match &ldquo;{filterText}&rdquo;
+                            </div>
+                        ) : null}
+                        {filteredList.map(feature => {
+                            // TASK-795 review I3 — dim + disable the trash icon
+                            // for the row currently being WFS-T-deleted so the
+                            // user can't double-click and trigger a second
+                            // DELETE that would 404 (a confusing error toast on
+                            // what was actually a successful first delete).
+                            const isDeleting = !!deletingFeatureId
+                                && feature.id === deletingFeatureId;
+                            // TASK-795 review NIT-6 (TASK-804) — highlight the
+                            // row the user just committed (set by the save epic
+                            // via RETURN_TO_PICKER's lastSavedFid). Cleared on
+                            // next selection / RESET.
+                            const isLastSaved = !!lastSavedFid
+                                && feature.id === lastSavedFid;
+                            const highlightedRowStyle = isLastSaved
+                                ? { ...rowStyle, backgroundColor: 'rgba(80, 200, 120, 0.25)' }
+                                : rowStyle;
+                            return (
+                                <div
+                                    key={feature.id || featureLabel(feature)}
+                                    className={'simple-view-panel-item-row' + (isLastSaved ? ' vector-draw-picker-row-just-saved' : '')}
+                                    style={highlightedRowStyle}
+                                    onClick={() => onSelectFeature(feature.id)}
+                                    onMouseEnter={onRowEnter}
+                                    onMouseLeave={onRowLeave}
+                                >
+                                    <span style={{
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        flex: 1
+                                    }}>{featureLabel(feature)}</span>
+                                    <span
+                                        className="glyphicon glyphicon-trash vector-draw-trash"
+                                        style={{
+                                            ...trashStyle,
+                                            opacity: isDeleting ? 0.3 : 0.7,
+                                            pointerEvents: isDeleting ? 'none' : 'auto',
+                                            cursor: isDeleting ? 'wait' : 'pointer'
+                                        }}
+                                        title={isDeleting ? 'Deleting...' : 'Delete this feature'}
+                                        onClick={isDeleting ? undefined : onTrashClick(feature)}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </React.Fragment>
+            )}
         </div>
     );
 };
@@ -318,8 +350,15 @@ const VectorDrawPopup = ({
     onSaveEdit,
     onSaveEditAndSubmit,
     onSelectFeature,
-    onDeleteFeature
+    onDeleteFeature,
+    onShowNotification
 }) => {
+    // TASK-1409 — discard-changes confirm overlay state. True when the user
+    // clicked Cancel on a dirty form/draw and the overlay is visible. The
+    // actual onCancel dispatch fires ONLY on the "Discard" button click so
+    // the async→sync gating semantics are preserved.
+    const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
+
     if (!phase || phase === 'idle' || phase === 'describing' || phase === 'cancelling') {
         return null;
     }
@@ -328,19 +367,28 @@ const VectorDrawPopup = ({
     const formConfig = config?.formConfig;
     const geomType = config?.geomType || 'Polygon';
 
-    // TASK-795 review I8 — Wrap onCancel in a discard-changes confirm. Two
-    // signals are dirty: form-value diff against the captured snapshot, OR
-    // geometry was drawn (CREATE mode) / vertices moved (EDIT mode).
+    // TASK-795 review I8 / TASK-1409 — Wrap onCancel in a discard-changes
+    // confirm overlay. Two signals are dirty: form-value diff against the
+    // captured snapshot, OR geometry was drawn (CREATE mode) / vertices moved
+    // (EDIT mode). Previously used window.confirm (sync); now uses a React
+    // overlay (async). The guarded onCancel fires ONLY on "Discard" click.
     const drawDirty = (drawTempFeatures && drawTempFeatures.length > 0)
         || (!isEditing && drawFeatures && drawFeatures.length > 0
             && drawFeatures.some(f => f && f.geometry));
     const formDirty = formValuesAreDirty(formValues, initialFormValues);
     const handleCancel = () => {
         if (formDirty || drawDirty) {
-            // eslint-disable-next-line no-alert
-            if (!window.confirm('Discard unsaved changes?')) return;
+            setDiscardConfirmVisible(true);
+            return;
         }
         onCancel();
+    };
+    const handleDiscardConfirm = () => {
+        setDiscardConfirmVisible(false);
+        onCancel();
+    };
+    const handleDiscardCancel = () => {
+        setDiscardConfirmVisible(false);
     };
 
     // TASK-795 review I9 (TASK-802) — formValues is the source of truth.
@@ -349,6 +397,24 @@ const VectorDrawPopup = ({
     // from the start) and the picker writes structured shape on every
     // interaction. No render-time transform needed.
     const effectiveFormValues = formValues;
+
+    // TASK-1409 — shared discard-changes confirm overlay. Rendered inside the
+    // drawing/form phase popup containers when discardConfirmVisible=true.
+    // Replaces the blocked `window.confirm` call with a React overlay that
+    // preserves the same gating: onCancel fires only on "Discard" click.
+    const discardConfirmOverlay = discardConfirmVisible ? (
+        <div className="vector-draw-discard-confirm" style={{padding: '12px'}}>
+            <p style={{margin: '0 0 10px 0'}}>Discard unsaved changes?</p>
+            <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px'}}>
+                <Button bsSize="small" className="vector-draw-discard-cancel-btn" onClick={handleDiscardCancel}>
+                    Keep editing
+                </Button>
+                <Button bsStyle="danger" bsSize="small" className="vector-draw-discard-confirm-btn" onClick={handleDiscardConfirm}>
+                    Discard
+                </Button>
+            </div>
+        </div>
+    ) : null;
 
     // Picking phase — let user choose an existing feature or "+ Add new"
     if (phase === 'picking') {
@@ -401,67 +467,73 @@ const VectorDrawPopup = ({
                         onClick={handleCancel}
                     />
                 </div>
-                <div style={{padding: '12px'}}>
-                    <p style={{margin: '0 0 12px 0'}}>
-                        {hintText}
-                    </p>
-                    {showInlineForm
-                        ? formConfig.fields
-                            .filter(field => matchesShowWhen(field.showWhen, effectiveFormValues))
-                            .map(field => (
-                                <FormField
-                                    key={field.name}
-                                    field={field}
-                                    value={effectiveFormValues[field.name]}
-                                    onChange={onUpdateField}
-                                />
-                            ))
-                        : null}
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: '8px',
-                        marginTop: showInlineForm ? '12px' : '0'
-                    }}>
-                        <Button bsStyle="danger" bsSize="small" onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        {isEditing ? (
-                            <Button
-                                bsStyle="success"
-                                bsSize="small"
-                                onClick={() => {
-                                    // Read geometry from draw state — tempFeatures
-                                    // has edits, fall back to features (original)
-                                    // if user didn't move vertices.
-                                    const geom = drawTempFeatures?.[0]?.geometry
-                                        || drawFeatures?.[0]?.geometry;
-                                    if (!geom) return;
-                                    // TASK-795 review C6 — block Time/no-data
-                                    // saves before they hit the BE CHECK.
-                                    if (showInlineForm) {
-                                        const err = validateTimeBoundaryFormValues(effectiveFormValues);
-                                        if (err) {
-                                            // eslint-disable-next-line no-alert
-                                            window.alert(err);
-                                            return;
-                                        }
-                                        // One-click commit of geometry + form
-                                        // values (TASK-784 polish).
-                                        onSaveEditAndSubmit(geom);
-                                    } else {
-                                        // Edit without formConfig — geometry
-                                        // only; reducer goes straight to
-                                        // 'saving' since there's no form.
-                                        onSaveEdit(geom);
-                                    }
-                                }}
-                            >
-                                Save
+                {/* TASK-1409 — discard-confirm overlay replaces window.confirm */}
+                {discardConfirmOverlay || (
+                    <div style={{padding: '12px'}}>
+                        <p style={{margin: '0 0 12px 0'}}>
+                            {hintText}
+                        </p>
+                        {showInlineForm
+                            ? formConfig.fields
+                                .filter(field => matchesShowWhen(field.showWhen, effectiveFormValues))
+                                .map(field => (
+                                    <FormField
+                                        key={field.name}
+                                        field={field}
+                                        value={effectiveFormValues[field.name]}
+                                        onChange={onUpdateField}
+                                    />
+                                ))
+                            : null}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            gap: '8px',
+                            marginTop: showInlineForm ? '12px' : '0'
+                        }}>
+                            <Button bsStyle="danger" bsSize="small" onClick={handleCancel}>
+                                Cancel
                             </Button>
-                        ) : null}
+                            {isEditing ? (
+                                <Button
+                                    bsStyle="success"
+                                    bsSize="small"
+                                    onClick={() => {
+                                        // Read geometry from draw state — tempFeatures
+                                        // has edits, fall back to features (original)
+                                        // if user didn't move vertices.
+                                        const geom = drawTempFeatures?.[0]?.geometry
+                                            || drawFeatures?.[0]?.geometry;
+                                        if (!geom) return;
+                                        // TASK-795 review C6 — block Time/no-data
+                                        // saves before they hit the BE CHECK.
+                                        // TASK-1409 — replaced window.alert with
+                                        // onShowNotification toast (no gating — just
+                                        // informs the user; save is blocked by early
+                                        // return below, not by the dialog result).
+                                        if (showInlineForm) {
+                                            const err = validateTimeBoundaryFormValues(effectiveFormValues);
+                                            if (err) {
+                                                onShowNotification(err);
+                                                return;
+                                            }
+                                            // One-click commit of geometry + form
+                                            // values (TASK-784 polish).
+                                            onSaveEditAndSubmit(geom);
+                                        } else {
+                                            // Edit without formConfig — geometry
+                                            // only; reducer goes straight to
+                                            // 'saving' since there's no form.
+                                            onSaveEdit(geom);
+                                        }
+                                    }}
+                                >
+                                    Save
+                                </Button>
+                            ) : null}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         );
     }
@@ -491,41 +563,45 @@ const VectorDrawPopup = ({
                         onClick={handleCancel}
                     />
                 </div>
-                <div style={{padding: '12px'}}>
-                    {formConfig.fields
-                        .filter(field => matchesShowWhen(field.showWhen, effectiveFormValues))
-                        .map(field => (
-                            <FormField
-                                key={field.name}
-                                field={field}
-                                value={effectiveFormValues[field.name]}
-                                onChange={onUpdateField}
-                            />
-                        ))}
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: '8px',
-                        marginTop: '12px'
-                    }}>
-                        <Button bsStyle="danger" bsSize="small" onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        <Button bsStyle="success" bsSize="small" onClick={() => {
-                            // TASK-795 review C6 — block Time/no-data saves
-                            // before they hit the BE CHECK constraint.
-                            const err = validateTimeBoundaryFormValues(effectiveFormValues);
-                            if (err) {
-                                // eslint-disable-next-line no-alert
-                                window.alert(err);
-                                return;
-                            }
-                            onSubmit();
+                {/* TASK-1409 — discard-confirm overlay replaces window.confirm */}
+                {discardConfirmOverlay || (
+                    <div style={{padding: '12px'}}>
+                        {formConfig.fields
+                            .filter(field => matchesShowWhen(field.showWhen, effectiveFormValues))
+                            .map(field => (
+                                <FormField
+                                    key={field.name}
+                                    field={field}
+                                    value={effectiveFormValues[field.name]}
+                                    onChange={onUpdateField}
+                                />
+                            ))}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            gap: '8px',
+                            marginTop: '12px'
                         }}>
-                            Save
-                        </Button>
+                            <Button bsStyle="danger" bsSize="small" onClick={handleCancel}>
+                                Cancel
+                            </Button>
+                            <Button bsStyle="success" bsSize="small" onClick={() => {
+                                // TASK-795 review C6 — block Time/no-data saves
+                                // before they hit the BE CHECK constraint.
+                                // TASK-1409 — replaced window.alert with
+                                // onShowNotification toast.
+                                const err = validateTimeBoundaryFormValues(effectiveFormValues);
+                                if (err) {
+                                    onShowNotification(err);
+                                    return;
+                                }
+                                onSubmit();
+                            }}>
+                                Save
+                            </Button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         );
     }
@@ -597,7 +673,15 @@ const mapDispatchToProps = (dispatch) => ({
         dispatch(submitForm());
     },
     onSelectFeature: (fid) => dispatch(selectExistingFeature(fid)),
-    onDeleteFeature: (fid) => dispatch(deleteFeature(fid))
+    onDeleteFeature: (fid) => dispatch(deleteFeature(fid)),
+    // TASK-1409 — dispatch a warning notification toast instead of window.alert.
+    onShowNotification: (message) => dispatch(show({
+        message,
+        title: 'Validation error',
+        uid: 'vector-draw-validation-error',
+        position: 'tc',
+        autoDismiss: 8
+    }, 'warning'))
 });
 
 // TASK-794 — featureLabel is exported as a named export so the picker
