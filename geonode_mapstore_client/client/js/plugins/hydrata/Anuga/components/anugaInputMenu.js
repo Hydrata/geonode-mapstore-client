@@ -48,6 +48,11 @@ import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
 import {addLayer} from "../../../../../MapStore2/web/client/actions/layers";
+// W6 (TASK-1422): zoom to mesh extent after successful preview.
+import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
+// W6 (TASK-1423): read user token for authenticated mesh tile requests.
+import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
+import {buildGwcMvtTileUrls, GWC_WMTS_ENDPOINT} from "../gwcTileRouting";
 
 const ACTIVE_TM_STATES = new Set(['pending', 'running']);
 const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'Structure', 'MeshRegion'];
@@ -223,7 +228,9 @@ class AnugaInputMenuClass extends React.Component {
         selectedScenario: PropTypes.object,
         // W5.3 (TASK-1275)
         flatLayers: PropTypes.array,
-        onAddMeshLayer: PropTypes.func
+        onAddMeshLayer: PropTypes.func,
+        // W6 (TASK-1422)
+        onZoomToExtent: PropTypes.func
     };
 
     static defaultProps = {}
@@ -255,8 +262,12 @@ class AnugaInputMenuClass extends React.Component {
             meshPreviewProcessId: null,
             meshPreviewResult: null,   // {triangle_count, above_render_threshold, mesh_qa, geometry}
             meshPreviewError: null,
+            // W6 (TASK-1421) — progress bar during polling: {pct, detail}
+            meshPreviewProgress: null,
             // W5.1 (TASK-1273) — MeshWorkflow panel open/closed
-            meshWorkflowOpen: false
+            meshWorkflowOpen: false,
+            // W6 (TASK-1424) — built mesh roster: array of MeshRun API objects, null = not loaded
+            builtMeshes: null
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
@@ -281,7 +292,32 @@ class AnugaInputMenuClass extends React.Component {
             this.setState((prev) => ({inputVisible: {...prev.inputVisible, [cat]: false}}));
             this.lastSubmittedCategory = null;
         }
+
+        // W6 (TASK-1424): re-fetch built meshes when the selected scenario changes.
+        if (prevProps.selectedScenarioId !== this.props.selectedScenarioId) {
+            this._fetchBuiltMeshes();
+        }
     }
+
+    // W6 (TASK-1424): fetch MeshRun records for the current scenario from the BE.
+    // Calls GET /api/v2/anuga/projects/{pid}/scenarios/{sid}/built-meshes/
+    // Falls back to empty array on any error so the roster renders 'No built meshes yet'.
+    _fetchBuiltMeshes = () => {
+        const projectId = this.props.projectId;
+        const scenarioId = this.props.selectedScenarioId;
+        if (!projectId || !scenarioId) {
+            this.setState({builtMeshes: []});
+            return;
+        }
+        fetch(`/api/v2/anuga/projects/${projectId}/scenarios/${scenarioId}/built-meshes/`)
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(data => {
+                this.setState({builtMeshes: Array.isArray(data) ? data : (data.results || [])});
+            })
+            .catch(() => {
+                this.setState({builtMeshes: []});
+            });
+    };
 
     componentWillUnmount() {
         if (this._meshPreviewPollTimer) {
@@ -307,7 +343,8 @@ class AnugaInputMenuClass extends React.Component {
             meshPreviewStatus: 'pending',
             meshPreviewProcessId: null,
             meshPreviewResult: null,
-            meshPreviewError: null
+            meshPreviewError: null,
+            meshPreviewProgress: null
         });
 
         fetch(
@@ -340,18 +377,98 @@ class AnugaInputMenuClass extends React.Component {
                 .then(r => r.json())
                 .then(proc => {
                     if (proc.status === 'complete') {
-                        this.setState({meshPreviewStatus: 'done', meshPreviewResult: proc.metadata || {}});
+                        const result = proc.metadata || {};
+                        this.setState(
+                            {meshPreviewStatus: 'done', meshPreviewResult: result, meshPreviewProgress: null},
+                            () => {
+                                // W6 (TASK-1422): auto-add mesh layer + zoom to bbox on successful preview
+                                // when the mesh is below the render threshold.
+                                if (!result.above_render_threshold) {
+                                    this._autoAddMeshLayerAndZoom(result);
+                                }
+                            }
+                        );
                     } else if (proc.status === 'error') {
-                        this.setState({meshPreviewStatus: 'error', meshPreviewError: proc.error_message || 'Preview failed'});
+                        this.setState({
+                            meshPreviewStatus: 'error',
+                            meshPreviewError: proc.error_message || 'Preview failed',
+                            meshPreviewProgress: null
+                        });
                     } else {
+                        // W6 (TASK-1421): capture progress_pct + status_detail while polling.
+                        const pct = proc.progress_pct != null ? proc.progress_pct : null;
+                        const detail = proc.status_detail || null;
+                        this.setState({
+                            meshPreviewProgress: (pct != null || detail) ? {pct, detail} : null
+                        });
                         // still running — keep polling
                         this._pollMeshPreview(processId, projectId);
                     }
                 })
                 .catch(err => {
-                    this.setState({meshPreviewStatus: 'error', meshPreviewError: String(err)});
+                    this.setState({meshPreviewStatus: 'error', meshPreviewError: String(err), meshPreviewProgress: null});
                 });
         }, 3000);
+    };
+
+    // W6 (TASK-1422): dispatch addLayer (authed) + zoomToExtent from preview GeoJSON geometry.
+    // Called in the _pollMeshPreview setState callback when preview completes below threshold.
+    _autoAddMeshLayerAndZoom = (result) => {
+        const MESH_RENDER_LAYER = 'geonode:mesh_triangle_render';
+        const isMeshLayerAdded = (this.props.flatLayers || []).some(l => l?.name === MESH_RENDER_LAYER);
+        if (!isMeshLayerAdded) {
+            // Build the authenticated mesh layer — mirrors MeshTriangleLayerSection (W6 TASK-1423).
+            const token = getToken();
+            const params = {
+                LAYERS: MESH_RENDER_LAYER,
+                FORMAT: 'image/png',
+                TRANSPARENT: true,
+                VERSION: '1.1.1',
+                TILED: true,
+                ...(token ? {access_token: token} : {})
+            };
+            const baseTileUrls = buildGwcMvtTileUrls(MESH_RENDER_LAYER);
+            const tileUrls = token
+                ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
+                : baseTileUrls;
+            const meshLayer = {
+                type: 'wms',
+                url: GWC_WMTS_ENDPOINT,
+                name: MESH_RENDER_LAYER,
+                title: 'Mesh triangles',
+                visibility: true,
+                group: 'Input Data.Mesh',
+                params,
+                tileUrls
+            };
+            this.props.onAddMeshLayer && this.props.onAddMeshLayer(meshLayer);
+        }
+
+        // W6 (TASK-1422): zoom to mesh bbox from preview GeoJSON FeatureCollection.
+        // geometry is WGS84 (EPSG:4326) — preview_mesh_async reprojects to WGS84.
+        const geometry = result.geometry;
+        if (!geometry || !geometry.features || geometry.features.length === 0) return;
+
+        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+        geometry.features.forEach(f => {
+            if (f.geometry && f.geometry.coordinates) {
+                f.geometry.coordinates.forEach(ring => {
+                    ring.forEach(([lng, lat]) => {
+                        if (lng < minLng) minLng = lng;
+                        if (lat < minLat) minLat = lat;
+                        if (lng > maxLng) maxLng = lng;
+                        if (lat > maxLat) maxLat = lat;
+                    });
+                });
+            }
+        });
+        if (isFinite(minLng)) {
+            this.props.onZoomToExtent && this.props.onZoomToExtent(
+                [minLng, minLat, maxLng, maxLat],
+                'EPSG:4326',
+                18
+            );
+        }
     };
 
     _getCsrfToken = () => {
@@ -603,12 +720,14 @@ class AnugaInputMenuClass extends React.Component {
             : null;
 
         // W5.1: MeshWorkflow state
-        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen} = this.state;
+        const {meshPreviewStatus, meshPreviewResult, meshPreviewError, meshWorkflowOpen, meshPreviewProgress} = this.state;
         const hasScenario = !!this.props.selectedScenarioId;
         const scenario = this.props.selectedScenario || null;
         // W5.3: check if the mesh triangle render layer is already in the flat layer list
         const MESH_RENDER_LAYER = 'geonode:mesh_triangle_render';
         const isMeshLayerAdded = (this.props.flatLayers || []).some(l => l?.name === MESH_RENDER_LAYER);
+        // W6 (TASK-1424): built meshes for the selected scenario (component local state)
+        const builtMeshes = this.state.builtMeshes;
 
         return (
             <div className="menu-rows-pane anuga-pane">
@@ -620,20 +739,22 @@ class AnugaInputMenuClass extends React.Component {
                         ? this.renderPaneEmpty('hydrata.anuga.none', isInitializing)
                         : null}
                 </div>
-                {/* W5.1 (TASK-1273) / W5.3 (TASK-1275) — MeshWorkflow panel */}
+                {/* W5.1 (TASK-1273) / W5.3 (TASK-1275) / W6 (TASK-1421,1422,1423,1424) — MeshWorkflow panel */}
                 <MeshWorkflow
                     isOpen={meshWorkflowOpen}
                     onToggle={this._toggleMeshWorkflow}
                     previewState={{
                         status: meshPreviewStatus,
                         result: meshPreviewResult,
-                        error: meshPreviewError
+                        error: meshPreviewError,
+                        progress: meshPreviewProgress
                     }}
                     onStartPreview={this._startMeshPreview}
                     hasScenario={hasScenario}
                     scenario={scenario}
                     onAddMeshLayer={this.props.onAddMeshLayer}
                     isMeshLayerAdded={isMeshLayerAdded}
+                    builtMeshes={builtMeshes}
                 />
             </div>
         );
@@ -859,7 +980,9 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
         createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle)),
         // W5.3 (TASK-1275) — Add mesh triangle render layer to map
-        onAddMeshLayer: (layer) => dispatch(addLayer(layer))
+        onAddMeshLayer: (layer) => dispatch(addLayer(layer)),
+        // W6 (TASK-1422) — Zoom map to mesh extent after successful preview
+        onZoomToExtent: (extent, crs, maxZoom) => dispatch(zoomToExtent(extent, crs, maxZoom))
     };
 };
 

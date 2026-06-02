@@ -34,6 +34,7 @@
 import React from 'react';
 const PropTypes = require('prop-types');
 import { buildGwcMvtTileUrls, GWC_WMTS_ENDPOINT } from '../gwcTileRouting';
+import { getToken } from '../../../../../MapStore2/web/client/utils/SecurityUtils';
 
 // Inline Spinner from React-Spinner (already a MapStore2 dep via anugaInputMenu).
 // We lazily require it so this file does not add a new npm dep.
@@ -51,10 +52,41 @@ try {
 
 /**
  * PreviewSection — renders the Preview button + result label.
- * Extracted so it can be reused or independently tested.
+ *
+ * W6 (TASK-1421) upgrades:
+ *   - Shows a progress bar (0-100%) + status_detail label during 'polling'.
+ *   - Shows a clear "mesh too large" banner when above_render_threshold=true,
+ *     including the triangle count and the threshold so users know to reduce
+ *     mesh region resolution.
+ *   - The progress prop carries {pct, detail} from the process poll response.
  */
-export function PreviewSection({status, result, error, hasScenario, onStart}) {
+export function PreviewSection({status, result, error, hasScenario, onStart, progress}) {
     const isRunning = status === 'pending' || status === 'polling';
+
+    // W6 (TASK-1421): progress bar during polling.
+    let progressBar = null;
+    if (isRunning) {
+        const pct = (progress && progress.pct != null) ? Math.min(100, Math.max(0, progress.pct)) : null;
+        const detail = (progress && progress.detail) ? progress.detail : null;
+        progressBar = (
+            <div className="anuga-mesh-preview-progress">
+                {pct != null ? (
+                    <React.Fragment>
+                        <div className="anuga-mesh-preview-progress-bar-track">
+                            <div
+                                className="anuga-mesh-preview-progress-bar-fill"
+                                style={{width: pct + '%'}}
+                            />
+                        </div>
+                        <span className="anuga-mesh-preview-progress-pct">{pct + '%'}</span>
+                    </React.Fragment>
+                ) : (
+                    Spinner && <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                )}
+                {detail && <span className="anuga-mesh-preview-progress-detail">{detail}</span>}
+            </div>
+        );
+    }
 
     let resultLabel = null;
     if (status === 'done' && result) {
@@ -62,11 +94,17 @@ export function PreviewSection({status, result, error, hasScenario, onStart}) {
         const aboveThreshold = result.above_render_threshold;
         const threshold = result.render_threshold || 150000;
         if (aboveThreshold) {
+            // W6 (TASK-1421): explicit "too large" banner with actionable guidance.
             resultLabel = (
-                <div className="anuga-mesh-preview-metrics">
-                    <span className="anuga-mesh-preview-count">{tc.toLocaleString()} triangles</span>
+                <div className="anuga-mesh-preview-metrics anuga-mesh-preview-too-large">
+                    <span className="anuga-mesh-preview-warn-icon">{'⚠ '}</span>
+                    <strong>{'Mesh too large to preview on map'}</strong>
+                    <span className="anuga-mesh-preview-count">
+                        {' (' + (tc ? tc.toLocaleString() : '?') + ' triangles — exceeds '
+                         + threshold.toLocaleString() + ' limit)'}
+                    </span>
                     <span className="anuga-mesh-preview-note">
-                        {'too large to preview on map (> ' + threshold.toLocaleString() + ')'}
+                        {'Reduce mesh region resolution to preview.'}
                     </span>
                 </div>
             );
@@ -102,13 +140,14 @@ export function PreviewSection({status, result, error, hasScenario, onStart}) {
             >
                 {isRunning ? (
                     <React.Fragment>
-                        {Spinner && (
+                        {(!progress || progress.pct == null) && Spinner && (
                             <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
                         )}
                         {' Previewing...'}
                     </React.Fragment>
                 ) : 'Preview mesh'}
             </button>
+            {progressBar}
             {resultLabel}
         </div>
     );
@@ -119,14 +158,17 @@ PreviewSection.propTypes = {
     result: PropTypes.object,
     error: PropTypes.string,
     hasScenario: PropTypes.bool,
-    onStart: PropTypes.func.isRequired
+    onStart: PropTypes.func.isRequired,
+    // W6 (TASK-1421): {pct: number|null, detail: string|null} from process poll
+    progress: PropTypes.shape({pct: PropTypes.number, detail: PropTypes.string})
 };
 
 PreviewSection.defaultProps = {
     status: null,
     result: null,
     error: null,
-    hasScenario: false
+    hasScenario: false,
+    progress: null
 };
 
 /**
@@ -185,7 +227,7 @@ export function ImportExportSection() {
 }
 
 /**
- * MeshTriangleLayerSection — W5.3 (TASK-1275)
+ * MeshTriangleLayerSection — W5.3 (TASK-1275) / W6 (TASK-1423)
  *
  * Shown when the last preview result is below the render threshold and
  * the MeshElement geometry has been published to GeoServer as the
@@ -199,9 +241,45 @@ export function ImportExportSection() {
  * When the vectortiles plugin is NOT installed (sandbox tinyproxy blocks
  * the download — see docs/reports/w5-task-1304-live-install-fallback.txt),
  * the layer falls back to WMS PNG tiles, which still works.
+ *
+ * W6 (TASK-1423) — Authenticated GWC tiles:
+ *   A mesh is user-owned geometry. GeoFence denies anonymous GWC access to
+ *   mesh_triangle_render (ISSUE 34). MapStore's authenticationRules cover
+ *   absolute GeoServer URLs (e.g. https://hydrata.com/geoserver/.*), but
+ *   GWC_WMTS_ENDPOINT is a RELATIVE path (/geoserver/gwc/service/wmts) which
+ *   does NOT match the absolute-URL pattern — so access_token is NOT injected
+ *   automatically by addAuthenticationParameter for this relative URL.
+ *   Fix: explicitly inject access_token from SecurityUtils.getToken() into
+ *   layer.params and into each tileUrl at build time, so the authenticated
+ *   user's token travels with every tile request.
+ *   The end-to-end render (GeoFence accepts the authed user, geo_reference
+ *   correct) is deferred to prod canary (requires deployed authkey filter +
+ *   GeoFence rule — see epic 1321 TASK-1372).
  */
 export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
     const LAYER_NAME = 'geonode:mesh_triangle_render';
+
+    // W6 (TASK-1423): inject access_token so GWC authenticates the tile request.
+    // getToken() returns the current user's OAuth2 access token stored in the
+    // MapStore security state (set by AppUtils when the user logs in).
+    const token = getToken();
+
+    // Build params: include access_token when available (authed-only, not anon).
+    const params = {
+        LAYERS: LAYER_NAME,
+        FORMAT: 'image/png',
+        TRANSPARENT: true,
+        VERSION: '1.1.1',
+        TILED: true,
+        ...(token ? {access_token: token} : {})
+    };
+
+    // Build tile URLs: append access_token query param to each WMTS template.
+    const baseTileUrls = buildGwcMvtTileUrls(LAYER_NAME);
+    const tileUrls = token
+        ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
+        : baseTileUrls;
+
     const meshLayer = {
         type: 'wms',
         // Route via centralized GWC WMTS helper (TASK-1323 W2).
@@ -214,16 +292,11 @@ export function MeshTriangleLayerSection({onAddLayer, isLayerAdded}) {
         // appears in the Mesh section of the Anuga rail. Using a bare 'Mesh'
         // string would create an orphan group outside the expected hierarchy.
         group: 'Input Data.Mesh',
-        params: {
-            LAYERS: LAYER_NAME,
-            FORMAT: 'image/png',
-            TRANSPARENT: true,
-            VERSION: '1.1.1',
-            TILED: true
-        },
+        params,
         // GWC tile URL for MVT when vectortiles plugin is installed.
         // Built via centralized helper — ensures EPSG:900913 gridset fleet-wide.
-        tileUrls: buildGwcMvtTileUrls(LAYER_NAME)
+        // access_token appended for authenticated GWC tile fetches (W6 TASK-1423).
+        tileUrls
     };
 
     if (isLayerAdded) {
@@ -259,6 +332,66 @@ MeshTriangleLayerSection.defaultProps = {
     isLayerAdded: false
 };
 
+/**
+ * BuiltMeshRoster — W6 (TASK-1424)
+ *
+ * Read-only list of built meshes (MeshRun records) for the selected scenario.
+ * Each row shows: Run date, triangle count (element_count), node count.
+ *
+ * mesh_qa quality metrics (min_angle, sliver_count, aspect_ratio) are NOT
+ * persisted on MeshRun — they are computed at preview/build time and stored
+ * only in process metadata or logs. The roster therefore shows structural
+ * counts only. A future BE persistence subtask could add a mesh_qa JSONField
+ * to MeshRun (see novel_questions in W6 wave report).
+ *
+ * Props:
+ *   builtMeshes: array of MeshRun API objects, or null/empty when none built.
+ */
+export function BuiltMeshRoster({builtMeshes}) {
+    return (
+        <div className="anuga-mesh-workflow-section anuga-built-mesh-roster">
+            <div className="anuga-built-mesh-roster-header">
+                <strong>{'Built meshes'}</strong>
+            </div>
+            {(!builtMeshes || builtMeshes.length === 0) ? (
+                <div className="anuga-built-mesh-roster-empty">
+                    {'No built meshes yet'}
+                </div>
+            ) : (
+                <table className="anuga-built-mesh-roster-table" data-testid="built-mesh-roster-table">
+                    <thead>
+                        <tr>
+                            <th>{'Date'}</th>
+                            <th>{'Triangles'}</th>
+                            <th>{'Nodes'}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {builtMeshes.map(mr => (
+                            <tr key={mr.id} data-testid={'built-mesh-row-' + mr.id}>
+                                <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
+                                <td>{(mr.element_count || 0).toLocaleString()}</td>
+                                <td>{(mr.node_count || 0).toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </div>
+    );
+}
+
+BuiltMeshRoster.propTypes = {
+    builtMeshes: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.number,
+        node_count: PropTypes.number,
+        element_count: PropTypes.number,
+        materialized: PropTypes.bool,
+        created_at: PropTypes.string
+    }))
+};
+BuiltMeshRoster.defaultProps = {builtMeshes: null};
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -270,6 +403,10 @@ MeshTriangleLayerSection.defaultProps = {
  * MeshTriangleLayerSection for adding the GeoServer MVT render layer to the map.
  * These are only shown when the last preview result is below the render threshold
  * (above_render_threshold === false).
+ *
+ * W6 (TASK-1421) additions: passes previewState.progress to PreviewSection for the
+ * process-id-driven progress bar.
+ * W6 (TASK-1424) additions: builtMeshes prop renders the BuiltMeshRoster section.
  */
 export function MeshWorkflow({
     isOpen,
@@ -279,7 +416,8 @@ export function MeshWorkflow({
     hasScenario,
     scenario,
     onAddMeshLayer,
-    isMeshLayerAdded
+    isMeshLayerAdded,
+    builtMeshes
 }) {
     // Only show the mesh triangle layer button when the last preview confirmed
     // the mesh is below the render threshold.
@@ -306,6 +444,7 @@ export function MeshWorkflow({
                         error={previewState.error}
                         hasScenario={hasScenario}
                         onStart={onStartPreview}
+                        progress={previewState.progress || null}
                     />
                     <CostEstimateSection scenario={scenario}/>
                     {/* W5.3 (TASK-1275) — Add mesh triangle layer button (below render threshold only) */}
@@ -316,6 +455,8 @@ export function MeshWorkflow({
                         />
                     )}
                     <ImportExportSection/>
+                    {/* W6 (TASK-1424) — Built meshes roster */}
+                    <BuiltMeshRoster builtMeshes={builtMeshes}/>
                     <div className="anuga-mesh-workflow-section anuga-mesh-workflow-hint">
                         <span className="anuga-mesh-workflow-hint-text">
                             {'Resolution field on each mesh region is a target edge length (m). '}
@@ -334,23 +475,34 @@ MeshWorkflow.propTypes = {
     previewState: PropTypes.shape({
         status: PropTypes.string,
         result: PropTypes.object,
-        error: PropTypes.string
+        error: PropTypes.string,
+        // W6 (TASK-1421): {pct: number|null, detail: string|null}
+        progress: PropTypes.shape({pct: PropTypes.number, detail: PropTypes.string})
     }),
     onStartPreview: PropTypes.func.isRequired,
     hasScenario: PropTypes.bool,
     scenario: PropTypes.object,
     // W5.3
     onAddMeshLayer: PropTypes.func,
-    isMeshLayerAdded: PropTypes.bool
+    isMeshLayerAdded: PropTypes.bool,
+    // W6 (TASK-1424): built meshes roster — array of MeshRun objects
+    builtMeshes: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.number,
+        node_count: PropTypes.number,
+        element_count: PropTypes.number,
+        materialized: PropTypes.bool,
+        created_at: PropTypes.string
+    }))
 };
 
 MeshWorkflow.defaultProps = {
     isOpen: false,
-    previewState: {status: null, result: null, error: null},
+    previewState: {status: null, result: null, error: null, progress: null},
     hasScenario: false,
     scenario: null,
     onAddMeshLayer: null,
-    isMeshLayerAdded: false
+    isMeshLayerAdded: false,
+    builtMeshes: null
 };
 
 export default MeshWorkflow;
