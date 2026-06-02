@@ -45,7 +45,10 @@ class SimpleViewContainer extends React.Component {
         hgevalPluginPresent: PropTypes.bool,
         hgevalActive: PropTypes.bool,
         onSetHGevalStep: PropTypes.func,
-        onResetHGeval: PropTypes.func
+        onResetHGeval: PropTypes.func,
+        // ISSUE 16 item 4: Permissions padlock button on RHS below Save.
+        permissionsEnabled: PropTypes.bool,
+        togglePermissions: PropTypes.func
     };
 
     static defaultProps = {
@@ -110,12 +113,8 @@ class SimpleViewContainer extends React.Component {
         return (
             <div id="simple-view-container">
                 <div className="simple-view-left-toolbar">
-                    <button
-                        key={'basemaps'}
-                        className={`simple-view-menu-button ${this.props.openMenuGroupId === this.props.baseMapMenuGroup?.id ? 'active' : ''}`}
-                        onClick={() => {this.props.setOpenMenuGroupId(this.props.baseMapMenuGroup?.id);}}>
-                        <Message msgId="hydrata.simpleView.baseMaps" />
-                    </button>
+                    {/* ISSUE 16 item 1: BaseMaps button removed — basemaps live in the
+                        bottom-left BaseMaps widget; the button here is redundant. */}
                     {this.props.menuGroups && this.props.menuGroups.length ?
                         this.props.menuGroups.map(
                             (menu) => {
@@ -185,6 +184,13 @@ class SimpleViewContainer extends React.Component {
                                 onClick={() => this.setState({ saveConfirmVisible: !this.state.saveConfirmVisible })}
                                 title="Save">
                                 <Glyphicon glyph="floppy-disk" />
+                            </button>
+                            {/* ISSUE 16 item 4: Permissions padlock button below Save */}
+                            <button
+                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                                onClick={() => this.props.togglePermissions && this.props.togglePermissions(!this.props.permissionsEnabled)}
+                                title="Permissions">
+                                <Glyphicon glyph="lock" />
                             </button>
                         </>
                     ) : null}
@@ -270,7 +276,9 @@ const mapStateToProps = (state, ownProps) => {
         loggedIn: !!isLoggedIn(state),
         drawerEnabled: state?.controls?.drawer?.enabled || false,
         hgevalPluginPresent: !!mapViewerPlugins.find(x => x.name === "HGeval"),
-        hgevalActive: !!(state?.hgeval?.step && state?.hgeval?.step !== 'idle')
+        hgevalActive: !!(state?.hgeval?.step && state?.hgeval?.step !== 'idle'),
+        // ISSUE 16 item 4: track resourceDetails control so the padlock shows active when open.
+        permissionsEnabled: state?.controls?.resourceDetails?.enabled || false
     };
 };
 
@@ -284,7 +292,9 @@ const mapDispatchToProps = ( dispatch ) => {
         toggleDrawer: (enabled) => dispatch(setControlProperty('drawer', 'enabled', enabled)),
         onSave: () => dispatch(saveDirectContent()),
         onSetHGevalStep: (step) => dispatch(setHGevalStep(step)),
-        onResetHGeval: () => dispatch(resetHGeval())
+        onResetHGeval: () => dispatch(resetHGeval()),
+        // ISSUE 16 item 4: toggle the GeoNode ResourceDetails (sharing/permissions) panel.
+        togglePermissions: (enabled) => dispatch(setControlProperty('resourceDetails', 'enabled', enabled))
     };
 };
 

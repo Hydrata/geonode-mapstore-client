@@ -103,8 +103,9 @@ const CATEGORIES = [
     {id: 'meshRegions', titleMsgId: 'hydrata.anuga.mesh', layersKey: 'meshRegionLayers'},
     {id: 'friction', titleMsgId: 'hydrata.anuga.friction', layersKey: 'frictionLayers'},
     {id: 'frictionRasters', titleMsgId: 'hydrata.anuga.frictionRasters', layersKey: 'frictionRasterLayers'},
-    {id: 'structures', titleMsgId: 'hydrata.anuga.structures', layersKey: 'structureLayers'},
-    {id: 'networks', titleMsgId: 'hydrata.anuga.networks', compositeLayersKeys: ['catchmentLayers', 'nodesLayers', 'linksLayers']}
+    {id: 'structures', titleMsgId: 'hydrata.anuga.structures', layersKey: 'structureLayers'}
+    // ISSUE 16 item 2: 'networks' removed from Inputs rail; to be added as a
+    // tab in the Hydrology panel (hydrologyMainMenu.js) in a follow-on subtask.
 ];
 
 const CATEGORY_BY_ID = CATEGORIES.reduce((acc, c) => { acc[c.id] = c; return acc; }, {});

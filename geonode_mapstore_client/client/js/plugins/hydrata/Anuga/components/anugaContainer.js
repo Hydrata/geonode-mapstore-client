@@ -158,10 +158,12 @@ class AnugaContainer extends React.Component {
                     </button>
                     : null
                 }
+                {/* ISSUE 16 item 3: Publish button hidden (feature not ready). */}
                 {this.props.canEditAnugaMap && this.props.hasEPSGset ?
                     <button
                         key="anuga-publication-button"
                         className={`simple-view-menu-button disabled ${this.props.showPublicationPanel ? 'active' : ''}`}
+                        style={{display: 'none'}}
                         onClick={() => {
                             this.props.setPublicationPanel(!this.props.showPublicationPanel);
                             this.props.setOpenMenuGroupId(null);
