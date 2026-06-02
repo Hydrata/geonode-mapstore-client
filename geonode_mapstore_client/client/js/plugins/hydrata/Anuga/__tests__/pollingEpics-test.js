@@ -284,11 +284,12 @@ describe('Polling Epics', () => {
                 ]},
                 { id: 'Results', nodes: [
                     { id: 'Results.Depth' },
-                    { id: 'Results.Depth Integrated Velocity' },
+                    // TASK-1429: renamed from 'Depth Integrated Velocity' → 'Momentum'
+                    { id: 'Results.Momentum' },
                     { id: 'Results.Velocity' },
                     { id: 'Results.Comparison: Velocity' },
                     { id: 'Results.Comparison: Depth' },
-                    { id: 'Results.Comparison: Depth Integrated Velocity' }
+                    { id: 'Results.Comparison: Momentum' }
                 ]}
             ];
             const store = { getState: () => ({ layers: { groups: allGroups } }) };
@@ -1112,9 +1113,10 @@ describe('Polling Epics', () => {
         // collapse to one fetch — the resource endpoint is a list, so
         // refetching it twice is pure waste.
         it('dedupes the resource refresh by endpoint within a single tick', (done) => {
-            // 3 layer_create completions → 3 addLayer + 3 show (synchronous) +
-            // 2 async resource refreshes (Inflow deduped to one, plus Rainfall).
-            // = 8 actions total. Mock the resource-list endpoint.
+            // 3 layer_create completions → 3 addLayer + 1 show (debounced per
+            // TASK-1427: only one notification per batch) + 2 async resource
+            // refreshes (Inflow deduped to one, plus Rainfall) = 6 actions total.
+            // Mock the resource-list endpoint.
             const mock = mockAxios();
             mock.onGet(/\/api\/v2\/anuga\/projects\/\d+\//).reply(200, [{ id: 1 }]);
             const state = {
@@ -1124,7 +1126,7 @@ describe('Polling Epics', () => {
             };
             testEpic(
                 taskCompleteLayerEpic,
-                8,
+                6,
                 {
                     type: TM_SET_PROCESSES,
                     processes: [
