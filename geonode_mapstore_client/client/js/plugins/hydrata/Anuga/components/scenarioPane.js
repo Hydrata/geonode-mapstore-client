@@ -235,7 +235,9 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                         readOnly={!canEdit}
                         onChange={handleResolutionChange}
                     />
-                    <span className="anuga-scenario-pane-field-unit">m²</span>
+                    {/* TASK-1413: resolution is a target edge-length in metres (not m²).
+                        Formula: triangles ≈ area / (resolution² / 2) confirms linear m. */}
+                    <span className="anuga-scenario-pane-field-unit">m</span>
                 </div>
             </div>
             <div className="anuga-scenario-pane-section">
@@ -252,7 +254,8 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                         onChange={handleTimeChange}
                         onBlur={handleTimeBlur}
                     />
-                    <span className="anuga-scenario-pane-field-unit">h</span>
+                    {/* TASK-1414: duration stored in seconds, displayed as hh:mm */}
+                    <span className="anuga-scenario-pane-field-unit">hh:mm</span>
                 </div>
             </div>
             <div className="anuga-scenario-pane-section">

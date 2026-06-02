@@ -223,7 +223,7 @@
         "rainfall": "Rainfall",
         "rainfalls": "Rainfall",
         "createRainfall": "Create Rainfall",
-        "resolutionM2": "Resolution(m2)",
+        "resolutionM2": "Resolution",
         "results": "Results",
         "retry": "Retry",
         "retryError": "Failed to retry run",
