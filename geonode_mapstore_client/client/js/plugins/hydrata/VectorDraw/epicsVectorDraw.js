@@ -150,7 +150,7 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
                 action$.ofType(END_DRAWING)
                     .filter(a => a.owner === VECTOR_DRAW_OWNER)
                     .take(1)
-                    .map(a => {
+                    .switchMap(a => {
                         // END_DRAWING geometry is in map CRS (typically
                         // EPSG:3857). Reproject to EPSG:4326 for WFS-T.
                         // See extractDrawGeometry for the shape-normalisation
@@ -161,7 +161,7 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
                                 'VectorDraw: END_DRAWING with unrecognised geometry shape',
                                 a.geometry
                             );
-                            return drawingComplete(null);
+                            return Rx.Observable.of(drawingComplete(null));
                         }
                         const fromCrs = inner.projection
                             || a.geometry?.projection
@@ -172,7 +172,31 @@ const runDescribeAndDrawFlow = (action$, wfsUrl, config) =>
                             fromCrs,
                             'EPSG:4326'
                         );
-                        return drawingComplete(reprojected);
+                        // TASK-1407 (ISSUE 9) — after drawing, if a form is present
+                        // (formConfig is set), re-enable vertex editing on the drawn
+                        // geometry so the user can adjust vertices before submitting.
+                        // The save epic reads draw.tempFeatures / draw.features geometry
+                        // first (updated by vertex drags) so the edits are preserved on
+                        // save. Without this, stopAfterDrawing:true leaves the draw
+                        // interaction dead and vertices are un-grabbable in form phase.
+                        const drawCompleteAction = drawingComplete(reprojected);
+                        if (config.formConfig) {
+                            const drawnFeature = {
+                                type: 'Feature',
+                                geometry: reprojected,
+                                properties: {}
+                            };
+                            return Rx.Observable.of(
+                                drawCompleteAction,
+                                changeDrawingStatus('drawOrEdit', config.geomType, VECTOR_DRAW_OWNER, [drawnFeature], {
+                                    stopAfterDrawing: false,
+                                    drawEnabled: false,
+                                    editEnabled: true,
+                                    featureProjection: 'EPSG:4326'
+                                })
+                            );
+                        }
+                        return Rx.Observable.of(drawCompleteAction);
                     })
             );
         });
@@ -283,8 +307,18 @@ export const vectorDrawSaveEpic = (action$, store) =>
         })
         .switchMap(() => {
             const state = store.getState()?.vectorDraw;
-            const { config, geometry, formValues } = state;
+            const { config, formValues } = state;
             const wfsUrl = getWfsUrl(store);
+
+            // TASK-1407 (ISSUE 9) — prefer geometry from draw state (draw.tempFeatures
+            // for vertex-dragged edits, draw.features for the initial drawn shape) over
+            // the snapshot stored in vectorDraw.geometry at END_DRAWING time. This lets
+            // vertex modifications made in the form phase (editEnabled=true after drawing)
+            // be captured without needing a separate "geometry changed" reducer action.
+            const drawState = store.getState()?.draw;
+            const editedGeometry = drawState?.tempFeatures?.[0]?.geometry
+                || drawState?.features?.[0]?.geometry;
+            const geometry = editedGeometry || state.geometry;
 
             // Defensive: extractDrawGeometry returns null on unrecognised
             // shapes; saveEpic must not call wfstInsert/Update with null
