@@ -907,6 +907,11 @@ export const taskCompleteLayerEpic = (action$, store) => {
                 observables.push(Rx.Observable.of(initAnuga()));
             }
             const refreshedEndpoints = new Set();
+            // ISSUE 4 (TASK-1427): emit the "save your project" toast at most ONCE
+            // per TM_SET_PROCESSES batch regardless of how many layer_create processes
+            // complete simultaneously. Without the flag, creating 6 default input
+            // layers at project init fires 6 consecutive toasts.
+            let layerNotificationQueued = false;
             newlyCompleted.forEach(p => {
                 const dispatch = modelClassDispatch[p.metadata?.model_class];
                 if (p.process_type === 'terrain_create' && Array.isArray(p.metadata?.mapstore_layers)) {
@@ -926,7 +931,11 @@ export const taskCompleteLayerEpic = (action$, store) => {
                             ? Object.assign({}, baseLayerConfig, { group: resolvedGroup })
                             : baseLayerConfig;
                         observables.push(Rx.Observable.of(addLayer(layerConfig)));
-                        observables.push(Rx.Observable.of(show(NEW_LAYERS_NOTIFICATION)));
+                        // Debounce: only queue the notification once per batch.
+                        if (!layerNotificationQueued) {
+                            observables.push(Rx.Observable.of(show(NEW_LAYERS_NOTIFICATION)));
+                            layerNotificationQueued = true;
+                        }
                     }
                 } else if (dispatch?.addAction) {
                     observables.push(Rx.Observable.of(dispatch.addAction()));
