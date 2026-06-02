@@ -60,10 +60,8 @@ export function formatBuildLog(log) {
             /^(mesh area: )(\d+)( m2| m²)/m,
             (_, prefix, numStr) => {
                 const km2 = parseFloat(numStr) / 1e6;
-                // toFixed(2) then strip trailing ".0" or ".00" — e.g. 1.00→"1", 1.50→"1.5"
-                const formatted = parseFloat(km2.toFixed(2)).toLocaleString('en-US', {
-                    maximumFractionDigits: 2
-                });
+                // maximumFractionDigits:2 strips trailing zeros (e.g. 1.0→"1", 1.5→"1.5").
+                const formatted = km2.toLocaleString('en-US', {maximumFractionDigits: 2});
                 return `${prefix}${formatted} km²`;
             }
         )
