@@ -1849,3 +1849,15 @@ div that holds the feature-grid */
     padding: 10px 12px;
     color: #d6e0f0;
 }
+
+/* ISSUE 32 (TASK-1429): View Results bar shown on run completion, above the
+   scenario rail+pane shell. Compact row with success-green button. */
+.anuga-view-results-bar {
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.anuga-btn-view-results {
+    font-size: 12px;
+}

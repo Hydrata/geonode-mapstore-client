@@ -38,6 +38,7 @@ import {
     selectedScenarios as selectedScenariosSelector
 } from "../selectorsAnuga";
 import {toggleTaskMonitorPanel} from '../../TaskMonitor/actionsTaskMonitor';
+import {changeLayerProperties} from '../../../../../MapStore2/web/client/actions/layers';
 import {validateScenario} from './scenarioHelpers';
 import {ScenarioRail} from './scenarioRail';
 import {ScenarioPane} from './scenarioPane';
@@ -154,7 +155,10 @@ class AnugaScenarioMenuClass extends React.Component {
       setAnugaScenarioArchiveFilter: PropTypes.func,
       compareScenarios: PropTypes.func,
       runAnugaScenario: PropTypes.func,
-      openTaskMonitorForRun: PropTypes.func
+      openTaskMonitorForRun: PropTypes.func,
+      // ISSUE 32 (TASK-1429): View results button on completion.
+      flatLayers: PropTypes.array,
+      onViewResults: PropTypes.func
   };
 
   static defaultProps = {
@@ -210,6 +214,21 @@ class AnugaScenarioMenuClass extends React.Component {
 
   handleSelectCategory = (categoryId) => {
       this.setState({selectedCategoryId: categoryId});
+  };
+
+  // ISSUE 32 (TASK-1429): Close Scenarios, open Results, activate only this
+  // scenario's 3 result layers.
+  handleViewResults = (scenario) => {
+      if (this.props.onViewResults) {
+          this.props.onViewResults(scenario, this.props.flatLayers || []);
+      }
+      if (this.props.setOpenMenuGroupId) {
+          this.props.setOpenMenuGroupId('Results');
+      }
+      if (this.props.setAnugaScenarioMenu) {
+          this.props.setAnugaScenarioMenu(false);
+      }
+      trackEvent('button', 'click', 'anuga-scenario-menu-view-results');
   };
 
   handleNewScenario = () => {
@@ -537,6 +556,9 @@ class AnugaScenarioMenuClass extends React.Component {
   }
 
   render() {
+      const {selectedScenario} = this.props;
+      const isComplete = selectedScenario?.computed_status === 'complete'
+          || selectedScenario?.latest_run?.status === 'complete';
       return (
           <div
               id={'anuga-scenario-menu'}
@@ -544,6 +566,21 @@ class AnugaScenarioMenuClass extends React.Component {
           >
               <div className={'menu-rows-container'}>
                   {this.renderHeader()}
+                  {/* ISSUE 32 (TASK-1429): View results button shown on run completion */}
+                  {isComplete && selectedScenario?.latest_run ? (
+                      <div className="anuga-view-results-bar">
+                          <Button
+                              bsStyle={'success'}
+                              bsSize={'xsmall'}
+                              className="anuga-btn anuga-btn-view-results"
+                              onClick={() => this.handleViewResults(selectedScenario)}
+                          >
+                              <span className="glyphicon glyphicon-eye-open" aria-hidden="true" />
+                              {' '}
+                              <Message msgId="hydrata.anuga.viewResults" />
+                          </Button>
+                      </div>
+                  ) : null}
                   <div className={'sv-rail-pane-shell'}>
                       {this.renderRail()}
                       {this.renderPane()}
@@ -585,7 +622,9 @@ const mapStateToProps = (state) => {
         myRole: getProjectMyRole(state),
         currentUserId: state?.security?.user?.pk,
         selectedScenarios: selected,
-        readyToCompare: selected.length === 2
+        readyToCompare: selected.length === 2,
+        // ISSUE 32 (TASK-1429): flat layer list for view-results visibility toggling.
+        flatLayers: state?.layers?.flat || []
     };
 };
 
@@ -608,7 +647,25 @@ const mapDispatchToProps = (dispatch) => ({
     setAnugaScenarioArchiveFilter: (mode) => dispatch(setAnugaScenarioArchiveFilter(mode)),
     compareScenarios: (scenarios) => dispatch(compareScenarios(scenarios)),
     runAnugaScenario: (scenario, computeBackend) => dispatch(runAnugaScenario(scenario, computeBackend)),
-    openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true))
+    openTaskMonitorForRun: () => dispatch(toggleTaskMonitorPanel(true)),
+    // ISSUE 32 (TASK-1429): turn on only this scenario's 3 result layers,
+    // turn off all other layers in the Results group.
+    onViewResults: (scenario, flatLayers) => {
+        const run = scenario?.latest_run;
+        if (!run) return;
+        const thisRunLayerNames = [
+            run.gn_layer_depth_max?.name,
+            run.gn_layer_velocity_max?.name,
+            run.gn_layer_depth_integrated_velocity_max?.name
+        ].filter(Boolean);
+        const resultLayers = flatLayers.filter(
+            l => l?.group && l.group.startsWith('Results.')
+        );
+        resultLayers.forEach(layer => {
+            const shouldBeVisible = !!layer.name && thisRunLayerNames.includes(layer.name);
+            dispatch(changeLayerProperties(layer.id, {visibility: shouldBeVisible}));
+        });
+    }
 });
 
 const AnugaScenarioMenu = connect(mapStateToProps, mapDispatchToProps)(AnugaScenarioMenuClass);

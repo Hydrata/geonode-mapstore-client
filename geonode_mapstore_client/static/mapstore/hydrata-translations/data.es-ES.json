@@ -225,6 +225,7 @@
         "createRainfall": "Crear Precipitación",
         "resolutionM2": "Resolución (m²)",
         "results": "Resultados",
+        "viewResults": "Ver Resultados",
         "retry": "Reintentar",
         "retryError": "Error al reintentar",
         "retrySuccess": "Ejecución reiniciada — lista para relanzar",

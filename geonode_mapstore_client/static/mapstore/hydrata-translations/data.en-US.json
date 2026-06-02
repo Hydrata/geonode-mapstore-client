@@ -225,6 +225,7 @@
         "createRainfall": "Create Rainfall",
         "resolutionM2": "Resolution",
         "results": "Results",
+        "viewResults": "View Results",
         "retry": "Retry",
         "retryError": "Failed to retry run",
         "retrySuccess": "Run reset — ready to re-run",

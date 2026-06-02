@@ -299,7 +299,17 @@ export const pollAnugaScenarioEpic = (action$, store) =>
                                     !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_depth_max?.name) &&
                                     !currentLayerNames.includes(scenarioToLoadResults?.latest_run?.gn_layer_velocity_max?.name)
                                 ) {
-                                    const depthVelocityLayer = scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max;
+                                    // ISSUE 32 (TASK-1429): remap BE group name
+                                    // "Results.Depth Integrated Velocity" → "Results.Momentum"
+                                    // so the layer lands in the renamed FE group.
+                                    const remapGroup = (layer) => {
+                                        if (!layer) return layer;
+                                        if (layer.group === 'Results.Depth Integrated Velocity') {
+                                            return Object.assign({}, layer, {group: 'Results.Momentum'});
+                                        }
+                                        return layer;
+                                    };
+                                    const depthVelocityLayer = remapGroup(scenarioToLoadResults.latest_run.gn_layer_depth_integrated_velocity_max);
                                     const depthLayer = scenarioToLoadResults.latest_run.gn_layer_depth_max;
                                     const velocityLayer = scenarioToLoadResults.latest_run.gn_layer_velocity_max;
                                     return Rx.Observable
@@ -406,9 +416,11 @@ const ANUGA_GROUPS = {
         "Terrain"
     ],
     "Results": [
-        "Depth", "Depth Integrated Velocity", "Velocity",
+        // ISSUE 32 (TASK-1429): "Depth Integrated Velocity" renamed to "Momentum"
+        // in all human-facing labels. Dataset name (depthintegratedvelocity) unchanged.
+        "Depth", "Momentum", "Velocity",
         "Comparison: Velocity", "Comparison: Depth",
-        "Comparison: Depth Integrated Velocity"
+        "Comparison: Momentum"
     ]
 };
 
