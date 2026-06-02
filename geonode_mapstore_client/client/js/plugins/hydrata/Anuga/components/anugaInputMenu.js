@@ -277,6 +277,15 @@ class AnugaInputMenuClass extends React.Component {
         this.setState(prev => ({meshWorkflowOpen: !prev.meshWorkflowOpen}));
     };
 
+    componentDidMount() {
+        // W6 (TASK-1424): fetch built meshes on initial mount in case a scenario is
+        // already selected (AnugaInputMenu is unmounted/remounted each time the panel
+        // is opened, so the scenario is often pre-selected on first render).
+        if (this.props.selectedScenarioId) {
+            this._fetchBuiltMeshes();
+        }
+    }
+
     componentDidUpdate(prevProps) {
         // After a create finishes (isCreatingAnugaLayer falls back to false),
         // close the input that initiated it. `lastSubmittedCategory` is set
