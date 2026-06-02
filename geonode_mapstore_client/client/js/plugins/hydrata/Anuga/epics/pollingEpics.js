@@ -669,9 +669,12 @@ const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
     // routes the layer into the correct tab without waiting for the next
     // FIX_ANUGA_GROUPS tick. terrain_create stamps metadata.target_group
     // ('Input Data.Terrain') for both DEM + hillshade.
+    // ENH 7 (TASK-1428): default terrain rasters to 50% opacity so both
+    // DEM + hillshade are visible when stacked.
     const stampedLayers = newLayers.map(l => {
         const group = resolveAnugaGroup(metadata, l);
-        return group ? Object.assign({}, l, { group }) : l;
+        const layerWithGroup = group ? Object.assign({}, l, { group }) : Object.assign({}, l);
+        return Object.assign(layerWithGroup, { opacity: 0.5 });
     });
     return Rx.Observable.concat(
         Rx.Observable.defer(() => {
