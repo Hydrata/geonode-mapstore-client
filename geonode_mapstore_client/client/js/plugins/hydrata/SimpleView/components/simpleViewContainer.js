@@ -6,6 +6,11 @@ import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {setControlProperty} from '@mapstore/framework/actions/controls';
 import {saveDirectContent} from '@js/actions/gnsave';
+// TASK-1441: ResourceDetails panel is controlled via the ResourcesCatalog
+// resources state (state.resources.showDetails), NOT a MapStore controls key.
+// setShowDetails / getShowDetails are the correct API.
+import { setShowDetails } from '@mapstore/framework/plugins/ResourcesCatalog/actions/resources';
+import { getShowDetails } from '@mapstore/framework/plugins/ResourcesCatalog/selectors/resources';
 import {canEditResource} from '@js/selectors/resource';
 import {isLoggedIn} from '@mapstore/framework/selectors/security';
 import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
@@ -277,8 +282,10 @@ const mapStateToProps = (state, ownProps) => {
         drawerEnabled: state?.controls?.drawer?.enabled || false,
         hgevalPluginPresent: !!mapViewerPlugins.find(x => x.name === "HGeval"),
         hgevalActive: !!(state?.hgeval?.step && state?.hgeval?.step !== 'idle'),
-        // ISSUE 16 item 4: track resourceDetails control so the padlock shows active when open.
-        permissionsEnabled: state?.controls?.resourceDetails?.enabled || false
+        // TASK-1441: ResourceDetails panel is controlled via state.resources.showDetails,
+        // NOT state.controls.resourceDetails.  Use getShowDetails (the canonical selector)
+        // so the padlock active-state tracks the panel correctly.
+        permissionsEnabled: getShowDetails(state) || false
     };
 };
 
@@ -293,8 +300,10 @@ const mapDispatchToProps = ( dispatch ) => {
         onSave: () => dispatch(saveDirectContent()),
         onSetHGevalStep: (step) => dispatch(setHGevalStep(step)),
         onResetHGeval: () => dispatch(resetHGeval()),
-        // ISSUE 16 item 4: toggle the GeoNode ResourceDetails (sharing/permissions) panel.
-        togglePermissions: (enabled) => dispatch(setControlProperty('resourceDetails', 'enabled', enabled))
+        // TASK-1441: toggle via setShowDetails — the action ResourceDetails actually
+        // listens to.  setControlProperty('resourceDetails',...) targeted a MapStore
+        // controls key that ResourceDetails never reads, so the panel never opened.
+        togglePermissions: (enabled) => dispatch(setShowDetails(enabled))
     };
 };
 

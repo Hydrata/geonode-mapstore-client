@@ -1,5 +1,8 @@
 import expect from 'expect';
 import reducer from '../reducersSimpleView';
+// TASK-1441: import the canonical ResourcesCatalog selector so we can assert
+// that it reads from state.resources.showDetails (not state.controls.*).
+import { getShowDetails } from '@mapstore/framework/plugins/ResourcesCatalog/selectors/resources';
 import {
     SET_OPEN_MENU_GROUP_ID,
     SET_VISIBLE_LEGEND_PANEL,
@@ -286,6 +289,20 @@ describe('SimpleView Plugin', () => {
                 layer: layer
             });
             expect(state.selectedLayer).toEqual(layer);
+        });
+    });
+
+    // TASK-1441 — verify ResourceDetails control key
+    describe('ResourceDetails padlock control key (TASK-1441)', () => {
+        it('getShowDetails reads state.resources.showDetails (not state.controls.*)', () => {
+            // The SimpleView padlock button must use setShowDetails/getShowDetails from
+            // ResourcesCatalog — NOT setControlProperty('resourceDetails',...).
+            // ResourceDetails.jsx reads show: getShowDetails(state), which resolves to
+            // state.resources.showDetails, entirely independent of state.controls.
+            expect(getShowDetails({ resources: { showDetails: true } })).toBe(true);
+            expect(getShowDetails({ resources: { showDetails: false } })).toBe(false);
+            // Confirm controls.resourceDetails.enabled has no effect on panel visibility.
+            expect(getShowDetails({ controls: { resourceDetails: { enabled: true } } })).toBe(false);
         });
     });
 });
