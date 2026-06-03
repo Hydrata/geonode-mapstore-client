@@ -45,9 +45,10 @@ const CATEGORY_GLYPHS = {
 };
 
 // Map rail category ids → activeHydrologyPage values.
-// idf-table is the default page when entering the IDF category.
+// TASK-1452 (W5): idf-derive is the default (common path) when entering the
+// IDF category. Users can switch to idf-table (Manual) via the sub-toggle.
 const CATEGORY_TO_PAGE = {
-    'idf': 'idf-table',
+    'idf': 'idf-derive',
     'temporal-pattern': 'temporal-pattern',
     'time-series': 'time-series',
     'networks': 'networks'
@@ -119,7 +120,8 @@ HydrologyCategoryRail.propTypes = {
 };
 
 HydrologyCategoryRail.defaultProps = {
-    activeHydrologyPage: 'idf-table'
+    // TASK-1452 (W5): default matches reducer initialState (idf-derive = Derive-first).
+    activeHydrologyPage: 'idf-derive'
 };
 
 export {HydrologyCategoryRail, CATEGORIES};

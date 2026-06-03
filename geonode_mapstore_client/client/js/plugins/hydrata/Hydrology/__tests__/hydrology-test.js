@@ -149,7 +149,8 @@ describe('Hydrology Plugin', () => {
             // Existing fields preserved verbatim.
             expect(state.isHydrologyProject).toBe(false);
             expect(state.showHydrologyMainMenu).toBe(false);
-            expect(state.activeHydrologyPage).toBe('idf-table');
+            // TASK-1452 (W5): default page changed to idf-derive (opens on Derive).
+            expect(state.activeHydrologyPage).toBe('idf-derive');
             // TASK-934: new slice present but doesn't disturb the older keys.
             expect(state.idfDerive).toExist();
         });

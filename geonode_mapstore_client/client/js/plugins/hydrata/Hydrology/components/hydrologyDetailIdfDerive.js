@@ -1,11 +1,26 @@
 /**
- * TASK-934 — IDF Derive panel.
+ * TASK-934 — IDF Derive panel (originally); TASK-1452 (W5) — redesigned.
  *
- * One-shot form (no list-of-items pattern). Posts {lat, lon, durations_min,
- * return_periods_yr} to /api/v2/anuga/projects/{pid}/idf-tables/derive/.
+ * W5 redesign: reflows the one-shot form into a 4-step vertical stepper
+ * rendered inside the standard .anuga-scenario-pane-detail idiom:
+ *
+ *   Step 1 — LOCATION   lat/lon row + Pick-on-map toggle
+ *   Step 2 — PARAMETERS durations + return-periods + sub-daily banner
+ *   Step 3 — DERIVE     primary green Derive button (bottom-right); disabled
+ *                       with an inline reason when !celeryAnugaEnabled or
+ *                       validation fails
+ *   Step 4 — RESULTS    read-only table + Download JSON/CSV + collapsible
+ *                       provenance <pre>
+ *
+ * Posts {lat, lon, durations_min, return_periods_yr} to
+ * /api/v2/anuga/projects/{pid}/idf-tables/derive/.
  * The derive endpoint returns 202 + {task_id, process_id}; we then watch
  * TaskMonitor for the matching process row to flip to 'complete' and
  * fetch the resulting IDFTable for inline display.
+ *
+ * Styling: .anuga-scenario-pane-* classes + --sv-* vars from anuga.css.
+ * No bespoke inline styles except where truly dynamic (e.g. mapPickActive
+ * bsStyle toggle on the Pick button).
  */
 import React from 'react';
 import {connect} from 'react-redux';
@@ -133,7 +148,7 @@ const ResultsTable = ({idfTable}) => {
         getCoreRowModel: getCoreRowModel()
     });
     return (
-        <div className="" style={{overflowX: 'auto', maxWidth: '100%'}}>
+        <div className="idf-derive-results-table-wrap">
             <table className={'idf-table'}>
                 <thead>
                     {table.getHeaderGroups().map(headerGroup => (
@@ -191,6 +206,23 @@ const downloadProvenanceJson = (idfTable) => {
     }
 };
 
+/**
+ * IdfDeriveStepHeader — a numbered step heading in the vertical stepper.
+ * Shows a circular step number badge + a title label.
+ */
+const IdfDeriveStepHeader = ({step, titleMsgId}) => (
+    <div className="idf-derive-step-head">
+        <span className="idf-derive-step-badge">{step}</span>
+        <span className="idf-derive-step-title">
+            <Message msgId={titleMsgId} />
+        </span>
+    </div>
+);
+IdfDeriveStepHeader.propTypes = {
+    step: PropTypes.number.isRequired,
+    titleMsgId: PropTypes.string.isRequired
+};
+
 class HydrologyDetailIdfDeriveClass extends React.Component {
     static propTypes = {
         projectId: PropTypes.number,
@@ -219,6 +251,14 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         mapPickActive: false,
         inFlight: false
     };
+
+    // Provenance collapsible state (local only — no need in Redux).
+    constructor(props) {
+        super(props);
+        this.state = {
+            provenanceOpen: false
+        };
+    }
 
     // Inline validation — runs on every render to disable Derive and show
     // an error string when inputs are malformed. The epic re-validates BE
@@ -260,6 +300,10 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         );
     };
 
+    toggleProvenance = () => {
+        this.setState(s => ({provenanceOpen: !s.provenanceOpen}));
+    };
+
     render() {
         const {durations, errors} = this.validate();
         const minDuration = minOf(durations);
@@ -269,177 +313,264 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
             && (this.props.processStatus === 'pending'
                 || this.props.processStatus === 'running'
                 || !this.props.processStatus);
-        const disabled = !this.props.celeryAnugaEnabled
-            || errors.length > 0
-            || isInFlight;
+
+        // Derive button disabled tooltip reason — show the FIRST reason only.
+        // NOTE: all values here must be human-readable strings; i18n keys must
+        // NOT be passed directly (they render as raw key strings in HTML title).
+        // The celery-unavailable message comes from the inline notice below, so
+        // the title is left empty in that case to avoid key-string leakage.
+        let deriveDisabledReason = null;
+        if (!this.props.celeryAnugaEnabled) {
+            deriveDisabledReason = null; // visible notice shown inline; don't leak i18n key
+        } else if (isInFlight) {
+            deriveDisabledReason = null; // progress indicator shown inline
+        } else if (errors.length > 0) {
+            deriveDisabledReason = errors[0]; // raw human-readable validation string
+        }
+        const deriveDisabled = !this.props.celeryAnugaEnabled || errors.length > 0 || isInFlight;
 
         return (
-            <div id={'hydrology-idf-derive-panel'} style={{padding: '10px'}}>
-                <h3 style={{marginTop: 0, color: 'white'}}>
-                    <Message msgId="hydrata.hydrology.idfDerive" />
-                </h3>
-
-                <div style={{display: 'flex', gap: '10px', alignItems: 'baseline', marginBottom: '10px'}}>
-                    <label htmlFor={'idf-derive-lat'} style={{color: 'white', width: '90px'}}>
-                        <Message msgId="hydrata.hydrology.idfDeriveLat" />
-                    </label>
-                    <input
-                        id={'idf-derive-lat'}
-                        type={'number'}
-                        className={'hydrology-text-input'}
-                        // eslint-disable-next-line no-eq-null, eqeqeq
-                        value={this.props.lat == null ? '' : this.props.lat}
-                        onChange={(e) => this.props.setIdfDeriveLat(
-                            e.target.value === '' ? null : Number(e.target.value)
-                        )}
-                    />
-                    <label htmlFor={'idf-derive-lon'} style={{color: 'white', width: '90px'}}>
-                        <Message msgId="hydrata.hydrology.idfDeriveLon" />
-                    </label>
-                    <input
-                        id={'idf-derive-lon'}
-                        type={'number'}
-                        className={'hydrology-text-input'}
-                        // eslint-disable-next-line no-eq-null, eqeqeq
-                        value={this.props.lon == null ? '' : this.props.lon}
-                        onChange={(e) => this.props.setIdfDeriveLon(
-                            e.target.value === '' ? null : Number(e.target.value)
-                        )}
-                    />
-                    <Button
-                        id={'idf-derive-pick-on-map'}
-                        bsSize={'small'}
-                        bsStyle={this.props.mapPickActive ? 'primary' : 'default'}
-                        onClick={this.handlePickClick}
-                    >
-                        <Message msgId="hydrata.hydrology.idfDerivePickOnMap" />
-                    </Button>
+            <div id={'hydrology-idf-derive-panel'} className="idf-derive-panel">
+                {/* Head title — pane idiom */}
+                <div className="anuga-scenario-pane-detail-head">
+                    <span className="anuga-scenario-pane-detail-head-title">
+                        <Message msgId="hydrata.hydrology.idfDerive" />
+                    </span>
                 </div>
 
-                <div style={{marginBottom: '10px'}}>
-                    <label htmlFor={'idf-derive-durations'} style={{color: 'white', display: 'block'}}>
-                        <Message msgId="hydrata.hydrology.idfDeriveDurations" />
-                    </label>
-                    <input
-                        id={'idf-derive-durations'}
-                        type={'text'}
-                        className={'hydrology-text-input'}
-                        style={{width: '500px'}}
-                        value={this.props.durationsText}
-                        onChange={(e) => this.props.setIdfDeriveDurations(e.target.value)}
-                    />
-                </div>
+                {/* Scrollable body */}
+                <div className="anuga-scenario-pane-detail-body idf-derive-body">
 
-                <div style={{marginBottom: '10px'}}>
-                    <label htmlFor={'idf-derive-rps'} style={{color: 'white', display: 'block'}}>
-                        <Message msgId="hydrata.hydrology.idfDeriveRPs" />
-                    </label>
-                    <input
-                        id={'idf-derive-rps'}
-                        type={'text'}
-                        className={'hydrology-text-input'}
-                        style={{width: '500px'}}
-                        value={this.props.rpsText}
-                        onChange={(e) => this.props.setIdfDeriveRPs(e.target.value)}
-                    />
-                </div>
-
-                {showSubDailyBanner && (
+                    {/* ── STEP 1: LOCATION ────────────────────────────── */}
                     <div
-                        id={'idf-derive-sub-daily-banner'}
-                        style={{
-                            backgroundColor: '#fcf8e3',
-                            border: '1px solid #faebcc',
-                            color: '#8a6d3b',
-                            padding: '10px',
-                            marginBottom: '10px',
-                            borderRadius: '4px'
-                        }}
+                        id="idf-derive-step-location"
+                        className="idf-derive-step"
                     >
-                        <span className={'glyphicon glyphicon-warning-sign'} style={{marginRight: '6px'}}/>
-                        <Message msgId="hydrata.hydrology.idfDeriveSubDailyBanner" />
-                    </div>
-                )}
+                        <IdfDeriveStepHeader step={1} titleMsgId="hydrata.hydrology.idfDeriveStepLocation" />
 
-                {errors.length > 0 && (
-                    <div
-                        id={'idf-derive-validation-errors'}
-                        style={{color: '#f2dede', marginBottom: '10px'}}
-                    >
-                        {errors.join('; ')}
-                    </div>
-                )}
-
-                {!this.props.celeryAnugaEnabled ? (
-                    <div
-                        id={'idf-derive-unavailable'}
-                        style={{
-                            color: '#fff',
-                            backgroundColor: '#5e5e5e',
-                            padding: '8px',
-                            borderRadius: '4px',
-                            marginBottom: '10px'
-                        }}
-                    >
-                        <Message msgId="hydrata.hydrology.idfDeriveUnavailable" />
-                    </div>
-                ) : (
-                    <Button
-                        id={'idf-derive-button'}
-                        bsStyle={'success'}
-                        disabled={disabled}
-                        onClick={this.handleDeriveClick}
-                    >
-                        <Message msgId="hydrata.hydrology.idfDeriveDeriveButton" />
-                    </Button>
-                )}
-
-                {this.props.error && (
-                    <div
-                        id={'idf-derive-error'}
-                        style={{color: '#f2dede', marginTop: '10px'}}
-                    >
-                        {this.props.error}
-                    </div>
-                )}
-
-                {isInFlight && (
-                    <div
-                        id={'idf-derive-progress'}
-                        style={{color: 'white', marginTop: '10px'}}
-                    >
-                        <span className={'glyphicon glyphicon-refresh'} style={{marginRight: '6px'}}/>
-                        {this.props.processName || 'Deriving IDF...'}
-                    </div>
-                )}
-
-                {this.props.result && (
-                    <div id={'idf-derive-results'} style={{marginTop: '15px', backgroundColor: 'white', padding: '10px', borderRadius: '4px'}}>
-                        <ResultsTable idfTable={this.props.result}/>
-                        <div style={{marginTop: '10px', display: 'flex', gap: '10px'}}>
-                            <Button
-                                id={'idf-derive-download-json'}
-                                bsSize={'small'}
-                                onClick={() => downloadProvenanceJson(this.props.result)}
-                            >
-                                <Message msgId="hydrata.hydrology.idfDeriveDownloadJson" />
-                            </Button>
-                            <Button
-                                id={'idf-derive-download-csv'}
-                                bsSize={'small'}
-                                onClick={this.handleCsvDownload}
-                            >
-                                <Message msgId="hydrata.hydrology.idfDeriveDownloadCsv" />
-                            </Button>
+                        <div className="anuga-scenario-pane-section">
+                            <span className="anuga-scenario-pane-label">
+                                <Message msgId="hydrata.hydrology.idfDeriveLat" />
+                            </span>
+                            <div className="anuga-scenario-pane-field">
+                                <input
+                                    id={'idf-derive-lat'}
+                                    type={'number'}
+                                    className={'hydrology-text-input'}
+                                    // eslint-disable-next-line no-eq-null, eqeqeq
+                                    value={this.props.lat == null ? '' : this.props.lat}
+                                    onChange={(e) => this.props.setIdfDeriveLat(
+                                        e.target.value === '' ? null : Number(e.target.value)
+                                    )}
+                                />
+                            </div>
                         </div>
-                        <div id={'idf-derive-provenance'} style={{marginTop: '10px', fontSize: '0.9em', color: '#333'}}>
-                            <h4><Message msgId="hydrata.hydrology.idfDeriveProvenance" /></h4>
-                            <pre style={{whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto'}}>
-                                {JSON.stringify(this.props.result.provenance || {}, null, 2)}
-                            </pre>
+
+                        <div className="anuga-scenario-pane-section">
+                            <span className="anuga-scenario-pane-label">
+                                <Message msgId="hydrata.hydrology.idfDeriveLon" />
+                            </span>
+                            <div className="anuga-scenario-pane-field">
+                                <input
+                                    id={'idf-derive-lon'}
+                                    type={'number'}
+                                    className={'hydrology-text-input'}
+                                    // eslint-disable-next-line no-eq-null, eqeqeq
+                                    value={this.props.lon == null ? '' : this.props.lon}
+                                    onChange={(e) => this.props.setIdfDeriveLon(
+                                        e.target.value === '' ? null : Number(e.target.value)
+                                    )}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="anuga-scenario-pane-section">
+                            <span className="anuga-scenario-pane-label" />
+                            <div className="anuga-scenario-pane-field">
+                                <Button
+                                    id={'idf-derive-pick-on-map'}
+                                    bsSize={'small'}
+                                    bsStyle={this.props.mapPickActive ? 'primary' : 'default'}
+                                    onClick={this.handlePickClick}
+                                >
+                                    <span
+                                        className="glyphicon glyphicon-map-marker"
+                                        aria-hidden="true"
+                                    />
+                                    {' '}
+                                    <Message msgId="hydrata.hydrology.idfDerivePickOnMap" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                )}
+
+                    {/* ── STEP 2: PARAMETERS ──────────────────────────── */}
+                    <div
+                        id="idf-derive-step-parameters"
+                        className="idf-derive-step"
+                    >
+                        <IdfDeriveStepHeader step={2} titleMsgId="hydrata.hydrology.idfDeriveStepParameters" />
+
+                        <div className="anuga-scenario-pane-section">
+                            <span className="anuga-scenario-pane-label">
+                                <Message msgId="hydrata.hydrology.idfDeriveDurations" />
+                            </span>
+                            <div className="anuga-scenario-pane-field">
+                                <input
+                                    id={'idf-derive-durations'}
+                                    type={'text'}
+                                    className={'hydrology-text-input idf-derive-wide-input'}
+                                    value={this.props.durationsText}
+                                    onChange={(e) => this.props.setIdfDeriveDurations(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="anuga-scenario-pane-section">
+                            <span className="anuga-scenario-pane-label">
+                                <Message msgId="hydrata.hydrology.idfDeriveRPs" />
+                            </span>
+                            <div className="anuga-scenario-pane-field">
+                                <input
+                                    id={'idf-derive-rps'}
+                                    type={'text'}
+                                    className={'hydrology-text-input idf-derive-wide-input'}
+                                    value={this.props.rpsText}
+                                    onChange={(e) => this.props.setIdfDeriveRPs(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {showSubDailyBanner && (
+                            <div
+                                id={'idf-derive-sub-daily-banner'}
+                                className="idf-derive-banner idf-derive-banner--warning"
+                            >
+                                <span className={'glyphicon glyphicon-warning-sign idf-derive-banner-glyph'}/>
+                                <Message msgId="hydrata.hydrology.idfDeriveSubDailyBanner" />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── STEP 3: DERIVE ──────────────────────────────── */}
+                    <div
+                        id="idf-derive-step-derive"
+                        className="idf-derive-step"
+                    >
+                        <IdfDeriveStepHeader step={3} titleMsgId="hydrata.hydrology.idfDeriveStepDerive" />
+
+                        {errors.length > 0 && (
+                            <div
+                                id={'idf-derive-validation-errors'}
+                                className="idf-derive-validation-errors"
+                            >
+                                {errors.join('; ')}
+                            </div>
+                        )}
+
+                        {this.props.error && (
+                            <div
+                                id={'idf-derive-error'}
+                                className="idf-derive-error"
+                            >
+                                {this.props.error}
+                            </div>
+                        )}
+
+                        {isInFlight && (
+                            <div
+                                id={'idf-derive-progress'}
+                                className="idf-derive-progress"
+                            >
+                                <span className={'glyphicon glyphicon-refresh idf-derive-spin'}/>
+                                {' '}
+                                {this.props.processName || 'Deriving IDF...'}
+                            </div>
+                        )}
+
+                        {/* Disabled-reason shown below button when celery off */}
+                        {!this.props.celeryAnugaEnabled && (
+                            <div
+                                id={'idf-derive-unavailable'}
+                                className="idf-derive-unavailable"
+                            >
+                                <Message msgId="hydrata.hydrology.idfDeriveUnavailable" />
+                            </div>
+                        )}
+
+                        {/* Primary Derive button — bottom-right of step block */}
+                        <div className="idf-derive-step-actions">
+                            <Button
+                                id={'idf-derive-button'}
+                                bsStyle={'success'}
+                                disabled={deriveDisabled}
+                                onClick={this.handleDeriveClick}
+                                title={deriveDisabledReason || ''}
+                            >
+                                <Message msgId="hydrata.hydrology.idfDeriveDeriveButton" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* ── STEP 4: RESULTS ─────────────────────────────── */}
+                    {this.props.result && (
+                        <div
+                            id={'idf-derive-step-results'}
+                            className="idf-derive-step"
+                        >
+                            <IdfDeriveStepHeader step={4} titleMsgId="hydrata.hydrology.idfDeriveStepResults" />
+
+                            <div id={'idf-derive-results'} className="idf-derive-results">
+                                <ResultsTable idfTable={this.props.result}/>
+                                <div className="idf-derive-results-actions">
+                                    <Button
+                                        id={'idf-derive-download-json'}
+                                        bsSize={'small'}
+                                        onClick={() => downloadProvenanceJson(this.props.result)}
+                                    >
+                                        <span className="glyphicon glyphicon-download-alt" aria-hidden="true" />
+                                        {' '}
+                                        <Message msgId="hydrata.hydrology.idfDeriveDownloadJson" />
+                                    </Button>
+                                    <Button
+                                        id={'idf-derive-download-csv'}
+                                        bsSize={'small'}
+                                        onClick={this.handleCsvDownload}
+                                    >
+                                        <span className="glyphicon glyphicon-download-alt" aria-hidden="true" />
+                                        {' '}
+                                        <Message msgId="hydrata.hydrology.idfDeriveDownloadCsv" />
+                                    </Button>
+                                </div>
+
+                                <div id={'idf-derive-provenance'} className="idf-derive-provenance">
+                                    <button
+                                        className="idf-derive-provenance-toggle"
+                                        onClick={this.toggleProvenance}
+                                        aria-expanded={this.state.provenanceOpen}
+                                    >
+                                        <span
+                                            className={
+                                                'glyphicon '
+                                                + (this.state.provenanceOpen
+                                                    ? 'glyphicon-chevron-down'
+                                                    : 'glyphicon-chevron-right')
+                                            }
+                                            aria-hidden="true"
+                                        />
+                                        {' '}
+                                        <Message msgId="hydrata.hydrology.idfDeriveProvenance" />
+                                    </button>
+                                    {this.state.provenanceOpen && (
+                                        <pre className="idf-derive-provenance-pre">
+                                            {JSON.stringify(this.props.result.provenance || {}, null, 2)}
+                                        </pre>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }

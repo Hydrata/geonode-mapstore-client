@@ -67,12 +67,15 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         expect(btn.disabled).toBe(false);
     });
 
-    it('renders an inline "unavailable" message and HIDES Derive when celery_anuga_enabled=false', () => {
+    it('renders an inline "unavailable" message and DISABLES Derive when celery_anuga_enabled=false', () => {
+        // TASK-1452 (W5): the button is always present but disabled; the
+        // unavailable notice sits above it (no longer hidden entirely).
         mount({celeryAnugaEnabled: false});
         const unavailable = container.querySelector('#idf-derive-unavailable');
         const btn = container.querySelector('#idf-derive-button');
         expect(unavailable).toExist();
-        expect(btn).toNotExist();
+        expect(btn).toExist();
+        expect(btn.disabled).toBe(true);
     });
 
     it('shows sub-daily warning banner when min(durations) < 1440', () => {
@@ -146,6 +149,10 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
     });
 
     it('renders results table when result is set', () => {
+        // TASK-1452 (W5): provenance is collapsed by default; the toggle button
+        // is present in the #idf-derive-provenance div but the <pre> is hidden
+        // until the user clicks the toggle. Check for the div + toggle, not the
+        // raw provenance text (which is now behind a collapsible).
         const result = {
             id: 7,
             durations_min: [60, 1440],
@@ -160,7 +167,9 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         expect(resultsDiv).toExist();
         const provenance = container.querySelector('#idf-derive-provenance');
         expect(provenance).toExist();
-        expect(provenance.textContent.indexOf('ERA5-Land')).toBeGreaterThan(-1);
+        // The provenance toggle button is visible; the text is behind it.
+        const toggle = container.querySelector('.idf-derive-provenance-toggle');
+        expect(toggle).toExist();
     });
 
     it('CSV download button opens the BE CSV URL in new tab', () => {

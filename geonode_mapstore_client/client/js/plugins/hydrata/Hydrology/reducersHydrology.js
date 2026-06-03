@@ -77,7 +77,8 @@ const initialIdfDerive = {
 const initialState = {
     isHydrologyProject: false,
     showHydrologyMainMenu: false,
-    activeHydrologyPage: "idf-table",
+    // TASK-1452 (W5): open on Derive (the common path) per D5 resolution.
+    activeHydrologyPage: "idf-derive",
     idfDerive: initialIdfDerive,
     designStorm: initialDesignStorm
 };

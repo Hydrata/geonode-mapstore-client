@@ -324,25 +324,246 @@
     position: relative;
 }
 
-/* IDF sub-toggle (W1 minimal — polished segmented control in W5) */
+/* ── TASK-1452 (W5) — IDF segmented control (Manual | Derive) ────────── */
+/* Replaces the W1 minimal Button pair; pill-style with lime active border. */
 .hydrology-idf-subtoggle {
     display: flex;
-    gap: 4px;
-    padding: 6px 10px 4px;
+    gap: 0;
+    padding: 8px 12px 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    align-items: center;
 }
 
-.hydrology-idf-subtoggle .btn {
-    color: white;
-    border-color: rgba(255, 255, 255, 0.4);
+.hydrology-idf-segment {
+    flex: 1;
+    max-width: 120px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(81, 120, 175, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+    text-align: center;
+    user-select: none;
+    transition: background 0.12s, color 0.12s;
 }
 
-.hydrology-idf-subtoggle .btn-default {
-    background-color: rgba(81, 120, 175, 0.5);
+.hydrology-idf-segment:first-child {
+    border-radius: 4px 0 0 4px;
+    border-right: none;
 }
 
-.hydrology-idf-subtoggle .btn-primary {
-    background-color: rgba(0, 60, 136, 0.9);
+.hydrology-idf-segment:last-child {
+    border-radius: 0 4px 4px 0;
+}
+
+.hydrology-idf-segment:hover:not(.is-active) {
+    background: rgba(81, 120, 175, 0.55);
+    color: #ffffff;
+}
+
+.hydrology-idf-segment.is-active {
+    background: rgba(0, 60, 136, 0.9);
+    color: #ffffff;
     border-color: #cae33b;
+}
+
+/* ── TASK-1452 (W5) — IDF Derive vertical stepper ────────────────────── */
+
+/* Container: fills the detail pane, flex-column so head + body stack */
+.idf-derive-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Scrollable body under the head title */
+.idf-derive-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 0 16px;
+}
+
+/* Derive tab fills the width of the detail pane (no extra padding) */
+.idf-derive-container {
+    width: 100%;
+}
+
+/* Each numbered step block */
+.idf-derive-step {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    padding-bottom: 6px;
+    margin-bottom: 0;
+}
+
+.idf-derive-step:last-child {
+    border-bottom: none;
+}
+
+/* Step numbered header: badge + title */
+.idf-derive-step-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px 6px;
+}
+
+.idf-derive-step-badge {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(202, 227, 59, 0.25);
+    border: 1px solid #cae33b;
+    color: #cae33b;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.idf-derive-step-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+/* Wide input for comma-list fields (durations / return-periods) */
+.idf-derive-wide-input {
+    width: 100%;
+    max-width: 420px;
+}
+
+/* Sub-daily / info banner */
+.idf-derive-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 4px 12px 6px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 11.5px;
+}
+
+.idf-derive-banner--warning {
+    background-color: rgba(252, 248, 227, 0.12);
+    border: 1px solid rgba(250, 235, 204, 0.4);
+    color: #fcf8e3;
+}
+
+.idf-derive-banner-glyph {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Validation error text */
+.idf-derive-validation-errors {
+    color: #f2dede;
+    font-size: 11.5px;
+    padding: 4px 12px;
+    margin-bottom: 4px;
+}
+
+/* Backend error text */
+.idf-derive-error {
+    color: #f2dede;
+    font-size: 11.5px;
+    padding: 4px 12px;
+    margin-bottom: 4px;
+}
+
+/* In-flight progress row */
+.idf-derive-progress {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11.5px;
+    padding: 4px 12px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Spinning refresh glyph for in-flight state */
+@keyframes idf-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.idf-derive-spin {
+    display: inline-block;
+    animation: idf-spin 1s linear infinite;
+}
+
+/* Unavailable notice (celery off) */
+.idf-derive-unavailable {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 11.5px;
+    background: rgba(94, 94, 94, 0.35);
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin: 4px 12px 6px;
+}
+
+/* Derive button block — primary action aligned right */
+.idf-derive-step-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 12px 8px;
+}
+
+/* Results section */
+.idf-derive-results {
+    padding: 4px 12px 8px;
+}
+
+.idf-derive-results-table-wrap {
+    overflow-x: auto;
+    max-width: 100%;
+    margin-bottom: 8px;
+}
+
+.idf-derive-results-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+/* Provenance collapsible block */
+.idf-derive-provenance {
+    margin-top: 4px;
+}
+
+.idf-derive-provenance-toggle {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 11.5px;
+    cursor: pointer;
+    padding: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.idf-derive-provenance-toggle:hover {
+    color: #ffffff;
+}
+
+.idf-derive-provenance-pre {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 10.5px;
+    padding: 8px;
+    margin-top: 4px;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
 }
 

@@ -6,7 +6,6 @@ import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
 import HydrologyDetailIdfDerive from './hydrologyDetailIdfDerive';
 import HydrologyDetailTemporalPattern from './hydrologyDetailTemporalPattern';
 import HydrologyDetailTimeSeries from './hydrologyDetailTimeSeries';
-import {Button} from 'react-bootstrap';
 import {
     setActiveHydrologyItem,
     setActiveHydrologyPage,
@@ -45,28 +44,33 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
     render() {
-        // TASK-1448 (W1) — IDF sub-toggle: when the IDF rail category is active,
-        // show a minimal Manual|Derive segmented switch so both idf-table and
-        // idf-derive detail components remain reachable under a single rail item.
-        // The full segmented-control polish is deferred to W5 (TASK-1452).
+        // TASK-1448 (W1) + TASK-1452 (W5) — IDF segmented control:
+        // "Manual" (idf-table editable grid) | "Derive" (idf-derive stepper).
+        // Opens on Derive (the common path). Polished pill segmented control.
         const isIdfPage = this.props.activeHydrologyPage === 'idf-table'
             || this.props.activeHydrologyPage === 'idf-derive';
         const IdfSubToggle = isIdfPage ? (
-            <div className={"hydrology-idf-subtoggle"}>
-                <Button
-                    bsSize={'xsmall'}
-                    bsStyle={this.props.activeHydrologyPage === 'idf-table' ? 'primary' : 'default'}
+            <div className={"hydrology-idf-subtoggle"} role="group" aria-label="IDF mode">
+                <button
+                    id="idf-mode-manual"
+                    className={
+                        'hydrology-idf-segment'
+                        + (this.props.activeHydrologyPage === 'idf-table' ? ' is-active' : '')
+                    }
                     onClick={() => this.props.setActiveHydrologyPage('idf-table')}
                 >
-                    <Message msgId="hydrata.hydrology.idfTables" />
-                </Button>
-                <Button
-                    bsSize={'xsmall'}
-                    bsStyle={this.props.activeHydrologyPage === 'idf-derive' ? 'primary' : 'default'}
+                    <Message msgId="hydrata.hydrology.idfModeManual" />
+                </button>
+                <button
+                    id="idf-mode-derive"
+                    className={
+                        'hydrology-idf-segment'
+                        + (this.props.activeHydrologyPage === 'idf-derive' ? ' is-active' : '')
+                    }
                     onClick={() => this.props.setActiveHydrologyPage('idf-derive')}
                 >
-                    <Message msgId="hydrata.hydrology.idfDerive" />
-                </Button>
+                    <Message msgId="hydrata.hydrology.idfModeDerive" />
+                </button>
             </div>
         ) : null;
 
@@ -78,7 +82,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                 <div id={"hydrology-list-detail-container"}>
                     {IdfSubToggle}
                     <div id={"hydrology-list-detail-body"}>
-                        <div id={"hydrology-idf-derive-container"} style={{padding: '10px', width: '100%'}}>
+                        <div id={"hydrology-idf-derive-container"} className="idf-derive-container">
                             <HydrologyDetailIdfDerive/>
                         </div>
                     </div>

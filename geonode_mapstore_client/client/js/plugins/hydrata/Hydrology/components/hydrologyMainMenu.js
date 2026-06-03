@@ -37,7 +37,8 @@ class HydrologyMainMenuClass extends React.Component {
     }
 
     static defaultProps = {
-        activeHydrologyPage: "idf-table"
+        // TASK-1452 (W5): default matches reducer initialState (idf-derive = Derive-first).
+        activeHydrologyPage: "idf-derive"
     }
 
     constructor(props) {

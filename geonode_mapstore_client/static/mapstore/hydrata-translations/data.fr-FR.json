@@ -381,7 +381,13 @@
         "temporalPatterns": "Temporal Patterns",
         "timeSeries": "Time Series",
         "timeseries": "Timeseries",
-        "timestamp": "TimeStamp"
+        "timestamp": "TimeStamp",
+        "idfDeriveStepLocation": "Location",
+        "idfDeriveStepParameters": "Parameters",
+        "idfDeriveStepDerive": "Derive",
+        "idfDeriveStepResults": "Results",
+        "idfModeManual": "Manual",
+        "idfModeDerive": "Derive"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",
