@@ -18,6 +18,7 @@ import {hydrologyKeyMap} from '../reducersHydrology';
 import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
 import Message from '@mapstore/framework/components/I18N/Message';
+import ConfirmOverlay from '../../shared/ConfirmOverlay';
 
 class HydrologyListDetailContainerClass extends React.Component {
     static propTypes = {
@@ -171,28 +172,19 @@ class HydrologyListDetailContainerClass extends React.Component {
                     </div>
                 </div>
                 <div id={"hydrology-list-detail-footer"}>
-                    {/* TASK-1409 — inline confirm overlay replaces window.confirm.
-                        Gating preserved: deleteHydrologyItem fires only on Confirm. */}
+                    {/* TASK-1438: shared ConfirmOverlay replaces the inline copy-paste. */}
                     {this.state.deleteConfirmVisible ? (
-                        <div className="hydrology-delete-confirm">
-                            <span>This action can not be undone. Are you sure?</span>
-                            <button
-                                className={"hydrology-button"}
-                                onClick={() => this.setState({deleteConfirmVisible: false})}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className={"hydrology-button hydrology-delete-confirm-btn"}
-                                style={{backgroundColor: "darkred"}}
-                                onClick={() => {
-                                    this.setState({deleteConfirmVisible: false});
-                                    this.props.deleteHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem);
-                                }}
-                            >
-                                <Message msgId="hydrata.hydrology.delete" />
-                            </button>
-                        </div>
+                        <ConfirmOverlay
+                            wrapperClassName="hydrology-delete-confirm"
+                            buttonClassName="hydrology-button"
+                            confirmClassName="hydrology-delete-confirm-btn"
+                            onCancel={() => this.setState({deleteConfirmVisible: false})}
+                            onConfirm={() => {
+                                this.setState({deleteConfirmVisible: false});
+                                this.props.deleteHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem);
+                            }}
+                            confirmLabel={<Message msgId="hydrata.hydrology.delete" />}
+                        />
                     ) : (
                         <button
                             className={"hydrology-button"}

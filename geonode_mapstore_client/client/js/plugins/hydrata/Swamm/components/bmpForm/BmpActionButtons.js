@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {trackEvent} from "@js/utils/analytics";
+import ConfirmOverlay from '../../../shared/ConfirmOverlay';
 
 // TASK-1409 — converted from arrow-function expression to block body so we
 // can use the useState hook for the inline delete-confirm overlay.
@@ -76,31 +77,18 @@ const BmpActionButtons = ({
         </button>
         {storedBmpForm?.id ?
             <React.Fragment>
-                {/* TASK-1409 — inline confirm overlay replaces window.confirm.
-                    Gating preserved: deleteBmp fires only on Confirm click. */}
+                {/* TASK-1438: shared ConfirmOverlay replaces the inline copy-paste. */}
                 {deleteConfirmVisible ? (
-                    <React.Fragment>
-                        <span className="swamm-bmp-delete-confirm-text" style={{alignSelf: 'center', marginRight: '4px'}}>
-                            This action can not be undone. Are you sure?
-                        </span>
-                        <button
-                            type={'button'}
-                            className={'swamm-button'}
-                            onClick={() => setDeleteConfirmVisible(false)}>
-                            Cancel
-                        </button>
-                        <button
-                            type={'button'}
-                            className={'swamm-button swamm-bmp-delete-confirm-btn'}
-                            style={{backgroundColor: "darkred"}}
-                            onClick={() => {
-                                setDeleteConfirmVisible(false);
-                                deleteBmp(projectId, storedBmpForm?.id);
-                                trackEvent('button', 'click', `bmp-delete-${storedBmpForm?.id}`);
-                            }}>
-                            Delete
-                        </button>
-                    </React.Fragment>
+                    <ConfirmOverlay
+                        buttonClassName="swamm-button"
+                        confirmClassName="swamm-bmp-delete-confirm-btn"
+                        onCancel={() => setDeleteConfirmVisible(false)}
+                        onConfirm={() => {
+                            setDeleteConfirmVisible(false);
+                            deleteBmp(projectId, storedBmpForm?.id);
+                            trackEvent('button', 'click', `bmp-delete-${storedBmpForm?.id}`);
+                        }}
+                    />
                 ) : (
                     <button
                         type={'button'}

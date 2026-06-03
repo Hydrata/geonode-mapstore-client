@@ -10,6 +10,7 @@ import {
 } from "../actionsSwamm";
 import Message from '@mapstore/framework/components/I18N/Message';
 import "../../Swamm/swamm.css";
+import ConfirmOverlay from '../../shared/ConfirmOverlay';
 
 class SwammTargetFormClass extends React.Component {
     static propTypes = {
@@ -206,32 +207,20 @@ class SwammTargetFormClass extends React.Component {
                     >
                         <Message msgId="hydrata.swamm.saveTarget" />
                     </button>
-                    {/* TASK-1409 — inline confirm overlay replaces window.confirm.
-                        Gating preserved: deleteTarget fires only on Confirm click. */}
+                    {/* TASK-1438: shared ConfirmOverlay replaces the inline copy-paste. */}
                     {
                         this.props.targetForm?.id ?
                             this.state.deleteConfirmVisible ? (
-                                <React.Fragment>
-                                    <span className="swamm-target-delete-confirm-text" style={{alignSelf: 'center', marginRight: '4px'}}>
-                                        This action can not be undone. Are you sure?
-                                    </span>
-                                    <button
-                                        className={"swamm-button"}
-                                        onClick={() => this.setState({deleteConfirmVisible: false})}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        className={"swamm-button swamm-target-delete-confirm-btn"}
-                                        style={{backgroundColor: "darkred"}}
-                                        onClick={() => {
-                                            this.setState({deleteConfirmVisible: false});
-                                            this.props.deleteTarget(this.props.projectId, this.props.targetForm?.id);
-                                        }}
-                                    >
-                                        <Message msgId="hydrata.swamm.deleteTarget" />
-                                    </button>
-                                </React.Fragment>
+                                <ConfirmOverlay
+                                    buttonClassName="swamm-button"
+                                    confirmClassName="swamm-target-delete-confirm-btn"
+                                    onCancel={() => this.setState({deleteConfirmVisible: false})}
+                                    onConfirm={() => {
+                                        this.setState({deleteConfirmVisible: false});
+                                        this.props.deleteTarget(this.props.projectId, this.props.targetForm?.id);
+                                    }}
+                                    confirmLabel={<Message msgId="hydrata.swamm.deleteTarget" />}
+                                />
                             ) : (
                                 <button
                                     className={"swamm-button"}
