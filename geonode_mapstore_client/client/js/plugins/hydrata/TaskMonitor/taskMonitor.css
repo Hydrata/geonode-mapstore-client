@@ -3,7 +3,11 @@
 #task-monitor-container {
     position: absolute;
     right: 15px;
-    top: 240px;
+    /* In map_viewer the SimpleView RHS toolbar publishes its bottom edge as
+       --sv-tm-top so the Tasks button continues the button column with even
+       spacing. In dataset_viewer (no SimpleView) the var is unset and we fall
+       back to a fixed offset. */
+    top: var(--sv-tm-top, 240px);
     z-index: 1022;
 }
 

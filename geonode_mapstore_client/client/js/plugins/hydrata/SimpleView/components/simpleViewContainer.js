@@ -24,7 +24,21 @@ import Introduction from "../components/simpleViewIntroduction";
 import {SimpleViewAttributeForm} from "../components/simpleViewAttributeForm";
 import {SimpleViewAttributeResult} from "../components/simpleViewAttributeResult";
 
-class SimpleViewContainer extends React.Component {
+// Vertical gap between the RHS toolbar buttons (matches `.simple-view-right-toolbar`
+// flex `gap` in simpleView.css). The TaskMonitor button lives in a SEPARATE plugin
+// (it also runs in dataset_viewer, where SimpleView is absent), so it can't be a flex
+// child of this column. Instead we publish the toolbar's bottom edge as `--sv-tm-top`
+// and the TaskMonitor container consumes it, so the Tasks icon sits exactly one gap
+// below the last toolbar button — equally spaced — however many buttons are showing.
+export const SV_TOOLBAR_GAP = 4;
+
+// Pure helper (unit-tested): the `top` the TaskMonitor button should use to continue
+// the toolbar column by one gap below its last button.
+export function computeTaskMonitorTop(toolbarTop, toolbarHeight, gap = SV_TOOLBAR_GAP) {
+    return toolbarTop + toolbarHeight + gap;
+}
+
+export class SimpleViewContainer extends React.Component {
     static propTypes = {
         setOpenMenuGroupId: PropTypes.func,
         menuGroups: PropTypes.array,
@@ -92,8 +106,10 @@ class SimpleViewContainer extends React.Component {
         // Reset drawer display
         const drawer = document.getElementById('mapstore-drawermenu');
         if (drawer) drawer.style.display = '';
-        // Reset CSS variable
+        // Reset CSS variables — let the TaskMonitor container fall back to its
+        // standalone default (used in dataset_viewer, where SimpleView is absent).
         document.documentElement.style.removeProperty('--sv-widget-right');
+        document.documentElement.style.removeProperty('--sv-tm-top');
     }
 
     updateWidgetPositions() {
@@ -103,6 +119,14 @@ class SimpleViewContainer extends React.Component {
         // Button column: right: 15px, width: 40px → left edge at right: 55px, plus 10px gap = 65px
         const widgetRight = 15 + 40 + 10; // 65px
         document.documentElement.style.setProperty('--sv-widget-right', widgetRight + 'px');
+
+        // Align the TaskMonitor button (separate plugin, own container) directly below
+        // this toolbar column with the same gap, so it reads as an equally-spaced member
+        // of the column regardless of how many buttons show (search/measure/edit-cluster
+        // are all conditional). Measured from the live toolbar so it tracks button count
+        // and the responsive button sizes.
+        const tmTop = computeTaskMonitorTop(rightToolbar.offsetTop, rightToolbar.offsetHeight);
+        document.documentElement.style.setProperty('--sv-tm-top', tmTop + 'px');
 
         // Position search bar to the left of the right toolbar, top-aligned
         const searchBar = document.getElementById('search-bar-container');
