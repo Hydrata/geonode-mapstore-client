@@ -273,7 +273,12 @@ describe('SWAMM Epics', () => {
         });
     });
 
-    describe('filterBmpEpic', () => {
+    // Legacy server-side CQL path (AC#5 tradeoff fallback). A high
+    // bmp_footprint.feature_count forces filterBmpEpic onto the CQL_FILTER path
+    // so these UX-parity assertions exercise the fallback builder. The default
+    // (client-paint MVT) path is covered by 'filterBmpEpic client-side MVT
+    // paint' above and swammMvtPaint-test.js.
+    describe('filterBmpEpic (CQL fallback for large BMP sets)', () => {
         const createStoreWithFilters = (bmpTypes, priorities, groupProfiles, statuses) => ({
             getState: () => ({
                 swamm: {
@@ -283,7 +288,7 @@ describe('SWAMM Epics', () => {
                     statuses: statuses || [],
                     projectData: {
                         bmp_outlet: { id: 1, name: 'bmp_outlet' },
-                        bmp_footprint: { id: 2, name: 'bmp_footprint' },
+                        bmp_footprint: { id: 2, name: 'bmp_footprint', feature_count: 999999 },
                         bmp_watershed: { id: 3, name: 'bmp_watershed' }
                     }
                 },
@@ -500,6 +505,109 @@ describe('SWAMM Epics', () => {
         });
     });
 
+    // TASK-1192 (W7c): client-side MVT cosmetic-paint contract.
+    // filterBmpEpic must drive show/hide via vectorStyle (geostyler) on a
+    // MVT-format layer, NOT via a per-user CQL filterObj.
+    describe('filterBmpEpic client-side MVT paint (TASK-1192)', () => {
+        const createStore = (bmpTypes, priorities, groupProfiles, statuses) => ({
+            getState: () => ({
+                swamm: {
+                    bmpTypes: bmpTypes || [],
+                    priorities: priorities || [],
+                    groupProfiles: groupProfiles || [],
+                    statuses: statuses || [],
+                    projectData: {
+                        bmp_outlet: { id: 1, name: 'bmp_outlet' },
+                        bmp_footprint: { id: 2, name: 'bmp_footprint' },
+                        bmp_watershed: { id: 3, name: 'bmp_watershed' }
+                    }
+                },
+                layers: {
+                    flat: [
+                        { id: 'layer1', name: 'bmp_outlet', extendedParams: { pk: '1' } },
+                        { id: 'layer2', name: 'bmp_footprint', extendedParams: { pk: '2' } },
+                        { id: 'layer3', name: 'bmp_watershed', extendedParams: { pk: '3' } }
+                    ]
+                }
+            })
+        });
+
+        it('emits format=MVT + vectorStyle and NO filterObj for the default (client-paint) path', (done) => {
+            const store = createStore(
+                [{ id: 1, name: 'Rain Garden', visibility: true }, { id: 2, name: 'Wetland', visibility: false }],
+                [{ id: 0, visibility: true }],
+                [{ id: 10, visibility: true }],
+                [{ id: 1, name: 'Unknown', visibility: true }]
+            );
+            const action$ = mockActions([{ type: TOGGLE_BMP_TYPE_VISIBILITY, bmpType: { id: 1 } }]);
+            const emitted = [];
+            filterBmpEpic(action$, store)
+                .take(3)
+                .subscribe(
+                    a => emitted.push(a),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(3);
+                        emitted.forEach(a => {
+                            expect(a.type).toBe('CHANGE_LAYER_PROPERTIES');
+                            expect(a.newProperties.format).toBe('application/vnd.mapbox-vector-tile');
+                            expect(a.newProperties.vectorStyle).toBeTruthy();
+                            expect(a.newProperties.vectorStyle.format).toBe('geostyler');
+                            // CRITICAL: no per-user CQL filterObj on the MVT path
+                            expect(a.newProperties.filterObj).toBe(undefined);
+                        });
+                        done();
+                    }
+                );
+        });
+
+        it('omits the rule filter when all dimensions fully selected (renders everything)', (done) => {
+            const store = createStore(
+                [{ id: 1, visibility: true }],
+                [{ id: 0, visibility: true }],
+                [{ id: 10, visibility: true }],
+                [{ id: 1, name: 'Active', visibility: true }]
+            );
+            const action$ = mockActions([{ type: TOGGLE_BMP_TYPE_VISIBILITY, bmpType: { id: 1 } }]);
+            const emitted = [];
+            filterBmpEpic(action$, store)
+                .take(3)
+                .subscribe(
+                    a => emitted.push(a),
+                    err => done(err),
+                    () => {
+                        expect(emitted.length).toBe(3);
+                        expect(emitted[0].newProperties.vectorStyle.styleObj.rules[0].filter).toBe(undefined);
+                        done();
+                    }
+                );
+        });
+
+        it('targets the three BMP layers (outlet/footprint/watershed)', (done) => {
+            const store = createStore(
+                [{ id: 1, visibility: true }],
+                [{ id: 0, visibility: true }],
+                [],
+                []
+            );
+            const action$ = mockActions([{ type: TOGGLE_BMP_TYPE_VISIBILITY, bmpType: { id: 1 } }]);
+            const emitted = [];
+            filterBmpEpic(action$, store)
+                .take(3)
+                .subscribe(
+                    a => emitted.push(a),
+                    err => done(err),
+                    () => {
+                        const ids = emitted.map(a => a.layer);
+                        expect(ids).toContain('layer1');
+                        expect(ids).toContain('layer2');
+                        expect(ids).toContain('layer3');
+                        done();
+                    }
+                );
+        });
+    });
+
     describe('BMP feature ID regex patterns', () => {
         // Test the regex patterns used in catchBmpFeatureClick
         const outletPattern = /([a-zA-Z0-9]{3}_){2}outlet/;
@@ -541,7 +649,7 @@ describe('SWAMM Epics', () => {
                         statuses: [{ id: 1, name: 'Active', visibility: true }, { id: 2, name: 'Retired', visibility: false }],
                         projectData: {
                             bmp_outlet: { id: 1, name: 'bmp_outlet' },
-                            bmp_footprint: { id: 2, name: 'bmp_footprint' },
+                            bmp_footprint: { id: 2, name: 'bmp_footprint', feature_count: 999999 },
                             bmp_watershed: { id: 3, name: 'bmp_watershed' }
                         }
                     },

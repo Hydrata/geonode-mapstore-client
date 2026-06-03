@@ -50,6 +50,11 @@ import {
     bmpFootprintLayerSelector,
     bmpWatershedLayerSelector
 } from "@js/plugins/hydrata/Swamm/selectorsSwamm";
+import {
+    MVT_FORMAT,
+    shouldUseServerSideCql,
+    buildBmpVectorStyle
+} from "@js/plugins/hydrata/Swamm/utils/swammMvtPaint";
 
 
 // Shared init logic — used by both primary and fallback triggers
@@ -326,6 +331,67 @@ const wmsFilterTemplate = {
     }
 };
 
+// LEGACY server-side CQL filter builder. Retained as the AC#5 tradeoff
+// fallback: for projects whose BMP set exceeds BMP_MVT_FEATURE_THRESHOLD a
+// whole-layer MVT is too large, so we serve smaller per-user CQL-filtered WMS
+// tiles instead (accepting cache fragmentation). The MVT client-paint path
+// (buildBmpVectorStyle) is the default for the common, smaller projects.
+const buildCqlFilter = (state, featureTypeName) => {
+    const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
+
+    const bmpTypes = state?.swamm?.bmpTypes || [];
+    const priorities = state?.swamm?.priorities || [];
+    const groupProfiles = state?.swamm?.groupProfiles || [];
+    const statuses = state?.swamm?.statuses || [];
+
+    // When all values in a group are selected, omit that filter entirely
+    // to avoid sending massive CQL_FILTER with 100+ OR clauses
+    const visibleTypes = bmpTypes.filter(t => t?.visibility);
+    if (visibleTypes.length !== bmpTypes.length) {
+        if (visibleTypes.length === 0) {
+            newFilter.filterObj.filterFields.push(createFilterField('type', -1));
+        } else {
+            visibleTypes.forEach(bmpType => {
+                newFilter.filterObj.filterFields.push(createFilterField('type', bmpType.id));
+            });
+        }
+    }
+
+    const visiblePriorities = priorities.filter(p => p?.visibility);
+    if (visiblePriorities.length !== priorities.length) {
+        if (visiblePriorities.length === 0) {
+            newFilter.filterObj.filterFields.push(createFilterField('priority', -1));
+        } else {
+            visiblePriorities.forEach(priority => {
+                newFilter.filterObj.filterFields.push(createFilterField('priority', priority.id));
+            });
+        }
+    }
+
+    const visibleGroupProfiles = groupProfiles.filter(gp => gp?.visibility);
+    if (visibleGroupProfiles.length !== groupProfiles.length) {
+        visibleGroupProfiles.forEach(groupProfile => {
+            newFilter.filterObj.filterFields.push(createFilterField('group_profile', groupProfile.id));
+        });
+    }
+
+    const visibleStatuses = statuses.filter(s => s?.visibility);
+    if (visibleStatuses.length !== statuses.length) {
+        visibleStatuses.forEach(status => {
+            newFilter.filterObj.filterFields.push(createFilterField('status', status?.name));
+        });
+    }
+
+    // Remove groupFields that have no filterFields to avoid empty () in CQL
+    // which GeoServer rejects as invalid syntax
+    const usedGroupIds = new Set(newFilter.filterObj.filterFields.map(f => f.groupId));
+    newFilter.filterObj.groupFields = newFilter.filterObj.groupFields.filter(
+        gf => gf.index === 0 || usedGroupIds.has(gf.id)
+    );
+    newFilter.filterObj.featureTypeName = featureTypeName;
+    return newFilter;
+};
+
 export const filterBmpEpic = (action$, store) =>
     action$.ofType(
         SET_OPEN_MENU_GROUP_ID,
@@ -338,74 +404,46 @@ export const filterBmpEpic = (action$, store) =>
         APPLY_INITIAL_BMP_FILTER
     )
         .mergeMap(() => {
-            const newFilter = JSON.parse(JSON.stringify(wmsFilterTemplate));
+            const state = store.getState();
+            const bmpOutletLayer = bmpOutletLayerSelector(state);
+            const bmpFootprintLayer = bmpFootprintLayerSelector(state);
+            const bmpWatershedLayer = bmpWatershedLayerSelector(state);
 
-            const bmpTypes = store.getState()?.swamm?.bmpTypes || [];
-            const priorities = store.getState()?.swamm?.priorities || [];
-            const groupProfiles = store.getState()?.swamm?.groupProfiles || [];
-            const statuses = store.getState()?.swamm?.statuses || [];
-
-            // When all values in a group are selected, omit that filter entirely
-            // to avoid sending massive CQL_FILTER with 100+ OR clauses
-            const visibleTypes = bmpTypes.filter(t => t?.visibility);
-            const allTypesSelected = visibleTypes.length === bmpTypes.length;
-            if (!allTypesSelected) {
-                if (visibleTypes.length === 0) {
-                    newFilter.filterObj.filterFields.push(createFilterField('type', -1));
-                } else {
-                    visibleTypes.forEach(bmpType => {
-                        newFilter.filterObj.filterFields.push(createFilterField('type', bmpType.id));
-                    });
-                }
+            // AC#5 tradeoff fallback: huge BMP sets stay on the server-side CQL
+            // path (smaller tiles, per-user cache). Feature count unknown =>
+            // default to the cheaper client-paint path.
+            const footprintFeatureCount = state?.swamm?.projectData?.bmp_footprint?.feature_count;
+            if (shouldUseServerSideCql(footprintFeatureCount)) {
+                return Rx.Observable.of(
+                    changeLayerProperties(bmpOutletLayer?.id, buildCqlFilter(state, bmpOutletLayer?.name)),
+                    changeLayerProperties(bmpFootprintLayer?.id, buildCqlFilter(state, bmpFootprintLayer?.name)),
+                    changeLayerProperties(bmpWatershedLayer?.id, buildCqlFilter(state, bmpWatershedLayer?.name))
+                );
             }
 
-            const visiblePriorities = priorities.filter(p => p?.visibility);
-            const allPrioritiesSelected = visiblePriorities.length === priorities.length;
-            if (!allPrioritiesSelected) {
-                if (visiblePriorities.length === 0) {
-                    newFilter.filterObj.filterFields.push(createFilterField('priority', -1));
-                } else {
-                    visiblePriorities.forEach(priority => {
-                        newFilter.filterObj.filterFields.push(createFilterField('priority', priority.id));
-                    });
-                }
-            }
-
-            const visibleGroupProfiles = groupProfiles.filter(gp => gp?.visibility);
-            const allGroupProfilesSelected = visibleGroupProfiles.length === groupProfiles.length;
-            if (!allGroupProfilesSelected) {
-                visibleGroupProfiles.forEach(groupProfile => {
-                    newFilter.filterObj.filterFields.push(createFilterField('group_profile', groupProfile.id));
-                });
-            }
-
-            const visibleStatuses = statuses.filter(s => s?.visibility);
-            const allStatusesSelected = visibleStatuses.length === statuses.length;
-            if (!allStatusesSelected) {
-                visibleStatuses.forEach(status => {
-                    newFilter.filterObj.filterFields.push(createFilterField('status', status?.name));
-                });
-            }
-
-            // Remove groupFields that have no filterFields to avoid empty () in CQL
-            // which GeoServer rejects as invalid syntax
-            const usedGroupIds = new Set(newFilter.filterObj.filterFields.map(f => f.groupId));
-            newFilter.filterObj.groupFields = newFilter.filterObj.groupFields.filter(
-                gf => gf.index === 0 || usedGroupIds.has(gf.id)
-            );
-
-            const outletFilter = JSON.parse(JSON.stringify(newFilter));
-            const footprintFilter = JSON.parse(JSON.stringify(newFilter));
-            const watershedFilter = JSON.parse(JSON.stringify(newFilter));
-            const bmpOutletLayer = bmpOutletLayerSelector(store.getState());
-            const bmpFootprintLayer = bmpFootprintLayerSelector(store.getState());
-            const bmpWatershedLayer = bmpWatershedLayerSelector(store.getState());
-            outletFilter.filterObj.featureTypeName = bmpOutletLayer?.name;
-            footprintFilter.filterObj.featureTypeName = bmpFootprintLayer?.name;
-            watershedFilter.filterObj.featureTypeName = bmpWatershedLayer?.name;
+            // Default: client-side cosmetic paint over DIRECT WMS-MVT. Each
+            // toggle re-emits a fresh geostyler vectorStyle; the WMSLayer update
+            // path re-applies it. No per-user CQL_FILTER => one shared render
+            // path within the project authz boundary. NOT routed via GWC (W5
+            // deletes BMP TileLayers; direct WMS-MVT only).
+            const selections = {
+                bmpTypes: state?.swamm?.bmpTypes || [],
+                priorities: state?.swamm?.priorities || [],
+                groupProfiles: state?.swamm?.groupProfiles || [],
+                statuses: state?.swamm?.statuses || []
+            };
             return Rx.Observable.of(
-                changeLayerProperties(bmpOutletLayer?.id, outletFilter),
-                changeLayerProperties(bmpFootprintLayer?.id, footprintFilter),
-                changeLayerProperties(bmpWatershedLayer?.id, watershedFilter)
+                changeLayerProperties(bmpOutletLayer?.id, {
+                    format: MVT_FORMAT,
+                    vectorStyle: buildBmpVectorStyle('outlet', selections)
+                }),
+                changeLayerProperties(bmpFootprintLayer?.id, {
+                    format: MVT_FORMAT,
+                    vectorStyle: buildBmpVectorStyle('footprint', selections)
+                }),
+                changeLayerProperties(bmpWatershedLayer?.id, {
+                    format: MVT_FORMAT,
+                    vectorStyle: buildBmpVectorStyle('watershed', selections)
+                })
             );
         });
