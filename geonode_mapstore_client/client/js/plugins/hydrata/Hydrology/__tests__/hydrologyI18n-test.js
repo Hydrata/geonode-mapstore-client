@@ -53,6 +53,26 @@ describe('Hydrology i18n', () => {
         });
     });
 
+    // TASK-1453 (W6) — Networks interim terrain selector i18n parity across all 4 locales.
+    it('Networks terrain selector keys exist in all 4 locales (en/es/fr/ht)', () => {
+        const networksKeys = [
+            'hydrata.hydrology.networksStep1Terrain',
+            'hydrata.hydrology.networksScenarioTerrain',
+            'hydrata.hydrology.networksNoScenarioTerrain',
+            'hydrata.hydrology.networksManageInInputs',
+            'hydrata.hydrology.networksTerrainOverride',
+            'hydrata.hydrology.networksTerrainOverrideActive',
+            'hydrata.hydrology.networksNoTerrains',
+            'hydrata.hydrology.networksDelineationPlaceholder'
+        ];
+        [['en', enMessages], ['es', esMessages], ['fr', frMessages], ['ht', htMessages]].forEach(([locale, msgs]) => {
+            networksKeys.forEach(key => {
+                expect(msgs[key]).toExist(`Missing ${locale} translation for: ${key}`);
+                expect(msgs[key].length).toBeGreaterThan(0, `Empty ${locale} translation for: ${key}`);
+            });
+        });
+    });
+
     // TASK-934 — IDF Derive panel translation keys parity across all 4 locales.
     it('IDF Derive keys exist in all 4 locales (en/es/fr/ht)', () => {
         const idfDeriveKeys = [

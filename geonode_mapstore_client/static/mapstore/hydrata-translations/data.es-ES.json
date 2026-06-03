@@ -387,7 +387,15 @@
         "idfDeriveStepDerive": "Derive",
         "idfDeriveStepResults": "Results",
         "idfModeManual": "Manual",
-        "idfModeDerive": "Derive"
+        "idfModeDerive": "Derive",
+        "networksDelineationPlaceholder": "La delineación y creación de redes estarán disponibles en el futuro épico de Redes.",
+        "networksManageInInputs": "gestionar en Entradas",
+        "networksNoScenarioTerrain": "no definido",
+        "networksNoTerrains": "Aún no hay terrenos. Añada un terreno en la pestaña Entradas primero.",
+        "networksScenarioTerrain": "Terreno del escenario",
+        "networksStep1Terrain": "Paso 1: Seleccionar terreno para delineación de red",
+        "networksTerrainOverride": "Anular terreno:",
+        "networksTerrainOverrideActive": "anulando terreno del escenario"
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",

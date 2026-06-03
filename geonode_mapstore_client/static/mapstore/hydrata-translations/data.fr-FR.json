@@ -387,7 +387,15 @@
         "idfDeriveStepDerive": "Derive",
         "idfDeriveStepResults": "Results",
         "idfModeManual": "Manual",
-        "idfModeDerive": "Derive"
+        "idfModeDerive": "Derive",
+        "networksDelineationPlaceholder": "La délimitation et la création de réseaux seront disponibles dans le futur épique Réseaux.",
+        "networksManageInInputs": "gérer dans Entrées",
+        "networksNoScenarioTerrain": "non défini",
+        "networksNoTerrains": "Pas encore de terrains. Ajoutez un terrain dans l'onglet Entrées d'abord.",
+        "networksScenarioTerrain": "Terrain du scénario",
+        "networksStep1Terrain": "Étape 1 : Sélectionner le terrain pour la délimitation du réseau",
+        "networksTerrainOverride": "Remplacer le terrain :",
+        "networksTerrainOverrideActive": "remplacement du terrain du scénario"
       },
       "hgeval": {
         "annualPrecipitation": "Précipitation annuelle",

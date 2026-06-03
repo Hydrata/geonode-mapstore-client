@@ -12,6 +12,15 @@
  *   - + button → create input field → dispatch createNetwork(title).
  *   - Three sub-sections: Catchments, Nodes, Links (each a MenuRow list).
  *   - isCreatingAnugaLayer spinner replaces the create input while in-flight.
+ *
+ * TASK-1453 (W6): Terrain selector added at the top as step 1 of the future
+ * network-delineation flow:
+ *   - Lists project terrains from state.anuga.resources.terrain.
+ *   - Mirrors the selected Scenario's chosen input terrain by default
+ *     (read-only reflection + a "manage in Inputs" link).
+ *   - Allows an independent override via a <select>.
+ *   - Delineation / network creation are labelled placeholders for the future
+ *     Networks epic; they are NOT built here.
  */
 import React from 'react';
 import {connect} from 'react-redux';
@@ -28,13 +37,153 @@ import {
     setAnugaInputMenu,
     setCreatingAnugaLayer
 } from '../Anuga/actionsAnuga';
-import {canEditAnugaMap} from '../Anuga/selectorsAnuga';
+import {canEditAnugaMap, getSelectedScenario} from '../Anuga/selectorsAnuga';
+
+// ---------------------------------------------------------------------------
+// TerrainSelector — shown at the top of the Networks pane (step 1 framing).
+// Pure functional component so it is independently testable.
+// ---------------------------------------------------------------------------
+
+export const TerrainSelector = ({
+    terrainList,
+    scenarioTerrainId,
+    selectedTerrainId,
+    onSelectTerrain,
+    onManageInInputs
+}) => {
+    // The effective terrain is the override (if set) or the scenario's terrain.
+    const effectiveId = selectedTerrainId !== null ? selectedTerrainId : (scenarioTerrainId || '');
+
+    // Find the scenario terrain name for the read-only mirror label.
+    const scenarioTerrain = (terrainList || []).find(t => t.id === scenarioTerrainId);
+
+    // hasOverride = user has picked a terrain different from the scenario default.
+    const hasOverride = selectedTerrainId !== null && selectedTerrainId !== scenarioTerrainId;
+
+    return (
+        <div className="networks-terrain-selector" data-testid="networks-terrain-selector">
+            {/* Step 1 heading */}
+            <div className="networks-terrain-step-heading">
+                <span className="glyphicon glyphicon-map-marker" aria-hidden="true" />
+                &nbsp;
+                <strong><Message msgId="hydrata.hydrology.networksStep1Terrain" /></strong>
+            </div>
+
+            {/* Read-only mirror of scenario terrain */}
+            <div className="networks-terrain-mirror-row">
+                <span className="networks-terrain-mirror-label">
+                    <Message msgId="hydrata.hydrology.networksScenarioTerrain" />
+                    {': '}
+                </span>
+                {scenarioTerrain
+                    ? (
+                        <span className="networks-terrain-mirror-value" data-testid="scenario-terrain-name">
+                            {scenarioTerrain.name}
+                        </span>
+                    )
+                    : (
+                        <em className="networks-terrain-mirror-none" data-testid="no-scenario-terrain">
+                            <Message msgId="hydrata.hydrology.networksNoScenarioTerrain" />
+                        </em>
+                    )
+                }
+                {/* Manage-in-Inputs link (navigates user back to the Anuga Inputs tab) */}
+                <a
+                    href="#"
+                    className="networks-terrain-manage-link"
+                    data-testid="manage-in-inputs-link"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        if (onManageInInputs) onManageInInputs();
+                        trackEvent('button', 'click', 'hydrology-networks-manage-in-inputs');
+                    }}
+                >
+                    &nbsp;(<Message msgId="hydrata.hydrology.networksManageInInputs" />)
+                </a>
+            </div>
+
+            {/* Override select */}
+            <div className="networks-terrain-override-row">
+                <label htmlFor="networks-terrain-override-select" className="networks-terrain-override-label">
+                    <Message msgId="hydrata.hydrology.networksTerrainOverride" />
+                </label>
+                <select
+                    id="networks-terrain-override-select"
+                    className="networks-terrain-select form-control"
+                    data-testid="terrain-override-select"
+                    value={effectiveId || ''}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        if (onSelectTerrain) {
+                            // Empty string = reset to scenario default (null override).
+                            onSelectTerrain(val === '' ? null : Number(val));
+                        }
+                        trackEvent('select', 'change', 'hydrology-networks-terrain-override');
+                    }}
+                >
+                    {/* Empty option = use scenario terrain (plain string; <Message> renders a span, invalid in <option>) */}
+                    <option value="">—</option>
+                    {(terrainList || []).map(t => (
+                        <option key={t.id} value={t.id}>
+                            {t.name || `Terrain ${t.id}`}
+                        </option>
+                    ))}
+                </select>
+                {hasOverride && (
+                    <span className="networks-terrain-override-badge" data-testid="override-badge">
+                        <Message msgId="hydrata.hydrology.networksTerrainOverrideActive" />
+                    </span>
+                )}
+            </div>
+
+            {/* Empty-state hint when no terrains exist */}
+            {(!terrainList || terrainList.length === 0) && (
+                <div className="networks-terrain-empty-hint" data-testid="no-terrains-hint">
+                    <em><Message msgId="hydrata.hydrology.networksNoTerrains" /></em>
+                </div>
+            )}
+
+            {/* Deferred delineation placeholder — future Networks epic */}
+            <div className="networks-delineation-placeholder" data-testid="delineation-placeholder">
+                <span className="glyphicon glyphicon-info-sign" aria-hidden="true" />
+                &nbsp;
+                <em><Message msgId="hydrata.hydrology.networksDelineationPlaceholder" /></em>
+            </div>
+        </div>
+    );
+};
+
+TerrainSelector.propTypes = {
+    terrainList: PropTypes.array,
+    scenarioTerrainId: PropTypes.number,
+    selectedTerrainId: PropTypes.number,
+    onSelectTerrain: PropTypes.func,
+    // onManageInInputs: called when user clicks the "manage in Inputs" link.
+    // NetworksPaneClass wires this to open the Anuga Inputs panel.
+    onManageInInputs: PropTypes.func
+};
+
+TerrainSelector.defaultProps = {
+    terrainList: [],
+    scenarioTerrainId: null,
+    selectedTerrainId: null,
+    onManageInInputs: null
+};
+
+// ---------------------------------------------------------------------------
+// NetworksPaneClass (TASK-1440 + TASK-1453)
+// ---------------------------------------------------------------------------
 
 class NetworksPaneClass extends React.Component {
     static propTypes = {
+        // Terrain (TASK-1453)
+        terrainList: PropTypes.array,
+        scenarioTerrainId: PropTypes.number,
+        // Catchments / nodes / links (TASK-1440)
         catchmentLayers: PropTypes.array,
         nodesLayers: PropTypes.array,
         linksLayers: PropTypes.array,
+        // Actions
         createNetwork: PropTypes.func,
         setNetworkMenu: PropTypes.func,
         setAnugaInputMenu: PropTypes.func,
@@ -49,7 +198,9 @@ class NetworksPaneClass extends React.Component {
         super(props);
         this.state = {
             inputVisible: false,
-            networkTitle: ''
+            networkTitle: '',
+            // TASK-1453: null = use scenario terrain (mirror); a number = override.
+            selectedTerrainId: null
         };
     }
 
@@ -70,6 +221,10 @@ class NetworksPaneClass extends React.Component {
         this.setState({inputVisible: false, networkTitle: ''});
     };
 
+    _handleSelectTerrain = (terrainId) => {
+        this.setState({selectedTerrainId: terrainId});
+    };
+
     componentDidUpdate(prevProps) {
         // Close the input when createNetwork completes (isCreatingAnugaLayer falls back to false).
         if (prevProps.isCreatingAnugaLayer && !this.props.isCreatingAnugaLayer) {
@@ -79,8 +234,8 @@ class NetworksPaneClass extends React.Component {
     }
 
     render() {
-        const {inputVisible, networkTitle} = this.state;
-        const {canEditAnugaMap: canEdit, isCreatingAnugaLayer} = this.props;
+        const {inputVisible, networkTitle, selectedTerrainId} = this.state;
+        const {canEditAnugaMap: canEdit, isCreatingAnugaLayer, terrainList, scenarioTerrainId} = this.props;
 
         const actions = (
             <React.Fragment>
@@ -129,6 +284,15 @@ class NetworksPaneClass extends React.Component {
 
         return (
             <div className="menu-rows-pane anuga-pane hydrology-networks-pane">
+                {/* TASK-1453: Terrain selector — step 1 of future network delineation */}
+                <TerrainSelector
+                    terrainList={terrainList}
+                    scenarioTerrainId={scenarioTerrainId}
+                    selectedTerrainId={selectedTerrainId}
+                    onSelectTerrain={this._handleSelectTerrain}
+                    onManageInInputs={() => this.props.setAnugaInputMenu(true)}
+                />
+
                 {/* Pane header — mirrors anugaInputMenu's renderPaneHead for 'networks' */}
                 <div className="anuga-pane-toolbar">
                     <h3 className="anuga-pane-head-title">
@@ -136,6 +300,8 @@ class NetworksPaneClass extends React.Component {
                     </h3>
                     <span className="anuga-pane-head-actions">{actions}</span>
                 </div>
+
+                {/* TASK-1440: Catchments / Nodes / Links read-only display */}
                 <div className="anuga-pane-rows">
                     <div className={'menu-row-mini-container'}>
                         <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
@@ -155,13 +321,21 @@ class NetworksPaneClass extends React.Component {
     }
 }
 
-const mapStateToProps = (state) => ({
-    catchmentLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Catchments') || [],
-    nodesLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Nodes') || [],
-    linksLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Links') || [],
-    isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer || false,
-    canEditAnugaMap: canEditAnugaMap(state)
-});
+const mapStateToProps = (state) => {
+    const selectedScenario = getSelectedScenario(state);
+    return {
+        // TASK-1453: terrain list + scenario terrain (for mirror default).
+        terrainList: state?.anuga?.resources?.terrain || [],
+        // scenario.terrain is the terrain FK id (number or '' when unset).
+        scenarioTerrainId: selectedScenario?.terrain ? Number(selectedScenario.terrain) : null,
+        // TASK-1440: catchments / nodes / links.
+        catchmentLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Catchments') || [],
+        nodesLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Nodes') || [],
+        linksLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Links') || [],
+        isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer || false,
+        canEditAnugaMap: canEditAnugaMap(state)
+    };
+};
 
 const mapDispatchToProps = (dispatch) => ({
     createNetwork: (title) => dispatch(createNetwork(title)),

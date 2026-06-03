@@ -387,7 +387,15 @@
         "idfDeriveStepDerive": "Derive",
         "idfDeriveStepResults": "Results",
         "idfModeManual": "Manual",
-        "idfModeDerive": "Derive"
+        "idfModeDerive": "Derive",
+        "networksDelineationPlaceholder": "Delineation ak kreyasyon rezo ap disponib nan epik Rezo avni.",
+        "networksManageInInputs": "jere nan Antre",
+        "networksNoScenarioTerrain": "pa defini",
+        "networksNoTerrains": "Pa gen tèren ankò. Ajoute yon tèren nan onglet Antre premye.",
+        "networksScenarioTerrain": "Tèren sèn",
+        "networksStep1Terrain": "Etap 1: Chwazi tèren pou delineation rezo",
+        "networksTerrainOverride": "Ranplase tèren:",
+        "networksTerrainOverrideActive": "ranplasman tèren sèn"
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",
