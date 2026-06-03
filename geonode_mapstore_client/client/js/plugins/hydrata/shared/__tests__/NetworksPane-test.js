@@ -29,14 +29,14 @@ describe('NetworksPaneClass (TASK-1440)', () => {
     const noop = () => {};
 
     const defaultProps = {
-        catchmentLayers:      [],
-        nodesLayers:          [],
-        linksLayers:          [],
-        createNetwork:        noop,
-        setNetworkMenu:       noop,
-        setAnugaInputMenu:    noop,
+        catchmentLayers: [],
+        nodesLayers: [],
+        linksLayers: [],
+        createNetwork: noop,
+        setNetworkMenu: noop,
+        setAnugaInputMenu: noop,
         setCreatingAnugaLayer: noop,
-        canEditAnugaMap:      true,
+        canEditAnugaMap: true,
         isCreatingAnugaLayer: false
     };
 

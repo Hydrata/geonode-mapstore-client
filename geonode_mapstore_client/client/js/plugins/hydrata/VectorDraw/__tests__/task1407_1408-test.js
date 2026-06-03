@@ -18,7 +18,6 @@ import reducer from '../reducerVectorDraw';
 import { vectorDrawSaveEpic } from '../epicsVectorDraw';
 import {
     START_VECTOR_DRAW,
-    DRAWING_COMPLETE,
     SUBMIT_FORM,
     LOAD_FEATURE_LIST
 } from '../actionsVectorDraw';
@@ -124,8 +123,6 @@ describe('TASK-1407 vectorDrawSaveEpic — prefers draw state geometry for verte
 
     it('uses vectorDraw.geometry when no draw.tempFeatures or draw.features (no vertex edit)', (done) => {
         const store = makeMockStore({ vectorDrawGeometry: drawnGeometry });
-        // Mock wfstInsert to capture the geometry argument
-        let capturedGeometry = null;
         // We can't easily mock the import, so we check the saveError is NOT dispatched
         // (geometry is present → save is attempted) and no "No geometry" error.
         const action$ = new Rx.Subject();

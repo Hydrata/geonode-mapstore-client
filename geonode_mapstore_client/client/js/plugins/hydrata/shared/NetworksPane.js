@@ -32,14 +32,14 @@ import {canEditAnugaMap} from '../Anuga/selectorsAnuga';
 
 class NetworksPaneClass extends React.Component {
     static propTypes = {
-        catchmentLayers:      PropTypes.array,
-        nodesLayers:          PropTypes.array,
-        linksLayers:          PropTypes.array,
-        createNetwork:        PropTypes.func,
-        setNetworkMenu:       PropTypes.func,
-        setAnugaInputMenu:    PropTypes.func,
+        catchmentLayers: PropTypes.array,
+        nodesLayers: PropTypes.array,
+        linksLayers: PropTypes.array,
+        createNetwork: PropTypes.func,
+        setNetworkMenu: PropTypes.func,
+        setAnugaInputMenu: PropTypes.func,
         setCreatingAnugaLayer: PropTypes.func,
-        canEditAnugaMap:      PropTypes.bool,
+        canEditAnugaMap: PropTypes.bool,
         isCreatingAnugaLayer: PropTypes.bool
     };
 
@@ -156,18 +156,18 @@ class NetworksPaneClass extends React.Component {
 }
 
 const mapStateToProps = (state) => ({
-    catchmentLayers:      state?.layers?.flat?.filter(l => l?.group === 'Input Data.Catchments') || [],
-    nodesLayers:          state?.layers?.flat?.filter(l => l?.group === 'Input Data.Nodes') || [],
-    linksLayers:          state?.layers?.flat?.filter(l => l?.group === 'Input Data.Links') || [],
+    catchmentLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Catchments') || [],
+    nodesLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Nodes') || [],
+    linksLayers: state?.layers?.flat?.filter(l => l?.group === 'Input Data.Links') || [],
     isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer || false,
-    canEditAnugaMap:      canEditAnugaMap(state)
+    canEditAnugaMap: canEditAnugaMap(state)
 });
 
 const mapDispatchToProps = (dispatch) => ({
-    createNetwork:        (title) => dispatch(createNetwork(title)),
-    setNetworkMenu:       (visible) => dispatch(setNetworkMenu(visible)),
-    setAnugaInputMenu:    (visible) => dispatch(setAnugaInputMenu(visible)),
-    setCreatingAnugaLayer:(v) => dispatch(setCreatingAnugaLayer(v))
+    createNetwork: (title) => dispatch(createNetwork(title)),
+    setNetworkMenu: (visible) => dispatch(setNetworkMenu(visible)),
+    setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
+    setCreatingAnugaLayer: (v) => dispatch(setCreatingAnugaLayer(v))
 });
 
 const NetworksPane = connect(mapStateToProps, mapDispatchToProps)(NetworksPaneClass);

@@ -386,10 +386,10 @@ class AnugaInputMenuClass extends React.Component {
                         });
                     } else {
                         // W6 (TASK-1421): capture progress_pct + status_detail while polling.
-                        const pct = proc.progress_pct != null ? proc.progress_pct : null;
+                        const pct = proc.progress_pct ?? null;
                         const detail = proc.status_detail || null;
                         this.setState({
-                            meshPreviewProgress: (pct != null || detail) ? {pct, detail} : null
+                            meshPreviewProgress: (pct !== null || detail) ? {pct, detail} : null
                         });
                         // still running — keep polling
                         this._pollMeshPreview(processId, projectId);

@@ -66,11 +66,11 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
     // W6 (TASK-1421): progress bar during polling.
     let progressBar = null;
     if (isRunning) {
-        const pct = (progress && progress.pct != null) ? Math.min(100, Math.max(0, progress.pct)) : null;
+        const pct = (progress && progress.pct !== null) ? Math.min(100, Math.max(0, progress.pct)) : null;
         const detail = (progress && progress.detail) ? progress.detail : null;
         progressBar = (
             <div className="anuga-mesh-preview-progress">
-                {pct != null ? (
+                {pct !== null ? (
                     <React.Fragment>
                         <div className="anuga-mesh-preview-progress-bar-track">
                             <div
@@ -140,7 +140,7 @@ export function PreviewSection({status, result, error, hasScenario, onStart, pro
             >
                 {isRunning ? (
                     <React.Fragment>
-                        {(!progress || progress.pct == null) && Spinner && (
+                        {(!progress || progress.pct === null) && Spinner && (
                             <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
                         )}
                         {' Previewing...'}

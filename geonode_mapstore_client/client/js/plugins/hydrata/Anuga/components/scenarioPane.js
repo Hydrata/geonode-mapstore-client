@@ -479,7 +479,7 @@ function useAutoPopulateDefaults(scenario, canEdit, resources, onUpdateScenario)
         if (Object.keys(updates).length > 0) {
             onUpdateScenario(scenario, updates);
         }
-    }, [scenarioId, firstTerrainId, firstBoundaryId, firstInflowId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [scenarioId, firstTerrainId, firstBoundaryId, firstInflowId]);
 }
 
 const ScenarioPane = (props) => {
