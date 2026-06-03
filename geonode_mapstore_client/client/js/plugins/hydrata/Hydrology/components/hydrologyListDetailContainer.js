@@ -9,6 +9,7 @@ import HydrologyDetailTimeSeries from './hydrologyDetailTimeSeries';
 import {Button} from 'react-bootstrap';
 import {
     setActiveHydrologyItem,
+    setActiveHydrologyPage,
     saveHydrologyItem,
     updateActiveHydrologyItem,
     deleteHydrologyItem,
@@ -26,6 +27,7 @@ class HydrologyListDetailContainerClass extends React.Component {
         activeHydrologyItems: PropTypes.array,
         activeHydrologyItem: PropTypes.object,
         setActiveHydrologyItem: PropTypes.func,
+        setActiveHydrologyPage: PropTypes.func,
         saveHydrologyItem: PropTypes.func,
         updateActiveHydrologyItem: PropTypes.func,
         deleteHydrologyItem: PropTypes.func,
@@ -256,6 +258,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = (dispatch) => {
     return {
         setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
+        setActiveHydrologyPage: (page) => dispatch(setActiveHydrologyPage(page)),
         updateActiveHydrologyItem: (activeHydrologyPage, item, kv) => dispatch(updateActiveHydrologyItem(activeHydrologyPage, item, kv)),
         saveHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(saveHydrologyItem(activeHydrologyPage, activeHydrologyItem)),
         createHydrologyForm: (activeHydrologyPage) => dispatch(createHydrologyForm(activeHydrologyPage)),
@@ -267,5 +270,6 @@ const HydrologyListDetailContainer = connect(mapStateToProps, mapDispatchToProps
 
 
 export {
-    HydrologyListDetailContainer
+    HydrologyListDetailContainer,
+    HydrologyListDetailContainerClass
 };
