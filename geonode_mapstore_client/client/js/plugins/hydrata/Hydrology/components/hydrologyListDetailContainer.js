@@ -6,7 +6,7 @@ import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
 import HydrologyDetailIdfDerive from './hydrologyDetailIdfDerive';
 import HydrologyDetailTemporalPattern from './hydrologyDetailTemporalPattern';
 import HydrologyDetailTimeSeries from './hydrologyDetailTimeSeries';
-import HydrologyDetailInflow from './hydrologyDetailInflow';
+import {Button} from 'react-bootstrap';
 import {
     setActiveHydrologyItem,
     saveHydrologyItem,
@@ -43,12 +43,38 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
     render() {
+        // TASK-1448 (W1) — IDF sub-toggle: when the IDF rail category is active,
+        // show a minimal Manual|Derive segmented switch so both idf-table and
+        // idf-derive detail components remain reachable under a single rail item.
+        // The full segmented-control polish is deferred to W5 (TASK-1452).
+        const isIdfPage = this.props.activeHydrologyPage === 'idf-table'
+            || this.props.activeHydrologyPage === 'idf-derive';
+        const IdfSubToggle = isIdfPage ? (
+            <div className={"hydrology-idf-subtoggle"}>
+                <Button
+                    bsSize={'xsmall'}
+                    bsStyle={this.props.activeHydrologyPage === 'idf-table' ? 'primary' : 'default'}
+                    onClick={() => this.props.setActiveHydrologyPage('idf-table')}
+                >
+                    <Message msgId="hydrata.hydrology.idfTables" />
+                </Button>
+                <Button
+                    bsSize={'xsmall'}
+                    bsStyle={this.props.activeHydrologyPage === 'idf-derive' ? 'primary' : 'default'}
+                    onClick={() => this.props.setActiveHydrologyPage('idf-derive')}
+                >
+                    <Message msgId="hydrata.hydrology.idfDerive" />
+                </Button>
+            </div>
+        ) : null;
+
         // TASK-934 — IDF Derive is a one-shot form, not a list-of-items
         // workflow. Bypass the items column + save/delete footer entirely
         // when this tab is active; the panel manages its own submit state.
         if (this.props.activeHydrologyPage === 'idf-derive') {
             return (
                 <div id={"hydrology-list-detail-container"}>
+                    {IdfSubToggle}
                     <div id={"hydrology-list-detail-body"}>
                         <div id={"hydrology-idf-derive-container"} style={{padding: '10px', width: '100%'}}>
                             <HydrologyDetailIdfDerive/>
@@ -59,6 +85,7 @@ class HydrologyListDetailContainerClass extends React.Component {
         }
         return (
             <div id={"hydrology-list-detail-container"}>
+                {IdfSubToggle}
                 <div id={"hydrology-list-detail-body"}>
                     <div id={"hydrology-list-detail-col-one"}>
                         <div id={"hydrology-list-detail-items"}>
@@ -159,8 +186,6 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 return <HydrologyDetailTemporalPattern/>;
                                             case 'time-series':
                                                 return <HydrologyDetailTimeSeries/>;
-                                            case 'inflow':
-                                                return <HydrologyDetailInflow/>;
                                             default:
                                                 return <div/>;
                                             }

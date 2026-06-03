@@ -40,12 +40,12 @@ describe('Hydrology i18n', () => {
     });
 
     it('menu navigation keys are translated in Spanish', () => {
+        // TASK-1448 (W1): inflows tab removed; key no longer in the nav rail.
         const navKeys = [
             'hydrata.hydrology.hydrology',
             'hydrata.hydrology.idfTables',
             'hydrata.hydrology.temporalPatterns',
-            'hydrata.hydrology.timeseries',
-            'hydrata.hydrology.inflows'
+            'hydrata.hydrology.timeseries'
         ];
         navKeys.forEach(key => {
             expect(esMessages[key]).toExist(`Missing Spanish translation for: ${key}`);

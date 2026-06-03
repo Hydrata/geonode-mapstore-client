@@ -60,8 +60,7 @@ const initialState = {
 export const hydrologyKeyMap = {
     "idf-table": "idfTables",
     "temporal-pattern": "temporalPatterns",
-    "time-series": "timeSeriess",
-    "inflow": "inflows"
+    "time-series": "timeSeriess"
 };
 
 const createIdfTableFromJson = (idfTableJson) => {

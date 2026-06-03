@@ -51,7 +51,8 @@ describe('Hydrology Plugin', () => {
             expect(hydrologyKeyMap['idf-table']).toBe('idfTables');
             expect(hydrologyKeyMap['temporal-pattern']).toBe('temporalPatterns');
             expect(hydrologyKeyMap['time-series']).toBe('timeSeriess');
-            expect(hydrologyKeyMap.inflow).toBe('inflows');
+            // TASK-1448 (W1): inflow removed from the UI; keyMap no longer has it.
+            expect(hydrologyKeyMap.inflow).toBe(undefined);
         });
     });
 
