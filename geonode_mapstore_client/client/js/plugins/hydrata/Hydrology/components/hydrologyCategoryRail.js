@@ -1,5 +1,5 @@
 import React from "react";
-const PropTypes = require('prop-types');
+import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 

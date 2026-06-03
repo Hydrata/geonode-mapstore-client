@@ -77,7 +77,7 @@ class HydrologyMainMenuClass extends React.Component {
                         activeHydrologyPage={this.props.activeHydrologyPage}
                         onSelectCategory={this.handleSelectCategory}
                     />
-                    <div className={"anuga-scenario-pane-detail hydrology-detail-pane"}>
+                    <div className={"hydrology-detail-pane"}>
                         {isNetworksTab
                             ? (
                                 <div id={"hydrology-networks-tab-body"} style={{padding: '10px', overflowY: 'auto', height: '100%'}}>
