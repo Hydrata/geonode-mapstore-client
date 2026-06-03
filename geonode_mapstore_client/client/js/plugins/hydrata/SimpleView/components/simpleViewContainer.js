@@ -285,7 +285,7 @@ const mapStateToProps = (state, ownProps) => {
         // TASK-1441: ResourceDetails panel is controlled via state.resources.showDetails,
         // NOT state.controls.resourceDetails.  Use getShowDetails (the canonical selector)
         // so the padlock active-state tracks the panel correctly.
-        permissionsEnabled: getShowDetails(state) || false
+        permissionsEnabled: getShowDetails(state)
     };
 };
 
