@@ -18,7 +18,7 @@ import {connect} from 'react-redux';
 import PropTypes from 'prop-types';
 const Spinner = require('react-spinkit');
 
-import {MenuRow} from '../Anuga/../SimpleView/components/simpleViewMenuRow';
+import {MenuRow} from '../SimpleView/components/simpleViewMenuRow';
 import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from '@js/utils/analytics';
 
