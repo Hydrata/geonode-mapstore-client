@@ -32,6 +32,12 @@ const REPLACE_TIME_SERIES_ROW_DATA = 'REPLACE_TIME_SERIES_ROW_DATA';
 // TASK-1450 (W3) — Preset picker: store the selected pattern key on the item.
 const SET_TEMPORAL_PATTERN_PRESET = 'SET_TEMPORAL_PATTERN_PRESET';
 
+// TASK-1451 (W4) — Design-storm combine: derive + preview + save.
+const DERIVE_DESIGN_STORM_REQUEST = 'DERIVE_DESIGN_STORM_REQUEST';
+const DERIVE_DESIGN_STORM_SUCCESS = 'DERIVE_DESIGN_STORM_SUCCESS';
+const DERIVE_DESIGN_STORM_FAILURE = 'DERIVE_DESIGN_STORM_FAILURE';
+const SET_DESIGN_STORM_FORM = 'SET_DESIGN_STORM_FORM';
+
 // TASK-934 — IDF Derive panel actions.
 const SET_IDF_DERIVE_LAT = 'SET_IDF_DERIVE_LAT';
 const SET_IDF_DERIVE_LON = 'SET_IDF_DERIVE_LON';
@@ -234,7 +240,30 @@ const setIdfDeriveError = (message) => ({type: SET_IDF_DERIVE_ERROR, message});
 const setIdfDeriveResult = (idfTable) => ({type: SET_IDF_DERIVE_RESULT, idfTable});
 const setCeleryAnugaEnabled = (enabled) => ({type: SET_CELERY_ANUGA_ENABLED, enabled});
 
+// TASK-1451 (W4) — Design-storm combine action creators.
+const deriveDesignStormRequest = (formValues) => ({
+    type: DERIVE_DESIGN_STORM_REQUEST,
+    formValues
+});
+const deriveDesignStormSuccess = (timeSeries) => ({
+    type: DERIVE_DESIGN_STORM_SUCCESS,
+    timeSeries
+});
+const deriveDesignStormFailure = (error) => ({
+    type: DERIVE_DESIGN_STORM_FAILURE,
+    error
+});
+// Set one or more fields in the design-storm form slice.
+const setDesignStormForm = (patch) => ({
+    type: SET_DESIGN_STORM_FORM,
+    patch
+});
+
 module.exports = {
+    DERIVE_DESIGN_STORM_REQUEST, deriveDesignStormRequest,
+    DERIVE_DESIGN_STORM_SUCCESS, deriveDesignStormSuccess,
+    DERIVE_DESIGN_STORM_FAILURE, deriveDesignStormFailure,
+    SET_DESIGN_STORM_FORM, setDesignStormForm,
     INIT_HYDROLOGY, initHydrology,
     INIT_HYDROLOGY_FULFILLED, initHydrologyFulfilled,
     INIT_HYDROLOGY_REJECTED, initHydrologyRejected,

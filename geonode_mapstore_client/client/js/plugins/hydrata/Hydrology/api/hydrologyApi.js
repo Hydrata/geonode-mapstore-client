@@ -18,3 +18,10 @@ export const deriveIdf = (projectId, payload) =>
 // ci_upper_mm_per_hr, durations_min, return_periods_yr, provenance, ag_grid).
 export const getIdfTable = (projectId, idfTableId) =>
     axios.get(`/api/v2/anuga/projects/${projectId}/idf-tables/${idfTableId}/`);
+
+// POST /api/v2/anuga/projects/{pid}/time-series/derive-design-storm/
+// TASK-1451 (W4) — Synchronous endpoint; returns 201 + the persisted TimeSeries.
+// Payload: {idf_table_id, pattern, aep|ari, duration_min, timestep_min,
+//           peak_position?, name?}
+export const deriveDesignStorm = (projectId, payload) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/time-series/derive-design-storm/`, payload);

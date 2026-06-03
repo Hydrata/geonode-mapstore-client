@@ -24,7 +24,11 @@ import {
     SET_IDF_DERIVE_PROCESS_ID,
     SET_IDF_DERIVE_ERROR,
     SET_IDF_DERIVE_RESULT,
-    SET_CELERY_ANUGA_ENABLED
+    SET_CELERY_ANUGA_ENABLED,
+    DERIVE_DESIGN_STORM_REQUEST,
+    DERIVE_DESIGN_STORM_SUCCESS,
+    DERIVE_DESIGN_STORM_FAILURE,
+    SET_DESIGN_STORM_FORM
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
 import {IdfTable, TemporalPattern, TimeSeries} from "./classesHydrology";
@@ -34,6 +38,25 @@ import {IdfTable, TemporalPattern, TimeSeries} from "./classesHydrology";
 // Default RPs follow design-standard practice (2/5/10/20/50/100/200yr).
 const IDF_DERIVE_DEFAULT_DURATIONS = '60, 180, 360, 720, 1440, 2880, 10080';
 const IDF_DERIVE_DEFAULT_RPS = '2, 5, 10, 20, 50, 100, 200';
+
+// TASK-1451 (W4) — Design-storm combine form defaults.
+// The user picks an IDF table + pattern + AEP/ARI + duration; the form
+// starts empty so the user must make explicit selections before deriving.
+const initialDesignStorm = {
+    // Form inputs
+    idfTableId: null,       // selected IDF table pk
+    patternKey: 'alternating_block',  // selected pattern key (FE/BE unified)
+    aep: '',                // Annual Exceedance Probability % (e.g. '1' = 1-in-100)
+    ari: '',                // Average Recurrence Interval years (alternative to AEP)
+    durationMin: 60,        // storm duration minutes
+    timestepMin: 6,         // output timestep minutes
+    peakPosition: 0.5,      // peak position fraction for alternating-block
+    name: '',               // optional user-supplied name
+    // State
+    inFlight: false,
+    error: null,
+    result: null            // the derived TimeSeries response object
+};
 
 const initialIdfDerive = {
     lat: null,
@@ -55,7 +78,8 @@ const initialState = {
     isHydrologyProject: false,
     showHydrologyMainMenu: false,
     activeHydrologyPage: "idf-table",
-    idfDerive: initialIdfDerive
+    idfDerive: initialIdfDerive,
+    designStorm: initialDesignStorm
 };
 
 export const hydrologyKeyMap = {
@@ -376,6 +400,44 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             idfDerive: {...(state.idfDerive || initialIdfDerive), celeryAnugaEnabled: action.enabled}
+        };
+    // TASK-1451 (W4) — Design-storm combine slice.
+    case SET_DESIGN_STORM_FORM:
+        return {
+            ...state,
+            designStorm: {
+                ...(state.designStorm || initialDesignStorm),
+                ...action.patch
+            }
+        };
+    case DERIVE_DESIGN_STORM_REQUEST:
+        return {
+            ...state,
+            designStorm: {
+                ...(state.designStorm || initialDesignStorm),
+                inFlight: true,
+                error: null,
+                result: null
+            }
+        };
+    case DERIVE_DESIGN_STORM_SUCCESS:
+        return {
+            ...state,
+            designStorm: {
+                ...(state.designStorm || initialDesignStorm),
+                inFlight: false,
+                error: null,
+                result: action.timeSeries
+            }
+        };
+    case DERIVE_DESIGN_STORM_FAILURE:
+        return {
+            ...state,
+            designStorm: {
+                ...(state.designStorm || initialDesignStorm),
+                inFlight: false,
+                error: action.error
+            }
         };
     default:
         return state;

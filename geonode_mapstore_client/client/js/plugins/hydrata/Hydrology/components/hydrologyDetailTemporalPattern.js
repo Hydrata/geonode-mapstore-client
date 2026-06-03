@@ -304,8 +304,13 @@ const HydrologyTemporalPattern = ({
 
     useEffect(() => {
         setRowData(activeHydrologyItem?.rowData || []);
+        // TASK-1451 carry-over B: always reset selectedKey on item switch.
+        // Without the else branch, switching to an item without selectedPreset
+        // showed the previous item's key (stale state bug).
         if (activeHydrologyItem?.selectedPreset) {
             setSelectedKey(activeHydrologyItem.selectedPreset);
+        } else {
+            setSelectedKey(ALTERNATING_BLOCK);
         }
     }, [activeHydrologyItem]);
 
@@ -430,9 +435,13 @@ HydrologyTemporalPattern.propTypes = {
 const mapStateToProps = (state) => ({
     activeHydrologyPage: state?.hydrology?.activeHydrologyPage,
     activeHydrologyItem: state?.hydrology?.activeHydrologyItem,
-    // Project lat/lon from the anuga project record (set by GeoNode centroid)
-    projectLat: state?.anuga?.projects?.data?.latitude ?? null,
-    projectLon: state?.anuga?.projects?.data?.longitude ?? null
+    // TASK-1451 carry-over A: the anuga project API exposes 'projection' but
+    // NOT lat/lon, so state.anuga.projects.data.latitude is always undefined.
+    // Use the IDF-derive pin location (set when the user picks a point for IDF
+    // derivation) as the geography source — this is the best available proxy
+    // for the project location in the combine flow.
+    projectLat: state?.hydrology?.idfDerive?.lat ?? null,
+    projectLon: state?.hydrology?.idfDerive?.lon ?? null
 });
 
 const mapDispatchToProps = (dispatch) => ({

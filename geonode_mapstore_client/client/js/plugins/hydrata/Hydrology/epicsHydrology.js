@@ -31,11 +31,14 @@ import {
     setIdfDeriveLat,
     setIdfDeriveLon,
     setIdfDeriveMapPickActive,
-    setCeleryAnugaEnabled
+    setCeleryAnugaEnabled,
+    DERIVE_DESIGN_STORM_REQUEST,
+    deriveDesignStormSuccess,
+    deriveDesignStormFailure
 } from "../Hydrology/actionsHydrology";
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {CLICK_ON_MAP} from '../../../../MapStore2/web/client/actions/map';
-import {deriveIdf, getIdfTable} from './api/hydrologyApi';
+import {deriveIdf, getIdfTable, deriveDesignStorm} from './api/hydrologyApi';
 import {getAnugaConfig} from '../Anuga/api/anugaApi';
 
 // V2P-79 / V2P-77 — V1 hydrology routes were /anuga/api/{pid}/<endpoint>/
@@ -434,3 +437,72 @@ export const loadAnugaConfigEpic = (action$) =>
                 .map(cfg => setCeleryAnugaEnabled(cfg?.celery_anuga_enabled !== false))
                 .catch(() => Rx.Observable.empty())
         );
+
+// TASK-1451 (W4) — Design-storm derive epic.
+// Listens for DERIVE_DESIGN_STORM_REQUEST, POSTs to the synchronous
+// derive-design-storm endpoint (201 + persisted TimeSeries), then
+// re-fetches the time-series list so the new item appears in the rail.
+export const deriveDesignStormEpic = (action$, store) =>
+    action$
+        .ofType(DERIVE_DESIGN_STORM_REQUEST)
+        .mergeMap(action => {
+            const projectId = store.getState()?.anuga?.projects?.data?.id;
+            if (!projectId) {
+                return Rx.Observable.of(deriveDesignStormFailure('No active project'));
+            }
+            const {formValues} = action;
+            // Map FE selectedPreset → BE field name `pattern`.
+            // BE DesignStormDeriveSerializer uses field name `pattern` (not
+            // `pattern_key` / `selectedPreset`). Carry-over C: always send
+            // `pattern` so saved provenance restores correctly.
+            const payload = {
+                idf_table_id: formValues.idfTableId,
+                pattern: formValues.patternKey,
+                duration_min: formValues.durationMin,
+                timestep_min: formValues.timestepMin
+            };
+            // AEP or ARI — exactly one is required by the BE serializer.
+            if (formValues.aep !== undefined && formValues.aep !== null && formValues.aep !== '') {
+                payload.aep = Number(formValues.aep);
+            } else if (formValues.ari !== undefined && formValues.ari !== null && formValues.ari !== '') {
+                payload.ari = Number(formValues.ari);
+            }
+            // peak_position only relevant for alternating_block (ignored for
+            // SCS patterns but harmless to send — BE default=0.5).
+            if (formValues.peakPosition !== undefined && formValues.peakPosition !== null) {
+                payload.peak_position = Number(formValues.peakPosition);
+            }
+            if (formValues.name) {
+                payload.name = formValues.name;
+            }
+            return Rx.Observable.from(deriveDesignStorm(projectId, payload))
+                .mergeMap(response => {
+                    const ts = response.data;
+                    return Rx.Observable.from([
+                        deriveDesignStormSuccess(ts),
+                        fetchHydrologyTimeSeriesData(),
+                        show({
+                            message: `Design storm "${ts.name}" saved.`,
+                            title: 'hydrata.hydrology.success',
+                            uid: 1001,
+                            position: 'tc'
+                        })
+                    ]);
+                })
+                .catch(error => {
+                    const detail = error?.data?.detail
+                        || error?.data?.non_field_errors?.[0]
+                        || error?.response?.data?.detail
+                        || error?.message
+                        || 'Derive design storm failed';
+                    return Rx.Observable.from([
+                        deriveDesignStormFailure(String(detail)),
+                        show({
+                            message: `Error: ${String(detail)}`,
+                            title: 'hydrata.hydrology.error',
+                            uid: 6001,
+                            position: 'tc'
+                        }, 'error')
+                    ]);
+                });
+        });
