@@ -14,6 +14,7 @@ import {
     UPDATE_IDF_ROW_DATA,
     UPDATE_TEMPORAL_PATTERN_ROW_DATA,
     UPDATE_TIME_SERIES_ROW_DATA, REPLACE_TIME_SERIES_ROW_DATA,
+    SET_TEMPORAL_PATTERN_PRESET,
     SET_IDF_DERIVE_LAT,
     SET_IDF_DERIVE_LON,
     SET_IDF_DERIVE_DURATIONS,
@@ -248,6 +249,21 @@ export default ( state = initialState, action) => {
                 if (temporalPattern.id === action.temporalPatternId) {
                     temporalPattern.updatePercentageValues(action.rowIndex, action.columnId, action.value);
                     temporalPattern.unsaved = true;
+                    updatedActiveHydrologyItem = temporalPattern;
+                }
+                return temporalPattern;
+            }),
+            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
+        };
+    }
+    // TASK-1450 (W3) — store the selected preset key on the TemporalPattern item.
+    case SET_TEMPORAL_PATTERN_PRESET: {
+        let updatedActiveHydrologyItem;
+        return {
+            ...state,
+            temporalPatterns: state.temporalPatterns.map((temporalPattern) => {
+                if (temporalPattern.id === action.temporalPatternId) {
+                    temporalPattern.selectedPreset = action.patternKey;
                     updatedActiveHydrologyItem = temporalPattern;
                 }
                 return temporalPattern;

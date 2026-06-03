@@ -29,6 +29,9 @@ const UPDATE_TEMPORAL_PATTERN_ROW_DATA = 'UPDATE_TEMPORAL_PATTERN_ROW_DATA';
 const UPDATE_TIME_SERIES_ROW_DATA = 'UPDATE_TIME_SERIES_ROW_DATA';
 const REPLACE_TIME_SERIES_ROW_DATA = 'REPLACE_TIME_SERIES_ROW_DATA';
 
+// TASK-1450 (W3) — Preset picker: store the selected pattern key on the item.
+const SET_TEMPORAL_PATTERN_PRESET = 'SET_TEMPORAL_PATTERN_PRESET';
+
 // TASK-934 — IDF Derive panel actions.
 const SET_IDF_DERIVE_LAT = 'SET_IDF_DERIVE_LAT';
 const SET_IDF_DERIVE_LON = 'SET_IDF_DERIVE_LON';
@@ -195,6 +198,13 @@ const updateTemporalPatternRowData = (temporalPatternId, rowIndex, columnId, val
     value
 });
 
+// TASK-1450 (W3) — store selected pattern key on the TemporalPattern item.
+const setTemporalPatternPreset = (temporalPatternId, patternKey) => ({
+    type: SET_TEMPORAL_PATTERN_PRESET,
+    temporalPatternId,
+    patternKey
+});
+
 const updateTimeSeriesRowData = (timeSeriesId, rowIndex, columnId, value) => ({
     type: UPDATE_TIME_SERIES_ROW_DATA,
     timeSeriesId,
@@ -255,6 +265,7 @@ module.exports = {
     UPDATE_TEMPORAL_PATTERN_ROW_DATA, updateTemporalPatternRowData,
     UPDATE_TIME_SERIES_ROW_DATA, updateTimeSeriesRowData,
     REPLACE_TIME_SERIES_ROW_DATA, replaceTimeSeriesRowData,
+    SET_TEMPORAL_PATTERN_PRESET, setTemporalPatternPreset,
     SET_IDF_DERIVE_LAT, setIdfDeriveLat,
     SET_IDF_DERIVE_LON, setIdfDeriveLon,
     SET_IDF_DERIVE_DURATIONS, setIdfDeriveDurations,
