@@ -13,7 +13,7 @@ import {
     stopAnugaScenarioPolling,
     setMembershipPanel
 } from '../actionsAnuga';
-import {canEditAnugaMap, canViewAnugaMap, canManageMembers, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
+import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
 import {AnugaScenarioMenu} from './anugaScenarioMenu';
@@ -51,7 +51,6 @@ class AnugaContainer extends React.Component {
         gnResourceLoaded: PropTypes.string,
         canEditAnugaMap: PropTypes.bool,
         canViewAnugaMap: PropTypes.bool,
-        canManageMembers: PropTypes.bool,
         canCreateScenario: PropTypes.bool,
         showMembershipPanel: PropTypes.bool,
         setMembershipPanel: PropTypes.func,
@@ -175,21 +174,9 @@ class AnugaContainer extends React.Component {
                     </button>
                     : null
                 }
-                {this.props.canManageMembers && this.props.hasEPSGset ?
-                    <button
-                        key="anuga-members-button"
-                        className={`simple-view-menu-button ${this.props.showMembershipPanel ? 'active' : ''}`}
-                        onClick={() => {
-                            this.props.setMembershipPanel(!this.props.showMembershipPanel);
-                            this.props.setOpenMenuGroupId(null);
-                            this.closeHydrologyIfOpen();
-                            trackEvent('button', `click`, `anuga-membership-panel-toggle`);
-                        }}
-                    >
-                        <Message msgId="hydrata.anuga.members" />
-                    </button>
-                    : null
-                }
+                {/* The "Permissions" (membership) button moved to the RHS toolbar
+                    padlock in SimpleView — see simpleViewContainer.js. The padlock
+                    toggles setMembershipPanel directly, so no left-rail button here. */}
             </React.Fragment>
         );
     }
@@ -242,7 +229,6 @@ const mapStateToProps = (state) => {
         visibleNetworkMenu: state?.anuga?.ui?.visibleNetworkMenu,
         canEditAnugaMap: canEditAnugaMap(state),
         canViewAnugaMap: canViewAnugaMap(state),
-        canManageMembers: canManageMembers(state),
         canCreateScenario: canCreateScenario(state),
         showMembershipPanel: state?.anuga?.ui?.showMembershipPanel,
         hydrologyPluginPresent: !!mapViewerPlugins.find(x => x.name === "Hydrology"),

@@ -6,11 +6,13 @@ import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {setControlProperty} from '@mapstore/framework/actions/controls';
 import {saveDirectContent} from '@js/actions/gnsave';
-// TASK-1441: ResourceDetails panel is controlled via the ResourcesCatalog
-// resources state (state.resources.showDetails), NOT a MapStore controls key.
-// setShowDetails / getShowDetails are the correct API.
-import { setShowDetails } from '@mapstore/framework/plugins/ResourcesCatalog/actions/resources';
-import { getShowDetails } from '@mapstore/framework/plugins/ResourcesCatalog/selectors/resources';
+// The RHS padlock opens our custom ANUGA permissions panel (MembershipPanel),
+// toggled via setMembershipPanel and gated by canManageMembers (owner/manager on
+// the ANUGA project — the same audience as the old left-rail "Permissions" button).
+// The MembershipPanel is mounted by anugaContainer on ANUGA maps, so the padlock
+// only appears where that panel exists.
+import { setMembershipPanel } from '../../Anuga/actionsAnuga';
+import { canManageMembers } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
 import {canEditResource} from '@js/selectors/resource';
 import {isLoggedIn} from '@mapstore/framework/selectors/security';
 import {canEditSwammMap} from '../../Swamm/selectorsSwamm';
@@ -65,7 +67,8 @@ export class SimpleViewContainer extends React.Component {
         hgevalActive: PropTypes.bool,
         onSetHGevalStep: PropTypes.func,
         onResetHGeval: PropTypes.func,
-        // ISSUE 16 item 4: Permissions padlock button on RHS below Save.
+        // RHS padlock opens the custom ANUGA permissions panel (MembershipPanel).
+        canManageMembers: PropTypes.bool,
         permissionsEnabled: PropTypes.bool,
         togglePermissions: PropTypes.func
     };
@@ -214,15 +217,20 @@ export class SimpleViewContainer extends React.Component {
                                 title="Save">
                                 <Glyphicon glyph="floppy-disk" />
                             </button>
-                            {/* ISSUE 16 item 4: Permissions padlock button below Save */}
-                            <button
-                                className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
-                                onClick={() => this.props.togglePermissions && this.props.togglePermissions(!this.props.permissionsEnabled)}
-                                title="Permissions">
-                                <Glyphicon glyph="lock" />
-                            </button>
                         </>
                     ) : null}
+                    {/* Permissions padlock — opens the custom MembershipPanel (replaces
+                        the old left-rail "Permissions" button). Gated on canManageMembers
+                        so it only shows where the panel mounts (ANUGA owner/manager). */}
+                    {this.props.canManageMembers ?
+                        <button
+                            className={`simple-view-right-button ${this.props.permissionsEnabled ? 'active' : ''}`}
+                            onClick={() => this.props.togglePermissions(!this.props.permissionsEnabled)}
+                            title="Permissions">
+                            <Glyphicon glyph="lock" />
+                        </button>
+                        : null
+                    }
                 </div>
                 {this.state.saveConfirmVisible ?
                     <div className="save-confirm-overlay">
@@ -306,10 +314,9 @@ const mapStateToProps = (state, ownProps) => {
         drawerEnabled: state?.controls?.drawer?.enabled || false,
         hgevalPluginPresent: !!mapViewerPlugins.find(x => x.name === "HGeval"),
         hgevalActive: !!(state?.hgeval?.step && state?.hgeval?.step !== 'idle'),
-        // TASK-1441: ResourceDetails panel is controlled via state.resources.showDetails,
-        // NOT state.controls.resourceDetails.  Use getShowDetails (the canonical selector)
-        // so the padlock active-state tracks the panel correctly.
-        permissionsEnabled: getShowDetails(state)
+        // RHS padlock active-state tracks the custom MembershipPanel visibility.
+        permissionsEnabled: !!state?.anuga?.ui?.showMembershipPanel,
+        canManageMembers: canManageMembers(state)
     };
 };
 
@@ -324,10 +331,10 @@ const mapDispatchToProps = ( dispatch ) => {
         onSave: () => dispatch(saveDirectContent()),
         onSetHGevalStep: (step) => dispatch(setHGevalStep(step)),
         onResetHGeval: () => dispatch(resetHGeval()),
-        // TASK-1441: toggle via setShowDetails — the action ResourceDetails actually
-        // listens to.  setControlProperty('resourceDetails',...) targeted a MapStore
-        // controls key that ResourceDetails never reads, so the panel never opened.
-        togglePermissions: (enabled) => dispatch(setShowDetails(enabled))
+        // Padlock toggles the custom MembershipPanel (our permissions UI), replacing
+        // the old left-rail "Permissions" button. The panel is rendered by
+        // anugaContainer when state.anuga.ui.showMembershipPanel is set.
+        togglePermissions: (enabled) => dispatch(setMembershipPanel(enabled))
     };
 };
 
