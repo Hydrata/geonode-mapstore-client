@@ -18,24 +18,20 @@ import {
     addAnugaRainfall,
     addAnugaStructure,
     addAnugaMeshRegion,
-    addNetwork,
-    addCatchment,
-    addNodes,
-    addLinks,
     createAnugaBoundary,
     createAnugaFriction,
     createAnugaInflow,
     createAnugaRainfall,
     createAnugaStructure,
     createAnugaMeshRegion,
-    createNetwork,
     setCreatingAnugaLayer,
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
-    setNetworkMenu,
-    setAnugaInputMenu,
     setVisibleTerrainBboxPanel
 } from "../actionsAnuga";
+// TASK-1440 (W9): Networks action creators removed from this file — the Networks
+// pane is now a self-contained shared component (shared/NetworksPane.js) that
+// carries its own connect() and is rendered in the Hydrology panel.
 
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
@@ -178,24 +174,18 @@ class AnugaInputMenuClass extends React.Component {
         createAnugaRainfall: PropTypes.func,
         createAnugaStructure: PropTypes.func,
         createAnugaMeshRegion: PropTypes.func,
-        createNetwork: PropTypes.func,
-        createCatchment: PropTypes.func,
-        createNodes: PropTypes.func,
-        createLinks: PropTypes.func,
         frictionLayers: PropTypes.array,
         frictionRasterLayers: PropTypes.array,
         inflowLayers: PropTypes.array,
         rainfallLayers: PropTypes.array,
         structureLayers: PropTypes.array,
         meshRegionLayers: PropTypes.array,
-        catchmentLayers: PropTypes.array,
-        nodesLayers: PropTypes.array,
-        linksLayers: PropTypes.array,
         startAnugaModelCreationPolling: PropTypes.func,
         stopAnugaModelCreationPolling: PropTypes.func,
         isCreatingAnugaLayer: PropTypes.bool,
         setCreatingAnugaLayer: PropTypes.func,
         canEditAnugaMap: PropTypes.bool,
+        // (networks props removed — now in shared/NetworksPane.js, TASK-1440)
         pendingBoundaries: PropTypes.array,
         pendingInflows: PropTypes.array,
         pendingRainfalls: PropTypes.array,
@@ -209,9 +199,6 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaRainfall: PropTypes.func,
         addAnugaStructure: PropTypes.func,
         addAnugaMeshRegion: PropTypes.func,
-        addCatchment: PropTypes.func,
-        addNodes: PropTypes.func,
-        addLinks: PropTypes.func,
         terrainModels: PropTypes.array,
         boundaryModels: PropTypes.array,
         frictionModels: PropTypes.array,
@@ -219,11 +206,6 @@ class AnugaInputMenuClass extends React.Component {
         rainfallModels: PropTypes.array,
         structureModels: PropTypes.array,
         meshRegionModels: PropTypes.array,
-        catchmentModels: PropTypes.array,
-        nodesModels: PropTypes.array,
-        linksModels: PropTypes.array,
-        setAnugaInputMenu: PropTypes.func,
-        setNetworkMenu: PropTypes.func,
         // W3.1 (TASK-1266)
         projectId: PropTypes.number,
         selectedScenarioId: PropTypes.number,
@@ -256,10 +238,6 @@ class AnugaInputMenuClass extends React.Component {
             rainfallTitle: '',
             structureTitle: '',
             meshRegionTitle: '',
-            networkTitle: '',
-            catchmentTitle: '',
-            nodesTitle: '',
-            linksTitle: '',
             // W3.1 (TASK-1266) — Mesh preview local state
             meshPreviewStatus: null,   // null | 'pending' | 'polling' | 'done' | 'error'
             meshPreviewProcessId: null,
@@ -756,73 +734,10 @@ class AnugaInputMenuClass extends React.Component {
         );
     }
 
-    renderNetworksPane() {
-        const inputVisible = !!this.state.inputVisible.networks;
-        const canEdit = this.props.canEditAnugaMap;
-        const actions = (
-            <React.Fragment>
-                <span
-                    className={'btn glyphicon menu-row-glyph glyph-settings glyphicon-cog'}
-                    title="Network settings"
-                    onClick={() => {
-                        this.props.setNetworkMenu(true);
-                        this.props.setAnugaInputMenu(false);
-                        trackEvent('button', 'click', 'anuga-input-menu-show-network');
-                    }}
-                />
-                {canEdit ? (
-                    <React.Fragment>
-                        <span
-                            className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
-                            onClick={() => this.handleCreateClick('networks', 'networkTitle', this.props.createNetwork, 'anuga-input-menu-create-network')}
-                            aria-label={inputVisible ? "Save" : "Add new"}
-                        />
-                        {this.props.isCreatingAnugaLayer ? (
-                            <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
-                        ) : inputVisible ? (
-                            <input
-                                id="network-input"
-                                key="network-input"
-                                className={'data-title-input'}
-                                type={'text'}
-                                value={this.state.networkTitle}
-                                onChange={(e) => this.setState({networkTitle: e.target.value})}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && this.state.networkTitle) {
-                                        e.preventDefault();
-                                        this.handleCreateClick('networks', 'networkTitle', this.props.createNetwork, 'anuga-input-menu-create-network');
-                                    } else if (e.key === 'Escape') {
-                                        e.preventDefault();
-                                        this.handleEscapeInput('networks', 'networkTitle');
-                                    }
-                                }}
-                                autoFocus
-                            />
-                        ) : null}
-                    </React.Fragment>
-                ) : null}
-            </React.Fragment>
-        );
-        return (
-            <div className="menu-rows-pane anuga-pane">
-                {this.renderPaneHead('networks', actions)}
-                <div className="anuga-pane-rows">
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
-                        {(this.props.catchmentLayers || []).map(c => <MenuRow key={c?.name || c?.id} layer={c}/>)}
-                    </div>
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
-                        {(this.props.nodesLayers || []).map(n => <MenuRow key={n?.name || n?.id} layer={n}/>)}
-                    </div>
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
-                        {(this.props.linksLayers || []).map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // TASK-1440 (W9): renderNetworksPane() REMOVED. The Networks pane is now
+    // shared/NetworksPane.js (self-contained connected component) rendered as a
+    // tab in the Hydrology panel (hydrologyMainMenu.js). The `case 'networks':`
+    // switch arm below is correspondingly removed.
 
     renderPane() {
         switch (this.state.selectedCategory) {
@@ -835,7 +750,7 @@ class AnugaInputMenuClass extends React.Component {
         case 'friction':        return this.renderCreatePane('friction');
         case 'frictionRasters': return this.renderFrictionRastersPane();
         case 'structures':      return this.renderCreatePane('structures');
-        case 'networks':        return this.renderNetworksPane();
+        // TASK-1440 (W9): 'networks' case removed — rendered in Hydrology panel.
         default:                return this.renderTerrainPane();
         }
     }
@@ -892,10 +807,8 @@ const mapStateToProps = (state) => {
         frictionRasterLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Rasters'),
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
-        networkLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Networks'),
-        catchmentLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Catchments'),
-        nodesLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Nodes'),
-        linksLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Links'),
+        // TASK-1440 (W9): networkLayers / catchmentLayers / nodesLayers / linksLayers
+        // removed — now in shared/NetworksPane.js mapStateToProps.
         terrainModels: state?.anuga?.resources?.terrain,
         boundaryModels: state?.anuga?.resources?.boundaries,
         inflowModels: state?.anuga?.resources?.inflows,
@@ -903,9 +816,7 @@ const mapStateToProps = (state) => {
         frictionModels: state?.anuga?.resources?.frictions,
         structureModels: state?.anuga?.resources?.structures,
         meshRegionModels: state?.anuga?.resources?.meshRegions,
-        catchmentModels: state?.anuga?.resources?.catchments,
-        nodesModels: state?.anuga?.resources?.nodes,
-        linksModels: state?.anuga?.resources?.links,
+        // TASK-1440 (W9): catchmentModels / nodesModels / linksModels removed.
         pendingBoundaries: pendingByModel.Boundary,
         pendingInflows: pendingByModel.Inflow,
         pendingRainfalls: pendingByModel.Rainfall,
@@ -933,12 +844,9 @@ const mapDispatchToProps = ( dispatch ) => {
         addAnugaRainfall: () => dispatch(addAnugaRainfall()),
         addAnugaStructure: () => dispatch(addAnugaStructure()),
         addAnugaMeshRegion: () => dispatch(addAnugaMeshRegion()),
-        addCatchment: () => dispatch(addCatchment()),
-        setNetworkMenu: (visible) => dispatch(setNetworkMenu(visible)),
-        setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
-        addNetwork: () => dispatch(addNetwork()),
-        addNodes: () => dispatch(addNodes()),
-        addLinks: () => dispatch(addLinks()),
+        // TASK-1440 (W9): setNetworkMenu / setAnugaInputMenu / addNetwork /
+        // addCatchment / addNodes / addLinks / createNetwork removed — now in
+        // shared/NetworksPane.js mapDispatchToProps.
         startAnugaModelCreationPolling: () => dispatch(startAnugaModelCreationPolling()),
         stopAnugaModelCreationPolling: () => dispatch(stopAnugaModelCreationPolling()),
         setVisibleUploaderPanel: (visible, importerConfigKey, layerId) => dispatch(setVisibleUploaderPanel(visible, importerConfigKey, layerId)),
@@ -950,7 +858,6 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
-        createNetwork: (networkTitle) => dispatch(createNetwork(networkTitle)),
         // W5.3 (TASK-1275) — Add mesh triangle render layer to map
         onAddMeshLayer: (layer) => dispatch(addLayer(layer)),
         // W6 (TASK-1422) — Zoom map to mesh extent after successful preview

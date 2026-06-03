@@ -15,6 +15,8 @@ import {
 import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
 import Message from '@mapstore/framework/components/I18N/Message';
+// TASK-1440 (W9): Networks tab in the Hydrology panel.
+import {NetworksPane} from '../../shared/NetworksPane';
 
 class HydrologyMainMenuClass extends React.Component {
     static propTypes = {
@@ -49,6 +51,7 @@ class HydrologyMainMenuClass extends React.Component {
     )
 
     render() {
+        const isNetworksTab = this.props.activeHydrologyPage === 'networks';
         return (
             <div id={'hydrology-main-menu'} className={'simple-view-panel'} style={{
                 top: "70px",
@@ -65,6 +68,8 @@ class HydrologyMainMenuClass extends React.Component {
                         {this.renderButton('temporal-pattern', <Message msgId="hydrata.hydrology.temporalPatterns" />)}
                         {this.renderButton('time-series', <Message msgId="hydrata.hydrology.timeseries" />)}
                         {this.renderButton('inflow', <Message msgId="hydrata.hydrology.inflows" />)}
+                        {/* TASK-1440 (W9): Networks tab — rendered by the shared NetworksPane component */}
+                        {this.renderButton('networks', <Message msgId="hydrata.anuga.networks" />)}
                     </span>
                     <span
                         className={"btn glyphicon glyphicon-remove legend-close"}
@@ -77,7 +82,13 @@ class HydrologyMainMenuClass extends React.Component {
                         }
                     />
                 </div>
-                <HydrologyListDetailContainer/>
+                {/* TASK-1440: Networks tab bypasses HydrologyListDetailContainer (different UX pattern) */}
+                {isNetworksTab
+                    ? <div id={"hydrology-networks-tab-body"} style={{padding: '10px', overflowY: 'auto', height: 'calc(100% - 40px)'}}>
+                        <NetworksPane/>
+                    </div>
+                    : <HydrologyListDetailContainer/>
+                }
             </div>
         );
     }
@@ -115,5 +126,7 @@ const HydrologyMainMenu = connect(mapStateToProps, mapDispatchToProps)(Hydrology
 
 
 export {
-    HydrologyMainMenu
+    HydrologyMainMenu,
+    // TASK-1440: exported for unit tests that need the unconnected class.
+    HydrologyMainMenuClass
 };
