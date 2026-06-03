@@ -30,8 +30,9 @@ const ownerState = (showMembershipPanel = false) => ({
     anuga: { projects: { data: { my_role: 'owner' } }, ui: { showMembershipPanel } },
     security: { user: { pk: 1 } },
     simpleView: {},
-    // LegendPanel (rendered by SimpleViewContainer) reads state.layers.flat.filter
-    layers: { flat: [], groups: [] },
+    // layers has no `flat` — exercises the optional-chain guard in
+    // simpleViewLegend mapStateToProps (state?.layers?.flat?.filter)
+    layers: { groups: [] },
     localConfig: { plugins: { map_viewer: [] } }
 });
 
