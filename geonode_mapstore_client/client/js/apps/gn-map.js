@@ -59,8 +59,9 @@ import { updateGeoNodeSettings } from '@js/actions/gnsettings';
 import {
     updateMapLayoutEpic,
     gnCheckSelectedDatasetPermissions,
-    gnSetDatasetsPermissions,
-    gnRouteCatalogLayersToGwcEpic
+    gnSetDatasetsPermissions
+    // TASK-1456: gnRouteCatalogLayersToGwcEpic DISABLED — see gn-catalogue.js note.
+    // Routed type:'wms' layers to the GWC WMTS endpoint, which 400s on GetMap.
 } from '@js/epics';
 
 import timelineEpics from '@mapstore/framework/epics/timeline';
@@ -128,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             updateMapLayoutEpic,
                             gnCheckSelectedDatasetPermissions,
                             gnSetDatasetsPermissions,
-                            gnRouteCatalogLayersToGwcEpic,
+                            // gnRouteCatalogLayersToGwcEpic, // DISABLED — see import note (TASK-1456)
                             ...gnresourceEpics,
                             ...pluginsDefinition.epics,
                             // needed to initialize the correct time range

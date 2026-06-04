@@ -67,7 +67,12 @@ import {
     gnFetchMissingLayerData,
     gnCheckSelectedDatasetPermissions,
     gnSetDatasetsPermissions,
-    gnRouteCatalogLayersToGwcEpic,
+    // TASK-1456: gnRouteCatalogLayersToGwcEpic DISABLED — it rewrites a type:'wms'
+    // layer's url to the GWC WMTS endpoint (/geoserver/gwc/service/wmts) + adds
+    // tileUrls, but the WMS renderer ignores tileUrls and issues REQUEST=GetMap,
+    // which WMTS rejects with HTTP 400 "Invalid request name 'getmap'". This broke
+    // all CQL-free layers (incl. SWAMM BMP after TASK-1192 dropped their CQL_FILTER).
+    // Re-enable only with a real WMTS layer (type:'wmts' + GetTile) under TASK-1456.
     // to make the current layout work we need this epic
     // we should improve the layout to avoid the use of side effect to manage the page structure
     updateMapLayoutEpic
@@ -147,7 +152,7 @@ getEndpoints()
                         gnFetchMissingLayerData,
                         gnCheckSelectedDatasetPermissions,
                         gnSetDatasetsPermissions,
-                        gnRouteCatalogLayersToGwcEpic,
+                        // gnRouteCatalogLayersToGwcEpic, // DISABLED — see import note (TASK-1456)
                         ...pluginsDefinition.epics,
                         ...gnresourceEpics,
                         ...resourceServiceEpics,
