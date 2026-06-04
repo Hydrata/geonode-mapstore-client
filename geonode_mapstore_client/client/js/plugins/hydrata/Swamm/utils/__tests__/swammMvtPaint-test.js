@@ -260,5 +260,166 @@ describe('swammMvtPaint', () => {
                 });
             });
         });
+
+        // --- TASK-1474: operational symbology for the outlet (point) role ---
+
+        describe('outlet operational symbology (TASK-1474)', () => {
+            // Find a Mark rule whose filter selects the given status and priority.
+            const markFor = (rules, statusName, priorityVal) => rules.find(r => {
+                const flat = JSON.stringify(r.filter || []);
+                const hasStatus = flat.includes(`"${statusName}"`);
+                const hasPrio = flat.includes('"priority"') && flat.includes(`,${priorityVal}]`);
+                const hasMark = r.symbolizers.some(s => s.kind === 'Mark');
+                return hasStatus && hasPrio && hasMark;
+            });
+
+            it('emits a Mark per status×priority combination (more than one rule)', () => {
+                const vs = buildBmpVectorStyle('outlet', fullySelected);
+                expect(vs.styleObj.rules.length).toBeGreaterThan(1);
+                // Every rule is a circle Mark
+                vs.styleObj.rules.forEach(rule => {
+                    const mark = rule.symbolizers.find(s => s.kind === 'Mark');
+                    expect(mark).toBeTruthy();
+                    expect(mark.wellKnownName).toBe('Circle');
+                });
+            });
+
+            it('drives the Mark FILL by status: Unknown -> white #ffffff', () => {
+                const vs = buildBmpVectorStyle('outlet', fullySelected);
+                const rule = markFor(vs.styleObj.rules, 'Unknown', 1);
+                expect(rule).toBeTruthy();
+                const mark = rule.symbolizers.find(s => s.kind === 'Mark');
+                expect(mark.color.toLowerCase()).toBe('#ffffff');
+            });
+
+            it('drives the Mark FILL by status: Approved -> grey-blue #9babb8', () => {
+                const vs = buildBmpVectorStyle('outlet', fullySelected);
+                const rule = markFor(vs.styleObj.rules, 'Approved', 2);
+                expect(rule).toBeTruthy();
+                const mark = rule.symbolizers.find(s => s.kind === 'Mark');
+                expect(mark.color.toLowerCase()).toBe('#9babb8');
+            });
+
+            it('drives the Mark STROKE by priority: priority=1 (critical) -> red #ff0000 outline', () => {
+                const vs = buildBmpVectorStyle('outlet', fullySelected);
+                const rule = markFor(vs.styleObj.rules, 'Proposed', 1);
+                expect(rule).toBeTruthy();
+                const mark = rule.symbolizers.find(s => s.kind === 'Mark');
+                expect(mark.strokeColor.toLowerCase()).toBe('#ff0000');
+            });
+
+            it('drives the Mark STROKE by priority: priority=2 -> amber #ffbf00 outline', () => {
+                const vs = buildBmpVectorStyle('outlet', fullySelected);
+                const rule = markFor(vs.styleObj.rules, 'Proposed', 2);
+                expect(rule).toBeTruthy();
+                const mark = rule.symbolizers.find(s => s.kind === 'Mark');
+                expect(mark.strokeColor.toLowerCase()).toBe('#ffbf00');
+            });
+
+            it('does NOT use the flat cosmetic teal #54acd2 as the Mark fill', () => {
+                const vs = buildBmpVectorStyle('outlet', fullySelected);
+                const fills = vs.styleObj.rules
+                    .flatMap(r => r.symbolizers.filter(s => s.kind === 'Mark'))
+                    .map(s => (s.color || '').toLowerCase());
+                expect(fills).toNotContain('#54acd2');
+            });
+
+            it('composes the show-filter into every outlet rule when selections are partial', () => {
+                const partial = {
+                    ...fullySelected,
+                    bmpTypes: [{ id: 1, visibility: true }, { id: 2, visibility: false }]
+                };
+                const vs = buildBmpVectorStyle('outlet', partial);
+                vs.styleObj.rules.forEach(rule => {
+                    expect(Array.isArray(rule.filter)).toBe(true);
+                    expect(rule.filter[0]).toBe('&&');
+                    expect(JSON.stringify(rule.filter)).toContain('"type"');
+                });
+            });
+        });
+
+        // --- TASK-1474: operational symbology for the watershed (polygon) role ---
+
+        describe('watershed operational symbology (TASK-1474)', () => {
+            const fillRuleFor = (rules, statusName) => rules.find(r => {
+                const hasStatus = JSON.stringify(r.filter || []).includes(`"${statusName}"`);
+                return hasStatus && r.symbolizers.some(s => s.kind === 'Fill');
+            });
+
+            it('emits multiple rules (Fill per status + Line per priority)', () => {
+                const vs = buildBmpVectorStyle('watershed', fullySelected);
+                expect(vs.styleObj.rules.length).toBeGreaterThan(1);
+                const kinds = vs.styleObj.rules.flatMap(r => r.symbolizers.map(s => s.kind));
+                expect(kinds).toContain('Fill');
+                expect(kinds).toContain('Line');
+            });
+
+            it('drives the Fill by status (Unknown -> #ffffff, Approved -> #9babb8) at a low opacity', () => {
+                const vs = buildBmpVectorStyle('watershed', fullySelected);
+                const unknown = fillRuleFor(vs.styleObj.rules, 'Unknown').symbolizers.find(s => s.kind === 'Fill');
+                const approved = fillRuleFor(vs.styleObj.rules, 'Approved').symbolizers.find(s => s.kind === 'Fill');
+                expect(unknown.color.toLowerCase()).toBe('#ffffff');
+                expect(approved.color.toLowerCase()).toBe('#9babb8');
+                // Sits UNDER footprints/outlets — opacity well below the footprint's 0.5
+                expect(unknown.fillOpacity).toBeLessThan(0.5);
+            });
+
+            it('drives the Line by priority: priority=1 (critical) -> red #ff0000', () => {
+                const vs = buildBmpVectorStyle('watershed', fullySelected);
+                const criticalLine = vs.styleObj.rules.find(r => {
+                    const flat = JSON.stringify(r.filter || []);
+                    return flat.includes('"priority"') && flat.includes(',1]')
+                        && r.symbolizers.some(s => s.kind === 'Line');
+                });
+                expect(criticalLine).toBeTruthy();
+                expect(criticalLine.symbolizers.find(s => s.kind === 'Line').color.toLowerCase()).toBe('#ff0000');
+            });
+
+            it('does NOT use the flat cosmetic teal #54acd2', () => {
+                const vs = buildBmpVectorStyle('watershed', fullySelected);
+                expect(JSON.stringify(vs.styleObj.rules).toLowerCase()).toNotContain('#54acd2');
+            });
+
+            it('composes the show-filter into every watershed rule when selections are partial', () => {
+                const partial = {
+                    ...fullySelected,
+                    bmpTypes: [{ id: 1, visibility: true }, { id: 2, visibility: false }]
+                };
+                const vs = buildBmpVectorStyle('watershed', partial);
+                vs.styleObj.rules.forEach(rule => {
+                    expect(rule.filter[0]).toBe('&&');
+                    expect(JSON.stringify(rule.filter)).toContain('"type"');
+                });
+            });
+        });
+
+        // --- TASK-1475: fallback fill for statuses outside STATUS_FILL (all roles) ---
+
+        describe('status fallback fill (TASK-1475)', () => {
+            // The fallback rule selects "status NOT in the known set" via De-Morgan
+            // (AND of '!=' over each known status name), so its filter JSON carries
+            // '!=' clauses rather than an '==' on a named status.
+            const hasFallbackFill = (rules, kind, color) => rules.some(r => {
+                const flat = JSON.stringify(r.filter || []);
+                const isNegation = flat.includes('"!="') && flat.includes('"status"');
+                const sym = r.symbolizers.find(s => s.kind === kind);
+                return isNegation && sym && (sym.color || '').toLowerCase() === color;
+            });
+
+            it('footprint has a #cccccc Fill rule for unrecognised statuses', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                expect(hasFallbackFill(vs.styleObj.rules, 'Fill', '#cccccc')).toBe(true);
+            });
+
+            it('watershed has a #cccccc Fill rule for unrecognised statuses', () => {
+                const vs = buildBmpVectorStyle('watershed', fullySelected);
+                expect(hasFallbackFill(vs.styleObj.rules, 'Fill', '#cccccc')).toBe(true);
+            });
+
+            it('outlet has a #cccccc Mark fill for unrecognised statuses', () => {
+                const vs = buildBmpVectorStyle('outlet', fullySelected);
+                expect(hasFallbackFill(vs.styleObj.rules, 'Mark', '#cccccc')).toBe(true);
+            });
+        });
     });
 });

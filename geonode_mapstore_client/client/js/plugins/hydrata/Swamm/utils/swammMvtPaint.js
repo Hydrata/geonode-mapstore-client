@@ -26,13 +26,17 @@
  * its visible values; an empty/none-visible partial dimension yields an
  * impossible match (hides all features).
  *
- * TASK-1463: footprint uses OPERATIONAL symbology — Fill keyed on status (name),
- * Line keyed on priority (int) — rendered as separate layers of rules so OL
- * VectorTile applies all matching rules per feature:
- *   - Status fill rules (one per known status + a catch-all default)
- *   - Priority line rules (one per known priority + a catch-all default)
- * The show-filter (checkbox visibility) is AND-composed into every rule's filter
- * so it composes correctly with the symbolizer predicate.
+ * TASK-1463/TASK-1474: all three roles use OPERATIONAL symbology — fill keyed on
+ * status (name), stroke keyed on priority (int) — instead of a flat cosmetic colour:
+ *   - footprint / watershed (polygons): Fill rules per status + Line rules per
+ *     priority, applied as separate rules so OL VectorTile stacks them per feature
+ *     (watershed at a lower fill opacity so it sits under the overlying layers)
+ *   - outlet (point): one circle Mark per feature, fill = status, stroke = priority,
+ *     emitted as the status × priority cross product (a Mark can't stack fill+stroke
+ *     as two independent rules)
+ * TASK-1475: a status outside the known set gets a neutral fallback fill (all roles).
+ * The show-filter (checkbox visibility) is AND-composed into every rule's filter so it
+ * composes correctly with the symbolizer predicate, preserving the W7c show/hide UX.
  */
 
 /** MVT mime served by gs-vectortiles via WMS GetMap. */
@@ -103,14 +107,12 @@ export function buildBmpShowFilter(selections = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Footprint operational symbology (TASK-1463)
-// custom_dec_bmp_footprint: Fill keyed on status name; Line keyed on priority int.
-// Colours confirmed against TASK-1443 prod red-team; operator validates at gate.
+// Operational symbology (TASK-1463 footprint -> TASK-1474 outlet + watershed)
+// Fill keyed on status name; stroke keyed on priority int. Colours confirmed
+// against TASK-1443 prod red-team; operator validates live on map 768.
 // ---------------------------------------------------------------------------
 
-// Fill colour by status name. Features whose status is NOT in this map receive no
-// fill rule and will render transparent until the operator confirms the desired
-// default at the W7d test_gate (tracked as a novel_question).
+// Fill colour by status name.
 const STATUS_FILL = {
     Unknown: '#ffffff',
     Proposed: '#9BABB8',
@@ -119,8 +121,18 @@ const STATUS_FILL = {
     Approved: '#9BABB8'
 };
 
+// TASK-1475: fallback FILL for any status NOT in STATUS_FILL. Operator-chosen
+// (2026-06-04): a neutral light grey reads as "other / non-operational" — muted
+// like the known fills (#ffffff, #9BABB8) but distinguishable, and leaves the loud
+// red/amber reserved for the priority strokes. Replaces the previous transparent
+// behaviour (features with an unrecognised status now always carry a fill). Applied
+// to all three roles (footprint / outlet / watershed).
+const STATUS_FILL_FALLBACK = '#cccccc';
+
 // Stroke colour + width by priority int. Features whose priority is NOT in this
-// map receive no stroke rule (transparent stroke) pending operator gate confirmation.
+// map receive no stroke rule for the POLYGON roles (transparent boundary, as the
+// validated footprint already behaves); the POINT outlet role instead falls back to
+// the neutral cosmetic outline below so a marker can never lose its stroke.
 const PRIORITY_STROKE = {
     0: { color: '#ffffff', width: 1 },
     1: { color: '#ff0000', width: 2 }, // critical
@@ -128,24 +140,29 @@ const PRIORITY_STROKE = {
     3: { color: '#ffffff', width: 1 }
 };
 
+// Outlet marker geometry + the fallback stroke for an unrecognised priority on the
+// point role (keeps the pre-1474 cosmetic teal outline so a marker is always visible).
+const OUTLET_MARK_RADIUS = 5;
+const OUTLET_FALLBACK_STROKE = { color: '#1f6f8b', width: 1 };
+
 /**
  * Compose a rule filter from the show-filter and an optional symbolizer predicate.
  *
  * @param {Array|null} showFilter the visibility AND-clause (or null = show all)
- * @param {Array|null} symFilter the per-rule symbolizer predicate (or null = match all)
+ * @param {Array|null} symFilter the per-rule symbolizer predicate (or null = match all).
+ *   May itself be an '&&' clause (e.g. the outlet cross-product status&&priority, or the
+ *   De-Morgan "status not in known set" fallback) — its sub-clauses are flattened in.
  * @returns {Array|null} composed geostyler filter, or null (no filter = show all)
  */
 function composeFilter(showFilter, symFilter) {
     // Both absent — no filter needed (show all features for this rule).
-    // Both present — merge their clauses under a single '&&'.
-    // showFilter is already ['&&', ...clauses]; symFilter is ['==', attr, val].
-    // Flatten to avoid nested ['&&', ['&&', ...], ['==', ...]] — geostyler handles
-    // nested '&&' correctly, but a flat form is cleaner.
-    const showClauses = showFilter
-        ? (showFilter[0] === '&&' ? showFilter.slice(1) : [showFilter])
-        : [];
-    const symClauses = symFilter ? [symFilter] : [];
-    const all = [...showClauses, ...symClauses];
+    // Both present — merge their clauses under a single flat '&&'.
+    // showFilter is already ['&&', ...clauses]; symFilter is ['==', attr, val] OR an
+    // '&&' clause. Flatten any leading '&&' on either side so we never emit a nested
+    // ['&&', ['&&', ...], ...] (geostyler handles nesting, but a flat form is cleaner
+    // and keeps the unit-test predicate assertions simple).
+    const flatten = (f) => f ? (f[0] === '&&' ? f.slice(1) : [f]) : [];
+    const all = [...flatten(showFilter), ...flatten(symFilter)];
     if (all.length === 0) {
         return null;
     }
@@ -155,43 +172,71 @@ function composeFilter(showFilter, symFilter) {
     return ['&&', ...all];
 }
 
+// ---------------------------------------------------------------------------
+// Shared operational specs (TASK-1474 generalises TASK-1463 to all three roles).
+// A "fill spec" maps a status predicate -> fill colour; a "stroke spec" maps a
+// priority predicate -> stroke. footprint/watershed (polygons) consume them as
+// separate Fill + Line rules that stack; outlet (point) consumes their CROSS
+// PRODUCT as a single Mark per feature (fill = status, stroke = priority), so a
+// marker carries BOTH operational cues on one circle.
+// ---------------------------------------------------------------------------
+
+// Predicate matching any status NOT in STATUS_FILL. The core geostyler evaluator's
+// '!' negation operator is broken (StyleParserUtils.geoStylerStyleFilter case '!'),
+// so we use the De-Morgan form: AND of '!=' over every known status name.
+const unknownStatusPredicate = () =>
+    ['&&', ...Object.keys(STATUS_FILL).map(name => ['!=', 'status', name])];
+
+// Fill specs: one per known status + the TASK-1475 catch-all fallback.
+const fillSpecs = () => [
+    ...Object.entries(STATUS_FILL).map(([name, color]) => ({
+        key: name, color, predicate: ['==', 'status', name]
+    })),
+    { key: 'other', color: STATUS_FILL_FALLBACK, predicate: unknownStatusPredicate() }
+];
+
+// Stroke specs for the POLYGON roles: one per known priority int. No fallback line
+// (preserves the validated footprint behaviour — unrecognised priority = no boundary).
+// '==' string-coerces in the core evaluator, so a numeric value matches a tile that
+// serialises priority as either int or string (verified moot for TASK-1474 #2).
+const priorityStrokeSpecs = () =>
+    Object.entries(PRIORITY_STROKE).map(([p, stroke]) => ({
+        key: p, stroke, predicate: ['==', 'priority', Number(p)]
+    }));
+
 /**
- * Build the multi-rule operational style for the footprint role.
- * Emits Fill rules (keyed by status) followed by Line rules (keyed by priority).
- * OL VectorTile applies ALL matching rules per feature, so the fill from the
- * status rule and the stroke from the priority rule stack correctly.
+ * Build the multi-rule operational style for a POLYGON role (footprint / watershed).
+ * Emits Fill rules (keyed by status, incl. the fallback) followed by Line rules
+ * (keyed by priority). OL VectorTile applies ALL matching rules per feature, so the
+ * status fill and the priority stroke stack correctly.
  *
+ * @param {('footprint'|'watershed')} role
  * @param {Array|null} showFilter from buildBmpShowFilter (null = show everything)
+ * @param {number} fillOpacity per-role fill opacity (footprint 0.5; watershed 0.25)
  * @returns {Array} geostyler rule objects
  */
-function buildFootprintRules(showFilter) {
+function buildPolygonRules(role, showFilter, fillOpacity) {
     const rules = [];
 
-    // 1. Status fill rules — one per named status.
-    Object.entries(STATUS_FILL).forEach(([statusName, fillColor]) => {
-        const symFilter = ['==', 'status', statusName];
+    // 1. Status fill rules — one per named status + the fallback.
+    fillSpecs().forEach(spec => {
         rules.push({
-            name: `bmp_footprint_status_${statusName}`,
+            name: `bmp_${role}_status_${spec.key}`,
             symbolizers: [
-                { kind: 'Fill', color: fillColor, fillOpacity: 0.5 }
+                { kind: 'Fill', color: spec.color, fillOpacity }
             ],
-            filter: composeFilter(showFilter, symFilter)
+            filter: composeFilter(showFilter, spec.predicate)
         });
     });
 
     // 2. Priority line rules — one per known priority int.
-    // geostyler '==' with numeric priority: ['==', 'priority', <number>].
-    // Features with null/unrecognised priority receive no stroke rule (transparent)
-    // pending operator gate confirmation (tracked as a novel_question).
-    Object.entries(PRIORITY_STROKE).forEach(([priorityStr, stroke]) => {
-        const priorityVal = Number(priorityStr);
-        const symFilter = ['==', 'priority', priorityVal];
+    priorityStrokeSpecs().forEach(spec => {
         rules.push({
-            name: `bmp_footprint_priority_${priorityVal}`,
+            name: `bmp_${role}_priority_${spec.key}`,
             symbolizers: [
-                { kind: 'Line', color: stroke.color, width: stroke.width }
+                { kind: 'Line', color: spec.stroke.color, width: spec.stroke.width }
             ],
-            filter: composeFilter(showFilter, symFilter)
+            filter: composeFilter(showFilter, spec.predicate)
         });
     });
 
@@ -199,51 +244,62 @@ function buildFootprintRules(showFilter) {
 }
 
 /**
- * Build symbolizers for the non-footprint roles (outlet / watershed).
- * These roles do not yet have a documented operational style separate from the
- * geostory style. The current cosmetic fallback is retained until the operator
- * confirms the desired symbology at the W7d test_gate.
- * Tracked as a novel_question for the gate.
+ * Build the multi-rule operational style for the POINT outlet role.
+ * A circle Mark cannot stack fill and stroke as two independent rules (that would
+ * paint two overlapping circles), so we emit the CROSS PRODUCT of status × priority:
+ * each rule is one Mark whose FILL is driven by status and whose STROKE is driven by
+ * priority (priority=1 -> red outline). Every feature matches exactly one rule, so the
+ * marker carries both cues on a single circle. The status set includes the TASK-1475
+ * fallback; the priority set includes a neutral cosmetic fallback so an outlet with an
+ * unrecognised priority still gets an outline (a marker can never lose its stroke).
  *
- * @param {('outlet'|'watershed')} role
- * @returns {Array} geostyler symbolizer objects
+ * @param {Array|null} showFilter from buildBmpShowFilter (null = show everything)
+ * @returns {Array} geostyler rule objects
  */
-function symbolizersForRole(role) {
-    switch (role) {
-    case 'outlet':
-        return [{
-            kind: 'Mark',
-            wellKnownName: 'Circle',
-            color: '#54ACD2',
-            radius: 5,
-            strokeColor: '#1f6f8b',
-            strokeWidth: 1
-        }];
-    case 'watershed':
-        return [
-            { kind: 'Fill', color: '#54ACD2', fillOpacity: 0.15 },
-            { kind: 'Line', color: '#1f6f8b', width: 1 }
-        ];
-    default:
-        // Should not be reached for known roles.
-        return [
-            { kind: 'Fill', color: '#54ACD2', fillOpacity: 0.15 },
-            { kind: 'Line', color: '#1f6f8b', width: 1 }
-        ];
-    }
+function buildOutletRules(showFilter) {
+    const fills = fillSpecs();
+    const strokes = [
+        ...priorityStrokeSpecs(),
+        {
+            key: 'other',
+            stroke: OUTLET_FALLBACK_STROKE,
+            // De-Morgan negation: priority not in the known set.
+            predicate: ['&&', ...Object.keys(PRIORITY_STROKE).map(p => ['!=', 'priority', Number(p)])]
+        }
+    ];
+
+    const rules = [];
+    fills.forEach(f => {
+        strokes.forEach(s => {
+            const symFilter = ['&&', f.predicate, s.predicate];
+            rules.push({
+                name: `bmp_outlet_${f.key}_${s.key}`,
+                symbolizers: [{
+                    kind: 'Mark',
+                    wellKnownName: 'Circle',
+                    color: f.color,
+                    radius: OUTLET_MARK_RADIUS,
+                    strokeColor: s.stroke.color,
+                    strokeWidth: s.stroke.width
+                }],
+                filter: composeFilter(showFilter, symFilter)
+            });
+        });
+    });
+    return rules;
 }
 
 /**
  * Build a MapStore2 geostyler `vectorStyle` for a BMP layer role with the
  * current selections folded into the rule filter.
  *
- * For the 'footprint' role: emits an operational multi-rule style (Fill per
- * status + Line per priority) so operators see each BMP's critical/status
- * symbology at a glance. The show-filter from checkbox selections is AND-composed
- * into every rule's filter.
- *
- * For 'outlet' / 'watershed': emits the existing single-rule cosmetic style until
- * an operational style is confirmed at the operator gate (see novel_questions).
+ * All three roles now use OPERATIONAL symbology (TASK-1474, generalising TASK-1463):
+ *   - footprint (polygon): Fill per status + Line per priority, fill opacity 0.5
+ *   - watershed (polygon): Fill per status + Line per priority, fill opacity 0.25 so
+ *     it sits UNDER the footprints/outlets that overlay it
+ *   - outlet (point): one circle Mark per feature, fill = status, stroke = priority
+ * The show-filter from the checkbox selections is AND-composed into every rule's
+ * filter, preserving the W7c show/hide UX.
  *
  * @param {('outlet'|'footprint'|'watershed')} role
  * @param {Object} selections { bmpTypes, priorities, groupProfiles, statuses }
@@ -252,28 +308,21 @@ function symbolizersForRole(role) {
 export function buildBmpVectorStyle(role, selections = {}) {
     const showFilter = buildBmpShowFilter(selections);
 
-    if (role === 'footprint') {
-        return {
-            format: 'geostyler',
-            styleObj: {
-                name: 'bmp_footprint_paint',
-                rules: buildFootprintRules(showFilter)
-            }
-        };
+    let rules;
+    if (role === 'outlet') {
+        rules = buildOutletRules(showFilter);
+    } else if (role === 'watershed') {
+        rules = buildPolygonRules('watershed', showFilter, 0.25);
+    } else {
+        // footprint (default) — validated operational style, fill opacity 0.5.
+        rules = buildPolygonRules('footprint', showFilter, 0.5);
     }
 
-    // outlet / watershed — single cosmetic rule, show-filter only.
-    const rule = {
-        name: `bmp_${role}`,
-        symbolizers: symbolizersForRole(role)
-    };
-    // Only attach a filter when partial — undefined means "match all features".
-    if (showFilter) rule.filter = showFilter;
     return {
         format: 'geostyler',
         styleObj: {
             name: `bmp_${role}_paint`,
-            rules: [rule]
+            rules
         }
     };
 }
