@@ -8,7 +8,7 @@ import {
 } from '../swammMvtPaint';
 
 /**
- * TASK-1192 (W7c) — client-side MVT cosmetic-paint contract.
+ * TASK-1192 (W7c) + TASK-1463 (W7d) — client-side MVT cosmetic-paint contract.
  *
  * The BMP working layers (outlet/footprint/watershed) are served as a single
  * per-project MVT over WMS GetMap. The type/priority/group-profile/status
@@ -20,6 +20,10 @@ import {
  * dimension are selected, that dimension is OMITTED from the predicate (a
  * fully-checked group shows everything); when NONE are selected, the layer
  * shows nothing.
+ *
+ * TASK-1463: footprint uses OPERATIONAL symbology — Fill keyed on status,
+ * Line keyed on priority — rather than a flat green. The visibility filter
+ * (show/hide by checkbox) composes as AND with each rule's symbolizer predicate.
  */
 describe('swammMvtPaint', () => {
     describe('constants', () => {
@@ -136,21 +140,6 @@ describe('swammMvtPaint', () => {
             expect(vs.styleObj.rules.length).toBeGreaterThanOrEqualTo(1);
         });
 
-        it('omits the rule filter when everything is selected (renders all features)', () => {
-            const vs = buildBmpVectorStyle('footprint', fullySelected);
-            expect(vs.styleObj.rules[0].filter).toBe(undefined);
-        });
-
-        it('attaches the show predicate as the rule filter when partial', () => {
-            const partial = {
-                ...fullySelected,
-                bmpTypes: [{ id: 1, visibility: true }, { id: 2, visibility: false }]
-            };
-            const vs = buildBmpVectorStyle('footprint', partial);
-            expect(Array.isArray(vs.styleObj.rules[0].filter)).toBe(true);
-            expect(vs.styleObj.rules[0].filter[0]).toBe('&&');
-        });
-
         it('uses a Mark symbolizer for the point outlet role', () => {
             const vs = buildBmpVectorStyle('outlet', fullySelected);
             const kinds = vs.styleObj.rules[0].symbolizers.map(s => s.kind);
@@ -160,8 +149,116 @@ describe('swammMvtPaint', () => {
         it('uses a Fill symbolizer for the polygon footprint/watershed roles', () => {
             const fp = buildBmpVectorStyle('footprint', fullySelected);
             const ws = buildBmpVectorStyle('watershed', fullySelected);
-            expect(fp.styleObj.rules[0].symbolizers.map(s => s.kind)).toContain('Fill');
-            expect(ws.styleObj.rules[0].symbolizers.map(s => s.kind)).toContain('Fill');
+            // At least one rule per role contains a Fill symbolizer
+            const fpKinds = fp.styleObj.rules.flatMap(r => r.symbolizers.map(s => s.kind));
+            const wsKinds = ws.styleObj.rules.flatMap(r => r.symbolizers.map(s => s.kind));
+            expect(fpKinds).toContain('Fill');
+            expect(wsKinds).toContain('Fill');
+        });
+
+        // --- TASK-1463: operational symbology for footprint ---
+
+        describe('footprint operational symbology (TASK-1463)', () => {
+            it('emits multiple rules (one per status) for the footprint role', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                // The operational style has per-status fill rules + per-priority line rules
+                expect(vs.styleObj.rules.length).toBeGreaterThan(1);
+            });
+
+            it('Unknown status rule uses white fill #ffffff', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                const allRules = vs.styleObj.rules;
+                // Find a Fill rule that applies to status=='Unknown'
+                const unknownFillRule = allRules.find(r => {
+                    const hasUnknownFilter = JSON.stringify(r.filter || []).includes('"Unknown"');
+                    const hasFill = r.symbolizers.some(s => s.kind === 'Fill');
+                    return hasUnknownFilter && hasFill;
+                });
+                expect(unknownFillRule).toBeTruthy();
+                const fillSym = unknownFillRule.symbolizers.find(s => s.kind === 'Fill');
+                expect(fillSym.color.toLowerCase()).toBe('#ffffff');
+            });
+
+            it('Proposed/Hypothetical/Pending/Approved status rules use grey-blue fill #9BABB8', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                const allRules = vs.styleObj.rules;
+                const pendingStatuses = ['Proposed', 'Hypothetical', 'Pending', 'Approved'];
+                pendingStatuses.forEach(statusName => {
+                    const rule = allRules.find(r => {
+                        const hasStatusFilter = JSON.stringify(r.filter || []).includes(`"${statusName}"`);
+                        const hasFill = r.symbolizers.some(s => s.kind === 'Fill');
+                        return hasStatusFilter && hasFill;
+                    });
+                    expect(rule).toBeTruthy();
+                    const fillSym = rule.symbolizers.find(s => s.kind === 'Fill');
+                    expect(fillSym.color.toLowerCase()).toBe('#9babb8');
+                });
+            });
+
+            it('priority=1 (critical) line rule uses red stroke #ff0000', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                const allRules = vs.styleObj.rules;
+                // Find a Line rule whose filter selects priority==1
+                const criticalLineRule = allRules.find(r => {
+                    const flat = JSON.stringify(r.filter || []);
+                    const hasPrio1 = flat.includes('"priority"') && flat.includes(',1]');
+                    const hasLine = r.symbolizers.some(s => s.kind === 'Line');
+                    return hasPrio1 && hasLine;
+                });
+                expect(criticalLineRule).toBeTruthy();
+                const lineSym = criticalLineRule.symbolizers.find(s => s.kind === 'Line');
+                expect(lineSym.color.toLowerCase()).toBe('#ff0000');
+            });
+
+            it('priority=2 line rule uses amber stroke #ffbf00', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                const allRules = vs.styleObj.rules;
+                const amberRule = allRules.find(r => {
+                    const flat = JSON.stringify(r.filter || []);
+                    const hasPrio2 = flat.includes('"priority"') && flat.includes(',2]');
+                    const hasLine = r.symbolizers.some(s => s.kind === 'Line');
+                    return hasPrio2 && hasLine;
+                });
+                expect(amberRule).toBeTruthy();
+                const lineSym = amberRule.symbolizers.find(s => s.kind === 'Line');
+                expect(lineSym.color.toLowerCase()).toBe('#ffbf00');
+            });
+
+            it('does NOT use flat green #34de34 for footprint (geostory style must not bleed in)', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                const allColors = JSON.stringify(vs.styleObj.rules);
+                expect(allColors.toLowerCase()).toNotContain('#34de34');
+            });
+
+            it('composes show-filter with each rule filter when selections are partial', () => {
+                const partial = {
+                    ...fullySelected,
+                    bmpTypes: [{ id: 1, visibility: true }, { id: 2, visibility: false }]
+                };
+                const vs = buildBmpVectorStyle('footprint', partial);
+                // Every rule must incorporate the show-filter (type clause present)
+                vs.styleObj.rules.forEach(rule => {
+                    expect(Array.isArray(rule.filter)).toBe(true);
+                    expect(rule.filter[0]).toBe('&&');
+                    // The '&&' filter must include the type visibility clause
+                    const flat = JSON.stringify(rule.filter);
+                    expect(flat).toContain('"type"');
+                });
+            });
+
+            it('omits the show-filter from each rule when all selections are fully checked', () => {
+                const vs = buildBmpVectorStyle('footprint', fullySelected);
+                // When fully selected, the show-filter is null.
+                // Each rule should NOT contain a 'type'/'priority'/'group_profile'/'status'
+                // visibility clause — only the symbolizer-predicate (status/priority value match).
+                // Rules that have a filter only use it for their symbolizer predicate.
+                vs.styleObj.rules.forEach(rule => {
+                    const flat = JSON.stringify(rule.filter || null);
+                    // The show-filter dimensions must NOT appear (no type/group_profile clause)
+                    expect(flat).toNotContain('"type"');
+                    expect(flat).toNotContain('"group_profile"');
+                });
+            });
         });
     });
 });
