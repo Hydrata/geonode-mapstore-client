@@ -131,6 +131,14 @@
         let siteUrl = '{{ SITEURL }}' || '';
         let siteName = '{{ SITE_NAME }}' || 'Geonode';
         let geoServerPublicLocation = '{{ GEOSERVER_PUBLIC_LOCATION }}' || '';
+        // Derive the path-only form of the GeoServer public location so that
+        // authenticationRules also match host-relative WMS urls like
+        // '/geoserver/ows'. These are emitted by legacy blob entries written
+        // before TASK-1495 guarded _serialize_layer_for_mapstore. Pattern uses
+        // own-host-or-relative form (never bare any-host) to avoid cross-origin
+        // token-leak risk; sufficient because map blobs only ever contain
+        // same-origin or relative GeoServer urls. (TASK-1493)
+        let geoServerPath = geoServerPublicLocation.replace(/^https?:\/\/[^/]+/, '');
         let isMobile = '{{ request.user_agent.is_mobile }}' === 'True' ? true : false;
 
         const searchServicesPayload =  {{SEARCH_SERVICES_PAYLOAD|safe}};
@@ -166,12 +174,15 @@
                     // access_token lets tiles share nginx + GWC cache across users.
                     // Method 'none' is unrecognized → addAuthenticationParameter()
                     // falls through default and returns parameters unchanged.
+                    // Both patterns use own-host-or-relative form so that legacy
+                    // blob entries storing '/geoserver/ows' (relative) are also
+                    // matched. NAIP rule must stay FIRST (first-match-wins). (TASK-1493)
                     {
-                        urlPattern: geoServerPublicLocation + '.*naip_conus',
+                        urlPattern: '(' + geoServerPublicLocation + '|' + geoServerPath + ').*naip_conus',
                         method: 'none'
                     },
                     {
-                        urlPattern: geoServerPublicLocation + '.*',
+                        urlPattern: '(' + geoServerPublicLocation + '|' + geoServerPath + ').*',
                         authkeyParamName: 'access_token',
                         method: 'authkey'
                     },
