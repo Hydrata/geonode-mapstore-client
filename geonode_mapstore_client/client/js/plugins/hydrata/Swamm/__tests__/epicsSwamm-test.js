@@ -577,7 +577,20 @@ describe('SWAMM Epics', () => {
                     err => done(err),
                     () => {
                         expect(emitted.length).toBe(3);
-                        expect(emitted[0].newProperties.vectorStyle.styleObj.rules[0].filter).toBe(undefined);
+                        // All dimensions fully selected => buildBmpShowFilter is null, so
+                        // NO rule filter carries a checkbox-visibility clause (type/group_profile)
+                        // => the layer renders everything. Rules still carry their operational
+                        // symbolizer predicate (status fill / priority stroke, TASK-1474/1475) —
+                        // that is symbology, not a show/hide filter. (Util-level coverage:
+                        // swammMvtPaint-test.js 'omits the show-filter ... when all selections
+                        // are fully checked'.)
+                        emitted.forEach(a => {
+                            a.newProperties.vectorStyle.styleObj.rules.forEach(rule => {
+                                const flat = JSON.stringify(rule.filter || null);
+                                expect(flat).toNotContain('"type"');
+                                expect(flat).toNotContain('"group_profile"');
+                            });
+                        });
                         done();
                     }
                 );
