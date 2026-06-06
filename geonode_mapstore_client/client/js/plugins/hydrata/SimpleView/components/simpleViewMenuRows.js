@@ -9,13 +9,7 @@ import {MenuRow} from "./simpleViewMenuRow";
 import {CategoryRail, tristateGlyph} from './primitives';
 import '../simpleView.css';
 import {changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
-import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
-import {show} from "../../../../../MapStore2/web/client/actions/notifications";
-import axios from "../../../../../MapStore2/web/client/libs/ajax";
 import {trackEvent} from "@js/utils/analytics";
-
-const isGlobalExtent = (bounds) =>
-    bounds.minx <= -180 && bounds.miny <= -90 && bounds.maxx >= 180 && bounds.maxy >= 90;
 
 const EMPTY_ARRAY = [];
 
@@ -102,8 +96,7 @@ class MenuRowsClass extends React.Component {
         menuDatasets: PropTypes.array,
         openMenuGroupId: PropTypes.string,
         baseMapLayers: PropTypes.array,
-        toggleGroupVisibility: PropTypes.func,
-        zoomToGroup: PropTypes.func
+        toggleGroupVisibility: PropTypes.func
     };
 
     constructor(props) {
@@ -123,10 +116,6 @@ class MenuRowsClass extends React.Component {
 
     trackGroupToggle(subHeading, isOn) {
         trackEvent('button', 'click', `simpleview-group-toggle-${subHeading}-${isOn ? 'on' : 'off'}`);
-    }
-
-    trackGroupZoom(subHeading) {
-        trackEvent('button', 'click', `simpleview-group-zoom-${subHeading}`);
     }
 
     componentDidUpdate(prevProps) {
@@ -175,11 +164,6 @@ class MenuRowsClass extends React.Component {
         this.trackGroupToggle(subHeading, nextVisible);
     };
 
-    onZoomToGroup = (groupLayers, subHeading) => {
-        this.props.zoomToGroup(groupLayers);
-        this.trackGroupZoom(subHeading);
-    };
-
     // TASK-1010 B7 — read from the memoized `railItems` prop instead of
     // re-filtering `layerList` on every render. Falls back to the previous
     // filter for safety if a test renders the class unconnected (no
@@ -215,7 +199,6 @@ class MenuRowsClass extends React.Component {
                 selectedSubHeading={this.state.selectedSubHeading}
                 onSelect={this.handleSelectSubHeading}
                 onToggleGroupVisibility={this.onToggleGroupVisibility}
-                onZoomToGroup={this.onZoomToGroup}
             />
         );
     }
@@ -257,13 +240,6 @@ class MenuRowsClass extends React.Component {
                         onClick={() => {
                             this.props.toggleGroupVisibility(groupLayers, !allVisible);
                             this.trackGroupToggle(subHeading, !allVisible);
-                        }}
-                    />
-                    <span
-                        className={"btn glyphicon menu-row-glyph glyphicon-zoom-to glyph-zoom"}
-                        onClick={() => {
-                            this.props.zoomToGroup(groupLayers);
-                            this.trackGroupZoom(subHeading);
                         }}
                     />
                     <h5
@@ -354,49 +330,6 @@ const mapDispatchToProps = ( dispatch ) => {
             layers.forEach(layer => {
                 dispatch(changeLayerProperties(layer.id, {visibility: visible}));
             });
-        },
-        zoomToGroup: (layers) => {
-            const showZoomUnavailable = () => dispatch(show({
-                message: "Layer extents are not available for this group.",
-                title: "Zoom unavailable",
-                uid: "zoom-extent-unavailable",
-                position: "tc",
-                autoDismiss: 6
-            }, "warning"));
-
-            const layersWithBbox = layers.filter(l => l.bbox?.bounds && !isGlobalExtent(l.bbox.bounds));
-            if (layersWithBbox.length > 0) {
-                const combined = layersWithBbox.reduce((acc, l) => {
-                    const b = l.bbox.bounds;
-                    return {
-                        minx: Math.min(acc.minx, b.minx),
-                        miny: Math.min(acc.miny, b.miny),
-                        maxx: Math.max(acc.maxx, b.maxx),
-                        maxy: Math.max(acc.maxy, b.maxy)
-                    };
-                }, {minx: Infinity, miny: Infinity, maxx: -Infinity, maxy: -Infinity});
-                const crs = layersWithBbox[0].bbox.crs || "EPSG:4326";
-                dispatch(zoomToExtent([combined.minx, combined.miny, combined.maxx, combined.maxy], crs));
-                return;
-            }
-            const layerNames = layers.map(l => l.name?.replace('geonode:', '')).filter(Boolean);
-            if (layerNames.length === 0) return;
-            Promise.all(layerNames.map(name =>
-                axios.get(`/api/v2/datasets/?filter{name}=${name}`).then(r => r?.data?.datasets?.[0]?.extent).catch(() => null)
-            )).then(extents => {
-                const valid = extents.filter(e => e?.coords && e.coords.length === 4);
-                if (valid.length === 0) {
-                    showZoomUnavailable();
-                    return;
-                }
-                const combined = valid.reduce((acc, e) => ({
-                    minx: Math.min(acc.minx, e.coords[0]),
-                    miny: Math.min(acc.miny, e.coords[1]),
-                    maxx: Math.max(acc.maxx, e.coords[2]),
-                    maxy: Math.max(acc.maxy, e.coords[3])
-                }), {minx: Infinity, miny: Infinity, maxx: -Infinity, maxy: -Infinity});
-                dispatch(zoomToExtent([combined.minx, combined.miny, combined.maxx, combined.maxy], valid[0].srid || "EPSG:4326"));
-            }).catch(showZoomUnavailable);
         }
     };
 };

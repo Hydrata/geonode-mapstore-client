@@ -862,25 +862,18 @@ span.menu-row-glyph {
 }
 
 .simple-view-panel--miller .sv-category-rail-item.is-active {
-    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
+    /* Active/selected highlight uses the scheme's active-state green
+       (matches .simple-view-menu-button.active / .simple-view-right-button.active). */
+    background-color: rgba(30, 126, 52, 0.7);
     border-left-color: #cae33b;
 }
 
-.simple-view-panel--miller .sv-category-rail-item-tristate,
-.simple-view-panel--miller .sv-category-rail-item-zoom {
-    flex-shrink: 0;
-}
-
-/* The existing span.menu-row-glyph rule (line 482) sets background: #ffffff
-   for the white "chip" look used on dark layer rows. That chip clashes with
-   the dark rail-item background, so we strip it inside the rail and let the
-   glyph colour (glyph-active / glyph-inactive / glyph-partial / glyph-zoom)
-   carry the visual contrast directly. Existing .subheading-row uses of
-   .menu-row-glyph remain untouched (AC#5 / R01). */
-.simple-view-panel--miller .sv-category-rail-item .menu-row-glyph {
-    background: transparent;
-    border-radius: 0;
-}
+/* The rail's tri-state visibility glyph keeps the default span.menu-row-glyph
+   white "chip" (background:#ffffff + border-radius), matching the white-boxed
+   buttons on the layer rows — so the earlier rail background-strip override is
+   gone. The zoom glyph that override also covered has been removed from the
+   rail entirely. `flex-shrink:0` is already carried by the default rule's
+   `flex: 0 0 var(--sv-icon-size)`. */
 
 .simple-view-panel--miller .sv-category-rail-item-label {
     flex: 1;

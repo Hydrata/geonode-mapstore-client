@@ -11,7 +11,7 @@ import { Provider } from 'react-redux';
  *   - AC#5 tri-state visibility glyph reuses the exact existing classes
  *     (glyphicon-ok glyph-active / glyphicon-remove glyph-inactive /
  *     glyphicon-minus glyph-partial)
- *   - AC#6 zoom glyph (glyphicon-zoom-to glyph-zoom) is present per rail item
+ *   - AC#6 zoom glyph removed from rail items (no glyphicon-zoom-to / glyph-zoom)
  *   - AC#7 basemaps short-circuit and empty fallback preserved
  *   - AC#8 single-subheading legacy accordion preserved (.subheading-row
  *     + collapse-chevron glyph)
@@ -236,8 +236,8 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
         });
     });
 
-    describe('Zoom glyph in rail items (AC#6)', () => {
-        it('renders a zoom glyph (glyphicon-zoom-to + glyph-zoom) per rail item', (done) => {
+    describe('Zoom glyph removed from rail items (AC#6)', () => {
+        it('does NOT render a zoom glyph (sv-category-rail-item-zoom) in any rail item', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('t1', true, 'grp.Terrain'),
@@ -253,12 +253,9 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                 </Provider>,
                 container,
                 () => {
-                    const zoomGlyphs = container.querySelectorAll('.sv-category-rail-item .sv-category-rail-item-zoom');
-                    expect(zoomGlyphs.length).toBe(2);
-                    Array.from(zoomGlyphs).forEach(g => {
-                        expect(g.className).toInclude('glyphicon-zoom-to');
-                        expect(g.className).toInclude('glyph-zoom');
-                    });
+                    expect(container.querySelectorAll('.sv-category-rail-item').length).toBe(2);
+                    expect(container.querySelectorAll('.sv-category-rail-item .sv-category-rail-item-zoom').length).toBe(0);
+                    expect(container.querySelectorAll('.sv-category-rail-item .glyphicon-zoom-to').length).toBe(0);
                     done();
                 }
             );

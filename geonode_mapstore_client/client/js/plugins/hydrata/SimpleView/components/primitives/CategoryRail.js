@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 
 /**
  * Presentational Miller-columns rail: tri-state visibility glyph +
- * zoom glyph + label, one entry per subheading.
+ * label, one entry per subheading.
  *
  * Presentation-only; no redux. The parent owns `getGroupLayers`,
  * `selectedSubHeading` local state, localStorage collapse helpers,
@@ -26,8 +26,7 @@ const CategoryRail = ({
     items,
     selectedSubHeading,
     onSelect,
-    onToggleGroupVisibility,
-    onZoomToGroup
+    onToggleGroupVisibility
 }) => {
     return (
         <div className="sv-category-rail" role="tablist">
@@ -55,13 +54,6 @@ const CategoryRail = ({
                                 onToggleGroupVisibility(groupLayers, !allVisible, subHeading);
                             }}
                         />
-                        <span
-                            className={`${MENU_ROW_GLYPH} glyph-zoom glyphicon-zoom-to sv-category-rail-item-zoom`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onZoomToGroup(groupLayers, subHeading);
-                            }}
-                        />
                         <h5 className="sv-category-rail-item-label">{subHeading}</h5>
                     </div>
                 );
@@ -74,8 +66,7 @@ CategoryRail.propTypes = {
     items: PropTypes.array.isRequired,
     selectedSubHeading: PropTypes.string,
     onSelect: PropTypes.func,
-    onToggleGroupVisibility: PropTypes.func,
-    onZoomToGroup: PropTypes.func
+    onToggleGroupVisibility: PropTypes.func
 };
 
 export {CategoryRail};
