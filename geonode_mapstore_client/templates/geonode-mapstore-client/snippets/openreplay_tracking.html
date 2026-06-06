@@ -1,0 +1,255 @@
+{% comment %}
+OpenReplay session-replay tracker snippet (epic 1511 — W2 TASK-1515 + W4 frontend TASK-1517).
+
+FLAG GATE: this whole snippet renders NOTHING unless `openreplay_project_key` is a
+truthy template variable. That variable is NOT provided by any context processor
+today, so on all 4 live prod sites (hydrata/theswamm/sararaportal/nicaraguahydroportal)
+and on localhost this snippet is byte-inert — the gate condition is falsy and emits
+no markup at all. The operator wires a context processor that exposes
+`openreplay_project_key` (and optionally `openreplay_ingest_point`) from settings only
+AFTER provisioning the self-hosted OpenReplay box (W0/W1) and flipping it on. This
+mirrors how umami_tracking.html stays inert when `job_name` matches no branch.
+
+NO frontend compile: this is a Django template snippet served by base.html, exactly
+like umami_tracking.html. The UMD tracker bundle is loaded from the first-party ingest
+host so ad-blockers don't drop it.
+
+Masking is LOAD-BEARING (W2 spec + W4 privacy):
+  - obscureInputEmails / obscureInputNumbers / obscureTextEmails / obscureTextNumbers
+    all true → every email + number in inputs AND visible text is masked at capture.
+  - defaultInputMode: 1 (OBSCURED) → ALL input values are obscured by default, not just
+    emails/numbers — passwords and free-text fields never leave the browser in clear.
+  - network.capturePayload: false → request/response BODIES are never captured at all
+    (our API calls carry tokens/JWTs in bodies). The sanitizer below is defensive
+    belt-and-braces in case payload capture is ever enabled operator-side.
+  - network.ignoreHeaders lists the auth/cookie headers to drop; the sanitizer REDACTS
+    any Authorization / JWT / token header and NULLs request+response bodies. Tokens
+    must never reach the replay store.
+
+EU CONSENT GATE (W4 TASK-1517): for EU visitors tracker.start() is NOT called until the
+visitor accepts the in-page disclosure banner (or has a stored prior acceptance).
+Non-EU visitors run masked-with-disclosure immediately. A lightweight timezone check
+(Intl ... 'Europe/') is the EU heuristic — no IP geolocation, no extra request.
+
+COHORT DISCLOSURE (W4 TASK-1517): a small, dismissible notice tells the invited
+first-cohort (cohort=linkedin-june) that the session is being recorded for product
+research, and links to the privacy policy. Shown to every recorded visitor; for EU
+visitors it doubles as the consent gate (recording does not start until accepted).
+
+Admin-only replay ACCESS is via the self-hosted OpenReplay UI (operator/IAM) — there is
+no in-app surface to author here; see TASK-1517 AC (d).
+{% endcomment %}
+{% if openreplay_project_key %}
+<style>
+  .or-consent-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 100000;
+    max-width: 640px;
+    width: calc(100% - 32px);
+    box-sizing: border-box;
+    padding: 12px 16px;
+    background: #1f2d3d;
+    color: #f5f7fa;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    font-size: 13px;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .or-consent-banner__text { flex: 1 1 280px; }
+  .or-consent-banner a { color: #54acd2; text-decoration: underline; }
+  .or-consent-banner__actions { display: flex; gap: 8px; flex: 0 0 auto; }
+  .or-consent-banner button {
+    border: 0;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .or-consent-banner__accept { background: #54acd2; color: #06222e; font-weight: 600; }
+  .or-consent-banner__dismiss { background: transparent; color: #c3ced8; text-decoration: underline; }
+</style>
+<script async src="{{ openreplay_ingest_point|default:'/_openreplay' }}/assist/openreplay-assist.js"></script>
+<script src="{{ openreplay_ingest_point|default:'/_openreplay' }}/tracker/openreplay.js"></script>
+<script>
+(function() {
+    // ---- Configuration (rendered server-side, gated on openreplay_project_key) ----
+    var PROJECT_KEY = '{{ openreplay_project_key|escapejs }}';
+    // First-party ingest path (see the /_openreplay/ nginx proxy in geonode-https.j2 /
+    // nginx.conf.j2) so ad-blockers don't drop the beacon. Defaults to the relative
+    // first-party path; operator may override with openreplay_ingest_point.
+    var INGEST_POINT = '{{ openreplay_ingest_point|default:"/_openreplay/ingest"|escapejs }}';
+    var COHORT = '{{ openreplay_cohort|default:"linkedin-june"|escapejs }}';
+    var CONSENT_KEY = 'or_consent_v1';
+
+    // ---- EU heuristic: timezone-based, no IP lookup, no extra request -------------
+    function isLikelyEU() {
+        try {
+            var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+            // Europe/* and the EU-adjacent Atlantic zones (Canary/Madeira/Azores).
+            return /^Europe\//.test(tz) ||
+                   /^Atlantic\/(Canary|Madeira|Azores)$/.test(tz);
+        } catch (e) {
+            // If we cannot determine the zone, fail SAFE → treat as EU (require consent).
+            return true;
+        }
+    }
+
+    function hasStoredConsent() {
+        try { return window.localStorage.getItem(CONSENT_KEY) === 'yes'; }
+        catch (e) { return false; }
+    }
+    function storeConsent() {
+        try { window.localStorage.setItem(CONSENT_KEY, 'yes'); } catch (e) {}
+    }
+
+    // ---- Network sanitizer: tokens must NEVER reach the replay store --------------
+    // Belt-and-braces: capturePayload is false (bodies not captured), and we ALSO
+    // redact any auth/token header and null any body that slips through.
+    function sanitizeNetwork(data) {
+        try {
+            var redactHeaders = function(headers) {
+                if (!headers) { return; }
+                Object.keys(headers).forEach(function(h) {
+                    var lower = h.toLowerCase();
+                    if (lower === 'authorization' ||
+                        lower === 'proxy-authorization' ||
+                        lower === 'cookie' ||
+                        lower === 'set-cookie' ||
+                        lower === 'x-csrftoken' ||
+                        lower.indexOf('token') !== -1 ||
+                        lower.indexOf('jwt') !== -1 ||
+                        lower.indexOf('api-key') !== -1) {
+                        headers[h] = 'REDACTED';
+                    }
+                });
+            };
+            if (data.request) { redactHeaders(data.request.headers); data.request.body = null; }
+            if (data.response) { redactHeaders(data.response.headers); data.response.body = null; }
+        } catch (e) { /* never let the sanitizer throw into the page */ }
+        return data;
+    }
+
+    function buildTracker() {
+        // window.OpenReplay is the UMD global from the tracker bundle above.
+        return new window.OpenReplay({
+            projectKey: PROJECT_KEY,
+            ingestPoint: INGEST_POINT,
+            // --- masking (load-bearing) ---
+            obscureInputEmails: true,
+            obscureInputNumbers: true,
+            obscureTextEmails: true,
+            obscureTextNumbers: true,
+            // 1 = OBSCURED: every input value is masked by default (passwords, free text).
+            defaultInputMode: 1,
+            // --- network: do not capture bodies; strip auth/token headers ---
+            network: {
+                capturePayload: false,
+                // Default already drops these, set explicitly for clarity/safety.
+                ignoreHeaders: ['Authorization', 'Proxy-Authorization', 'Cookie', 'Set-Cookie', 'X-CSRFToken'],
+                sanitizer: sanitizeNetwork
+            }
+        });
+    }
+
+    function startTracking() {
+        if (typeof window.OpenReplay === 'undefined') {
+            // tracker bundle not yet parsed — retry briefly (mirrors umami's waitFor).
+            setTimeout(startTracking, 500);
+            return;
+        }
+        if (window.__orStarted) { return; }
+        window.__orStarted = true;
+
+        var tracker = buildTracker();
+        // Identify the authenticated user (only when logged in — see the auth gate below).
+        {% if request.user.is_authenticated %}
+        try { tracker.setUserID('{{ request.user.username|escapejs }}'); } catch (e) {}
+        {% endif %}
+        // Cohort tag so the first-cohort can be filtered in the OpenReplay UI.
+        try { tracker.setMetadata('cohort', COHORT); } catch (e) {}
+        try { tracker.start(); } catch (e) {}
+    }
+
+    // ---- Cohort disclosure banner (also the EU consent gate) ----------------------
+    function showDisclosure(requireConsentBeforeStart) {
+        if (document.getElementById('or-consent-banner')) { return; }
+        var banner = document.createElement('div');
+        banner.id = 'or-consent-banner';
+        banner.className = 'or-consent-banner';
+        banner.setAttribute('role', 'dialog');
+        banner.setAttribute('aria-live', 'polite');
+
+        var text = document.createElement('div');
+        text.className = 'or-consent-banner__text';
+        text.innerHTML = 'This session is being recorded for product research as part of ' +
+            'our invited preview. Inputs and sensitive data are masked. ' +
+            'See our <a href="/privacy-policy">Privacy Policy</a>.';
+
+        var actions = document.createElement('div');
+        actions.className = 'or-consent-banner__actions';
+
+        function removeBanner() { if (banner.parentNode) { banner.parentNode.removeChild(banner); } }
+
+        if (requireConsentBeforeStart) {
+            // EU: do NOT start recording until the visitor accepts.
+            var accept = document.createElement('button');
+            accept.className = 'or-consent-banner__accept';
+            accept.type = 'button';
+            accept.textContent = 'Accept & continue';
+            accept.addEventListener('click', function() {
+                storeConsent();
+                removeBanner();
+                startTracking();
+            });
+
+            var decline = document.createElement('button');
+            decline.className = 'or-consent-banner__dismiss';
+            decline.type = 'button';
+            decline.textContent = 'No thanks';
+            decline.addEventListener('click', function() { removeBanner(); });
+
+            actions.appendChild(accept);
+            actions.appendChild(decline);
+        } else {
+            // Non-EU: recording already started masked-with-disclosure; this is a
+            // dismissible notice, not a gate.
+            var ok = document.createElement('button');
+            ok.className = 'or-consent-banner__accept';
+            ok.type = 'button';
+            ok.textContent = 'Got it';
+            ok.addEventListener('click', function() { removeBanner(); });
+            actions.appendChild(ok);
+        }
+
+        banner.appendChild(text);
+        banner.appendChild(actions);
+        document.body.appendChild(banner);
+    }
+
+    function init() {
+        if (!PROJECT_KEY) { return; }
+        if (isLikelyEU() && !hasStoredConsent()) {
+            // EU + no prior consent: GATE — show disclosure, start only on accept.
+            showDisclosure(true);
+        } else {
+            // Non-EU, or EU with stored consent: run masked-with-disclosure.
+            startTracking();
+            showDisclosure(false);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>
+{% endif %}
