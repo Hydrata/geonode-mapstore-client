@@ -163,6 +163,15 @@
             pluginsConfigKey: pluginsConfigKey,
             pluginsConfigPatchRules: [...searchServicesPatchRules, ...pluginsConfigPatchRules],
             apikey: '{%if user_apikey %}{{user_apikey}}{% else %}{% endif %}',
+            // OpenReplay session-replay config (epic 1511 W3, TASK-1516). Rendered
+            // from hydrata.context_processors.openreplay (env-driven). projectKey is
+            // empty unless OPENREPLAY_PROJECT_KEY is set, so js/utils/openReplayUtils
+            // stays inert on localhost + any site that hasn't flipped it on.
+            openReplay: {
+                projectKey: '{{ openreplay_project_key|default:""|escapejs }}',
+                ingestPoint: '{{ openreplay_ingest_point|default:"/_openreplay/ingest"|escapejs }}',
+                cohort: '{{ openreplay_cohort|default:"linkedin-june"|escapejs }}'
+            },
             localConfig: {
                 proxyUrl: {
                     url: '{{UPDATED_PROXY_URL|safe }}',

@@ -10,7 +10,10 @@
     <link href="{% static 'lib/css/bootstrap-select.css' %}?{% client_version %}" rel="stylesheet" />
     {% include './geonode-mapstore-client/snippets/custom_theme.html' %}
     {% include './geonode-mapstore-client/snippets/umami_tracking.html' %}
-    {% include './geonode-mapstore-client/snippets/openreplay_tracking.html' %}
+    {# OpenReplay moved from a Django script-snippet to the compiled npm tracker
+       (epic 1511 W3, TASK-1516): js/utils/openReplayUtils.js, configured via
+       window.__GEONODE_CONFIG__.openReplay in _geonode_config.html. The box does
+       not serve the tracker bundle, so the old script-snippet path was dropped. #}
 {% endblock %}
 
 
