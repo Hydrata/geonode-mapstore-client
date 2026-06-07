@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         pluginsConfigKey,
                         configEpics,
                         onStoreInit,
+                        appMiddlewares,
                         geoNodePageConfig,
                         targetId = 'ms-container',
                         settings,
@@ -112,6 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             },
                             appEpics,
                             onStoreInit,
+                            appMiddlewares,
                             geoNodeConfiguration,
                             initialActions: [
                                 // add some settings in the global state to make them accessible in the monitor state

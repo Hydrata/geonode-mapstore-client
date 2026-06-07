@@ -139,6 +139,7 @@ getEndpoints()
                     query,
                     configEpics,
                     onStoreInit,
+                    appMiddlewares,
                     targetId = 'ms-container',
                     settings
                 }) => {
@@ -187,6 +188,7 @@ getEndpoints()
                         printEnabled: true,
                         rootReducerFunc: standardRootReducerFunc,
                         onStoreInit,
+                        appMiddlewares,
                         appReducers: {
                             ...standardReducers,
                             gnresource,

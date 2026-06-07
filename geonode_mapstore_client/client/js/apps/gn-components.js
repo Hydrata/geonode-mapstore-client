@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         geoNodeConfiguration,
                         configEpics,
                         onStoreInit,
+                        appMiddlewares,
                         settings
                     }) => {
 
@@ -110,6 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             },
                             appEpics,
                             onStoreInit,
+                            appMiddlewares,
                             geoNodeConfiguration,
                             initialActions: [
                                 updateGeoNodeSettings.bind(null, settings)

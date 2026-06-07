@@ -113,6 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         query,
                         configEpics,
                         onStoreInit,
+                        appMiddlewares,
                         targetId = 'ms-container',
                         settings
                     }) => {
@@ -165,6 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             printEnabled: true,
                             rootReducerFunc: standardRootReducerFunc,
                             onStoreInit,
+                            appMiddlewares,
                             appReducers: {
                                 ...standardReducers,
                                 gnresource,
