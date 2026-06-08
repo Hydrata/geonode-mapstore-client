@@ -53,6 +53,28 @@ describe('Hydrology i18n', () => {
         });
     });
 
+    // TASK-1533 (UAT2) — user-facing 'Timeseries'/'Time Series' renamed to
+    // 'Design Storms'/'Design Storm'. Internal keys (timeseries/timeSeries)
+    // are intentionally KEPT; only the localised VALUES change.
+    it('time-series labels read as Design Storm(s), not the legacy Timeseries text', () => {
+        // en-US: rail/tab plural + editor-heading singular.
+        expect(enMessages['hydrata.hydrology.timeseries']).toBe('Design Storms');
+        expect(enMessages['hydrata.hydrology.timeSeries']).toBe('Design Storm');
+        // Legacy English label must be fully gone from these two keys.
+        [enMessages, esMessages, frMessages, htMessages].forEach(msgs => {
+            expect(msgs['hydrata.hydrology.timeseries']).toNotBe('Timeseries');
+            expect(msgs['hydrata.hydrology.timeSeries']).toNotBe('Time Series');
+        });
+        // es/fr/ht keep both keys present, non-empty, and localised
+        // (no raw-key fallback in the rail).
+        [['es', esMessages], ['fr', frMessages], ['ht', htMessages]].forEach(([locale, msgs]) => {
+            ['hydrata.hydrology.timeseries', 'hydrata.hydrology.timeSeries'].forEach(key => {
+                expect(msgs[key]).toExist(`Missing ${locale} translation for: ${key}`);
+                expect(msgs[key].length).toBeGreaterThan(0, `Empty ${locale} translation for: ${key}`);
+            });
+        });
+    });
+
     // TASK-1453 (W6) — Networks interim terrain selector i18n parity across all 4 locales.
     it('Networks terrain selector keys exist in all 4 locales (en/es/fr/ht)', () => {
         const networksKeys = [

@@ -22,7 +22,7 @@ import ReactTestUtils from 'react-dom/test-utils';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 
-import { HydrologyListDetailContainerClass } from '../hydrologyListDetailContainer';
+import { HydrologyListDetailContainerClass, HydrologyListDetailContainer } from '../hydrologyListDetailContainer';
 
 // Minimal passthrough Redux store so connected child components (HydrologyDetailIdfDerive)
 // can find a store in context without needing any real state.
@@ -148,6 +148,39 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         expect(calledWith).toBe('idf-derive');
     });
 
+    // TASK-1497 (UAT note-5) — the "Items" column is now shown on the Derive
+    // page too, sourced from idfTables; selecting one jumps to the Manual editor.
+    it('renders the Items column on the idf-derive page', () => {
+        renderWithProvider({
+            activeHydrologyPage: 'idf-derive',
+            idfTables: [{ id: 7, name: 'Table A' }, { id: 8, name: 'Table B' }]
+        });
+        const colOne = container.querySelector('#hydrology-list-detail-col-one');
+        expect(colOne).toExist();
+        const itemButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons button');
+        expect(itemButtons.length).toBe(2);
+        expect(colOne.textContent).toInclude('Table A');
+        expect(colOne.textContent).toInclude('Table B');
+    });
+
+    it('selecting an item on the idf-derive page activates it and switches to the manual page', () => {
+        let activatedItem = null;
+        let switchedTo = null;
+        renderWithProvider({
+            activeHydrologyPage: 'idf-derive',
+            idfTables: [{ id: 7, name: 'Table A' }],
+            setActiveHydrologyItem: (item) => { activatedItem = item; },
+            setActiveHydrologyPage: (page) => { switchedTo = page; }
+        });
+        const itemButton = container.querySelector('#hydrology-list-detail-items #top-buttons button');
+        ReactTestUtils.act(() => {
+            itemButton.click();
+        });
+        expect(activatedItem).toExist();
+        expect(activatedItem.id).toBe(7);
+        expect(switchedTo).toBe('idf-table');
+    });
+
     it('does NOT throw TypeError when setActiveHydrologyPage is provided (regression guard)', () => {
         // Regression guard: before the fix this threw
         // "TypeError: _this2.props.setActiveHydrologyPage is not a function"
@@ -172,5 +205,75 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             thrown = e;
         }
         expect(thrown).toBe(null);
+    });
+});
+
+// TASK-1509 — Save button disabled when the active custom temporal-pattern
+// curve is invalid. Drives the CONNECTED container so mapStateToProps computes
+// customCurveError from the store item (the realistic path after TASK-1508).
+describe('TASK-1509 — Save disabled on invalid custom curve', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        if (container.parentNode) { container.parentNode.removeChild(container); }
+    });
+
+    function makeStore(item) {
+        const state = {
+            hydrology: {
+                activeHydrologyPage: 'temporal-pattern',
+                activeHydrologyItem: item,
+                temporalPatterns: [item],
+                idfTables: [],
+                idfDerive: { lat: null, lon: null }
+            },
+            anuga: { projects: { data: { id: 1 } } }
+        };
+        return createStore((s = state) => s, state);
+    }
+
+    function renderConnected(item) {
+        ReactTestUtils.act(() => {
+            ReactDOM.render(
+                <Provider store={makeStore(item)}>
+                    <HydrologyListDetailContainer/>
+                </Provider>,
+                container
+            );
+        });
+    }
+
+    // Save is the last button in the footer (delete first, save last).
+    function saveButton() {
+        const footer = container.querySelector('#hydrology-list-detail-footer');
+        const buttons = footer.querySelectorAll('button');
+        return buttons[buttons.length - 1];
+    }
+
+    const invalidCustom = {
+        id: 5, name: 'C', unsaved: true, pattern_type: 'custom',
+        rowData: [{t: 0, cum: 0}, {t: 1, cum: 50}]  // last cum !== 100 → invalid
+    };
+    const validCustom = {
+        id: 5, name: 'C', unsaved: true, pattern_type: 'custom',
+        rowData: [{t: 0, cum: 0}, {t: 0.5, cum: 60}, {t: 1, cum: 100}]
+    };
+
+    it('disables Save (with tooltip) when the custom curve is invalid', () => {
+        renderConnected(invalidCustom);
+        const save = saveButton();
+        expect(save.disabled).toBe(true);
+        expect(save.getAttribute('title') || '').toInclude('Fix validation errors');
+    });
+
+    it('leaves Save enabled when the custom curve is valid and the item is unsaved', () => {
+        renderConnected(validCustom);
+        const save = saveButton();
+        expect(save.disabled).toBe(false);
     });
 });

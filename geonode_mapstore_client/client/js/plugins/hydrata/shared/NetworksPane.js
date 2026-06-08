@@ -51,14 +51,21 @@ export const TerrainSelector = ({
     onSelectTerrain,
     onManageInInputs
 }) => {
+    // TASK-1461 (fold-in): use explicit null/undefined checks — NEVER bare
+    // truthiness — so a terrain with id=0 is a real selection, not treated as
+    // "unset". null/undefined correctly means "no override set".
     // The effective terrain is the override (if set) or the scenario's terrain.
-    const effectiveId = selectedTerrainId !== null ? selectedTerrainId : (scenarioTerrainId || '');
+    // Note: `'' ` (empty string reset) is the sentinel for "use scenario default".
+    const hasSelectedOverride = selectedTerrainId !== null && selectedTerrainId !== undefined;
+    const hasScenarioTerrain = scenarioTerrainId !== null && scenarioTerrainId !== undefined;
+    const effectiveId = hasSelectedOverride ? selectedTerrainId : (hasScenarioTerrain ? scenarioTerrainId : '');
 
     // Find the scenario terrain name for the read-only mirror label.
     const scenarioTerrain = (terrainList || []).find(t => t.id === scenarioTerrainId);
 
     // hasOverride = user has picked a terrain different from the scenario default.
-    const hasOverride = selectedTerrainId !== null && selectedTerrainId !== scenarioTerrainId;
+    // id===0 is a valid selection; distinguish it from null/undefined (unset).
+    const hasOverride = hasSelectedOverride && selectedTerrainId !== scenarioTerrainId;
 
     return (
         <div className="networks-terrain-selector" data-testid="networks-terrain-selector">
@@ -78,7 +85,7 @@ export const TerrainSelector = ({
                 {scenarioTerrain
                     ? (
                         <span className="networks-terrain-mirror-value" data-testid="scenario-terrain-name">
-                            {scenarioTerrain.name}
+                            {scenarioTerrain.title || scenarioTerrain.name}
                         </span>
                     )
                     : (
@@ -111,7 +118,7 @@ export const TerrainSelector = ({
                     id="networks-terrain-override-select"
                     className="networks-terrain-select form-control"
                     data-testid="terrain-override-select"
-                    value={effectiveId || ''}
+                    value={effectiveId}
                     onChange={(e) => {
                         const val = e.target.value;
                         if (onSelectTerrain) {
@@ -123,9 +130,11 @@ export const TerrainSelector = ({
                 >
                     {/* Empty option = use scenario terrain (plain string; <Message> renders a span, invalid in <option>) */}
                     <option value="">—</option>
+                    {/* TASK-1503: prefer title (human-readable) over name (raw GeoNode slug).
+                        name is the BE-serialized field (= title) for FE compat. */}
                     {(terrainList || []).map(t => (
                         <option key={t.id} value={t.id}>
-                            {t.name || `Terrain ${t.id}`}
+                            {t.title || t.name || `Terrain ${t.id}`}
                         </option>
                     ))}
                 </select>

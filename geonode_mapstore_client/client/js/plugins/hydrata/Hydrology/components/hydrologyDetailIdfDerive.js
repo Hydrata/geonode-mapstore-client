@@ -1,11 +1,17 @@
 /**
  * TASK-934 — IDF Derive panel (originally); TASK-1452 (W5) — redesigned.
+ * TASK-1500 (W3) — replaced Parameters text inputs with duration×RP matrix.
  *
  * W5 redesign: reflows the one-shot form into a 4-step vertical stepper
  * rendered inside the standard .anuga-scenario-pane-detail idiom:
  *
  *   Step 1 — LOCATION   lat/lon row + Pick-on-map toggle
- *   Step 2 — PARAMETERS durations + return-periods + sub-daily banner
+ *   Step 2 — PARAMETERS duration×RP boolean matrix (W3 replacement)
+ *                       Rows = 19 canonical durations (5…4320 min)
+ *                       Cols = 9 canonical return periods (0.5…500 yr)
+ *                       Row-header click toggles whole row
+ *                       Column-header click toggles whole column
+ *                       Hours display toggle (read-aid; stored values stay minutes)
  *   Step 3 — DERIVE     primary green Derive button (bottom-right); disabled
  *                       with an inline reason when !celeryAnugaEnabled or
  *                       validation fails
@@ -45,16 +51,43 @@ import {
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 
+// ---------------------------------------------------------------------------
+// Canonical matrix axes (W3 / TASK-1500)
+// ---------------------------------------------------------------------------
+
+// 19 canonical durations in minutes (matches the Input/Manual-tab axes).
+const CANONICAL_DURATIONS_MIN = [
+    5, 10, 15, 20, 30, 45,
+    60, 120, 180, 240, 300, 360,
+    540, 720, 900, 1080, 1440, 2880, 4320
+];
+
+// 9 canonical return periods in years (matches the Input/Manual-tab axes).
+const CANONICAL_RETURN_PERIODS_YR = [0.5, 1, 2, 5, 10, 20, 50, 100, 500];
+
 // Sub-daily warning threshold — minutes. ERA5-Land hourly systematically
-// underestimates ≤6h peak intensities (Lavers 2024, Brown 2023). Anything
-// shorter than 1440 min (24h) triggers the validation-recommended banner.
+// underestimates ≤6h peak intensities (Lavers 2024, Brown 2023). Any
+// selected duration < 1440 min (24h) triggers the validation-recommended banner.
 const SUB_DAILY_THRESHOLD_MIN = 1440;
 
-// parseNumberList — comma-separated → number[].
-// Empty tokens are dropped (so '60,,180' → [60, 180]); non-numeric tokens
-// are filtered out so the helper itself never returns NaN. Callers that
-// need to detect bad input (e.g. the inline validator) inspect the raw
-// tokens separately rather than relying on parseNumberList's output.
+// ERA5 derive floors. Sub-hourly durations (ERA5-Land is hourly) and sub-annual
+// return periods (the GEV quantile p = 1 − 1/T needs T ≥ 1; T=0.5 → p=−1 → NaN)
+// can't be DERIVED. Those rows/column stay in the matrix for visual parity with
+// the manual Input table but render DISABLED here; deriveIdfEpic also filters
+// them from the POST as a safety net. Mirrors DERIVE_MIN_* in epicsHydrology.js.
+const DERIVE_MIN_DURATION_MIN = 60;
+const DERIVE_MIN_RETURN_PERIOD_YR = 1;
+const isDerivableDuration = (dur) => dur >= DERIVE_MIN_DURATION_MIN;
+const isDerivableRP = (rp) => rp >= DERIVE_MIN_RETURN_PERIOD_YR;
+// Derivable axis subsets — used by the row/column "select all" fallbacks so
+// toggling a header never injects a non-derivable cell.
+const DERIVABLE_DURATIONS_MIN = CANONICAL_DURATIONS_MIN.filter(isDerivableDuration);
+const DERIVABLE_RETURN_PERIODS_YR = CANONICAL_RETURN_PERIODS_YR.filter(isDerivableRP);
+
+// ---------------------------------------------------------------------------
+// Utility: parse comma-separated number list from Redux state string
+// ---------------------------------------------------------------------------
+
 const parseNumberList = (text) => {
     if (text === null || text === undefined) return [];
     return String(text)
@@ -65,19 +98,209 @@ const parseNumberList = (text) => {
         .filter(n => Number.isFinite(n));
 };
 
-// hasBadToken — returns true iff any non-empty comma-separated token does
-// not parse to a finite number. Used by validate() so 'foo' isn't silently
-// dropped.
-const hasBadToken = (text) => {
-    if (text === null || text === undefined) return false;
-    const tokens = String(text)
-        .split(',')
-        .map(s => String(s).trim())
-        .filter(s => s.length > 0);
-    return tokens.some(t => !Number.isFinite(Number(t)));
+// ---------------------------------------------------------------------------
+// Utility: format a duration value for display
+// ---------------------------------------------------------------------------
+
+/**
+ * formatDuration — convert a minutes value to a display label.
+ * When showHours is true, values >= 60 are shown as "N h"; sub-hour
+ * values are always shown as "N min" regardless of toggle.
+ * IMPORTANT: this is display-only; persisted/sent values stay in minutes.
+ */
+const formatDuration = (minutes, showHours) => {
+    if (showHours && minutes >= 60 && minutes % 60 === 0) {
+        return `${minutes / 60} h`;
+    }
+    if (showHours && minutes >= 60) {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${h}h ${m}m`;
+    }
+    return `${minutes} min`;
 };
 
-const minOf = (arr) => (arr.length === 0 ? Infinity : Math.min(...arr));
+// ---------------------------------------------------------------------------
+// IdfDeriveMatrix — the boolean duration×RP selection grid
+// ---------------------------------------------------------------------------
+
+/**
+ * IdfDeriveMatrix
+ *
+ * Renders a 19×9 boolean grid.  Each cell is a green-tick (selected) or
+ * red-cross (unselected) toggle.  Row-header click toggles the whole row;
+ * column-header click toggles the whole column.
+ *
+ * Props:
+ *  selectedDurations  number[]  — currently selected durations (minutes)
+ *  selectedRPs        number[]  — currently selected return periods (years)
+ *  onDurationsChange  fn(number[])  — called with the new selected durations
+ *  onRPsChange        fn(number[])  — called with the new selected RPs
+ *  showHours          bool  — whether to display duration labels in hours
+ */
+const IdfDeriveMatrix = ({
+    selectedDurations,
+    selectedRPs,
+    onDurationsChange,
+    onRPsChange,
+    showHours
+}) => {
+    // Build sets for O(1) membership tests.
+    const durSet = new Set(selectedDurations);
+    const rpSet = new Set(selectedRPs);
+
+    const toggleCell = (dur, rp) => {
+        // Non-derivable cells (sub-hourly / sub-annual) are inert.
+        if (!isDerivableDuration(dur) || !isDerivableRP(rp)) return;
+        const durSelected = durSet.has(dur);
+        const rpSelected = rpSet.has(rp);
+        // Toggle: if BOTH selected → deselect this cell.
+        // Strategy: cell is "on" when its duration AND return period are both selected.
+        // We maintain selectedDurations and selectedRPs as independent sets;
+        // a cell is ticked iff both are in their respective sets.
+        // Toggling a cell flips membership for BOTH if needed —
+        // but the common interpretation is: the cell state is (durSet ∩ rpSet) membership,
+        // so toggling a cell adds/removes from both sets.
+        let newDurs = [...selectedDurations];
+        let newRPs = [...selectedRPs];
+        const cellOn = durSelected && rpSelected;
+        if (cellOn) {
+            // Turn off: remove from both sets only if no other selected RP/duration
+            // would keep the counterpart alive.  For simplicity (spec: each cell
+            // independently toggles), we track a full selectedCells set approach.
+            // SIMPLER: treat selectedDurations and selectedRPs as axis "headers"
+            // that are added/removed together.
+            // Remove if this is the only selected RP keeping dur alive, etc.
+            // PRACTICAL approach: just remove from both when a cell is individually turned off.
+            newDurs = newDurs.filter(d => d !== dur);
+            newRPs = newRPs.filter(r => r !== rp);
+        } else {
+            if (!durSelected) newDurs = [...newDurs, dur].sort((a, b) => a - b);
+            if (!rpSelected) newRPs = [...newRPs, rp].sort((a, b) => a - b);
+        }
+        onDurationsChange(newDurs);
+        onRPsChange(newRPs);
+    };
+
+    const toggleRow = (dur) => {
+        // Sub-hourly durations can't be derived — header is inert.
+        if (!isDerivableDuration(dur)) return;
+        // Toggle whole row: if duration not in set → add it (and add all RPs if none selected).
+        // If ALL canonical RPs already selected and this duration is selected → remove duration.
+        const durSelected = durSet.has(dur);
+        if (durSelected) {
+            // Remove this duration from the selection.
+            onDurationsChange(selectedDurations.filter(d => d !== dur));
+        } else {
+            // Add duration; if no RPs selected yet, select all RPs.
+            const newDurs = [...selectedDurations, dur].sort((a, b) => a - b);
+            onDurationsChange(newDurs);
+            if (selectedRPs.length === 0) {
+                onRPsChange([...DERIVABLE_RETURN_PERIODS_YR]);
+            }
+        }
+    };
+
+    const toggleCol = (rp) => {
+        // Sub-annual return periods can't be derived — header is inert.
+        if (!isDerivableRP(rp)) return;
+        const rpSelected = rpSet.has(rp);
+        if (rpSelected) {
+            onRPsChange(selectedRPs.filter(r => r !== rp));
+        } else {
+            const newRPs = [...selectedRPs, rp].sort((a, b) => a - b);
+            onRPsChange(newRPs);
+            if (selectedDurations.length === 0) {
+                onDurationsChange([...DERIVABLE_DURATIONS_MIN]);
+            }
+        }
+    };
+
+    return (
+        <div className="idf-matrix-wrapper">
+            <table className="idf-matrix-table">
+                <thead>
+                    <tr>
+                        {/* Top-left corner cell — empty */}
+                        <th className="idf-matrix-corner" />
+                        {CANONICAL_RETURN_PERIODS_YR.map(rp => {
+                            const rpDerivable = isDerivableRP(rp);
+                            return (
+                                <th
+                                    key={rp}
+                                    className={`idf-matrix-col-header${rpSet.has(rp) ? ' idf-matrix-header--selected' : ''}${rpDerivable ? '' : ' idf-matrix-header--disabled'}`}
+                                    onClick={rpDerivable ? () => toggleCol(rp) : undefined}
+                                    title={rpDerivable
+                                        ? `Toggle all durations for ${rp}-yr ARI`
+                                        : `${rp}-yr ARI can't be derived from ERA5 (annual maxima needs ≥ 1 yr) — use the manual IDF table`}
+                                >
+                                    {rp < 1 ? `${rp}-yr` : `${rp} yr`}
+                                </th>
+                            );
+                        })}
+                    </tr>
+                </thead>
+                <tbody>
+                    {/* Sub-hourly durations (< 60 min) are HIDDEN entirely — ERA5-Land
+                        is hourly so they can't be derived, and showing them greyed wastes
+                        vertical space. They remain available in the manual IDF table, and
+                        deriveIdfEpic also filters them from the POST as a safety net. */}
+                    {DERIVABLE_DURATIONS_MIN.map(dur => {
+                        const durSelected = durSet.has(dur);
+                        return (
+                            <tr key={dur}>
+                                <td
+                                    className={`idf-matrix-row-header${durSelected ? ' idf-matrix-header--selected' : ''}`}
+                                    onClick={() => toggleRow(dur)}
+                                    title={`Toggle all return periods for ${formatDuration(dur, false)}`}
+                                >
+                                    {formatDuration(dur, showHours)}
+                                </td>
+                                {CANONICAL_RETURN_PERIODS_YR.map(rp => {
+                                    const cellDerivable = isDerivableRP(rp);
+                                    const cellOn = durSelected && rpSet.has(rp);
+                                    return (
+                                        <td
+                                            key={rp}
+                                            className={`idf-matrix-cell${!cellDerivable ? ' idf-matrix-cell--disabled' : (cellOn ? ' idf-matrix-cell--on' : ' idf-matrix-cell--off')}`}
+                                            onClick={cellDerivable ? () => toggleCell(dur, rp) : undefined}
+                                            title={cellDerivable
+                                                ? `${formatDuration(dur, false)} / ${rp}-yr: ${cellOn ? 'selected' : 'not selected'}`
+                                                : 'Not derivable from ERA5 (annual maxima needs ≥ 1 yr) — use the manual IDF table'}
+                                        >
+                                            {!cellDerivable
+                                                ? <span className="idf-matrix-disabled-mark" aria-hidden="true">–</span>
+                                                : (cellOn
+                                                    ? <span className="glyphicon glyphicon-ok idf-matrix-tick" aria-hidden="true" />
+                                                    : <span className="glyphicon glyphicon-remove idf-matrix-cross" aria-hidden="true" />)
+                                            }
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+IdfDeriveMatrix.propTypes = {
+    selectedDurations: PropTypes.arrayOf(PropTypes.number).isRequired,
+    selectedRPs: PropTypes.arrayOf(PropTypes.number).isRequired,
+    onDurationsChange: PropTypes.func.isRequired,
+    onRPsChange: PropTypes.func.isRequired,
+    showHours: PropTypes.bool
+};
+
+IdfDeriveMatrix.defaultProps = {
+    showHours: true
+};
+
+// ---------------------------------------------------------------------------
+// Result table (from W5, unchanged)
+// ---------------------------------------------------------------------------
 
 // Build TanStack column defs from the IDFTable BE payload.
 // Columns: duration_min, then triplet per RP (intensity, ci_lower, ci_upper).
@@ -252,11 +475,14 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         inFlight: false
     };
 
-    // Provenance collapsible state (local only — no need in Redux).
     constructor(props) {
         super(props);
         this.state = {
-            provenanceOpen: false
+            provenanceOpen: false,
+            // hours display toggle — read-aid only (stored values stay minutes).
+            // TASK-1497 (UAT note-4): defaults to ticked (hours) — the derive
+            // matrix axis is >=60 min, so hours is the more natural read-aid.
+            showHours: true
         };
     }
 
@@ -267,16 +493,8 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         const durations = parseNumberList(this.props.durationsText);
         const rps = parseNumberList(this.props.rpsText);
         const errors = [];
-        if (hasBadToken(this.props.durationsText)) errors.push('Durations: non-numeric value');
-        if (hasBadToken(this.props.rpsText)) errors.push('Return periods: non-numeric value');
-        if (durations.length === 0) errors.push('Durations required');
-        if (rps.length === 0) errors.push('Return periods required');
-        if (durations.some(n => n < 60)) errors.push('All durations must be ≥60 min');
-        if (rps.some(n => n < 2)) errors.push('All return periods must be ≥2 yr');
-        const dupD = durations.length !== new Set(durations).size;
-        const dupR = rps.length !== new Set(rps).size;
-        if (dupD) errors.push('Duplicate durations');
-        if (dupR) errors.push('Duplicate return periods');
+        if (durations.length === 0) errors.push('Select at least one duration');
+        if (rps.length === 0) errors.push('Select at least one return period');
         if (!Number.isFinite(this.props.lat) || !Number.isFinite(this.props.lon)) {
             errors.push('Lat/lon required');
         }
@@ -288,6 +506,10 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
     };
 
     handleDeriveClick = () => {
+        // Debounce: ignore re-clicks while a derive is in flight so a quick
+        // double-click can't fire two derive tasks (TASK-1539). The button is
+        // also disabled via isInFlight; this guards the sub-render-frame race.
+        if (this.props.inFlight) return;
         this.props.deriveIdfRequest();
     };
 
@@ -304,28 +526,44 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         this.setState(s => ({provenanceOpen: !s.provenanceOpen}));
     };
 
-    render() {
-        const {durations, errors} = this.validate();
-        const minDuration = minOf(durations);
-        const showSubDailyBanner = Number.isFinite(minDuration) && minDuration < SUB_DAILY_THRESHOLD_MIN;
-        const isInFlight = this.props.inFlight
-            && this.props.processId
-            && (this.props.processStatus === 'pending'
-                || this.props.processStatus === 'running'
-                || !this.props.processStatus);
+    toggleShowHours = () => {
+        this.setState(s => ({showHours: !s.showHours}));
+    };
 
-        // Derive button disabled tooltip reason — show the FIRST reason only.
-        // NOTE: all values here must be human-readable strings; i18n keys must
-        // NOT be passed directly (they render as raw key strings in HTML title).
-        // The celery-unavailable message comes from the inline notice below, so
-        // the title is left empty in that case to avoid key-string leakage.
+    // Called by the matrix when the user toggles a row/col/cell.
+    // Serialises the number[] back to a comma-separated string for Redux.
+    handleDurationsChange = (newDurations) => {
+        this.props.setIdfDeriveDurations(newDurations.join(', '));
+    };
+
+    handleRPsChange = (newRPs) => {
+        this.props.setIdfDeriveRPs(newRPs.join(', '));
+    };
+
+    render() {
+        const {durations, rps, errors} = this.validate();
+        const selectedDurations = durations;
+        const selectedRPs = rps;
+
+        // Sub-daily banner: show if any selected duration < 1440 min.
+        const showSubDailyBanner = selectedDurations.some(
+            d => Number.isFinite(d) && d < SUB_DAILY_THRESHOLD_MIN
+        );
+
+        // inFlight is set synchronously by the DERIVE_IDF_REQUEST reducer and
+        // cleared on error/result, so it alone is the in-flight signal. The old
+        // gate also required processId, which only arrives with the async 202 —
+        // leaving the button live during the request window so a double-click
+        // fired two derive tasks (TASK-1539).
+        const isInFlight = !!this.props.inFlight;
+
         let deriveDisabledReason = null;
         if (!this.props.celeryAnugaEnabled) {
-            deriveDisabledReason = null; // visible notice shown inline; don't leak i18n key
+            deriveDisabledReason = null;
         } else if (isInFlight) {
-            deriveDisabledReason = null; // progress indicator shown inline
+            deriveDisabledReason = null;
         } else if (errors.length > 0) {
-            deriveDisabledReason = errors[0]; // raw human-readable validation string
+            deriveDisabledReason = errors[0];
         }
         const deriveDisabled = !this.props.celeryAnugaEnabled || errors.length > 0 || isInFlight;
 
@@ -404,42 +642,37 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         </div>
                     </div>
 
-                    {/* ── STEP 2: PARAMETERS ──────────────────────────── */}
+                    {/* ── STEP 2: PARAMETERS (matrix) ─────────────────── */}
                     <div
                         id="idf-derive-step-parameters"
                         className="idf-derive-step"
                     >
                         <IdfDeriveStepHeader step={2} titleMsgId="hydrata.hydrology.idfDeriveStepParameters" />
 
-                        <div className="anuga-scenario-pane-section">
-                            <span className="anuga-scenario-pane-label">
-                                <Message msgId="hydrata.hydrology.idfDeriveDurations" />
-                            </span>
-                            <div className="anuga-scenario-pane-field">
-                                <input
-                                    id={'idf-derive-durations'}
-                                    type={'text'}
-                                    className={'hydrology-text-input idf-derive-wide-input'}
-                                    value={this.props.durationsText}
-                                    onChange={(e) => this.props.setIdfDeriveDurations(e.target.value)}
-                                />
-                            </div>
+                        {/* Hours display toggle — read-aid only; stored values stay minutes.
+                            Flat .idf-matrix-unit-toggle-row markup (TASK-1527) so the
+                            checkbox sits flush-left next to its label, matching the Input
+                            sub-view (no .anuga-scenario-pane-label 130px gutter). */}
+                        <div className="idf-matrix-unit-toggle-row">
+                            <input
+                                id="idf-matrix-show-hours"
+                                type="checkbox"
+                                checked={this.state.showHours}
+                                onChange={this.toggleShowHours}
+                            />
+                            {' '}
+                            <label htmlFor="idf-matrix-show-hours" className="idf-matrix-unit-label">
+                                Display in hours
+                            </label>
                         </div>
 
-                        <div className="anuga-scenario-pane-section">
-                            <span className="anuga-scenario-pane-label">
-                                <Message msgId="hydrata.hydrology.idfDeriveRPs" />
-                            </span>
-                            <div className="anuga-scenario-pane-field">
-                                <input
-                                    id={'idf-derive-rps'}
-                                    type={'text'}
-                                    className={'hydrology-text-input idf-derive-wide-input'}
-                                    value={this.props.rpsText}
-                                    onChange={(e) => this.props.setIdfDeriveRPs(e.target.value)}
-                                />
-                            </div>
-                        </div>
+                        <IdfDeriveMatrix
+                            selectedDurations={selectedDurations}
+                            selectedRPs={selectedRPs}
+                            onDurationsChange={this.handleDurationsChange}
+                            onRPsChange={this.handleRPsChange}
+                            showHours={this.state.showHours}
+                        />
 
                         {showSubDailyBanner && (
                             <div
@@ -609,4 +842,13 @@ const mapDispatchToProps = (dispatch) => ({
 const HydrologyDetailIdfDerive = connect(mapStateToProps, mapDispatchToProps)(HydrologyDetailIdfDeriveClass);
 
 export default HydrologyDetailIdfDerive;
-export {HydrologyDetailIdfDeriveClass, parseNumberList, downloadProvenanceJson, SUB_DAILY_THRESHOLD_MIN};
+export {
+    HydrologyDetailIdfDeriveClass,
+    IdfDeriveMatrix,
+    parseNumberList,
+    downloadProvenanceJson,
+    SUB_DAILY_THRESHOLD_MIN,
+    CANONICAL_DURATIONS_MIN,
+    CANONICAL_RETURN_PERIODS_YR,
+    formatDuration
+};

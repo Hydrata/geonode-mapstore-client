@@ -228,10 +228,18 @@ describe('TASK-1452 (W5) IDF Derive stepper + segmented control', () => {
         expect(container.querySelector('#idf-derive-pick-on-map')).toExist();
     });
 
-    it('Step 2 — Parameters: renders durations + return-periods inputs', () => {
+    it('Step 2 — Parameters: renders the duration×RP matrix (W3 replacement for text inputs)', () => {
+        // W3 (TASK-1500): text inputs replaced by boolean matrix.
+        // Old #idf-derive-durations and #idf-derive-rps inputs are gone.
         mountDerive({});
-        expect(container.querySelector('#idf-derive-durations')).toExist();
-        expect(container.querySelector('#idf-derive-rps')).toExist();
+        // The matrix wrapper must be present in step-parameters
+        const step2 = container.querySelector('#idf-derive-step-parameters');
+        expect(step2).toExist();
+        const matrix = step2.querySelector('.idf-matrix-wrapper');
+        expect(matrix).toExist();
+        // The hours display toggle checkbox must be present
+        const hoursToggle = step2.querySelector('#idf-matrix-show-hours');
+        expect(hoursToggle).toExist();
     });
 
     it('Step 2 — Parameters: sub-daily banner shows when min duration < 1440', () => {

@@ -1,9 +1,11 @@
 /**
  * TASK-934 — IDF Derive panel render + behaviour tests.
+ * TASK-1500 (W3) — updated for the duration×RP boolean matrix (Parameters step
+ * replaced; old text-input-path tests removed / updated).
  *
  * Tests the unconnected HydrologyDetailIdfDeriveClass so we don't need a
- * full redux store wired up. Helpers (parseNumberList, downloadProvenanceJson)
- * are exercised as pure functions.
+ * full redux store wired up. Helpers (parseNumberList, downloadProvenanceJson,
+ * formatDuration, IdfDeriveMatrix) are exercised as pure functions / shallowly.
  */
 import expect from 'expect';
 import React from 'react';
@@ -12,8 +14,12 @@ import ReactTestUtils from 'react-dom/test-utils';
 
 const {
     HydrologyDetailIdfDeriveClass,
+    IdfDeriveMatrix,
     parseNumberList,
-    SUB_DAILY_THRESHOLD_MIN
+    SUB_DAILY_THRESHOLD_MIN,
+    CANONICAL_DURATIONS_MIN,
+    CANONICAL_RETURN_PERIODS_YR,
+    formatDuration
 } = require('../hydrologyDetailIdfDerive');
 
 describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
@@ -101,22 +107,28 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         expect(btn.disabled).toBe(true);
     });
 
-    it('Derive button disabled when durations include non-number', () => {
-        mount({durationsText: '60, foo, 720'});
+    // W3 (TASK-1500): The matrix only allows toggling canonical durations/RPs —
+    // there is no text-input path for non-numeric tokens any more.
+    // The validate() method now only checks for empty selection + lat/lon.
+    it('Derive button disabled when durations empty (nothing selected)', () => {
+        mount({durationsText: ''});
         const btn = container.querySelector('#idf-derive-button');
         expect(btn.disabled).toBe(true);
     });
 
-    it('Derive button disabled when a duration is below 60min', () => {
-        mount({durationsText: '30, 60'});
+    it('Derive button disabled when return periods empty (nothing selected)', () => {
+        mount({rpsText: ''});
         const btn = container.querySelector('#idf-derive-button');
         expect(btn.disabled).toBe(true);
     });
 
-    it('Derive button disabled when duplicate return periods', () => {
-        mount({rpsText: '2, 5, 10, 10'});
+    // Sub-hourly durations (5, 10, 15, 20, 30, 45 min) are canonical matrix
+    // cells and do NOT disable the derive button — they only trigger the sub-
+    // daily banner. Validate that the button is enabled for sub-hourly selections.
+    it('Derive button NOT disabled for canonical sub-hourly duration (30 min)', () => {
+        mount({durationsText: '30, 60', rpsText: '2, 10'});
         const btn = container.querySelector('#idf-derive-button');
-        expect(btn.disabled).toBe(true);
+        expect(btn.disabled).toBe(false);
     });
 
     it('Derive button click dispatches deriveIdfRequest', () => {
@@ -239,6 +251,187 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         });
         it('returns [] for null', () => {
             expect(parseNumberList(null)).toEqual([]);
+        });
+    });
+
+    describe('W3 (TASK-1500) — canonical matrix axes', () => {
+        it('CANONICAL_DURATIONS_MIN has 19 entries', () => {
+            expect(CANONICAL_DURATIONS_MIN.length).toBe(19);
+        });
+
+        it('CANONICAL_DURATIONS_MIN starts at 5 min and ends at 4320 min', () => {
+            expect(CANONICAL_DURATIONS_MIN[0]).toBe(5);
+            expect(CANONICAL_DURATIONS_MIN[CANONICAL_DURATIONS_MIN.length - 1]).toBe(4320);
+        });
+
+        it('CANONICAL_RETURN_PERIODS_YR has 9 entries', () => {
+            expect(CANONICAL_RETURN_PERIODS_YR.length).toBe(9);
+        });
+
+        it('CANONICAL_RETURN_PERIODS_YR starts at 0.5 and ends at 500', () => {
+            expect(CANONICAL_RETURN_PERIODS_YR[0]).toBe(0.5);
+            expect(CANONICAL_RETURN_PERIODS_YR[CANONICAL_RETURN_PERIODS_YR.length - 1]).toBe(500);
+        });
+
+        it('formatDuration shows minutes by default', () => {
+            expect(formatDuration(60, false)).toBe('60 min');
+            expect(formatDuration(5, false)).toBe('5 min');
+            expect(formatDuration(4320, false)).toBe('4320 min');
+        });
+
+        it('formatDuration shows hours when showHours=true for exact multiples', () => {
+            expect(formatDuration(60, true)).toBe('1 h');
+            expect(formatDuration(1440, true)).toBe('24 h');
+            expect(formatDuration(4320, true)).toBe('72 h');
+        });
+
+        it('formatDuration shows sub-hour in minutes even when showHours=true', () => {
+            expect(formatDuration(5, true)).toBe('5 min');
+            expect(formatDuration(30, true)).toBe('30 min');
+        });
+
+        it('formatDuration does NOT store hours in the value (display-only)', () => {
+            // The persisted value must remain minutes — formatDuration returns a
+            // display string, never mutates the underlying number.
+            const dur = 4320;
+            const display = formatDuration(dur, true);
+            expect(display).toBe('72 h');
+            // Original value unchanged
+            expect(dur).toBe(4320);
+        });
+    });
+
+    describe('W3 (TASK-1500) — matrix renders canonical grid', () => {
+        let matrixContainer;
+
+        beforeEach(() => {
+            matrixContainer = document.createElement('div');
+            document.body.appendChild(matrixContainer);
+        });
+
+        afterEach(() => {
+            ReactDOM.unmountComponentAtNode(matrixContainer);
+            document.body.removeChild(matrixContainer);
+        });
+
+        it('renders 13 derivable row headers (>=60 min; sub-hourly hidden by the floor fix)', () => {
+            // TASK-1497 derive-floor fix: the matrix HIDES sub-hourly durations
+            // (<60 min) entirely — only the 13 derivable durations 60..4320 show.
+            ReactDOM.render(
+                <IdfDeriveMatrix
+                    selectedDurations={[]}
+                    selectedRPs={[]}
+                    onDurationsChange={() => {}}
+                    onRPsChange={() => {}}
+                    showHours={false}
+                />,
+                matrixContainer
+            );
+            const rowHeaders = matrixContainer.querySelectorAll('.idf-matrix-row-header');
+            expect(rowHeaders.length).toBe(13);
+        });
+
+        it('renders 9 column headers (canonical return periods)', () => {
+            ReactDOM.render(
+                <IdfDeriveMatrix
+                    selectedDurations={[]}
+                    selectedRPs={[]}
+                    onDurationsChange={() => {}}
+                    onRPsChange={() => {}}
+                    showHours={false}
+                />,
+                matrixContainer
+            );
+            const colHeaders = matrixContainer.querySelectorAll('.idf-matrix-col-header');
+            expect(colHeaders.length).toBe(9);
+        });
+
+        it('renders tick glyphs for selected duration+RP pairs', () => {
+            ReactDOM.render(
+                <IdfDeriveMatrix
+                    selectedDurations={[60]}
+                    selectedRPs={[10]}
+                    onDurationsChange={() => {}}
+                    onRPsChange={() => {}}
+                    showHours={false}
+                />,
+                matrixContainer
+            );
+            const ticks = matrixContainer.querySelectorAll('.idf-matrix-tick');
+            expect(ticks.length).toBeGreaterThan(0);
+        });
+
+        it('shows hours labels when showHours=true', () => {
+            ReactDOM.render(
+                <IdfDeriveMatrix
+                    selectedDurations={[]}
+                    selectedRPs={[]}
+                    onDurationsChange={() => {}}
+                    onRPsChange={() => {}}
+                    showHours={true}
+                />,
+                matrixContainer
+            );
+            // 4320 min = 72 h should appear
+            const text = matrixContainer.textContent;
+            expect(text.indexOf('72 h')).toBeGreaterThan(-1);
+        });
+
+        it('calls onDurationsChange when a row header is clicked', () => {
+            let called = null;
+            ReactDOM.render(
+                <IdfDeriveMatrix
+                    selectedDurations={[]}
+                    selectedRPs={[2, 5]}
+                    onDurationsChange={(d) => { called = d; }}
+                    onRPsChange={() => {}}
+                    showHours={false}
+                />,
+                matrixContainer
+            );
+            const rowHeaders = matrixContainer.querySelectorAll('.idf-matrix-row-header');
+            // First row header is now 60 min (sub-hourly rows hidden by the floor fix).
+            ReactTestUtils.Simulate.click(rowHeaders[0]);
+            expect(called).toExist();
+            expect(called.indexOf(60)).toBeGreaterThan(-1);
+        });
+
+        it('calls onRPsChange when a derivable column header is clicked', () => {
+            let called = null;
+            ReactDOM.render(
+                <IdfDeriveMatrix
+                    selectedDurations={[60, 120]}
+                    selectedRPs={[]}
+                    onDurationsChange={() => {}}
+                    onRPsChange={(r) => { called = r; }}
+                    showHours={false}
+                />,
+                matrixContainer
+            );
+            const colHeaders = matrixContainer.querySelectorAll('.idf-matrix-col-header');
+            // colHeaders[0] is the 0.5yr column — DISABLED by the floor fix (inert).
+            // colHeaders[1] is 1yr, the first derivable column.
+            ReactTestUtils.Simulate.click(colHeaders[1]);
+            expect(called).toExist();
+            expect(called.indexOf(1)).toBeGreaterThan(-1);
+        });
+
+        it('the sub-annual 0.5yr column header is disabled and inert (floor fix)', () => {
+            let called = null;
+            ReactDOM.render(
+                <IdfDeriveMatrix
+                    selectedDurations={[60, 120]}
+                    selectedRPs={[]}
+                    onDurationsChange={() => {}}
+                    onRPsChange={(r) => { called = r; }}
+                    showHours={false}
+                />,
+                matrixContainer
+            );
+            const colHeaders = matrixContainer.querySelectorAll('.idf-matrix-col-header');
+            expect(colHeaders[0].className).toInclude('idf-matrix-header--disabled');
+            ReactTestUtils.Simulate.click(colHeaders[0]);
+            expect(called).toBe(null); // click does nothing
         });
     });
 });

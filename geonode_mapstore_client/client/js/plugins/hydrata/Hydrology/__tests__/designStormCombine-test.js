@@ -27,7 +27,7 @@ import {
     SCS_TYPE_II,
     SCS_TYPE_IA,
     HUFF,
-    SCS_SA
+    CUSTOM
 } from '../temporalPatternPresets';
 
 describe('TASK-1451 W4 — design-storm combine', () => {
@@ -139,7 +139,9 @@ describe('TASK-1451 W4 — design-storm combine', () => {
             DERIVE_DESIGN_STORM_SUCCESS,
             DERIVE_DESIGN_STORM_FAILURE,
             SET_DESIGN_STORM_FORM,
-            SET_TEMPORAL_PATTERN_PRESET
+            SET_TEMPORAL_PATTERN_PRESET,
+            REPLACE_TEMPORAL_PATTERN_ROW_DATA,
+            SET_HYDROLOGY_TEMPORAL_PATTERN_DATA
         } = require('../actionsHydrology');
 
         it('initial state has designStorm slice', () => {
@@ -198,6 +200,154 @@ describe('TASK-1451 W4 — design-storm combine', () => {
                 patternKey: SCS_TYPE_II
             });
             expect(state.temporalPatterns[0].selectedPreset).toBe(SCS_TYPE_II);
+        });
+
+        // TASK-1508 (W5 follow-up): the custom curve editor commits rows via
+        // this action instead of mutating activeHydrologyItem in the component.
+        it('REPLACE_TEMPORAL_PATTERN_ROW_DATA sets rowData + pattern_type=custom + unsaved (TASK-1508)', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const tp = new TemporalPattern();
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const withItems = {
+                ...baseState,
+                temporalPatterns: [tp],
+                activeHydrologyItem: tp
+            };
+            const newRows = [{t: 0, cum: 0}, {t: 0.5, cum: 60}, {t: 1, cum: 100}];
+            const state = reducer(withItems, {
+                type: REPLACE_TEMPORAL_PATTERN_ROW_DATA,
+                temporalPatternId: tp.id,
+                newRowData: newRows
+            });
+            expect(state.temporalPatterns[0].rowData).toEqual(newRows);
+            expect(state.temporalPatterns[0].pattern_type).toBe('custom');
+            expect(state.temporalPatterns[0].unsaved).toBe(true);
+            // activeHydrologyItem points at the updated pattern (save reads it).
+            expect(state.activeHydrologyItem.rowData).toEqual(newRows);
+        });
+
+        // TASK-1509: switching from an edited custom curve to a preset must
+        // reset pattern_type so the container's Save-disable re-enables.
+        it('SET_TEMPORAL_PATTERN_PRESET syncs pattern_type (custom<->preset)', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const tp = new TemporalPattern();
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const withItems = {...baseState, temporalPatterns: [tp], activeHydrologyItem: tp};
+            // user edits a custom curve → pattern_type='custom'
+            const customState = reducer(withItems, {
+                type: REPLACE_TEMPORAL_PATTERN_ROW_DATA,
+                temporalPatternId: tp.id,
+                newRowData: [{t: 0, cum: 0}, {t: 1, cum: 100}]
+            });
+            expect(customState.temporalPatterns[0].pattern_type).toBe('custom');
+            // switches to a preset → pattern_type resets to 'preset'
+            const presetState = reducer(customState, {
+                type: SET_TEMPORAL_PATTERN_PRESET,
+                temporalPatternId: tp.id,
+                patternKey: SCS_TYPE_II
+            });
+            expect(presetState.temporalPatterns[0].pattern_type).toBe('preset');
+            // selecting the custom card again → pattern_type='custom'
+            const backToCustom = reducer(presetState, {
+                type: SET_TEMPORAL_PATTERN_PRESET,
+                temporalPatternId: tp.id,
+                patternKey: 'custom'
+            });
+            expect(backToCustom.temporalPatterns[0].pattern_type).toBe('custom');
+        });
+
+        // TASK-1531: WRITE side — SET_TEMPORAL_PATTERN_PRESET must also stamp
+        // pattern_key on the item so the save epic's {...item} spread sends it.
+        // Without this the PATCH body omits pattern_key and the row stays NULL.
+        it('SET_TEMPORAL_PATTERN_PRESET stores pattern_key for a preset (TASK-1531)', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const tp = new TemporalPattern();
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const withItems = {...baseState, temporalPatterns: [tp], activeHydrologyItem: tp};
+            const state = reducer(withItems, {
+                type: SET_TEMPORAL_PATTERN_PRESET,
+                temporalPatternId: tp.id,
+                patternKey: SCS_TYPE_II
+            });
+            expect(state.temporalPatterns[0].pattern_key).toBe(SCS_TYPE_II);
+            expect(state.temporalPatterns[0].pattern_type).toBe('preset');
+        });
+
+        // TASK-1531: selecting the custom card clears pattern_key (CUSTOM is not
+        // a persisted preset key — the curve is identified by pattern_type only).
+        it('SET_TEMPORAL_PATTERN_PRESET nulls pattern_key for CUSTOM (TASK-1531)', () => {
+            const {TemporalPattern} = require('../classesHydrology');
+            const tp = new TemporalPattern();
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const withItems = {...baseState, temporalPatterns: [tp], activeHydrologyItem: tp};
+            // first land on a preset so pattern_key is non-null...
+            const presetState = reducer(withItems, {
+                type: SET_TEMPORAL_PATTERN_PRESET,
+                temporalPatternId: tp.id,
+                patternKey: SCS_TYPE_II
+            });
+            expect(presetState.temporalPatterns[0].pattern_key).toBe(SCS_TYPE_II);
+            // ...then switch to custom → pattern_key clears, pattern_type='custom'
+            const customState = reducer(presetState, {
+                type: SET_TEMPORAL_PATTERN_PRESET,
+                temporalPatternId: tp.id,
+                patternKey: CUSTOM
+            });
+            expect(customState.temporalPatterns[0].pattern_key).toBe(null);
+            expect(customState.temporalPatterns[0].pattern_type).toBe('custom');
+        });
+
+        // TASK-1531: READ side (keystone) — createTemporalPatternFromJson (driven
+        // here via SET_HYDROLOGY_TEMPORAL_PATTERN_DATA, the fetch/reload path)
+        // must read pattern_key back AND derive selectedPreset from it, so the
+        // picker reopens on the saved preset instead of Alternating Block.
+        it('reload restores pattern_key + derives selectedPreset for a preset (TASK-1531)', () => {
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const state = reducer(baseState, {
+                type: SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
+                payload: [{
+                    id: 7,
+                    name: 'Saved SCS II',
+                    pattern_type: 'preset',
+                    pattern_key: SCS_TYPE_II
+                }]
+            });
+            const tp = state.temporalPatterns[0];
+            expect(tp.pattern_key).toBe(SCS_TYPE_II);
+            // keystone: selectedPreset is what the component reads to set the picker
+            expect(tp.selectedPreset).toBe(SCS_TYPE_II);
+            expect(tp.pattern_type).toBe('preset');
+        });
+
+        // TASK-1531: a saved custom pattern (pattern_type='custom', no pattern_key)
+        // reloads on the CUSTOM card — do NOT regress the 1508/1509 custom path.
+        it('reload of a custom pattern keeps pattern_type=custom + selectedPreset=CUSTOM (TASK-1531)', () => {
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const state = reducer(baseState, {
+                type: SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
+                payload: [{
+                    id: 8,
+                    name: 'Saved custom',
+                    pattern_type: 'custom',
+                    pattern_key: null
+                }]
+            });
+            const tp = state.temporalPatterns[0];
+            expect(tp.pattern_type).toBe('custom');
+            expect(tp.selectedPreset).toBe(CUSTOM);
+        });
+
+        // TASK-1531: a legacy row with neither pattern_key nor custom type
+        // falls back to Alternating Block (the pre-existing default).
+        it('reload with no pattern_key defaults selectedPreset to ALTERNATING_BLOCK (TASK-1531)', () => {
+            const baseState = reducer(undefined, {type: '@@INIT'});
+            const state = reducer(baseState, {
+                type: SET_HYDROLOGY_TEMPORAL_PATTERN_DATA,
+                payload: [{id: 9, name: 'Legacy', pattern_type: 'preset'}]
+            });
+            const tp = state.temporalPatterns[0];
+            expect(tp.pattern_key == null).toBe(true);
+            expect(tp.selectedPreset).toBe(ALTERNATING_BLOCK);
         });
     });
 
@@ -346,9 +496,9 @@ describe('TASK-1451 W4 — design-storm combine', () => {
     // 5. Geography suggestion (carry-over A)
     // -------------------------------------------------------------------------
     describe('suggestPatternFromLatLon geography rewire (carry-over A)', () => {
-        it('South Africa → SCS_SA', () => {
-            // lat -30, lon 26 (interior SA)
-            expect(suggestPatternFromLatLon(-30, 26)).toBe(SCS_SA);
+        it('South Africa → ALTERNATING_BLOCK (SCS-SA removed, TASK-1498)', () => {
+            // lat -30, lon 26 (interior SA): SCS-SA removed from pattern set in TASK-1498
+            expect(suggestPatternFromLatLon(-30, 26)).toBe(ALTERNATING_BLOCK);
         });
 
         it('US Northeast (Vermont) → SCS_TYPE_II', () => {

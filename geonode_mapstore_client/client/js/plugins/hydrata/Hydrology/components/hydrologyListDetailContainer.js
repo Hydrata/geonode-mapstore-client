@@ -4,7 +4,7 @@ import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
 import HydrologyDetailIdfDerive from './hydrologyDetailIdfDerive';
-import HydrologyDetailTemporalPattern from './hydrologyDetailTemporalPattern';
+import HydrologyDetailTemporalPattern, { validateCustomCurve } from './hydrologyDetailTemporalPattern';
 import HydrologyDetailTimeSeries from './hydrologyDetailTimeSeries';
 import {
     setActiveHydrologyItem,
@@ -24,13 +24,17 @@ class HydrologyListDetailContainerClass extends React.Component {
     static propTypes = {
         activeHydrologyPage: PropTypes.string,
         activeHydrologyItems: PropTypes.array,
+        idfTables: PropTypes.array,
         activeHydrologyItem: PropTypes.object,
         setActiveHydrologyItem: PropTypes.func,
         setActiveHydrologyPage: PropTypes.func,
         saveHydrologyItem: PropTypes.func,
         updateActiveHydrologyItem: PropTypes.func,
         deleteHydrologyItem: PropTypes.func,
-        createHydrologyForm: PropTypes.func
+        createHydrologyForm: PropTypes.func,
+        // TASK-1509 — non-null when the active item is a custom temporal pattern
+        // whose curve fails validateCustomCurve; disables the Save button.
+        customCurveError: PropTypes.string
     }
 
     static defaultProps = {}
@@ -43,12 +47,70 @@ class HydrologyListDetailContainerClass extends React.Component {
         };
     }
 
+    // TASK-1497 (UAT note-5) — the "Items" column renders on BOTH the Manual
+    // (idf-table) and Derive (idf-derive) pages so the left rail stays present
+    // when switching IDF modes. On the Derive page it lists the existing IDF
+    // tables; selecting one (or "New Item") jumps to the Manual editor with
+    // that item active, since Derive is a one-shot form that has no active item.
+    renderItemsColumn = () => {
+        const onDerive = this.props.activeHydrologyPage === 'idf-derive';
+        const items = onDerive ? this.props.idfTables : this.props.activeHydrologyItems;
+        const selectItem = (item) => {
+            this.props.setActiveHydrologyItem(item);
+            if (onDerive) this.props.setActiveHydrologyPage('idf-table');
+        };
+        const createItem = () => {
+            if (onDerive) this.props.setActiveHydrologyPage('idf-table');
+            this.props.createHydrologyForm(onDerive ? 'idf-table' : this.props.activeHydrologyPage);
+        };
+        return (
+            <div id={"hydrology-list-detail-col-one"}>
+                <div id={"hydrology-list-detail-items"}>
+                    <div id={"top-buttons"} style={{display: "flex", flexDirection: "column"}}>
+                        <div className={"hydrology-list-detail-heading"}><Message msgId="hydrata.hydrology.items" /></div>
+                        {items?.map((item) => {
+                            return (
+                                <button
+                                    key={item.id}
+                                    className={"hydrology-button"}
+                                    style={{
+                                        // TASK-1528 — existing items use the base plugin BLUE
+                                        // (selected full-opacity, others lighter); the green is
+                                        // now reserved for the "New Item" / Save buttons.
+                                        backgroundColor: item.id === this.props.activeHydrologyItem?.id ? "rgba(82,121,176,1)" : "rgba(82,121,176,0.6)"
+                                    }}
+                                    onClick={() => selectItem(item)}
+                                >
+                                    {item?.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div id={"bottom-buttons"}>
+                        <button
+                            className={"hydrology-button"}
+                            // TASK-1528 — "New Item" gets the GREEN accent (was the
+                            // inherited base blue); existing items are now blue.
+                            style={{marginTop: "10px", backgroundColor: "rgba(39,202,59,1)"}}
+                            onClick={createItem}
+                        >
+                            <Message msgId="hydrata.hydrology.newItem" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     render() {
         // TASK-1448 (W1) + TASK-1452 (W5) — IDF segmented control:
         // "Manual" (idf-table editable grid) | "Derive" (idf-derive stepper).
         // Opens on Derive (the common path). Polished pill segmented control.
         const isIdfPage = this.props.activeHydrologyPage === 'idf-table'
             || this.props.activeHydrologyPage === 'idf-derive';
+        // TASK-1509 — block Save when the active custom temporal-pattern curve
+        // is invalid (the BE clean() would reject it with a 400 otherwise).
+        const customCurveError = this.props.customCurveError;
         const IdfSubToggle = isIdfPage ? (
             <div className={"hydrology-idf-subtoggle"} role="group" aria-label="IDF mode">
                 <button
@@ -75,15 +137,19 @@ class HydrologyListDetailContainerClass extends React.Component {
         ) : null;
 
         // TASK-934 — IDF Derive is a one-shot form, not a list-of-items
-        // workflow. Bypass the items column + save/delete footer entirely
-        // when this tab is active; the panel manages its own submit state.
+        // workflow, so it keeps its own submit state and bypasses the
+        // save/delete footer. TASK-1497 (UAT note-5): the "Items" column IS
+        // shown here now (renderItemsColumn) for left-rail consistency.
         if (this.props.activeHydrologyPage === 'idf-derive') {
             return (
                 <div id={"hydrology-list-detail-container"}>
                     {IdfSubToggle}
                     <div id={"hydrology-list-detail-body"}>
-                        <div id={"hydrology-idf-derive-container"} className="idf-derive-container">
-                            <HydrologyDetailIdfDerive/>
+                        {this.renderItemsColumn()}
+                        <div id={"hydrology-list-detail-col-two"}>
+                            <div id={"hydrology-idf-derive-container"} className="idf-derive-container">
+                                <HydrologyDetailIdfDerive/>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -93,39 +159,7 @@ class HydrologyListDetailContainerClass extends React.Component {
             <div id={"hydrology-list-detail-container"}>
                 {IdfSubToggle}
                 <div id={"hydrology-list-detail-body"}>
-                    <div id={"hydrology-list-detail-col-one"}>
-                        <div id={"hydrology-list-detail-items"}>
-                            <div id={"top-buttons"} style={{display: "flex", flexDirection: "column"}}>
-                                <div className={"hydrology-list-detail-heading"}><Message msgId="hydrata.hydrology.items" /></div>
-                                {this.props.activeHydrologyItems?.map((item) => {
-                                    return (
-                                        <button
-                                            className={"hydrology-button"}
-                                            style={{
-                                                backgroundColor: item.id === this.props.activeHydrologyItem?.id ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"
-                                            }}
-                                            onClick={
-                                                () => this.props.setActiveHydrologyItem(item)
-                                            }
-                                        >
-                                            {item?.name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <div id={"bottom-buttons"}>
-                                <button
-                                    className={"hydrology-button"}
-                                    style={{marginTop: "10px"}}
-                                    onClick={
-                                        () => this.props.createHydrologyForm(this.props.activeHydrologyPage)
-                                    }
-                                >
-                                    <Message msgId="hydrata.hydrology.newItem" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    {this.renderItemsColumn()}
                     <div id={"hydrology-list-detail-col-two"}>
                         <div id={"hydrology-detail-container"}>
                             {
@@ -226,9 +260,14 @@ class HydrologyListDetailContainerClass extends React.Component {
                         </button>
                     )}
                     <button
-                        className={this.props.activeHydrologyItem?.unsaved ? "hydrology-button" : "hydrology-button-disabled"}
-                        style={{backgroundColor: this.props.activeHydrologyItem?.unsaved ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}
-                        onClick={() => this.props.saveHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem)}
+                        className={(this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "hydrology-button" : "hydrology-button-disabled"}
+                        style={{backgroundColor: (this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}
+                        disabled={!!customCurveError}
+                        title={customCurveError ? `Fix validation errors first: ${customCurveError}` : undefined}
+                        onClick={() => {
+                            if (customCurveError) { return; }
+                            this.props.saveHydrologyItem(this.props.activeHydrologyPage, this.props.activeHydrologyItem);
+                        }}
                     >
                         <Message msgId="hydrata.hydrology.save" />
                     </button>
@@ -251,11 +290,22 @@ class HydrologyListDetailContainerClass extends React.Component {
 }
 
 const mapStateToProps = (state) => {
+    const activeHydrologyItem = state?.hydrology?.activeHydrologyItem;
+    // TASK-1509 — recompute the custom-curve validity on every store change
+    // (the custom editor commits rowData through Redux, TASK-1508). null for
+    // non-custom items, so the Save button is only ever blocked for an invalid
+    // custom temporal pattern. Reuses the editor's own validateCustomCurve.
+    const customCurveError = activeHydrologyItem?.pattern_type === 'custom'
+        ? validateCustomCurve(activeHydrologyItem.rowData)
+        : null;
     return {
         activeHydrologyPage: state?.hydrology?.activeHydrologyPage,
         activeHydrologyItems: state?.hydrology[hydrologyKeyMap[state.hydrology.activeHydrologyPage]],
-        activeHydrologyItem: state?.hydrology?.activeHydrologyItem
-
+        // TASK-1497 (UAT note-5) — IDF tables for the Items column on the
+        // Derive page (where activeHydrologyItems is undefined).
+        idfTables: state?.hydrology?.idfTables,
+        activeHydrologyItem,
+        customCurveError
     };
 };
 

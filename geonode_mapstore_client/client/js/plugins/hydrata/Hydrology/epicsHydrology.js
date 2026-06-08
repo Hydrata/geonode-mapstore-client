@@ -16,6 +16,7 @@ import {
     setHydrologyIdfTableData,
     errorHydrologyIdfTableData,
     SAVE_HYDROLOGY_ITEM,
+    SAVE_HYDROLOGY_ITEM_SUCCESS,
     saveHydrologyItemSuccess,
     saveHydrologyItemFailure,
     createHydrologyItemSuccess,
@@ -30,15 +31,26 @@ import {
     setIdfDeriveResult,
     setIdfDeriveLat,
     setIdfDeriveLon,
+    SET_IDF_DERIVE_MAP_PICK_ACTIVE,
     setIdfDeriveMapPickActive,
     setCeleryAnugaEnabled,
     DERIVE_DESIGN_STORM_REQUEST,
     deriveDesignStormSuccess,
-    deriveDesignStormFailure
+    deriveDesignStormFailure,
+    // TASK-1501 (W4b) — projection browser
+    PREVIEW_DESIGN_STORMS_REQUEST,
+    previewDesignStormsRequest,
+    previewDesignStormsSuccess,
+    previewDesignStormsFailure,
+    ATTACH_DESIGN_STORM_REQUEST,
+    attachDesignStormSuccess,
+    attachDesignStormFailure,
+    markProjectionStale
 } from "../Hydrology/actionsHydrology";
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
-import {CLICK_ON_MAP} from '../../../../MapStore2/web/client/actions/map';
-import {deriveIdf, getIdfTable, deriveDesignStorm} from './api/hydrologyApi';
+import {CLICK_ON_MAP, registerEventListener, unRegisterEventListener} from '../../../../MapStore2/web/client/actions/map';
+import {purgeMapInfoResults, hideMapinfoMarker, toggleMapInfoState} from '../../../../MapStore2/web/client/actions/mapInfo';
+import {deriveIdf, getIdfTable, deriveDesignStorm, attachDesignStorm} from './api/hydrologyApi';
 import {getAnugaConfig} from '../Anuga/api/anugaApi';
 
 // V2P-79 / V2P-77 — V1 hydrology routes were /anuga/api/{pid}/<endpoint>/
@@ -250,11 +262,26 @@ export const deleteHydrologyItemEpic = (action$, store) =>
                 ]));
         });
 
+// ERA5 annual-maxima GEV derivation floors. The derive endpoint can only
+// produce ARIs the model is defined for, so the derive payload is clamped to:
+//   • durations ≥ 60 min — ERA5-Land is hourly; sub-hourly intensities aren't
+//     resolvable (services.validate_durations_min rejects < 60 with a 400).
+//   • return periods ≥ 1 yr — the GEV quantile p = 1 − 1/T needs T ≥ 1
+//     (T = 0.5 → p = −1 → NaN), and the serializer's IntegerField child 400s
+//     on a fractional 0.5.
+// The canonical matrix deliberately KEEPS the sub-hourly rows + the 0.5yr
+// column for manually-entered IDF tables, so these are filtered OUT of the
+// derive POST (in deriveIdfEpic) rather than rejected at parse time. See the
+// deploy spine uat_blockers (epic 1497).
+const DERIVE_MIN_DURATION_MIN = 60;
+const DERIVE_MIN_RETURN_PERIOD_YR = 1;
+
 // TASK-934 — Parse the comma-separated text fields into number arrays.
 // Returns {durations: number[], rps: number[], error: string|null}.
-// Invariants: durations ≥60 (smallest meaningful ERA5-Land hourly step),
-// rps ≥2 (smallest GEV-fittable AMS). Duplicates rejected so the backend
-// doesn't waste compute on redundant return periods.
+// Parsing stays permissive (durations ≥1, rps ≥0.5) so the matrix can carry
+// the manual-only sub-hourly / sub-annual cells; the derive floors above are
+// applied when the payload is built. Duplicates rejected so the backend
+// doesn't waste compute on redundant cells.
 const parseIdfDeriveInputs = (durationsText, rpsText) => {
     const parseList = (text, minVal, label) => {
         const tokens = String(text || '')
@@ -272,9 +299,9 @@ const parseIdfDeriveInputs = (durationsText, rpsText) => {
         }
         return {values, error: null};
     };
-    const d = parseList(durationsText, 60, 'Durations');
+    const d = parseList(durationsText, 1, 'Durations');
     if (d.error) return {durations: null, rps: null, error: d.error};
-    const r = parseList(rpsText, 2, 'Return periods');
+    const r = parseList(rpsText, 0.5, 'Return periods');
     if (r.error) return {durations: null, rps: null, error: r.error};
     return {durations: d.values, rps: r.values, error: null};
 };
@@ -285,7 +312,11 @@ const parseIdfDeriveInputs = (durationsText, rpsText) => {
 export const deriveIdfEpic = (action$, store) =>
     action$
         .ofType(DERIVE_IDF_REQUEST)
-        .mergeMap(() => {
+        // exhaustMap (not mergeMap): while a derive POST is in flight, ignore a
+        // second DERIVE_IDF_REQUEST so a double-click can't fire two derive
+        // tasks (TASK-1539). Validation-error inner observables complete
+        // immediately, so a retry after a rejected request is unaffected.
+        .exhaustMap(() => {
             const state = store.getState();
             const projectId = state?.anuga?.projects?.data?.id;
             const slice = state?.hydrology?.idfDerive || {};
@@ -306,11 +337,24 @@ export const deriveIdfEpic = (action$, store) =>
             }
             const parsed = parseIdfDeriveInputs(slice.durationsText, slice.rpsText);
             if (parsed.error) return Rx.Observable.of(setIdfDeriveError(parsed.error));
-            const payload = {
-                lat, lon,
-                durations_min: parsed.durations,
-                return_periods_yr: parsed.rps
-            };
+            // Clamp to the ERA5 derive floors (see DERIVE_MIN_* above): sub-hourly
+            // durations and sub-annual return periods can't be derived, so drop
+            // them from the POST. They stay valid in the manual IDF table.
+            const durations_min = parsed.durations.filter(d => d >= DERIVE_MIN_DURATION_MIN);
+            const return_periods_yr = parsed.rps.filter(rp => rp >= DERIVE_MIN_RETURN_PERIOD_YR);
+            if (durations_min.length === 0) {
+                return Rx.Observable.of(setIdfDeriveError(
+                    'Select at least one duration of 60 min or more. ERA5-Land is '
+                    + 'hourly, so sub-hourly durations cannot be derived.'
+                ));
+            }
+            if (return_periods_yr.length === 0) {
+                return Rx.Observable.of(setIdfDeriveError(
+                    'Select at least one return period of 1 yr or more. Sub-annual '
+                    + 'ARIs cannot be estimated from annual maxima.'
+                ));
+            }
+            const payload = {lat, lon, durations_min, return_periods_yr};
             return Rx.Observable.from(deriveIdf(projectId, payload))
                 .mergeMap(response => {
                     const data = response?.data || {};
@@ -352,10 +396,18 @@ export const deriveIdfEpic = (action$, store) =>
 // than couple to those internals we sample state on a timer that lives
 // only while a derive is in flight.
 // 5-minute poll cap at 2s tick = 150 attempts. A 75-yr ERA5 fit
-// completes in ~30-90s on the anuga worker; the worker timeout itself is
-// 600s. The cap is defence-in-depth against a stuck Process row leaving
-// the FE polling redux forever.
+// completes in ~30-90s on the anuga worker. TASK-1535: the BE soft time
+// limit (HYDROLOGY_DERIVE_SOFT_TIME_LIMIT, ~300s) now flips the Process to
+// ERROR well before this cap, so in practice we surface the BE's clear
+// "ERA5 archive unavailable" message via the status==='error' branch below.
+// The cap is defence-in-depth against a stuck Process row leaving the FE
+// polling redux forever (matched to the ~300s soft limit).
 const IDF_DERIVE_POLL_MAX_ATTEMPTS = 150;
+// TASK-1535: ERA5-aware message used when the FE poll cap is reached without
+// the BE having flipped the Process — the derive is almost certainly stuck on
+// an unreachable ERA5 archive.
+export const IDF_DERIVE_TIMEOUT_MESSAGE =
+    'Derive timed out — the ERA5 archive may be unavailable or unreachable. Please try again later.';
 
 export const idfDeriveCompleteEpic = (action$, store) =>
     action$
@@ -375,7 +427,7 @@ export const idfDeriveCompleteEpic = (action$, store) =>
                     if (!proc) {
                         if (tick === IDF_DERIVE_POLL_MAX_ATTEMPTS - 1) {
                             fetched.done = true;
-                            return Rx.Observable.of(setIdfDeriveError('Derive timed out waiting for result'));
+                            return Rx.Observable.of(setIdfDeriveError(IDF_DERIVE_TIMEOUT_MESSAGE));
                         }
                         return Rx.Observable.empty();
                     }
@@ -403,7 +455,7 @@ export const idfDeriveCompleteEpic = (action$, store) =>
                     }
                     if (tick === IDF_DERIVE_POLL_MAX_ATTEMPTS - 1) {
                         fetched.done = true;
-                        return Rx.Observable.of(setIdfDeriveError('Derive timed out waiting for result'));
+                        return Rx.Observable.of(setIdfDeriveError(IDF_DERIVE_TIMEOUT_MESSAGE));
                     }
                     return Rx.Observable.empty();
                 });
@@ -412,6 +464,8 @@ export const idfDeriveCompleteEpic = (action$, store) =>
 // TASK-934 — Map-pick handler. When user clicks "Pick on map" we set
 // mapPickActive=true; the next CLICK_ON_MAP captures lat/lon and clears
 // the flag. Mirrors the HGeval mapClickEpic pattern.
+// TASK-1499 (W2) — Round lat/lon to 2 dp on write so stored value
+// matches the displayed value carried into the derive POST.
 export const idfDeriveMapPickEpic = (action$, store) =>
     action$
         .ofType(CLICK_ON_MAP)
@@ -419,10 +473,45 @@ export const idfDeriveMapPickEpic = (action$, store) =>
         // eslint-disable-next-line no-eq-null, eqeqeq -- null-or-undefined idiom
         .filter(({point}) => point?.latlng?.lat != null && point?.latlng?.lng != null)
         .mergeMap(({point}) => Rx.Observable.from([
-            setIdfDeriveLat(point.latlng.lat),
-            setIdfDeriveLon(point.latlng.lng),
+            setIdfDeriveLat(Number(point.latlng.lat.toFixed(2))),
+            setIdfDeriveLon(Number(point.latlng.lng.toFixed(2))),
             setIdfDeriveMapPickActive(false)
         ]));
+
+// TASK-1499 (W2) — Identify-suppression manager epic for the IDF-derive
+// map-pick flow. Cloned from hgevalMapClickManagerEpic (epicsHGeval.js:211).
+// On mapPickActive=true: disable Identify (guarded), register event listener,
+// purge any open identify results. On mapPickActive=false: unregister and
+// restore Identify (only if we disabled it). The weDisabledMapInfo closure
+// guard prevents double-toggle and respects a user who already had Identify
+// off before arming pick.
+export const hydrologyIdfPickManagerEpic = (action$, store) => {
+    let weDisabledMapInfo = false;
+    return action$
+        .ofType(SET_IDF_DERIVE_MAP_PICK_ACTIVE)
+        .switchMap(() => {
+            const state = store.getState();
+            const mapPickActive = state?.hydrology?.idfDerive?.mapPickActive;
+            if (mapPickActive) {
+                const actions = [
+                    purgeMapInfoResults(),
+                    hideMapinfoMarker(),
+                    registerEventListener('click', 'hydrologyIdfPick')
+                ];
+                if (!weDisabledMapInfo && state?.mapInfo?.enabled !== false) {
+                    actions.push(toggleMapInfoState());
+                    weDisabledMapInfo = true;
+                }
+                return Rx.Observable.from(actions);
+            }
+            const actions = [unRegisterEventListener('click', 'hydrologyIdfPick')];
+            if (weDisabledMapInfo) {
+                actions.push(toggleMapInfoState());
+                weDisabledMapInfo = false;
+            }
+            return Rx.Observable.from(actions);
+        });
+};
 
 // TASK-934 — Hydrate celery_anuga_enabled from /api/v2/anuga/config/.
 // Fires once on the first INIT_HYDROLOGY (Hydrology container mount).
@@ -437,6 +526,184 @@ export const loadAnugaConfigEpic = (action$) =>
                 .map(cfg => setCeleryAnugaEnabled(cfg?.celery_anuga_enabled !== false))
                 .catch(() => Rx.Observable.empty())
         );
+
+// ---------------------------------------------------------------------------
+// Helper: build projection cells from the current spec + loaded IDF table.
+// Returns [{pattern, ari, duration_min, timestep_min}] for the filtered view.
+// Pure function, exported for testing.
+// ---------------------------------------------------------------------------
+export function _buildProjectionCells(projection, idfTables) {
+    if (!projection || !projection.selectedIdfTableId) return [];
+    const idfTable = (idfTables || []).find(t => t.id === projection.selectedIdfTableId);
+    if (!idfTable) return [];
+
+    // Derive available ARIs from the IDF table's return_periods_yr or columnDefs.
+    // W3 stored these on data.return_periods_yr; fall back to columnDef ari fields.
+    const rpList = idfTable.data?.return_periods_yr
+        || idfTable.return_periods_yr
+        || idfTable.columnDefs?.filter(c => c.ari).map(c => c.ari)
+        || [];
+
+    // Derive available durations from the IDF table's durations_min or rowData.
+    const durationList = idfTable.data?.durations_min
+        || idfTable.durations_min
+        || (idfTable.rowData || []).map(r => r.duration).filter(Boolean)
+        || [];
+
+    // Patterns: use selected (non-empty) or all from PRESET_FAMILIES.
+    const patternsToUse = projection.selectedPatterns && projection.selectedPatterns.length > 0
+        ? projection.selectedPatterns
+        : ['alternating_block', 'SCS_TYPE_I', 'SCS_TYPE_IA', 'SCS_TYPE_II', 'SCS_TYPE_III', 'HUFF'];
+
+    // Apply view filters — narrow without creating/deleting rows (AC2).
+    const ariFilter = projection.viewFilter?.ari;
+    const durationFilter = projection.viewFilter?.durationMin;
+    const aris = ariFilter ? rpList.filter(r => r === ariFilter) : rpList;
+    const durations = durationFilter ? durationList.filter(d => d === durationFilter) : durationList;
+    const timestepMin = projection.timestepMin || 60;
+
+    const cells = [];
+    for (const pattern of patternsToUse) {
+        for (const ari of aris) {
+            for (const duration of durations) {
+                cells.push({
+                    pattern,
+                    ari: Number(ari),
+                    duration_min: Number(duration),
+                    timestep_min: timestepMin
+                });
+            }
+        }
+    }
+    return cells;
+}
+
+// TASK-1501 (W4b) — Design-storm rowless BATCH PREVIEW epic.
+// Listens for PREVIEW_DESIGN_STORMS_REQUEST, POSTs to the derive-design-storm
+// endpoint with mode='preview' + cells=[...], gets back rowData without
+// persisting any TimeSeries row (AC1, AC2, AC9).
+export const previewDesignStormsEpic = (action$, store) =>
+    action$
+        .ofType(PREVIEW_DESIGN_STORMS_REQUEST)
+        .switchMap(action => {
+            const projectId = store.getState()?.anuga?.projects?.data?.id;
+            if (!projectId) {
+                return Rx.Observable.of(previewDesignStormsFailure('No active project'));
+            }
+            if (!action.cells || action.cells.length === 0) {
+                return Rx.Observable.of(previewDesignStormsSuccess([]));
+            }
+            const payload = {
+                mode: 'preview',
+                idf_table_id: action.idfTableId,
+                cells: action.cells
+            };
+            return Rx.Observable.from(deriveDesignStorm(projectId, payload))
+                .map(response => {
+                    const previews = (response?.data?.previews || []);
+                    return previewDesignStormsSuccess(previews);
+                })
+                .catch(error => {
+                    const detail = error?.data?.detail
+                        || error?.response?.data?.detail
+                        || error?.message
+                        || 'Preview failed';
+                    return Rx.Observable.of(previewDesignStormsFailure(String(detail)));
+                });
+        });
+
+// TASK-1501 (W4b) — Reactive reprojection on IDF/pattern save (AC5).
+// On SAVE_HYDROLOGY_ITEM_SUCCESS for 'idf-table' or 'temporal-pattern',
+// mark the projection stale so the browser re-fetches previews.
+export const reprojectOnSaveEpic = (action$, store) =>
+    action$
+        .ofType(SAVE_HYDROLOGY_ITEM_SUCCESS)
+        .filter(action =>
+            action.activeHydrologyPage === 'idf-table' ||
+            action.activeHydrologyPage === 'temporal-pattern'
+        )
+        .mergeMap(() => {
+            const state = store.getState();
+            const projection = state?.hydrology?.projection;
+            const projectId = state?.anuga?.projects?.data?.id;
+            // If there is a live projection spec, re-run the preview automatically.
+            if (!projection || !projection.selectedIdfTableId || !projectId) {
+                return Rx.Observable.of(markProjectionStale());
+            }
+            // Re-derive the filtered preview set from the updated IDF/pattern.
+            const cells = _buildProjectionCells(projection, state?.hydrology?.idfTables);
+            if (!cells || cells.length === 0) {
+                return Rx.Observable.of(markProjectionStale());
+            }
+            // Dispatch PREVIEW_DESIGN_STORMS_REQUEST — the preview epic handles it.
+            return Rx.Observable.of(
+                previewDesignStormsRequest(cells, projection.selectedIdfTableId, projection.timestepMin)
+            );
+        });
+
+// TASK-1501 (W4b) — ATTACH→materialise-one epic (AC6).
+// Listens for ATTACH_DESIGN_STORM_REQUEST, POSTs to the attach-design-storm
+// endpoint (201 + one real TimeSeries row), then writes the returned id into
+// the feature's data_timeseries_id via the TimeDataPicker contract.
+export const attachDesignStormEpic = (action$, store) =>
+    action$
+        .ofType(ATTACH_DESIGN_STORM_REQUEST)
+        .mergeMap(action => {
+            const state = store.getState();
+            const projectId = state?.anuga?.projects?.data?.id;
+            if (!projectId) {
+                return Rx.Observable.of(attachDesignStormFailure('No active project'));
+            }
+            const {rainfallPk, spec, featureId} = action;
+            const payload = {
+                idf_table_id: spec.idfTableId,
+                pattern: spec.patternKey,
+                duration_min: spec.durationMin,
+                timestep_min: spec.timestepMin
+            };
+            if (spec.aep !== undefined && spec.aep !== null && spec.aep !== '') {
+                payload.aep = Number(spec.aep);
+            } else if (spec.ari !== undefined && spec.ari !== null && spec.ari !== '') {
+                payload.ari = Number(spec.ari);
+            }
+            if (spec.peakPosition !== undefined && spec.peakPosition !== null) {
+                payload.peak_position = Number(spec.peakPosition);
+            }
+            if (spec.name) payload.name = spec.name;
+            if (featureId !== undefined && featureId !== null) {
+                payload.feature_id = featureId;
+            }
+            return Rx.Observable.from(attachDesignStorm(projectId, rainfallPk, payload))
+                .mergeMap(response => {
+                    const ts = response.data;
+                    return Rx.Observable.from([
+                        attachDesignStormSuccess(ts, rainfallPk),
+                        show({
+                            message: `Design storm "${ts.name}" attached to rainfall.`,
+                            title: 'hydrata.hydrology.success',
+                            uid: 1002,
+                            position: 'tc'
+                        }),
+                        // Re-fetch time-series list so new row appears in the rail.
+                        fetchHydrologyTimeSeriesData()
+                    ]);
+                })
+                .catch(error => {
+                    const detail = error?.data?.detail
+                        || error?.response?.data?.detail
+                        || error?.message
+                        || 'Attach design storm failed';
+                    return Rx.Observable.from([
+                        attachDesignStormFailure(String(detail)),
+                        show({
+                            message: `Error: ${String(detail)}`,
+                            title: 'hydrata.hydrology.error',
+                            uid: 6002,
+                            position: 'tc'
+                        }, 'error')
+                    ]);
+                });
+        });
 
 // TASK-1451 (W4) — Design-storm derive epic.
 // Listens for DERIVE_DESIGN_STORM_REQUEST, POSTs to the synchronous

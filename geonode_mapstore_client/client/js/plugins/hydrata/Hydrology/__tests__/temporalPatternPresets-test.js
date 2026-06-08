@@ -17,7 +17,6 @@ import {
     SCS_TYPE_II,
     SCS_TYPE_III,
     HUFF,
-    SCS_SA,
     getPreviewCurve,
     suggestPatternFromLatLon,
     getSuggestionLabel
@@ -54,9 +53,9 @@ describe('TASK-1450 temporalPatternPresets', () => {
             expect(ids.indexOf(HUFF)).toBeGreaterThan(-1);
         });
 
-        it('includes SCS-SA family', () => {
+        it('does NOT include SCS-SA family (TASK-1498 / DECISION Q11: removed)', () => {
             const ids = PRESET_FAMILIES.map(f => f.id);
-            expect(ids.indexOf(SCS_SA)).toBeGreaterThan(-1);
+            expect(ids.indexOf('SCS_SA')).toBe(-1);
         });
 
         it('every family has id, label, description', () => {
@@ -78,7 +77,7 @@ describe('TASK-1450 temporalPatternPresets', () => {
             expect(getPreviewCurve('UNKNOWN_PATTERN')).toBe(null);
         });
 
-        [SCS_TYPE_I, SCS_TYPE_IA, SCS_TYPE_II, SCS_TYPE_III, HUFF, SCS_SA].forEach(key => {
+        [SCS_TYPE_I, SCS_TYPE_IA, SCS_TYPE_II, SCS_TYPE_III, HUFF].forEach(key => {
             it(`returns a non-empty {t, cum} array for ${key}`, () => {
                 const curve = getPreviewCurve(key);
                 expect(Array.isArray(curve)).toBe(true);
@@ -110,12 +109,12 @@ describe('TASK-1450 temporalPatternPresets', () => {
             expect(suggestPatternFromLatLon(NaN, 100)).toBe(ALTERNATING_BLOCK);
         });
 
-        it('returns SCS_SA for Cape Town, South Africa (-33.9, 18.4)', () => {
-            expect(suggestPatternFromLatLon(-33.9, 18.4)).toBe(SCS_SA);
+        it('returns ALTERNATING_BLOCK for Cape Town, South Africa (-33.9, 18.4) — SCS-SA removed (TASK-1498)', () => {
+            expect(suggestPatternFromLatLon(-33.9, 18.4)).toBe(ALTERNATING_BLOCK);
         });
 
-        it('returns SCS_SA for Johannesburg (-26.2, 28.0)', () => {
-            expect(suggestPatternFromLatLon(-26.2, 28.0)).toBe(SCS_SA);
+        it('returns ALTERNATING_BLOCK for Johannesburg (-26.2, 28.0) — SCS-SA removed (TASK-1498)', () => {
+            expect(suggestPatternFromLatLon(-26.2, 28.0)).toBe(ALTERNATING_BLOCK);
         });
 
         it('returns SCS_TYPE_II for most of CONUS — Chicago, IL (41.9, -87.6)', () => {
@@ -184,10 +183,10 @@ describe('TASK-1450 temporalPatternPresets', () => {
 
             const stateAfter = reducer(
                 stateWithTP,
-                setTemporalPatternPreset('tp-42', SCS_SA)
+                setTemporalPatternPreset('tp-42', HUFF)
             );
-            expect(stateAfter.temporalPatterns[0].selectedPreset).toBe(SCS_SA);
-            expect(stateAfter.activeHydrologyItem.selectedPreset).toBe(SCS_SA);
+            expect(stateAfter.temporalPatterns[0].selectedPreset).toBe(HUFF);
+            expect(stateAfter.activeHydrologyItem.selectedPreset).toBe(HUFF);
         });
 
         it('reducer leaves other patterns unchanged', () => {

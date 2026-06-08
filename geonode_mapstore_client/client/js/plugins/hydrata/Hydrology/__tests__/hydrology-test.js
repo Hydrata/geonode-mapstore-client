@@ -209,6 +209,29 @@ describe('Hydrology Plugin', () => {
             expect(state.idfTables[0].name).toBe('IDF Table 1');
         });
 
+        // Regression: a persisted IDF table can be serialized without a `data`
+        // object (the V2 list serializer omits it). The IdfTable `data` setter
+        // throws on a non-object, and because this reducer runs inside an
+        // epic-dispatched action, an in-reducer throw tears down the whole
+        // redux-observable epic stream (map-pick, identify, etc. all go silent).
+        // The deserializer must tolerate missing/non-object `data`.
+        it('should handle SET_HYDROLOGY_IDF_TABLE_DATA when data is absent or non-object', () => {
+            const idfTableData = [
+                { id: 1, name: 'No data key' },           // data === undefined
+                { id: 2, name: 'Null data', data: null }, // typeof null === 'object'
+                { id: 3, name: 'String data', data: 'x' }  // non-object
+            ];
+            let state;
+            expect(() => {
+                state = reducer(initialState, {
+                    type: SET_HYDROLOGY_IDF_TABLE_DATA,
+                    payload: idfTableData
+                });
+            }).toNotThrow();
+            expect(state.idfTables.length).toBe(3);
+            expect(state.idfTables[0].name).toBe('No data key');
+        });
+
         it('should handle SET_HYDROLOGY_TEMPORAL_PATTERN_DATA', () => {
             const patternData = [
                 { id: 1, name: 'Pattern 1', data: [] }
@@ -231,6 +254,131 @@ describe('Hydrology Plugin', () => {
             });
             expect(state.timeSeriess.length).toBe(1);
             expect(state.timeSeriess[0].name).toBe('Series 1');
+        });
+
+        // TASK-1532 — CREATE_HYDROLOGY_FORM assigns an auto-numbered,
+        // zero-padded default name per type ('IDF Table 01' / 'Temporal
+        // Pattern 01' / 'Design Storm 01'), incrementing over the existing
+        // in-project list. The name MUST be computed once here so the optimistic
+        // POST body matches the CREATE_HYDROLOGY_ITEM_SUCCESS reconcile (which
+        // matches on item.name), else the create round-trip duplicates the row.
+        describe('TASK-1532 CREATE_HYDROLOGY_FORM auto-numbered default names', () => {
+            it('idf-table on empty tab → "IDF Table 01"', () => {
+                const state = reducer(
+                    { ...initialState, idfTables: [] },
+                    createHydrologyForm('idf-table')
+                );
+                expect(state.idfTables.length).toBe(1);
+                expect(state.idfTables[0].name).toBe('IDF Table 01');
+                expect(state.activeHydrologyItem.name).toBe('IDF Table 01');
+            });
+
+            it('temporal-pattern on empty tab → "Temporal Pattern 01"', () => {
+                const state = reducer(
+                    { ...initialState, temporalPatterns: [] },
+                    createHydrologyForm('temporal-pattern')
+                );
+                expect(state.temporalPatterns.length).toBe(1);
+                expect(state.temporalPatterns[0].name).toBe('Temporal Pattern 01');
+                expect(state.activeHydrologyItem.name).toBe('Temporal Pattern 01');
+            });
+
+            it('time-series on empty tab → "Design Storm 01"', () => {
+                const state = reducer(
+                    { ...initialState, timeSeriess: [] },
+                    createHydrologyForm('time-series')
+                );
+                expect(state.timeSeriess.length).toBe(1);
+                expect(state.timeSeriess[0].name).toBe('Design Storm 01');
+                expect(state.activeHydrologyItem.name).toBe('Design Storm 01');
+            });
+
+            it('idf-table with existing ...01/...02 → "IDF Table 03"', () => {
+                const state = reducer(
+                    {
+                        ...initialState,
+                        idfTables: [
+                            { id: 1, name: 'IDF Table 01' },
+                            { id: 2, name: 'IDF Table 02' }
+                        ]
+                    },
+                    createHydrologyForm('idf-table')
+                );
+                expect(state.idfTables.length).toBe(3);
+                expect(state.idfTables[2].name).toBe('IDF Table 03');
+            });
+
+            it('temporal-pattern with existing ...01/...02 → "Temporal Pattern 03"', () => {
+                const state = reducer(
+                    {
+                        ...initialState,
+                        temporalPatterns: [
+                            { id: 1, name: 'Temporal Pattern 01' },
+                            { id: 2, name: 'Temporal Pattern 02' }
+                        ]
+                    },
+                    createHydrologyForm('temporal-pattern')
+                );
+                expect(state.temporalPatterns.length).toBe(3);
+                expect(state.temporalPatterns[2].name).toBe('Temporal Pattern 03');
+            });
+
+            it('time-series with existing ...01/...02 → "Design Storm 03"', () => {
+                const state = reducer(
+                    {
+                        ...initialState,
+                        timeSeriess: [
+                            { id: 1, name: 'Design Storm 01' },
+                            { id: 2, name: 'Design Storm 02' }
+                        ]
+                    },
+                    createHydrologyForm('time-series')
+                );
+                expect(state.timeSeriess.length).toBe(3);
+                expect(state.timeSeriess[2].name).toBe('Design Storm 03');
+            });
+
+            // Numbering keys off the MAX trailing int, not the count: a gap
+            // (01, 05) must yield 06, and user-renamed/foreign rows are ignored.
+            it('idf-table indexes off the max trailing int, skipping gaps and foreign names', () => {
+                const state = reducer(
+                    {
+                        ...initialState,
+                        idfTables: [
+                            { id: 1, name: 'IDF Table 01' },
+                            { id: 2, name: 'IDF Table 05' },
+                            { id: 3, name: 'My custom curve' }
+                        ]
+                    },
+                    createHydrologyForm('idf-table')
+                );
+                expect(state.idfTables[3].name).toBe('IDF Table 06');
+            });
+
+            // Keystone: the optimistic CREATE_HYDROLOGY_FORM name must survive
+            // the create round-trip. CREATE_HYDROLOGY_ITEM_SUCCESS reconciles on
+            // item.name, so the server echo (same name) must REPLACE the temp
+            // row in place — not append a duplicate.
+            it('no duplicate list row after the create round-trip (name matches reconcile)', () => {
+                const created = reducer(
+                    { ...initialState, idfTables: [] },
+                    createHydrologyForm('idf-table')
+                );
+                const tempItem = created.idfTables[0];
+                expect(tempItem.name).toBe('IDF Table 01');
+                expect(typeof tempItem.id).toBe('string');
+                expect(tempItem.id.includes('temp')).toBe(true);
+
+                // Server responds with the same name + a real numeric id.
+                const reconciled = reducer(created, {
+                    type: 'CREATE_HYDROLOGY_ITEM_SUCCESS',
+                    activeHydrologyPage: 'idf-table',
+                    item: { id: 42, name: 'IDF Table 01', data: { columnDefs: [], rowData: [] } }
+                });
+                expect(reconciled.idfTables.length).toBe(1);
+                expect(reconciled.idfTables[0].id).toBe(42);
+                expect(reconciled.idfTables[0].name).toBe('IDF Table 01');
+            });
         });
 
         it('should handle DELETE_HYDROLOGY_ITEM_SUCCESS for idf-table', () => {

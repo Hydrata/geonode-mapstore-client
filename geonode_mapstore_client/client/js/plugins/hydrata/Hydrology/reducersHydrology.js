@@ -14,6 +14,7 @@ import {
     UPDATE_IDF_ROW_DATA,
     UPDATE_TEMPORAL_PATTERN_ROW_DATA,
     UPDATE_TIME_SERIES_ROW_DATA, REPLACE_TIME_SERIES_ROW_DATA,
+    REPLACE_TEMPORAL_PATTERN_ROW_DATA,
     SET_TEMPORAL_PATTERN_PRESET,
     SET_IDF_DERIVE_LAT,
     SET_IDF_DERIVE_LON,
@@ -28,16 +29,30 @@ import {
     DERIVE_DESIGN_STORM_REQUEST,
     DERIVE_DESIGN_STORM_SUCCESS,
     DERIVE_DESIGN_STORM_FAILURE,
-    SET_DESIGN_STORM_FORM
+    SET_DESIGN_STORM_FORM,
+    // TASK-1501 (W4b) — projection browser
+    SET_PROJECTION_SPEC,
+    PREVIEW_DESIGN_STORMS_REQUEST,
+    PREVIEW_DESIGN_STORMS_SUCCESS,
+    PREVIEW_DESIGN_STORMS_FAILURE,
+    SET_PROJECTION_VIEW_FILTER,
+    SET_FOCUSED_PREVIEW,
+    ATTACH_DESIGN_STORM_REQUEST,
+    ATTACH_DESIGN_STORM_SUCCESS,
+    ATTACH_DESIGN_STORM_FAILURE,
+    MARK_PROJECTION_STALE
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
 import {IdfTable, TemporalPattern, TimeSeries} from "./classesHydrology";
+import {CUSTOM, ALTERNATING_BLOCK} from "./temporalPatternPresets";
 
 // TASK-934 — IDF Derive default form values. ERA5-Land hourly data does
 // not improve below ~1h, so 60min is the smallest meaningful duration.
-// Default RPs follow design-standard practice (2/5/10/20/50/100/200yr).
-const IDF_DERIVE_DEFAULT_DURATIONS = '60, 180, 360, 720, 1440, 2880, 10080';
-const IDF_DERIVE_DEFAULT_RPS = '2, 5, 10, 20, 50, 100, 200';
+// W3 (TASK-1500): defaults match the matrix axes in hydrologyDetailIdfDerive.js.
+// Sub-hourly durations excluded from the default (ERA5-Land hourly res) but still
+// selectable in the matrix. Durations stored in minutes (canonical).
+const IDF_DERIVE_DEFAULT_DURATIONS = '60, 120, 180, 240, 300, 360, 540, 720, 900, 1080, 1440, 2880, 4320';
+const IDF_DERIVE_DEFAULT_RPS = '2, 5, 10, 20, 50, 100';
 
 // TASK-1451 (W4) — Design-storm combine form defaults.
 // The user picks an IDF table + pattern + AEP/ARI + duration; the form
@@ -56,6 +71,38 @@ const initialDesignStorm = {
     inFlight: false,
     error: null,
     result: null            // the derived TimeSeries response object
+};
+
+// TASK-1501 (W4b) — Design-storm projection browser initial state.
+// The projection slice holds the "selection spec" (which IDF variants ×
+// patterns are selected), the view filters (RP / duration), the loaded
+// previews (rowless, persists=false), and transient attach/stale state.
+const initialProjection = {
+    // Selection spec — user-driven (what to show in the gallery)
+    selectedIdfTableId: null,   // single IDF-variant pk; null = no table selected
+    selectedPatterns: [],       // [] → show all available patterns
+
+    // View filters (narrow the displayed gallery; never create/delete rows)
+    viewFilter: {
+        ari: null,              // null = all return periods
+        durationMin: null       // null = all durations
+    },
+
+    // Timestep shared for the gallery previews (user-adjustable)
+    timestepMin: 60,
+
+    // Loaded previews from mode='preview' batch call
+    previews: [],               // [{pattern, ari, duration_min, total_depth_mm, name, source, rowData, persisted}]
+    inFlight: false,
+    error: null,
+    stale: false,               // true after an IDF/pattern save that affects current spec
+
+    // Focused entry (user clicked a gallery card to see its hyetograph)
+    focusedKey: null,           // "pattern|ari|duration_min" composite key
+
+    // Attach flow
+    attachInFlight: false,
+    attachError: null
 };
 
 const initialIdfDerive = {
@@ -80,13 +127,47 @@ const initialState = {
     // TASK-1452 (W5): open on Derive (the common path) per D5 resolution.
     activeHydrologyPage: "idf-derive",
     idfDerive: initialIdfDerive,
-    designStorm: initialDesignStorm
+    designStorm: initialDesignStorm,
+    projection: initialProjection
 };
 
 export const hydrologyKeyMap = {
     "idf-table": "idfTables",
     "temporal-pattern": "temporalPatterns",
     "time-series": "timeSeriess"
+};
+
+// TASK-1532 — user-facing base labels for each hydrology page. 'Design Storm'
+// is the label for the timeseries type (see TASK-1533). Used to build the
+// auto-numbered default name in CREATE_HYDROLOGY_FORM.
+const hydrologyAutoNameLabel = {
+    "idf-table": "IDF Table",
+    "temporal-pattern": "Temporal Pattern",
+    "time-series": "Design Storm"
+};
+
+// TASK-1532 — compute the next zero-padded auto-name (e.g. 'IDF Table 03') by
+// taking the MAX trailing integer across the existing in-project items whose
+// name matches `${baseLabel} NN`, then +1 and padStart(2,'0'). Basing on the
+// loaded list (not a running counter) keeps the FE in step with the IDF
+// unique-name-per-project constraint and tolerates gaps / user-renamed rows.
+// The name is computed ONCE here so the optimistic row's name matches the
+// CREATE_HYDROLOGY_ITEM_SUCCESS reconcile (which matches on item.name); a name
+// recomputed later would diverge and append a duplicate list row.
+const nextAutoName = (baseLabel, items = []) => {
+    // Escape any regex metacharacters in the label (defensive; current labels
+    // are plain words + spaces).
+    const escaped = baseLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escaped} (\\d+)$`);
+    const maxIndex = items.reduce((max, item) => {
+        const match = typeof item?.name === 'string' ? item.name.match(pattern) : null;
+        if (match) {
+            const n = parseInt(match[1], 10);
+            return n > max ? n : max;
+        }
+        return max;
+    }, 0);
+    return `${baseLabel} ${String(maxIndex + 1).padStart(2, '0')}`;
 };
 
 const createIdfTableFromJson = (idfTableJson) => {
@@ -97,7 +178,17 @@ const createIdfTableFromJson = (idfTableJson) => {
     idfTableInstance.description = idfTableJson?.description;
     idfTableInstance.source = idfTableJson?.source;
     idfTableInstance.owner = idfTableJson?.owner;
-    idfTableInstance.data = idfTableJson?.data;
+    // Only assign when the API actually supplies a `data` object. A persisted
+    // IDF table (e.g. one serialized without the columnDefs/rowData blob) can
+    // arrive with `data` undefined/null; the IdfTable `data` setter throws on a
+    // non-object, and because this runs inside a reducer dispatched by an epic,
+    // that throw tears down the entire redux-observable epic stream (every epic
+    // — map-pick, identify, etc. — goes silent). Skip the assignment and keep
+    // the constructor defaults instead. (Mirrors SWAMM's defensive `r?.data`
+    // handling in catchBmpFeatureClick.)
+    if (idfTableJson?.data && typeof idfTableJson.data === 'object') {
+        idfTableInstance.data = idfTableJson.data;
+    }
     return idfTableInstance;
 };
 
@@ -109,7 +200,28 @@ const createTemporalPatternFromJson = (temporalPatternJson) => {
     temporalPatternInstance.description = temporalPatternJson?.description;
     temporalPatternInstance.source = temporalPatternJson?.source;
     temporalPatternInstance.owner = temporalPatternJson?.owner;
-    temporalPatternInstance.data = temporalPatternJson?.data;
+    // See createIdfTableFromJson: guard against a non-object `data` so a single
+    // malformed record can't throw in-reducer and kill the epic stream.
+    if (temporalPatternJson?.data && typeof temporalPatternJson.data === 'object') {
+        temporalPatternInstance.data = temporalPatternJson.data;
+    }
+    // TASK-1502 (W5): preserve pattern_type discriminator from API response.
+    // pattern_type='custom' signals the FE to render the custom curve editor.
+    temporalPatternInstance.pattern_type = temporalPatternJson?.pattern_type || 'preset';
+    // TASK-1531 (keystone): read pattern_key back from the API and derive the
+    // picker's selectedPreset. Without this every reload (fetch / SAVE_SUCCESS,
+    // both route through here) dropped the chosen preset and the component
+    // useEffect snapped selectedKey back to ALTERNATING_BLOCK. selectedPreset is
+    // what hydrologyDetailTemporalPattern reads to seat the picker:
+    //   - preset row  → its pattern_key (e.g. 'SCS_TYPE_II')
+    //   - custom row  → CUSTOM (no pattern_key persisted)
+    //   - legacy/none → ALTERNATING_BLOCK (the pre-existing default)
+    // UAT2 Phase-1.7: `|| null` (not `?? null`) so a BE empty-string '' is also
+    // normalised to null and can't seat a stale preset in the picker.
+    temporalPatternInstance.pattern_key = temporalPatternJson?.pattern_key || null;
+    temporalPatternInstance.selectedPreset =
+        temporalPatternInstance.pattern_key
+        || (temporalPatternInstance.pattern_type === 'custom' ? CUSTOM : ALTERNATING_BLOCK);
     return temporalPatternInstance;
 };
 
@@ -121,7 +233,11 @@ const createTimeSeriesFromJson = (timeSeriesJson) => {
     timeSeriesInstance.description = timeSeriesJson?.description;
     timeSeriesInstance.source = timeSeriesJson?.source;
     timeSeriesInstance.owner = timeSeriesJson?.owner;
-    timeSeriesInstance.data = timeSeriesJson?.data;
+    // See createIdfTableFromJson: guard against a non-object `data` so a single
+    // malformed record can't throw in-reducer and kill the epic stream.
+    if (timeSeriesJson?.data && typeof timeSeriesJson.data === 'object') {
+        timeSeriesInstance.data = timeSeriesJson.data;
+    }
     return timeSeriesInstance;
 };
 
@@ -193,6 +309,16 @@ export default ( state = initialState, action) => {
             newHydrologyItem = new TimeSeries();
         }
         newHydrologyItem.unsaved = true;
+        // TASK-1532 — overwrite the constructor's static 'New ...' default with
+        // an auto-numbered, zero-padded name. Computed ONCE here (we have both
+        // the new item and the existing state[pageName] list) so the optimistic
+        // POST body's name matches the CREATE_HYDROLOGY_ITEM_SUCCESS reconcile
+        // (item.name) — avoiding a duplicate list row. The constructor defaults
+        // remain as a fallback for any page without a label mapping.
+        const autoNameLabel = hydrologyAutoNameLabel[action.activeHydrologyPage];
+        if (autoNameLabel) {
+            newHydrologyItem.name = nextAutoName(autoNameLabel, state[pageName] || []);
+        }
         return {
             ...state,
             [pageName]: [...state[pageName], newHydrologyItem],
@@ -289,6 +415,54 @@ export default ( state = initialState, action) => {
             temporalPatterns: state.temporalPatterns.map((temporalPattern) => {
                 if (temporalPattern.id === action.temporalPatternId) {
                     temporalPattern.selectedPreset = action.patternKey;
+                    // TASK-1509: keep pattern_type in sync with the selected key.
+                    // Without this, switching from an edited custom curve back to
+                    // a preset left pattern_type='custom', so the container's
+                    // Save-disable (gated on pattern_type==='custom') kept Save
+                    // wrongly disabled on a valid preset. Selecting the custom
+                    // card sets 'custom'; any preset key sets 'preset'.
+                    temporalPattern.pattern_type = action.patternKey === CUSTOM ? 'custom' : 'preset';
+                    // TASK-1531: persist the chosen preset key on the item so the
+                    // save epic's {...item} spread sends it in the PATCH/POST body
+                    // (was always omitted → row stayed NULL → picker reverted to
+                    // Alternating Block on reload). CUSTOM is not a persisted key
+                    // (the curve is identified by pattern_type='custom'), so null
+                    // it out — keeping pattern_type/pattern_key consistent on every
+                    // switch (mirrors the 1509 pattern_type sync).
+                    temporalPattern.pattern_key = action.patternKey === CUSTOM ? null : action.patternKey;
+                    // UAT2 Phase-1.7: a pure preset change is a real mutation, so
+                    // mark it unsaved to visually enable Save (every other mutating
+                    // temporal-pattern case already sets this; this one didn't).
+                    temporalPattern.unsaved = true;
+                    updatedActiveHydrologyItem = temporalPattern;
+                }
+                return temporalPattern;
+            }),
+            activeHydrologyItem: updatedActiveHydrologyItem || state.activeHydrologyItem
+        };
+    }
+    // TASK-1508 (W5 follow-up) — the custom curve editor commits its whole
+    // rowData through the reducer (mirrors REPLACE_TIME_SERIES_ROW_DATA),
+    // marking the pattern as a project-scoped custom pattern. Replaces the
+    // previous direct mutation of activeHydrologyItem in the component, so the
+    // save flow reads reducer-managed state. In-place mutation of the pattern
+    // instance combined with returning a new {...state} hydrology slice is
+    // deliberate: react-redux re-runs mapStateToProps on the new slice (so the
+    // container's customCurveError + Save-disable update), while the stable
+    // activeHydrologyItem reference avoids retriggering the W5
+    // useEffect([activeHydrologyItem]) item-switch reset on every keystroke.
+    case REPLACE_TEMPORAL_PATTERN_ROW_DATA: {
+        let updatedActiveHydrologyItem;
+        return {
+            ...state,
+            temporalPatterns: state.temporalPatterns.map((temporalPattern) => {
+                if (temporalPattern.id === action.temporalPatternId) {
+                    temporalPattern.rowData = action.newRowData;
+                    temporalPattern.pattern_type = 'custom';
+                    // UAT2 Phase-1.7: defensive — the custom path must never carry
+                    // a stale preset key (pattern_type='custom' identifies the curve).
+                    temporalPattern.pattern_key = null;
+                    temporalPattern.unsaved = true;
                     updatedActiveHydrologyItem = temporalPattern;
                 }
                 return temporalPattern;
@@ -401,6 +575,103 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             idfDerive: {...(state.idfDerive || initialIdfDerive), celeryAnugaEnabled: action.enabled}
+        };
+    // TASK-1501 (W4b) — Projection browser slice.
+    case SET_PROJECTION_SPEC:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                ...action.spec,
+                stale: false,
+                previews: [],
+                error: null,
+                focusedKey: null
+            }
+        };
+    case PREVIEW_DESIGN_STORMS_REQUEST:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                inFlight: true,
+                error: null,
+                stale: false
+            }
+        };
+    case PREVIEW_DESIGN_STORMS_SUCCESS:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                inFlight: false,
+                error: null,
+                previews: action.previews,
+                stale: false
+            }
+        };
+    case PREVIEW_DESIGN_STORMS_FAILURE:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                inFlight: false,
+                error: action.error
+            }
+        };
+    case SET_PROJECTION_VIEW_FILTER:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                viewFilter: {
+                    ...(state.projection?.viewFilter || {}),
+                    ...action.filter
+                }
+            }
+        };
+    case SET_FOCUSED_PREVIEW:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                focusedKey: action.key
+            }
+        };
+    case ATTACH_DESIGN_STORM_REQUEST:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                attachInFlight: true,
+                attachError: null
+            }
+        };
+    case ATTACH_DESIGN_STORM_SUCCESS:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                attachInFlight: false,
+                attachError: null
+            }
+        };
+    case ATTACH_DESIGN_STORM_FAILURE:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                attachInFlight: false,
+                attachError: action.error
+            }
+        };
+    case MARK_PROJECTION_STALE:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                stale: true
+            }
         };
     // TASK-1451 (W4) — Design-storm combine slice.
     case SET_DESIGN_STORM_FORM:

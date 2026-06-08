@@ -28,6 +28,9 @@ const UPDATE_IDF_ROW_DATA = 'UPDATE_IDF_ROW_DATA';
 const UPDATE_TEMPORAL_PATTERN_ROW_DATA = 'UPDATE_TEMPORAL_PATTERN_ROW_DATA';
 const UPDATE_TIME_SERIES_ROW_DATA = 'UPDATE_TIME_SERIES_ROW_DATA';
 const REPLACE_TIME_SERIES_ROW_DATA = 'REPLACE_TIME_SERIES_ROW_DATA';
+// TASK-1508 (W5 follow-up) — replace a temporal pattern's whole rowData via
+// Redux (custom curve editor) instead of mutating activeHydrologyItem directly.
+const REPLACE_TEMPORAL_PATTERN_ROW_DATA = 'REPLACE_TEMPORAL_PATTERN_ROW_DATA';
 
 // TASK-1450 (W3) — Preset picker: store the selected pattern key on the item.
 const SET_TEMPORAL_PATTERN_PRESET = 'SET_TEMPORAL_PATTERN_PRESET';
@@ -37,6 +40,19 @@ const DERIVE_DESIGN_STORM_REQUEST = 'DERIVE_DESIGN_STORM_REQUEST';
 const DERIVE_DESIGN_STORM_SUCCESS = 'DERIVE_DESIGN_STORM_SUCCESS';
 const DERIVE_DESIGN_STORM_FAILURE = 'DERIVE_DESIGN_STORM_FAILURE';
 const SET_DESIGN_STORM_FORM = 'SET_DESIGN_STORM_FORM';
+
+// TASK-1501 (W4b) — Design-storm projection browser.
+// Rowless batch preview (mode='preview') + attach→materialise-one + reproject-on-save.
+const SET_PROJECTION_SPEC = 'SET_PROJECTION_SPEC';
+const PREVIEW_DESIGN_STORMS_REQUEST = 'PREVIEW_DESIGN_STORMS_REQUEST';
+const PREVIEW_DESIGN_STORMS_SUCCESS = 'PREVIEW_DESIGN_STORMS_SUCCESS';
+const PREVIEW_DESIGN_STORMS_FAILURE = 'PREVIEW_DESIGN_STORMS_FAILURE';
+const SET_PROJECTION_VIEW_FILTER = 'SET_PROJECTION_VIEW_FILTER';
+const SET_FOCUSED_PREVIEW = 'SET_FOCUSED_PREVIEW';
+const ATTACH_DESIGN_STORM_REQUEST = 'ATTACH_DESIGN_STORM_REQUEST';
+const ATTACH_DESIGN_STORM_SUCCESS = 'ATTACH_DESIGN_STORM_SUCCESS';
+const ATTACH_DESIGN_STORM_FAILURE = 'ATTACH_DESIGN_STORM_FAILURE';
+const MARK_PROJECTION_STALE = 'MARK_PROJECTION_STALE';
 
 // TASK-934 — IDF Derive panel actions.
 const SET_IDF_DERIVE_LAT = 'SET_IDF_DERIVE_LAT';
@@ -225,6 +241,15 @@ const replaceTimeSeriesRowData = (timeSeriesId, newRowData) => ({
     newRowData
 });
 
+// TASK-1508 (W5 follow-up) — custom curve editor commits its rows through the
+// reducer (sets rowData + pattern_type='custom' + unsaved) so the save flow
+// reads reducer-managed state, not a directly mutated component reference.
+const replaceTemporalPatternRowData = (temporalPatternId, newRowData) => ({
+    type: REPLACE_TEMPORAL_PATTERN_ROW_DATA,
+    temporalPatternId,
+    newRowData
+});
+
 const setIdfDeriveLat = (lat) => ({type: SET_IDF_DERIVE_LAT, lat});
 const setIdfDeriveLon = (lon) => ({type: SET_IDF_DERIVE_LON, lon});
 const setIdfDeriveDurations = (text) => ({type: SET_IDF_DERIVE_DURATIONS, text});
@@ -239,6 +264,32 @@ const setIdfDeriveProcessId = (taskId, processId) => ({
 const setIdfDeriveError = (message) => ({type: SET_IDF_DERIVE_ERROR, message});
 const setIdfDeriveResult = (idfTable) => ({type: SET_IDF_DERIVE_RESULT, idfTable});
 const setCeleryAnugaEnabled = (enabled) => ({type: SET_CELERY_ANUGA_ENABLED, enabled});
+
+// TASK-1501 (W4b) — Projection browser action creators.
+const setProjectionSpec = (spec) => ({ type: SET_PROJECTION_SPEC, spec });
+const previewDesignStormsRequest = (cells, idfTableId, timestepMin) => ({
+    type: PREVIEW_DESIGN_STORMS_REQUEST,
+    cells,
+    idfTableId,
+    timestepMin
+});
+const previewDesignStormsSuccess = (previews) => ({ type: PREVIEW_DESIGN_STORMS_SUCCESS, previews });
+const previewDesignStormsFailure = (error) => ({ type: PREVIEW_DESIGN_STORMS_FAILURE, error });
+const setProjectionViewFilter = (filter) => ({ type: SET_PROJECTION_VIEW_FILTER, filter });
+const setFocusedPreview = (key) => ({ type: SET_FOCUSED_PREVIEW, key });
+const attachDesignStormRequest = (rainfallPk, spec, featureId) => ({
+    type: ATTACH_DESIGN_STORM_REQUEST,
+    rainfallPk,
+    spec,
+    featureId
+});
+const attachDesignStormSuccess = (timeSeries, rainfallPk) => ({
+    type: ATTACH_DESIGN_STORM_SUCCESS,
+    timeSeries,
+    rainfallPk
+});
+const attachDesignStormFailure = (error) => ({ type: ATTACH_DESIGN_STORM_FAILURE, error });
+const markProjectionStale = () => ({ type: MARK_PROJECTION_STALE });
 
 // TASK-1451 (W4) — Design-storm combine action creators.
 const deriveDesignStormRequest = (formValues) => ({
@@ -260,6 +311,18 @@ const setDesignStormForm = (patch) => ({
 });
 
 module.exports = {
+    // TASK-1501 (W4b) — projection browser
+    SET_PROJECTION_SPEC, setProjectionSpec,
+    PREVIEW_DESIGN_STORMS_REQUEST, previewDesignStormsRequest,
+    PREVIEW_DESIGN_STORMS_SUCCESS, previewDesignStormsSuccess,
+    PREVIEW_DESIGN_STORMS_FAILURE, previewDesignStormsFailure,
+    SET_PROJECTION_VIEW_FILTER, setProjectionViewFilter,
+    SET_FOCUSED_PREVIEW, setFocusedPreview,
+    ATTACH_DESIGN_STORM_REQUEST, attachDesignStormRequest,
+    ATTACH_DESIGN_STORM_SUCCESS, attachDesignStormSuccess,
+    ATTACH_DESIGN_STORM_FAILURE, attachDesignStormFailure,
+    MARK_PROJECTION_STALE, markProjectionStale,
+    // W4 (original derive/form)
     DERIVE_DESIGN_STORM_REQUEST, deriveDesignStormRequest,
     DERIVE_DESIGN_STORM_SUCCESS, deriveDesignStormSuccess,
     DERIVE_DESIGN_STORM_FAILURE, deriveDesignStormFailure,
@@ -294,6 +357,7 @@ module.exports = {
     UPDATE_TEMPORAL_PATTERN_ROW_DATA, updateTemporalPatternRowData,
     UPDATE_TIME_SERIES_ROW_DATA, updateTimeSeriesRowData,
     REPLACE_TIME_SERIES_ROW_DATA, replaceTimeSeriesRowData,
+    REPLACE_TEMPORAL_PATTERN_ROW_DATA, replaceTemporalPatternRowData,
     SET_TEMPORAL_PATTERN_PRESET, setTemporalPatternPreset,
     SET_IDF_DERIVE_LAT, setIdfDeriveLat,
     SET_IDF_DERIVE_LON, setIdfDeriveLon,

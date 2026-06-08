@@ -11,6 +11,7 @@ import {
     deriveIdfEpic,
     idfDeriveCompleteEpic,
     idfDeriveMapPickEpic,
+    hydrologyIdfPickManagerEpic,
     loadAnugaConfigEpic
 } from "./epicsHydrology";
 
@@ -29,6 +30,7 @@ export default createPlugin('Hydrology', {
         deriveIdfEpic,
         idfDeriveCompleteEpic,
         idfDeriveMapPickEpic,
+        hydrologyIdfPickManagerEpic,
         loadAnugaConfigEpic
     }
 });

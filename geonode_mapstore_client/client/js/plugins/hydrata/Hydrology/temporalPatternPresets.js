@@ -6,16 +6,21 @@
  * - getPreviewCurve(patternKey): normalised cumulative ordinates for display.
  *   Returns an array of {t, cum} objects (t = fraction of duration 0..1,
  *   cum = fraction of total depth 0..1). Sampled at ~20 points.
- *   Returns null for 'alternating_block' (IDF-dependent, no fixed curve).
+ *   Returns null for 'alternating_block' and 'custom' (no fixed curve).
  * - suggestPatternFromLatLon(lat, lon): returns a patternKey string based on
  *   the geography rule from the epic proposal §5.
  *
  * All preview data is derived from the same source tables as the backend
  * design_storm.py — keeping FE and BE in sync at the spec level.
+ *
+ * TASK-1502 (W5): 'custom' entry added to PRESET_FAMILIES.
  */
 
 // ---------------------------------------------------------------------------
 // Pattern family identifiers (must match backend constants in design_storm.py)
+// NOTE (TASK-1498 / DECISION Q11): SCS-SA removed from the pattern set.
+// Final set: Alternating Block (default), SCS I/IA/II/III, Huff auto, Custom.
+// TASK-1502 (W5): CUSTOM added.
 // ---------------------------------------------------------------------------
 export const ALTERNATING_BLOCK = 'alternating_block';
 export const SCS_TYPE_I   = 'SCS_TYPE_I';
@@ -23,7 +28,8 @@ export const SCS_TYPE_IA  = 'SCS_TYPE_IA';
 export const SCS_TYPE_II  = 'SCS_TYPE_II';
 export const SCS_TYPE_III = 'SCS_TYPE_III';
 export const HUFF         = 'HUFF';
-export const SCS_SA       = 'SCS_SA';
+// TASK-1502 (W5): user-defined custom cumulative curve.
+export const CUSTOM = 'custom';
 
 // ---------------------------------------------------------------------------
 // Ordered preset-picker families
@@ -37,24 +43,17 @@ export const SCS_SA       = 'SCS_SA';
  */
 
 /** @type {PresetFamily[]} */
+// TASK-1498 (W1 / DECISION Q11):
+//   - Alternating Block: removed "recommended" badge flag + recommending copy (issue 10).
+//     "(Default)" is KEPT — it denotes the pre-selected option, not a recommendation.
+//   - SCS order corrected to numeric I → IA → II → III (issue 11).
+//   - SCS-SA (South Africa) entry removed entirely.
 export const PRESET_FAMILIES = [
     {
         id: ALTERNATING_BLOCK,
         label: 'Alternating Block (Default)',
-        description: 'IDF-exact method; arranges depth blocks around a peak. Recommended everywhere — no regional data needed.',
+        description: 'IDF-exact method; arranges depth blocks around a peak.',
         isMethod: true
-    },
-    {
-        id: SCS_TYPE_II,
-        label: 'SCS / NRCS Type II',
-        description: 'Most of CONUS — convective storms, peak ~12 h. Widely used in US engineering practice.',
-        isMethod: false
-    },
-    {
-        id: SCS_TYPE_III,
-        label: 'SCS / NRCS Type III',
-        description: 'US Gulf and Atlantic coast, tropical/hurricane storms, peak ~16 h.',
-        isMethod: false
     },
     {
         id: SCS_TYPE_I,
@@ -69,16 +68,30 @@ export const PRESET_FAMILIES = [
         isMethod: false
     },
     {
+        id: SCS_TYPE_II,
+        label: 'SCS / NRCS Type II',
+        description: 'Most of CONUS — convective storms, peak ~12 h. Widely used in US engineering practice.',
+        isMethod: false
+    },
+    {
+        id: SCS_TYPE_III,
+        label: 'SCS / NRCS Type III',
+        description: 'US Gulf and Atlantic coast, tropical/hurricane storms, peak ~16 h.',
+        isMethod: false
+    },
+    {
         id: HUFF,
         label: 'Huff Quartile (auto)',
         description: 'US Midwest empirical — quartile auto-selected by storm duration. ISWS Circular 173.',
         isMethod: false
     },
+    // TASK-1502 (W5): custom user-defined cumulative curve.
+    // isMethod=true: no fixed dimensionless curve — the operator authors it.
     {
-        id: SCS_SA,
-        label: 'SCS-SA (South Africa)',
-        description: 'South African national standard (Schulze 1984 / Weddepohl 1988) — regional type auto-selected.',
-        isMethod: false
+        id: CUSTOM,
+        label: 'Custom (user-defined)',
+        description: 'Author your own dimensionless cumulative curve. Project-scoped. Enter as a (time-fraction, cumulative-%) table.',
+        isMethod: true
     }
 ];
 
@@ -118,13 +131,6 @@ const scsSample3 = [
 // Huff Q2 — 11 points at 10% of duration spacing (representative 6-12h storm)
 const huffQ2Points = [0.00, 0.15, 0.28, 0.43, 0.58, 0.71, 0.81, 0.89, 0.94, 0.97, 1.00];
 
-// SCS-SA Type 3 as the "auto" SA preview (inland/convective, most common)
-const scsSaType3 = [
-    0.000, 0.015, 0.032, 0.055, 0.082, 0.115, 0.158, 0.215, 0.285, 0.373,
-    0.480, 0.588, 0.677, 0.750, 0.812, 0.860, 0.897, 0.926, 0.948, 0.965,
-    0.978, 0.988, 0.994, 0.997, 1.000
-];
-
 /**
  * Convert a uniformly-sampled cumulative array to {t, cum} chart data.
  * t values are fraction of duration from 0 to 1.
@@ -140,20 +146,20 @@ const CURVE_DATA = {
     [SCS_TYPE_II]: toCurveData(scsSample2),
     [SCS_TYPE_III]: toCurveData(scsSample3),
     // HUFF auto-preview: show Q2 (representative 6-12h storm)
-    [HUFF]: toCurveData(huffQ2Points),
-    // SCS-SA auto-preview: show Type 3
-    [SCS_SA]: toCurveData(scsSaType3)
+    [HUFF]: toCurveData(huffQ2Points)
 };
 
 /**
  * Get the normalised cumulative preview curve for a pattern key.
  * Returns null for 'alternating_block' (IDF-dependent — no fixed curve).
+ * Returns null for 'custom' (user-defined — live preview from table data).
  *
  * @param {string} patternKey
  * @returns {{t: number, cum: number}[]|null}
  */
 export function getPreviewCurve(patternKey) {
     if (patternKey === ALTERNATING_BLOCK) return null;
+    if (patternKey === CUSTOM) return null;  // TASK-1502 (W5): custom = live preview
     return CURVE_DATA[patternKey] || null;
 }
 
@@ -181,12 +187,8 @@ export function suggestPatternFromLatLon(lat, lon) {
         return ALTERNATING_BLOCK;
     }
 
-    // South Africa: lat -35 to -22, lon 16 to 33
-    if (la >= -35 && la <= -22 && lo >= 16 && lo <= 33) {
-        return SCS_SA;
-    }
-
     // Contiguous United States: lat 24-50, lon -130 to -60
+    // NOTE (TASK-1498): South Africa (SCS-SA) removed from pattern set.
     const inUS = la >= 24 && la <= 50 && lo >= -130 && lo <= -60;
     if (inUS) {
         // US Pacific NW: OR, WA, N-CA coast — lat > 40, lon < -120

@@ -24,7 +24,9 @@ const {
     deriveIdfEpic,
     idfDeriveCompleteEpic,
     idfDeriveMapPickEpic,
-    loadAnugaConfigEpic
+    hydrologyIdfPickManagerEpic,
+    loadAnugaConfigEpic,
+    IDF_DERIVE_TIMEOUT_MESSAGE
 } = require('../epicsHydrology');
 
 const reducer = require('../reducersHydrology').default;
@@ -154,6 +156,33 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                 expect(lastPatch.url).toBe(
                     `/api/v2/anuga/projects/${projectId}/idf-tables/99/`
                 );
+                if (sub) sub.unsubscribe();
+                done();
+            }
+        );
+    });
+
+    // TASK-1531: a saved temporal pattern must carry its chosen preset through
+    // the PATCH body so the row persists pattern_key (was always NULL → picker
+    // reverted to Alternating Block on reload). The reducer stamps pattern_key
+    // on the item; here we assert the save epic's {...item} spread forwards it.
+    it('saveHydrologyItemEpic PATCH body carries pattern_key (TASK-1531)', (done) => {
+        const action$ = mockActions([{
+            type: SAVE_HYDROLOGY_ITEM,
+            activeHydrologyPage: 'temporal-pattern',
+            item: { id: 7, name: 'SCS II', pattern_type: 'preset', pattern_key: 'SCS_TYPE_II', data: [] }
+        }]);
+        const sub = saveHydrologyItemEpic(action$, store).subscribe(
+            () => {},
+            err => done(err),
+            () => {
+                const lastPatch = mockAxios.history.patch.slice(-1)[0];
+                expect(lastPatch.url).toBe(
+                    `/api/v2/anuga/projects/${projectId}/temporal-patterns/7/`
+                );
+                const body = JSON.parse(lastPatch.data);
+                expect(body.pattern_key).toBe('SCS_TYPE_II');
+                expect(body.pattern_type).toBe('preset');
                 if (sub) sub.unsubscribe();
                 done();
             }
@@ -347,6 +376,33 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             );
         });
 
+        it('deriveIdfEpic ignores a double DERIVE_IDF_REQUEST while the POST is in flight (TASK-1539 debounce)', (done) => {
+            mockAxios.reset();
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(202, {task_id: 'celery-uuid', process_id: 77});
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60, 1440', rpsText: '2, 100'
+            };
+            // Two rapid requests (the double-click). exhaustMap must drop the
+            // second while the first POST is still in flight -> exactly ONE POST
+            // and ONE SET_IDF_DERIVE_PROCESS_ID (mergeMap would fire two).
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}, {type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    try {
+                        const pids = collected.filter(c => c.type === SET_IDF_DERIVE_PROCESS_ID);
+                        expect(pids.length).toBe(1);
+                        expect(mockAxios.history.post.length).toBe(1);
+                        done();
+                    } catch (e) { done(e); }
+                }
+            );
+        });
+
         it('deriveIdfEpic 503 → SET_IDF_DERIVE_ERROR + SET_CELERY_ANUGA_ENABLED(false)', function _t(done) {
             this.timeout(6000);
             mockAxios.reset();
@@ -435,6 +491,79 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             );
         });
 
+        it('deriveIdfEpic drops sub-hourly durations and sub-annual RPs from the POST payload', (done) => {
+            mockAxios.reset();
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(202, {task_id: 'celery-uuid', process_id: 88});
+            // Matrix selection includes manual-only cells (5/10/30 min, 0.5 yr)
+            // that ERA5 annual-maxima GEV can't derive — they must be filtered out.
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '5, 10, 30, 60, 1440', rpsText: '0.5, 2, 100'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    try {
+                        expect(mockAxios.history.post.length).toBe(1);
+                        const body = JSON.parse(mockAxios.history.post[0].data);
+                        expect(body.durations_min).toEqual([60, 1440]);
+                        expect(body.return_periods_yr).toEqual([2, 100]);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    } catch (e) { done(e); }
+                }
+            );
+        });
+
+        it('deriveIdfEpic errors without HTTP when all durations are sub-hourly', (done) => {
+            mockAxios.reset();
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '5, 10, 30', rpsText: '2, 100'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    try {
+                        expect(collected.length).toBe(1);
+                        expect(collected[0].type).toBe(SET_IDF_DERIVE_ERROR);
+                        expect(mockAxios.history.post.length).toBe(0);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    } catch (e) { done(e); }
+                }
+            );
+        });
+
+        it('deriveIdfEpic errors without HTTP when all return periods are sub-annual', (done) => {
+            mockAxios.reset();
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60, 1440', rpsText: '0.5'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    try {
+                        expect(collected.length).toBe(1);
+                        expect(collected[0].type).toBe(SET_IDF_DERIVE_ERROR);
+                        expect(mockAxios.history.post.length).toBe(0);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    } catch (e) { done(e); }
+                }
+            );
+        });
+
         it('idfDeriveCompleteEpic GETs IDFTable when TaskMonitor process flips to complete', (done) => {
             mockAxios.reset();
             const idftableId = 999;
@@ -480,6 +609,41 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             );
         });
 
+        // TASK-1535 — the BE's clear ERA5-unavailable message (set by the
+        // soft-time-limit / S3-timeout path) reaches the FE verbatim, so the
+        // user sees "ERA5 archive may be unavailable" not a generic "failed".
+        it('idfDeriveCompleteEpic surfaces the BE ERA5-unavailable message verbatim', (done) => {
+            mockAxios.reset();
+            const beMsg = 'IDF derive timed out after 300s — the ERA5 archive may be unavailable or unreachable. Please try again later.';
+            const tmByid = {
+                88: {id: 88, status: 'error', metadata: {error_message: beMsg}}
+            };
+            const action$ = mockActions([{
+                type: SET_IDF_DERIVE_PROCESS_ID, processId: 88, taskId: 'x'
+            }]);
+            const sub = idfDeriveCompleteEpic(action$, idfDeriveStore({}, tmByid)).subscribe(
+                a => {
+                    if (a.type === SET_IDF_DERIVE_ERROR) {
+                        expect(a.message).toBe(beMsg);
+                        expect(a.message.indexOf('ERA5')).toBeGreaterThan(-1);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                },
+                err => done(err)
+            );
+        });
+
+        // TASK-1535 — the FE's own poll-cap fallback message is ERA5-aware
+        // (the symptom that motivated the ticket was an endless generic
+        // spinner/timeout; the message now points at the ERA5 archive).
+        it('IDF_DERIVE_TIMEOUT_MESSAGE is ERA5-aware', () => {
+            expect(typeof IDF_DERIVE_TIMEOUT_MESSAGE).toBe('string');
+            expect(IDF_DERIVE_TIMEOUT_MESSAGE.indexOf('ERA5')).toBeGreaterThan(-1);
+            expect(IDF_DERIVE_TIMEOUT_MESSAGE.toLowerCase().indexOf('unavailable')).toBeGreaterThan(-1);
+            expect(IDF_DERIVE_TIMEOUT_MESSAGE.toLowerCase().indexOf('timed out')).toBeGreaterThan(-1);
+        });
+
         it('idfDeriveMapPickEpic captures lat/lon from CLICK_ON_MAP when mapPickActive=true', (done) => {
             const slice = {mapPickActive: true};
             const action$ = mockActions([{
@@ -495,6 +659,31 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                     expect(types.indexOf(SET_IDF_DERIVE_LAT)).toBeGreaterThan(-1);
                     expect(types.indexOf(SET_IDF_DERIVE_LON)).toBeGreaterThan(-1);
                     expect(types.indexOf(SET_IDF_DERIVE_MAP_PICK_ACTIVE)).toBeGreaterThan(-1);
+                    if (sub) sub.unsubscribe();
+                    done();
+                }
+            );
+        });
+
+        // TASK-1499 (W2) AC3 — round-on-write
+        it('idfDeriveMapPickEpic rounds lat/lon to 2 dp on write', (done) => {
+            const slice = {mapPickActive: true};
+            const action$ = mockActions([{
+                type: 'CLICK_ON_MAP',
+                point: {latlng: {lat: -33.674412, lng: 150.318107}}
+            }]);
+            const collected = [];
+            const sub = idfDeriveMapPickEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    const latAction = collected.find(a => a.type === SET_IDF_DERIVE_LAT);
+                    const lonAction = collected.find(a => a.type === SET_IDF_DERIVE_LON);
+                    expect(latAction).toExist();
+                    expect(lonAction).toExist();
+                    // Stored value must equal 2-dp rounded float
+                    expect(latAction.lat).toBe(-33.67);
+                    expect(lonAction.lon).toBe(150.32);
                     if (sub) sub.unsubscribe();
                     done();
                 }
@@ -538,6 +727,142 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                     done();
                 }
             );
+        });
+
+        // TASK-1499 (W2) AC2 — Identify-suppression manager epic
+        describe('hydrologyIdfPickManagerEpic (W2 AC2)', () => {
+            const PURGE_MAP_INFO_RESULTS = 'PURGE_MAPINFO_RESULTS';
+            const HIDE_MAPINFO_MARKER = 'HIDE_MAPINFO_MARKER';
+            const TOGGLE_MAPINFO_STATE = 'TOGGLE_MAPINFO_STATE';
+            const REGISTER_EVENT_LISTENER = 'REGISTER_EVENT_LISTENER';
+            const UNREGISTER_EVENT_LISTENER = 'UNREGISTER_EVENT_LISTENER';
+
+            it('on mapPickActive=true dispatches purge + hide + register + toggleMapInfo when enabled', (done) => {
+                // Store: mapInfo.enabled = true (default)
+                const pickStore = {
+                    getState: () => ({
+                        hydrology: { idfDerive: { mapPickActive: true } },
+                        mapInfo: { enabled: true }
+                    })
+                };
+                const action$ = mockActions([{
+                    type: SET_IDF_DERIVE_MAP_PICK_ACTIVE,
+                    active: true
+                }]);
+                const collected = [];
+                const sub = hydrologyIdfPickManagerEpic(action$, pickStore).subscribe(
+                    a => collected.push(a),
+                    err => done(err),
+                    () => {
+                        const types = collected.map(a => a.type);
+                        expect(types.indexOf(PURGE_MAP_INFO_RESULTS)).toBeGreaterThan(-1);
+                        expect(types.indexOf(HIDE_MAPINFO_MARKER)).toBeGreaterThan(-1);
+                        expect(types.indexOf(REGISTER_EVENT_LISTENER)).toBeGreaterThan(-1);
+                        expect(types.indexOf(TOGGLE_MAPINFO_STATE)).toBeGreaterThan(-1);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+            });
+
+            it('on mapPickActive=false dispatches unregister + restores toggleMapInfo if we disabled it', (done) => {
+                // Simulate: manager sees true first (sets weDisabledMapInfo=true), then false
+                // We test the false branch in isolation by creating a fresh epic instance
+                // that has already set weDisabledMapInfo. We do this by sending two actions.
+                const calls = [];
+                const makeStore = (active) => ({
+                    getState: () => ({
+                        hydrology: { idfDerive: { mapPickActive: active } },
+                        mapInfo: { enabled: true }
+                    })
+                });
+                // Use a Subject so we can push two values
+                const subject = new Rx.Subject();
+                const action$ = subject.asObservable();
+                action$.ofType = (...types) => action$.filter(a => types.includes(a.type));
+
+                const sub = hydrologyIdfPickManagerEpic(action$, makeStore(true)).subscribe(
+                    a => calls.push(a),
+                    err => done(err)
+                );
+
+                // First push: arm (true)
+                subject.next({ type: SET_IDF_DERIVE_MAP_PICK_ACTIVE, active: true });
+
+                setTimeout(() => {
+                    // Switch store to false, then push disarm
+                    const sub2 = hydrologyIdfPickManagerEpic(
+                        (() => {
+                            const s2 = new Rx.Subject();
+                            const a2 = s2.asObservable();
+                            a2.ofType = (...types) => a2.filter(a => types.includes(a.type));
+                            // Send true first so weDisabledMapInfo is set, then false
+                            setTimeout(() => {
+                                s2.next({ type: SET_IDF_DERIVE_MAP_PICK_ACTIVE, active: true });
+                                setTimeout(() => {
+                                    s2.next({ type: SET_IDF_DERIVE_MAP_PICK_ACTIVE, active: false });
+                                    setTimeout(() => { s2.complete(); }, 0);
+                                }, 0);
+                            }, 0);
+                            return a2;
+                        })(),
+                        (() => {
+                            let callCount = 0;
+                            return {
+                                getState: () => {
+                                    callCount++;
+                                    // First call (arm): enabled=true; second call (disarm): enabled=false
+                                    return {
+                                        hydrology: { idfDerive: { mapPickActive: callCount <= 1 } },
+                                        mapInfo: { enabled: callCount <= 1 }
+                                    };
+                                }
+                            };
+                        })()
+                    ).toArray().subscribe(
+                        allActions => {
+                            const types = allActions.map(a => a.type);
+                            // Should include unregister on the false branch
+                            expect(types.indexOf(UNREGISTER_EVENT_LISTENER)).toBeGreaterThan(-1);
+                            // Should include toggle restore (weDisabledMapInfo was true)
+                            expect(types.indexOf(TOGGLE_MAPINFO_STATE)).toBeGreaterThan(-1);
+                            if (sub) sub.unsubscribe();
+                            if (sub2) sub2.unsubscribe();
+                            done();
+                        },
+                        err => done(err)
+                    );
+                }, 50);
+            });
+
+            it('does NOT re-enable mapInfo if it was already disabled before pick', (done) => {
+                // mapInfo.enabled = false: weDisabledMapInfo stays false, no toggle on arm
+                const pickStoreDisabled = {
+                    getState: () => ({
+                        hydrology: { idfDerive: { mapPickActive: true } },
+                        mapInfo: { enabled: false }
+                    })
+                };
+                const action$ = mockActions([{
+                    type: SET_IDF_DERIVE_MAP_PICK_ACTIVE,
+                    active: true
+                }]);
+                const collected = [];
+                const sub = hydrologyIdfPickManagerEpic(action$, pickStoreDisabled).subscribe(
+                    a => collected.push(a),
+                    err => done(err),
+                    () => {
+                        const types = collected.map(a => a.type);
+                        // Must NOT toggle (user already had it off)
+                        expect(types.indexOf(TOGGLE_MAPINFO_STATE)).toBe(-1);
+                        // Must still register listener and purge
+                        expect(types.indexOf(REGISTER_EVENT_LISTENER)).toBeGreaterThan(-1);
+                        expect(types.indexOf(PURGE_MAP_INFO_RESULTS)).toBeGreaterThan(-1);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    }
+                );
+            });
         });
     });
 

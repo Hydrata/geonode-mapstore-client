@@ -15,13 +15,26 @@ export const deriveIdf = (projectId, payload) =>
 
 // GET /api/v2/anuga/projects/{pid}/idf-tables/{id}/
 // Returns the full IDFTable (intensities_mm_per_hr, ci_lower_mm_per_hr,
-// ci_upper_mm_per_hr, durations_min, return_periods_yr, provenance, ag_grid).
+// ci_upper_mm_per_hr, durations_min, return_periods_yr, provenance, and a
+// `data` adapter ({rowData} keyed by the FE IdfTable ARI accessorKeys).
 export const getIdfTable = (projectId, idfTableId) =>
     axios.get(`/api/v2/anuga/projects/${projectId}/idf-tables/${idfTableId}/`);
 
 // POST /api/v2/anuga/projects/{pid}/time-series/derive-design-storm/
-// TASK-1451 (W4) — Synchronous endpoint; returns 201 + the persisted TimeSeries.
-// Payload: {idf_table_id, pattern, aep|ari, duration_min, timestep_min,
-//           peak_position?, name?}
+// TASK-1451 (W4) — Synchronous endpoint; returns 201 + the persisted TimeSeries
+// when mode='derive' (default / omitted).
+// TASK-1501 (W4b) — mode='preview' + cells=[...] for rowless batch preview (200).
+// Payload: {mode?, idf_table_id, cells?[{pattern,ari|aep,duration_min,timestep_min}],
+//           pattern?, aep|ari?, duration_min?, timestep_min?, peak_position?, name?}
 export const deriveDesignStorm = (projectId, payload) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/time-series/derive-design-storm/`, payload);
+
+// POST /api/v2/anuga/projects/{pid}/rainfalls/{pk}/attach-design-storm/
+// TASK-1501 (W4b) — Materialises exactly one TimeSeries row and returns it (201).
+// Payload: {idf_table_id, pattern, ari|aep, duration_min, timestep_min,
+//           peak_position?, name?, feature_id?}
+export const attachDesignStorm = (projectId, rainfallPk, payload) =>
+    axios.post(
+        `/api/v2/anuga/projects/${projectId}/rainfalls/${rainfallPk}/attach-design-storm/`,
+        payload
+    );
