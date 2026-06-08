@@ -371,6 +371,7 @@
         "idfDeriveDownloadCsv": "Descargar CSV",
         "idfDeriveProvenance": "Procedencia",
         "idfTables": "Tablas IDF",
+        "idfTable": "Tabla IDF",
         "intensityMmHr": "Intensidad (mm/hr)",
         "items": "Elementos",
         "name": "Nombre:",

@@ -378,6 +378,7 @@
         "idfModeManual": "Input",
         "idfModeDerive": "Derive",
         "idfTables": "IDF Tables",
+        "idfTable": "IDF Table",
         "intensityMmHr": "Intensity (mm/hr)",
         "items": "Items",
         "name": "Name:",

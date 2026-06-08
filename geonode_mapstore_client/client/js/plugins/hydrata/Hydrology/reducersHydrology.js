@@ -315,7 +315,11 @@ export default ( state = initialState, action) => {
         // POST body's name matches the CREATE_HYDROLOGY_ITEM_SUCCESS reconcile
         // (item.name) — avoiding a duplicate list row. The constructor defaults
         // remain as a fallback for any page without a label mapping.
-        const autoNameLabel = hydrologyAutoNameLabel[action.activeHydrologyPage];
+        // TASK-1538: prefer the locale-resolved label the component passes in;
+        // fall back to the English hydrologyAutoNameLabel map (so behaviour is
+        // unchanged — and the TASK-1532 numbering/no-dup invariant holds — when
+        // i18n is unavailable at dispatch time).
+        const autoNameLabel = action.autoNameLabel || hydrologyAutoNameLabel[action.activeHydrologyPage];
         if (autoNameLabel) {
             newHydrologyItem.name = nextAutoName(autoNameLabel, state[pageName] || []);
         }

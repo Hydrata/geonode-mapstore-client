@@ -163,9 +163,14 @@ const saveHydrologyItemFailure = (response) => ({
     error: true
 });
 
-const createHydrologyForm = (activeHydrologyPage) => ({
+const createHydrologyForm = (activeHydrologyPage, autoNameLabel) => ({
     type: CREATE_HYDROLOGY_FORM,
-    activeHydrologyPage
+    activeHydrologyPage,
+    // TASK-1538: an optional locale-resolved base label ('IDF Table'/'Temporal
+    // Pattern'/'Design Storm') passed from the component (which has the i18n
+    // context the reducer lacks). The reducer falls back to the English
+    // hydrologyAutoNameLabel map when this is absent.
+    autoNameLabel
 });
 
 const createHydrologyItem = (activeHydrologyPage, item) => ({

@@ -19,6 +19,17 @@ import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
 import Message from '@mapstore/framework/components/I18N/Message';
 import ConfirmOverlay from '../../shared/ConfirmOverlay';
+import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
+
+// TASK-1538 — map each hydrology page to the i18n key for its auto-name base
+// label, so "New Item" default names ('IDF Table 03', etc.) are localised for
+// es/fr/ht users. Resolved in the component (which has the i18n context) and
+// passed into createHydrologyForm; the reducer keeps an English fallback map.
+const hydrologyAutoNameMsgId = {
+    'idf-table': 'hydrata.hydrology.idfTable',
+    'temporal-pattern': 'hydrata.hydrology.temporalPattern',
+    'time-series': 'hydrata.hydrology.timeSeries'
+};
 
 class HydrologyListDetailContainerClass extends React.Component {
     static propTypes = {
@@ -38,6 +49,13 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
     static defaultProps = {}
+
+    // TASK-1538 — pull intl messages off React legacy context so createItem can
+    // resolve the localised auto-name base label at dispatch time (mirrors the
+    // idiom in hydrologyDetailIdfTable).
+    static contextTypes = {
+        messages: PropTypes.object
+    }
 
     constructor(props) {
         super(props);
@@ -60,8 +78,17 @@ class HydrologyListDetailContainerClass extends React.Component {
             if (onDerive) this.props.setActiveHydrologyPage('idf-table');
         };
         const createItem = () => {
+            const page = onDerive ? 'idf-table' : this.props.activeHydrologyPage;
             if (onDerive) this.props.setActiveHydrologyPage('idf-table');
-            this.props.createHydrologyForm(onDerive ? 'idf-table' : this.props.activeHydrologyPage);
+            // TASK-1538 — resolve the locale base label here (the reducer has no
+            // i18n context). getMessageById returns the msgId unchanged when the
+            // key is missing, so leave it undefined in that case to let the
+            // reducer fall back to its English label map.
+            const msgId = hydrologyAutoNameMsgId[page];
+            const messages = (this.context && this.context.messages) || {};
+            const resolved = msgId ? getMessageById(messages, msgId) : undefined;
+            const autoNameLabel = (resolved && resolved !== msgId) ? resolved : undefined;
+            this.props.createHydrologyForm(page, autoNameLabel);
         };
         return (
             <div id={"hydrology-list-detail-col-one"}>
@@ -315,7 +342,7 @@ const mapDispatchToProps = (dispatch) => {
         setActiveHydrologyPage: (page) => dispatch(setActiveHydrologyPage(page)),
         updateActiveHydrologyItem: (activeHydrologyPage, item, kv) => dispatch(updateActiveHydrologyItem(activeHydrologyPage, item, kv)),
         saveHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(saveHydrologyItem(activeHydrologyPage, activeHydrologyItem)),
-        createHydrologyForm: (activeHydrologyPage) => dispatch(createHydrologyForm(activeHydrologyPage)),
+        createHydrologyForm: (activeHydrologyPage, autoNameLabel) => dispatch(createHydrologyForm(activeHydrologyPage, autoNameLabel)),
         deleteHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(deleteHydrologyItem(activeHydrologyPage, activeHydrologyItem))
     };
 };
