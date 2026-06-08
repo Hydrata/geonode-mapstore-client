@@ -932,12 +932,14 @@
 }
 
 /* TASK-1550 — the generic `.simple-view-panel input` theme rule (white text on
-   the blue panel; specificity 0,2,1) outranked `.idf-matrix-input` (0,2,0), so
+   the blue panel; specificity 0,1,1) outranked `.idf-matrix-input` (0,1,0), so
    the float-entry text rendered WHITE. At rest that was white-on-blue; on focus
    the `:focus` rule turns the cell white, leaving white-on-white (invisible)
    while typing — the reported bug. Re-scope the input colour into the panel +
-   element selector so it wins the cascade (0,3,1 / 0,4,1) without `!important`,
-   restoring the intended dark-on-light entry the base rule above already sets. */
+   element selector (0,2,1 base / 0,3,1 focus) so it wins the cascade without
+   `!important`, restoring the intended dark-on-light entry the base rule above
+   already sets. (The build prepends `.msgapi` to every selector, adding one
+   class to each, so the relative ordering is unchanged.) */
 .simple-view-panel input.idf-matrix-input {
     color: #111;
     background: rgba(255, 255, 255, 0.92);
