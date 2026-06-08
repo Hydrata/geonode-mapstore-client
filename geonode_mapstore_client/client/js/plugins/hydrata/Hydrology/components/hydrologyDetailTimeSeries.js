@@ -933,6 +933,16 @@ export default connect(mapStateToProps)(HydrologyTimeSeries);
 // custom TemporalPattern from state (mirrors DesignStormsBrowser, AC8-ready).
 // ---------------------------------------------------------------------------
 
+// Pick a per-cell timestep that divides the duration (~24 steps) so the BE's
+// `duration_min % timestep_min == 0` rule holds for any duration (incl. sub-60min).
+const pickTimestep = (dur) => {
+    const d = Number(dur);
+    if (!d || d < 1) return 1;
+    const target = Math.max(1, Math.round(d / 24));
+    for (let ts = target; ts >= 1; ts--) { if (d % ts === 0) return ts; }
+    return 1;
+};
+
 // TASK-1561 (W3b) — fully wired Derive tab.
 // Previews + tick-to-select + "Save these N" for the given pattern × IDF.
 const DesignStormDerive = ({
@@ -992,11 +1002,6 @@ const DesignStormDerive = ({
             .filter(c => rowData.some(r => Number(r[c.accessorKey]) > 0))
             .map(c => parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')))
             .filter(v => v > 0);
-        const pickTimestep = (dur) => {
-            const target = Math.max(1, Math.round(dur / 24));
-            for (let ts = target; ts >= 1; ts--) { if (dur % ts === 0) return ts; }
-            return 1;
-        };
         const cells = [];
         for (const ari of aris) {
             for (const duration of durations) {
@@ -1041,7 +1046,9 @@ const DesignStormDerive = ({
                 pattern: p.pattern,
                 ari: p.ari,
                 duration_min: p.duration_min,
-                timestep_min: p.timestep_min || 60
+                // preview always echoes timestep_min; fall back to a valid divisor
+                // (never a fixed 60, which would 400 a sub-60-min duration).
+                timestep_min: p.timestep_min || pickTimestep(p.duration_min)
             }));
         if (tickedCells.length > 0) {
             onSave(tickedCells, Number(selectedIdfTableId));
@@ -1147,12 +1154,12 @@ const DesignStormDerive = ({
                             >
                                 {saveInFlight
                                     ? 'Saving…'
-                                    : <span>Save these {ticked.size}</span>
+                                    : <Message msgId="hydrata.hydrology.deriveSaveTheseN" msgParams={{n: ticked.size}} />
                                 }
                             </button>
                             {lastSavedCount !== null && (
                                 <span className="ds-derive-saved-toast" style={{fontSize: '0.82rem', color: '#cae33b'}}>
-                                    Saved {lastSavedCount.created}
+                                    <Message msgId="hydrata.hydrology.deriveSavedToast" msgParams={{n: lastSavedCount.created}} />
                                     {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
                                 </span>
                             )}

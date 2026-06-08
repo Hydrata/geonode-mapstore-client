@@ -707,7 +707,9 @@ export default ( state = initialState, action) => {
             projection: {
                 ...(state.projection || initialProjection),
                 saveInFlight: true,
-                saveError: null
+                saveError: null,
+                // clear the prior "Saved N" toast when a new save starts
+                lastSavedCount: null
             }
         };
     case SAVE_DESIGN_STORMS_SUCCESS:

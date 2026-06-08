@@ -289,8 +289,8 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 {item?.is_stale && (
                                                     <span
                                                         className="ds-stale-badge"
-                                                        title="Base IDF changed since this was saved"
-                                                        aria-label="Stale: base IDF changed"
+                                                        title={getMessageById(messages, 'hydrata.hydrology.deriveStaleBadge')}
+                                                        aria-label={getMessageById(messages, 'hydrata.hydrology.deriveStaleBadge')}
                                                         style={{marginLeft: 6}}
                                                     >
                                                         <span className="glyphicon glyphicon-warning-sign" aria-hidden="true" />
@@ -303,8 +303,8 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 <button
                                                     type="button"
                                                     className="ds-regenerate-btn"
-                                                    title="Regenerate from current IDF"
-                                                    aria-label="Regenerate"
+                                                    title={getMessageById(messages, 'hydrata.hydrology.deriveRegenerate')}
+                                                    aria-label={getMessageById(messages, 'hydrata.hydrology.deriveRegenerate')}
                                                     onClick={() => {
                                                         // Collect all auto-derived rows sharing (idf, pattern)
                                                         const allTs = this.props.timeSeriess || [];
