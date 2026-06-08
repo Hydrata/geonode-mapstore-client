@@ -43,13 +43,26 @@ function getConfig() {
     const cfg = (typeof window !== 'undefined'
         && window.__GEONODE_CONFIG__
         && window.__GEONODE_CONFIG__.openReplay) || {};
+    // Same-origin first-party path so ad-blockers (which blocklist known replay
+    // hostnames) don't drop the beacon; nginx proxies /_openreplay/ to the
+    // self-hosted box (geonode-https.j2, flag-gated).
+    const rawIngest = cfg.ingestPoint || '/_openreplay/ingest';
     return {
         projectKey: cfg.projectKey || '',
-        // Same-origin first-party path so ad-blockers (which blocklist known
-        // replay hostnames) don't drop the beacon; nginx proxies /_openreplay/
-        // to the self-hosted box (geonode-https.j2, flag-gated).
-        ingestPoint: cfg.ingestPoint || '/_openreplay/ingest',
-        cohort: cfg.cohort || 'linkedin-june'
+        // The tracker uploads /i event batches from a Web Worker, which has no
+        // document base URL, so a ROOT-RELATIVE ingestPoint throws "Failed to
+        // parse URL" there and events silently never upload (TASK-1540). Anchor
+        // a root-relative path to the current origin so every site works off the
+        // same-origin '/_openreplay/ingest' default — no absolute per-site URL
+        // needed in inventory. An already-absolute or protocol-relative value is
+        // left untouched.
+        ingestPoint: (typeof window !== 'undefined' && rawIngest.charAt(0) === '/' && rawIngest.charAt(1) !== '/')
+            ? window.location.origin + rawIngest
+            : rawIngest,
+        // Empty default: an unset cohort must be benign. The old 'linkedin-june'
+        // default silently tagged any site that forgot to set OPENREPLAY_COHORT
+        // into hydrata.com's campaign cohort on the shared box.
+        cohort: cfg.cohort || ''
     };
 }
 
