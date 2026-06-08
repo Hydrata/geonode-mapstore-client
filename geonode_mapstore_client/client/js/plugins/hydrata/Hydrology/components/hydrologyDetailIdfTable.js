@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import ReactDOM from 'react-dom';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
@@ -89,9 +89,21 @@ const hasCellValue = (value) => {
     return Number.isFinite(n) && n !== 0;
 };
 
+// Round a numeric value to AT MOST 2 decimal places for DISPLAY only, stripping
+// trailing zeros: 121.4837 -> "121.48", 121.5 -> "121.5", 121 -> "121"
+// (TASK-1554). Stored precision is never mutated by this — IdfInputCell's
+// dirty-guard ensures a clamped display value isn't committed on an untouched
+// blur. Non-numeric input returns '' so a blank/0 cell stays blank.
+const round2 = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? String(Number(n.toFixed(2))) : '';
+};
+
 // Display string for an enabled cell — blank for 0 so a freshly-enabled cell
-// is ready to type into rather than showing a literal "0".
-const displayValue = (value) => (hasCellValue(value) ? String(value) : '');
+// is ready to type into rather than showing a literal "0". Loaded/derived
+// intensities are clamped to <=2dp for display (TASK-1554); rowData keeps the
+// raw value.
+const displayValue = (value) => (hasCellValue(value) ? round2(value) : '');
 
 // Sanitise raw input to a float string: digits + a single dot + max 2 decimals.
 // type=text (not number) means no spinner widget; this keeps entry numeric.
@@ -132,8 +144,14 @@ const seedSelectedCols = (rowData) => {
 // ---------------------------------------------------------------------------
 const IdfInputCell = ({value, onCommit}) => {
     const [text, setText] = useState(displayValue(value));
+    // Track whether the user actually edited this cell. displayValue clamps the
+    // loaded/derived value to <=2dp (TASK-1554); committing that rounded text on
+    // an *untouched* blur would lossily overwrite the stored full-precision value
+    // in rowData, so only commit when the cell was genuinely edited.
+    const dirty = useRef(false);
     useEffect(() => {
         setText(displayValue(value));
+        dirty.current = false;
     }, [value]);
     return (
         <input
@@ -141,8 +159,8 @@ const IdfInputCell = ({value, onCommit}) => {
             type="text"
             inputMode="decimal"
             value={text}
-            onChange={(e) => setText(sanitizeFloat(e.target.value))}
-            onBlur={() => onCommit(text)}
+            onChange={(e) => { dirty.current = true; setText(sanitizeFloat(e.target.value)); }}
+            onBlur={() => { if (dirty.current) onCommit(text); }}
             onKeyDown={(e) => {
                 if (e.key === 'Enter') e.target.blur();
             }}
@@ -204,8 +222,11 @@ const IdfCurveChart = ({chartData}) => (
                     offset: -30
                 }}
             />
+            {/* TASK-1554 — clamp tooltip intensity/duration values to <=2dp for
+                display (round2 strips trailing zeros; non-numbers pass through). */}
             <Tooltip
                 cursor={{strokeDasharray: "3 3"}}
+                formatter={(value) => (Number.isFinite(Number(value)) ? round2(value) : value)}
             />
             {Object.keys(chartData).map((frequency, index) => {
                 return (
