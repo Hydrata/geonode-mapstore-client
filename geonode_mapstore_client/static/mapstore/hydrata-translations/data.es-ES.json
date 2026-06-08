@@ -385,6 +385,8 @@
         "noTimeSeriesData": "Aún no hay datos para esta tormenta de diseño.",
         "backToList": "Volver a la lista",
         "derivePreviewComingSoon": "Vista previa y Guardar llegarán en el siguiente paso.",
+        "filterToggle": "Buscar elementos",
+        "filterPlaceholder": "Buscar por nombre…",
         "success": "Éxito",
         "temporalPattern": "Patrón temporal",
         "temporalPatterns": "Patrones temporales",

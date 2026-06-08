@@ -142,6 +142,40 @@
     background: rgba(139, 0, 0, 1);
 }
 
+/* TASK-1557 (W2) — hidable name-search filter above the Items list. The heading
+   carries the search toggle on its right; the input drops in below when open. */
+.hydrology-items-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.hydrology-filter-toggle {
+    flex: 0 0 auto;
+    margin-left: 6px;
+    padding: 0 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(82, 121, 176, 0.6);
+    color: white;
+    cursor: pointer;
+    line-height: 1.6;
+}
+
+.hydrology-filter-toggle:hover,
+.hydrology-filter-toggle.is-open {
+    background: rgba(82, 121, 176, 1);
+}
+
+.hydrology-filter-input {
+    margin: 8px 10px 0 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: white;
+    color: #333;
+}
+
 /* Inline per-row delete confirm (shared ConfirmOverlay) — wraps within the
    narrow Items rail. */
 .hydrology-item-delete-confirm {

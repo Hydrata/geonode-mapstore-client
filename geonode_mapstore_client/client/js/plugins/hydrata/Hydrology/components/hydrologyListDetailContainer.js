@@ -20,6 +20,11 @@ import PropTypes from "prop-types";
 import Message from '@mapstore/framework/components/I18N/Message';
 import ConfirmOverlay from '../../shared/ConfirmOverlay';
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
+// TASK-1557 (W2) — gate the delete affordance on MANAGER role. canManageAnugaMap
+// reads state.anuga.projects.data.my_role and is true for ['owner','manager'];
+// the BE is the authoritative gate (perform_destroy MANAGER check), this just
+// hides the UI for users who would 403.
+import {canManageAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 
 // TASK-1538 — map each hydrology page to the i18n key for its auto-name base
 // label, so "New Item" default names ('IDF Table 03', etc.) are localised for
@@ -45,7 +50,10 @@ class HydrologyListDetailContainerClass extends React.Component {
         createHydrologyForm: PropTypes.func,
         // TASK-1509 — non-null when the active item is a custom temporal pattern
         // whose curve fails validateCustomCurve; disables the Save button.
-        customCurveError: PropTypes.string
+        customCurveError: PropTypes.string,
+        // TASK-1557 (W2) — true for ['owner','manager'] on the active project;
+        // gates the per-row trash + footer Delete affordances.
+        canManageHydrology: PropTypes.bool
     }
 
     static defaultProps = {}
@@ -74,7 +82,13 @@ class HydrologyListDetailContainerClass extends React.Component {
             // (exitTimeSeriesCreate). Scoped to time-series; idf/temporal pages
             // are unaffected.
             tsCreateMode: false,
-            tsCreateTab: 'input'
+            tsCreateTab: 'input',
+            // TASK-1557 (W2) — hidable name-search filter above the items list.
+            // filterText narrows the rendered rows by a case-insensitive name
+            // substring; filtersCollapsed hides the search box (collapsed by
+            // default so the rail stays compact until the user opens it).
+            filterText: '',
+            filtersCollapsed: true
         };
     }
 
@@ -104,7 +118,13 @@ class HydrologyListDetailContainerClass extends React.Component {
     // that item active, since Derive is a one-shot form that has no active item.
     renderItemsColumn = () => {
         const onDerive = this.props.activeHydrologyPage === 'idf-derive';
-        const items = onDerive ? this.props.idfTables : this.props.activeHydrologyItems;
+        const allItems = onDerive ? this.props.idfTables : this.props.activeHydrologyItems;
+        // TASK-1557 (W2) — name-search filter (case-insensitive substring). The
+        // search box is collapsible; when collapsed (or empty) every item shows.
+        const filterText = (this.state.filterText || '').trim().toLowerCase();
+        const items = filterText
+            ? (allItems || []).filter((item) => (item?.name || '').toLowerCase().includes(filterText))
+            : allItems;
         const selectItem = (item) => {
             // TASK-1558 — selecting a SAVED list item always shows the slim
             // detail (exit Create mode if it was open) on the time-series page.
@@ -122,6 +142,18 @@ class HydrologyListDetailContainerClass extends React.Component {
         const resolvedDelete = getMessageById(messages, 'hydrata.hydrology.delete');
         const deleteTitle = (resolvedDelete && resolvedDelete !== 'hydrata.hydrology.delete')
             ? resolvedDelete : 'Delete';
+        // TASK-1557 (W2) — resolve the filter labels here (the component has the
+        // i18n context); getMessageById returns the key unchanged when missing,
+        // so fall back to English copy in that case.
+        const resolveMsg = (key, fallback) => {
+            const m = getMessageById(messages, key);
+            return (m && m !== key) ? m : fallback;
+        };
+        const filterTitle = resolveMsg('hydrata.hydrology.filterToggle', 'Search items');
+        const filterPlaceholder = resolveMsg('hydrata.hydrology.filterPlaceholder', 'Search by name…');
+        // TASK-1557 (W2) — the delete affordance (per-row trash + the inline
+        // confirm) is hidden for non-managers; the BE 403s them anyway.
+        const canManageHydrology = this.props.canManageHydrology;
         const createItem = () => {
             const page = onDerive ? 'idf-table' : this.props.activeHydrologyPage;
             if (onDerive) this.props.setActiveHydrologyPage('idf-table');
@@ -143,10 +175,48 @@ class HydrologyListDetailContainerClass extends React.Component {
             <div id={"hydrology-list-detail-col-one"}>
                 <div id={"hydrology-list-detail-items"}>
                     <div id={"top-buttons"} style={{display: "flex", flexDirection: "column"}}>
-                        <div className={"hydrology-list-detail-heading"}><Message msgId="hydrata.hydrology.items" /></div>
+                        <div className={"hydrology-list-detail-heading hydrology-items-heading"}>
+                            <Message msgId="hydrata.hydrology.items" />
+                            {/* TASK-1557 (W2) — toggle the name-search filter. The
+                                magnifier flips the collapsed state; a tiny clear
+                                affordance lives inside the input itself. */}
+                            <button
+                                type="button"
+                                className={
+                                    'hydrology-filter-toggle'
+                                    + (this.state.filtersCollapsed ? '' : ' is-open')
+                                }
+                                title={filterTitle}
+                                aria-label={filterTitle}
+                                aria-expanded={!this.state.filtersCollapsed}
+                                onClick={() => this.setState((s) => ({
+                                    filtersCollapsed: !s.filtersCollapsed,
+                                    // Clear the query when hiding the box so a
+                                    // stale filter can't silently hide rows.
+                                    filterText: s.filtersCollapsed ? s.filterText : ''
+                                }))}
+                            >
+                                <span className="glyphicon glyphicon-search" aria-hidden="true" />
+                            </button>
+                        </div>
+                        {!this.state.filtersCollapsed && (
+                            <input
+                                type="text"
+                                className={"hydrology-filter-input"}
+                                placeholder={filterPlaceholder}
+                                aria-label={filterPlaceholder}
+                                value={this.state.filterText}
+                                onChange={(e) => this.setState({filterText: e.target.value})}
+                            />
+                        )}
                         {items?.map((item) => {
                             const isActive = item.id === this.props.activeHydrologyItem?.id;
-                            const confirming = this.state.deleteConfirmItemId === item.id;
+                            // TASK-1557 (W2) — the per-row delete confirm only
+                            // ever opens for a manager (the trash button is
+                            // hidden otherwise), but guard the confirm branch too
+                            // so a non-manager can never reach the delete path.
+                            const confirming = canManageHydrology
+                                && this.state.deleteConfirmItemId === item.id;
                             return (
                                 <div key={item.id} className={"hydrology-item-row"}>
                                     {confirming ? (
@@ -178,15 +248,20 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             >
                                                 {item?.name}
                                             </button>
-                                            <button
-                                                type="button"
-                                                className={"hydrology-item-delete-btn"}
-                                                title={deleteTitle}
-                                                aria-label={deleteTitle}
-                                                onClick={() => this.setState({deleteConfirmItemId: item.id})}
-                                            >
-                                                <span className="glyphicon glyphicon-trash" aria-hidden="true" />
-                                            </button>
+                                            {/* TASK-1557 (W2) — per-row delete is
+                                                MANAGER-only; the BE 403s a
+                                                non-manager regardless. */}
+                                            {canManageHydrology && (
+                                                <button
+                                                    type="button"
+                                                    className={"hydrology-item-delete-btn"}
+                                                    title={deleteTitle}
+                                                    aria-label={deleteTitle}
+                                                    onClick={() => this.setState({deleteConfirmItemId: item.id})}
+                                                >
+                                                    <span className="glyphicon glyphicon-trash" aria-hidden="true" />
+                                                </button>
+                                            )}
                                         </React.Fragment>
                                     )}
                                 </div>
@@ -218,6 +293,9 @@ class HydrologyListDetailContainerClass extends React.Component {
         // TASK-1509 — block Save when the active custom temporal-pattern curve
         // is invalid (the BE clean() would reject it with a 400 otherwise).
         const customCurveError = this.props.customCurveError;
+        // TASK-1557 (W2) — gate the footer Delete on MANAGER (mirrors the
+        // per-row trash gate); the BE 403s a non-manager regardless.
+        const canManageHydrology = this.props.canManageHydrology;
         const IdfSubToggle = isIdfPage ? (
             <div className={"hydrology-idf-subtoggle"} role="group" aria-label="IDF mode">
                 <button
@@ -373,8 +451,9 @@ class HydrologyListDetailContainerClass extends React.Component {
                     </div>
                 </div>
                 <div id={"hydrology-list-detail-footer"}>
-                    {/* TASK-1438: shared ConfirmOverlay replaces the inline copy-paste. */}
-                    {this.state.deleteConfirmVisible ? (
+                    {/* TASK-1438: shared ConfirmOverlay replaces the inline copy-paste.
+                        TASK-1557 (W2): the whole Delete affordance is MANAGER-gated. */}
+                    {canManageHydrology && (this.state.deleteConfirmVisible ? (
                         <ConfirmOverlay
                             wrapperClassName="hydrology-delete-confirm"
                             buttonClassName="hydrology-button"
@@ -394,7 +473,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                         >
                             <Message msgId="hydrata.hydrology.delete" />
                         </button>
-                    )}
+                    ))}
                     <button
                         className={(this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "hydrology-button" : "hydrology-button-disabled"}
                         style={{backgroundColor: (this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}
@@ -441,7 +520,9 @@ const mapStateToProps = (state) => {
         // Derive page (where activeHydrologyItems is undefined).
         idfTables: state?.hydrology?.idfTables,
         activeHydrologyItem,
-        customCurveError
+        customCurveError,
+        // TASK-1557 (W2) — MANAGER gate for the delete affordances.
+        canManageHydrology: canManageAnugaMap(state)
     };
 };
 

@@ -44,7 +44,10 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         updateActiveHydrologyItem: noop,
         saveHydrologyItem: noop,
         createHydrologyForm: noop,
-        deleteHydrologyItem: noop
+        deleteHydrologyItem: noop,
+        // TASK-1557 (W2) — default the manager gate ON so existing per-row
+        // delete assertions hold; a dedicated test flips it off.
+        canManageHydrology: true
     };
 
     beforeEach(() => {
@@ -209,6 +212,44 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         expect(deleted).toExist();
         expect(deleted.item.id).toBe(8);
         expect(deleted.page).toBe('idf-table');
+    });
+
+    // TASK-1557 (W2) — the per-row delete affordance is MANAGER-gated. A
+    // non-manager (canManageHydrology=false) sees the item rows but NO trash
+    // button (the BE 403s them regardless; this hides the dead-end UI).
+    it('hides the per-row trash button for a non-manager', () => {
+        renderWithProvider({
+            activeHydrologyPage: 'idf-derive',
+            idfTables: [{ id: 7, name: 'Table A' }, { id: 8, name: 'Table B' }],
+            canManageHydrology: false
+        });
+        const itemButtons = container.querySelectorAll('#top-buttons .hydrology-item-button');
+        expect(itemButtons.length).toBe(2);
+        const trashButtons = container.querySelectorAll('#top-buttons .hydrology-item-delete-btn');
+        expect(trashButtons.length).toBe(0);
+    });
+
+    // TASK-1557 (W2) — name-search filter narrows the rendered rows by a
+    // case-insensitive substring; it is hidden until the search toggle opens it.
+    it('filters the items list by a case-insensitive name substring', () => {
+        renderWithProvider({
+            activeHydrologyPage: 'idf-derive',
+            idfTables: [{ id: 7, name: 'Alpha storm' }, { id: 8, name: 'Beta storm' }]
+        });
+        // Both rows render before any filter is applied.
+        expect(container.querySelectorAll('#top-buttons .hydrology-item-button').length).toBe(2);
+        // Open the filter, type a query that matches only the second row.
+        const toggle = container.querySelector('.hydrology-filter-toggle');
+        expect(toggle).toExist();
+        ReactTestUtils.act(() => { toggle.click(); });
+        const input = container.querySelector('.hydrology-filter-input');
+        expect(input).toExist();
+        ReactTestUtils.act(() => {
+            ReactTestUtils.Simulate.change(input, { target: { value: 'BETA' } });
+        });
+        const filtered = container.querySelectorAll('#top-buttons .hydrology-item-button');
+        expect(filtered.length).toBe(1);
+        expect(filtered[0].textContent).toBe('Beta storm');
     });
 
     it('does NOT throw TypeError when setActiveHydrologyPage is provided (regression guard)', () => {

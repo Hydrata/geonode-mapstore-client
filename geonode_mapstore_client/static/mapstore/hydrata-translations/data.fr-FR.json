@@ -385,6 +385,8 @@
         "noTimeSeriesData": "Aucune donnée pour cette pluie de projet pour le moment.",
         "backToList": "Retour à la liste",
         "derivePreviewComingSoon": "L'aperçu et l'enregistrement arrivent à l'étape suivante.",
+        "filterToggle": "Rechercher des éléments",
+        "filterPlaceholder": "Rechercher par nom…",
         "success": "Succès",
         "temporalPattern": "Temporal Pattern",
         "temporalPatterns": "Temporal Patterns",

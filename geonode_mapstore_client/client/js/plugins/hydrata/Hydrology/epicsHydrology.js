@@ -251,15 +251,25 @@ export const deleteHydrologyItemEpic = (action$, store) =>
                         })
                     ])
                 )
-                .catch(error => Rx.Observable.from([
-                    deleteHydrologyItemFailure(error.data),
-                    show({
-                        "message": `Error: ${error.data?.errors}`,
-                        "title": "hydrata.hydrology.error",
-                        "uid": 6000,
-                        "position": "tc"
-                    }, 'error')
-                ]));
+                .catch(error => {
+                    // TASK-1557 (W2) — surface a clear message on a blocked
+                    // delete. A 409 from the block-if-attached guard returns the
+                    // DRF APIException shape {detail: "...detach first..."}; a
+                    // generic 4xx/5xx may instead carry {errors: ...}. Prefer
+                    // `detail` so the "Detach from rainfall feature(s) first"
+                    // copy reaches the user (was: "Error: undefined" on 409).
+                    const data = error?.data;
+                    const reason = data?.detail || data?.errors || error?.message || 'delete failed';
+                    return Rx.Observable.from([
+                        deleteHydrologyItemFailure(data),
+                        show({
+                            "message": `Error: ${reason}`,
+                            "title": "hydrata.hydrology.error",
+                            "uid": 6000,
+                            "position": "tc"
+                        }, 'error')
+                    ]);
+                });
         });
 
 // ERA5 annual-maxima GEV derivation floors. The derive endpoint can only
