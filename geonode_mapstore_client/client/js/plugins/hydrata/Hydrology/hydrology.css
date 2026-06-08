@@ -955,6 +955,11 @@
 /* Hours/minutes unit toggle row */
 .idf-matrix-unit-toggle-row {
     margin-bottom: 4px;
+    /* TASK-1551 — the row inherited the panel's text-align:center, centring the
+       inline checkbox+label on BOTH surfaces that reuse this class (the Derive
+       panel's #idf-matrix-show-hours and the Input grid's #idf-input-show-hours).
+       Pin left so the toggle is flush-left as intended. */
+    text-align: left;
 }
 
 .idf-matrix-unit-label {
