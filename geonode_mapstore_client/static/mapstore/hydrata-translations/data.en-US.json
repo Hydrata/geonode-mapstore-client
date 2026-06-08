@@ -390,6 +390,8 @@
         "source": "Source:",
         "manualEntry": "Manual entry",
         "noTimeSeriesData": "No data for this design storm yet.",
+        "backToList": "Back to list",
+        "derivePreviewComingSoon": "Preview & Save coming in the next step.",
         "success": "Success",
         "networksDelineationPlaceholder": "Delineation and network creation will be available in the future Networks epic.",
         "networksManageInInputs": "manage in Inputs",

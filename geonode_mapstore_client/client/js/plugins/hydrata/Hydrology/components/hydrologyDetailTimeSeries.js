@@ -20,7 +20,7 @@
  * Manual entry demoted behind "New Time Series" button (AC4, fixes the
  * stray "New Time Series2" label).
  */
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
@@ -32,80 +32,21 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
-// TASK-1556 (W2) — the slim DETAIL no longer dispatches design-storm actions;
-// the Create-panel components below (DesignStormsBrowser / ManualEntryForm /
-// ManualPasteGrid) receive their dispatchers via props from the Create panel
-// (TASK-1558), so no direct action imports are needed in this file.
+// TASK-1556/1558 (W2) — the slim DETAIL no longer dispatches design-storm
+// actions; the Create panel (DesignStormCreatePanel) owns its own connect and
+// passes dispatchers into ManualPasteGrid as props. DesignStormsBrowser /
+// ManualEntryForm receive their dispatchers via props (from W3 callers).
+import {
+    updateTimeSeriesRowData,
+    replaceTimeSeriesRowData
+} from '../actionsHydrology';
 import {PRESET_FAMILIES, ALTERNATING_BLOCK} from '../temporalPatternPresets';
+import ManualPasteGrid from './ManualPasteGrid';
 
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
-import {
-    createColumnHelper,
-    flexRender,
-    getCoreRowModel,
-    useReactTable
-} from '@tanstack/react-table';
 import moment from 'moment';
 import Message from '@mapstore/framework/components/I18N/Message';
-
-// ---------------------------------------------------------------------------
-// Manual-edit table cell (unchanged from W4)
-// ---------------------------------------------------------------------------
-
-const TableCell = ({getValue, row, column, table}) => {
-    const initialValue = getValue();
-    const [value, setValue] = useState(initialValue);
-
-    useEffect(() => {
-        setValue(initialValue);
-    }, [initialValue]);
-
-    const onBlur = () => {
-        table.options.meta?.updateData(row.index, column.id, value);
-    };
-    let inputType = column.columnDef.meta?.type || 'text';
-    let displayValue = value;
-
-    if (inputType === 'datetime') {
-        displayValue = moment(value).format('YYYY-MM-DD HH:mm:ss');
-    }
-
-    return (
-        <input
-            value={displayValue}
-            onChange={e => setValue(e.target.value)}
-            onBlur={onBlur}
-            type={inputType}
-        />
-    );
-};
-
-TableCell.propTypes = {
-    getValue: PropTypes.func.isRequired,
-    row: PropTypes.object.isRequired,
-    column: PropTypes.object.isRequired,
-    table: PropTypes.object.isRequired
-};
-
-const columnHelper = createColumnHelper();
-
-const columns = [
-    columnHelper.accessor('timestamp', {
-        cell: TableCell,
-        header: () => <span><Message msgId="hydrata.hydrology.timestamp" /></span>,
-        meta: {
-            type: 'datetime-local'
-        }
-    }),
-    columnHelper.accessor('value', {
-        cell: TableCell,
-        header: () => <span>Flow (m3/s) or<br/>Rainfall (mm/hr)</span>,
-        meta: {
-            type: 'number'
-        }
-    })
-];
 
 // ---------------------------------------------------------------------------
 // Hyetograph bar chart (reused from W4 — the "good bit", AC3)
@@ -909,204 +850,6 @@ ManualEntryForm.propTypes = {
 };
 
 // ---------------------------------------------------------------------------
-// Manual paste-grid (unchanged from W4 — still available behind "New Time Series")
-// ---------------------------------------------------------------------------
-
-const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchReplaceRowData}) => {
-    const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
-    const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
-    const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
-
-    const pasteDivRef = useRef();
-
-    const parsePastedData = (pastedData) => {
-        return pastedData.split('\n')
-            .filter(row => row.trim() !== '')
-            .map((row) => {
-                const [timestampStr, valueStr] = row.split('\t');
-                const isoTimestampStr = moment(timestampStr, 'YYYY-MM-DD HH:mm').toISOString().slice(0, -1);
-                const value = parseFloat(valueStr);
-                return { timestamp: isoTimestampStr, value: value };
-            });
-    };
-
-    useEffect(() => {
-        const handlePaste = (event) => {
-            let paste = event.clipboardData || window.clipboardData;
-            if (paste) {
-                let pastedData = paste.getData('text');
-                let newRowData = parsePastedData(pastedData);
-                dispatchReplaceRowData(activeHydrologyItem.id, newRowData);
-                setChartData(activeHydrologyItem?.getChartData());
-                setRowData(newRowData);
-            }
-        };
-        const pasteDiv = pasteDivRef.current;
-        if (pasteDiv) pasteDiv.addEventListener('paste', handlePaste);
-        return () => {
-            if (pasteDiv) pasteDiv.removeEventListener('paste', handlePaste);
-        };
-    }, [activeHydrologyItem]);
-
-    useEffect(() => {
-        setColumnDefs(activeHydrologyItem?.columnDefs);
-        setRowData(activeHydrologyItem?.rowData);
-        setChartData(activeHydrologyItem?.getChartData());
-    }, [activeHydrologyItem, rowData, columnDefs]);
-
-    const table = useReactTable({
-        columns: columns,
-        data: rowData || [],
-        getCoreRowModel: getCoreRowModel(),
-        meta: {
-            updateData: (rowIndex, columnId, value) => {
-                dispatchUpdateRowData(activeHydrologyItem.id, rowIndex, columnId, value);
-                setChartData(activeHydrologyItem?.getChartData());
-            }
-        }
-    });
-
-    return (
-        <div>
-            <div style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                boxSizing: 'border-box',
-                paddingTop: '5px'
-            }}>
-                <p style={{marginRight: '5px', width: '100px'}}>
-                    <Message msgId="hydrata.hydrology.pasteData" />
-                </p>
-                <input
-                    ref={pasteDivRef}
-                    id="name"
-                    key="name-paste"
-                    type="text"
-                    className="hydrology-text-input"
-                    style={{textAlign: 'left'}}
-                    value={''}
-                    readOnly
-                />
-            </div>
-            <div style={{display: 'flex', flexDirection: 'row', boxSizing: 'border-box'}}>
-                <div style={{
-                    padding: '10px',
-                    height: '600px',
-                    width: '600px',
-                    minWidth: '400px',
-                    marginBottom: '60px',
-                    marginRight: '50px'
-                }}>
-                    <div>
-                        <h3 style={{marginTop: 0}}>
-                            <Message msgId="hydrata.hydrology.timeSeries" />
-                        </h3>
-                        <table className="time-series-table">
-                            <thead>
-                                {table.getHeaderGroups().map(headerGroup => (
-                                    <tr key={headerGroup.id}>
-                                        {headerGroup.headers.map(header => (
-                                            <th key={header.id}>
-                                                {header.isPlaceholder
-                                                    ? null
-                                                    : flexRender(
-                                                        header.column.columnDef.header,
-                                                        header.getContext()
-                                                    )}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </thead>
-                            <tbody>
-                                {table.getRowModel().rows.map(row => (
-                                    <tr key={row.id}>
-                                        {row.getVisibleCells().map(cell => (
-                                            <td key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div>
-                    <div style={{
-                        minWidth: '600px',
-                        marginTop: '20px',
-                        padding: '10px'
-                    }}>
-                        <h3 style={{marginTop: 0}}>
-                            <Message msgId="hydrata.hydrology.timeSeries" />
-                        </h3>
-                        <div style={{
-                            width: '100%',
-                            height: '100%',
-                            background: 'white',
-                            borderRadius: '3px'
-                        }}>
-                            <ResponsiveContainer width="100%" height={400}>
-                                <BarChart
-                                    width={500}
-                                    height={300}
-                                    data={chartData}
-                                    margin={{
-                                        top: 30,
-                                        right: 30,
-                                        left: 50,
-                                        bottom: 120
-                                    }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3"/>
-                                    <XAxis
-                                        dataKey="timestamp"
-                                        type="number"
-                                        domain={['auto', 'auto']}
-                                        angle={-45}
-                                        textAnchor="end"
-                                        height={60}
-                                        tickFormatter={(unixTime) => {
-                                            if (!chartData || chartData.length === 0) return '';
-                                            const endDate = new Date(Math.max(...chartData.map(d => d.timestamp)));
-                                            const startDate = new Date(Math.min(...chartData.map(d => d.timestamp)));
-                                            const deltaDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-                                            const dateObj = new Date(unixTime);
-                                            if (deltaDays < 7) {
-                                                return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString()}`;
-                                            }
-                                            return dateObj.toLocaleDateString();
-                                        }}
-                                    />
-                                    <YAxis
-                                        name="Rate"
-                                        label={{
-                                            value: 'Flow (m3/s) or Rainfall (mm/hr)',
-                                            angle: -90,
-                                            position: 'insideLeft',
-                                            offset: 20,
-                                            dy: 100
-                                        }}
-                                    />
-                                    <Bar dataKey="value" fill="#8884d8" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-ManualPasteGrid.propTypes = {
-    activeHydrologyItem: PropTypes.object,
-    dispatchUpdateRowData: PropTypes.func.isRequired,
-    dispatchReplaceRowData: PropTypes.func.isRequired
-};
-
-// ---------------------------------------------------------------------------
 // Estimate the timestep (minutes) of a saved record from its rowData. The
 // hyetograph total-depth conversion (mm/hr × timestep/60) needs the spacing;
 // derive it from the first two timestamps, default 6 min if undeterminable.
@@ -1175,3 +918,204 @@ const mapStateToProps = (state) => {
 
 export {HydrologyTimeSeries as HydrologyTimeSeriesClass};
 export default connect(mapStateToProps)(HydrologyTimeSeries);
+
+// ---------------------------------------------------------------------------
+// TASK-1558 (W2) — Derive tab SHELL.
+//
+// IDF-table <select> + temporal-pattern <select> + an empty preview area.
+// This is a SHELL only: it does NOT compute or persist anything — that's the
+// W3 keystone (TASK-1560/1561). The picker markup mirrors DesignStormsBrowser's
+// pickers (same className/option shape) so W3 can wire the preview + Save-subset
+// without restyling. Pattern options are data-driven: PRESET_FAMILIES + any
+// custom TemporalPattern from state (mirrors DesignStormsBrowser, AC8-ready).
+// ---------------------------------------------------------------------------
+
+const DesignStormDerive = ({idfTables, temporalPatterns, selectedIdfTableId, selectedPattern, onChange}) => {
+    const presetIds = new Set(PRESET_FAMILIES.map(f => f.id));
+    const customPatterns = (temporalPatterns || [])
+        .filter(tp => tp.pattern_type === 'custom' || !presetIds.has(tp.id));
+    const patternOptions = [
+        ...PRESET_FAMILIES.map(f => ({id: f.id, label: f.label})),
+        ...customPatterns.map(tp => ({id: tp.id || tp.name, label: tp.name}))
+    ];
+
+    return (
+        <div id="design-storm-derive-shell" className="design-storm-card" style={{padding: '12px 16px', maxWidth: 700}}>
+            {/* IDF table picker */}
+            <div style={{marginBottom: 10}}>
+                <label htmlFor="ds-derive-idf-table" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
+                    <Message msgId="hydrata.hydrology.idfTable" />
+                </label>
+                <select
+                    id="ds-derive-idf-table"
+                    className="hydrology-text-input"
+                    style={{width: '100%'}}
+                    value={selectedIdfTableId ?? ''}
+                    onChange={e => onChange({selectedIdfTableId: e.target.value ? Number(e.target.value) : null})}
+                >
+                    <option value="">-- select an IDF table --</option>
+                    {(idfTables || []).map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Temporal-pattern picker */}
+            <div style={{marginBottom: 10}}>
+                <label htmlFor="ds-derive-pattern" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
+                    <Message msgId="hydrata.hydrology.temporalPattern" />
+                </label>
+                <select
+                    id="ds-derive-pattern"
+                    className="hydrology-text-input"
+                    style={{width: '100%'}}
+                    value={selectedPattern ?? ALTERNATING_BLOCK}
+                    onChange={e => onChange({selectedPattern: e.target.value})}
+                >
+                    {patternOptions.map(opt => (
+                        <option key={opt.id} value={opt.id}>{opt.label}</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Empty preview area — wired for W3 (preview X storms + Save these N). */}
+            <div
+                id="design-storm-derive-preview"
+                className="design-storm-derive-preview-placeholder"
+                style={{
+                    marginTop: 12,
+                    padding: '18px 14px',
+                    border: '1px dashed rgba(255,255,255,0.3)',
+                    borderRadius: 4,
+                    textAlign: 'center'
+                }}
+            >
+                <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem'}}>
+                    <Message msgId="hydrata.hydrology.derivePreviewComingSoon" />
+                </p>
+            </div>
+        </div>
+    );
+};
+
+DesignStormDerive.propTypes = {
+    idfTables: PropTypes.array,
+    temporalPatterns: PropTypes.array,
+    selectedIdfTableId: PropTypes.number,
+    selectedPattern: PropTypes.string,
+    onChange: PropTypes.func.isRequired
+};
+
+// ---------------------------------------------------------------------------
+// TASK-1558 (W2) — two-tab CREATE panel (Input | Derive).
+//
+// Opened by the container's "New Item" on the time-series page (container owns
+// the create-mode + active-tab state, passed in as props). The Input tab is the
+// extracted advanced manual table (ManualPasteGrid) bound to the unsaved
+// activeHydrologyItem; the Derive tab is the picker SHELL (DesignStormDerive).
+// A "Back to list" affordance lets the container exit create mode + discard the
+// orphaned unsaved instance.
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line no-shadow -- props named after action creators (mapDispatchToProps shorthand)
+const DesignStormCreatePanel = ({
+    activeHydrologyItem,
+    idfTables,
+    temporalPatterns,
+    activeTab,
+    onTabChange,
+    onBack,
+    updateTimeSeriesRowData: dispatchUpdateRowData,
+    replaceTimeSeriesRowData: dispatchReplaceRowData
+}) => {
+    // Derive-tab shell selections are LOCAL — no compute/persist until W3.
+    const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: ALTERNATING_BLOCK});
+    const tab = activeTab || 'input';
+
+    return (
+        <div id="design-storm-create-panel">
+            {/* Back-to-list affordance (container clears create mode + unsaved item) */}
+            <div style={{marginBottom: 8}}>
+                <button
+                    id="ds-create-back"
+                    type="button"
+                    className="btn btn-default btn-xs"
+                    onClick={onBack}
+                    style={{fontSize: '0.8rem'}}
+                >
+                    <span className="glyphicon glyphicon-chevron-left" style={{marginRight: 5}} />
+                    <Message msgId="hydrata.hydrology.backToList" />
+                </button>
+            </div>
+
+            {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup. */}
+            <div className="hydrology-idf-subtoggle" role="group" aria-label="Create mode">
+                <button
+                    id="ds-create-tab-input"
+                    type="button"
+                    className={'hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
+                    onClick={() => onTabChange('input')}
+                >
+                    <Message msgId="hydrata.hydrology.idfModeManual" />
+                </button>
+                <button
+                    id="ds-create-tab-derive"
+                    type="button"
+                    className={'hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
+                    onClick={() => onTabChange('derive')}
+                >
+                    <Message msgId="hydrata.hydrology.idfModeDerive" />
+                </button>
+            </div>
+
+            {/* Active tab body */}
+            <div style={{marginTop: 10}}>
+                {tab === 'derive' ? (
+                    <DesignStormDerive
+                        idfTables={idfTables}
+                        temporalPatterns={temporalPatterns}
+                        selectedIdfTableId={deriveSpec.selectedIdfTableId}
+                        selectedPattern={deriveSpec.selectedPattern}
+                        onChange={(patch) => setDeriveSpec(prev => ({...prev, ...patch}))}
+                    />
+                ) : (
+                    <ManualPasteGrid
+                        activeHydrologyItem={activeHydrologyItem}
+                        dispatchUpdateRowData={dispatchUpdateRowData}
+                        dispatchReplaceRowData={dispatchReplaceRowData}
+                    />
+                )}
+            </div>
+        </div>
+    );
+};
+
+DesignStormCreatePanel.propTypes = {
+    activeHydrologyItem: PropTypes.object,
+    idfTables: PropTypes.array,
+    temporalPatterns: PropTypes.array,
+    activeTab: PropTypes.string,
+    onTabChange: PropTypes.func.isRequired,
+    onBack: PropTypes.func.isRequired,
+    updateTimeSeriesRowData: PropTypes.func.isRequired,
+    replaceTimeSeriesRowData: PropTypes.func.isRequired
+};
+
+const createPanelStateToProps = (state) => ({
+    activeHydrologyItem: state?.hydrology?.activeHydrologyItem,
+    idfTables: state?.hydrology?.idfTables || [],
+    temporalPatterns: state?.hydrology?.temporalPatterns || []
+});
+
+const createPanelDispatchToProps = (dispatch) => ({
+    updateTimeSeriesRowData: (timeSeriesId, rowIndex, columnId, value) =>
+        dispatch(updateTimeSeriesRowData(timeSeriesId, rowIndex, columnId, value)),
+    replaceTimeSeriesRowData: (timeSeriesId, newRowData) =>
+        dispatch(replaceTimeSeriesRowData(timeSeriesId, newRowData))
+});
+
+const ConnectedDesignStormCreatePanel =
+    connect(createPanelStateToProps, createPanelDispatchToProps)(DesignStormCreatePanel);
+
+export {DesignStormCreatePanel, DesignStormDerive};
+export {ConnectedDesignStormCreatePanel as HydrologyTimeSeriesCreatePanel};

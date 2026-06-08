@@ -5,7 +5,7 @@ import '../../SimpleView/simpleView.css';
 import HydrologyDetailIdfTable from './hydrologyDetailIdfTable';
 import HydrologyDetailIdfDerive from './hydrologyDetailIdfDerive';
 import HydrologyDetailTemporalPattern, { validateCustomCurve } from './hydrologyDetailTemporalPattern';
-import HydrologyDetailTimeSeries from './hydrologyDetailTimeSeries';
+import HydrologyDetailTimeSeries, {HydrologyTimeSeriesCreatePanel} from './hydrologyDetailTimeSeries';
 import {
     setActiveHydrologyItem,
     setActiveHydrologyPage,
@@ -65,8 +65,36 @@ class HydrologyListDetailContainerClass extends React.Component {
         // button on an item row opens an inline ConfirmOverlay for that id).
         this.state = {
             deleteConfirmVisible: false,
-            deleteConfirmItemId: null
+            deleteConfirmItemId: null,
+            // TASK-1558 (W2) — Create-panel mode for the time-series (Design
+            // Storms) page. tsCreateMode toggles col-two from the slim DETAIL to
+            // the two-tab CREATE panel; tsCreateTab selects Input|Derive.
+            // Entered by "New Item" on the time-series page (enterTimeSeriesCreate),
+            // exited by selecting a saved list item or "Back to list"
+            // (exitTimeSeriesCreate). Scoped to time-series; idf/temporal pages
+            // are unaffected.
+            tsCreateMode: false,
+            tsCreateTab: 'input'
         };
+    }
+
+    // TASK-1558 (W2) — enter Create mode for the time-series page. Called after
+    // a new time-series instance is created so "New Item" opens the Create panel
+    // rather than dropping the user straight into the (now slim) detail.
+    enterTimeSeriesCreate = () => {
+        this.setState({tsCreateMode: true, tsCreateTab: 'input'});
+    }
+
+    // Exit Create mode. The unsaved instance is discarded by clearing the active
+    // item so it does not orphan in the list (the reducer drops temp-* ids that
+    // were never saved). Callers that select a real saved item pass it through.
+    exitTimeSeriesCreate = (selectedItem) => {
+        this.setState({tsCreateMode: false});
+        if (selectedItem) {
+            this.props.setActiveHydrologyItem(selectedItem);
+        } else {
+            this.props.setActiveHydrologyItem(null);
+        }
     }
 
     // TASK-1497 (UAT note-5) — the "Items" column renders on BOTH the Manual
@@ -78,6 +106,11 @@ class HydrologyListDetailContainerClass extends React.Component {
         const onDerive = this.props.activeHydrologyPage === 'idf-derive';
         const items = onDerive ? this.props.idfTables : this.props.activeHydrologyItems;
         const selectItem = (item) => {
+            // TASK-1558 — selecting a SAVED list item always shows the slim
+            // detail (exit Create mode if it was open) on the time-series page.
+            if (this.props.activeHydrologyPage === 'time-series' && this.state.tsCreateMode) {
+                this.setState({tsCreateMode: false});
+            }
             this.props.setActiveHydrologyItem(item);
             if (onDerive) this.props.setActiveHydrologyPage('idf-table');
         };
@@ -100,6 +133,11 @@ class HydrologyListDetailContainerClass extends React.Component {
             const resolved = msgId ? getMessageById(messages, msgId) : undefined;
             const autoNameLabel = (resolved && resolved !== msgId) ? resolved : undefined;
             this.props.createHydrologyForm(page, autoNameLabel);
+            // TASK-1558 — on the time-series page, "New Item" opens the two-tab
+            // Create panel (Input|Derive) rather than the slim detail.
+            if (page === 'time-series') {
+                this.enterTimeSeriesCreate();
+            }
         };
         return (
             <div id={"hydrology-list-detail-col-one"}>
@@ -314,7 +352,16 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             case 'temporal-pattern':
                                                 return <HydrologyDetailTemporalPattern/>;
                                             case 'time-series':
-                                                return <HydrologyDetailTimeSeries/>;
+                                                // TASK-1558 (W2) — "New Item" opens the two-tab CREATE
+                                                // panel (Input|Derive); selecting a saved item shows the
+                                                // slim record-centric DETAIL (TASK-1556).
+                                                return this.state.tsCreateMode
+                                                    ? <HydrologyTimeSeriesCreatePanel
+                                                        activeTab={this.state.tsCreateTab}
+                                                        onTabChange={(tab) => this.setState({tsCreateTab: tab})}
+                                                        onBack={() => this.exitTimeSeriesCreate()}
+                                                    />
+                                                    : <HydrologyDetailTimeSeries/>;
                                             default:
                                                 return <div/>;
                                             }
