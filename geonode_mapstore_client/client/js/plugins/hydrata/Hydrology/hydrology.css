@@ -928,6 +928,23 @@
     background: #fff;
 }
 
+/* TASK-1550 — the generic `.simple-view-panel input` theme rule (white text on
+   the blue panel; specificity 0,2,1) outranked `.idf-matrix-input` (0,2,0), so
+   the float-entry text rendered WHITE. At rest that was white-on-blue; on focus
+   the `:focus` rule turns the cell white, leaving white-on-white (invisible)
+   while typing — the reported bug. Re-scope the input colour into the panel +
+   element selector so it wins the cascade (0,3,1 / 0,4,1) without `!important`,
+   restoring the intended dark-on-light entry the base rule above already sets. */
+.simple-view-panel input.idf-matrix-input {
+    color: #111;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.simple-view-panel input.idf-matrix-input:focus {
+    color: #111;
+    background: #fff;
+}
+
 /* type=text already suppresses spinners; guard webkit number spinners too. */
 .idf-matrix-input::-webkit-outer-spin-button,
 .idf-matrix-input::-webkit-inner-spin-button {
