@@ -94,7 +94,10 @@
     border: 1px solid white;
     color: white;
     background: rgb(82, 121, 176);
-    text-align: center;
+    /* TASK-1552 — left-justify the item label inside list-view buttons (was
+       centred) for scannability; applies in both the Manual and Derive list
+       contexts (same button class is reused by renderItemsColumn). */
+    text-align: left;
     margin-left: 10px;
     margin-right: 10px;
     margin-top: 10px;
