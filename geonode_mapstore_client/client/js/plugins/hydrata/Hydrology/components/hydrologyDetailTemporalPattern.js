@@ -703,15 +703,24 @@ const PresetPicker = ({ selectedKey, onChange }) => (
                     </span>
                     <OverlayTrigger
                         placement="right"
+                        trigger={['hover', 'focus']}
                         overlay={
                             <BootstrapTooltip id={`preset-tooltip-${family.id}`}>
                                 {family.description}
                             </BootstrapTooltip>
                         }
                     >
+                        {/* TASK-1555 — the description was hover-only on a non-
+                            focusable <span>, so it never surfaced for keyboard
+                            users (and was easy to miss). Make the info icon
+                            focusable (tabIndex + aria-label) and trigger the
+                            tooltip on hover AND focus. */}
                         <span
                             className="hydrology-preset-info glyphicon glyphicon-info-sign"
                             title={family.description}
+                            tabIndex={0}
+                            role="img"
+                            aria-label={family.description}
                             style={{ color: '#5178af', fontSize: '0.85rem', cursor: 'help', flexShrink: 0 }}
                         />
                     </OverlayTrigger>
