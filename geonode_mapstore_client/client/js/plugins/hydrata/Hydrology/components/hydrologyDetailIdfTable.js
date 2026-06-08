@@ -2,7 +2,7 @@ import React, {useState, useEffect, useRef} from 'react';
 import ReactDOM from 'react-dom';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer} from 'recharts';
+import {ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from 'recharts';
 import {
     updateIdfRowData
 } from "../actionsHydrology";
@@ -60,6 +60,20 @@ const ARI_COLUMNS = [
     {key: '100yrARI', label: '100yr'},
     {key: '500yrARI', label: '500yr'}
 ];
+
+// Human-readable recurrence-interval label per ARI column key, for the IDF
+// curve legend (e.g. '10yrARI' -> '10 yr ARI'). The legend names each plotted
+// line by its Average Recurrence Interval.
+const ARI_LEGEND_LABEL = ARI_COLUMNS.reduce((acc, c) => {
+    acc[c.key] = `${c.label.replace('yr', ' yr')} ARI`;
+    return acc;
+}, {});
+
+// Explicit log-scale reference ticks. recharts does NOT auto-generate ticks for
+// a numeric log axis with an 'auto' domain bound (the ticks render blank), so
+// we supply a fixed log-spaced set; out-of-domain ticks are dropped by recharts.
+const DURATION_TICKS = [5, 10, 15, 30, 60, 120, 240, 360, 720, 1440, 2880, 4320];
+const INTENSITY_TICKS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
 
 // Build the IDF-curve scatter data from rowData, keyed per ARI column, dropping
 // every 0/empty cell (same zero-drop rule as classesHydrology.js getChartData,
@@ -182,66 +196,88 @@ IdfInputCell.propTypes = {
 // ---------------------------------------------------------------------------
 const CURVE_COLOURS = ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6dcd59", "#b8de29", "#fde725"];
 
+// Axis titles are rendered as plain HTML around the chart rather than via the
+// recharts XAxis/YAxis `label` prop: the pinned recharts (0.22.4) does not
+// honour the `label={{value, position}}` object form, so the axes shipped
+// unlabelled. HTML titles render the units reliably and are version-proof.
 const IdfCurveChart = ({chartData}) => (
-    <ResponsiveContainer
-        width="100%"
-        height="100%"
-    >
-        <ScatterChart
-            margin={{
-                top: 20,
-                right: 80,
-                bottom: 50,
-                left: 40
-            }}
-        >
-            <CartesianGrid/>
-            <XAxis
-                type="number"
-                dataKey="duration"
-                name="Duration"
-                unit="min"
-                scale="log"
-                domain={[5, 'auto']}
-                label={{
-                    value: "Duration",
-                    position: "bottom"
-                }}
-            />
-            <YAxis
-                type="number"
-                dataKey="intensity"
-                name="Intensity"
-                unit="mm/hr"
-                scale="log"
-                domain={[1, 'auto']}
-                label={{
-                    value: "Intensity",
-                    angle: -90,
-                    position: "insideLeft",
-                    offset: -30
-                }}
-            />
-            {/* TASK-1554 — clamp tooltip intensity/duration values to <=2dp for
-                display (round2 strips trailing zeros; non-numbers pass through). */}
-            <Tooltip
-                cursor={{strokeDasharray: "3 3"}}
-                formatter={(value) => (Number.isFinite(Number(value)) ? round2(value) : value)}
-            />
-            {Object.keys(chartData).map((frequency, index) => {
-                return (
-                    <Scatter
-                        key={frequency}
-                        name={frequency}
-                        data={chartData[frequency]}
-                        fill={CURVE_COLOURS[index % CURVE_COLOURS.length]}
-                        line
-                        shape={({ cx, cy, fill }) => <circle cx={cx} cy={cy} r={3} fill={fill} />}
-                    />
-                );
-            })}
-        </ScatterChart>
-    </ResponsiveContainer>
+    <div className="idf-curve-chart-layout">
+        <div className="idf-curve-yaxis-title">Intensity (mm/hr)</div>
+        <div className="idf-curve-plot-area">
+            <div className="idf-curve-plot">
+                <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                >
+                    <ScatterChart
+                        margin={{
+                            top: 20,
+                            right: 140,
+                            bottom: 30,
+                            left: 45
+                        }}
+                    >
+                        <CartesianGrid/>
+                        <XAxis
+                            type="number"
+                            dataKey="duration"
+                            name="Duration"
+                            unit="min"
+                            scale="log"
+                            domain={[5, 'auto']}
+                            ticks={DURATION_TICKS}
+                            allowDecimals={false}
+                            tickFormatter={(value) => value}
+                        />
+                        <YAxis
+                            type="number"
+                            dataKey="intensity"
+                            name="Intensity"
+                            unit="mm/hr"
+                            scale="log"
+                            domain={[1, 'auto']}
+                            ticks={INTENSITY_TICKS}
+                            allowDecimals={false}
+                            tickFormatter={(value) => value}
+                        />
+                        {/* TASK-1554 — clamp tooltip intensity/duration values to <=2dp for
+                            display (round2 strips trailing zeros; non-numbers pass through). */}
+                        <Tooltip
+                            cursor={{strokeDasharray: "3 3"}}
+                            formatter={(value) => (Number.isFinite(Number(value)) ? round2(value) : value)}
+                        />
+                        {/* Legend identifies each line by its recurrence interval (ARI).
+                            Vertical list on the right (one entry per PLOTTED line). */}
+                        <Legend
+                            layout="vertical"
+                            align="right"
+                            verticalAlign="middle"
+                        />
+                        {/* Only draw lines that actually hold data — buildChartData keys all
+                            nine ARIs but leaves all-zero columns empty; plotting them would
+                            add blank legend entries. Colour is keyed to the ARI's canonical
+                            index so each recurrence interval keeps a stable colour. */}
+                        {Object.keys(chartData)
+                            .filter((frequency) => chartData[frequency].length > 0)
+                            .map((frequency) => {
+                                const colourIndex = ARI_COLUMNS.findIndex((c) => c.key === frequency);
+                                return (
+                                    <Scatter
+                                        key={frequency}
+                                        name={ARI_LEGEND_LABEL[frequency] || frequency}
+                                        data={chartData[frequency]}
+                                        fill={CURVE_COLOURS[colourIndex % CURVE_COLOURS.length]}
+                                        line
+                                        shape={({ cx, cy, fill }) => <circle cx={cx} cy={cy} r={3} fill={fill} />}
+                                    />
+                                );
+                            })}
+                    </ScatterChart>
+                </ResponsiveContainer>
+            </div>
+            <div className="idf-curve-xaxis-title">Duration (min)</div>
+        </div>
+    </div>
 );
 
 IdfCurveChart.propTypes = {

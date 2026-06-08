@@ -58,9 +58,11 @@ export class IdfTable {
                 accessorKey: "500yrARI"
             }
         ];
-        // TASK-1497 (UAT note-3) — default durations are the sub-hour trio
-        // 5/10/30 min plus the canonical >=1h set. (15/20/45 min dropped from
-        // the default rows; users can still re-add any duration manually.)
+        // Default durations cover the full standard sub-hourly range
+        // (5/10/15/20/30/45 min) plus the canonical >=1h set. (15/20/45 min
+        // were briefly dropped under TASK-1497 UAT note-3 but restored on
+        // request — sub-hourly resolution matters for short-duration design
+        // storms; users can still add/remove any duration manually.)
         this.rowData = [
             {
                 "duration": 5,
@@ -87,7 +89,43 @@ export class IdfTable {
                 "500yrARI": 0
             },
             {
+                "duration": 15,
+                "0-5yrARI": 0,
+                "1yrARI": 0,
+                "2yrARI": 0,
+                "5yrARI": 0,
+                "10yrARI": 0,
+                "20yrARI": 0,
+                "50yrARI": 0,
+                "100yrARI": 0,
+                "500yrARI": 0
+            },
+            {
+                "duration": 20,
+                "0-5yrARI": 0,
+                "1yrARI": 0,
+                "2yrARI": 0,
+                "5yrARI": 0,
+                "10yrARI": 0,
+                "20yrARI": 0,
+                "50yrARI": 0,
+                "100yrARI": 0,
+                "500yrARI": 0
+            },
+            {
                 "duration": 30,
+                "0-5yrARI": 0,
+                "1yrARI": 0,
+                "2yrARI": 0,
+                "5yrARI": 0,
+                "10yrARI": 0,
+                "20yrARI": 0,
+                "50yrARI": 0,
+                "100yrARI": 0,
+                "500yrARI": 0
+            },
+            {
+                "duration": 45,
                 "0-5yrARI": 0,
                 "1yrARI": 0,
                 "2yrARI": 0,

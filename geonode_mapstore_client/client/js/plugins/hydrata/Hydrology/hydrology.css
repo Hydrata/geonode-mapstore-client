@@ -94,10 +94,6 @@
     border: 1px solid white;
     color: white;
     background: rgb(82, 121, 176);
-    /* TASK-1552 — left-justify the item label inside list-view buttons (was
-       centred) for scannability; applies in both the Manual and Derive list
-       contexts (same button class is reused by renderItemsColumn). */
-    text-align: left;
     margin-left: 10px;
     margin-right: 10px;
     margin-top: 10px;
@@ -107,6 +103,57 @@
 .hydrology-button-disabled {
     cursor: not-allowed;
     opacity: 0.5;
+}
+
+/* Left-justify the label ONLY on list-view instance rows (for scannability);
+   action buttons that share .hydrology-button — "New Item", Save, Delete —
+   keep their default centring. (TASK-1552 originally left-justified the base
+   class, which also shifted those action buttons.) */
+.hydrology-item-row {
+    display: flex;
+    align-items: stretch;
+    margin: 10px 10px 0 10px;
+}
+
+.hydrology-item-button {
+    flex: 1 1 auto;
+    text-align: left;
+    /* the row supplies the outer margin; the button sits flush to the trash */
+    margin: 0;
+    min-width: 0;
+}
+
+/* Small trash button sitting to the immediate right of each item row. */
+.hydrology-item-delete-btn {
+    flex: 0 0 auto;
+    margin-left: 6px;
+    padding: 0 10px;
+    border-radius: 4px;
+    border: 1px solid white;
+    background: rgba(139, 0, 0, 0.6);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hydrology-item-delete-btn:hover {
+    background: rgba(139, 0, 0, 1);
+}
+
+/* Inline per-row delete confirm (shared ConfirmOverlay) — wraps within the
+   narrow Items rail. */
+.hydrology-item-delete-confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 10px 10px 0 10px;
+    padding: 6px;
+    border: 1px solid white;
+    border-radius: 4px;
+    background: rgba(139, 0, 0, 0.25);
+    font-size: 12px;
 }
 
 .hyrdology-textarea {
@@ -984,7 +1031,11 @@
 }
 
 /* Full-viewport backdrop; the modal portals to document.body so it floats
-   over the map outside the SimpleView stacking context. */
+   over the map outside the SimpleView stacking context. z-index must clear
+   `.gn-page-wrapper` (z-index 99999 on the map route) — the whole app UI lives
+   inside that wrapper's stacking context, so a lower value (the old 1100) left
+   the chart painted BEHIND the IDF matrix panel and invisible. 100000 is the
+   codebase ceiling for body-level overlays (see _media-viewer.less). */
 .idf-curve-modal-overlay {
     position: fixed;
     top: 0;
@@ -992,7 +1043,7 @@
     right: 0;
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1100;
+    z-index: 100000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1023,6 +1074,47 @@
     border-radius: 3px;
     padding: 8px;
     box-sizing: border-box;
+}
+
+/* IDF curve layout: a rotated Y-axis title on the left, the plot, and the
+   X-axis title beneath. Titles are HTML (recharts 0.22.4 ignores the axis
+   `label` object form). Dark text — the chart body is white. */
+.idf-curve-chart-layout {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.idf-curve-yaxis-title {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    align-self: center;
+    color: #063167;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 2px;
+    white-space: nowrap;
+}
+
+.idf-curve-plot-area {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* flex:1 + min-height:0 gives ResponsiveContainer a concrete pixel height. */
+.idf-curve-plot {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.idf-curve-xaxis-title {
+    text-align: center;
+    color: #063167;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 0 2px 0;
 }
 
 /* ── TASK-1534 (UAT2) — Design Storms detail view: dark-navy theme ──────────

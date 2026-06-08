@@ -60,8 +60,12 @@ class HydrologyListDetailContainerClass extends React.Component {
     constructor(props) {
         super(props);
         // TASK-1409 — inline confirm overlay state replaces window.confirm.
+        // deleteConfirmVisible → the footer (active-item) delete confirm.
+        // deleteConfirmItemId → the per-row list delete confirm (the trash
+        // button on an item row opens an inline ConfirmOverlay for that id).
         this.state = {
-            deleteConfirmVisible: false
+            deleteConfirmVisible: false,
+            deleteConfirmItemId: null
         };
     }
 
@@ -77,6 +81,14 @@ class HydrologyListDetailContainerClass extends React.Component {
             this.props.setActiveHydrologyItem(item);
             if (onDerive) this.props.setActiveHydrologyPage('idf-table');
         };
+        // Delete targets the resource page, not the literal active page: on the
+        // Derive page the listed items are IDF tables, so deletes route to
+        // 'idf-table' (mirrors selectItem's page switch).
+        const deletePage = onDerive ? 'idf-table' : this.props.activeHydrologyPage;
+        const messages = (this.context && this.context.messages) || {};
+        const resolvedDelete = getMessageById(messages, 'hydrata.hydrology.delete');
+        const deleteTitle = (resolvedDelete && resolvedDelete !== 'hydrata.hydrology.delete')
+            ? resolvedDelete : 'Delete';
         const createItem = () => {
             const page = onDerive ? 'idf-table' : this.props.activeHydrologyPage;
             if (onDerive) this.props.setActiveHydrologyPage('idf-table');
@@ -85,7 +97,6 @@ class HydrologyListDetailContainerClass extends React.Component {
             // key is missing, so leave it undefined in that case to let the
             // reducer fall back to its English label map.
             const msgId = hydrologyAutoNameMsgId[page];
-            const messages = (this.context && this.context.messages) || {};
             const resolved = msgId ? getMessageById(messages, msgId) : undefined;
             const autoNameLabel = (resolved && resolved !== msgId) ? resolved : undefined;
             this.props.createHydrologyForm(page, autoNameLabel);
@@ -96,20 +107,51 @@ class HydrologyListDetailContainerClass extends React.Component {
                     <div id={"top-buttons"} style={{display: "flex", flexDirection: "column"}}>
                         <div className={"hydrology-list-detail-heading"}><Message msgId="hydrata.hydrology.items" /></div>
                         {items?.map((item) => {
+                            const isActive = item.id === this.props.activeHydrologyItem?.id;
+                            const confirming = this.state.deleteConfirmItemId === item.id;
                             return (
-                                <button
-                                    key={item.id}
-                                    className={"hydrology-button"}
-                                    style={{
-                                        // TASK-1528 — existing items use the base plugin BLUE
-                                        // (selected full-opacity, others lighter); the green is
-                                        // now reserved for the "New Item" / Save buttons.
-                                        backgroundColor: item.id === this.props.activeHydrologyItem?.id ? "rgba(82,121,176,1)" : "rgba(82,121,176,0.6)"
-                                    }}
-                                    onClick={() => selectItem(item)}
-                                >
-                                    {item?.name}
-                                </button>
+                                <div key={item.id} className={"hydrology-item-row"}>
+                                    {confirming ? (
+                                        // Per-row delete confirm — reuses the shared
+                                        // ConfirmOverlay (NOT window.confirm), same as the
+                                        // footer delete. Default copy ("…are you sure?").
+                                        <ConfirmOverlay
+                                            wrapperClassName="hydrology-item-delete-confirm"
+                                            buttonClassName="hydrology-button"
+                                            confirmClassName="hydrology-delete-confirm-btn"
+                                            onCancel={() => this.setState({deleteConfirmItemId: null})}
+                                            onConfirm={() => {
+                                                this.setState({deleteConfirmItemId: null});
+                                                this.props.deleteHydrologyItem(deletePage, item);
+                                            }}
+                                            confirmLabel={<Message msgId="hydrata.hydrology.delete" />}
+                                        />
+                                    ) : (
+                                        <React.Fragment>
+                                            <button
+                                                className={"hydrology-button hydrology-item-button"}
+                                                style={{
+                                                    // TASK-1528 — existing items use the base plugin BLUE
+                                                    // (selected full-opacity, others lighter); the green is
+                                                    // now reserved for the "New Item" / Save buttons.
+                                                    backgroundColor: isActive ? "rgba(82,121,176,1)" : "rgba(82,121,176,0.6)"
+                                                }}
+                                                onClick={() => selectItem(item)}
+                                            >
+                                                {item?.name}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={"hydrology-item-delete-btn"}
+                                                title={deleteTitle}
+                                                aria-label={deleteTitle}
+                                                onClick={() => this.setState({deleteConfirmItemId: item.id})}
+                                            >
+                                                <span className="glyphicon glyphicon-trash" aria-hidden="true" />
+                                            </button>
+                                        </React.Fragment>
+                                    )}
+                                </div>
                             );
                         })}
                     </div>

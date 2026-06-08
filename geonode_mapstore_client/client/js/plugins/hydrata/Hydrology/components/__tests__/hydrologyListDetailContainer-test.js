@@ -157,8 +157,12 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         });
         const colOne = container.querySelector('#hydrology-list-detail-col-one');
         expect(colOne).toExist();
-        const itemButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons button');
+        // Each item row renders its label button (.hydrology-item-button) plus a
+        // trash delete button (.hydrology-item-delete-btn).
+        const itemButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons .hydrology-item-button');
         expect(itemButtons.length).toBe(2);
+        const trashButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons .hydrology-item-delete-btn');
+        expect(trashButtons.length).toBe(2);
         expect(colOne.textContent).toInclude('Table A');
         expect(colOne.textContent).toInclude('Table B');
     });
@@ -172,13 +176,39 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             setActiveHydrologyItem: (item) => { activatedItem = item; },
             setActiveHydrologyPage: (page) => { switchedTo = page; }
         });
-        const itemButton = container.querySelector('#hydrology-list-detail-items #top-buttons button');
+        const itemButton = container.querySelector('#hydrology-list-detail-items #top-buttons .hydrology-item-button');
         ReactTestUtils.act(() => {
             itemButton.click();
         });
         expect(activatedItem).toExist();
         expect(activatedItem.id).toBe(7);
         expect(switchedTo).toBe('idf-table');
+    });
+
+    // Per-row trash button → inline ConfirmOverlay → deleteHydrologyItem.
+    // On the Derive page the listed items are IDF tables, so the delete routes
+    // to the 'idf-table' page (not the literal 'idf-derive' active page).
+    it('per-row trash button confirms then dispatches deleteHydrologyItem for the row', () => {
+        let deleted = null;
+        renderWithProvider({
+            activeHydrologyPage: 'idf-derive',
+            idfTables: [{ id: 7, name: 'Table A' }, { id: 8, name: 'Table B' }],
+            deleteHydrologyItem: (page, item) => { deleted = { page, item }; }
+        });
+        // Clicking trash on row 2 opens the confirm (no delete yet).
+        const trashButtons = container.querySelectorAll('#top-buttons .hydrology-item-delete-btn');
+        expect(trashButtons.length).toBe(2);
+        ReactTestUtils.act(() => { trashButtons[1].click(); });
+        expect(deleted).toBe(null);
+        const confirm = container.querySelector('.hydrology-item-delete-confirm');
+        expect(confirm).toExist();
+        // Confirm → dispatch delete for item 8 against the idf-table page.
+        const confirmBtn = confirm.querySelector('.hydrology-delete-confirm-btn');
+        expect(confirmBtn).toExist();
+        ReactTestUtils.act(() => { confirmBtn.click(); });
+        expect(deleted).toExist();
+        expect(deleted.item.id).toBe(8);
+        expect(deleted.page).toBe('idf-table');
     });
 
     it('does NOT throw TypeError when setActiveHydrologyPage is provided (regression guard)', () => {
