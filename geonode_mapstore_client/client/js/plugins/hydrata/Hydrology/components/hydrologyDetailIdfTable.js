@@ -480,7 +480,11 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                 width: '100%',
                 padding: '10px'
             }}>
-                <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.idfCurve" /></h3>
+                {/* TASK-1553 — the redundant "IDF Curve" <h3> above the self-
+                    describing "View IDF curve" button was removed (the button
+                    label already names the action). The button responsiveness is
+                    unchanged: it is correctly gated by hasValidData (TASK-1526),
+                    so it is inert only for an empty/zero table — not a regression. */}
                 {/* TASK-1526 — the curve is on-demand: a trigger button gated
                     by hasValidData opens the portal modal over the map. With no
                     valid data the chart is GONE and the button is disabled. */}
