@@ -415,21 +415,30 @@ export default ( state = initialState, action) => {
             temporalPatterns: state.temporalPatterns.map((temporalPattern) => {
                 if (temporalPattern.id === action.temporalPatternId) {
                     temporalPattern.selectedPreset = action.patternKey;
-                    // TASK-1509: keep pattern_type in sync with the selected key.
-                    // Without this, switching from an edited custom curve back to
-                    // a preset left pattern_type='custom', so the container's
-                    // Save-disable (gated on pattern_type==='custom') kept Save
-                    // wrongly disabled on a valid preset. Selecting the custom
-                    // card sets 'custom'; any preset key sets 'preset'.
-                    temporalPattern.pattern_type = action.patternKey === CUSTOM ? 'custom' : 'preset';
-                    // TASK-1531: persist the chosen preset key on the item so the
+                    // TASK-1509/1536: keep pattern_type in sync with the selected
+                    // key, writing the model's 3-way discriminator (models.py
+                    // PatternType: preset / alternating_block / custom) instead of
+                    // collapsing Alternating Block into 'preset'. Switching from an
+                    // edited custom curve back to a preset left pattern_type='custom',
+                    // so the container's Save-disable (gated on pattern_type==='custom')
+                    // kept Save wrongly disabled on a valid preset. Custom card → 'custom';
+                    // the algorithmic Alternating Block → 'alternating_block'; any other
+                    // named preset key → 'preset'.
+                    temporalPattern.pattern_type = action.patternKey === CUSTOM
+                        ? 'custom'
+                        : (action.patternKey === ALTERNATING_BLOCK ? 'alternating_block' : 'preset');
+                    // TASK-1531/1536: persist the chosen preset key on the item so the
                     // save epic's {...item} spread sends it in the PATCH/POST body
                     // (was always omitted → row stayed NULL → picker reverted to
-                    // Alternating Block on reload). CUSTOM is not a persisted key
-                    // (the curve is identified by pattern_type='custom'), so null
-                    // it out — keeping pattern_type/pattern_key consistent on every
-                    // switch (mirrors the 1509 pattern_type sync).
-                    temporalPattern.pattern_key = action.patternKey === CUSTOM ? null : action.patternKey;
+                    // Alternating Block on reload). Neither CUSTOM (curve identified by
+                    // pattern_type='custom') nor ALTERNATING_BLOCK (algorithmic; models.py
+                    // docstring: "Null for alternating_block rows") persists a pattern_key
+                    // — null both so the stored row matches the discriminator. On reload
+                    // selectedPreset falls back to ALTERNATING_BLOCK for a null key, so
+                    // the picker still seats correctly.
+                    temporalPattern.pattern_key = (action.patternKey === CUSTOM || action.patternKey === ALTERNATING_BLOCK)
+                        ? null
+                        : action.patternKey;
                     // UAT2 Phase-1.7: a pure preset change is a real mutation, so
                     // mark it unsaved to visually enable Save (every other mutating
                     // temporal-pattern case already sets this; this one didn't).
