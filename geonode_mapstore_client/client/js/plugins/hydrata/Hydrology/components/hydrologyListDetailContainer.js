@@ -12,8 +12,43 @@ import {
     saveHydrologyItem,
     updateActiveHydrologyItem,
     deleteHydrologyItem,
-    createHydrologyForm
+    createHydrologyForm,
+    // TASK-1561 (W3b) — stale Regenerate
+    saveDesignStormsRequest
 } from "../actionsHydrology";
+
+// TASK-1561 (W3b) — parse the BE source string for a design-storm row so we
+// can rebuild the derive cells needed to regenerate a (idf, pattern) group.
+// Format (from BE): "design_storm|pattern=SCS_TYPE_II|pattern_type=preset|
+//   idf_table_id=42|ari=100.00yr|aep=1.0000pct|duration_min=1440|
+//   timestep_min=60|total_depth_mm=..."
+// Returns null on any parse failure so callers can gate safely.
+export function parseDesignStormSource(source) {
+    if (!source || typeof source !== 'string') return null;
+    if (!source.startsWith('design_storm|')) return null;
+    try {
+        const result = {};
+        source.split('|').slice(1).forEach(part => {
+            const eq = part.indexOf('=');
+            if (eq < 0) return;
+            const k = part.slice(0, eq);
+            let v = part.slice(eq + 1);
+            // Strip trailing unit suffixes: "100.00yr" → 100, "1.0000pct" → 1
+            const numMatch = v.match(/^([\d.]+)(yr|pct)?$/);
+            if (numMatch) {
+                result[k] = Number(numMatch[1]);
+            } else {
+                result[k] = v;
+            }
+        });
+        // Require at minimum the fields needed to rebuild a cell.
+        if (!result.pattern || !result.duration_min || !result.timestep_min) return null;
+        if (!result.ari && !result.aep) return null;
+        return result;
+    } catch (_e) {
+        return null;
+    }
+}
 import {hydrologyKeyMap} from '../reducersHydrology';
 import {trackEvent} from "@js/utils/analytics";
 import PropTypes from "prop-types";
@@ -53,7 +88,10 @@ class HydrologyListDetailContainerClass extends React.Component {
         customCurveError: PropTypes.string,
         // TASK-1557 (W2) — true for ['owner','manager'] on the active project;
         // gates the per-row trash + footer Delete affordances.
-        canManageHydrology: PropTypes.bool
+        canManageHydrology: PropTypes.bool,
+        // TASK-1561 (W3b) — full time-series list for stale Regenerate
+        timeSeriess: PropTypes.array,
+        saveDesignStorms: PropTypes.func
     }
 
     static defaultProps = {}
@@ -247,7 +285,54 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 onClick={() => selectItem(item)}
                                             >
                                                 {item?.name}
+                                                {/* TASK-1561 (W3b) — stale badge for auto-derived rows */}
+                                                {item?.is_stale && (
+                                                    <span
+                                                        className="ds-stale-badge"
+                                                        title="Base IDF changed since this was saved"
+                                                        aria-label="Stale: base IDF changed"
+                                                        style={{marginLeft: 6}}
+                                                    >
+                                                        <span className="glyphicon glyphicon-warning-sign" aria-hidden="true" />
+                                                    </span>
+                                                )}
                                             </button>
+                                            {/* TASK-1561 (W3b) — Regenerate button for stale auto-derived rows.
+                                                CONTRIBUTOR-level (no canManageHydrology gate). */}
+                                            {item?.is_stale && item?.is_auto_derived && (
+                                                <button
+                                                    type="button"
+                                                    className="ds-regenerate-btn"
+                                                    title="Regenerate from current IDF"
+                                                    aria-label="Regenerate"
+                                                    onClick={() => {
+                                                        // Collect all auto-derived rows sharing (idf, pattern)
+                                                        const allTs = this.props.timeSeriess || [];
+                                                        const idfId = item.derived_from_idf;
+                                                        const pattern = item.pattern;
+                                                        if (!idfId || !pattern) return;
+                                                        const siblings = allTs.filter(
+                                                            ts => ts.is_auto_derived
+                                                                && ts.derived_from_idf === idfId
+                                                                && ts.pattern === pattern
+                                                        );
+                                                        const cells = siblings
+                                                            .map(ts => parseDesignStormSource(ts.source))
+                                                            .filter(Boolean)
+                                                            .map(parsed => ({
+                                                                pattern: parsed.pattern,
+                                                                ari: parsed.ari,
+                                                                duration_min: parsed.duration_min,
+                                                                timestep_min: parsed.timestep_min || 60
+                                                            }));
+                                                        if (cells.length > 0 && this.props.saveDesignStorms) {
+                                                            this.props.saveDesignStorms(cells, idfId);
+                                                        }
+                                                    }}
+                                                >
+                                                    <span className="glyphicon glyphicon-refresh" aria-hidden="true" />
+                                                </button>
+                                            )}
                                             {/* TASK-1557 (W2) — per-row delete is
                                                 MANAGER-only; the BE 403s a
                                                 non-manager regardless. */}
@@ -390,9 +475,24 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 >
                                                     {(() => {
                                                         const src = this.props.activeHydrologyItem.source;
-                                                        return (!src || src === 'Enter source')
-                                                            ? <Message msgId="hydrata.hydrology.manualEntry" />
-                                                            : src;
+                                                        if (!src || src === 'Enter source') {
+                                                            return <Message msgId="hydrata.hydrology.manualEntry" />;
+                                                        }
+                                                        // Design-storm rows carry a pipe-delimited provenance
+                                                        // string — render it as a human-readable line, never the
+                                                        // raw blob (D5: source is provenance shown read-only).
+                                                        const parsed = parseDesignStormSource(src);
+                                                        if (parsed) {
+                                                            const ariLabel = parsed.ari
+                                                                ? `ARI ${parsed.ari}yr`
+                                                                : (parsed.aep ? `AEP ${parsed.aep}%` : '');
+                                                            const depth = parsed.total_depth_mm
+                                                                ? ` · ${Number(parsed.total_depth_mm).toFixed(1)} mm`
+                                                                : '';
+                                                            return `Derived · ${String(parsed.pattern).replace(/_/g, ' ')}`
+                                                                + ` · ${ariLabel} · ${parsed.duration_min} min${depth}`;
+                                                        }
+                                                        return src;
                                                     })()}
                                                 </p>
                                             ) : (
@@ -522,7 +622,9 @@ const mapStateToProps = (state) => {
         activeHydrologyItem,
         customCurveError,
         // TASK-1557 (W2) — MANAGER gate for the delete affordances.
-        canManageHydrology: canManageAnugaMap(state)
+        canManageHydrology: canManageAnugaMap(state),
+        // TASK-1561 (W3b) — full time-series list for stale Regenerate
+        timeSeriess: state?.hydrology?.timeSeriess || []
     };
 };
 
@@ -533,7 +635,9 @@ const mapDispatchToProps = (dispatch) => {
         updateActiveHydrologyItem: (activeHydrologyPage, item, kv) => dispatch(updateActiveHydrologyItem(activeHydrologyPage, item, kv)),
         saveHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(saveHydrologyItem(activeHydrologyPage, activeHydrologyItem)),
         createHydrologyForm: (activeHydrologyPage, autoNameLabel) => dispatch(createHydrologyForm(activeHydrologyPage, autoNameLabel)),
-        deleteHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(deleteHydrologyItem(activeHydrologyPage, activeHydrologyItem))
+        deleteHydrologyItem: (activeHydrologyPage, activeHydrologyItem) => dispatch(deleteHydrologyItem(activeHydrologyPage, activeHydrologyItem)),
+        // TASK-1561 (W3b) — dispatch bulk save for Regenerate
+        saveDesignStorms: (cells, idfTableId) => dispatch(saveDesignStormsRequest(cells, idfTableId))
     };
 };
 

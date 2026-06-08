@@ -40,7 +40,11 @@ import {
     ATTACH_DESIGN_STORM_REQUEST,
     ATTACH_DESIGN_STORM_SUCCESS,
     ATTACH_DESIGN_STORM_FAILURE,
-    MARK_PROJECTION_STALE
+    MARK_PROJECTION_STALE,
+    // TASK-1561 (W3b) — bulk save
+    SAVE_DESIGN_STORMS_REQUEST,
+    SAVE_DESIGN_STORMS_SUCCESS,
+    SAVE_DESIGN_STORMS_FAILURE
 } from "@js/plugins/hydrata/Hydrology/actionsHydrology";
 
 import {IdfTable, TemporalPattern, TimeSeries} from "./classesHydrology";
@@ -102,7 +106,12 @@ const initialProjection = {
 
     // Attach flow
     attachInFlight: false,
-    attachError: null
+    attachError: null,
+
+    // TASK-1561 (W3b) — bulk save flow
+    saveInFlight: false,
+    saveError: null,
+    lastSavedCount: null   // set to {created: N, replaced: M} on success
 };
 
 const initialIdfDerive = {
@@ -238,6 +247,11 @@ const createTimeSeriesFromJson = (timeSeriesJson) => {
     if (timeSeriesJson?.data && typeof timeSeriesJson.data === 'object') {
         timeSeriesInstance.data = timeSeriesJson.data;
     }
+    // TASK-1561 (W3b) — stale + auto-derived provenance fields.
+    timeSeriesInstance.is_stale = timeSeriesJson?.is_stale ?? false;
+    timeSeriesInstance.is_auto_derived = timeSeriesJson?.is_auto_derived ?? false;
+    timeSeriesInstance.derived_from_idf = timeSeriesJson?.derived_from_idf ?? null;
+    timeSeriesInstance.pattern = timeSeriesJson?.pattern ?? null;
     return timeSeriesInstance;
 };
 
@@ -684,6 +698,35 @@ export default ( state = initialState, action) => {
             projection: {
                 ...(state.projection || initialProjection),
                 stale: true
+            }
+        };
+    // TASK-1561 (W3b) — bulk save slice.
+    case SAVE_DESIGN_STORMS_REQUEST:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                saveInFlight: true,
+                saveError: null
+            }
+        };
+    case SAVE_DESIGN_STORMS_SUCCESS:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                saveInFlight: false,
+                saveError: null,
+                lastSavedCount: {created: action.created ? action.created.length : 0, replaced: action.replaced || 0}
+            }
+        };
+    case SAVE_DESIGN_STORMS_FAILURE:
+        return {
+            ...state,
+            projection: {
+                ...(state.projection || initialProjection),
+                saveInFlight: false,
+                saveError: action.error
             }
         };
     // TASK-1451 (W4) — Design-storm combine slice.

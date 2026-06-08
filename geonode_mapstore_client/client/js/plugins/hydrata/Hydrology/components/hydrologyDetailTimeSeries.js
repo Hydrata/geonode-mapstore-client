@@ -38,7 +38,10 @@ import {
 // ManualEntryForm receive their dispatchers via props (from W3 callers).
 import {
     updateTimeSeriesRowData,
-    replaceTimeSeriesRowData
+    replaceTimeSeriesRowData,
+    // TASK-1561 (W3b) — preview + bulk save
+    previewDesignStormsRequest,
+    saveDesignStormsRequest
 } from '../actionsHydrology';
 import {PRESET_FAMILIES, ALTERNATING_BLOCK} from '../temporalPatternPresets';
 import ManualPasteGrid from './ManualPasteGrid';
@@ -930,7 +933,22 @@ export default connect(mapStateToProps)(HydrologyTimeSeries);
 // custom TemporalPattern from state (mirrors DesignStormsBrowser, AC8-ready).
 // ---------------------------------------------------------------------------
 
-const DesignStormDerive = ({idfTables, temporalPatterns, selectedIdfTableId, selectedPattern, onChange}) => {
+// TASK-1561 (W3b) — fully wired Derive tab.
+// Previews + tick-to-select + "Save these N" for the given pattern × IDF.
+const DesignStormDerive = ({
+    idfTables,
+    temporalPatterns,
+    selectedIdfTableId,
+    selectedPattern,
+    onChange,
+    // from connect
+    previews,
+    previewInFlight,
+    saveInFlight,
+    lastSavedCount,
+    onPreview,
+    onSave
+}) => {
     const presetIds = new Set(PRESET_FAMILIES.map(f => f.id));
     const customPatterns = (temporalPatterns || [])
         .filter(tp => tp.pattern_type === 'custom' || !presetIds.has(tp.id));
@@ -938,6 +956,99 @@ const DesignStormDerive = ({idfTables, temporalPatterns, selectedIdfTableId, sel
         ...PRESET_FAMILIES.map(f => ({id: f.id, label: f.label})),
         ...customPatterns.map(tp => ({id: tp.id || tp.name, label: tp.name}))
     ];
+
+    // Local tick state — a Set of previewKey strings.
+    const [ticked, setTicked] = useState(new Set());
+    // Clear ticks when the selection changes.
+    useEffect(() => { setTicked(new Set()); }, [selectedIdfTableId, selectedPattern]);
+    // Also clear ticks on successful save.
+    useEffect(() => {
+        if (lastSavedCount !== null) { setTicked(new Set()); }
+    }, [lastSavedCount]);
+
+    const selectedTable = (idfTables || []).find(t => t.id === Number(selectedIdfTableId));
+
+    // Build the derive cells from the selected IDF. The FE represents an IDF as
+    // a grid (columnDefs = RP columns + a duration column; rowData = one row per
+    // duration), so the axes come from there — NOT from return_periods_yr /
+    // durations_min arrays (which the FE IDF object does not carry).
+    //   - durations: each rowData row's `duration`.
+    //   - ARIs: the RP columns (every columnDef except the duration column),
+    //     parsed from the header (e.g. "100yr ARI" -> 100), keeping only columns
+    //     that actually carry data (an all-zero column = no IDF data for that RP).
+    //   - timestep: per-cell, a divisor of the duration (~24 steps) so the BE's
+    //     `duration_min % timestep_min == 0` rule holds for sub-60-min durations
+    //     (a fixed 60 would 400 a 5/10/30-min duration). (Decision D3.)
+    const buildCells = useCallback((pattern) => {
+        if (!selectedIdfTableId || !selectedTable || !pattern) return [];
+        const columnDefs = selectedTable.columnDefs || [];
+        const rowData = selectedTable.rowData || [];
+        const durations = rowData
+            .map(r => Number(r.duration))
+            .filter(d => d > 0);
+        const aris = columnDefs
+            .filter(c => c.accessorKey && c.accessorKey !== 'duration')
+            // keep only RP columns that carry at least one non-zero intensity
+            .filter(c => rowData.some(r => Number(r[c.accessorKey]) > 0))
+            .map(c => parseFloat(String(c.header || c.id).replace(/[^0-9.]/g, '')))
+            .filter(v => v > 0);
+        const pickTimestep = (dur) => {
+            const target = Math.max(1, Math.round(dur / 24));
+            for (let ts = target; ts >= 1; ts--) { if (dur % ts === 0) return ts; }
+            return 1;
+        };
+        const cells = [];
+        for (const ari of aris) {
+            for (const duration of durations) {
+                cells.push({
+                    pattern,
+                    ari,
+                    duration_min: duration,
+                    timestep_min: pickTimestep(duration)
+                });
+            }
+        }
+        return cells;
+    }, [selectedIdfTableId, selectedTable]);
+
+    // Auto-trigger preview when IDF + pattern are both set. Mirrors the
+    // DesignStormsBrowser auto-refresh useEffect (lines 321-325).
+    useEffect(() => {
+        if (selectedIdfTableId && selectedPattern && !previewInFlight) {
+            const cells = buildCells(selectedPattern);
+            if (cells.length > 0) {
+                onPreview(cells, Number(selectedIdfTableId), 60);
+            }
+        }
+    }, [selectedIdfTableId, selectedPattern]); // eslint-disable-line
+
+    // Filter previews to the current pattern.
+    const patternPreviews = (previews || []).filter(p => p.pattern === selectedPattern);
+
+    const toggleTick = (key) => {
+        setTicked(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) { next.delete(key); } else { next.add(key); }
+            return next;
+        });
+    };
+
+    const handleSave = () => {
+        if (!onSave || ticked.size === 0 || saveInFlight) return;
+        const tickedCells = patternPreviews
+            .filter(p => ticked.has(previewKey(p)))
+            .map(p => ({
+                pattern: p.pattern,
+                ari: p.ari,
+                duration_min: p.duration_min,
+                timestep_min: p.timestep_min || 60
+            }));
+        if (tickedCells.length > 0) {
+            onSave(tickedCells, Number(selectedIdfTableId));
+        }
+    };
+
+    const noSelection = !selectedIdfTableId || !selectedPattern;
 
     return (
         <div id="design-storm-derive-shell" className="design-storm-card" style={{padding: '12px 16px', maxWidth: 700}}>
@@ -978,21 +1089,76 @@ const DesignStormDerive = ({idfTables, temporalPatterns, selectedIdfTableId, sel
                 </select>
             </div>
 
-            {/* Empty preview area — wired for W3 (preview X storms + Save these N). */}
-            <div
-                id="design-storm-derive-preview"
-                className="design-storm-derive-preview-placeholder"
-                style={{
-                    marginTop: 12,
-                    padding: '18px 14px',
-                    border: '1px dashed rgba(255,255,255,0.3)',
-                    borderRadius: 4,
-                    textAlign: 'center'
-                }}
-            >
-                <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem'}}>
-                    <Message msgId="hydrata.hydrology.derivePreviewComingSoon" />
-                </p>
+            {/* Preview area */}
+            <div id="design-storm-derive-preview" style={{marginTop: 12}}>
+                {noSelection ? (
+                    <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '18px 14px', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 4, textAlign: 'center'}}>
+                        <Message msgId="hydrata.hydrology.deriveNoPreviews" />
+                    </p>
+                ) : previewInFlight ? (
+                    <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
+                        <span className="glyphicon glyphicon-refresh" style={{marginRight: 6}} />
+                        Loading previews…
+                    </p>
+                ) : patternPreviews.length === 0 ? (
+                    <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
+                        <Message msgId="hydrata.hydrology.deriveNoPreviews" />
+                    </p>
+                ) : (
+                    <div>
+                        <p className="design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
+                            <Message msgId="hydrata.hydrology.deriveTickToSave" />
+                        </p>
+                        {patternPreviews.map(preview => {
+                            const key = previewKey(preview);
+                            const checked = ticked.has(key);
+                            return (
+                                <div key={key} className="ds-derive-preview-row" style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
+                                    <input
+                                        type="checkbox"
+                                        className="ds-derive-tick"
+                                        checked={checked}
+                                        onChange={() => toggleTick(key)}
+                                        id={`ds-derive-tick-${key}`}
+                                        aria-label={`Select ${key}`}
+                                    />
+                                    <label htmlFor={`ds-derive-tick-${key}`} style={{flex: 1, margin: 0, cursor: 'pointer'}}>
+                                        <PreviewCard
+                                            preview={preview}
+                                            isFocused={false}
+                                            onFocus={() => {}}
+                                        />
+                                    </label>
+                                </div>
+                            );
+                        })}
+                        {/* Save these N button */}
+                        <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 10}}>
+                            <button
+                                id="ds-derive-save-btn"
+                                type="button"
+                                className={ticked.size > 0 && !saveInFlight ? 'hydrology-button ds-derive-save-btn' : 'hydrology-button-disabled ds-derive-save-btn'}
+                                disabled={ticked.size === 0 || saveInFlight}
+                                onClick={handleSave}
+                                style={{
+                                    backgroundColor: ticked.size > 0 && !saveInFlight ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.4)',
+                                    minWidth: 120
+                                }}
+                            >
+                                {saveInFlight
+                                    ? 'Saving…'
+                                    : <span>Save these {ticked.size}</span>
+                                }
+                            </button>
+                            {lastSavedCount !== null && (
+                                <span className="ds-derive-saved-toast" style={{fontSize: '0.82rem', color: '#cae33b'}}>
+                                    Saved {lastSavedCount.created}
+                                    {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1003,7 +1169,13 @@ DesignStormDerive.propTypes = {
     temporalPatterns: PropTypes.array,
     selectedIdfTableId: PropTypes.number,
     selectedPattern: PropTypes.string,
-    onChange: PropTypes.func.isRequired
+    onChange: PropTypes.func.isRequired,
+    previews: PropTypes.array,
+    previewInFlight: PropTypes.bool,
+    saveInFlight: PropTypes.bool,
+    lastSavedCount: PropTypes.object,
+    onPreview: PropTypes.func,
+    onSave: PropTypes.func
 };
 
 // ---------------------------------------------------------------------------
@@ -1025,10 +1197,18 @@ const DesignStormCreatePanel = ({
     activeTab,
     onTabChange,
     onBack,
+    // TASK-1561 (W3b) — projection/save props threaded from connect
+    previews,
+    previewInFlight,
+    saveInFlight,
+    lastSavedCount,
+    previewDesignStorms: dispatchPreview,
+    saveDesignStorms: dispatchSave,
     updateTimeSeriesRowData: dispatchUpdateRowData,
     replaceTimeSeriesRowData: dispatchReplaceRowData
 }) => {
-    // Derive-tab shell selections are LOCAL — no compute/persist until W3.
+    // Derive-tab selections are LOCAL — kept here so clearing IDF/pattern
+    // cancels any in-flight preview at source.
     const [deriveSpec, setDeriveSpec] = useState({selectedIdfTableId: null, selectedPattern: ALTERNATING_BLOCK});
     const tab = activeTab || 'input';
 
@@ -1077,6 +1257,12 @@ const DesignStormCreatePanel = ({
                         selectedIdfTableId={deriveSpec.selectedIdfTableId}
                         selectedPattern={deriveSpec.selectedPattern}
                         onChange={(patch) => setDeriveSpec(prev => ({...prev, ...patch}))}
+                        previews={previews}
+                        previewInFlight={previewInFlight}
+                        saveInFlight={saveInFlight}
+                        lastSavedCount={lastSavedCount}
+                        onPreview={dispatchPreview}
+                        onSave={dispatchSave}
                     />
                 ) : (
                     <ManualPasteGrid
@@ -1097,6 +1283,12 @@ DesignStormCreatePanel.propTypes = {
     activeTab: PropTypes.string,
     onTabChange: PropTypes.func.isRequired,
     onBack: PropTypes.func.isRequired,
+    previews: PropTypes.array,
+    previewInFlight: PropTypes.bool,
+    saveInFlight: PropTypes.bool,
+    lastSavedCount: PropTypes.object,
+    previewDesignStorms: PropTypes.func,
+    saveDesignStorms: PropTypes.func,
     updateTimeSeriesRowData: PropTypes.func.isRequired,
     replaceTimeSeriesRowData: PropTypes.func.isRequired
 };
@@ -1104,14 +1296,24 @@ DesignStormCreatePanel.propTypes = {
 const createPanelStateToProps = (state) => ({
     activeHydrologyItem: state?.hydrology?.activeHydrologyItem,
     idfTables: state?.hydrology?.idfTables || [],
-    temporalPatterns: state?.hydrology?.temporalPatterns || []
+    temporalPatterns: state?.hydrology?.temporalPatterns || [],
+    // TASK-1561 (W3b) — projection slice for the Derive tab
+    previews: state?.hydrology?.projection?.previews || [],
+    previewInFlight: state?.hydrology?.projection?.inFlight || false,
+    saveInFlight: state?.hydrology?.projection?.saveInFlight || false,
+    lastSavedCount: state?.hydrology?.projection?.lastSavedCount || null
 });
 
 const createPanelDispatchToProps = (dispatch) => ({
     updateTimeSeriesRowData: (timeSeriesId, rowIndex, columnId, value) =>
         dispatch(updateTimeSeriesRowData(timeSeriesId, rowIndex, columnId, value)),
     replaceTimeSeriesRowData: (timeSeriesId, newRowData) =>
-        dispatch(replaceTimeSeriesRowData(timeSeriesId, newRowData))
+        dispatch(replaceTimeSeriesRowData(timeSeriesId, newRowData)),
+    // TASK-1561 (W3b)
+    previewDesignStorms: (cells, idfTableId, timestepMin) =>
+        dispatch(previewDesignStormsRequest(cells, idfTableId, timestepMin)),
+    saveDesignStorms: (cells, idfTableId) =>
+        dispatch(saveDesignStormsRequest(cells, idfTableId))
 });
 
 const ConnectedDesignStormCreatePanel =

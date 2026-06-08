@@ -1225,11 +1225,64 @@
    them the same white-field treatment the rest of the plugin uses. Scope to
    the Design Storms surfaces so other .hydrology-text-input uses are untouched. */
 #design-storms-browser .hydrology-text-input,
-#manual-entry-form .hydrology-text-input {
+#manual-entry-form .hydrology-text-input,
+#design-storm-derive-shell .hydrology-text-input {
     background-color: #fff;
     color: #111;
     border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 3px;
     padding: 2px 6px;
+}
+
+/* TASK-1561 (W3b) — Derive tab: tick checkbox row */
+.ds-derive-preview-row {
+    padding: 2px 0;
+}
+
+.ds-derive-tick {
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: #cae33b;
+    width: 16px;
+    height: 16px;
+}
+
+/* Save these N button — reuses the green accent of "New Item" / Save. */
+.ds-derive-save-btn {
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: none;
+}
+
+.ds-derive-saved-toast {
+    font-size: 0.82rem;
+    color: #cae33b;
+}
+
+/* Stale badge — amber warning icon next to the item name in the list. */
+.ds-stale-badge {
+    color: #f5a623;
+    font-size: 0.82rem;
+    vertical-align: middle;
+}
+
+/* Regenerate button — compact icon-only button beside the item row. */
+.ds-regenerate-btn {
+    background: transparent;
+    border: 1px solid rgba(245,166,35,0.5);
+    border-radius: 3px;
+    color: #f5a623;
+    cursor: pointer;
+    padding: 2px 5px;
+    font-size: 0.78rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.ds-regenerate-btn:hover {
+    background: rgba(245,166,35,0.15);
+    border-color: #f5a623;
 }
 

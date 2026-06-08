@@ -54,6 +54,11 @@ const ATTACH_DESIGN_STORM_SUCCESS = 'ATTACH_DESIGN_STORM_SUCCESS';
 const ATTACH_DESIGN_STORM_FAILURE = 'ATTACH_DESIGN_STORM_FAILURE';
 const MARK_PROJECTION_STALE = 'MARK_PROJECTION_STALE';
 
+// TASK-1561 (W3b) — Design-storm bulk save (mode='save') + stale/regenerate.
+const SAVE_DESIGN_STORMS_REQUEST = 'SAVE_DESIGN_STORMS_REQUEST';
+const SAVE_DESIGN_STORMS_SUCCESS = 'SAVE_DESIGN_STORMS_SUCCESS';
+const SAVE_DESIGN_STORMS_FAILURE = 'SAVE_DESIGN_STORMS_FAILURE';
+
 // TASK-934 — IDF Derive panel actions.
 const SET_IDF_DERIVE_LAT = 'SET_IDF_DERIVE_LAT';
 const SET_IDF_DERIVE_LON = 'SET_IDF_DERIVE_LON';
@@ -296,6 +301,22 @@ const attachDesignStormSuccess = (timeSeries, rainfallPk) => ({
 const attachDesignStormFailure = (error) => ({ type: ATTACH_DESIGN_STORM_FAILURE, error });
 const markProjectionStale = () => ({ type: MARK_PROJECTION_STALE });
 
+// TASK-1561 (W3b) — Design-storm bulk save action creators.
+const saveDesignStormsRequest = (cells, idfTableId) => ({
+    type: SAVE_DESIGN_STORMS_REQUEST,
+    cells,
+    idfTableId
+});
+const saveDesignStormsSuccess = (created, replaced) => ({
+    type: SAVE_DESIGN_STORMS_SUCCESS,
+    created,
+    replaced
+});
+const saveDesignStormsFailure = (error) => ({
+    type: SAVE_DESIGN_STORMS_FAILURE,
+    error
+});
+
 // TASK-1451 (W4) — Design-storm combine action creators.
 const deriveDesignStormRequest = (formValues) => ({
     type: DERIVE_DESIGN_STORM_REQUEST,
@@ -316,6 +337,10 @@ const setDesignStormForm = (patch) => ({
 });
 
 module.exports = {
+    // TASK-1561 (W3b) — bulk save + stale/regenerate
+    SAVE_DESIGN_STORMS_REQUEST, saveDesignStormsRequest,
+    SAVE_DESIGN_STORMS_SUCCESS, saveDesignStormsSuccess,
+    SAVE_DESIGN_STORMS_FAILURE, saveDesignStormsFailure,
     // TASK-1501 (W4b) — projection browser
     SET_PROJECTION_SPEC, setProjectionSpec,
     PREVIEW_DESIGN_STORMS_REQUEST, previewDesignStormsRequest,

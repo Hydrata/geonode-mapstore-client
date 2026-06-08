@@ -45,7 +45,11 @@ import {
     ATTACH_DESIGN_STORM_REQUEST,
     attachDesignStormSuccess,
     attachDesignStormFailure,
-    markProjectionStale
+    markProjectionStale,
+    // TASK-1561 (W3b) — bulk save
+    SAVE_DESIGN_STORMS_REQUEST,
+    saveDesignStormsSuccess,
+    saveDesignStormsFailure
 } from "../Hydrology/actionsHydrology";
 import {show} from '../../../../MapStore2/web/client/actions/notifications';
 import {CLICK_ON_MAP, registerEventListener, unRegisterEventListener} from '../../../../MapStore2/web/client/actions/map';
@@ -778,6 +782,59 @@ export const deriveDesignStormEpic = (action$, store) =>
                             message: `Error: ${String(detail)}`,
                             title: 'hydrata.hydrology.error',
                             uid: 6001,
+                            position: 'tc'
+                        }, 'error')
+                    ]);
+                });
+        });
+
+// TASK-1561 (W3b) — Design-storm BULK SAVE epic.
+// Listens for SAVE_DESIGN_STORMS_REQUEST, POSTs mode='save' + cells to the
+// derive-design-storm endpoint (201 + {mode:'save', created:[...], replaced:N}),
+// then re-fetches the time-series list so saved rows appear in the rail.
+// Same URL and axios/auth pattern as attachDesignStormEpic.
+export const saveDesignStormsEpic = (action$, store) =>
+    action$
+        .ofType(SAVE_DESIGN_STORMS_REQUEST)
+        .mergeMap(action => {
+            const projectId = store.getState()?.anuga?.projects?.data?.id;
+            if (!projectId) {
+                return Rx.Observable.of(saveDesignStormsFailure('No active project'));
+            }
+            const {cells, idfTableId} = action;
+            const payload = {
+                mode: 'save',
+                idf_table_id: idfTableId,
+                cells: cells
+            };
+            return Rx.Observable.from(deriveDesignStorm(projectId, payload))
+                .mergeMap(response => {
+                    const created = response?.data?.created || [];
+                    const replaced = response?.data?.replaced || 0;
+                    const n = created.length;
+                    return Rx.Observable.from([
+                        saveDesignStormsSuccess(created, replaced),
+                        // Re-fetch the time-series list so saved rows appear in the rail.
+                        fetchHydrologyTimeSeriesData(),
+                        show({
+                            message: `Saved ${n} design storm${n !== 1 ? 's' : ''}${replaced > 0 ? ` (replaced ${replaced})` : ''}.`,
+                            title: 'hydrata.hydrology.success',
+                            uid: 1003,
+                            position: 'tc'
+                        })
+                    ]);
+                })
+                .catch(error => {
+                    const detail = error?.data?.detail
+                        || error?.response?.data?.detail
+                        || error?.message
+                        || 'Save design storms failed';
+                    return Rx.Observable.from([
+                        saveDesignStormsFailure(String(detail)),
+                        show({
+                            message: `Error: ${String(detail)}`,
+                            title: 'hydrata.hydrology.error',
+                            uid: 6003,
                             position: 'tc'
                         }, 'error')
                     ]);
