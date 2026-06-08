@@ -107,6 +107,14 @@ function buildOpenReplayTracker() {
             obscureInputNumbers: true,
             obscureTextEmails: true,
             obscureTextNumbers: true,
+            // --- replay CSS fidelity ---
+            // Fetch each linked stylesheet and embed it as a <style> node so
+            // external <link> CSS (GeoNode/MapStore chrome incl. the navbar) and
+            // fonts render in playback. The tracker default is
+            // InlineCssMode.Disabled(0), which instead relies on the backend
+            // assets service caching each sheet — in practice that left most
+            // external CSS uncached, so replays rendered unstyled. 3 = PlainFetched.
+            inlineCss: 3,
             // --- network: do not capture bodies; strip auth/token headers ---
             network: {
                 capturePayload: false,
