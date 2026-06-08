@@ -388,6 +388,8 @@
         "save": "Save",
         "selectItem": "Select an item on the left.",
         "source": "Source:",
+        "manualEntry": "Manual entry",
+        "noTimeSeriesData": "No data for this design storm yet.",
         "success": "Success",
         "networksDelineationPlaceholder": "Delineation and network creation will be available in the future Networks epic.",
         "networksManageInInputs": "manage in Inputs",

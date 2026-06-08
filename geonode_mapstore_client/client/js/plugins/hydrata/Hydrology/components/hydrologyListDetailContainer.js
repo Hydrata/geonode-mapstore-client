@@ -261,15 +261,35 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             boxSizing: 'border-box'
                                         }}>
                                             <p style={{marginRight: '5px', width: "100px"}}><Message msgId="hydrata.hydrology.source" /></p>
-                                            <input
-                                                id={'source'}
-                                                key={`source-${this.props.activeHydrologyItem.id}`}
-                                                type={"text"}
-                                                className={'hydrology-text-input'}
-                                                style={{textAlign: "left"}}
-                                                value={this.props.activeHydrologyItem.source}
-                                                onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
-                                            />
+                                            {this.props.activeHydrologyPage === 'time-series' ? (
+                                                // TASK-1556 (W2) — on the Design Storms (time-series) page the
+                                                // detail is a SLIM record view: source is provenance, shown
+                                                // READ-ONLY. Empty / the placeholder default reads "Manual
+                                                // entry". The idf-table/temporal-pattern pages keep an editable
+                                                // <input> (out of scope), so this branch is page-gated.
+                                                <p
+                                                    id={'source'}
+                                                    className={'hydrology-source-provenance'}
+                                                    style={{textAlign: "left", margin: 0, color: "rgba(255,255,255,0.85)"}}
+                                                >
+                                                    {(() => {
+                                                        const src = this.props.activeHydrologyItem.source;
+                                                        return (!src || src === 'Enter source')
+                                                            ? <Message msgId="hydrata.hydrology.manualEntry" />
+                                                            : src;
+                                                    })()}
+                                                </p>
+                                            ) : (
+                                                <input
+                                                    id={'source'}
+                                                    key={`source-${this.props.activeHydrologyItem.id}`}
+                                                    type={"text"}
+                                                    className={'hydrology-text-input'}
+                                                    style={{textAlign: "left"}}
+                                                    value={this.props.activeHydrologyItem.source}
+                                                    onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
+                                                />
+                                            )}
                                         </div>
                                         <div style={{
                                             display: "flex",

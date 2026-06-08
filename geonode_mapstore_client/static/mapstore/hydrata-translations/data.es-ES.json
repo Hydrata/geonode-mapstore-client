@@ -381,6 +381,8 @@
         "save": "Guardar",
         "selectItem": "Seleccione un elemento a la izquierda.",
         "source": "Fuente:",
+        "manualEntry": "Entrada manual",
+        "noTimeSeriesData": "Aún no hay datos para esta tormenta de diseño.",
         "success": "Éxito",
         "temporalPattern": "Patrón temporal",
         "temporalPatterns": "Patrones temporales",

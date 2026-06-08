@@ -381,6 +381,8 @@
         "save": "Enregistrer",
         "selectItem": "Sélectionnez un élément à gauche.",
         "source": "Source :",
+        "manualEntry": "Saisie manuelle",
+        "noTimeSeriesData": "Aucune donnée pour cette pluie de projet pour le moment.",
         "success": "Succès",
         "temporalPattern": "Temporal Pattern",
         "temporalPatterns": "Temporal Patterns",

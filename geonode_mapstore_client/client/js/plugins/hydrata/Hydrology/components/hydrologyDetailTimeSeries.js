@@ -32,18 +32,10 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
-import {
-    setActiveHydrologyItem,
-    updateTimeSeriesRowData,
-    replaceTimeSeriesRowData,
-    deriveDesignStormRequest,
-    setDesignStormForm,
-    setProjectionSpec,
-    previewDesignStormsRequest,
-    setProjectionViewFilter,
-    setFocusedPreview,
-    attachDesignStormRequest
-} from '../actionsHydrology';
+// TASK-1556 (W2) — the slim DETAIL no longer dispatches design-storm actions;
+// the Create-panel components below (DesignStormsBrowser / ManualEntryForm /
+// ManualPasteGrid) receive their dispatchers via props from the Create panel
+// (TASK-1558), so no direct action imports are needed in this file.
 import {PRESET_FAMILIES, ALTERNATING_BLOCK} from '../temporalPatternPresets';
 
 import '../hydrology.css';
@@ -1115,206 +1107,71 @@ ManualPasteGrid.propTypes = {
 };
 
 // ---------------------------------------------------------------------------
-// Main HydrologyTimeSeries component
+// Estimate the timestep (minutes) of a saved record from its rowData. The
+// hyetograph total-depth conversion (mm/hr × timestep/60) needs the spacing;
+// derive it from the first two timestamps, default 6 min if undeterminable.
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line no-shadow -- props intentionally named after action creators (mapDispatchToProps shorthand)
-const HydrologyTimeSeries = ({
-    activeHydrologyItem,
-    idfTables,
-    temporalPatterns,
-    designStorm,
-    projection,
-    replaceTimeSeriesRowData: dispatchReplaceRowData,
-    updateTimeSeriesRowData: dispatchUpdateRowData,
-    deriveDesignStormRequest: dispatchDerive,
-    setDesignStormForm: dispatchSetForm,
-    setProjectionSpec: dispatchSetSpec,
-    previewDesignStormsRequest: dispatchPreview,
-    setProjectionViewFilter: dispatchSetViewFilter,
-    setFocusedPreview: dispatchSetFocused,
-    attachDesignStormRequest: dispatchAttach
-}) => {
-    // AC4 — "New Time Series" button shows the manual entry panel.
-    // Default view is the Design Storms browser (the chart, AC3).
-    const [showManualEntry, setShowManualEntry] = useState(false);
-    const [showPasteGrid, setShowPasteGrid] = useState(false);
+export function estimateTimestepMin(rowData) {
+    if (!Array.isArray(rowData) || rowData.length < 2) return 6;
+    const t0 = moment(rowData[0].timestamp);
+    const t1 = moment(rowData[1].timestamp);
+    if (!t0.isValid() || !t1.isValid()) return 6;
+    const diff = Math.abs(t1.diff(t0, 'minutes'));
+    return diff > 0 ? diff : 6;
+}
 
-    const handleFieldChange = (field, value) => {
-        dispatchSetForm({[field]: value});
-    };
+// ---------------------------------------------------------------------------
+// Main HydrologyTimeSeries DETAIL — TASK-1556 (W2): slim, record-centric.
+//
+// When a SAVED design storm is selected the detail (this component) shows ONLY
+// the hyetograph of the SAVED record (activeHydrologyItem.rowData). The
+// name/source/description header + Save/Delete footer live in the parent
+// hydrologyListDetailContainer; source is rendered there read-only.
+//
+// The browser / manual-entry / paste-grid machinery (DesignStormsBrowser,
+// ManualEntryForm, ManualPasteGrid) is NO LONGER rendered here — it moves into
+// the Create panel (TASK-1558), which the container renders in create mode.
+// Those components remain exported in this file for the Create panel and W3.
+// ---------------------------------------------------------------------------
 
-    const handleDerive = () => {
-        dispatchDerive(designStorm);
-    };
-
-    const handleSpecChange = (spec) => {
-        dispatchSetSpec(spec);
-    };
-
-    const handleViewFilterChange = (filter) => {
-        dispatchSetViewFilter(filter);
-    };
-
-    const handleFocus = (key) => {
-        dispatchSetFocused(key);
-    };
-
-    const handlePreview = (cells, idfTableId, timestepMin) => {
-        dispatchPreview(cells, idfTableId, timestepMin);
-    };
-
-    const handleAttach = (preview) => {
-        if (!activeHydrologyItem) return;
-        const spec = {
-            idfTableId: projection?.selectedIdfTableId,
-            patternKey: preview.pattern,
-            durationMin: preview.duration_min,
-            timestepMin: preview.timestep_min || projection?.timestepMin,
-            aep: preview.aep || '',
-            ari: preview.ari || '',
-            name: preview.name || ''
-        };
-        // Use the activeHydrologyItem's id as the Rainfall pk if it exists.
-        // The actual rainfallPk needs to come from the feature context; this
-        // is a best-effort attach — callers with full context pass rainfallPk.
-        const rainfallPk = typeof activeHydrologyItem?.id === 'number' ? activeHydrologyItem.id : null;
-        if (rainfallPk) {
-            dispatchAttach(rainfallPk, spec, null);
-        }
-    };
+const HydrologyTimeSeries = ({activeHydrologyItem}) => {
+    // TASK-1556 (AC2) — feed the SAVED record's rowData to the existing
+    // exported HyetographChart (the only gap was that activeHydrologyItem.rowData
+    // was never wired in). .rowData is the saved Array<{timestamp,value}>
+    // (reducer's createTimeSeriesFromJson sets it via instance.data = json.data).
+    const rowData = activeHydrologyItem?.rowData || [];
+    const hasData = Array.isArray(rowData) && rowData.length > 0;
 
     return (
-        <React.Fragment>
-            {/* Primary view: Design Storms browser (AC3 — defaults to chart) */}
-            {!showManualEntry && (
-                <DesignStormsBrowser
-                    idfTables={idfTables}
-                    temporalPatterns={temporalPatterns}
-                    projection={projection || {
-                        selectedIdfTableId: null,
-                        selectedPatterns: [],
-                        viewFilter: {},
-                        timestepMin: 60,
-                        previews: [],
-                        inFlight: false,
-                        error: null,
-                        stale: false,
-                        focusedKey: null,
-                        attachInFlight: false,
-                        attachError: null
-                    }}
-                    onSpecChange={handleSpecChange}
-                    onViewFilterChange={handleViewFilterChange}
-                    onFocus={handleFocus}
-                    onPreview={handlePreview}
-                    onAttach={handleAttach}
-                    rainfallPk={typeof activeHydrologyItem?.id === 'number' ? activeHydrologyItem.id : null}
+        <div id="timeseries-detail-hyetograph" style={{maxWidth: 720}}>
+            {hasData ? (
+                <HyetographChart
+                    rowData={rowData}
+                    timestepMin={estimateTimestepMin(rowData)}
+                    title={activeHydrologyItem?.name || 'Design Storm'}
                 />
+            ) : (
+                <p className="design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
+                    <Message msgId="hydrata.hydrology.noTimeSeriesData" />
+                </p>
             )}
-
-            {/* AC4 — "New Time Series" button (stray "2" label fixed) */}
-            <div style={{maxWidth: 720, marginBottom: 8, marginTop: 8}}>
-                <button
-                    id="timeseries-new-btn"
-                    className={`btn btn-default btn-sm${showManualEntry ? ' active' : ''}`}
-                    onClick={() => setShowManualEntry(!showManualEntry)}
-                    style={{fontSize: '0.85rem'}}
-                >
-                    {showManualEntry
-                        ? <span><span className="glyphicon glyphicon-chevron-up" style={{marginRight: 5}} />Hide manual entry</span>
-                        : <span><span className="glyphicon glyphicon-plus" style={{marginRight: 5}} />New Design Storm</span>
-                    }
-                </button>
-            </div>
-
-            {/* Manual entry form (demoted, AC4) */}
-            {showManualEntry && (
-                <div style={{maxWidth: 720}}>
-                    <ManualEntryForm
-                        idfTables={idfTables}
-                        designStorm={designStorm}
-                        onFieldChange={handleFieldChange}
-                        onDerive={handleDerive}
-                    />
-
-                    {/* Paste grid toggle — inside manual entry section */}
-                    <div style={{maxWidth: 700, marginBottom: 16}}>
-                        <button
-                            id="timeseries-paste-toggle"
-                            className="btn btn-xs btn-default"
-                            onClick={() => setShowPasteGrid(!showPasteGrid)}
-                            style={{fontSize: '0.8rem', marginBottom: 8}}
-                        >
-                            <span
-                                className={`glyphicon ${showPasteGrid ? 'glyphicon-chevron-up' : 'glyphicon-chevron-down'}`}
-                                style={{marginRight: 6}}
-                            />
-                            {showPasteGrid ? 'Hide paste grid' : 'Advanced: manual paste / edit'}
-                        </button>
-
-                        {showPasteGrid && (
-                            <ManualPasteGrid
-                                activeHydrologyItem={activeHydrologyItem}
-                                dispatchUpdateRowData={dispatchUpdateRowData}
-                                dispatchReplaceRowData={dispatchReplaceRowData}
-                            />
-                        )}
-                    </div>
-                </div>
-            )}
-        </React.Fragment>
+        </div>
     );
 };
 
 HydrologyTimeSeries.propTypes = {
-    activeHydrologyItem: PropTypes.object,
-    idfTables: PropTypes.array,
-    temporalPatterns: PropTypes.array,
-    designStorm: PropTypes.object,
-    projection: PropTypes.object,
-    setActiveHydrologyItem: PropTypes.func,
-    activeHydrologyPage: PropTypes.string,
-    updateTimeSeriesRowData: PropTypes.func,
-    replaceTimeSeriesRowData: PropTypes.func,
-    deriveDesignStormRequest: PropTypes.func,
-    setDesignStormForm: PropTypes.func,
-    setProjectionSpec: PropTypes.func,
-    previewDesignStormsRequest: PropTypes.func,
-    setProjectionViewFilter: PropTypes.func,
-    setFocusedPreview: PropTypes.func,
-    attachDesignStormRequest: PropTypes.func
+    activeHydrologyItem: PropTypes.object
 };
 
+// TASK-1556 (W2) — the slim detail only needs the active item. The
+// design-storm/projection/idf state + dispatch wiring moved to the Create
+// panel (TASK-1558), which owns its own connect.
 const mapStateToProps = (state) => {
     return {
-        activeHydrologyPage: state?.hydrology?.activeHydrologyPage,
-        activeHydrologyItem: state?.hydrology?.activeHydrologyItem,
-        idfTables: state?.hydrology?.idfTables || [],
-        temporalPatterns: state?.hydrology?.temporalPatterns || [],
-        designStorm: state?.hydrology?.designStorm,
-        projection: state?.hydrology?.projection
-    };
-};
-
-const mapDispatchToProps = (dispatch) => {
-    return {
-        setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
-        updateTimeSeriesRowData: (timeSeriesId, rowIndex, columnId, value) =>
-            dispatch(updateTimeSeriesRowData(timeSeriesId, rowIndex, columnId, value)),
-        replaceTimeSeriesRowData: (timeSeriesId, newRowData) =>
-            dispatch(replaceTimeSeriesRowData(timeSeriesId, newRowData)),
-        deriveDesignStormRequest: (formValues) => dispatch(deriveDesignStormRequest(formValues)),
-        setDesignStormForm: (patch) => dispatch(setDesignStormForm(patch)),
-        setProjectionSpec: (spec) => dispatch(setProjectionSpec(spec)),
-        previewDesignStormsRequest: (cells, idfTableId, timestepMin) =>
-            dispatch(previewDesignStormsRequest(cells, idfTableId, timestepMin)),
-        setProjectionViewFilter: (filter) => dispatch(setProjectionViewFilter(filter)),
-        setFocusedPreview: (key) => dispatch(setFocusedPreview(key)),
-        attachDesignStormRequest: (rainfallPk, spec, featureId) =>
-            dispatch(attachDesignStormRequest(rainfallPk, spec, featureId))
+        activeHydrologyItem: state?.hydrology?.activeHydrologyItem
     };
 };
 
 export {HydrologyTimeSeries as HydrologyTimeSeriesClass};
-export default connect(mapStateToProps, mapDispatchToProps)(HydrologyTimeSeries);
+export default connect(mapStateToProps)(HydrologyTimeSeries);

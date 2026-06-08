@@ -381,6 +381,8 @@
         "save": "Anrejistre",
         "selectItem": "Chwazi yon eleman agoch.",
         "source": "Sous :",
+        "manualEntry": "Antre manyèl",
+        "noTimeSeriesData": "Poko gen done pou tanpèt konsepsyon sa a.",
         "success": "Siksè",
         "temporalPattern": "Modèl Tanporèl",
         "temporalPatterns": "Modèl Tanporèl yo",
