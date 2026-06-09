@@ -75,12 +75,65 @@ export function rowDataToHyetograph(rowData) {
     }));
 }
 
+// ---------------------------------------------------------------------------
+// Axis-tick helpers — give the hyetograph human, round ticks instead of
+// recharts' auto-thinned per-bar labels (operator UAT, TASK-1549):
+//   - intensity (Y) ticks land on round multiples (10 / 20 / 50 / 100 …);
+//   - time (X) ticks land on round ELAPSED marks (10 min / 30 min / hourly …)
+//     measured from storm start (the clock start of a design storm is synthetic).
+// ---------------------------------------------------------------------------
+
+// Round Y ticks: smallest 1-2-5 step (×10ⁿ, ≥10) that yields ≤ ~6 ticks.
+export function niceIntensityTicks(maxIntensity) {
+    const max = Number(maxIntensity) || 0;
+    if (max <= 0) return {ticks: [0, 10], max: 10};
+    const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+    let step = steps[steps.length - 1];
+    for (const s of steps) { if (max / s <= 6) { step = s; break; } }
+    const top = Math.ceil(max / step) * step;
+    const ticks = [];
+    for (let v = 0; v <= top + step / 2; v += step) ticks.push(v);
+    return {ticks, max: top};
+}
+
+// Round X ticks: smallest 10 / 30 / 60-min (and up) interval giving ≤ ~8 ticks.
+export function niceTimeTicks(durationMin) {
+    const dur = Number(durationMin) || 0;
+    if (dur <= 0) return {ticks: [0], interval: 10};
+    const intervals = [10, 30, 60, 120, 180, 360, 720, 1440];
+    let interval = intervals[intervals.length - 1];
+    for (const iv of intervals) { if (dur / iv <= 8) { interval = iv; break; } }
+    const ticks = [];
+    for (let v = 0; v <= dur + interval / 2; v += interval) ticks.push(v);
+    return {ticks, interval};
+}
+
+// Format elapsed minutes as h:mm (0→"0:00", 30→"0:30", 90→"1:30").
+export function formatElapsedMin(min) {
+    const m = Math.max(0, Math.round(Number(min) || 0));
+    return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+}
+
 const HyetographChart = ({rowData, timestepMin, title}) => {
     const chartData = rowDataToHyetograph(rowData);
     if (!chartData.length) return null;
-    // Convert mm/hr intensity × (timestep/60) = mm depth per interval for total
     const ts = timestepMin || 6;
-    const totalDepth = chartData.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
+    // Elapsed minutes from the first timestamp give a NUMERIC time axis, so the
+    // ticks can sit on round 10/30/60-min marks independent of where the bars
+    // (and the synthetic clock start) fall. recharts derives the bar band width
+    // from the minimum spacing between numeric points, so the bars still render.
+    const t0 = moment(rowData[0] && rowData[0].timestamp);
+    const data = chartData.map((d, i) => {
+        const at = rowData[i] && rowData[i].timestamp;
+        const elapsedMin = (t0.isValid() && at) ? moment(at).diff(t0, 'minutes') : i * ts;
+        return {...d, elapsedMin};
+    });
+    const durationMin = data.length ? data[data.length - 1].elapsedMin : 0;
+    const maxIntensity = data.reduce((m, d) => Math.max(m, d.intensity), 0);
+    const {ticks: yTicks, max: yMax} = niceIntensityTicks(maxIntensity);
+    const {ticks: xTicks} = niceTimeTicks(durationMin);
+    // Convert mm/hr intensity × (timestep/60) = mm depth per interval for total
+    const totalDepth = data.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
     return (
         <div id="design-storm-hyetograph" className="hyetograph-chart-card">
             {title && (
@@ -100,24 +153,34 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
                     <div className="hyetograph-plot">
                         <ResponsiveContainer width="100%" height={260}>
                             <BarChart
-                                data={chartData}
+                                data={data}
                                 margin={{top: 10, right: 20, left: 8, bottom: 8}}
                             >
                                 <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
                                 <XAxis
-                                    dataKey="label"
-                                    angle={-45}
-                                    textAnchor="end"
-                                    height={60}
+                                    dataKey="elapsedMin"
+                                    type="number"
+                                    domain={[0, durationMin]}
+                                    ticks={xTicks}
+                                    tickFormatter={formatElapsedMin}
+                                    height={28}
                                     tick={{fontSize: 10, fill: '#333'}}
                                 />
-                                <YAxis tick={{fontSize: 10, fill: '#333'}} />
-                                <Tooltip formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']} />
+                                <YAxis
+                                    domain={[0, yMax]}
+                                    ticks={yTicks}
+                                    allowDecimals={false}
+                                    tick={{fontSize: 10, fill: '#333'}}
+                                />
+                                <Tooltip
+                                    labelFormatter={(v) => `Time ${formatElapsedMin(v)}`}
+                                    formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']}
+                                />
                                 <Bar dataKey="intensity" fill="#5178af" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                    <div className="hyetograph-xaxis-title">Time (HH:mm)</div>
+                    <div className="hyetograph-xaxis-title">Time from start (h:mm)</div>
                 </div>
             </div>
         </div>
