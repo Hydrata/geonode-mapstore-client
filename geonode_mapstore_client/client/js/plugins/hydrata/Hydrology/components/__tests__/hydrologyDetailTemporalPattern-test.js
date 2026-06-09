@@ -2,8 +2,12 @@
  * TASK-1450 (W3) — HydrologyDetailTemporalPattern component tests.
  *
  * Tests the unconnected HydrologyTemporalPatternClass so we don't need a
- * full redux store. Exercises the preset picker list, curve preview,
- * geography suggestion banner, and advanced manual-edit toggle.
+ * full redux store. Exercises the preset picker list, curve preview, and
+ * geography suggestion banner.
+ *
+ * UAT 9-A: the "Advanced: edit percentage grid" toggle (and its manual-edit
+ * react-table) was removed — it was not applicable to the pre-defined preset
+ * patterns — so the three tests that asserted that toggle were removed too.
  */
 import expect from 'expect';
 import React from 'react';
@@ -35,7 +39,6 @@ describe('TASK-1450 HydrologyDetailTemporalPattern component', () => {
     const mount = (overrides) => {
         const baseProps = {
             activeHydrologyItem: null,
-            updateTemporalPatternRowData: noop,
             setTemporalPatternPreset: noop,
             projectLat: null,
             projectLon: null,
@@ -123,29 +126,12 @@ describe('TASK-1450 HydrologyDetailTemporalPattern component', () => {
         expect(called).toBe(SCS_TYPE_IA);
     });
 
-    it('the advanced toggle button is rendered and hides the grid initially', () => {
+    // UAT 9-A — the advanced manual-edit toggle (#temporal-pattern-advanced-toggle
+    // / #temporal-pattern-manual-edit) was removed for preset patterns. It must
+    // no longer render in the preset (non-custom) view.
+    it('does NOT render the removed advanced manual-edit toggle for presets', () => {
         mount({});
-        const toggle = container.querySelector('#temporal-pattern-advanced-toggle');
-        expect(toggle).toExist();
-        const manualEdit = container.querySelector('#temporal-pattern-manual-edit');
-        // Initially collapsed
-        expect(manualEdit).toNotExist();
-    });
-
-    it('clicking advanced toggle reveals the manual edit grid', () => {
-        mount({ activeHydrologyItem: { id: 'tp-1', rowData: [{percentage: 10}], getChartData: () => [] } });
-        const toggle = container.querySelector('#temporal-pattern-advanced-toggle');
-        ReactTestUtils.Simulate.click(toggle);
-        const manualEdit = container.querySelector('#temporal-pattern-manual-edit');
-        expect(manualEdit).toExist();
-    });
-
-    it('clicking advanced toggle again collapses the manual edit grid', () => {
-        mount({ activeHydrologyItem: { id: 'tp-1', rowData: [], getChartData: () => [] } });
-        const toggle = container.querySelector('#temporal-pattern-advanced-toggle');
-        ReactTestUtils.Simulate.click(toggle);
-        expect(container.querySelector('#temporal-pattern-manual-edit')).toExist();
-        ReactTestUtils.Simulate.click(toggle);
+        expect(container.querySelector('#temporal-pattern-advanced-toggle')).toNotExist();
         expect(container.querySelector('#temporal-pattern-manual-edit')).toNotExist();
     });
 

@@ -19,13 +19,15 @@
  *   - Validation: monotonic non-decreasing, starts 0, ends 100%.
  *   - Saves as project-scoped TemporalPattern with pattern_type='custom'.
  *
+ * UAT 9-A: the "Advanced: edit percentage grid" affordance (and its
+ * react-table percentage grid) is removed — it was not applicable to the
+ * pre-defined preset patterns. Presets now show the curve preview only.
+ *
  * Layout:
  *   ① Geography suggestion banner (if project lat/lon available)
  *   ② Preset picker (radio list of pattern families, carded)
  *   ③ Curve preview (S-curve with labelled axes + intensity/depth toggle)
  *      OR Custom editor (when custom selected)
- *   ④ "Advanced: manual edit" toggle → reveals the existing percentage grid
- *      (only for non-custom patterns)
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { connect } from 'react-redux';
@@ -38,7 +40,6 @@ import {
 import { OverlayTrigger, Tooltip as BootstrapTooltip } from 'react-bootstrap';
 import {
     setActiveHydrologyItem,
-    updateTemporalPatternRowData,
     setTemporalPatternPreset,
     replaceTemporalPatternRowData
 } from '../actionsHydrology';
@@ -50,49 +51,8 @@ import {
     suggestPatternFromLatLon,
     getSuggestionLabel
 } from '../temporalPatternPresets';
-import {
-    createColumnHelper,
-    flexRender,
-    getCoreRowModel,
-    useReactTable
-} from '@tanstack/react-table';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
-
-// ---------------------------------------------------------------------------
-// Manual-edit table (kept as the "advanced" affordance for preset patterns)
-// ---------------------------------------------------------------------------
-
-const TableCell = ({getValue, row, column, table}) => {
-    const initialValue = getValue();
-    const [value, setValue] = useState(initialValue);
-    useEffect(() => { setValue(initialValue); }, [initialValue]);
-    const onBlur = () => { table.options.meta?.updateData(row.index, column.id, value); };
-    return (
-        <input
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onBlur={onBlur}
-            type={column.columnDef.meta?.type || 'text'}
-        />
-    );
-};
-
-TableCell.propTypes = {
-    getValue: PropTypes.func.isRequired,
-    row: PropTypes.object.isRequired,
-    column: PropTypes.object.isRequired,
-    table: PropTypes.object.isRequired
-};
-
-const columnHelper = createColumnHelper();
-const columns = [
-    columnHelper.accessor('percentage', {
-        cell: TableCell,
-        header: () => <span>%</span>,
-        meta: { type: 'number' }
-    })
-];
 
 // ---------------------------------------------------------------------------
 // Curve preview component (for preset patterns)
@@ -388,13 +348,17 @@ const CustomPatternEditor = ({ rows, onChange }) => {
     }, []);
 
     return (
-        <div id="custom-pattern-editor" style={{ marginTop: 8 }}>
+        // UAT 9-B — wrap the whole editor body in a WHITE CARD so every dark-on-
+        // white colour reads on the dark-navy plugin panel (mirrors how the
+        // recharts cards stay white). The heading, subtitle, validation banner,
+        // grid and live preview all live INSIDE this card.
+        <div id="custom-pattern-editor" className="custom-pattern-editor-card">
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#333' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                <span className="custom-pattern-heading">
                     Custom Cumulative Curve
                 </span>
-                <span style={{ fontSize: '0.78rem', color: '#888' }}>
+                <span className="custom-pattern-subtitle">
                     (time-fraction 0→1, cumulative-% 0→100)
                 </span>
             </div>
@@ -405,12 +369,12 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                     id="custom-pattern-validation-error"
                     style={{
                         padding: '6px 10px',
-                        background: '#fff0f0',
+                        background: '#fdecec',
                         border: '1px solid #e8b4b4',
                         borderRadius: 4,
-                        color: '#a33',
+                        color: '#c0392b',
                         fontSize: '0.8rem',
-                        marginBottom: 8
+                        marginBottom: 10
                     }}
                 >
                     <span className="glyphicon glyphicon-warning-sign" style={{marginRight: 6}}/>
@@ -418,15 +382,19 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                 </div>
             )}
             {pasteError && (
-                <div style={{ padding: '6px 10px', background: '#fff8e0', border: '1px solid #e8d084', borderRadius: 4, color: '#856', fontSize: '0.8rem', marginBottom: 8 }}>
+                <div style={{ padding: '6px 10px', background: '#fff8e0', border: '1px solid #e8d084', borderRadius: 4, color: '#8a6d3b', fontSize: '0.8rem', marginBottom: 10 }}>
                     {pasteError}
                 </div>
             )}
 
-            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                {/* Left: editable table */}
-                <div style={{ flex: '0 0 220px' }}>
-                    <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+            {/* Grid on top, live preview full-width below — the detail column the
+                plugin gives us is only ~810px and the picker eats 340px, so a
+                side-by-side grid+chart squeezes the chart to a sliver. Stacking
+                lets the curve preview use the editor's full width. */}
+            <div>
+                {/* Top: toolbar + editable table + add row (compact) */}
+                <div style={{ maxWidth: 300, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                         <button
                             id="custom-pattern-paste"
                             className="btn btn-xs btn-default"
@@ -447,39 +415,39 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                     </div>
                     <table
                         id="custom-pattern-table"
-                        style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}
+                        className="custom-pattern-table"
                     >
                         <thead>
-                            <tr style={{ background: '#f0f4f8' }}>
-                                <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid #d0d8e4' }}>t (0–1)</th>
-                                <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid #d0d8e4' }}>cum (%)</th>
-                                <th style={{ padding: '3px 6px', borderBottom: '1px solid #d0d8e4' }}></th>
+                            <tr>
+                                <th>t (0–1)</th>
+                                <th>cum (%)</th>
+                                <th aria-label="remove"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {rows.map((row, i) => (
-                                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                                    <td style={{ padding: '2px 4px' }}>
+                                <tr key={i} className={i % 2 === 0 ? 'is-even' : 'is-odd'}>
+                                    <td>
                                         <input
+                                            className="custom-pattern-input"
                                             type="number"
                                             min="0" max="1" step="0.01"
                                             value={row.t}
                                             readOnly={i === 0 || i === rows.length - 1}
                                             onChange={e => handleCellChange(i, 't', e.target.value)}
-                                            style={{ width: 64, fontSize: '0.8rem', padding: '1px 4px' }}
                                         />
                                     </td>
-                                    <td style={{ padding: '2px 4px' }}>
+                                    <td>
                                         <input
+                                            className="custom-pattern-input"
                                             type="number"
                                             min="0" max="100" step="0.1"
                                             value={row.cum}
                                             readOnly={i === 0 || i === rows.length - 1}
                                             onChange={e => handleCellChange(i, 'cum', e.target.value)}
-                                            style={{ width: 64, fontSize: '0.8rem', padding: '1px 4px' }}
                                         />
                                     </td>
-                                    <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+                                    <td style={{ textAlign: 'center' }}>
                                         {i !== 0 && i !== rows.length - 1 && (
                                             <button
                                                 className="btn btn-xs btn-default"
@@ -498,7 +466,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                     <button
                         id="custom-pattern-add-row"
                         className="btn btn-xs btn-default"
-                        style={{ marginTop: 4 }}
+                        style={{ marginTop: 6 }}
                         onClick={handleAddRow}
                     >
                         <span className="glyphicon glyphicon-plus" style={{ marginRight: 4, fontSize: '0.7rem' }}/>
@@ -506,9 +474,9 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                     </button>
                 </div>
 
-                {/* Right: live preview chart */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: 4 }}>
+                {/* Below: caption + live preview chart (full width) + status line */}
+                <div>
+                    <div className="custom-pattern-preview-caption">
                         Live preview — drag a point to adjust
                     </div>
                     <div
@@ -520,7 +488,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                         <div className="temporal-pattern-chart-layout">
                             <div className="temporal-pattern-yaxis-title">Cumulative depth (%)</div>
                             <div className="temporal-pattern-plot-area">
-                                <div className="temporal-pattern-plot" style={{ height: 220 }}>
+                                <div className="temporal-pattern-plot" style={{ height: 240 }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart
                                             data={chartData}
@@ -565,11 +533,11 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                             </div>
                         </div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: 2, textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.78rem', marginTop: 6, textAlign: 'right' }}>
                         {validationError ? (
-                            <span style={{ color: '#c44' }}>Fix errors above before saving.</span>
+                            <span style={{ color: '#c0392b' }}>Fix errors above before saving.</span>
                         ) : (
-                            <span style={{ color: '#4a8' }}>
+                            <span style={{ color: '#3a8f5a' }}>
                                 <span className="glyphicon glyphicon-ok" style={{ marginRight: 4 }}/>
                                 Valid curve — ready to save.
                             </span>
@@ -729,7 +697,6 @@ PresetPicker.propTypes = {
 // eslint-disable-next-line no-shadow -- prop intentionally named after the action creator
 const HydrologyTemporalPattern = ({
     activeHydrologyItem,
-    updateTemporalPatternRowData: dispatchUpdateRowData,
     setTemporalPatternPreset: dispatchSetPreset,
     replaceTemporalPatternRowData: dispatchReplaceRowData,
     projectLat,
@@ -743,8 +710,6 @@ const HydrologyTemporalPattern = ({
     const [selectedKey, setSelectedKey] = useState(
         activeHydrologyItem?.selectedPreset || ALTERNATING_BLOCK
     );
-    const [showManualEdit, setShowManualEdit] = useState(false);
-    const [rowData, setRowData] = useState(activeHydrologyItem?.rowData || []);
 
     // TASK-1502 (W5): custom curve rows — separate from the preset rowData.
     // Initialised from activeHydrologyItem.rowData if pattern_type='custom',
@@ -759,7 +724,6 @@ const HydrologyTemporalPattern = ({
     const [customRows, setCustomRows] = useState(initCustomRows);
 
     useEffect(() => {
-        setRowData(activeHydrologyItem?.rowData || []);
         // TASK-1451 carry-over B: always reset selectedKey on item switch.
         // Without the else branch, switching to an item without selectedPreset
         // showed the previous item's key (stale state bug).
@@ -800,26 +764,13 @@ const HydrologyTemporalPattern = ({
         }
     }, [activeHydrologyItem, dispatchReplaceRowData]);
 
-    const table = useReactTable({
-        columns,
-        data: rowData,
-        getCoreRowModel: getCoreRowModel(),
-        meta: {
-            updateData: (rowIndex, columnId, value) => {
-                if (activeHydrologyItem) {
-                    dispatchUpdateRowData(activeHydrologyItem.id, rowIndex, columnId, value);
-                }
-            }
-        }
-    });
-
     const isCustom = selectedKey === CUSTOM;
     const customValidationError = isCustom ? validateCustomCurve(customRows) : null;
 
     return (
         <div
             id="temporal-pattern-detail"
-            style={{ padding: '12px 16px', boxSizing: 'border-box', maxWidth: 700 }}
+            style={{ padding: '12px 16px', boxSizing: 'border-box', maxWidth: isCustom ? 1040 : 700 }}
         >
             {/* ① Geography suggestion */}
             <SuggestionBanner
@@ -865,72 +816,12 @@ const HydrologyTemporalPattern = ({
                     )}
                 </div>
             )}
-
-            {/* ④ Advanced: manual edit toggle (only for non-custom patterns) */}
-            {!isCustom && (
-                <div style={{ marginTop: 12, borderTop: '1px solid #e0e6ed', paddingTop: 10 }}>
-                    <button
-                        id="temporal-pattern-advanced-toggle"
-                        className="btn btn-xs btn-default"
-                        onClick={() => setShowManualEdit(!showManualEdit)}
-                        style={{ fontSize: '0.8rem' }}
-                    >
-                        <span
-                            className={`glyphicon ${showManualEdit ? 'glyphicon-chevron-up' : 'glyphicon-chevron-down'}`}
-                            style={{ marginRight: 6 }}
-                        />
-                        {showManualEdit ? 'Hide manual edit' : 'Advanced: edit percentage grid'}
-                    </button>
-
-                    {showManualEdit && (
-                        <div
-                            id="temporal-pattern-manual-edit"
-                            style={{ marginTop: 10, overflowY: 'auto', maxHeight: 320 }}
-                        >
-                            <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: 6 }}>
-                                Manual overrides apply only to project-owned patterns. Global presets
-                                are read-only.
-                            </p>
-                            <table className="temporal-pattern-table">
-                                <thead>
-                                    {table.getHeaderGroups().map(hg => (
-                                        <tr key={hg.id}>
-                                            {hg.headers.map(h => (
-                                                <th key={h.id}>
-                                                    {h.isPlaceholder ? null : flexRender(
-                                                        h.column.columnDef.header, h.getContext()
-                                                    )}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </thead>
-                                <tbody>
-                                    {table.getRowModel().rows.map(row => (
-                                        <tr key={row.id}>
-                                            {row.getVisibleCells().map(cell => (
-                                                <td key={cell.id}>
-                                                    {flexRender(
-                                                        cell.column.columnDef.cell,
-                                                        cell.getContext()
-                                                    )}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     );
 };
 
 HydrologyTemporalPattern.propTypes = {
     activeHydrologyItem: PropTypes.object,
-    updateTemporalPatternRowData: PropTypes.func,
     setTemporalPatternPreset: PropTypes.func,
     replaceTemporalPatternRowData: PropTypes.func,
     projectLat: PropTypes.number,
@@ -951,8 +842,6 @@ const mapStateToProps = (state) => ({
 
 const mapDispatchToProps = (dispatch) => ({
     setActiveHydrologyItem: (item) => dispatch(setActiveHydrologyItem(item)),
-    updateTemporalPatternRowData: (id, rowIndex, columnId, value) =>
-        dispatch(updateTemporalPatternRowData(id, rowIndex, columnId, value)),
     setTemporalPatternPreset: (id, key) =>
         dispatch(setTemporalPatternPreset(id, key)),
     replaceTemporalPatternRowData: (id, newRowData) =>

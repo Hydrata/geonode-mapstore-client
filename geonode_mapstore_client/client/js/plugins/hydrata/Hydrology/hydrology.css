@@ -745,6 +745,92 @@
     padding: 4px 0 2px 0;
 }
 
+/* ── UAT 9-B — Custom Cumulative Curve editor: white card + contrast ────────
+   The editor mounts on the dark-navy Hydrology detail panel where its dark
+   heading (#1a3c66) / muted subtitle (#6b7a90) / dark grid text would read
+   white-on-navy (near invisible). Wrapping the whole editor body in a white
+   card restores dark-on-white legibility — same treatment the recharts cards
+   use to stay readable on the navy plugin theme. */
+.custom-pattern-editor-card {
+    background: #fff;
+    border: 1px solid #cdd6e2;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-top: 8px;
+    color: #1f2d3d;
+    box-sizing: border-box;
+}
+
+.custom-pattern-heading {
+    color: #1a3c66;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.custom-pattern-subtitle {
+    color: #6b7a90;
+    font-size: 0.8rem;
+}
+
+.custom-pattern-preview-caption {
+    color: #6b7a90;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
+
+/* (t, cum%) entry grid — clean dark-on-white table on the card. */
+.custom-pattern-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    color: #1f2d3d;
+}
+
+.custom-pattern-table thead th {
+    padding: 4px 6px;
+    text-align: left;
+    background: #eef2f7;
+    color: #1f2d3d;
+    font-weight: 600;
+    border-bottom: 1px solid #cdd6e2;
+}
+
+.custom-pattern-table tbody tr.is-even {
+    background: #fff;
+}
+
+.custom-pattern-table tbody tr.is-odd {
+    background: #f4f7fb;
+}
+
+.custom-pattern-table tbody td {
+    padding: 2px 4px;
+    vertical-align: middle;
+}
+
+/* Explicit clean input style so the t / cum% cells read on the white card
+   (no inherited odd box from the dark panel theme). */
+.custom-pattern-input {
+    width: 70px;
+    padding: 2px 5px;
+    font-size: 0.8rem;
+    background: #fff;
+    color: #1f2d3d;
+    border: 1px solid #cdd6e2;
+    border-radius: 3px;
+    box-sizing: border-box;
+}
+
+.custom-pattern-input:focus {
+    outline: none;
+    border-color: #5178af;
+}
+
+.custom-pattern-input[readonly] {
+    background: #f0f3f7;
+    color: #6b7a90;
+}
+
 /* Issue 14a — Networks tab: match the other Hydrology tools for text contrast,
    panel borders/cards and spacing. The pane re-uses anuga-pane styles which
    have dark/navy backgrounds; normalise here for the hydrology context.
@@ -1084,6 +1170,21 @@
 .simple-view-panel input.idf-matrix-input:focus {
     color: #111;
     background: #fff;
+}
+
+/* UAT 9-B — same cascade trap as the idf-matrix-input fix above: the generic
+   `.simple-view-panel input` rule (white-on-blue, 0,1,1) outranks the plain
+   `.custom-pattern-input` (0,1,0), which on the white editor card would render
+   the (t, cum%) entries white-on-blue. Re-scope into panel + element (0,2,1) so
+   the dark-on-white entry wins without `!important`. */
+.simple-view-panel input.custom-pattern-input {
+    color: #1f2d3d;
+    background: #fff;
+}
+
+.simple-view-panel input.custom-pattern-input[readonly] {
+    color: #6b7a90;
+    background: #f0f3f7;
 }
 
 /* type=text already suppresses spinners; guard webkit number spinners too. */
