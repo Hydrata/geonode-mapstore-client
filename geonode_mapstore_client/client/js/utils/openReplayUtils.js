@@ -33,6 +33,10 @@ import trackerRedux from '@openreplay/tracker-redux';
 import { scrubUrlCredentials, sanitizeReduxAction, extractUsername } from './openReplayPrivacy';
 
 const CONSENT_KEY = 'or_consent_v1';
+// Separate from CONSENT_KEY: tracks that a non-EU visitor has already seen the
+// informational disclosure, so the dismissible "Got it" banner shows once per
+// browser instead of on every page load.
+const DISCLOSURE_SEEN_KEY = 'or_disclosure_seen_v1';
 
 // Module singletons: the tracker is built once and shared by the redux
 // middleware factory and the consent/start path.
@@ -186,6 +190,12 @@ function hasStoredConsent() {
 function storeConsent() {
     try { window.localStorage.setItem(CONSENT_KEY, 'yes'); } catch (e) { /* ignore */ }
 }
+function hasSeenDisclosure() {
+    try { return window.localStorage.getItem(DISCLOSURE_SEEN_KEY) === 'yes'; } catch (e) { return false; }
+}
+function storeDisclosureSeen() {
+    try { window.localStorage.setItem(DISCLOSURE_SEEN_KEY, 'yes'); } catch (e) { /* ignore */ }
+}
 
 function actuallyStart(user) {
     const tracker = buildOpenReplayTracker();
@@ -225,9 +235,9 @@ function showDisclosure(requireConsentBeforeStart, onAccept) {
 
     const text = document.createElement('div');
     text.style.cssText = 'flex:1 1 280px;';
-    text.innerHTML = 'This session is being recorded for product research as part of '
-        + 'our invited preview. Inputs and sensitive data are masked. '
-        + 'See our <a href="/privacy-policy" style="color:#54acd2;text-decoration:underline;">Privacy Policy</a>.';
+    text.innerHTML = 'To improve Hydrata, we capture anonymised sessions — '
+        + 'your inputs and sensitive data stay masked. '
+        + '<a href="/privacy-policy" style="color:#54acd2;text-decoration:underline;">Privacy Policy</a>.';
 
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:8px;flex:0 0 auto;';
@@ -252,7 +262,7 @@ function showDisclosure(requireConsentBeforeStart, onAccept) {
         actions.appendChild(decline);
     } else {
         const ok = mkBtn('Got it', true);
-        ok.addEventListener('click', removeBanner);
+        ok.addEventListener('click', () => { storeDisclosureSeen(); removeBanner(); });
         actions.appendChild(ok);
     }
 
@@ -272,6 +282,8 @@ export function startOpenReplayWithConsent(user) {
         showDisclosure(true, () => actuallyStart(user));
     } else {
         actuallyStart(user);
-        showDisclosure(false);
+        // Informational (non-consent) disclosure: show once per browser, not on
+        // every page load — re-showing it is what made the banner feel naggy.
+        if (!hasSeenDisclosure()) { showDisclosure(false); }
     }
 }
