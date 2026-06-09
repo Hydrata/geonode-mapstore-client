@@ -1391,3 +1391,4 @@ const ConnectedDesignStormCreatePanel =
 
 export {DesignStormCreatePanel, DesignStormDerive};
 export {ConnectedDesignStormCreatePanel as HydrologyTimeSeriesCreatePanel};
+export {HyetographChart};

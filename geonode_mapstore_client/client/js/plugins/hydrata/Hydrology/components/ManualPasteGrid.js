@@ -16,14 +16,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import PropTypes from 'prop-types';
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    ResponsiveContainer
-} from 'recharts';
-import {
     createColumnHelper,
     flexRender,
     getCoreRowModel,
@@ -31,6 +23,7 @@ import {
 } from '@tanstack/react-table';
 import moment from 'moment';
 import Message from '@mapstore/framework/components/I18N/Message';
+import {HyetographChart, estimateTimestepMin} from './hydrologyDetailTimeSeries';
 
 // ---------------------------------------------------------------------------
 // Manual-edit table cell (unchanged from W4)
@@ -97,7 +90,6 @@ const columns = [
 const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchReplaceRowData}) => {
     const [columnDefs, setColumnDefs] = useState(activeHydrologyItem?.columnDefs);
     const [rowData, setRowData] = useState(activeHydrologyItem?.rowData);
-    const [chartData, setChartData] = useState(activeHydrologyItem?.getChartData());
 
     const pasteDivRef = useRef();
 
@@ -119,7 +111,6 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                 let pastedData = paste.getData('text');
                 let newRowData = parsePastedData(pastedData);
                 dispatchReplaceRowData(activeHydrologyItem.id, newRowData);
-                setChartData(activeHydrologyItem?.getChartData());
                 setRowData(newRowData);
             }
         };
@@ -133,7 +124,6 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
     useEffect(() => {
         setColumnDefs(activeHydrologyItem?.columnDefs);
         setRowData(activeHydrologyItem?.rowData);
-        setChartData(activeHydrologyItem?.getChartData());
     }, [activeHydrologyItem, rowData, columnDefs]);
 
     const table = useReactTable({
@@ -143,7 +133,6 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
         meta: {
             updateData: (rowIndex, columnId, value) => {
                 dispatchUpdateRowData(activeHydrologyItem.id, rowIndex, columnId, value);
-                setChartData(activeHydrologyItem?.getChartData());
             }
         }
     });
@@ -170,14 +159,11 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                     readOnly
                 />
             </div>
-            <div style={{display: 'flex', flexDirection: 'row', boxSizing: 'border-box'}}>
+            <div style={{display: 'flex', flexDirection: 'column', boxSizing: 'border-box'}}>
                 <div style={{
                     padding: '10px',
-                    height: '600px',
-                    width: '600px',
                     minWidth: '400px',
-                    marginBottom: '60px',
-                    marginRight: '50px'
+                    marginBottom: '16px'
                 }}>
                     <div>
                         <h3 style={{marginTop: 0}}>
@@ -214,68 +200,12 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                         </table>
                     </div>
                 </div>
-                <div>
-                    <div style={{
-                        minWidth: '600px',
-                        marginTop: '20px',
-                        padding: '10px'
-                    }}>
-                        <h3 style={{marginTop: 0}}>
-                            <Message msgId="hydrata.hydrology.timeSeries" />
-                        </h3>
-                        <div style={{
-                            width: '100%',
-                            height: '100%',
-                            background: 'white',
-                            borderRadius: '3px'
-                        }}>
-                            <ResponsiveContainer width="100%" height={400}>
-                                <BarChart
-                                    width={500}
-                                    height={300}
-                                    data={chartData}
-                                    margin={{
-                                        top: 30,
-                                        right: 30,
-                                        left: 50,
-                                        bottom: 120
-                                    }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3"/>
-                                    <XAxis
-                                        dataKey="timestamp"
-                                        type="number"
-                                        domain={['auto', 'auto']}
-                                        angle={-45}
-                                        textAnchor="end"
-                                        height={60}
-                                        tickFormatter={(unixTime) => {
-                                            if (!chartData || chartData.length === 0) return '';
-                                            const endDate = new Date(Math.max(...chartData.map(d => d.timestamp)));
-                                            const startDate = new Date(Math.min(...chartData.map(d => d.timestamp)));
-                                            const deltaDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-                                            const dateObj = new Date(unixTime);
-                                            if (deltaDays < 7) {
-                                                return `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString()}`;
-                                            }
-                                            return dateObj.toLocaleDateString();
-                                        }}
-                                    />
-                                    <YAxis
-                                        name="Rate"
-                                        label={{
-                                            value: 'Flow (m3/s) or Rainfall (mm/hr)',
-                                            angle: -90,
-                                            position: 'insideLeft',
-                                            offset: 20,
-                                            dy: 100
-                                        }}
-                                    />
-                                    <Bar dataKey="value" fill="#8884d8" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+                <div style={{padding: '10px'}}>
+                    <HyetographChart
+                        rowData={rowData || []}
+                        timestepMin={estimateTimestepMin(rowData || [])}
+                        title={activeHydrologyItem?.name || 'Preview'}
+                    />
                 </div>
             </div>
         </div>
