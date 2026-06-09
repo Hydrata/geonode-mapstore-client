@@ -1266,7 +1266,6 @@ const DesignStormCreatePanel = ({
     temporalPatterns,
     activeTab,
     onTabChange,
-    onBack,
     // TASK-1561 (W3b) — projection/save props threaded from connect
     previews,
     previewInFlight,
@@ -1284,20 +1283,6 @@ const DesignStormCreatePanel = ({
 
     return (
         <div id="design-storm-create-panel">
-            {/* Back-to-list affordance (container clears create mode + unsaved item) */}
-            <div style={{marginBottom: 8}}>
-                <button
-                    id="ds-create-back"
-                    type="button"
-                    className="btn btn-default btn-xs"
-                    onClick={onBack}
-                    style={{fontSize: '0.8rem'}}
-                >
-                    <span className="glyphicon glyphicon-chevron-left" style={{marginRight: 5}} />
-                    <Message msgId="hydrata.hydrology.backToList" />
-                </button>
-            </div>
-
             {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup. */}
             <div className="hydrology-idf-subtoggle" role="group" aria-label="Create mode">
                 <button
@@ -1352,7 +1337,6 @@ DesignStormCreatePanel.propTypes = {
     temporalPatterns: PropTypes.array,
     activeTab: PropTypes.string,
     onTabChange: PropTypes.func.isRequired,
-    onBack: PropTypes.func.isRequired,
     previews: PropTypes.array,
     previewInFlight: PropTypes.bool,
     saveInFlight: PropTypes.bool,
