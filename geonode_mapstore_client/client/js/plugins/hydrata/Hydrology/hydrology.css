@@ -735,6 +735,9 @@
 .temporal-pattern-plot {
     flex: 1 1 auto;
     min-height: 0;
+    border: 1px solid #cdd6e2;
+    border-radius: 4px;
+    box-sizing: border-box;
 }
 
 .temporal-pattern-xaxis-title {
@@ -793,14 +796,6 @@
     color: #1f2d3d;
     font-weight: 600;
     border-bottom: 1px solid #cdd6e2;
-}
-
-.custom-pattern-table tbody tr.is-even {
-    background: #fff;
-}
-
-.custom-pattern-table tbody tr.is-odd {
-    background: #f4f7fb;
 }
 
 .custom-pattern-table tbody td {

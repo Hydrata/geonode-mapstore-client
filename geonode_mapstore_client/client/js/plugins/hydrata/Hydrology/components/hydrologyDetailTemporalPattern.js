@@ -228,17 +228,20 @@ function validateCustomCurve(rows) {
 }
 
 /** Default 11-point empty custom curve (uniform spacing, operator fills in cum values). */
+// Pre-filled with a LINEAR cumulative curve (10% per 0.1 of duration) so the
+// editor opens on a valid, sensible default the user can adjust — not a blank
+// grid that fails validation until every cell is typed.
 const DEFAULT_CUSTOM_ROWS = [
     {t: 0.0,  cum: 0.0},
-    {t: 0.1,  cum: ''},
-    {t: 0.2,  cum: ''},
-    {t: 0.3,  cum: ''},
-    {t: 0.4,  cum: ''},
-    {t: 0.5,  cum: ''},
-    {t: 0.6,  cum: ''},
-    {t: 0.7,  cum: ''},
-    {t: 0.8,  cum: ''},
-    {t: 0.9,  cum: ''},
+    {t: 0.1,  cum: 10.0},
+    {t: 0.2,  cum: 20.0},
+    {t: 0.3,  cum: 30.0},
+    {t: 0.4,  cum: 40.0},
+    {t: 0.5,  cum: 50.0},
+    {t: 0.6,  cum: 60.0},
+    {t: 0.7,  cum: 70.0},
+    {t: 0.8,  cum: 80.0},
+    {t: 0.9,  cum: 90.0},
     {t: 1.0,  cum: 100.0}
 ];
 
@@ -426,7 +429,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                         </thead>
                         <tbody>
                             {rows.map((row, i) => (
-                                <tr key={i} className={i % 2 === 0 ? 'is-even' : 'is-odd'}>
+                                <tr key={i}>
                                     <td>
                                         <input
                                             className="custom-pattern-input"
