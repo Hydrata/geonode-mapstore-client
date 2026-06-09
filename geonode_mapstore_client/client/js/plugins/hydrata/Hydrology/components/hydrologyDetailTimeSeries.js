@@ -82,44 +82,44 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
     const ts = timestepMin || 6;
     const totalDepth = chartData.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
     return (
-        <div style={{marginTop: 8}} id="design-storm-hyetograph">
+        <div id="design-storm-hyetograph" className="hyetograph-chart-card">
             {title && (
                 <p style={{fontSize: '0.9rem', fontWeight: 700, marginBottom: 4, color: '#333'}}>
                     {title}
                 </p>
             )}
-            <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 4}}>
+            <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
                 Estimated total depth: <strong>{totalDepth} mm</strong>
-                <span style={{marginLeft: 8, color: '#666', fontSize: '0.8rem'}}>
-                    (Y-axis: mm/hr intensity)
-                </span>
             </p>
-            <ResponsiveContainer width="100%" height={260}>
-                <BarChart
-                    data={chartData}
-                    margin={{top: 10, right: 20, left: 50, bottom: 60}}
-                >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                        dataKey="label"
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                        tick={{fontSize: 10}}
-                    />
-                    <YAxis
-                        label={{
-                            value: 'Intensity (mm/hr)',
-                            angle: -90,
-                            position: 'insideLeft',
-                            offset: 10,
-                            fontSize: 11
-                        }}
-                    />
-                    <Tooltip formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']} />
-                    <Bar dataKey="intensity" fill="#5178af" />
-                </BarChart>
-            </ResponsiveContainer>
+            {/* HTML axis-title layout — mirrors IdfCurveChart (.idf-curve-*) because
+                recharts 0.22.4 silently IGNORES the YAxis/XAxis `label` object prop,
+                so axis units must be HTML around the SVG, not a recharts <Label>. */}
+            <div className="hyetograph-chart-layout">
+                <div className="hyetograph-yaxis-title">Intensity (mm/hr)</div>
+                <div className="hyetograph-plot-area">
+                    <div className="hyetograph-plot">
+                        <ResponsiveContainer width="100%" height={260}>
+                            <BarChart
+                                data={chartData}
+                                margin={{top: 10, right: 20, left: 8, bottom: 8}}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#dce6f0" />
+                                <XAxis
+                                    dataKey="label"
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={60}
+                                    tick={{fontSize: 10, fill: '#333'}}
+                                />
+                                <YAxis tick={{fontSize: 10, fill: '#333'}} />
+                                <Tooltip formatter={(v) => [`${v.toFixed(2)} mm/hr`, 'Intensity']} />
+                                <Bar dataKey="intensity" fill="#5178af" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="hyetograph-xaxis-title">Time (HH:mm)</div>
+                </div>
+            </div>
         </div>
     );
 };

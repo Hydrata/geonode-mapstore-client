@@ -1220,6 +1220,73 @@
     color: #333;
 }
 
+/* ── Hyetograph chart card — self-contained white surface + HTML axis titles ──
+   TASK-1549 follow-up (operator UAT): the asks were axis UNITS + background
+   CONTRAST. HyetographChart now owns its OWN white card so the LIVE bare caller
+   (HydrologyTimeSeries detail) reads on the dark-navy MapStore panel with no
+   wrapper change. The (dead, TASK-1567) DesignStormsBrowser / ManualEntryForm
+   callers already wrap it in .design-storm-chart-card (white + 2px navy border);
+   the descendant rule below cancels the inner card there so they keep a SINGLE
+   border. Axis-unit titles are HTML around the SVG because recharts 0.22.4
+   silently ignores the axis `label` object prop — same mechanism as .idf-curve-*. */
+.hyetograph-chart-card {
+    background: #fff;
+    border: 2px solid #5178af;
+    border-radius: 4px;
+    color: #333;
+    padding: 12px 16px;
+    margin-top: 8px;
+    box-sizing: border-box;
+}
+
+/* Strip the inner card when nested inside the dead callers' wrapper. */
+.design-storm-chart-card #design-storm-hyetograph.hyetograph-chart-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin-top: 0;
+}
+
+/* Axis-title layout — mirrors .idf-curve-chart-layout. */
+.hyetograph-chart-layout {
+    display: flex;
+    width: 100%;
+}
+
+.hyetograph-yaxis-title {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    align-self: center;
+    color: #063167;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.hyetograph-plot-area {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* ResponsiveContainer carries an explicit pixel height={260}, so the plot box
+   only needs full width (a fixed height avoids the recharts 0-tall trap). */
+.hyetograph-plot {
+    width: 100%;
+}
+
+.hyetograph-xaxis-title {
+    text-align: center;
+    color: #063167;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 0 2px 0;
+}
+
 /* The text inputs / selects in the Design Storms cards had NO CSS rule, so
    they fell back to browser defaults (light box, hard to see on navy). Give
    them the same white-field treatment the rest of the plugin uses. Scope to
