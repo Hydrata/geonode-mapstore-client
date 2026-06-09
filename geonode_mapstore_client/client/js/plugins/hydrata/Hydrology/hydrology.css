@@ -108,10 +108,13 @@
 /* Left-justify the label ONLY on list-view instance rows (for scannability);
    action buttons that share .hydrology-button — "New Item", Save, Delete —
    keep their default centring. (TASK-1552 originally left-justified the base
-   class, which also shifted those action buttons.) */
+   class, which also shifted those action buttons.)
+   align-items:center (not stretch) keeps the delete / regenerate icon buttons
+   at a fixed small square size and centres them vertically even when the item
+   name wraps to multiple lines. */
 .hydrology-item-row {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     margin: 10px 10px 0 10px;
 }
 
@@ -123,11 +126,15 @@
     min-width: 0;
 }
 
-/* Small trash button sitting to the immediate right of each item row. */
+/* Small trash button sitting to the immediate right of each item row.
+   Fixed 28×28px square so it never stretches to the row height when the
+   item name wraps; the row's align-items:center keeps it vertically centred. */
 .hydrology-item-delete-btn {
-    flex: 0 0 auto;
+    flex: none;
+    width: 28px;
+    height: 28px;
     margin-left: 6px;
-    padding: 0 10px;
+    padding: 0;
     border-radius: 4px;
     border: 1px solid white;
     background: rgba(139, 0, 0, 0.6);
@@ -1335,17 +1342,24 @@
     vertical-align: middle;
 }
 
-/* Regenerate button — compact icon-only button beside the item row. */
+/* Regenerate button — compact icon-only square beside the item row.
+   Fixed 28×28px so it stays small when the item name wraps (mirrors the
+   delete button sizing; the row's align-items:center centres it). */
 .ds-regenerate-btn {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
     border: 1px solid rgba(245,166,35,0.5);
     border-radius: 3px;
     color: #f5a623;
     cursor: pointer;
-    padding: 2px 5px;
     font-size: 0.78rem;
     line-height: 1;
-    flex-shrink: 0;
 }
 
 .ds-regenerate-btn:hover {
