@@ -183,55 +183,48 @@ const CurvePreview = ({ patternKey }) => {
                     Intensity
                 </button>
             </div>
-            <div style={{ width: '100%', height: 210 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                        data={chartData}
-                        margin={{ top: 4, right: 16, left: 10, bottom: 28 }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
-                        <XAxis
-                            dataKey="t"
-                            type="number"
-                            domain={[0, 1]}
-                            tickFormatter={pctFmt}
-                            tick={{ fontSize: 11 }}
-                            label={{
-                                value: 'Time (% of duration)',
-                                position: 'insideBottom',
-                                offset: -14,
-                                fontSize: 11,
-                                fill: '#444'
-                            }}
-                        />
-                        <YAxis
-                            domain={showIntensity ? [0, 'auto'] : [0, 1]}
-                            tickFormatter={yFormatter}
-                            tick={{ fontSize: 11 }}
-                            width={52}
-                            label={{
-                                value: yLabel,
-                                angle: -90,
-                                position: 'insideLeft',
-                                offset: 6,
-                                fontSize: 10,
-                                fill: '#444'
-                            }}
-                        />
-                        <Tooltip
-                            formatter={tooltipFormatter}
-                            labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey={dataKey}
-                            stroke="#3a6aa8"
-                            dot={false}
-                            strokeWidth={2.5}
-                            isAnimationActive={false}
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
+            {/* HTML axis titles — recharts 0.22.4 ignores the axis label prop;
+                mirrors the .idf-curve-* / .hyetograph-* pattern. */}
+            <div className="temporal-pattern-chart-layout">
+                <div className="temporal-pattern-yaxis-title">{yLabel}</div>
+                <div className="temporal-pattern-plot-area">
+                    <div className="temporal-pattern-plot" style={{ height: 210 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
+                                data={chartData}
+                                margin={{ top: 4, right: 16, left: 10, bottom: 4 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
+                                <XAxis
+                                    dataKey="t"
+                                    type="number"
+                                    domain={[0, 1]}
+                                    tickFormatter={pctFmt}
+                                    tick={{ fontSize: 11 }}
+                                />
+                                <YAxis
+                                    domain={showIntensity ? [0, 'auto'] : [0, 1]}
+                                    tickFormatter={yFormatter}
+                                    tick={{ fontSize: 11 }}
+                                    width={52}
+                                />
+                                <Tooltip
+                                    formatter={tooltipFormatter}
+                                    labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey={dataKey}
+                                    stroke="#3a6aa8"
+                                    dot={false}
+                                    strokeWidth={2.5}
+                                    isAnimationActive={false}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
+                </div>
             </div>
         </div>
     );
@@ -520,63 +513,57 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                     </div>
                     <div
                         id="temporal-pattern-curve-preview"
-                        style={{ width: '100%', height: 220 }}
                         ref={chartRef}
                     >
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                                data={chartData}
-                                margin={{ top: 4, right: 16, left: 10, bottom: 28 }}
-                                onMouseDown={handleChartMouseDown}
-                                onMouseMove={dragIdx !== null ? handleChartMouseMove : undefined}
-                                onMouseUp={handleChartMouseUp}
-                                onMouseLeave={handleChartMouseUp}
-                                style={{ cursor: dragIdx !== null ? 'ns-resize' : 'crosshair' }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
-                                <XAxis
-                                    dataKey="t"
-                                    type="number"
-                                    domain={[0, 1]}
-                                    tickFormatter={pctFmt}
-                                    tick={{ fontSize: 11 }}
-                                    label={{
-                                        value: 'Time (% of duration)',
-                                        position: 'insideBottom',
-                                        offset: -14,
-                                        fontSize: 11,
-                                        fill: '#444'
-                                    }}
-                                />
-                                <YAxis
-                                    domain={[0, 1]}
-                                    tickFormatter={pctFmt}
-                                    tick={{ fontSize: 11 }}
-                                    width={52}
-                                    label={{
-                                        value: 'Cumulative depth (%)',
-                                        angle: -90,
-                                        position: 'insideLeft',
-                                        offset: 6,
-                                        fontSize: 10,
-                                        fill: '#444'
-                                    }}
-                                />
-                                <Tooltip
-                                    formatter={(v) => [`${(v * 100).toFixed(1)}%`, 'Cum. depth']}
-                                    labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="cum"
-                                    stroke="#3a6aa8"
-                                    strokeWidth={2.5}
-                                    dot={{ r: 5, fill: '#3a6aa8', strokeWidth: 0, cursor: 'ns-resize' }}
-                                    isAnimationActive={false}
-                                    activeDot={{ r: 7, fill: '#1a4a88' }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
+                        {/* HTML axis titles — recharts 0.22.4 ignores the axis label prop;
+                            mirrors the .idf-curve-* / .hyetograph-* pattern. */}
+                        <div className="temporal-pattern-chart-layout">
+                            <div className="temporal-pattern-yaxis-title">Cumulative depth (%)</div>
+                            <div className="temporal-pattern-plot-area">
+                                <div className="temporal-pattern-plot" style={{ height: 220 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart
+                                            data={chartData}
+                                            margin={{ top: 4, right: 16, left: 10, bottom: 4 }}
+                                            onMouseDown={handleChartMouseDown}
+                                            onMouseMove={dragIdx !== null ? handleChartMouseMove : undefined}
+                                            onMouseUp={handleChartMouseUp}
+                                            onMouseLeave={handleChartMouseUp}
+                                            style={{ cursor: dragIdx !== null ? 'ns-resize' : 'crosshair' }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
+                                            <XAxis
+                                                dataKey="t"
+                                                type="number"
+                                                domain={[0, 1]}
+                                                tickFormatter={pctFmt}
+                                                tick={{ fontSize: 11 }}
+                                            />
+                                            <YAxis
+                                                domain={[0, 1]}
+                                                tickFormatter={pctFmt}
+                                                tick={{ fontSize: 11 }}
+                                                width={52}
+                                            />
+                                            <Tooltip
+                                                formatter={(v) => [`${(v * 100).toFixed(1)}%`, 'Cum. depth']}
+                                                labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
+                                            />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="cum"
+                                                stroke="#3a6aa8"
+                                                strokeWidth={2.5}
+                                                dot={{ r: 5, fill: '#3a6aa8', strokeWidth: 0, cursor: 'ns-resize' }}
+                                                isAnimationActive={false}
+                                                activeDot={{ r: 7, fill: '#1a4a88' }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
+                            </div>
+                        </div>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: 2, textAlign: 'right' }}>
                         {validationError ? (
