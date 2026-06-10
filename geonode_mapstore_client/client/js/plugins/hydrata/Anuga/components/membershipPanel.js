@@ -7,7 +7,6 @@ import '../../SimpleView/simpleView.css';
 import {
     setMembershipPanel,
     fetchMemberships,
-    addMembershipRequest,
     updateMembershipRequest,
     deleteMembershipRequest,
     updateProjectVisibilityRequest,
@@ -70,7 +69,6 @@ class MembershipPanelClass extends React.Component {
         setMembershipPanel: PropTypes.func,
         fetchMemberships: PropTypes.func,
         fetchInvitations: PropTypes.func,
-        addMembershipRequest: PropTypes.func,
         updateMembershipRequest: PropTypes.func,
         deleteMembershipRequest: PropTypes.func,
         updateProjectVisibilityRequest: PropTypes.func,
@@ -493,7 +491,6 @@ const mapDispatchToProps = (dispatch) => ({
     setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible)),
     fetchMemberships: () => dispatch(fetchMemberships()),
     fetchInvitations: () => dispatch(fetchInvitations()),
-    addMembershipRequest: (userId, role) => dispatch(addMembershipRequest(userId, role)),
     updateMembershipRequest: (membershipId, role) => dispatch(updateMembershipRequest(membershipId, role)),
     deleteMembershipRequest: (membershipId) => dispatch(deleteMembershipRequest(membershipId)),
     updateProjectVisibilityRequest: (visibility) => dispatch(updateProjectVisibilityRequest(visibility)),

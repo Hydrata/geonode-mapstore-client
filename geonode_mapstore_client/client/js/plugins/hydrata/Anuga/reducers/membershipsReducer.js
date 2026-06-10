@@ -28,9 +28,11 @@ export default (state = initialState, action) => {
         };
     case SET_INVITATIONS:
         // payload: { invitations_enabled: bool, results: [...] }
+        // BE returns the envelope shape; action.payload?.data fallback was for
+        // an obsolete response shape (removed TASK-862 W3 cleanup).
         return {
             ...state,
-            invitations: action.payload?.results || action.payload?.data || [],
+            invitations: action.payload?.results || [],
             invitations_enabled: action.payload?.invitations_enabled !== false
         };
     default:

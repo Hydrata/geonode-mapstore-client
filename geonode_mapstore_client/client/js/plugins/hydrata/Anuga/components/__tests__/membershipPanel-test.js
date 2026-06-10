@@ -49,15 +49,21 @@ function makeMembershipRows(role, count) {
  * `componentDidMount` dispatches FETCH_MEMBERSHIPS but no epic runs in this
  * test harness, so the rows stay as we set them.
  */
-function createMockStore({ role = 'viewer', layerCount = 2, permsLoadFailed = false } = {}) {
+function createMockStore({
+    role = 'viewer',
+    layerCount = 2,
+    permsLoadFailed = false,
+    invitations = [],
+    invitationsEnabled = true
+} = {}) {
     const state = {
         anuga: {
             memberships: {
                 data: makeMembershipRows(role, layerCount),
                 loading: false,
                 // TASK-860 — invitation state defaults for tests
-                invitations: [],
-                invitations_enabled: true
+                invitations,
+                invitations_enabled: invitationsEnabled
             },
             projects: {
                 data: {
@@ -112,7 +118,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
         document.body.removeChild(container);
     });
 
-    function mountPanel(opts) {
+    function mountPanel(opts = {}) {
         const { MembershipPanel } = require('../membershipPanel');
         const store = createMockStore(opts);
         return new Promise((resolve) => {
@@ -234,6 +240,196 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(2);
             // Visibility section visible for owner (was canManage-gated; now canAdd-gated)
             expect(container.querySelector('.membership-visibility')).toExist();
+        });
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK-860 / TASK-862 — W3 incremental coverage
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('TASK-860 W3 — email-invite gating, pending-invitations, throttle, i18n', () => {
+    let container;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function mountPanel(opts = {}) {
+        const { MembershipPanel } = require('../membershipPanel');
+        const store = createMockStore(opts);
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={store}><MembershipPanel /></Provider>,
+                container,
+                () => resolve(container)
+            );
+        });
+    }
+
+    // (a) Email-validation gating: Send disabled until a non-empty, trimmed
+    // email string is present in the input. The component gates on
+    // `!this.state.inviteEmail.trim()` for the disabled prop.
+    it('AC(a)-1 — Send button disabled when email input is empty', () => {
+        return mountPanel({ role: 'manager', layerCount: 0 }).then(() => {
+            const sendBtn = container.querySelector('.invite-submit-btn');
+            expect(sendBtn).toExist();
+            // Default state: inviteEmail = '' => trimmed = '' => disabled
+            expect(sendBtn.disabled).toBe(true);
+        });
+    });
+
+    it('AC(a)-2 — invitations disabled site flag also disables Send', () => {
+        return mountPanel({ role: 'manager', layerCount: 0, invitationsEnabled: false }).then(() => {
+            const sendBtn = container.querySelector('.invite-submit-btn');
+            expect(sendBtn).toExist();
+            expect(sendBtn.disabled).toBe(true);
+            // Disabled banner shown when invitationsEnabled=false
+            expect(container.querySelector('.membership-invite-disabled')).toExist();
+        });
+    });
+
+    it('AC(a)-3 — invite form not rendered for viewer (canAdd=false)', () => {
+        return mountPanel({ role: 'viewer', layerCount: 1 }).then(() => {
+            expect(container.querySelector('.invite-email-input')).toBe(null);
+            expect(container.querySelector('.invite-submit-btn')).toBe(null);
+        });
+    });
+
+    // (c) Pending-invitations list rendering: manager sees section when there
+    // are pending invitations; viewer does not.
+    it('AC(c)-1 — pending invitations list renders for manager with pending invites', () => {
+        const invitations = [
+            {id: 1, email: 'pending@example.com', status: 'pending', role: 1, role_label: 'Viewer'},
+            {id: 2, email: 'also@example.com', status: 'pending', role: 3, role_label: 'Editor'}
+        ];
+        return mountPanel({ role: 'manager', layerCount: 0, invitations }).then(() => {
+            expect(container.querySelector('.membership-invitations-section')).toExist();
+            const rows = container.querySelectorAll('.membership-invitation-row');
+            expect(rows.length).toBe(2);
+            // First row email text
+            expect(rows[0].textContent).toInclude('pending@example.com');
+        });
+    });
+
+    it('AC(c)-2 — accepted invitations are filtered out of the pending list', () => {
+        const invitations = [
+            {id: 1, email: 'p@x.com', status: 'pending', role: 1, role_label: 'Viewer'},
+            {id: 2, email: 'a@x.com', status: 'accepted', role: 1, role_label: 'Viewer'}
+        ];
+        return mountPanel({ role: 'manager', layerCount: 0, invitations }).then(() => {
+            const rows = container.querySelectorAll('.membership-invitation-row');
+            // Only the pending one should appear
+            expect(rows.length).toBe(1);
+            expect(rows[0].textContent).toInclude('p@x.com');
+        });
+    });
+
+    it('AC(c)-3 — invitations section absent when no pending invitations exist', () => {
+        return mountPanel({ role: 'manager', layerCount: 0, invitations: [] }).then(() => {
+            expect(container.querySelector('.membership-invitations-section')).toBe(null);
+        });
+    });
+
+    // (d) Revoke + resend button presence/dispatch
+    it('AC(d)-1 — revoke button present for each pending invitation', () => {
+        const invitations = [
+            {id: 1, email: 'r@x.com', status: 'pending', role: 1, role_label: 'Viewer'}
+        ];
+        return mountPanel({ role: 'manager', layerCount: 0, invitations }).then(() => {
+            expect(container.querySelector('.revoke-invitation-btn')).toExist();
+        });
+    });
+
+    it('AC(d)-2 — resend button present when invitationsEnabled=true', () => {
+        const invitations = [
+            {id: 1, email: 'r@x.com', status: 'pending', role: 1, role_label: 'Viewer'}
+        ];
+        return mountPanel({ role: 'manager', layerCount: 0, invitations, invitationsEnabled: true }).then(() => {
+            expect(container.querySelector('.resend-invitation-btn')).toExist();
+        });
+    });
+
+    it('AC(d)-3 — resend button absent when invitationsEnabled=false', () => {
+        const invitations = [
+            {id: 1, email: 'r@x.com', status: 'pending', role: 1, role_label: 'Viewer'}
+        ];
+        return mountPanel({ role: 'manager', layerCount: 0, invitations, invitationsEnabled: false }).then(() => {
+            expect(container.querySelector('.resend-invitation-btn')).toBe(null);
+            // Revoke is always present (enabled or not)
+            expect(container.querySelector('.revoke-invitation-btn')).toExist();
+        });
+    });
+
+    // (e) Registered vs unregistered: the UI renders identically for both.
+    // The panel never shows whether an invite target is registered — it
+    // dispatches sendInvitationRequest and shows the same 202-path UI.
+    it('AC(e) — UI cannot distinguish registered vs unregistered (opaque 202)', () => {
+        // Both scenarios produce the same invite-form + pending-list UI.
+        // This test asserts that the form renders identically regardless of
+        // the invitation list content (no "registered user" indicator).
+        const pendingInvitations = [
+            {id: 1, email: 'registered@x.com', status: 'pending', role: 1, role_label: 'Viewer'},
+            {id: 2, email: 'new@x.com', status: 'pending', role: 1, role_label: 'Viewer'}
+        ];
+        return mountPanel({ role: 'manager', layerCount: 0, invitations: pendingInvitations }).then(() => {
+            const rows = container.querySelectorAll('.membership-invitation-row');
+            expect(rows.length).toBe(2);
+            // Both rows have the same structure: no "user exists" indicator
+            rows.forEach(row => {
+                // Each row has a role badge and action buttons, NOT a
+                // "registered user" indicator cell
+                expect(row.querySelector('.badge-role')).toExist();
+                expect(row.querySelector('.registered-indicator')).toBe(null);
+            });
+        });
+    });
+
+    // (f) 429 throttle response: the panel renders without crashing when
+    // invitationsEnabled=true but the store's dispatch stub does nothing.
+    // The epic surfaces a toast on 429 — the panel component itself just
+    // dispatches resendInvitationRequest and does not handle the 429 directly.
+    // We assert the panel still renders + resend button is present (no crash).
+    it('AC(f) — panel does not crash on render when 429 throttle is in play (dispatch stub no-op)', () => {
+        const invitations = [
+            {id: 1, email: 't@x.com', status: 'pending', role: 1, role_label: 'Viewer'}
+        ];
+        // The store's dispatch is a no-op; clicking resend will dispatch the
+        // action but no observable side-effect occurs in this test harness.
+        return mountPanel({ role: 'manager', layerCount: 0, invitations }).then(() => {
+            expect(container.querySelector('.membership-invitations-section')).toExist();
+            const resendBtn = container.querySelector('.resend-invitation-btn');
+            expect(resendBtn).toExist();
+            // Simulate click — must not throw
+            let threw = false;
+            try { resendBtn.click(); } catch (e) { threw = true; }
+            expect(threw).toBe(false);
+            // Panel stays mounted after the click
+            expect(container.querySelector('#membership-panel')).toExist();
+        });
+    });
+
+    // (g) i18n key resolution: assert keys used by the panel exist in the
+    // Anuga en-US bundle and resolve to non-empty strings (no raw-key leakage).
+    it('AC(g) — i18n keys used by the panel exist in the en-US translation bundle', () => {
+        const { enMessages } = require('../../../../../__tests__/fixtures/translations');
+        const panelKeys = [
+            'hydrata.anuga.members',
+            'hydrata.anuga.memberUser',
+            'hydrata.anuga.memberRole',
+            'hydrata.anuga.projectVisibility',
+            'hydrata.anuga.permsUnavailable.message'
+        ];
+        panelKeys.forEach(key => {
+            expect(enMessages[key]).toExist(`Missing i18n key: ${key}`);
+            expect(typeof enMessages[key]).toBe('string', `Key ${key} should be a string`);
+            expect(enMessages[key].length).toBeGreaterThan(0, `Empty value for key: ${key}`);
         });
     });
 });

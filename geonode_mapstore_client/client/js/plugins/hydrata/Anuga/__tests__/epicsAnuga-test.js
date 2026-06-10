@@ -1266,4 +1266,200 @@ describe('ANUGA Epics', () => {
                 });
         });
     });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TASK-860 / TASK-862 — W3 membership epics coverage
+    // ─────────────────────────────────────────────────────────────────────
+    describe('TASK-860 membershipEpics', () => {
+        const MockAdapter = require('axios-mock-adapter');
+        const axios = require('../../../../../MapStore2/web/client/libs/ajax').default;
+        const {
+            fetchInvitationsEpic,
+            sendInvitationEpic,
+            revokeInvitationEpic,
+            resendInvitationEpic
+        } = require('../epics/membershipEpics');
+        const {
+            FETCH_INVITATIONS,
+            SEND_INVITATION_REQUEST,
+            REVOKE_INVITATION_REQUEST,
+            RESEND_INVITATION_REQUEST,
+            SET_INVITATIONS
+        } = require('../actionsAnuga');
+
+        let mockAxios;
+        beforeEach(() => { mockAxios = new MockAdapter(axios); });
+        afterEach(() => { mockAxios.restore(); });
+
+        // fetchInvitationsEpic
+        it('fetchInvitationsEpic: 200 -> emits SET_INVITATIONS with response data', (done) => {
+            const payload = {
+                invitations_enabled: true,
+                results: [
+                    {id: 1, email: 'a@b.com', status: 'pending', role: 1, role_label: 'Viewer'}
+                ]
+            };
+            mockAxios.onGet('/api/v2/anuga/projects/42/invitations/').reply(200, payload);
+
+            const action$ = mockActions([{type: FETCH_INVITATIONS}]);
+            const emitted = [];
+
+            fetchInvitationsEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toBe(SET_INVITATIONS);
+                    expect(emitted[0].payload).toEqual(payload);
+                    done();
+                });
+        });
+
+        it('fetchInvitationsEpic: empty project id -> emits nothing', (done) => {
+            const store = {getState: () => ({anuga: {projects: {data: null}}})};
+            const action$ = mockActions([{type: FETCH_INVITATIONS}]);
+            const emitted = [];
+
+            fetchInvitationsEpic(action$, store)
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+        });
+
+        it('fetchInvitationsEpic: API error -> emits SHOW_NOTIFICATION (no crash)', (done) => {
+            mockAxios.onGet('/api/v2/anuga/projects/42/invitations/').reply(500, {detail: 'boom'});
+
+            const action$ = mockActions([{type: FETCH_INVITATIONS}]);
+            const emitted = [];
+
+            fetchInvitationsEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+
+        // sendInvitationEpic
+        it('sendInvitationEpic: 202 -> emits fetchInvitations + SHOW_NOTIFICATION', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/42/invitations/').reply(202, {
+                created_count: 0, queued_count: 1
+            });
+
+            const action$ = mockActions([{
+                type: SEND_INVITATION_REQUEST,
+                email: 'new@example.com',
+                role: 1
+            }]);
+            const emitted = [];
+
+            sendInvitationEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(2);
+                    // First emission is fetchInvitations action
+                    expect(emitted[0].type).toBe(FETCH_INVITATIONS);
+                    // Second is the success notification
+                    expect(emitted[1].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+
+        it('sendInvitationEpic: API error surfaces SHOW_NOTIFICATION (no crash)', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/42/invitations/').reply(429, {
+                detail: 'Throttled'
+            });
+
+            const action$ = mockActions([{
+                type: SEND_INVITATION_REQUEST,
+                email: 'thr@x.com',
+                role: 1
+            }]);
+            const emitted = [];
+
+            sendInvitationEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+
+        // revokeInvitationEpic
+        it('revokeInvitationEpic: 204 -> emits fetchInvitations + SHOW_NOTIFICATION', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/42/invitations/7/').reply(204);
+
+            const action$ = mockActions([{
+                type: REVOKE_INVITATION_REQUEST,
+                invitationId: 7
+            }]);
+            const emitted = [];
+
+            revokeInvitationEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(2);
+                    expect(emitted[0].type).toBe(FETCH_INVITATIONS);
+                    expect(emitted[1].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+
+        it('revokeInvitationEpic: API error surfaces SHOW_NOTIFICATION', (done) => {
+            mockAxios.onDelete('/api/v2/anuga/projects/42/invitations/7/').reply(403, {
+                detail: 'Forbidden'
+            });
+
+            const action$ = mockActions([{type: REVOKE_INVITATION_REQUEST, invitationId: 7}]);
+            const emitted = [];
+
+            revokeInvitationEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+
+        // resendInvitationEpic
+        it('resendInvitationEpic: 200 -> emits fetchInvitations + SHOW_NOTIFICATION', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/42/invitations/7/resend/').reply(200, {});
+
+            const action$ = mockActions([{type: RESEND_INVITATION_REQUEST, invitationId: 7}]);
+            const emitted = [];
+
+            resendInvitationEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(2);
+                    expect(emitted[0].type).toBe(FETCH_INVITATIONS);
+                    expect(emitted[1].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+
+        it('resendInvitationEpic: 429 throttle surfaces SHOW_NOTIFICATION (not crash)', (done) => {
+            mockAxios.onPost('/api/v2/anuga/projects/42/invitations/7/resend/').reply(429, {
+                detail: 'Resend cooldown active'
+            });
+
+            const action$ = mockActions([{type: RESEND_INVITATION_REQUEST, invitationId: 7}]);
+            const emitted = [];
+
+            resendInvitationEpic(action$, storeWithProjectId(42))
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(1);
+                    expect(emitted[0].type).toInclude('NOTIFICATION');
+                    done();
+                });
+        });
+
+        it('revokeInvitationEpic: empty project id -> emits nothing', (done) => {
+            const store = {getState: () => ({anuga: {projects: {data: null}}})};
+            const action$ = mockActions([{type: REVOKE_INVITATION_REQUEST, invitationId: 1}]);
+            const emitted = [];
+
+            revokeInvitationEpic(action$, store)
+                .subscribe(a => emitted.push(a), done, () => {
+                    expect(emitted.length).toBe(0);
+                    done();
+                });
+        });
+    });
 });
