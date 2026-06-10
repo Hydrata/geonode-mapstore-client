@@ -9,7 +9,14 @@ import {
     UPDATE_PROJECT_VISIBILITY_REQUEST,
     setMemberships,
     setMembershipsLoading,
-    setAnugaProjectData
+    setAnugaProjectData,
+    // TASK-860 — invitation actions
+    FETCH_INVITATIONS,
+    SEND_INVITATION_REQUEST,
+    REVOKE_INVITATION_REQUEST,
+    RESEND_INVITATION_REQUEST,
+    setInvitations,
+    fetchInvitations
 } from "../actionsAnuga";
 
 const getProjectId = (state) => state?.anuga?.projects?.data?.id;
@@ -93,6 +100,74 @@ export const updateProjectVisibilityEpic = (action$, store) =>
                 ]))
                 .catch(err => {
                     const detail = err?.response?.data?.detail || "Failed to update visibility";
+                    return Rx.Observable.of(
+                        show({title: "Error", message: detail, level: "error"})
+                    );
+                });
+        });
+
+// -- Invitation epics (TASK-860) -------------------------------------------
+
+export const fetchInvitationsEpic = (action$, store) =>
+    action$.ofType(FETCH_INVITATIONS)
+        .switchMap(() => {
+            const projectId = getProjectId(store.getState());
+            if (!projectId) return Rx.Observable.empty();
+            return Rx.Observable.from(anugaApi.listInvitations(projectId))
+                .map(response => setInvitations(response?.data || {}))
+                .catch(() => Rx.Observable.of(
+                    show({title: "Error", message: "Failed to load invitations", level: "error"})
+                ));
+        });
+
+export const sendInvitationEpic = (action$, store) =>
+    action$.ofType(SEND_INVITATION_REQUEST)
+        .switchMap(({email, role}) => {
+            const projectId = getProjectId(store.getState());
+            if (!projectId) return Rx.Observable.empty();
+            return Rx.Observable.from(anugaApi.sendInvitation(projectId, email, role))
+                .switchMap(() => Rx.Observable.from([
+                    fetchInvitations(),
+                    show({title: "Invitation sent", message: "Invitation sent", level: "success"})
+                ]))
+                .catch(err => {
+                    const detail = err?.response?.data?.detail || "Failed to send invitation";
+                    return Rx.Observable.of(
+                        show({title: "Error", message: detail, level: "error"})
+                    );
+                });
+        });
+
+export const revokeInvitationEpic = (action$, store) =>
+    action$.ofType(REVOKE_INVITATION_REQUEST)
+        .switchMap(({invitationId}) => {
+            const projectId = getProjectId(store.getState());
+            if (!projectId) return Rx.Observable.empty();
+            return Rx.Observable.from(anugaApi.revokeInvitation(projectId, invitationId))
+                .switchMap(() => Rx.Observable.from([
+                    fetchInvitations(),
+                    show({title: "Invitation revoked", message: "Invitation revoked", level: "success"})
+                ]))
+                .catch(err => {
+                    const detail = err?.response?.data?.detail || "Failed to revoke invitation";
+                    return Rx.Observable.of(
+                        show({title: "Error", message: detail, level: "error"})
+                    );
+                });
+        });
+
+export const resendInvitationEpic = (action$, store) =>
+    action$.ofType(RESEND_INVITATION_REQUEST)
+        .switchMap(({invitationId}) => {
+            const projectId = getProjectId(store.getState());
+            if (!projectId) return Rx.Observable.empty();
+            return Rx.Observable.from(anugaApi.resendInvitation(projectId, invitationId))
+                .switchMap(() => Rx.Observable.from([
+                    fetchInvitations(),
+                    show({title: "Invitation resent", message: "Invitation resent", level: "success"})
+                ]))
+                .catch(err => {
+                    const detail = err?.response?.data?.detail || "Failed to resend invitation";
                     return Rx.Observable.of(
                         show({title: "Error", message: detail, level: "error"})
                     );
