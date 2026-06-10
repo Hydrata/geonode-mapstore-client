@@ -54,7 +54,10 @@ function createMockStore({ role = 'viewer', layerCount = 2, permsLoadFailed = fa
         anuga: {
             memberships: {
                 data: makeMembershipRows(role, layerCount),
-                loading: false
+                loading: false,
+                // TASK-860 — invitation state defaults for tests
+                invitations: [],
+                invitations_enabled: true
             },
             projects: {
                 data: {
@@ -124,8 +127,8 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
     it('AC#1 — manager sees Add panel + per-row Change/Remove on each row', () => {
         return mountPanel({ role: 'manager', layerCount: 2 }).then(() => {
             // Add-member panel rendered (panel-level affordance)
-            expect(container.querySelector('.add-member')).toExist();
-            expect(container.querySelector('.add-member-submit-btn')).toExist();
+            expect(container.querySelector('.invite-member')).toExist();
+            expect(container.querySelector('.invite-submit-btn')).toExist();
             // Per-row Change-role + Remove on each of the 2 member rows
             expect(container.querySelectorAll('.change-role-btn').length).toBe(2);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(2);
@@ -136,7 +139,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
 
     it('AC#2a — viewer sees no Add/Change/Remove affordances', () => {
         return mountPanel({ role: 'viewer', layerCount: 2 }).then(() => {
-            expect(container.querySelector('.add-member')).toBe(null);
+            expect(container.querySelector('.invite-member')).toBe(null);
             expect(container.querySelectorAll('.change-role-btn').length).toBe(0);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(0);
             // But rows still render — viewer must see who's a member
@@ -156,7 +159,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
         // change_resourcebase_permissions — contributor has neither, so the
         // Add panel is suppressed.
         return mountPanel({ role: 'contributor', layerCount: 2 }).then(() => {
-            expect(container.querySelector('.add-member')).toBe(null);
+            expect(container.querySelector('.invite-member')).toBe(null);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(0);
             // Visibility section also hidden (canAdd-gated)
             expect(container.querySelector('.membership-visibility')).toBe(null);
@@ -170,7 +173,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
         return mountPanel({ role: 'editor', layerCount: 2 }).then(() => {
             // Editor is NOT owner/manager AND row perms[]=editor lacks
             // change_resourcebase_permissions, so the Add panel stays hidden.
-            expect(container.querySelector('.add-member')).toBe(null);
+            expect(container.querySelector('.invite-member')).toBe(null);
             // Per-row gating is more permissive — editor passes canEditLayer
             // and canDeleteLayer via the role-list rule, so each row gets
             // both buttons.
@@ -185,7 +188,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
         // Role.MANAGER even without an explicit ProjectMembership row. Both
         // gating paths pass; the panel renders Add + per-row buttons on each.
         return mountPanel({ role: 'manager', layerCount: 3 }).then(() => {
-            expect(container.querySelector('.add-member')).toExist();
+            expect(container.querySelector('.invite-member')).toExist();
             expect(container.querySelectorAll('.change-role-btn').length).toBe(3);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(3);
         });
@@ -196,7 +199,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
             // Owner must SEE who's a member (V2P-15: never empty)
             expect(container.querySelectorAll('.membership-member-row').length).toBe(2);
             // BUT no action affordances render — purely read-only fallback
-            expect(container.querySelector('.add-member')).toBe(null);
+            expect(container.querySelector('.invite-member')).toBe(null);
             expect(container.querySelectorAll('.change-role-btn').length).toBe(0);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(0);
             // Warning banner is visible explaining read-only mode
@@ -226,7 +229,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
 
     it('AC#6 — owner sees Add + per-row Change/Remove (covers normal owner flow)', () => {
         return mountPanel({ role: 'owner', layerCount: 2 }).then(() => {
-            expect(container.querySelector('.add-member')).toExist();
+            expect(container.querySelector('.invite-member')).toExist();
             expect(container.querySelectorAll('.change-role-btn').length).toBe(2);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(2);
             // Visibility section visible for owner (was canManage-gated; now canAdd-gated)
