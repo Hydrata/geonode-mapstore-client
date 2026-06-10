@@ -130,11 +130,6 @@ import { VisualizationModes } from '@mapstore/framework/utils/MapTypeUtils';
 import { forceUpdateMapLayout } from '@mapstore/framework/actions/maplayout';
 import { getShowDetails } from '@mapstore/framework/plugins/ResourcesCatalog/selectors/resources';
 import { searchSelector } from '@mapstore/framework/selectors/router';
-// TASK-1522 — gate the viewer-load /resources/{pk}/permissions fetch on
-// canManageMembers so non-manager ANUGA members do not fire a 403 request.
-// getProjectId is used to detect ANUGA context (null = non-ANUGA resource;
-// non-null = ANUGA project loaded; gate only applies in the ANUGA context).
-import { canManageMembers, getProjectId as getAnugaProjectId } from '@js/plugins/hydrata/Anuga/selectorsAnuga';
 
 const FIT_BOUNDS_CONTROL = 'fitBounds';
 
@@ -558,20 +553,8 @@ export const gnViewerRequestResourceConfig = (action$, store) =>
             const { query = {} } = url.parse(searchSelector(state), true) || {};
             const resourceData = getResourceData(state);
             const isSamePreviousResource = !resourceData?.['@ms-detail'] && resourceData?.pk === action.pk;
-            // Fetch permissions in parallel (non-blocking) instead of serial.
-            // TASK-1522 — for ANUGA-project viewers (getAnugaProjectId(state) != null)
-            // also require canManageMembers so non-manager members do not fire a
-            // /resources/{pk}/permissions request (which returns 403 for them,
-            // producing a spurious console error and an unnecessary round-trip).
-            // For non-ANUGA resources (catalogue, documents, geostory, dashboard)
-            // the ANUGA project id is null and the fetch fires as before.
-            // Owners and managers still fetch normally so the MembershipPanel works.
-            const isAnugaContext = !!getAnugaProjectId(state);
-            const permissionsObservable = (
-                !isSamePreviousResource &&
-                !!isLoggedIn(state) &&
-                (!isAnugaContext || canManageMembers(state))
-            )
+            // Fetch permissions in parallel (non-blocking) instead of serial
+            const permissionsObservable = (!isSamePreviousResource && !!isLoggedIn(state))
                 ? Observable.defer(() => getCompactPermissionsByPk(action.pk))
                     .switchMap((compactPermissions) => {
                         return Observable.of(setResourceCompactPermissions(compactPermissions));
