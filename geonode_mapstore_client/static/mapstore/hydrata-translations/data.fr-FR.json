@@ -517,6 +517,9 @@
         "statusComplete": "Terminé",
         "statusError": "Erreur",
         "statusCancelled": "Annulée"
+      },
+      "terrainWorkbench": {
+        "terrain": "Terrain"
       }
     },
     "gnhome": {

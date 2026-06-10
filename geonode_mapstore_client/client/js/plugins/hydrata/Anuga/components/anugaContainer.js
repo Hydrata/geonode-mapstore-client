@@ -13,6 +13,7 @@ import {
     stopAnugaScenarioPolling,
     setMembershipPanel
 } from '../actionsAnuga';
+import { setTerrainWorkbenchVisible } from '../../TerrainWorkbench/actionsTerrainWorkbench';
 import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
@@ -63,7 +64,10 @@ class AnugaContainer extends React.Component {
         isAnugaProject: PropTypes.oneOfType([PropTypes.bool, PropTypes.number]),
         hydrologyPluginPresent: PropTypes.bool,
         showHydrologyMainMenu: PropTypes.bool,
-        setHydrologyMainMenu: PropTypes.func
+        setHydrologyMainMenu: PropTypes.func,
+        terrainWorkbenchPluginPresent: PropTypes.bool,
+        showTerrainWorkbench: PropTypes.bool,
+        setTerrainWorkbenchVisible: PropTypes.func
     };
 
     static defaultProps = {
@@ -87,6 +91,10 @@ class AnugaContainer extends React.Component {
         if (this.props.showHydrologyMainMenu) this.props.setHydrologyMainMenu(false);
     }
 
+    closeTerrainWorkbenchIfOpen = () => {
+        if (this.props.showTerrainWorkbench) this.props.setTerrainWorkbenchVisible(false);
+    }
+
     renderToolbarButtons() {
         return (
             <React.Fragment>
@@ -97,11 +105,38 @@ class AnugaContainer extends React.Component {
                         this.props.setAnugaInputMenu(!this.props.showAnugaInputMenu);
                         this.props.setOpenMenuGroupId(null);
                         this.closeHydrologyIfOpen();
+                        this.closeTerrainWorkbenchIfOpen();
                         trackEvent('button', `click`, `anuga-input-menu-toggle`);
                     }}
                 >
                     <Message msgId="hydrata.anuga.inputs" />
                 </button>
+                {this.props.terrainWorkbenchPluginPresent ?
+                    <button
+                        id="terrain-workbench-button"
+                        key="terrain-workbench-button"
+                        className={`simple-view-menu-button ${this.props.showTerrainWorkbench ? 'active' : ''}`}
+                        onClick={() => {
+                            const opening = !this.props.showTerrainWorkbench;
+                            this.props.setTerrainWorkbenchVisible(opening);
+                            if (opening) {
+                                if (this.props.showAnugaInputMenu) this.props.setAnugaInputMenu(false);
+                                if (this.props.showAnugaScenarioMenu) {
+                                    this.props.setAnugaScenarioMenu(false);
+                                    this.props.stopAnugaScenarioPolling();
+                                }
+                                if (this.props.showPublicationPanel) this.props.setPublicationPanel(false);
+                                if (this.props.showMembershipPanel) this.props.setMembershipPanel(false);
+                                this.closeHydrologyIfOpen();
+                                this.props.setOpenMenuGroupId(null);
+                            }
+                            trackEvent('button', 'click', 'terrain-workbench-toggle');
+                        }}
+                    >
+                        <Message msgId="hydrata.terrainWorkbench.terrain" />
+                    </button>
+                    : null
+                }
                 {this.props.hydrologyPluginPresent ?
                     <button
                         id="hydrology-main-menu-button"
@@ -118,6 +153,7 @@ class AnugaContainer extends React.Component {
                                 }
                                 if (this.props.showPublicationPanel) this.props.setPublicationPanel(false);
                                 if (this.props.showMembershipPanel) this.props.setMembershipPanel(false);
+                                this.closeTerrainWorkbenchIfOpen();
                                 this.props.setOpenMenuGroupId(null);
                             }
                             trackEvent('button', 'click', 'hydrology-main-menu-toggle');
@@ -136,6 +172,7 @@ class AnugaContainer extends React.Component {
                             this.props.showAnugaScenarioMenu ? this.props.stopAnugaScenarioPolling() : this.props.startAnugaScenarioPolling();
                             this.props.setOpenMenuGroupId(null);
                             this.closeHydrologyIfOpen();
+                            this.closeTerrainWorkbenchIfOpen();
                             trackEvent('button', `click`, `anuga-scenario-menu-toggle`);
                         }}
                     >
@@ -150,6 +187,7 @@ class AnugaContainer extends React.Component {
                         onClick={() => {
                             this.props.setOpenMenuGroupId('Results');
                             this.closeHydrologyIfOpen();
+                            this.closeTerrainWorkbenchIfOpen();
                             trackEvent('button', `click`, `anuga-results-menu-toggle`);
                         }}
                     >
@@ -167,6 +205,7 @@ class AnugaContainer extends React.Component {
                             this.props.setPublicationPanel(!this.props.showPublicationPanel);
                             this.props.setOpenMenuGroupId(null);
                             this.closeHydrologyIfOpen();
+                            this.closeTerrainWorkbenchIfOpen();
                             trackEvent('button', `click`, `anuga-publication-menu-toggle`);
                         }}
                     >
@@ -232,7 +271,9 @@ const mapStateToProps = (state) => {
         canCreateScenario: canCreateScenario(state),
         showMembershipPanel: state?.anuga?.ui?.showMembershipPanel,
         hydrologyPluginPresent: !!mapViewerPlugins.find(x => x.name === "Hydrology"),
-        showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu
+        showHydrologyMainMenu: !!state?.hydrology?.showHydrologyMainMenu,
+        terrainWorkbenchPluginPresent: !!mapViewerPlugins.find(x => x.name === "TerrainWorkbench"),
+        showTerrainWorkbench: !!state?.terrainWorkbench?.visible
     };
 };
 
@@ -247,7 +288,8 @@ const mapDispatchToProps = ( dispatch ) => {
         startAnugaScenarioPolling: () => dispatch(startAnugaScenarioPolling()),
         stopAnugaScenarioPolling: () => dispatch(stopAnugaScenarioPolling()),
         setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible)),
-        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible))
+        setHydrologyMainMenu: (visible) => dispatch(setHydrologyMainMenu(visible)),
+        setTerrainWorkbenchVisible: (visible) => dispatch(setTerrainWorkbenchVisible(visible))
     };
 };
 

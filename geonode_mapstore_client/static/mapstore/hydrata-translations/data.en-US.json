@@ -311,7 +311,6 @@
         "archiveDisabledWhileRunning": "Cannot archive while a run is in progress. Cancel the run first.",
         "runConfig": "Run config",
         "statusActions": "Run",
-        "run": "Run",
         "runLog": "Run log",
         "requiredInputs": "Required",
         "optionalInputs": "Optional",
@@ -518,6 +517,9 @@
         "statusComplete": "Complete",
         "statusError": "Error",
         "statusCancelled": "Cancelled"
+      },
+      "terrainWorkbench": {
+        "terrain": "Terrain"
       }
     },
     "gnhome": {

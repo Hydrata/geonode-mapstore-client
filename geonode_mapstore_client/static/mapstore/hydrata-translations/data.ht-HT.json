@@ -517,6 +517,9 @@
         "statusComplete": "Fini",
         "statusError": "Erè",
         "statusCancelled": "Anile"
+      },
+      "terrainWorkbench": {
+        "terrain": "Tèren"
       }
     },
     "gnhome": {

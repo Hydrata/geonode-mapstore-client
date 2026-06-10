@@ -642,6 +642,7 @@ class TerrainSection extends React.Component {
 export class TerrainWorkbenchPanel extends React.Component {
     static propTypes = {
         isAnugaProject: PropTypes.bool,
+        visible: PropTypes.bool,
         projectId: PropTypes.number,
         activeSection: PropTypes.string,
         onSetSection: PropTypes.func,
@@ -667,6 +668,7 @@ export class TerrainWorkbenchPanel extends React.Component {
 
     static defaultProps = {
         isAnugaProject: false,
+        visible: false,
         activeSection: 'terrain',
         onSetSection: () => {},
         terrains: [],
@@ -729,8 +731,8 @@ export class TerrainWorkbenchPanel extends React.Component {
     }
 
     render() {
-        const { isAnugaProject, activeSection, onSetSection } = this.props;
-        if (!isAnugaProject) {
+        const { isAnugaProject, visible, activeSection, onSetSection } = this.props;
+        if (!isAnugaProject || !visible) {
             return null;
         }
         return (
@@ -756,6 +758,7 @@ export class TerrainWorkbenchPanel extends React.Component {
 
 const mapStateToProps = (state) => ({
     isAnugaProject: !!getProjectId(state),
+    visible: state?.terrainWorkbench?.visible || false,
     projectId: getProjectId(state),
     activeSection: state?.terrainWorkbench?.activeSection || 'terrain',
     terrains: state?.terrainWorkbench?.terrains || [],

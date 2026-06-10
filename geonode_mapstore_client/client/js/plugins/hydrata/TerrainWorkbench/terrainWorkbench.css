@@ -2,14 +2,28 @@
  * TASK-1599 / TASK-1600 (W1) — TerrainWorkbench panel chrome + recipe UI.
  *
  * Matches the existing hydrata panel patterns (simple-view-panel chrome).
+ * Panel is positioned as an overlay over the map (same geometry as
+ * .simple-view-panel) so it appears inside the viewport, not in document flow.
  */
 
 .terrain-workbench-panel {
+    /* Overlay chrome — mirrors .simple-view-panel geometry */
+    position: absolute;
+    z-index: 1025;
+    top: var(--sv-panel-top, 65px);
+    left: 20px;
+    min-width: 400px;
+    max-width: 540px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    /* Panel body */
     display: flex;
     flex-direction: column;
-    height: 100%;
     background: #fff;
     font-family: inherit;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 /* Section navigation rail */
