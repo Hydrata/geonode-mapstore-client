@@ -20,6 +20,12 @@ import './inflowTranslate';
 // `data` object as '[object Object]' and leaves both XOR cols NULL → rai_data_xor
 // CHECK violation on every save.
 import './rainfallTranslate';
+// TASK-1594 (W1) — Culvert translator (cul_ prefix). Culvert has scalar-only
+// hydraulic attributes (no compound XOR); translateOut coerces numeric strings
+// to floats and synthesizeIn normalises casing. Without this import the identity
+// fallback passes string values for numeric fields — the GeoServer featuretype
+// expects float precision for invert levels.
+import './culvertTranslate';
 import { getTranslate, deriveTranslateKey } from './translateRegistry';
 
 /**

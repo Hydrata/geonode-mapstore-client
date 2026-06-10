@@ -24,6 +24,9 @@ import {
     createAnugaRainfall,
     createAnugaStructure,
     createAnugaMeshRegion,
+    // TASK-1594 (W1) — Culvert: terrain-workbench drainage structure.
+    createAnugaCulvert,
+    addAnugaCulvert,
     setCreatingAnugaLayer,
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
@@ -99,7 +102,9 @@ const CATEGORIES = [
     {id: 'meshRegions', titleMsgId: 'hydrata.anuga.mesh', layersKey: 'meshRegionLayers'},
     {id: 'friction', titleMsgId: 'hydrata.anuga.friction', layersKey: 'frictionLayers'},
     {id: 'frictionRasters', titleMsgId: 'hydrata.anuga.frictionRasters', layersKey: 'frictionRasterLayers'},
-    {id: 'structures', titleMsgId: 'hydrata.anuga.structures', layersKey: 'structureLayers'}
+    {id: 'structures', titleMsgId: 'hydrata.anuga.structures', layersKey: 'structureLayers'},
+    // TASK-1594 (W1): Culverts for terrain hydro-enforcement.
+    {id: 'culverts', titleMsgId: 'hydrata.anuga.culverts', layersKey: 'culvertLayers'}
     // ISSUE 16 item 2: 'networks' removed from Inputs rail; to be added as a
     // tab in the Hydrology panel (hydrologyMainMenu.js) in a follow-on subtask.
 ];
@@ -123,7 +128,9 @@ const CATEGORY_ICONS = {
     friction: svgIcon(<g><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="16" x2="20" y2="16"/></g>),
     frictionRasters: svgIcon(<g><path d="M3 20l4-9 4 5 3-3 7 7z"/><rect x="3" y="3" width="5" height="3"/></g>),
     structures: svgIcon(<g><rect x="4" y="9" width="16" height="11"/><polyline points="4 9 12 4 20 9"/></g>),
-    networks: svgIcon(<g><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="6" y1="6" x2="12" y2="18"/><line x1="18" y1="6" x2="12" y2="18"/></g>)
+    networks: svgIcon(<g><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="6" y1="6" x2="12" y2="18"/><line x1="18" y1="6" x2="12" y2="18"/></g>),
+    // TASK-1594 (W1) — culvert icon: pipe cross-section with flow arrow
+    culverts: svgIcon(<g><rect x="4" y="9" width="16" height="6" rx="3"/><line x1="4" y1="12" x2="20" y2="12"/><polyline points="17 9 20 12 17 15"/></g>)
 };
 
 // Per-input config table for renderCreatePane(). Keyed by category id.
@@ -157,6 +164,12 @@ const CREATE_PANE_CONFIG = {
         titleKey: 'structureTitle', createProp: 'createAnugaStructure',
         layersKey: 'structureLayers', pendingKey: 'pendingStructures',
         inputId: 'structure-input', trackEventName: 'anuga-input-menu-create-structure'
+    },
+    // TASK-1594 (W1) — Culvert entry.
+    culverts: {
+        titleKey: 'culvertTitle', createProp: 'createAnugaCulvert',
+        layersKey: 'culvertLayers', pendingKey: 'pendingCulverts',
+        inputId: 'culvert-input', trackEventName: 'anuga-input-menu-create-culvert'
     }
 };
 
@@ -192,6 +205,11 @@ class AnugaInputMenuClass extends React.Component {
         pendingFrictions: PropTypes.array,
         pendingStructures: PropTypes.array,
         pendingMeshRegions: PropTypes.array,
+        // TASK-1594 (W1) — Culvert props.
+        culvertLayers: PropTypes.array,
+        pendingCulverts: PropTypes.array,
+        createAnugaCulvert: PropTypes.func,
+        addAnugaCulvert: PropTypes.func,
         starterPhase: PropTypes.oneOf(['terrain', 'defaults']),
         addAnugaBoundary: PropTypes.func,
         addAnugaFriction: PropTypes.func,
@@ -238,6 +256,8 @@ class AnugaInputMenuClass extends React.Component {
             rainfallTitle: '',
             structureTitle: '',
             meshRegionTitle: '',
+            // TASK-1594 (W1) — Culvert.
+            culvertTitle: '',
             // W3.1 (TASK-1266) — Mesh preview local state
             meshPreviewStatus: null,   // null | 'pending' | 'polling' | 'done' | 'error'
             meshPreviewProcessId: null,
@@ -807,6 +827,8 @@ const mapStateToProps = (state) => {
         frictionRasterLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Friction Rasters'),
         structureLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Structures'),
         meshRegionLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Mesh Regions'),
+        // TASK-1594 (W1) — Culvert layers (terrain-workbench drainage structures).
+        culvertLayers: state?.layers?.flat?.filter(layer => layer?.group === 'Input Data.Culverts'),
         // TASK-1440 (W9): networkLayers / catchmentLayers / nodesLayers / linksLayers
         // removed — now in shared/NetworksPane.js mapStateToProps.
         terrainModels: state?.anuga?.resources?.terrain,
@@ -823,6 +845,8 @@ const mapStateToProps = (state) => {
         pendingFrictions: pendingByModel.Friction,
         pendingStructures: pendingByModel.Structure,
         pendingMeshRegions: pendingByModel.MeshRegion,
+        // TASK-1594 (W1) — Culvert pending tasks.
+        pendingCulverts: pendingByModel.Culvert || [],
         starterPhase,
         isCreatingAnugaLayer: state?.anuga?.ui?.isCreatingAnugaLayer,
         canEditAnugaMap: canEditAnugaMap(state),
@@ -858,6 +882,9 @@ const mapDispatchToProps = ( dispatch ) => {
         createAnugaStructure: (structureTitle) => dispatch(createAnugaStructure(structureTitle)),
         createAnugaFriction: (frictionTitle) => dispatch(createAnugaFriction(frictionTitle)),
         createAnugaMeshRegion: (meshRegionTitle) => dispatch(createAnugaMeshRegion(meshRegionTitle)),
+        // TASK-1594 (W1) — Culvert: terrain-workbench drainage structure.
+        createAnugaCulvert: (culvertTitle) => dispatch(createAnugaCulvert(culvertTitle)),
+        addAnugaCulvert: () => dispatch(addAnugaCulvert()),
         // W5.3 (TASK-1275) — Add mesh triangle render layer to map
         onAddMeshLayer: (layer) => dispatch(addLayer(layer)),
         // W6 (TASK-1422) — Zoom map to mesh extent after successful preview

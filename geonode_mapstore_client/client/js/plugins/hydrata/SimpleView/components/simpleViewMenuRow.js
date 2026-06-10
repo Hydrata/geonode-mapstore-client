@@ -314,6 +314,35 @@ const ANUGA_FEATURE_CONFIG = {
             ]
         }
     },
+    // TASK-1594 (W1) — Culvert: LineString drainage structure for hydro-enforcement.
+    // Full D13 hydraulic schema per §9 D13. DEM burning consumes geometry +
+    // invert/height/diameter subset; full schema captured here for future ANUGA use.
+    'cul_': {
+        geomType: 'LineString',
+        formConfig: {
+            title: 'Culvert',
+            fields: [
+                {name: 'description', type: 'text', label: 'Description'},
+                {name: 'shape', type: 'select', label: 'Shape',
+                    options: ['box', 'pipe', 'arch'], "default": null},
+                {name: 'width_m', type: 'number', label: 'Width (m)',
+                    "default": null, step: 0.1, min: 0.0,
+                    showWhen: {field: 'shape', in: ['box', 'arch']}},
+                {name: 'height_m', type: 'number', label: 'Height (m)',
+                    "default": null, step: 0.1, min: 0.0,
+                    showWhen: {field: 'shape', in: ['box', 'arch']}},
+                {name: 'diameter_m', type: 'number', label: 'Diameter (m)',
+                    "default": null, step: 0.1, min: 0.0,
+                    showWhen: {field: 'shape', equals: 'pipe'}},
+                {name: 'upstream_invert_m', type: 'number', label: 'Upstream invert (m)',
+                    "default": null, step: 0.01},
+                {name: 'downstream_invert_m', type: 'number', label: 'Downstream invert (m)',
+                    "default": null, step: 0.01},
+                {name: 'barrels', type: 'number', label: 'Barrels',
+                    "default": 1, step: 1, min: 1}
+            ]
+        }
+    },
     // TASK-1271 (W4.3) — Breakline: LineString geometry for mesh edge conformance.
     // Near spacing (m) controls mesh density in the first buffer ring.
     // null near_spacing inherits Scenario.default_near_spacing (= 2.0m).
