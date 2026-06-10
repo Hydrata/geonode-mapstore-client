@@ -1,5 +1,5 @@
 /**
- * TASK-1599 (W1) — TerrainWorkbench panel chrome.
+ * TASK-1599 / TASK-1600 (W1) — TerrainWorkbench panel chrome + recipe UI.
  *
  * Matches the existing hydrata panel patterns (simple-view-panel chrome).
  */
@@ -70,4 +70,311 @@
     font-weight: 600;
     color: #555;
     margin-bottom: 6px;
+}
+
+/* ── Recipe UI ──────────────────────────────────────────────────────────── */
+
+.tw-surface-list {
+    margin-bottom: 12px;
+}
+
+.tw-surface-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.tw-surface-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #333;
+    border: 1px solid transparent;
+}
+
+.tw-surface-item:hover {
+    background: #f0f4ff;
+    border-color: #c5d8f0;
+}
+
+.tw-surface-item.selected {
+    background: #e8f0fe;
+    border-color: #1a73e8;
+    color: #1a73e8;
+}
+
+.tw-surface-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tw-stale-badge {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 9px;
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.terrain-workbench-stale-badge {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 9px;
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.tw-new-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    border: 1px solid #1a73e8;
+    background: #fff;
+    color: #1a73e8;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.tw-new-btn:hover {
+    background: #e8f0fe;
+}
+
+.tw-new-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.tw-empty-hint {
+    font-size: 12px;
+    color: #888;
+    padding: 8px 0;
+}
+
+/* Recipe builder */
+.tw-recipe-builder {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 12px;
+}
+
+.tw-recipe-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.tw-title-input {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    min-width: 0;
+}
+
+.tw-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.tw-label-sub {
+    font-weight: 400;
+    color: #888;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.tw-field {
+    margin-bottom: 10px;
+}
+
+.tw-select {
+    width: 100%;
+    padding: 5px 6px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+}
+
+.tw-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.tw-design-inputs {
+    margin-bottom: 8px;
+}
+
+.tw-design-input-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 4px;
+    font-size: 12px;
+    background: #f9f9f9;
+    border: 1px solid #e8e8e8;
+    border-radius: 3px;
+    margin-bottom: 3px;
+}
+
+.tw-priority-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #1a73e8;
+    min-width: 14px;
+    text-align: center;
+}
+
+.tw-input-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tw-icon-btn {
+    padding: 1px 5px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.tw-icon-btn:hover {
+    background: #f0f0f0;
+}
+
+.tw-icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tw-icon-btn-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.tw-icon-btn-danger:hover {
+    background: #fff5f5;
+}
+
+.tw-validation-hint {
+    font-size: 11px;
+    color: #dc3545;
+    margin-top: 3px;
+}
+
+/* Param grid */
+.tw-params-section {
+    margin-bottom: 10px;
+}
+
+.tw-param-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 8px;
+    align-items: center;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.tw-number-input {
+    width: 70px;
+    padding: 3px 5px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    text-align: right;
+}
+
+.tw-save-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+    border: 1px solid #1a73e8;
+    background: #fff;
+    color: #1a73e8;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.tw-save-btn:hover {
+    background: #e8f0fe;
+}
+
+.tw-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Derive section */
+.tw-derive-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.tw-derive-btn {
+    margin-bottom: 6px;
+}
+
+.tw-derive-progress {
+    font-size: 11px;
+    color: #1a73e8;
+    margin-top: 4px;
+}
+
+/* Seam QA */
+.tw-seam-qa {
+    margin-top: 12px;
+    padding: 8px;
+    background: #f9f9f9;
+    border: 1px solid #e8e8e8;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.tw-seam-qa-row {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+/* Error + loading */
+.tw-error {
+    font-size: 12px;
+    color: #dc3545;
+    background: #fff5f5;
+    border: 1px solid #f5c6cb;
+    border-radius: 3px;
+    padding: 6px 8px;
+    margin-top: 6px;
+}
+
+.tw-loading {
+    font-size: 12px;
+    color: #888;
+    padding: 16px 0;
+    text-align: center;
 }
