@@ -5,6 +5,8 @@ import Message from '@mapstore/framework/components/I18N/Message';
 const typeIcons = {
     anuga_run: 'glyphicon-flash',
     terrain_create: 'glyphicon-signal',
+    // TASK-1651 (W1.5): synthetic terrain-export process type.
+    terrain_export: 'glyphicon-download-alt',
     layer_create: 'glyphicon-globe',
     swamm_import: 'glyphicon-import',
     geonode_upload: 'glyphicon-upload',

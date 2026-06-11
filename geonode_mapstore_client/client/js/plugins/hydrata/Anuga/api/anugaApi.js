@@ -146,6 +146,11 @@ export const getTerrainBboxStats = (projectId, terrainId, bbox) =>
         { params: { bbox: bbox.join(',') } }
     );
 
+// TASK-1651 (W1.5): GET presigned S3 download URL for a terrain GeoTIFF.
+// Returns {url, filename}. The url expires in 1 hour.
+export const getTerrainDownloadUrl = (projectId, terrainId) =>
+    axios.get(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/download/`);
+
 export const deleteBoundaryV2 = (projectId, boundaryId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/boundaries/${boundaryId}/`);
 

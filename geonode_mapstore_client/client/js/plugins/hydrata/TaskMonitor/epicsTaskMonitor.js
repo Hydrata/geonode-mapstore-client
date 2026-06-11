@@ -13,15 +13,18 @@ import {
     TM_TOGGLE_PANEL,
     TM_SET_FILTER,
     TM_CANCEL_PROCESS,
+    TM_TERRAIN_EXPORT,
     setProcesses,
     setActiveCount,
     updateProcess,
     cancelProcessResult,
-    startTaskMonitorPolling
+    startTaskMonitorPolling,
+    toggleTaskMonitorPanel
 } from './actionsTaskMonitor';
 import { LOGIN_SUCCESS, SESSION_VALID } from '@mapstore/framework/actions/security';
 import { INIT_ANUGA } from '../Anuga/actions/uiActions';
 import { getProjectId } from '../Anuga/selectorsAnuga';
+import { getTerrainDownloadUrl } from '../Anuga/api/anugaApi';
 
 const ACTIVE_STATES = ['pending', 'running'];
 
@@ -183,3 +186,89 @@ export const cancelProcessEpic = (action$) =>
                 .map(response => cancelProcessResult(response.data))
                 .catch(() => Rx.Observable.empty())
         );
+
+/**
+ * TASK-1651 (W1.5): Terrain export via Tasks Panel.
+ *
+ * On TM_TERRAIN_EXPORT:
+ *   1. Inject a synthetic "running" process into the Tasks Panel state.
+ *   2. Open the Tasks Panel so the user sees progress immediately.
+ *   3. Fetch the presigned S3 URL from the BE (/terrain/{id}/download/).
+ *   4a. On success: update the synthetic process to "complete" with download_url
+ *       in metadata, then attempt a browser auto-download (which may be blocked
+ *       by the browser if not gesture-initiated — the panel affordance is the
+ *       contract).
+ *   4b. On error: update the synthetic process to "error" with error_message.
+ *
+ * The synthetic process id is `terrain-export-<terrainId>` — no Celery task is
+ * created. The processReducer's TM_UPDATE_PROCESS handler inserts it into
+ * byId/allIds so ProcessRow renders it normally alongside real BE tasks.
+ */
+export const terrainExportEpic = (action$) =>
+    action$
+        .ofType(TM_TERRAIN_EXPORT)
+        .mergeMap(action => {
+            const { projectId, terrainId, title } = action;
+            const syntheticId = `terrain-export-${terrainId}`;
+            const name = title ? `Export: ${title}` : 'Terrain Export';
+
+            const pendingProcess = {
+                id: syntheticId,
+                name,
+                process_type: 'terrain_export',
+                status: 'running',
+                status_detail: 'Preparing download…',
+                created: new Date().toISOString(),
+                updated: new Date().toISOString(),
+                subtasks: [],
+                log: '',
+            };
+
+            return Rx.Observable.concat(
+                // Step 1: inject synthetic running process + open panel.
+                Rx.Observable.of(updateProcess(pendingProcess)),
+                Rx.Observable.of(toggleTaskMonitorPanel(true)),
+                // Step 2: fetch presigned URL.
+                Rx.Observable.from(getTerrainDownloadUrl(projectId, terrainId))
+                    .mergeMap(resp => {
+                        const { url, filename } = resp.data;
+                        const completeProcess = {
+                            ...pendingProcess,
+                            status: 'complete',
+                            status_detail: null,
+                            updated: new Date().toISOString(),
+                            metadata: { download_url: url, filename },
+                        };
+                        // Attempt browser auto-download. Browsers may block this
+                        // if initiated outside a user-gesture context; the
+                        // "Ready – Download" button in ProcessDetail is the
+                        // guaranteed affordance.
+                        try {
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = filename || 'terrain.tif';
+                            a.style.display = 'none';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        } catch (_) {
+                            // Browser blocked the auto-download — user will use
+                            // the Download button in the Tasks Panel.
+                        }
+                        return Rx.Observable.of(updateProcess(completeProcess));
+                    })
+                    .catch(err => {
+                        const detail = err?.response?.data?.detail
+                            || err?.message
+                            || 'Failed to prepare download';
+                        const errorProcess = {
+                            ...pendingProcess,
+                            status: 'error',
+                            status_detail: null,
+                            error_message: String(detail),
+                            updated: new Date().toISOString(),
+                        };
+                        return Rx.Observable.of(updateProcess(errorProcess));
+                    })
+            );
+        });
