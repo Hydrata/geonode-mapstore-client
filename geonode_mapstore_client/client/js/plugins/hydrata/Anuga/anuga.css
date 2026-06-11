@@ -2129,3 +2129,69 @@ div that holds the feature-grid */
 }
 
 /* ── End TASK-1433 MeshWorkflow CSS ── */
+
+/* ── TASK-1652 (W1.5): Terrain hierarchy drag-and-drop list ── */
+
+.terrain-hierarchy-list {
+    width: 100%;
+}
+
+.terrain-hierarchy-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: opacity 0.15s;
+    user-select: none;
+}
+
+.terrain-hierarchy-item.terrain-dragging {
+    opacity: 0.45;
+    cursor: grabbing;
+}
+
+.terrain-hierarchy-item.terrain-drag-over {
+    border-top: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.terrain-parent-row {
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
+
+/* Allow the MenuRow inside the parent row to fill available width. */
+.terrain-parent-row > div {
+    min-width: 0;
+    flex: 1;
+}
+
+.terrain-derivatives {
+    padding-left: 14px;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.terrain-derivative-row {
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
+
+.terrain-derivative-row > div {
+    flex: 1;
+    min-width: 0;
+}
+
+.terrain-drag-handle {
+    flex: 0 0 auto;
+}
+
+.terrain-expand-btn {
+    flex: 0 0 auto;
+}
+
+.terrain-pending-name {
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    padding: 6px 4px;
+}
+
+/* ── End TASK-1652 terrain hierarchy CSS ── */

@@ -57,9 +57,11 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
-import {addLayer} from "../../../../../MapStore2/web/client/actions/layers";
+import {addLayer, moveNode} from "../../../../../MapStore2/web/client/actions/layers";
 // W6 (TASK-1422): zoom to mesh extent after successful preview.
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
+// TASK-1652 (W1.5): blob persist after terrain reorder.
+import {saveDirectContent} from "@js/actions/gnsave";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
 import {buildMeshTriangleLayer} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
@@ -405,6 +407,160 @@ const CREATE_PANE_CONFIG = {
     }
 };
 
+// ── TASK-1652 (W1.5): Terrain hierarchy ──────────────────────────────────────
+//
+// TerrainHierarchyRow renders ONE terrain model as a collapsible parent:
+//   ▸ parent row  = the DEM map layer (MenuRow)
+//   └ child rows  = hillshade + future derivatives (slope, flow-accumulation)
+//
+// TerrainListWithDragDrop wraps the ordered list of TerrainHierarchyRow entries
+// with HTML5 drag-and-drop so parent terrains can be stacked differently.
+// On drag-end it calls onReorder(fromIndex, toIndex) which the parent dispatches
+// as moveNode + saveDirectContent.
+
+class TerrainHierarchyRow extends React.Component {
+    static propTypes = {
+        terrain: PropTypes.object.isRequired,
+        demLayer: PropTypes.object,
+        hillshadeLayer: PropTypes.object,
+        expanded: PropTypes.bool,
+        onToggleExpand: PropTypes.func,
+        // Drag-and-drop props (passed by TerrainListWithDragDrop)
+        dragging: PropTypes.bool,
+        dragOver: PropTypes.bool,
+        onDragStart: PropTypes.func,
+        onDragOver: PropTypes.func,
+        onDragEnd: PropTypes.func,
+        onDrop: PropTypes.func,
+    };
+
+    render() {
+        const {
+            terrain, demLayer, hillshadeLayer, expanded, onToggleExpand,
+            dragging, dragOver, onDragStart, onDragOver, onDragEnd, onDrop
+        } = this.props;
+
+        const hasDerivatives = !!hillshadeLayer;
+
+        return (
+            <div
+                className={`terrain-hierarchy-item ${dragging ? 'terrain-dragging' : ''} ${dragOver ? 'terrain-drag-over' : ''}`}
+                draggable
+                onDragStart={onDragStart}
+                onDragOver={(e) => { e.preventDefault(); onDragOver && onDragOver(e); }}
+                onDragEnd={onDragEnd}
+                onDrop={(e) => { e.preventDefault(); onDrop && onDrop(e); }}
+            >
+                {/* Parent row: DEM layer, with optional expand toggle */}
+                <div className="terrain-parent-row">
+                    {hasDerivatives ? (
+                        <span
+                            className={`terrain-expand-btn glyphicon ${expanded ? 'glyphicon-chevron-down' : 'glyphicon-chevron-right'}`}
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={expanded}
+                            aria-label={expanded ? 'Collapse derivatives' : 'Expand derivatives'}
+                            onClick={() => onToggleExpand && onToggleExpand(terrain.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpand && onToggleExpand(terrain.id); } }}
+                            style={{cursor: 'pointer', marginRight: 4, fontSize: 10, color: 'rgba(255,255,255,0.6)'}}
+                        />
+                    ) : (
+                        <span style={{display: 'inline-block', width: 14, marginRight: 4}} />
+                    )}
+                    <span className="glyphicon glyphicon-move terrain-drag-handle" style={{color: 'rgba(255,255,255,0.35)', cursor: 'grab', marginRight: 4, fontSize: 10}} aria-hidden="true" />
+                    {demLayer ? (
+                        <div style={{flex: 1, minWidth: 0}}>
+                            <MenuRow layer={demLayer} />
+                        </div>
+                    ) : (
+                        <span className="terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 12}}>
+                            {terrain.title || terrain.name || 'Terrain'}
+                            <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
+                        </span>
+                    )}
+                </div>
+                {/* Child derivative rows */}
+                {expanded && hillshadeLayer ? (
+                    <div className="terrain-derivatives">
+                        <div className="terrain-derivative-row">
+                            <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                            <span className="glyphicon glyphicon-picture" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} />
+                            <div style={{flex: 1, minWidth: 0}}>
+                                <MenuRow layer={hillshadeLayer} />
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+        );
+    }
+}
+
+class TerrainListWithDragDrop extends React.Component {
+    static propTypes = {
+        terrainGroups: PropTypes.array.isRequired,  // [{terrain, demLayer, hillshadeLayer}]
+        expandedIds: PropTypes.instanceOf(Set),
+        onToggleExpand: PropTypes.func,
+        onReorder: PropTypes.func,  // (fromIndex, toIndex)
+    };
+
+    constructor(props) {
+        super(props);
+        this.state = { dragFromIndex: null, dragOverIndex: null };
+    }
+
+    handleDragStart(index) {
+        this.setState({ dragFromIndex: index, dragOverIndex: null });
+    }
+
+    handleDragOver(index) {
+        if (this.state.dragFromIndex !== null && this.state.dragOverIndex !== index) {
+            this.setState({ dragOverIndex: index });
+        }
+    }
+
+    handleDrop(toIndex) {
+        const { dragFromIndex } = this.state;
+        if (dragFromIndex !== null && dragFromIndex !== toIndex) {
+            // Pass terrainGroups so the handler can compute the full new ordering.
+            this.props.onReorder && this.props.onReorder(this.props.terrainGroups, dragFromIndex, toIndex);
+        }
+        this.setState({ dragFromIndex: null, dragOverIndex: null });
+    }
+
+    handleDragEnd() {
+        this.setState({ dragFromIndex: null, dragOverIndex: null });
+    }
+
+    render() {
+        const { terrainGroups, expandedIds, onToggleExpand } = this.props;
+        const { dragFromIndex, dragOverIndex } = this.state;
+
+        return (
+            <div className="terrain-hierarchy-list">
+                {terrainGroups.map((group, idx) => (
+                    <TerrainHierarchyRow
+                        key={group.terrain ? group.terrain.id : group.demLayer?.name || idx}
+                        terrain={group.terrain || {id: group.demLayer?.name, title: group.demLayer?.title}}
+                        demLayer={group.demLayer}
+                        hillshadeLayer={group.hillshadeLayer}
+                        expanded={!!(expandedIds && expandedIds.has(group.terrain?.id))}
+                        onToggleExpand={onToggleExpand}
+                        dragging={dragFromIndex === idx}
+                        dragOver={dragOverIndex === idx && dragFromIndex !== idx}
+                        onDragStart={() => this.handleDragStart(idx)}
+                        onDragOver={() => this.handleDragOver(idx)}
+                        onDrop={() => this.handleDrop(idx)}
+                        onDragEnd={() => this.handleDragEnd()}
+                    />
+                ))}
+            </div>
+        );
+    }
+}
+
+// ── end TASK-1652 terrain hierarchy ──────────────────────────────────────────
+
 class AnugaInputMenuClass extends React.Component {
     static propTypes = {
         projectData: PropTypes.object,
@@ -450,6 +606,8 @@ class AnugaInputMenuClass extends React.Component {
         addAnugaStructure: PropTypes.func,
         addAnugaMeshRegion: PropTypes.func,
         terrainModels: PropTypes.array,
+        // TASK-1652 (W1.5): drag-drop reorder callback.
+        onReorderTerrainLayers: PropTypes.func,
         boundaryModels: PropTypes.array,
         frictionModels: PropTypes.array,
         inflowModels: PropTypes.array,
@@ -502,7 +660,10 @@ class AnugaInputMenuClass extends React.Component {
             // W6 (TASK-1424) — built mesh roster: array of MeshRun API objects, null = not loaded
             builtMeshes: null,
             // TASK-1645 (W1.5) — analysis surface section expanded/collapsed
-            twSurfaceSectionOpen: false
+            twSurfaceSectionOpen: false,
+            // TASK-1652 (W1.5) — terrain hierarchy: Set of terrain model IDs
+            // whose derivative rows (hillshade, etc.) are expanded.
+            expandedTerrainIds: new Set()
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
@@ -852,6 +1013,42 @@ class AnugaInputMenuClass extends React.Component {
         );
     }
 
+    // TASK-1652 (W1.5): build the ordered terrain groups for hierarchy rendering.
+    // Each entry: { terrain: model|null, demLayer, hillshadeLayer: layer|null }
+    // Analysis surface outputs (layers in Terrain group with no terrainModel match) = parent rows.
+    _buildTerrainGroups() {
+        const terrainLayers = this.props.terrainLayers || [];
+        const terrainModels = this.props.terrainModels || [];
+
+        // Collect all layer names that are known hillshades (to exclude from parent rows).
+        const hillshadeNames = new Set(terrainModels.map(m => m.gn_layer_hillshade_name).filter(Boolean));
+
+        // Build groups in terrain model order (preserves current layer z-order).
+        const groups = [];
+        const consumedNames = new Set();
+
+        terrainModels.forEach(model => {
+            const demLayer = terrainLayers.find(l => l.name === model.gn_layer_name) || null;
+            const hillshadeLayer = model.gn_layer_hillshade_name
+                ? terrainLayers.find(l => l.name === model.gn_layer_hillshade_name) || null
+                : null;
+            if (demLayer) consumedNames.add(demLayer.name);
+            if (hillshadeLayer) consumedNames.add(hillshadeLayer.name);
+            // Only include group if there's a visible DEM layer (or the model exists, pending publish).
+            groups.push({ terrain: model, demLayer, hillshadeLayer });
+        });
+
+        // Remaining terrain layers not matched to a model (analysis surface outputs,
+        // or model rows not yet fetched) become stand-alone parent rows.
+        terrainLayers
+            .filter(l => !consumedNames.has(l.name) && !hillshadeNames.has(l.name))
+            .forEach(l => {
+                groups.push({ terrain: null, demLayer: l, hillshadeLayer: null });
+            });
+
+        return groups;
+    }
+
     renderTerrainPane() {
         const layers = this.props.terrainLayers || [];
         const actions = (
@@ -888,11 +1085,26 @@ class AnugaInputMenuClass extends React.Component {
         const { twSurfaceSectionOpen } = this.state;
         const selectedSurface = (twSurfaces || []).find(s => s.id === twSelectedSurfaceId) || null;
 
+        // TASK-1652 (W1.5): build terrain groups for hierarchical rendering.
+        const terrainGroups = this._buildTerrainGroups();
+        const { expandedTerrainIds } = this.state;
+
         return (
             <div className="menu-rows-pane anuga-pane">
                 {this.renderPaneHead('terrain', actions)}
                 <div className="anuga-pane-rows">
-                    {layers.map(t => <MenuRow key={t?.name || t?.id} layer={t}/>)}
+                    {terrainGroups.length > 0 ? (
+                        <TerrainListWithDragDrop
+                            terrainGroups={terrainGroups}
+                            expandedIds={expandedTerrainIds}
+                            onToggleExpand={(terrainId) => {
+                                const next = new Set(expandedTerrainIds);
+                                if (next.has(terrainId)) { next.delete(terrainId); } else { next.add(terrainId); }
+                                this.setState({ expandedTerrainIds: next });
+                            }}
+                            onReorder={this.props.onReorderTerrainLayers || null}
+                        />
+                    ) : null}
                     {layers.length === 0 ? this.renderTerrainEmpty() : null}
                 </div>
                 {/* TASK-1645 (W1.5): Analysis Surface recipe builder, re-homed from TerrainWorkbench */}
@@ -1212,6 +1424,35 @@ const mapDispatchToProps = ( dispatch ) => {
         onAddMeshLayer: (layer) => dispatch(addLayer(layer)),
         // W6 (TASK-1422) — Zoom map to mesh extent after successful preview
         onZoomToExtent: (extent, crs, maxZoom) => dispatch(zoomToExtent(extent, crs, maxZoom)),
+        // TASK-1652 (W1.5): terrain hierarchy drag-drop reorder.
+        // terrainGroups is the ordered list [{terrain, demLayer, hillshadeLayer}].
+        // fromIndex/toIndex are the drag-source and drop-target positions.
+        // We move each terrain group's layers (DEM + optional hillshade) together
+        // within the 'Input Data.Terrain' group by dispatching moveNode calls,
+        // then save the blob.
+        onReorderTerrainLayers: (terrainGroups, fromIndex, toIndex) => {
+            if (fromIndex === toIndex || terrainGroups.length < 2) return;
+            // Build the desired order of layer node IDs within Input Data.Terrain.
+            // Each group contributes: [demLayer.id, hillshadeLayer?.id].
+            const reordered = terrainGroups.slice();
+            const [moved] = reordered.splice(fromIndex, 1);
+            reordered.splice(toIndex, 0, moved);
+            // Dispatch moveNode for each layer to their new absolute position
+            // within the group. We move from the beginning so indices are stable
+            // on each call (moveNode updates state synchronously per the reducer).
+            let position = 0;
+            reordered.forEach(group => {
+                if (group.demLayer) {
+                    dispatch(moveNode(group.demLayer.id, 'Input Data.Terrain', position));
+                    position += 1;
+                }
+                if (group.hillshadeLayer) {
+                    dispatch(moveNode(group.hillshadeLayer.id, 'Input Data.Terrain', position));
+                    position += 1;
+                }
+            });
+            dispatch(saveDirectContent());
+        },
         // TASK-1645 (W1.5) — recipe builder actions.
         onTwLoadData: () => dispatch(twLoadData()),
         onTwSelectSurface: (id) => dispatch(twSelectSurface(id)),

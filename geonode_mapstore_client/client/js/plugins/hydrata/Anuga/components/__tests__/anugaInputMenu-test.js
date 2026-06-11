@@ -150,3 +150,103 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
         });
     });
 });
+
+// ── TASK-1652 (W1.5): Terrain hierarchy _buildTerrainGroups unit tests ─────
+//
+// These tests exercise the terrain-grouping logic in isolation using a minimal
+// mock of the class instance's `props` shape, without a full React render.
+// The algorithm under test:
+//   • Each terrainModel with a matching terrainLayer → { terrain, demLayer, hillshadeLayer }
+//   • Hillshade layers are excluded from parent-row candidates
+//   • Unmatched layers (analysis surface outputs, etc.) → { terrain:null, demLayer, hillshadeLayer:null }
+import { AnugaInputMenuClass } from '../anugaInputMenu';
+
+function buildGroupsWithProps({ terrainLayers = [], terrainModels = [] } = {}) {
+    // Directly invoke the instance method with a mock `this.props`.
+    const instance = Object.create(AnugaInputMenuClass.prototype);
+    instance.props = { terrainLayers, terrainModels };
+    return instance._buildTerrainGroups();
+}
+
+describe('TASK-1652 _buildTerrainGroups terrain hierarchy grouping', () => {
+    it('empty inputs produce empty groups', () => {
+        const groups = buildGroupsWithProps();
+        expect(groups).toEqual([]);
+    });
+
+    it('single terrain with hillshade groups them together', () => {
+        const terrainModels = [
+            { id: 1, title: 'GLO-30', gn_layer_name: 'glo30_utm', gn_layer_hillshade_name: 'glo30_hillshade' }
+        ];
+        const terrainLayers = [
+            { id: 'l1', name: 'glo30_utm', title: 'GLO-30 DEM', group: 'Input Data.Terrain' },
+            { id: 'l2', name: 'glo30_hillshade', title: 'GLO-30 Hillshade', group: 'Input Data.Terrain' }
+        ];
+        const groups = buildGroupsWithProps({ terrainLayers, terrainModels });
+        expect(groups.length).toBe(1);
+        expect(groups[0].terrain.id).toBe(1);
+        expect(groups[0].demLayer.name).toBe('glo30_utm');
+        expect(groups[0].hillshadeLayer.name).toBe('glo30_hillshade');
+    });
+
+    it('terrain without hillshade has hillshadeLayer null', () => {
+        const terrainModels = [
+            { id: 2, title: 'Uploaded DEM', gn_layer_name: 'user_dem', gn_layer_hillshade_name: null }
+        ];
+        const terrainLayers = [
+            { id: 'l3', name: 'user_dem', title: 'User DEM', group: 'Input Data.Terrain' }
+        ];
+        const groups = buildGroupsWithProps({ terrainLayers, terrainModels });
+        expect(groups.length).toBe(1);
+        expect(groups[0].hillshadeLayer).toBe(null);
+    });
+
+    it('unmatched layers (analysis surface outputs) appear as parent rows', () => {
+        const terrainModels = [
+            { id: 3, title: 'GLO-30', gn_layer_name: 'glo30_utm', gn_layer_hillshade_name: null }
+        ];
+        const terrainLayers = [
+            { id: 'l4', name: 'glo30_utm', title: 'GLO-30', group: 'Input Data.Terrain' },
+            { id: 'l5', name: 'design_dem_surface_1', title: 'Design DEM', group: 'Input Data.Terrain' }
+        ];
+        const groups = buildGroupsWithProps({ terrainLayers, terrainModels });
+        expect(groups.length).toBe(2);
+        // First group: the terrain model row
+        expect(groups[0].terrain.id).toBe(3);
+        expect(groups[0].demLayer.name).toBe('glo30_utm');
+        // Second group: unmatched layer (analysis surface) as standalone parent
+        expect(groups[1].terrain).toBe(null);
+        expect(groups[1].demLayer.name).toBe('design_dem_surface_1');
+        expect(groups[1].hillshadeLayer).toBe(null);
+    });
+
+    it('hillshade layers are excluded from unmatched (parent) candidates', () => {
+        // If a terrain model has a hillshade, that hillshade should NOT appear
+        // as a standalone parent row even if it appears in terrainLayers.
+        const terrainModels = [
+            { id: 4, title: 'DEM-A', gn_layer_name: 'dem_a', gn_layer_hillshade_name: 'dem_a_hs' }
+        ];
+        const terrainLayers = [
+            { id: 'l6', name: 'dem_a', title: 'DEM A', group: 'Input Data.Terrain' },
+            { id: 'l7', name: 'dem_a_hs', title: 'DEM A Hillshade', group: 'Input Data.Terrain' }
+        ];
+        const groups = buildGroupsWithProps({ terrainLayers, terrainModels });
+        // Only 1 group — hillshade is nested, not a standalone parent.
+        expect(groups.length).toBe(1);
+        expect(groups[0].hillshadeLayer.name).toBe('dem_a_hs');
+    });
+
+    it('reorder: splice-remove-insert produces correct new ordering', () => {
+        // Test the reorder logic (mirrors the onReorderTerrainLayers handler).
+        const groups = [
+            { terrain: { id: 1 }, demLayer: { name: 'dem1' }, hillshadeLayer: null },
+            { terrain: { id: 2 }, demLayer: { name: 'dem2' }, hillshadeLayer: { name: 'dem2_hs' } },
+            { terrain: { id: 3 }, demLayer: { name: 'dem3' }, hillshadeLayer: null }
+        ];
+        // Move index 2 (dem3) to index 0 (before dem1).
+        const reordered = groups.slice();
+        const [moved] = reordered.splice(2, 1);
+        reordered.splice(0, 0, moved);
+        expect(reordered.map(g => g.demLayer.name)).toEqual(['dem3', 'dem1', 'dem2']);
+    });
+});
