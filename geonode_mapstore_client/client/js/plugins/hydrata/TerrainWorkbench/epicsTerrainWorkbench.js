@@ -16,6 +16,8 @@
 import Rx from 'rxjs';
 import { show } from '../../../../MapStore2/web/client/actions/notifications';
 import { getProjectId } from '../Anuga/selectorsAnuga';
+// TASK-1649 (W1.5): open Tasks Panel when derive starts.
+import { toggleTaskMonitorPanel } from '../TaskMonitor/actionsTaskMonitor';
 import {
     TW_LOAD_DATA,
     TW_CREATE_SURFACE,
@@ -160,7 +162,11 @@ export const twDeriveEpic = (action$, store) =>
             const projectId = getProjectId(store.getState());
             return Rx.Observable
                 .from(deriveAnalysisSurface(projectId, action.surfaceId))
-                .map(resp => twDeriveSuccess(action.surfaceId, resp?.data?.process_id))
+                .switchMap(resp => Rx.Observable.from([
+                    // TASK-1649: open Tasks Panel so derive progress is visible.
+                    toggleTaskMonitorPanel(true),
+                    twDeriveSuccess(action.surfaceId, resp?.data?.process_id),
+                ]))
                 .catch(err => {
                     const detail = err?.response?.data?.detail
                         || err?.response?.data?.error

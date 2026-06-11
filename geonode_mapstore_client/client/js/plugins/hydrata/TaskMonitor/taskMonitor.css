@@ -26,31 +26,40 @@
     background: #d9534f;
 }
 
-/* Panel */
+/* TASK-1649 (W1.5): Panel restyled to match Inputs-panel chrome, RHS anchor.
+   Fixed position with right:60px clears the ~45px RHS icon button strip so
+   all icon buttons remain fully visible and clickable when the panel is open.
+   top anchors at the same var as the container so panel lines up with the button. */
 .tm-panel {
     position: fixed;
-    top: 0;
-    right: 0;
-    width: 350px;
-    height: 100vh;
-    background: #fff;
-    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+    top: var(--sv-tm-top, 240px);
+    right: 60px;
+    width: 340px;
+    max-height: calc(100vh - 150px);
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.9));
+    border: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
     display: flex;
     flex-direction: column;
     z-index: 1200;
+    overflow: hidden;
 }
 
 .tm-panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
-    border-bottom: 1px solid #ddd;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .tm-panel-title {
     margin: 0;
     font-weight: 600;
+    color: white;
+    font-size: 14px;
 }
 
 .tm-close-btn {
@@ -78,7 +87,7 @@
 /* Filter bar */
 .tm-filter-bar {
     padding: 8px 12px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     display: flex;
     width: 100%;
 }
@@ -98,8 +107,7 @@
 .tm-empty {
     padding: 20px;
     text-align: center;
-    color: #999;
-    font-style: italic;
+    color: rgba(255, 255, 255, 0.7);
 }
 
 /* Process row */
@@ -108,22 +116,23 @@
     align-items: flex-start;
     padding: 8px 12px;
     cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     transition: background 0.15s;
+    color: white;
 }
 
 .tm-process-row:hover {
-    background: #f7f7f7;
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .tm-process-row.tm-expanded {
-    background: #f0f4f8;
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .tm-type-icon {
     margin-top: 3px;
     margin-right: 10px;
-    color: #666;
+    color: rgba(255, 255, 255, 0.7);
     font-size: 14px;
 }
 
@@ -146,6 +155,7 @@
     white-space: nowrap;
     flex: 1;
     margin-right: 8px;
+    color: white;
 }
 
 /* Status badges */
@@ -183,7 +193,7 @@
 
 .tm-status-detail {
     font-size: 11px;
-    color: #888;
+    color: rgba(255, 255, 255, 0.6);
     margin-top: 2px;
 }
 
@@ -206,8 +216,8 @@
 /* Process detail */
 .tm-process-detail {
     padding: 8px 12px 12px 36px;
-    background: #fafafa;
-    border-bottom: 1px solid #eee;
+    background: rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .tm-subtask-list {
@@ -227,7 +237,7 @@
 }
 
 .tm-subtask-name {
-    color: #555;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .tm-error-message {
