@@ -1,4 +1,13 @@
 const SET_ANUGA_PROJECT_DATA = 'SET_ANUGA_PROJECT_DATA';
+// TASK-1637 — "init in flight" guard. initAnugaEpic sets this to the map id
+// it is currently resolving (the from-map → getProjectV2 → setAnugaProjectData
+// waterfall) and clears it (false) on completion AND on chain error. Both
+// anugaContainer.componentDidUpdate (the re-dispatch source) and the epic's
+// own top-of-pipe gate read it so a re-render mid-chain can't fire a second
+// INIT_ANUGA that switchMap would otherwise use to CANCEL the first in-flight
+// chain. Keyed on map id so a map switch (new gnresource.id) is never deduped
+// against the previous map's stale guard.
+const SET_ANUGA_INIT_IN_FLIGHT = 'SET_ANUGA_INIT_IN_FLIGHT';
 const SET_ANUGA_SCENARIO_DATA = 'SET_ANUGA_SCENARIO_DATA';
 const SET_ANUGA_BOUNDARY_DATA = 'SET_ANUGA_BOUNDARY_DATA';
 const SET_ANUGA_FRICTION_DATA = 'SET_ANUGA_FRICTION_DATA';
@@ -128,6 +137,12 @@ const CREATE_TERRAIN_FROM_BBOX_ERROR = 'ANUGA:CREATE_TERRAIN_FROM_BBOX_ERROR';
 
 function setAnugaProjectData(data) {
     return { type: SET_ANUGA_PROJECT_DATA, data };
+}
+
+// TASK-1637 — pass the map id when setting (so the gate can compare against
+// the live gnresource.id) and `false` to clear on completion/error.
+function setAnugaInitInFlight(mapId) {
+    return { type: SET_ANUGA_INIT_IN_FLIGHT, mapId };
 }
 
 function setAnugaScenarioData(scenarios) {
@@ -453,6 +468,7 @@ function createTerrainFromBboxError(error) {
 
 module.exports = {
     SET_ANUGA_PROJECT_DATA, setAnugaProjectData,
+    SET_ANUGA_INIT_IN_FLIGHT, setAnugaInitInFlight,
     SET_ANUGA_SCENARIO_DATA, setAnugaScenarioData,
     SET_ANUGA_BOUNDARY_DATA, setAnugaBoundaryData,
     SET_ANUGA_FRICTION_DATA, setAnugaFrictionData,

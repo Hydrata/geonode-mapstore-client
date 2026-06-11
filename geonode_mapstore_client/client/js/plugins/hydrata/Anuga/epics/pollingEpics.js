@@ -50,6 +50,7 @@ import {
     setAnugaLinksData,
     setAnugaPollingData,
     setAnugaProjectData,
+    setAnugaInitInFlight,
     setAnugaScenarioData,
     setAnugaScenarioResultsLoaded,
     setAnugaStructureData,
@@ -166,6 +167,11 @@ export const initAnugaEpic = (action$, store) =>
     action$
         .ofType(INIT_ANUGA, UPDATE_DATASET_TITLE_SUCCESS)
         .filter(() => store.getState().gnresource.id)
+        // TASK-1637 — hoist the auth filter ABOVE the from-map POST. Previously
+        // this lived after the from-map switchMap, so an anonymous visitor fired
+        // a wasted POST /from-map/ that then died at the auth gate. Anon users
+        // now drop here, before any network call.
+        .filter(() => !!store.getState()?.security?.user)
         // TASK-603: drop init catalogue project-poll when tab is hidden.
         // Use withLatestFrom rather than switchMap-on-visibility$ here because
         // initAnugaEpic is action-driven (one-shot per action), not timer-driven.
@@ -174,40 +180,69 @@ export const initAnugaEpic = (action$, store) =>
         .withLatestFrom(visibility$)
         .filter(([_, isVisible]) => isVisible)
         .map(([action]) => action)
-        .switchMap(() =>
-            Rx.Observable.from(anugaApi.getProjectFromMapId(store.getState().gnresource.id))
-                .catch(() => Rx.Observable.empty())
-        )
-        .filter(() => !!store.getState()?.security?.user)
-        .switchMap(response1 => {
-            const projectId = response1.data.projectId;
-            // Use v2 for project detail
-            return Rx.Observable.from(anugaApi.getProjectV2(projectId))
-                .catch(() => Rx.Observable.empty())
-                .switchMap(response2 => {
-                    // Respect the persisted archiveFilter so a panel reopen
-                    // after switching to 'Archived' restores the same view.
-                    const scenariosFetch = Rx.Observable.from(
-                        anugaApi.getScenariosByArchive(projectId, getArchiveFilter(store.getState()))
-                    )
-                        .catch(() => Rx.Observable.of({data: []}))
-                        .map(resp => setAnugaScenarioData(resp.data));
+        // TASK-1637 — "init in flight" dedupe gate. anugaContainer's
+        // componentDidUpdate re-dispatches INIT_ANUGA on EVERY re-render while
+        // !isAnugaProject (i.e. for the whole from-map → getProjectV2 →
+        // setAnugaProjectData window). Because the chain below uses switchMap,
+        // a 2nd INIT_ANUGA would CANCEL the first in-flight waterfall and
+        // restart it from scratch — one wasted full round-trip before the
+        // SimpleView menus mount. We gate on a guard keyed to the CURRENT map
+        // id: if an init for this exact map is already running, drop the
+        // duplicate. Keyed on map id (not a bare boolean) so a map switch —
+        // which lands a new gnresource.id — is never deduped against the
+        // previous map's stale guard. Legitimate refresh re-inits
+        // (crudEpics saveNetwork/createFigure, pollingEpics terrain-add /
+        // orphan-refresh, UPDATE_DATASET_TITLE_SUCCESS) all fire AFTER the
+        // first init completed (guard already cleared on setAnugaProjectData),
+        // so they pass straight through.
+        .filter(() => store.getState()?.anuga?.projects?.initInFlight !== store.getState().gnresource.id)
+        .switchMap(() => {
+            const mapId = store.getState().gnresource.id;
+            // Mark the guard the instant we commit to the from-map call. The
+            // dispatched flag lands in Redux before the next INIT_ANUGA
+            // re-dispatch reaches the gate above, so the duplicate is dropped.
+            // Clear the guard on the empty/error tail so a failed init never
+            // wedges the gate shut (the refresh paths must always be able to
+            // re-init). On the success path the guard is also cleared by the
+            // SET_ANUGA_PROJECT_DATA reducer case — belt and braces.
+            return Rx.Observable.of(setAnugaInitInFlight(mapId))
+                .concat(
+                    Rx.Observable.from(anugaApi.getProjectFromMapId(mapId))
+                        .switchMap(response1 => {
+                            const projectId = response1.data.projectId;
+                            // Use v2 for project detail
+                            return Rx.Observable.from(anugaApi.getProjectV2(projectId))
+                                .switchMap(response2 => {
+                                    // Respect the persisted archiveFilter so a
+                                    // panel reopen after switching to 'Archived'
+                                    // restores the same view.
+                                    const scenariosFetch = Rx.Observable.from(
+                                        anugaApi.getScenariosByArchive(projectId, getArchiveFilter(store.getState()))
+                                    )
+                                        .catch(() => Rx.Observable.of({data: []}))
+                                        .map(resp => setAnugaScenarioData(resp.data));
 
-                    // V2P-79: resource fetches now go through V2 plural routes.
-                    const resourceObservables = resourceEndpoints.map(
-                        ({endpoint, action}) => fetchResourceEndpoint(endpoint, projectId).map(action)
-                    );
+                                    // V2P-79: resource fetches now go through V2 plural routes.
+                                    const resourceObservables = resourceEndpoints.map(
+                                        ({endpoint, action}) => fetchResourceEndpoint(endpoint, projectId).map(action)
+                                    );
 
-                    return Rx.Observable.of(
-                        setAnugaProjectData(response2.data),
-                        fixAnugaGroups(),
-                        setSvConfig(response2.data.simple_view_config)
-                    ).concat(
-                        Rx.Observable.merge(scenariosFetch, ...resourceObservables),
-                        Rx.Observable.of(startAnugaScenarioPolling()),
-                        Rx.Observable.of(startAnugaModelCreationPolling())
-                    );
-                });
+                                    return Rx.Observable.of(
+                                        setAnugaProjectData(response2.data),
+                                        fixAnugaGroups(),
+                                        setSvConfig(response2.data.simple_view_config)
+                                    ).concat(
+                                        Rx.Observable.merge(scenariosFetch, ...resourceObservables),
+                                        Rx.Observable.of(startAnugaScenarioPolling()),
+                                        Rx.Observable.of(startAnugaModelCreationPolling())
+                                    );
+                                });
+                        })
+                        // Clear the guard on any failure in the from-map /
+                        // getProjectV2 chain so a transient error doesn't leave
+                        // the gate latched and block every future re-init.
+                        .catch(() => Rx.Observable.of(setAnugaInitInFlight(false)))
+                );
         });
 
 // V2P-79: model-creation polling fans out add-layer actions every 60s as a
