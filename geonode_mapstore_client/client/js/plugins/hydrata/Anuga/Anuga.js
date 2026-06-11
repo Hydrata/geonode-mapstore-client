@@ -1,5 +1,7 @@
 import { createPlugin } from '../../../../MapStore2/web/client/utils/PluginsUtils';
 import anuga from "./reducersAnuga";
+// TASK-1645 (W1.5): terrainWorkbench reducer re-homed here; plugin shell dissolved.
+import terrainWorkbench from '../TerrainWorkbench/reducersTerrainWorkbench';
 import anugaContainer from "./components/anugaContainer";
 import {
     initAnugaEpic,
@@ -63,6 +65,16 @@ import {
     // TASK-96 — Live DEM ramp rescale on map pan/zoom via GeoServer env() WMS.
     demRescaleOnMoveEndEpic
 } from "./epicsAnuga";
+// TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
+import {
+    twLoadDataEpic,
+    twCreateSurfaceEpic,
+    twUpdateSurfaceEpic,
+    twDeleteSurfaceEpic,
+    twSetDesignInputsEpic,
+    twDeriveEpic,
+    twDeriveCompleteEpic,
+} from '../TerrainWorkbench/epicsTerrainWorkbench';
 import {
     fetchMembershipsEpic,
     addMembershipEpic,
@@ -79,7 +91,9 @@ import {
 export default createPlugin('Anuga', {
     component: anugaContainer,
     reducers: {
-        anuga
+        anuga,
+        // TASK-1645 (W1.5): terrainWorkbench slice registered under Anuga plugin.
+        terrainWorkbench
     },
     epics: {
         initAnugaEpic,
@@ -149,6 +163,14 @@ export default createPlugin('Anuga', {
         createTerrainFromBboxEpic,
         createTerrainFromBboxErrorEpic,
         // TASK-96 — Live DEM ramp rescale on map pan/zoom via GeoServer env() WMS.
-        demRescaleOnMoveEndEpic
+        demRescaleOnMoveEndEpic,
+        // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
+        twLoadDataEpic,
+        twCreateSurfaceEpic,
+        twUpdateSurfaceEpic,
+        twDeleteSurfaceEpic,
+        twSetDesignInputsEpic,
+        twDeriveEpic,
+        twDeriveCompleteEpic,
     }
 });

@@ -498,11 +498,8 @@ export const plugins = {
         'Hydrology',
         () => import(/* webpackChunkName: 'plugins/hydrology-plugin' */ '@js/plugins/hydrata/Hydrology/Hydrology')
     ),
-    // TASK-1599 (W1) — Terrain & Catchment Workbench shell.
-    TerrainWorkbenchPlugin: toModulePlugin(
-        'TerrainWorkbench',
-        () => import(/* webpackChunkName: 'plugins/terrain-workbench-plugin' */ '@js/plugins/hydrata/TerrainWorkbench/TerrainWorkbench')
-    ),
+    // TASK-1645 (W1.5): TerrainWorkbench plugin shell dissolved — recipe builder
+    // moved into Anuga plugin Inputs -> Terrain pane. Reducer + epics remain.
     AnugaResourcesGridPlugin: toModulePlugin(
         'AnugaResourcesGrid',
         () => import(/* webpackChunkName: 'plugins/anuga-grid-resources-plugin' */ '@js/plugins/hydrata/Anuga/AnugaResourcesGrid')

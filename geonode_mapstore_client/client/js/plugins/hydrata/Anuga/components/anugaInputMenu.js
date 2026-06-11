@@ -1,12 +1,13 @@
 import React from "react";
 import {connect} from "react-redux";
 import {createSelector} from 'reselect';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip, Button } from 'react-bootstrap';
 const PropTypes = require('prop-types');
 const Spinner = require('react-spinkit');
 
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
+import '../../TerrainWorkbench/terrainWorkbench.css';
 
 import {
     setVisibleUploaderPanel
@@ -32,6 +33,16 @@ import {
     stopAnugaModelCreationPolling,
     setVisibleTerrainBboxPanel
 } from "../actionsAnuga";
+// TASK-1645 (W1.5) — recipe builder actions re-homed from TerrainWorkbench plugin.
+import {
+    twLoadData,
+    twSelectSurface,
+    twCreateSurface,
+    twUpdateSurface,
+    twDeleteSurface,
+    twSetDesignInputs,
+    twDerive,
+} from '../../TerrainWorkbench/actionsTerrainWorkbench';
 // TASK-1440 (W9): Networks action creators removed from this file — the Networks
 // pane is now a self-contained shared component (shared/NetworksPane.js) that
 // carries its own connect() and is rendered in the Hydrology panel.
@@ -54,6 +65,227 @@ import {buildMeshTriangleLayer} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
 // W6 (TASK-1422): MapStore2 utility for computing extent from a GeoJSON object.
 import CoordinatesUtils from "../../../../../MapStore2/web/client/utils/CoordinatesUtils";
+
+// ── TASK-1645 (W1.5): AnalysisSurface recipe builder — re-homed from TerrainWorkbench ──
+
+// S1 param defaults.
+const TW_PARAM_DEFAULTS = {
+    feather_width_m: 50,
+    target_resolution_m: 5,
+    breach_max_cost: 20,
+    breach_search_dist: 100,
+};
+
+function TWStaleBadge({ isStale }) {
+    if (!isStale) return null;
+    return (
+        <span className="terrain-workbench-stale-badge" title="Recipe inputs have changed since last derive — re-derive to update">
+            stale
+        </span>
+    );
+}
+TWStaleBadge.propTypes = { isStale: PropTypes.bool };
+TWStaleBadge.defaultProps = { isStale: false };
+
+function TWSeamQAPanel({ enforcementLog }) {
+    if (!enforcementLog) return null;
+    const maxSeam = typeof enforcementLog.max_seam_step_m === 'number' ? enforcementLog.max_seam_step_m.toFixed(3) : null;
+    const offset = typeof enforcementLog.applied_bias_m === 'number' ? enforcementLog.applied_bias_m.toFixed(3) : null;
+    if (!maxSeam && !offset) return null;
+    return (
+        <div className="tw-seam-qa" data-testid="seam-qa-panel">
+            <div className="tw-label">Seam QA</div>
+            {maxSeam !== null && <div className="tw-seam-qa-row"><span>Max seam step:</span><strong>{maxSeam} m</strong></div>}
+            {offset !== null && <div className="tw-seam-qa-row"><span>Vertical offset applied:</span><strong>{offset} m</strong></div>}
+        </div>
+    );
+}
+TWSeamQAPanel.propTypes = { enforcementLog: PropTypes.object };
+TWSeamQAPanel.defaultProps = { enforcementLog: null };
+
+function TWDesignInputPicker({ terrains, designInputs, onChange, disabled }) {
+    const addTerrain = (terrainId) => {
+        const id = parseInt(terrainId, 10);
+        if (!id || designInputs.find(d => d.terrain_id === id)) return;
+        onChange([...designInputs, { terrain_id: id, priority: designInputs.length }]);
+    };
+    const remove = (idx) => {
+        onChange(designInputs.filter((_, i) => i !== idx).map((d, i) => ({ ...d, priority: i })));
+    };
+    const moveUp = (idx) => {
+        if (idx === 0) return;
+        const next = [...designInputs];
+        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+        onChange(next.map((d, i) => ({ ...d, priority: i })));
+    };
+    const available = terrains.filter(t => !designInputs.find(d => d.terrain_id === t.id));
+    return (
+        <div className="tw-design-inputs">
+            <label className="tw-label">Design DEMs <span className="tw-label-sub">(ordered by priority)</span></label>
+            {designInputs.map((di, idx) => {
+                const t = terrains.find(x => x.id === di.terrain_id);
+                return (
+                    <div key={di.terrain_id} className="tw-design-input-row">
+                        <span className="tw-priority-badge">{idx + 1}</span>
+                        <span className="tw-input-title">{t ? (t.title || t.name) : `Terrain #${di.terrain_id}`}</span>
+                        <button type="button" className="tw-icon-btn" onClick={() => moveUp(idx)} disabled={disabled || idx === 0} title="Move up">↑</button>
+                        <button type="button" className="tw-icon-btn tw-icon-btn-danger" onClick={() => remove(idx)} disabled={disabled} title="Remove">×</button>
+                    </div>
+                );
+            })}
+            {available.length > 0 && (
+                <select className="tw-select" value="" onChange={(e) => addTerrain(e.target.value)} disabled={disabled}>
+                    <option value="">+ Add design DEM…</option>
+                    {available.map(t => <option key={t.id} value={t.id}>{t.title || t.name}</option>)}
+                </select>
+            )}
+            {designInputs.length === 0 && <div className="tw-validation-hint">At least one design DEM is required.</div>}
+        </div>
+    );
+}
+TWDesignInputPicker.propTypes = { terrains: PropTypes.array.isRequired, designInputs: PropTypes.array.isRequired, onChange: PropTypes.func.isRequired, disabled: PropTypes.bool };
+TWDesignInputPicker.defaultProps = { disabled: false };
+
+class TWRecipeBuilder extends React.Component {
+    static propTypes = {
+        surface: PropTypes.object.isRequired,
+        terrains: PropTypes.array.isRequired,
+        deriving: PropTypes.bool,
+        deriveError: PropTypes.string,
+        saving: PropTypes.bool,
+        saveError: PropTypes.string,
+        onUpdate: PropTypes.func.isRequired,
+        onSetDesignInputs: PropTypes.func.isRequired,
+        onDerive: PropTypes.func.isRequired,
+        onDelete: PropTypes.func.isRequired,
+    };
+    static defaultProps = { deriving: false, deriveError: null, saving: false, saveError: null };
+
+    constructor(props) {
+        super(props);
+        const s = props.surface;
+        this.state = {
+            title: s.title || '',
+            regional_terrain: s.regional_terrain || '',
+            use_culverts: !!s.use_culverts,
+            feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
+            target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
+            breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
+            breach_search_dist: s.breach_search_dist ?? TW_PARAM_DEFAULTS.breach_search_dist,
+            designInputs: (s.design_inputs_ordered || []).map(d => ({ terrain_id: d.terrain, priority: d.priority })),
+        };
+    }
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.surface.id !== this.props.surface.id) {
+            const s = this.props.surface;
+            this.setState({
+                title: s.title || '', regional_terrain: s.regional_terrain || '', use_culverts: !!s.use_culverts,
+                feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
+                target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
+                breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
+                breach_search_dist: s.breach_search_dist ?? TW_PARAM_DEFAULTS.breach_search_dist,
+                designInputs: (s.design_inputs_ordered || []).map(d => ({ terrain_id: d.terrain, priority: d.priority })),
+            });
+        }
+        if (prevProps.surface.design_inputs_ordered !== this.props.surface.design_inputs_ordered) {
+            this.setState({ designInputs: (this.props.surface.design_inputs_ordered || []).map(d => ({ terrain_id: d.terrain, priority: d.priority })) });
+        }
+    }
+
+    handleParam = (key, val) => this.setState({ [key]: val });
+
+    handleSaveParams = () => {
+        const { title, regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
+        this.props.onUpdate(this.props.surface.id, {
+            title, regional_terrain: regional_terrain || null, use_culverts,
+            feather_width_m: parseFloat(feather_width_m), target_resolution_m: parseFloat(target_resolution_m),
+            breach_max_cost: parseFloat(breach_max_cost), breach_search_dist: parseFloat(breach_search_dist),
+        });
+    };
+
+    handleSaveDesignInputs = () => {
+        this.props.onSetDesignInputs(this.props.surface.id, this.state.designInputs);
+    };
+
+    handleDerive = () => {
+        if (!this.state.designInputs.length || !this.state.regional_terrain) return;
+        this.props.onDerive(this.props.surface.id);
+    };
+
+    render() {
+        const { surface, terrains, deriving, deriveError, saving, saveError, onDelete } = this.props;
+        const { title, regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, designInputs } = this.state;
+        const canDerive = designInputs.length > 0 && !!regional_terrain && !deriving && !saving;
+        const regionalChoices = terrains.filter(t => !designInputs.find(d => d.terrain_id === t.id));
+        return (
+            <div className="tw-recipe-builder" data-testid="recipe-builder">
+                <div className="tw-recipe-header">
+                    <input className="tw-title-input" value={title} onChange={(e) => this.handleParam('title', e.target.value)} placeholder="Recipe title" disabled={saving || deriving} data-testid="recipe-title-input"/>
+                    <TWStaleBadge isStale={surface.is_stale}/>
+                    <button type="button" className="tw-icon-btn tw-icon-btn-danger" onClick={() => onDelete(surface.id)} disabled={saving || deriving} title="Delete recipe" data-testid="recipe-delete-btn">×</button>
+                </div>
+                <TWDesignInputPicker terrains={terrains} designInputs={designInputs} onChange={(inputs) => this.setState({ designInputs: inputs })} disabled={saving || deriving}/>
+                <button type="button" className="tw-save-btn" onClick={this.handleSaveDesignInputs} disabled={saving || deriving} data-testid="save-design-inputs-btn">{saving ? 'Saving…' : 'Save design inputs'}</button>
+                <div className="tw-field">
+                    <label className="tw-label">Regional terrain</label>
+                    <select className="tw-select" value={regional_terrain || ''} onChange={(e) => this.handleParam('regional_terrain', e.target.value ? parseInt(e.target.value, 10) : '')} disabled={saving || deriving} data-testid="regional-terrain-select">
+                        <option value="">— select regional terrain —</option>
+                        {terrains.map(t => <option key={t.id} value={t.id}>{t.title || t.name}</option>)}
+                    </select>
+                    {!regional_terrain && <div className="tw-validation-hint">Regional terrain is required.</div>}
+                </div>
+                <div className="tw-params-section">
+                    <div className="tw-label">Parameters</div>
+                    <div className="tw-param-grid">
+                        <label>Use culverts</label>
+                        <input type="checkbox" checked={!!use_culverts} onChange={(e) => this.handleParam('use_culverts', e.target.checked)} disabled={saving || deriving} data-testid="use-culverts-check"/>
+                        <label>Feather width (m)</label>
+                        <input type="number" className="tw-number-input" value={feather_width_m} min="1" onChange={(e) => this.handleParam('feather_width_m', e.target.value)} disabled={saving || deriving} data-testid="feather-width-input"/>
+                        <label>Target resolution (m)</label>
+                        <input type="number" className="tw-number-input" value={target_resolution_m} min="0.1" step="0.1" onChange={(e) => this.handleParam('target_resolution_m', e.target.value)} disabled={saving || deriving} data-testid="target-res-input"/>
+                        <label>Breach max cost</label>
+                        <input type="number" className="tw-number-input" value={breach_max_cost} min="0" onChange={(e) => this.handleParam('breach_max_cost', e.target.value)} disabled={saving || deriving} data-testid="breach-max-cost-input"/>
+                        <label>Breach search dist</label>
+                        <input type="number" className="tw-number-input" value={breach_search_dist} min="1" onChange={(e) => this.handleParam('breach_search_dist', e.target.value)} disabled={saving || deriving} data-testid="breach-search-dist-input"/>
+                    </div>
+                    <button type="button" className="tw-save-btn" onClick={this.handleSaveParams} disabled={saving || deriving} data-testid="save-params-btn">{saving ? 'Saving…' : 'Save parameters'}</button>
+                </div>
+                {saveError && <div className="tw-error" data-testid="save-error">{saveError}</div>}
+                <div className="tw-derive-section">
+                    <Button bsStyle="primary" bsSize="small" className="tw-derive-btn" onClick={this.handleDerive} disabled={!canDerive} data-testid="derive-btn">
+                        {deriving ? 'Deriving…' : 'Derive terrain'}
+                    </Button>
+                    {deriving && <div className="tw-derive-progress" data-testid="derive-progress">Processing — watch the Task Monitor for progress.</div>}
+                    {deriveError && <div className="tw-error" data-testid="derive-error">{deriveError}</div>}
+                </div>
+                <TWSeamQAPanel enforcementLog={surface.enforcement_log}/>
+            </div>
+        );
+    }
+}
+
+function TWSurfaceList({ surfaces, selectedId, onSelect, onNew, saving }) {
+    return (
+        <div className="tw-surface-list">
+            <div className="tw-surface-list-header">
+                <span className="tw-label">Analysis Surfaces</span>
+                <button type="button" className="tw-new-btn" onClick={onNew} disabled={saving} data-testid="new-surface-btn">+ New analysis surface</button>
+            </div>
+            {surfaces.length === 0 && <div className="tw-empty-hint">No analysis surfaces yet. Create one with <strong>+ New analysis surface</strong>.</div>}
+            {surfaces.map(s => (
+                <div key={s.id} className={`tw-surface-item${selectedId === s.id ? ' selected' : ''}`} onClick={() => onSelect(s.id)} role="button" tabIndex={0} onKeyPress={(e) => e.key === 'Enter' && onSelect(s.id)} data-testid={`surface-item-${s.id}`}>
+                    <span className="tw-surface-title">{s.title || `Surface #${s.id}`}</span>
+                    <TWStaleBadge isStale={s.is_stale}/>
+                </div>
+            ))}
+        </div>
+    );
+}
+TWSurfaceList.propTypes = { surfaces: PropTypes.array.isRequired, selectedId: PropTypes.number, onSelect: PropTypes.func.isRequired, onNew: PropTypes.func.isRequired, saving: PropTypes.bool };
+TWSurfaceList.defaultProps = { selectedId: null, saving: false };
+
+// ── end TASK-1645 recipe builder components ──────────────────────────────────
 
 const ACTIVE_TM_STATES = new Set(['pending', 'running']);
 const PENDING_MODEL_CLASSES = ['Boundary', 'Inflow', 'Rainfall', 'Friction', 'Structure', 'MeshRegion'];
@@ -268,7 +500,9 @@ class AnugaInputMenuClass extends React.Component {
             // W5.1 (TASK-1273) — MeshWorkflow panel open/closed
             meshWorkflowOpen: false,
             // W6 (TASK-1424) — built mesh roster: array of MeshRun API objects, null = not loaded
-            builtMeshes: null
+            builtMeshes: null,
+            // TASK-1645 (W1.5) — analysis surface section expanded/collapsed
+            twSurfaceSectionOpen: false
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
@@ -643,6 +877,17 @@ class AnugaInputMenuClass extends React.Component {
                 </OverlayTrigger>
             </React.Fragment>
         );
+        // TASK-1645 (W1.5): recipe builder state from props (terrainWorkbench slice).
+        const {
+            twTerrains, twSurfaces, twSelectedSurfaceId,
+            twLoading, twError, twSaving, twSaveError, twDeriving, twDeriveError,
+            onTwLoadData, onTwSelectSurface, onTwCreateSurface,
+            onTwUpdateSurface, onTwDeleteSurface, onTwSetDesignInputs, onTwDerive,
+            projectId
+        } = this.props;
+        const { twSurfaceSectionOpen } = this.state;
+        const selectedSurface = (twSurfaces || []).find(s => s.id === twSelectedSurfaceId) || null;
+
         return (
             <div className="menu-rows-pane anuga-pane">
                 {this.renderPaneHead('terrain', actions)}
@@ -650,6 +895,69 @@ class AnugaInputMenuClass extends React.Component {
                     {layers.map(t => <MenuRow key={t?.name || t?.id} layer={t}/>)}
                     {layers.length === 0 ? this.renderTerrainEmpty() : null}
                 </div>
+                {/* TASK-1645 (W1.5): Analysis Surface recipe builder, re-homed from TerrainWorkbench */}
+                {projectId ? (
+                    <div className="anuga-terrain-recipe-section">
+                        <div
+                            className="anuga-terrain-recipe-toggle"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                                const opening = !twSurfaceSectionOpen;
+                                this.setState({ twSurfaceSectionOpen: opening });
+                                if (opening && onTwLoadData) onTwLoadData();
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    const opening = !twSurfaceSectionOpen;
+                                    this.setState({ twSurfaceSectionOpen: opening });
+                                    if (opening && onTwLoadData) onTwLoadData();
+                                }
+                            }}
+                            aria-expanded={twSurfaceSectionOpen}
+                        >
+                            <span className={`glyphicon ${twSurfaceSectionOpen ? 'glyphicon-chevron-down' : 'glyphicon-chevron-right'}`} aria-hidden="true" style={{marginRight: 6}}/>
+                            Analysis Surfaces
+                        </div>
+                        {twSurfaceSectionOpen && (
+                            <div className="anuga-terrain-recipe-body">
+                                {twLoading && <div className="tw-loading">Loading…</div>}
+                                {twError && <div className="tw-error" data-testid="tw-load-error">{twError}</div>}
+                                {!twLoading && !twError && (
+                                    <React.Fragment>
+                                        <TWSurfaceList
+                                            surfaces={twSurfaces || []}
+                                            selectedId={twSelectedSurfaceId}
+                                            onSelect={onTwSelectSurface}
+                                            onNew={() => onTwCreateSurface({
+                                                title: `New Analysis Surface ${(twSurfaces || []).length + 1}`,
+                                                regional_terrain: null,
+                                                use_culverts: false,
+                                                ...TW_PARAM_DEFAULTS,
+                                            })}
+                                            saving={twSaving}
+                                        />
+                                        {selectedSurface && (
+                                            <TWRecipeBuilder
+                                                surface={selectedSurface}
+                                                terrains={twTerrains || []}
+                                                deriving={twDeriving}
+                                                deriveError={twDeriveError}
+                                                saving={twSaving}
+                                                saveError={twSaveError}
+                                                onUpdate={onTwUpdateSurface}
+                                                onSetDesignInputs={onTwSetDesignInputs}
+                                                onDerive={onTwDerive}
+                                                onDelete={onTwDeleteSurface}
+                                            />
+                                        )}
+                                    </React.Fragment>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : null}
             </div>
         );
     }
@@ -856,7 +1164,17 @@ const mapStateToProps = (state) => {
         // W5.1 (TASK-1273) — Full scenario object for cost estimate in MeshWorkflow
         selectedScenario: getSelectedScenario(state),
         // W5.3 (TASK-1275) — Layer list to detect if mesh_triangle_render is already added
-        flatLayers: state?.layers?.flat || []
+        flatLayers: state?.layers?.flat || [],
+        // TASK-1645 (W1.5) — recipe builder state from terrainWorkbench slice.
+        twTerrains: state?.terrainWorkbench?.terrains || [],
+        twSurfaces: state?.terrainWorkbench?.surfaces || [],
+        twSelectedSurfaceId: state?.terrainWorkbench?.selectedSurfaceId || null,
+        twLoading: state?.terrainWorkbench?.loading || false,
+        twError: state?.terrainWorkbench?.error || null,
+        twSaving: state?.terrainWorkbench?.saving || false,
+        twSaveError: state?.terrainWorkbench?.saveError || null,
+        twDeriving: state?.terrainWorkbench?.deriving || false,
+        twDeriveError: state?.terrainWorkbench?.deriveError || null,
     };
 };
 
@@ -888,7 +1206,15 @@ const mapDispatchToProps = ( dispatch ) => {
         // W5.3 (TASK-1275) — Add mesh triangle render layer to map
         onAddMeshLayer: (layer) => dispatch(addLayer(layer)),
         // W6 (TASK-1422) — Zoom map to mesh extent after successful preview
-        onZoomToExtent: (extent, crs, maxZoom) => dispatch(zoomToExtent(extent, crs, maxZoom))
+        onZoomToExtent: (extent, crs, maxZoom) => dispatch(zoomToExtent(extent, crs, maxZoom)),
+        // TASK-1645 (W1.5) — recipe builder actions.
+        onTwLoadData: () => dispatch(twLoadData()),
+        onTwSelectSurface: (id) => dispatch(twSelectSurface(id)),
+        onTwCreateSurface: (payload) => dispatch(twCreateSurface(payload)),
+        onTwUpdateSurface: (id, payload) => dispatch(twUpdateSurface(id, payload)),
+        onTwDeleteSurface: (id) => dispatch(twDeleteSurface(id)),
+        onTwSetDesignInputs: (id, inputs) => dispatch(twSetDesignInputs(id, inputs)),
+        onTwDerive: (id) => dispatch(twDerive(id)),
     };
 };
 
