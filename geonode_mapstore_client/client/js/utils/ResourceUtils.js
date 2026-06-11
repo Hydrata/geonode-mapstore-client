@@ -668,6 +668,7 @@ export function toMapStoreMapConfig(resource, baseConfig) {
                     }
                 };
             }
+            // STAY (TASK-1586): drops a blob layer whose backing MapLayer row vanished (MapLayer.dataset SET_NULL on result-Dataset delete) — independent of retired path-3 injection.
             if (!mapLayer && layer?.extendedParams?.mapLayer) {
                 return null;
             }

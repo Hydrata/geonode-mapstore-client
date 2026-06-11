@@ -12,17 +12,6 @@ import {getNode} from '../../../../../MapStore2/web/client/utils/LayersUtils';
 import {saveDirectContent} from "@js/actions/gnsave";
 import * as anugaApi from '../api/anugaApi';
 import {
-    ADD_ANUGA_BOUNDARY,
-    ADD_ANUGA_FRICTION,
-    ADD_ANUGA_INFLOW,
-    // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
-    ADD_ANUGA_RAINFALL,
-    ADD_ANUGA_STRUCTURE,
-    ADD_ANUGA_FULL_MESH,
-    ADD_ANUGA_MESH_REGION,
-    ADD_LUMPED_CATCHMENT,
-    ADD_NODES,
-    ADD_LINKS,
     addAnugaBoundary,
     addAnugaInflow,
     // TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
@@ -56,9 +45,7 @@ import {
     setAnugaStructureData,
     setPublicationData,
     setComparisonData,
-    START_ANUGA_MODEL_CREATION_POLLING,
     START_ANUGA_SCENARIO_POLLING,
-    STOP_ANUGA_MODEL_CREATION_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
     START_ACTIVE_RUN_POLLING,
     STOP_ACTIVE_RUN_POLLING,
@@ -134,6 +121,13 @@ export function getPollingCap(scenario) {
     const dynamic = Math.ceil(expected * POLLING_CAP_HEADROOM_RATIO / POLLING_TICK_SECONDS);
     return Math.max(POLLING_CAP_FLOOR_TICKS, dynamic);
 }
+
+// TASK-1586: pollAnugaModelCreationEpic removed — it was a no-op stub that
+// only swallowed START_ANUGA_MODEL_CREATION_POLLING (V2P-79 retired
+// /available/ polling; layer injection is now path-1 MapLayer merge +
+// path-2 taskCompleteLayerEpic). The action creators and dispatches are
+// intentionally retained so callers (initAnugaEpic, buildTerrainAddSequence)
+// continue to compile without change.
 
 // V2P-79 — resource endpoint catalogue. Each entry is a (V1) type identifier
 // recognised by anugaApi.getResourceList; the helper translates the type to
@@ -244,37 +238,6 @@ export const initAnugaEpic = (action$, store) =>
                         .catch(() => Rx.Observable.of(setAnugaInitInFlight(false)))
                 );
         });
-
-// V2P-79: model-creation polling fans out add-layer actions every 60s as a
-// safety-net for layer addition. Pre-V2P-79 those add-actions hit V1
-// `/available/` endpoints to discover new layers; V2 has no `/available/`
-// route — layer addition is now driven by:
-//   * `taskCompleteLayerEpic` (event-driven, on TaskMonitor process completion)
-//   * MapLayer auto-injection at map-load (extra_params.anuga_group)
-//   * `addLayer(response.data.mapstore_layer)` inside makeCreateEpic
-//
-// Per V2P-79 spec ("Remove /available/ polling — replaced by MapLayer
-// system") we still listen for START_ANUGA_MODEL_CREATION_POLLING so the
-// initAnuga chain doesn't surface an unhandled-action warning, but we no
-// longer fan out the legacy add-actions. takeUntil retained for parity
-// with the prior cancellation contract.
-//
-// TASK-603 visibility gate retained around the future-poll site so a
-// re-introduction of polling here remains tab-aware by default.
-export const pollAnugaModelCreationEpic = (action$) =>
-    action$
-        .ofType(START_ANUGA_MODEL_CREATION_POLLING)
-        .switchMap(() =>
-            visibility$.switchMap(isVisible =>
-                isVisible
-                    // V2P-79: previous V1 `/available/` fan-out removed.
-                    // The MapLayer + taskCompleteLayerEpic chain is now the
-                    // single source of layer-injection; this poll has no
-                    // remaining work to do.
-                    ? Rx.Observable.empty()
-                    : Rx.Observable.never()
-            ).takeUntil(action$.ofType(STOP_ANUGA_MODEL_CREATION_POLLING))
-        );
 
 const isScenarioLoaded = (scenario, state) => {
     const depth = state?.layers?.flat?.filter((layer) => layer.name === scenario?.latest_run?.gn_layer_depth_max?.name);
@@ -622,37 +585,14 @@ const persistHandledCompletionIds = (mapId, handledIdsSet, inMemoryEntries) => {
     }
 };
 
-// -- Add-layer epics (V2P-79: no-op stubs) ---------------------------------
-//
-// Pre-V2P-79 these epics fetched `/anuga/api/{pid}/{type}/available/` and
-// dispatched addLayer() for each candidate. V2 has no /available/ route —
-// per V2P-79 spec the layer-picker is replaced by:
-//   * `taskCompleteLayerEpic` (event-driven on TaskMonitor completion)
-//   * MapLayer auto-injection (anuga_group extra_param at load time)
-//   * `addLayer(response.data.mapstore_layer)` inside makeCreateEpic
-//
-// We retain each epic name so Anuga.js plugin registration stays atomic
-// and dispatchers (pollAnugaModelCreationEpic, taskCompleteLayerEpic,
-// anugaInputMenu) don't surface unhandled-action warnings if they fire
-// the action. The epics now match the action type but emit nothing — the
-// legacy "fetch available layers and inject" work has already happened by
-// the time these fire in V2.
-const noOpEpic = (actionType) => (action$) =>
-    action$
-        .ofType(actionType)
-        .switchMap(() => Rx.Observable.empty());
-
-export const addAnugaBoundaryEpic = noOpEpic(ADD_ANUGA_BOUNDARY);
-export const addAnugaFrictionEpic = noOpEpic(ADD_ANUGA_FRICTION);
-export const addAnugaInflowEpic = noOpEpic(ADD_ANUGA_INFLOW);
-// TASK-955 (W2.2 FE) — Rainfall (polygon sibling to Inflow).
-export const addAnugaRainfallEpic = noOpEpic(ADD_ANUGA_RAINFALL);
-export const addAnugaStructureEpic = noOpEpic(ADD_ANUGA_STRUCTURE);
-export const addAnugaFullMeshEpic = noOpEpic(ADD_ANUGA_FULL_MESH);
-export const addAnugaMeshRegionEpic = noOpEpic(ADD_ANUGA_MESH_REGION);
-export const addCatchmentEpic = noOpEpic(ADD_LUMPED_CATCHMENT);
-export const addNodesEpic = noOpEpic(ADD_NODES);
-export const addLinksEpic = noOpEpic(ADD_LINKS);
+// TASK-1586: noOpEpic helper + 10 stubs (addAnugaBoundaryEpic,
+// addAnugaFrictionEpic, addAnugaInflowEpic, addAnugaRainfallEpic,
+// addAnugaStructureEpic, addAnugaFullMeshEpic, addAnugaMeshRegionEpic,
+// addCatchmentEpic, addNodesEpic, addLinksEpic) removed. These were V2P-79
+// no-ops that only swallowed ADD_ANUGA_* actions. The action creators,
+// reducers, and dispatches are intentionally retained — they are still
+// dispatched by taskCompleteLayerEpic (modelClassDispatch) and callers in
+// anugaInputMenu for backwards-compat.
 
 // -- Fix 3: Event-driven layer addition on TaskMonitor completion ----------
 // When a layer_create process completes, dispatch the appropriate add action
@@ -660,10 +600,9 @@ export const addLinksEpic = noOpEpic(ADD_LINKS);
 
 // Per-class dispatch table for layer_create completions. Keyed on the
 // Python class name stamped in Process metadata.model_class.
-//   addAction — legacy V1 ADD_ANUGA_* action; epics are no-ops in V2
-//               (see addAnugaBoundaryEpic etc. above) but the dispatch is
-//               kept for backwards compat and surface-area parity if a
-//               future feature wants to listen.
+//   addAction — legacy V1 ADD_ANUGA_* action; dispatched for backwards compat
+//               so any future listener on ADD_ANUGA_* can register without
+//               requiring changes here.
 //   endpoint / setAction — resource-list refresh pair. The page-load
 //               fan-out in initAnugaEpic fires before celery's
 //               `create_supporting_models` has populated the default rows
