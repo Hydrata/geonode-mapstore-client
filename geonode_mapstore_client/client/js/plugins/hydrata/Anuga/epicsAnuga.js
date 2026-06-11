@@ -19,11 +19,10 @@
 //   initAnugaEpic ............ KEEP  login-gated; fills state.anuga.* input
 //                                    panels + state.simpleView.config + scenario
 //                                    /resource data. NEVER dispatches addLayer.
-//   pollAnugaModelCreationEpic RETIRE(dead) no-op stub since V2P-79; listener
-//                                    retained only to swallow START_ANUGA_MODEL_
-//                                    CREATION_POLLING. Safe to delete (1583).
-//   addAnuga*Epic x9 ......... RETIRE(dead) noOpEpic stubs (V2P-79). Safe to
-//                                    delete with their START actions (1583).
+//   pollAnugaModelCreationEpic REMOVED in TASK-1586 (was RETIRE(dead) no-op
+//                                    stub since V2P-79).
+//   addAnuga*Epic x9 ......... REMOVED in TASK-1586 (were RETIRE(dead)
+//                                    noOpEpic stubs, V2P-79).
 //   pollAnugaScenarioEpic .... KEEP  dynamic: adds/removes scenario RESULT
 //                                    layers on run completion (not inventory).
 //   pollActiveRunStatusEpic .. KEEP  dynamic run-status UI; no layers.
@@ -38,19 +37,8 @@
 // ──────────────────────────────────────────────────────────────────────────
 export {
     initAnugaEpic,
-    pollAnugaModelCreationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
-    addAnugaBoundaryEpic,
-    addAnugaFrictionEpic,
-    addAnugaInflowEpic,
-    addAnugaRainfallEpic,
-    addAnugaStructureEpic,
-    addAnugaFullMeshEpic,
-    addAnugaMeshRegionEpic,
-    addCatchmentEpic,
-    addNodesEpic,
-    addLinksEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
     anugaMapLayerGroupEpic
