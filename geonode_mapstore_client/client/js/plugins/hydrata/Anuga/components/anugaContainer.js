@@ -260,7 +260,10 @@ class AnugaContainer extends React.Component {
     }
 }
 
-const mapStateToProps = (state) => {
+// Exported for unit testing (TASK-1491): mapStateToProps must be safe to call
+// for an anonymous viewer whose ANUGA/SimpleView slices were never populated
+// (initAnugaEpic is auth-gated, so state.simpleView can be undefined).
+export const mapStateToProps = (state) => {
     const mapViewerPlugins = state?.localConfig?.plugins?.map_viewer || [];
     return {
         gnResourceLoaded: state?.gnresource?.id,
@@ -277,7 +280,11 @@ const mapStateToProps = (state) => {
         openMenuGroupId: state?.simpleView?.openMenuGroupId,
         numberOfMenus: state?.layers?.groups?.length || 1,
         showAddAnugaTerrainData: state?.anuga?.ui?.showAddAnugaTerrainData,
-        visibleIntroduction: state?.simpleView.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
+        // TASK-1491 — optional-chain through .hasOwnProperty: state.simpleView
+        // is undefined for an anon viewer (initAnugaEpic auth-gated), and the
+        // raw .hasOwnProperty() call crashed the whole ViewerRoute. Semantics
+        // preserved: explicit visibleIntroduction wins; absent/undefined → true.
+        visibleIntroduction: state?.simpleView?.hasOwnProperty('visibleIntroduction') ? state?.simpleView?.visibleIntroduction : true,
         showNetworkMenu: state?.anuga?.ui?.showNetworkMenu,
         visibleNetworkMenu: state?.anuga?.ui?.visibleNetworkMenu,
         canEditAnugaMap: canEditAnugaMap(state),

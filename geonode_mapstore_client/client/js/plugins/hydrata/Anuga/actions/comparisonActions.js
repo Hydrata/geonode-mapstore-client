@@ -33,9 +33,10 @@ const ADD_ANUGA_CULVERT = 'ADD_ANUGA_CULVERT';
 const ADD_ANUGA_BOUNDARY = 'ADD_ANUGA_BOUNDARY';
 const ADD_ANUGA_FRICTION = 'ADD_ANUGA_FRICTION';
 const ADD_ANUGA_INFLOW = 'ADD_ANUGA_INFLOW';
-// TASK-955 — paired with CREATE_ANUGA_RAINFALL; trips the noOpEpic stub in
-// pollingEpics.js the same way ADD_ANUGA_INFLOW does (layer injection is
-// now event-driven via taskCompleteLayerEpic; see V2P-79 add-layer notes).
+// TASK-955 — paired with CREATE_ANUGA_RAINFALL; dispatched by anugaInputMenu
+// like ADD_ANUGA_INFLOW. The noOpEpic stubs that formerly consumed these were
+// removed in TASK-1586 (no consumer now); layer injection is event-driven via
+// taskCompleteLayerEpic (see V2P-79 add-layer notes).
 const ADD_ANUGA_RAINFALL = 'ADD_ANUGA_RAINFALL';
 const ADD_ANUGA_STRUCTURE = 'ADD_ANUGA_STRUCTURE';
 const ADD_ANUGA_FULL_MESH = 'ADD_ANUGA_FULL_MESH';

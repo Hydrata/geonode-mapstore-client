@@ -4,32 +4,19 @@ import { testEpic, mockAxios } from '../../../../__tests__/helpers';
 import { addTimeoutEpic, TEST_TIMEOUT } from '../../../../__tests__/helpers/testEpic';
 import {
     initAnugaEpic,
-    pollAnugaModelCreationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
-    addAnugaBoundaryEpic,
-    addAnugaFrictionEpic,
     anugaMapLayerGroupEpic,
     HANDLED_IDS_TTL_MS,
     getPollingCap,
     __setVisibilityForTests
 } from '../epics/pollingEpics';
 import {
-    START_ANUGA_MODEL_CREATION_POLLING,
-    STOP_ANUGA_MODEL_CREATION_POLLING,
     START_ANUGA_SCENARIO_POLLING,
     STOP_ANUGA_SCENARIO_POLLING,
-    ADD_ANUGA_BOUNDARY,
     ADD_ANUGA_FRICTION,
-    ADD_ANUGA_INFLOW,
-    ADD_ANUGA_STRUCTURE,
-    ADD_ANUGA_FULL_MESH,
-    ADD_ANUGA_MESH_REGION,
-    ADD_LUMPED_CATCHMENT,
-    ADD_NODES,
-    ADD_LINKS,
     FIX_ANUGA_GROUPS,
     INIT_ANUGA,
     SET_ANUGA_INFLOW_DATA,
@@ -70,81 +57,6 @@ const liveActions = () => {
 };
 
 describe('Polling Epics', () => {
-
-    describe('pollAnugaModelCreationEpic', () => {
-        // Inject a BehaviorSubject(true) into the visibility$ test seam so
-        // the TASK-603 gate does not suppress the timer in Karma.
-        beforeEach(() => __setVisibilityForTests(new Rx.BehaviorSubject(true)));
-        afterEach(() => __setVisibilityForTests(null));
-
-        // V2P-79: pre-cutover behaviour was a 60s timer that fanned out 10
-        // add-layer actions every tick. Those actions then triggered V1
-        // /available/ fetches. V2 has no /available/ route — the layer
-        // picker is now driven by taskCompleteLayerEpic + MapLayer
-        // auto-injection, so this poll has no remaining work to do.
-        // We retain the epic name so START_ANUGA_MODEL_CREATION_POLLING
-        // dispatchers (initAnugaEpic, taskCompleteLayerEpic) don't surface
-        // unhandled-action warnings.
-
-        it('V2P-79: emits no actions on START (no V1 fan-out anymore)', (done) => {
-            // Per V2P-79: zero emissions. Layer addition is handled by
-            // taskCompleteLayerEpic + MapLayer auto-injection. The inner
-            // observable is empty, so only TEST_TIMEOUT surfaces.
-            const legacyAddTypes = [
-                ADD_ANUGA_BOUNDARY, ADD_ANUGA_FRICTION, ADD_ANUGA_STRUCTURE,
-                ADD_ANUGA_INFLOW, ADD_ANUGA_FULL_MESH, ADD_ANUGA_MESH_REGION,
-                ADD_LUMPED_CATCHMENT, ADD_NODES, ADD_LINKS
-            ];
-            testEpic(
-                addTimeoutEpic(pollAnugaModelCreationEpic, 50),
-                1,
-                { type: START_ANUGA_MODEL_CREATION_POLLING },
-                (actions) => {
-                    expect(actions.length).toBe(1);
-                    expect(actions[0].type).toBe(TEST_TIMEOUT);
-                    // Sanity: none of the legacy add-actions are present.
-                    const types = actions.map(a => a.type);
-                    legacyAddTypes.forEach(t => expect(types).toNotContain(t));
-                },
-                {},
-                done
-            );
-        });
-
-        it('V2P-79: STOP action still terminates the inner observable cleanly', (done) => {
-            // STOP is idempotent in the no-op case — nothing real emits whether
-            // or not STOP fires; only TEST_TIMEOUT surfaces.
-            testEpic(
-                addTimeoutEpic(pollAnugaModelCreationEpic, 50),
-                1,
-                [
-                    { type: START_ANUGA_MODEL_CREATION_POLLING },
-                    { type: STOP_ANUGA_MODEL_CREATION_POLLING }
-                ],
-                (actions) => {
-                    expect(actions.length).toBe(1);
-                    expect(actions[0].type).toBe(TEST_TIMEOUT);
-                },
-                {},
-                done
-            );
-        });
-
-        it('should not emit for unrelated actions', (done) => {
-            const action$ = mockActions([{ type: 'SOME_OTHER_ACTION' }]);
-            const emitted = [];
-
-            pollAnugaModelCreationEpic(action$)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        expect(emitted.length).toBe(0);
-                        done();
-                    }
-                );
-        });
-    });
 
     describe('pollAnugaScenarioEpic', () => {
         it('should not emit for unrelated actions', (done) => {
@@ -1911,32 +1823,6 @@ describe('Polling Epics', () => {
         });
     });
 
-    describe('makeAddLayerEpic instances', () => {
-        it('addAnugaBoundaryEpic should be a function', () => {
-            expect(typeof addAnugaBoundaryEpic).toBe('function');
-        });
-
-        it('addAnugaFrictionEpic should be a function', () => {
-            expect(typeof addAnugaFrictionEpic).toBe('function');
-        });
-
-        it('should not emit for unrelated actions', (done) => {
-            const store = { getState: () => ({ anuga: { projects: { data: { id: 1 } } } }) };
-            const action$ = mockActions([{ type: 'UNRELATED_ACTION' }]);
-            const emitted = [];
-
-            addAnugaBoundaryEpic(action$, store)
-                .subscribe(
-                    action => emitted.push(action),
-                    err => done(err),
-                    () => {
-                        expect(emitted.length).toBe(0);
-                        done();
-                    }
-                );
-        });
-    });
-
     describe('anugaMapLayerGroupEpic', () => {
         it('should not emit when no layers have anuga_group', (done) => {
             const store = {
@@ -2176,10 +2062,10 @@ describe('Polling Epics', () => {
     // inside pollingEpics.js stops timer-based polling while the tab is
     // hidden and resumes within one cycle when it becomes visible.
     //
-    // We test the gate via pollAnugaModelCreationEpic because it emits
-    // observable Redux actions (no network stubbing required) — the same
-    // visibility$ stream gates initAnugaEpic, so verifying the mechanism
-    // here also verifies the catalogue-init guard.
+    // The visibility$ Subject seam is wired in pollingEpics.js and gates
+    // initAnugaEpic. We verify the seam exists and is functional here;
+    // initAnugaEpic integration tests (TASK-1637 section above) exercise
+    // the full gate path.
     //
     // Mechanics: rather than fight ChromeHeadless's non-overridable native
     // visibilityState accessor and the synthetic visibilitychange Event
@@ -2188,19 +2074,9 @@ describe('Polling Epics', () => {
     // a deliberate test seam that swaps the live DOM stream for a Subject
     // we drive directly. Each test wires its own Subject in beforeEach
     // and clears it in afterEach.
-    describe('TASK-603 visibility gate (V2P-79 reframe)', () => {
-        // V2P-79: pollAnugaModelCreationEpic was previously the canonical
-        // proof point for the visibility gate because it dispatched 10
-        // observable add-actions per tick. With V2P-79 the inner observable
-        // is now empty (no V1 /available/ fan-out) so emissions can no
-        // longer be used as the gate-state signal.
-        //
-        // The visibility$ Subject seam itself is still wired and still
-        // gates `initAnugaEpic` (where the gate has functional impact today).
-        // We retain the seam round-trip test below; the more elaborate
-        // "resumes within one cycle" assertion has been retired with the
-        // legacy emission contract it observed.
-
+    //
+    // TASK-1586: test for pollAnugaModelCreationEpic removed (epic removed).
+    describe('TASK-603 visibility gate (seam integrity)', () => {
         let visibilitySubject;
 
         beforeEach(() => {
@@ -2223,27 +2099,6 @@ describe('Polling Epics', () => {
             __setVisibilityForTests(null);
             // No throw === pass.
             expect(typeof __setVisibilityForTests).toBe('function');
-        });
-
-        it('pollAnugaModelCreationEpic emits nothing whether visibility=true or false (V2P-79 no-op)', (done) => {
-            // Pre-V2P-79: 10 actions/tick when visible, 0 when hidden.
-            // Post-V2P-79: 0 in both cases — the inner observable is empty()
-            // when visible and never() when hidden. We exercise the hidden
-            // (never) branch explicitly by toggling the visibility seam to
-            // false before the START; addTimeoutEpic confirms nothing real
-            // emits — only TEST_TIMEOUT surfaces.
-            visibilitySubject.next(false);
-            testEpic(
-                addTimeoutEpic(pollAnugaModelCreationEpic, 50),
-                1,
-                { type: 'START_ANUGA_MODEL_CREATION_POLLING' },
-                (actions) => {
-                    expect(actions.length).toBe(1);
-                    expect(actions[0].type).toBe(TEST_TIMEOUT);
-                },
-                {},
-                done
-            );
         });
     });
 

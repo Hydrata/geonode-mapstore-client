@@ -1,19 +1,44 @@
 // Barrel re-export — all epics split into polling + CRUD groups
+//
+// ── TASK-1582 ANUGA layer-population inventory (epic 1578 W2) ──────────────
+// Three paths populate project DATASET layers; only path 1 serves anonymous
+// viewers. The login-gated "path 3" runtime injection this epic set out to
+// retire is ALREADY a no-op (retired by V2P-79); the 627-class anon-blank was
+// a missing-MapLayer-rows problem, fixed by the W1 backfill — not by anything
+// live in here.
+//
+//   Path 1 (CANONICAL, auth-free): toMapStoreMapConfig maplayer merge
+//     (js/utils/ResourceUtils.js:640) — load-time, sole dataset-inventory
+//     populator; stamps layerConfig.group from extra_params.anuga_group.
+//   Path 2 (event-driven create, editor-only): taskCompleteLayerEpic +
+//     buildTerrainAddSequence (pollingEpics) + crudEpics makeCreate — addLayer
+//     on TaskMonitor process completion. The live-add UX. KEEP.
+//   Path 3 (RETIRED, V2P-79): /available/ polling. Now no-ops. See below.
+//
+// Per-epic verdict (RETIRE = redundant dataset injection; KEEP = dynamic UI):
+//   initAnugaEpic ............ KEEP  login-gated; fills state.anuga.* input
+//                                    panels + state.simpleView.config + scenario
+//                                    /resource data. NEVER dispatches addLayer.
+//   pollAnugaModelCreationEpic REMOVED in TASK-1586 (was RETIRE(dead) no-op
+//                                    stub since V2P-79).
+//   addAnuga*Epic x9 ......... REMOVED in TASK-1586 (were RETIRE(dead)
+//                                    noOpEpic stubs, V2P-79).
+//   pollAnugaScenarioEpic .... KEEP  dynamic: adds/removes scenario RESULT
+//                                    layers on run completion (not inventory).
+//   pollActiveRunStatusEpic .. KEEP  dynamic run-status UI; no layers.
+//   ensureAnugaGroupsEpic .... KEEP  pre-seeds the ANUGA group skeleton in
+//                                    state.layers.groups (FIX_ANUGA_GROUPS from
+//                                    initAnuga). Login-gated; for anon, MapStore
+//                                    auto-creates group nodes from the maplayer
+//                                    merge's stamped layer.group paths (1584).
+//   taskCompleteLayerEpic .... KEEP  path-2 event-driven addLayer (live-add).
+//   anugaMapLayerGroupEpic ... KEEP  routes auto-injected maplayers into the
+//                                    right ANUGA group via moveNode.
+// ──────────────────────────────────────────────────────────────────────────
 export {
     initAnugaEpic,
-    pollAnugaModelCreationEpic,
     pollAnugaScenarioEpic,
     pollActiveRunStatusEpic,
-    addAnugaBoundaryEpic,
-    addAnugaFrictionEpic,
-    addAnugaInflowEpic,
-    addAnugaRainfallEpic,
-    addAnugaStructureEpic,
-    addAnugaFullMeshEpic,
-    addAnugaMeshRegionEpic,
-    addCatchmentEpic,
-    addNodesEpic,
-    addLinksEpic,
     ensureAnugaGroupsEpic,
     taskCompleteLayerEpic,
     anugaMapLayerGroupEpic
