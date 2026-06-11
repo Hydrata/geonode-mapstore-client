@@ -239,14 +239,34 @@ describe('TASK-1652 _buildTerrainGroups terrain hierarchy grouping', () => {
     it('reorder: splice-remove-insert produces correct new ordering', () => {
         // Test the reorder logic (mirrors the onReorderTerrainLayers handler).
         const groups = [
-            { terrain: { id: 1 }, demLayer: { name: 'dem1' }, hillshadeLayer: null },
-            { terrain: { id: 2 }, demLayer: { name: 'dem2' }, hillshadeLayer: { name: 'dem2_hs' } },
-            { terrain: { id: 3 }, demLayer: { name: 'dem3' }, hillshadeLayer: null }
+            { terrain: { id: 1 }, demLayer: { id: 'l1', name: 'dem1' }, hillshadeLayer: null },
+            { terrain: { id: 2 }, demLayer: { id: 'l2', name: 'dem2' }, hillshadeLayer: { id: 'l2hs', name: 'dem2_hs' } },
+            { terrain: { id: 3 }, demLayer: { id: 'l3', name: 'dem3' }, hillshadeLayer: null }
         ];
         // Move index 2 (dem3) to index 0 (before dem1).
         const reordered = groups.slice();
         const [moved] = reordered.splice(2, 1);
         reordered.splice(0, 0, moved);
         expect(reordered.map(g => g.demLayer.name)).toEqual(['dem3', 'dem1', 'dem2']);
+
+        // Verify desiredIds (DEM + hillshade flat) matches expected new layer order.
+        const desiredIds = [];
+        reordered.forEach(group => {
+            if (group.demLayer) desiredIds.push(group.demLayer.id);
+            if (group.hillshadeLayer) desiredIds.push(group.hillshadeLayer.id);
+        });
+        expect(desiredIds).toEqual(['l3', 'l1', 'l2', 'l2hs']);
+
+        // Verify sortNode index computation from currentNodes → desiredIds.
+        // currentNodes (order before drag): [l1, l2, l2hs, l3]
+        const currentNodes = [{id: 'l1'}, {id: 'l2'}, {id: 'l2hs'}, {id: 'l3'}];
+        const order = desiredIds
+            .map(id => currentNodes.findIndex(n => n.id === id))
+            .filter(idx => idx !== -1);
+        // sortNode reorderedNodes = order.map(idx => nodes[idx])
+        // order = [3, 0, 1, 2] → nodes[3]=l3, nodes[0]=l1, nodes[1]=l2, nodes[2]=l2hs
+        expect(order).toEqual([3, 0, 1, 2]);
+        const sortedNodes = order.map(idx => currentNodes[idx]);
+        expect(sortedNodes.map(n => n.id)).toEqual(['l3', 'l1', 'l2', 'l2hs']);
     });
 });

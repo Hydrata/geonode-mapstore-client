@@ -57,7 +57,8 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
-import {addLayer, moveNode} from "../../../../../MapStore2/web/client/actions/layers";
+import {addLayer, moveNode, sortNode} from "../../../../../MapStore2/web/client/actions/layers";
+import {getNode} from "../../../../../MapStore2/web/client/utils/LayersUtils";
 // W6 (TASK-1422): zoom to mesh extent after successful preview.
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
 // TASK-1652 (W1.5): blob persist after terrain reorder.
@@ -1427,31 +1428,64 @@ const mapDispatchToProps = ( dispatch ) => {
         // TASK-1652 (W1.5): terrain hierarchy drag-drop reorder.
         // terrainGroups is the ordered list [{terrain, demLayer, hillshadeLayer}].
         // fromIndex/toIndex are the drag-source and drop-target positions.
-        // We move each terrain group's layers (DEM + optional hillshade) together
-        // within the 'Input Data.Terrain' group by dispatching moveNode calls,
-        // then save the blob.
+        // Uses a thunk to read state.layers.groups at dispatch time so the
+        // sortNode index mapping is computed against the CURRENT node order.
         onReorderTerrainLayers: (terrainGroups, fromIndex, toIndex) => {
             if (fromIndex === toIndex || terrainGroups.length < 2) return;
-            // Build the desired order of layer node IDs within Input Data.Terrain.
-            // Each group contributes: [demLayer.id, hillshadeLayer?.id].
-            const reordered = terrainGroups.slice();
-            const [moved] = reordered.splice(fromIndex, 1);
-            reordered.splice(toIndex, 0, moved);
-            // Dispatch moveNode for each layer to their new absolute position
-            // within the group. We move from the beginning so indices are stable
-            // on each call (moveNode updates state synchronously per the reducer).
-            let position = 0;
-            reordered.forEach(group => {
-                if (group.demLayer) {
-                    dispatch(moveNode(group.demLayer.id, 'Input Data.Terrain', position));
-                    position += 1;
+            dispatch((dispatchThunk, getState) => {
+                // Compute the desired terrain group ordering.
+                const reordered = terrainGroups.slice();
+                const [moved] = reordered.splice(fromIndex, 1);
+                reordered.splice(toIndex, 0, moved);
+
+                // Build the desired flat order of layer IDs (DEM then hillshade per group).
+                const desiredIds = [];
+                reordered.forEach(group => {
+                    if (group.demLayer) desiredIds.push(group.demLayer.id);
+                    if (group.hillshadeLayer) desiredIds.push(group.hillshadeLayer.id);
+                });
+
+                // Get current group nodes from Redux state to build sortNode index array.
+                const state = getState();
+                const terrainGroupNode = getNode(state?.layers?.groups || [], 'Input Data.Terrain');
+                const currentNodes = terrainGroupNode?.nodes || [];
+
+                // Build the sortNode `order` array: order[i] = index of the node that
+                // should be at position i in the new ordering.
+                // sortNode.reducer: reorderedNodes = order.map(idx => nodes[idx])
+                // so order[i] must be the CURRENT index of the desired i-th node.
+                const order = desiredIds
+                    .map(id => currentNodes.findIndex(n => (n.id || n) === id))
+                    .filter(idx => idx !== -1);
+
+                if (order.length === currentNodes.length) {
+                    // All nodes accounted for: emit a single sortNode action.
+                    // sortLayers fn rebuilds flat in group-node order.
+                    dispatchThunk(sortNode(
+                        'Input Data.Terrain',
+                        order,
+                        (newGroupNodes, flatLayers) => {
+                            // Re-sort flat by pulling terrain layers out and
+                            // re-inserting them in the new group node order.
+                            const terrainIds = new Set(newGroupNodes.map(n => n.id || n));
+                            const nonTerrain = flatLayers.filter(l => !terrainIds.has(l.id));
+                            const newTerrain = newGroupNodes
+                                .map(n => flatLayers.find(l => l.id === (n.id || n)))
+                                .filter(Boolean);
+                            // Preserve the original split point (terrain layers were at the
+                            // end of the flat array in their group — keep that assumption).
+                            return [...nonTerrain, ...newTerrain];
+                        }
+                    ));
+                } else {
+                    // Partial match (some layers pending): fall back to sequential moveNode.
+                    // This is safe for a small number of nodes.
+                    desiredIds.forEach((id, idx) => {
+                        dispatchThunk(moveNode(id, 'Input Data.Terrain', idx));
+                    });
                 }
-                if (group.hillshadeLayer) {
-                    dispatch(moveNode(group.hillshadeLayer.id, 'Input Data.Terrain', position));
-                    position += 1;
-                }
+                dispatchThunk(saveDirectContent());
             });
-            dispatch(saveDirectContent());
         },
         // TASK-1645 (W1.5) — recipe builder actions.
         onTwLoadData: () => dispatch(twLoadData()),
