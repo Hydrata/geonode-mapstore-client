@@ -8,6 +8,7 @@ import {
     SET_NETWORK_MENU,
     SET_PUBLICATION_PANEL,
     SET_ANUGA_PROJECT_DATA,
+    SET_ANUGA_INIT_IN_FLIGHT,
     SET_ANUGA_SCENARIO_DATA,
     SET_ANUGA_INFLOW_DATA,
     SET_ANUGA_FRICTION_DATA,
@@ -270,6 +271,27 @@ describe('Anuga Plugin', () => {
                 data: projectData
             });
             expect(state.projects.data).toEqual(projectData);
+        });
+
+        // TASK-1637 — the in-flight guard slice.
+        it('defaults projects.initInFlight to false', () => {
+            const state = reducer(undefined, { type: '@@INIT' });
+            expect(state.projects.initInFlight).toBe(false);
+        });
+
+        it('SET_ANUGA_INIT_IN_FLIGHT stores the map id and clears on false', () => {
+            const set = reducer(undefined, { type: SET_ANUGA_INIT_IN_FLIGHT, mapId: 5486 });
+            expect(set.projects.initInFlight).toBe(5486);
+            const cleared = reducer(set, { type: SET_ANUGA_INIT_IN_FLIGHT, mapId: false });
+            expect(cleared.projects.initInFlight).toBe(false);
+        });
+
+        it('SET_ANUGA_PROJECT_DATA clears the in-flight guard (init completed)', () => {
+            const inFlight = reducer(undefined, { type: SET_ANUGA_INIT_IN_FLIGHT, mapId: 5486 });
+            expect(inFlight.projects.initInFlight).toBe(5486);
+            const done = reducer(inFlight, { type: SET_ANUGA_PROJECT_DATA, data: { id: 1 } });
+            expect(done.projects.initInFlight).toBe(false);
+            expect(done.projects.data).toEqual({ id: 1 });
         });
     });
 

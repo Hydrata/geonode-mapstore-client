@@ -61,6 +61,8 @@ class AnugaContainer extends React.Component {
         // boolean coercion. Widen the type so the number doesn't trip a
         // PropType warning.
         isAnugaProject: PropTypes.oneOfType([PropTypes.bool, PropTypes.number]),
+        // TASK-1637 — map id (number) of an in-flight init, or false.
+        initInFlight: PropTypes.oneOfType([PropTypes.bool, PropTypes.number, PropTypes.string]),
         hydrologyPluginPresent: PropTypes.bool,
         showHydrologyMainMenu: PropTypes.bool,
         setHydrologyMainMenu: PropTypes.func
@@ -78,7 +80,16 @@ class AnugaContainer extends React.Component {
     }
 
     componentDidUpdate() {
-        if (this.props.gnResourceLoaded && !this.props.isAnugaProject) {
+        // TASK-1637 — only kick an init if one isn't already resolving for
+        // THIS map. isAnugaProject stays falsy for the whole from-map →
+        // getProjectV2 → setAnugaProjectData window, so without the
+        // initInFlight guard every re-render in that window re-dispatched
+        // INIT_ANUGA, and the epic's switchMap cancelled + restarted the
+        // in-flight chain (a wasted full round-trip before the menus mount).
+        // The guard is keyed on map id in the epic, so a map switch (new
+        // gnResourceLoaded id) is never blocked by the prior map's guard.
+        const initRunningForThisMap = this.props.initInFlight === this.props.gnResourceLoaded;
+        if (this.props.gnResourceLoaded && !this.props.isAnugaProject && !initRunningForThisMap) {
             this.props.initAnuga();
         }
     }
@@ -215,6 +226,9 @@ const mapStateToProps = (state) => {
     return {
         gnResourceLoaded: state?.gnresource?.id,
         isAnugaProject: state?.anuga?.projects?.data?.id,
+        // TASK-1637 — map id of an init currently in flight (or false). Lets
+        // componentDidUpdate skip a redundant INIT_ANUGA re-dispatch.
+        initInFlight: state?.anuga?.projects?.initInFlight,
         hasEPSGset: !!state?.anuga?.projects?.data?.projection,
         showAnugaInputMenu: state?.anuga?.ui?.showAnugaInputMenu,
         showAnugaScenarioMenu: state?.anuga?.ui?.showAnugaScenarioMenu,

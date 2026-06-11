@@ -33,7 +33,9 @@ import {
     FIX_ANUGA_GROUPS,
     INIT_ANUGA,
     SET_ANUGA_INFLOW_DATA,
-    SET_ANUGA_RAINFALL_DATA
+    SET_ANUGA_RAINFALL_DATA,
+    SET_ANUGA_PROJECT_DATA,
+    SET_ANUGA_INIT_IN_FLIGHT
 } from '../actionsAnuga';
 import {
     START_ACTIVE_RUN_POLLING,
@@ -1970,6 +1972,200 @@ describe('Polling Epics', () => {
                         done();
                     }
                 );
+        });
+    });
+
+    // -- TASK-1637: double INIT_ANUGA dedupe + auth hoist -----------------
+    //
+    // Live on prod 2026-06-11: every ANUGA map load fired POST /from-map/
+    // TWICE. anugaContainer.componentDidUpdate re-dispatches INIT_ANUGA on
+    // every re-render while !isAnugaProject (the whole from-map →
+    // getProjectV2 → setAnugaProjectData window). The epic's switchMap then
+    // cancelled the first in-flight chain and restarted it — one wasted full
+    // round-trip before the SimpleView menus mount.
+    //
+    // Fix: an "init in flight" guard (state.anuga.projects.initInFlight, set
+    // to the live map id while the chain resolves, cleared on
+    // setAnugaProjectData OR on chain error) gates the epic. The auth filter
+    // is also hoisted ABOVE the from-map POST so anon visitors fire ZERO
+    // POSTs.
+    //
+    // The MapStore testEpic store is reducer-less, so these tests drive the
+    // epic via a live Subject and a mutable state getter that mirrors the
+    // projectsReducer's guard handling (apply SET_ANUGA_INIT_IN_FLIGHT /
+    // SET_ANUGA_PROJECT_DATA back into state as the real reducer would). That
+    // is exactly what lets the gate dedupe across two INIT_ANUGA dispatches.
+    describe('TASK-1637 — initAnugaEpic in-flight dedupe + auth hoist', () => {
+        let mock;
+        beforeEach(() => {
+            mock = mockAxios();
+            __setVisibilityForTests(new Rx.BehaviorSubject(true));
+        });
+        afterEach(() => __setVisibilityForTests(null));
+
+        // Build a mutable store whose getState reflects the guard reducer so
+        // the epic's `initInFlight !== gnresource.id` gate behaves as in prod.
+        const makeGuardStore = (mapId, { authed = true } = {}) => {
+            const state = {
+                gnresource: { id: mapId },
+                security: authed ? { user: { name: 'tester' } } : {},
+                anuga: {
+                    projects: { data: null, initInFlight: false },
+                    scenarios: { archiveFilter: 'none' }
+                }
+            };
+            const applyGuardReducer = (action) => {
+                if (action.type === SET_ANUGA_INIT_IN_FLIGHT) {
+                    state.anuga.projects.initInFlight = action.mapId || false;
+                } else if (action.type === SET_ANUGA_PROJECT_DATA) {
+                    // The real reducer clears the guard AND lands project data.
+                    state.anuga.projects.initInFlight = false;
+                    state.anuga.projects.data = action.data;
+                }
+            };
+            return { getState: () => state, applyGuardReducer, state };
+        };
+
+        const countFromMapPosts = () =>
+            mock.history.post.filter(r => /\/api\/v2\/anuga\/projects\/from-map\//.test(r.url)).length;
+
+        it('dedupes a 2nd INIT_ANUGA while the from-map chain is in flight (single POST)', (done) => {
+            // Hold the from-map response open so the chain stays "in flight"
+            // while we fire the duplicate INIT_ANUGA, then release it.
+            let releaseFromMap;
+            const fromMapGate = new Promise((resolve) => { releaseFromMap = resolve; });
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(() =>
+                fromMapGate.then(() => [200, { projectId: 777 }])
+            );
+            mock.onGet('/api/v2/anuga/projects/777/').reply(200, { id: 777, simple_view_config: {} });
+            mock.onGet(/\/api\/v2\/anuga\/projects\/777\/scenarios\//).reply(200, []);
+            mock.onGet(/\/api\/v2\/anuga\/projects\/777\//).reply(200, []);
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            // First INIT — sets the guard, opens the from-map POST (held).
+            subject.next({ type: INIT_ANUGA });
+            // Re-render storm: a 2nd INIT_ANUGA arrives BEFORE the chain
+            // resolves. The guard (initInFlight === 5486) must drop it.
+            subject.next({ type: INIT_ANUGA });
+
+            // Defer assertions to a macrotask so the held POST has been issued
+            // exactly once and the guard has had a chance to dedupe the 2nd.
+            setTimeout(() => {
+                try {
+                    expect(emitted.filter(a => a.type === SET_ANUGA_INIT_IN_FLIGHT && a.mapId === 5486).length).toBe(1);
+                    expect(countFromMapPosts()).toBe(1);
+                    expect(guard.state.anuga.projects.initInFlight).toBe(5486);
+                    releaseFromMap();
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { releaseFromMap && releaseFromMap(); sub.unsubscribe(); done(e); }
+            }, 0);
+        });
+
+        it('allows a post-completion re-dispatch (2nd INIT after data lands → 2nd POST)', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: 888 });
+            mock.onGet('/api/v2/anuga/projects/888/').reply(200, { id: 888, simple_view_config: {} });
+            mock.onGet(/\/api\/v2\/anuga\/projects\/888\/scenarios\//).reply(200, []);
+            mock.onGet(/\/api\/v2\/anuga\/projects\/888\//).reply(200, []);
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            // First init runs to completion (no gate held).
+            subject.next({ type: INIT_ANUGA });
+            // Let the first chain fully resolve (setAnugaProjectData clears the
+            // guard), then fire a legitimate refresh re-init.
+            setTimeout(() => {
+                expect(guard.state.anuga.projects.initInFlight).toBe(false);
+                const postsAfterFirst = countFromMapPosts();
+                expect(postsAfterFirst).toBe(1);
+                subject.next({ type: INIT_ANUGA });
+                setTimeout(() => {
+                    try {
+                        // The refresh re-init must NOT be deduped — guard is clear.
+                        expect(countFromMapPosts()).toBe(2);
+                        sub.unsubscribe();
+                        done();
+                    } catch (e) { sub.unsubscribe(); done(e); }
+                }, 30);
+            }, 30);
+        });
+
+        it('fires ZERO from-map POSTs for an anonymous (logged-out) visitor', (done) => {
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(200, { projectId: 999 });
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486, { authed: false });
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                try {
+                    // Auth filter hoisted ABOVE the POST → no network call, no
+                    // guard set.
+                    expect(countFromMapPosts()).toBe(0);
+                    expect(emitted.filter(a => a.type === SET_ANUGA_INIT_IN_FLIGHT).length).toBe(0);
+                    sub.unsubscribe();
+                    done();
+                } catch (e) { sub.unsubscribe(); done(e); }
+            }, 0);
+        });
+
+        it('clears the guard on a from-map chain error so future re-inits are not blocked', (done) => {
+            // First from-map POST fails → guard must clear (cleared via the
+            // .catch tail) so a later re-init can run.
+            let calls = 0;
+            mock.onPost('/api/v2/anuga/projects/from-map/').reply(() => {
+                calls += 1;
+                return calls === 1 ? [500, {}] : [200, { projectId: 444 }];
+            });
+            mock.onGet('/api/v2/anuga/projects/444/').reply(200, { id: 444, simple_view_config: {} });
+            mock.onGet(/\/api\/v2\/anuga\/projects\/444\/scenarios\//).reply(200, []);
+            mock.onGet(/\/api\/v2\/anuga\/projects\/444\//).reply(200, []);
+
+            const { subject, action$ } = liveActions();
+            const guard = makeGuardStore(5486);
+            const emitted = [];
+            const sub = initAnugaEpic(action$, guard)
+                .subscribe(
+                    action => { emitted.push(action); guard.applyGuardReducer(action); },
+                    err => done(err)
+                );
+
+            subject.next({ type: INIT_ANUGA });
+            setTimeout(() => {
+                // Error path cleared the guard back to false.
+                expect(guard.state.anuga.projects.initInFlight).toBe(false);
+                expect(countFromMapPosts()).toBe(1);
+                // A subsequent re-init must be allowed through.
+                subject.next({ type: INIT_ANUGA });
+                setTimeout(() => {
+                    try {
+                        expect(countFromMapPosts()).toBe(2);
+                        sub.unsubscribe();
+                        done();
+                    } catch (e) { sub.unsubscribe(); done(e); }
+                }, 30);
+            }, 30);
         });
     });
 
