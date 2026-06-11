@@ -68,6 +68,19 @@ export const getMemberships = (state) =>
 export const getMembershipsLoading = (state) =>
     state?.anuga?.memberships?.loading || false;
 
+// -- Invitation selectors (TASK-860) ---------------------------------------
+
+export const getInvitations = (state) =>
+    state?.anuga?.memberships?.invitations || [];
+
+/**
+ * Returns false when the BE has HYDRATA_PERMISSIONS_INVITE_MODEL=False
+ * (exposed as invitations_enabled on the GET invitations list response).
+ * Defaults true so the form is enabled before the first fetch.
+ */
+export const getInvitationsEnabled = (state) =>
+    state?.anuga?.memberships?.invitations_enabled !== false;
+
 // -- Scenario selectors (normalized byId/allIds, memoized) ------------------
 
 const getScenariosByIdRaw = (state) => state?.anuga?.scenarios?.byId || {};

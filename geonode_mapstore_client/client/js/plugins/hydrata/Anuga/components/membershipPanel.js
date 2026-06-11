@@ -7,10 +7,14 @@ import '../../SimpleView/simpleView.css';
 import {
     setMembershipPanel,
     fetchMemberships,
-    addMembershipRequest,
     updateMembershipRequest,
     deleteMembershipRequest,
-    updateProjectVisibilityRequest
+    updateProjectVisibilityRequest,
+    // TASK-860 — invitation actions
+    fetchInvitations,
+    sendInvitationRequest,
+    revokeInvitationRequest,
+    resendInvitationRequest
 } from "../actionsAnuga";
 import {
     getMemberships,
@@ -19,10 +23,12 @@ import {
     getProjectVisibility,
     getProjectMyRole,
     canEditLayer,
-    canDeleteLayer
+    canDeleteLayer,
+    // TASK-860 — invitation selectors
+    getInvitations,
+    getInvitationsEnabled
 } from "../selectorsAnuga";
 import {trackEvent} from "@js/utils/analytics";
-import * as anugaApi from '../api/anugaApi';
 import Message from '@mapstore/framework/components/I18N/Message';
 
 const ROLES = [
@@ -41,6 +47,8 @@ const VISIBILITY_OPTIONS = [
 class MembershipPanelClass extends React.Component {
     static propTypes = {
         memberships: PropTypes.array,
+        invitations: PropTypes.array,
+        invitationsEnabled: PropTypes.bool,
         loading: PropTypes.bool,
         // V2P-24 — coarse `canManage` replaced with per-row gates derived from
         // each membership row's `perms` (V2P-14 SerializerMethodField). The
@@ -60,20 +68,21 @@ class MembershipPanelClass extends React.Component {
         ownerUsername: PropTypes.string,
         setMembershipPanel: PropTypes.func,
         fetchMemberships: PropTypes.func,
-        addMembershipRequest: PropTypes.func,
+        fetchInvitations: PropTypes.func,
         updateMembershipRequest: PropTypes.func,
         deleteMembershipRequest: PropTypes.func,
-        updateProjectVisibilityRequest: PropTypes.func
+        updateProjectVisibilityRequest: PropTypes.func,
+        sendInvitationRequest: PropTypes.func,
+        revokeInvitationRequest: PropTypes.func,
+        resendInvitationRequest: PropTypes.func
     };
 
     constructor(props) {
         super(props);
         this.state = {
-            searchQuery: '',
-            searchResults: [],
-            selectedUser: null,
-            newRole: 1,
-            searching: false,
+            // TASK-860 — email invite form state (replaces searchQuery/searchResults/selectedUser)
+            inviteEmail: '',
+            inviteRole: 1,
             // TASK-1409 — inline confirm overlays replace window.confirm.
             // removeMemberConfirm: {visible, membershipId, username} or null.
             // visibilityConfirm: {visible, newVisibility} or null.
@@ -84,36 +93,20 @@ class MembershipPanelClass extends React.Component {
 
     componentDidMount() {
         // eslint-disable-next-line react/no-did-mount-set-state -- intentional reset of transient form state on (re)mount
-        this.setState({searchQuery: '', searchResults: [], selectedUser: null, newRole: 1});
+        this.setState({inviteEmail: '', inviteRole: 1});
         this.props.fetchMemberships();
-    }
-
-    searchUsers = () => {
-        const query = this.state.searchQuery.trim();
-        if (query.length < 2) return;
-        this.setState({searching: true});
-        anugaApi.searchUsers(query)
-            .then(response => {
-                const users = response?.data?.users || [];
-                this.setState({searchResults: users, searching: false});
-            })
-            .catch(err => {
-                console.error('searchUsers failed:', err);
-                this.setState({searchResults: [], searching: false});
-            });
-    }
-
-    handleSearchKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            this.searchUsers();
+        if (this.props.canAdd) {
+            this.props.fetchInvitations();
         }
     }
 
-    handleAddMember = () => {
-        if (!this.state.selectedUser) return;
-        this.props.addMembershipRequest(this.state.selectedUser.pk, this.state.newRole);
-        this.setState({selectedUser: null, searchQuery: '', searchResults: [], newRole: 1});
-        trackEvent('button', 'click', 'membership-add-member');
+    // TASK-860 — send invitation by email
+    handleSendInvitation = () => {
+        const email = this.state.inviteEmail.trim();
+        if (!email) return;
+        this.props.sendInvitationRequest(email, this.state.inviteRole);
+        this.setState({inviteEmail: '', inviteRole: 1});
+        trackEvent('button', 'click', 'membership-send-invitation');
     }
 
     handleRoleChange = (membershipId, role) => {
@@ -256,38 +249,39 @@ class MembershipPanelClass extends React.Component {
         );
     }
 
-    renderAddMemberSection() {
-        // V2P-24 — gate on `canAdd` (panel-level — derived in mapStateToProps
-        // from project my_role + any membership row's
-        // `change_resourcebase_permissions` perm) AND not in the
-        // perms-load-failed read-only fallback.
+    // TASK-860 — render the email invite form (replaces hand-rolled autocomplete)
+    renderInviteSection() {
+        // V2P-24 — gate on `canAdd` (panel-level) AND not in perms-load-failed fallback.
         if (!this.props.canAdd || this.props.permsLoadFailed) return null;
+
+        const {invitationsEnabled} = this.props;
+        const formDisabled = !invitationsEnabled;
+
         return (
-            <div className="membership-add-form add-member">
+            <div className="membership-invite-form invite-member">
                 <div className="membership-section-title">
-                    <Message msgId="hydrata.anuga.addMember" />
+                    Invite by email
                 </div>
+                {formDisabled ? (
+                    <div className="alert alert-info membership-invite-disabled">
+                        Invitations are disabled on this site.
+                    </div>
+                ) : null}
                 <div className="membership-add-form-row">
                     <input
-                        type="text"
-                        className="data-title-input membership-search-input"
-                        placeholder="Search users..."
-                        value={this.state.searchQuery}
-                        onChange={(e) => this.setState({searchQuery: e.target.value})}
-                        onKeyDown={this.handleSearchKeyDown}
+                        type="email"
+                        className="data-title-input membership-search-input invite-email-input"
+                        placeholder="Email address"
+                        value={this.state.inviteEmail}
+                        disabled={formDisabled}
+                        onChange={(e) => this.setState({inviteEmail: e.target.value})}
+                        onKeyDown={(e) => { if (e.key === 'Enter') this.handleSendInvitation(); }}
                     />
-                    <Button
-                        bsSize="xsmall"
-                        className="membership-btn-sm"
-                        onClick={this.searchUsers}
-                        disabled={this.state.searching}
-                    >
-                        <span className="glyphicon glyphicon-search" />
-                    </Button>
                     <select
-                        className="scenario-select membership-role-select"
-                        value={this.state.newRole}
-                        onChange={(e) => this.setState({newRole: parseInt(e.target.value, 10)})}
+                        className="scenario-select membership-role-select invite-role-select"
+                        value={this.state.inviteRole}
+                        disabled={formDisabled}
+                        onChange={(e) => this.setState({inviteRole: parseInt(e.target.value, 10)})}
                     >
                         {ROLES.map(r => (
                             <option key={r.value} value={r.value}>{r.label}</option>
@@ -296,31 +290,78 @@ class MembershipPanelClass extends React.Component {
                     <Button
                         bsStyle="success"
                         bsSize="xsmall"
-                        className="membership-btn-sm add-member-submit-btn"
-                        disabled={!this.state.selectedUser}
-                        onClick={this.handleAddMember}
+                        className="membership-btn-sm invite-submit-btn"
+                        disabled={formDisabled || !this.state.inviteEmail.trim()}
+                        onClick={this.handleSendInvitation}
                     >
-                        <Message msgId="hydrata.anuga.addMemberButton" />
+                        Send invite
                     </Button>
                 </div>
-                {this.state.searchResults.length > 0 ? (
-                    <div className="membership-search-results">
-                        {this.state.searchResults.map(user => (
-                            <div
-                                key={user.pk}
-                                className="membership-search-result"
-                                style={this.state.selectedUser?.pk === user.pk
-                                    ? {backgroundColor: 'rgba(51,122,183,0.3)'} : undefined}
-                                onClick={() => this.setState({selectedUser: user, searchQuery: user.username})}
-                            >
-                                {user.username}
-                                {user.first_name || user.last_name
-                                    ? ` (${[user.first_name, user.last_name].filter(Boolean).join(' ')})`
-                                    : ''}
-                            </div>
+            </div>
+        );
+    }
+
+    // TASK-860 — render pending invitations list with revoke/resend controls
+    renderInvitationsSection() {
+        if (!this.props.canAdd || this.props.permsLoadFailed) return null;
+        const {invitations, invitationsEnabled} = this.props;
+        const pendingInvitations = (invitations || []).filter(inv => inv.status === 'pending');
+        if (!pendingInvitations.length) return null;
+
+        return (
+            <div className="membership-invitations-section">
+                <div className="membership-section-title">
+                    Pending invitations
+                </div>
+                <Table className="scenario-table membership-invitations-table">
+                    <thead>
+                        <tr className="scenario-table-header">
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th/>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {pendingInvitations.map(inv => (
+                            <tr key={inv.id} className="membership-invitation-row">
+                                <td>{inv.email}</td>
+                                <td>
+                                    <span className="badge-role badge-viewer">
+                                        {inv.role_label}
+                                    </span>
+                                </td>
+                                <td className="membership-invitation-actions">
+                                    {invitationsEnabled ? (
+                                        <Button
+                                            bsSize="xsmall"
+                                            bsStyle="default"
+                                            className="membership-btn-sm resend-invitation-btn"
+                                            onClick={() => {
+                                                this.props.resendInvitationRequest(inv.id);
+                                                trackEvent('button', 'click', 'membership-resend-invitation');
+                                            }}
+                                            title="Resend invitation"
+                                        >
+                                            <span className="glyphicon glyphicon-repeat" aria-hidden="true" />
+                                        </Button>
+                                    ) : null}
+                                    <Button
+                                        bsStyle="danger"
+                                        bsSize="xsmall"
+                                        className="membership-btn-remove revoke-invitation-btn"
+                                        onClick={() => {
+                                            this.props.revokeInvitationRequest(inv.id);
+                                            trackEvent('button', 'click', 'membership-revoke-invitation');
+                                        }}
+                                        title="Revoke invitation"
+                                    >
+                                        <span className="glyphicon glyphicon-trash" aria-hidden="true" />
+                                    </Button>
+                                </td>
+                            </tr>
                         ))}
-                    </div>
-                ) : null}
+                    </tbody>
+                </Table>
             </div>
         );
     }
@@ -385,7 +426,10 @@ class MembershipPanelClass extends React.Component {
                             {this.props.memberships?.map(m => this.renderMemberRow(m))}
                         </tbody>
                     </Table>
-                    {this.renderAddMemberSection()}
+                    {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
+                    {this.renderInviteSection()}
+                    {/* TASK-860 — pending invitations list */}
+                    {this.renderInvitationsSection()}
                 </div>
             </div>
         );
@@ -420,6 +464,8 @@ const mapStateToProps = (state) => {
     const myRole = getProjectMyRole(state);
     return {
         memberships,
+        invitations: getInvitations(state),
+        invitationsEnabled: getInvitationsEnabled(state),
         loading: getMembershipsLoading(state),
         // V2P-24 — coarse `canManageMembers` gate replaced with per-row gating
         // + a derived panel-level `canAdd` for the Add-member affordance.
@@ -444,10 +490,13 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = (dispatch) => ({
     setMembershipPanel: (visible) => dispatch(setMembershipPanel(visible)),
     fetchMemberships: () => dispatch(fetchMemberships()),
-    addMembershipRequest: (userId, role) => dispatch(addMembershipRequest(userId, role)),
+    fetchInvitations: () => dispatch(fetchInvitations()),
     updateMembershipRequest: (membershipId, role) => dispatch(updateMembershipRequest(membershipId, role)),
     deleteMembershipRequest: (membershipId) => dispatch(deleteMembershipRequest(membershipId)),
-    updateProjectVisibilityRequest: (visibility) => dispatch(updateProjectVisibilityRequest(visibility))
+    updateProjectVisibilityRequest: (visibility) => dispatch(updateProjectVisibilityRequest(visibility)),
+    sendInvitationRequest: (email, role) => dispatch(sendInvitationRequest(email, role)),
+    revokeInvitationRequest: (invitationId) => dispatch(revokeInvitationRequest(invitationId)),
+    resendInvitationRequest: (invitationId) => dispatch(resendInvitationRequest(invitationId))
 });
 
 const MembershipPanel = connect(mapStateToProps, mapDispatchToProps)(MembershipPanelClass);

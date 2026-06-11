@@ -23,6 +23,13 @@ const SET_ANUGA_SCENARIO_IS_LOADED = 'SET_ANUGA_SCENARIO_IS_LOADED';
 const UPDATE_ANUGA_RESOURCES = 'UPDATE_ANUGA_RESOURCES';
 const SET_ANUGA_RESOURCES = 'SET_ANUGA_RESOURCES';
 
+// Invitation actions (TASK-860)
+const FETCH_INVITATIONS = 'ANUGA:FETCH_INVITATIONS';
+const SET_INVITATIONS = 'ANUGA:SET_INVITATIONS';
+const SEND_INVITATION_REQUEST = 'ANUGA:SEND_INVITATION_REQUEST';
+const REVOKE_INVITATION_REQUEST = 'ANUGA:REVOKE_INVITATION_REQUEST';
+const RESEND_INVITATION_REQUEST = 'ANUGA:RESEND_INVITATION_REQUEST';
+
 // Membership actions
 const FETCH_MEMBERSHIPS = 'FETCH_MEMBERSHIPS';
 const SET_MEMBERSHIPS = 'SET_MEMBERSHIPS';
@@ -227,6 +234,31 @@ function setMembershipsLoading(loading) {
 
 function updateProjectVisibilityRequest(visibility) {
     return { type: UPDATE_PROJECT_VISIBILITY_REQUEST, visibility };
+}
+
+// Invitation action creators (TASK-860)
+function fetchInvitations() {
+    return { type: FETCH_INVITATIONS };
+}
+
+/**
+ * payload: { invitations_enabled: bool, results: [...] }
+ * The reducer stores both the flag and the list.
+ */
+function setInvitations(payload) {
+    return { type: SET_INVITATIONS, payload };
+}
+
+function sendInvitationRequest(email, role) {
+    return { type: SEND_INVITATION_REQUEST, email, role };
+}
+
+function revokeInvitationRequest(invitationId) {
+    return { type: REVOKE_INVITATION_REQUEST, invitationId };
+}
+
+function resendInvitationRequest(invitationId) {
+    return { type: RESEND_INVITATION_REQUEST, invitationId };
 }
 
 // V2P-21 action creators
@@ -448,6 +480,12 @@ module.exports = {
     DELETE_MEMBERSHIP_REQUEST, deleteMembershipRequest,
     SET_MEMBERSHIPS_LOADING, setMembershipsLoading,
     UPDATE_PROJECT_VISIBILITY_REQUEST, updateProjectVisibilityRequest,
+    // Invitation actions (TASK-860)
+    FETCH_INVITATIONS, fetchInvitations,
+    SET_INVITATIONS, setInvitations,
+    SEND_INVITATION_REQUEST, sendInvitationRequest,
+    REVOKE_INVITATION_REQUEST, revokeInvitationRequest,
+    RESEND_INVITATION_REQUEST, resendInvitationRequest,
     FETCH_MY_PERMS, fetchMyPerms,
     SET_ANUGA_RESOURCE_PERMS, setAnugaResourcePerms,
     SET_PERMS_LOAD_FAILED, setPermsLoadFailed,

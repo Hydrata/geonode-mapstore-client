@@ -12,6 +12,9 @@ import {
     canEditScenario,
     getMemberships,
     getMembershipsLoading,
+    // TASK-860 — invitation selectors (W3 new coverage)
+    getInvitations,
+    getInvitationsEnabled,
     selectedScenarios,
     getAnugaModels,
     getScenariosArray,
@@ -209,6 +212,61 @@ describe('Anuga Selectors', () => {
 
             it('should return false by default', () => {
                 expect(getMembershipsLoading({})).toBe(false);
+            });
+        });
+
+        // TASK-860 — invitation selectors added in W1 (860)
+        describe('getInvitations', () => {
+            it('returns the invitations array from state', () => {
+                const invitations = [
+                    {id: 1, email: 'a@b.com', status: 'pending', role: 1, role_label: 'Viewer'},
+                    {id: 2, email: 'c@d.com', status: 'accepted', role: 3, role_label: 'Editor'}
+                ];
+                const state = {anuga: {memberships: {invitations}}};
+                const result = getInvitations(state);
+                expect(result.length).toBe(2);
+                expect(result[0].email).toBe('a@b.com');
+                expect(result[1].status).toBe('accepted');
+            });
+
+            it('returns empty array when invitations key is absent', () => {
+                expect(getInvitations({})).toEqual([]);
+                expect(getInvitations({anuga: {}})).toEqual([]);
+                expect(getInvitations({anuga: {memberships: {}}})).toEqual([]);
+            });
+
+            it('returns empty array when memberships slice is null/undefined', () => {
+                expect(getInvitations({anuga: {memberships: null}})).toEqual([]);
+            });
+        });
+
+        describe('getInvitationsEnabled', () => {
+            it('returns true when invitations_enabled is true', () => {
+                const state = {anuga: {memberships: {invitations_enabled: true}}};
+                expect(getInvitationsEnabled(state)).toBe(true);
+            });
+
+            it('returns false when invitations_enabled is explicitly false', () => {
+                const state = {anuga: {memberships: {invitations_enabled: false}}};
+                expect(getInvitationsEnabled(state)).toBe(false);
+            });
+
+            it('defaults to true when invitations_enabled key is absent (pre-fetch)', () => {
+                // Before the first FETCH_INVITATIONS response arrives, the slice
+                // has no invitations_enabled key. The default should be true so
+                // the invite form is enabled optimistically.
+                expect(getInvitationsEnabled({})).toBe(true);
+                expect(getInvitationsEnabled({anuga: {}})).toBe(true);
+                expect(getInvitationsEnabled({anuga: {memberships: {}}})).toBe(true);
+            });
+
+            it('defaults to true when invitations_enabled is null or undefined (not false)', () => {
+                // The contract is: returns false ONLY when === false. null/undefined
+                // must not disable the form.
+                const stateNull = {anuga: {memberships: {invitations_enabled: null}}};
+                const stateUndef = {anuga: {memberships: {invitations_enabled: undefined}}};
+                expect(getInvitationsEnabled(stateNull)).toBe(true);
+                expect(getInvitationsEnabled(stateUndef)).toBe(true);
             });
         });
     });
