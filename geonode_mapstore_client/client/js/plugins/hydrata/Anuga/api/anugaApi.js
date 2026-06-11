@@ -337,6 +337,44 @@ export const deleteMembership = (projectId, membershipId) =>
 export const updateProjectVisibility = (projectId, visibility) =>
     axios.patch(`/api/v2/anuga/projects/${projectId}/`, { visibility });
 
+// -- Invitations (TASK-860 / TASK-855/856) ---------------------------------
+//
+// All endpoints are project-scoped and require MANAGER or OWNER role.
+// send/resend are guarded on the BE by HYDRATA_PERMISSIONS_INVITE_MODEL;
+// the FE reads `invitations_enabled` from the GET list response to gate
+// the invite form (RFC decision d).
+
+/**
+ * GET /api/v2/anuga/projects/{pid}/invitations/
+ * Returns { invitations_enabled: bool, results: [...] } for the FE to read
+ * the flag + list pending/accepted invitations in one request.
+ */
+export const listInvitations = (projectId) =>
+    axios.get(`/api/v2/anuga/projects/${projectId}/invitations/`);
+
+/**
+ * POST /api/v2/anuga/projects/{pid}/invitations/
+ * Body: { email: string, role: int }. Returns 202 regardless of whether
+ * the email is registered (email-enumeration guardrail).
+ */
+export const sendInvitation = (projectId, email, role) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/invitations/`, { email, role });
+
+/**
+ * DELETE /api/v2/anuga/projects/{pid}/invitations/{pk}/
+ * Revokes a pending or accepted invitation. Returns 204.
+ */
+export const revokeInvitation = (projectId, invitationId) =>
+    axios.delete(`/api/v2/anuga/projects/${projectId}/invitations/${invitationId}/`);
+
+/**
+ * POST /api/v2/anuga/projects/{pid}/invitations/{pk}/resend/
+ * Resends the invite email. Returns 202. 5-minute cooldown enforced BE-side.
+ * Guarded by HYDRATA_PERMISSIONS_INVITE_MODEL on the BE.
+ */
+export const resendInvitation = (projectId, invitationId) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/invitations/${invitationId}/resend/`);
+
 // -- Site config (TASK-964) -----------------------------------------------
 
 // GET /api/v2/anuga/config/ — returns {default_compute_backend: 'local'|'ec2'|'batch'}

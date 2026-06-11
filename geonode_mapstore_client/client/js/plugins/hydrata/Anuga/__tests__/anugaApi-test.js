@@ -49,7 +49,9 @@ describe('anugaApi', () => {
             // TASK-964 — site-level config (default compute backend for FE bootstrap)
             'getAnugaConfig',
             // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM ingest
-            'createTerrainFromBbox'
+            'createTerrainFromBbox',
+            // TASK-860 — email-invite API
+            'listInvitations', 'sendInvitation', 'revokeInvitation', 'resendInvitation'
         ];
 
         expectedFunctions.forEach(name => {
@@ -58,13 +60,13 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 49 API functions', () => {
-            // 45 baseline + TASK-955 deleteRainfallV2 + TASK-964 getAnugaConfig
-            // + TASK-930 createTerrainFromBbox + TASK-96 getTerrainBboxStats = 49.
+        it('should export exactly 53 API functions', () => {
+            // 49 baseline + TASK-860 listInvitations + sendInvitation
+            // + revokeInvitation + resendInvitation = 53.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(49);
+            expect(exportedFunctions.length).toBe(53);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {

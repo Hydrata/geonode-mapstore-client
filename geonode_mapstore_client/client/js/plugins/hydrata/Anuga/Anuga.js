@@ -80,7 +80,12 @@ import {
     addMembershipEpic,
     updateMembershipEpic,
     deleteMembershipEpic,
-    updateProjectVisibilityEpic
+    updateProjectVisibilityEpic,
+    // TASK-860 — invitation epics
+    fetchInvitationsEpic,
+    sendInvitationEpic,
+    revokeInvitationEpic,
+    resendInvitationEpic
 } from "./epics/membershipEpics";
 
 export default createPlugin('Anuga', {
@@ -139,6 +144,11 @@ export default createPlugin('Anuga', {
         updateMembershipEpic,
         deleteMembershipEpic,
         updateProjectVisibilityEpic,
+        // TASK-860 — invitation epics
+        fetchInvitationsEpic,
+        sendInvitationEpic,
+        revokeInvitationEpic,
+        resendInvitationEpic,
         triggerFetchMyPermsOnInitEpic,
         fetchMyPermsEpic,
         deleteTerrainEpic,

@@ -203,6 +203,9 @@
         "memberRole": "Rol",
         "memberUser": "Usuario",
         "members": "Miembros",
+        "permsUnavailable": {
+            "message": "No se pudieron cargar los permisos. La lista de miembros es de solo lectura hasta que los permisos esten disponibles."
+        },
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
         "meshWillAppear": "El Mesh aparecerá aquí cuando se construya un escenario.",

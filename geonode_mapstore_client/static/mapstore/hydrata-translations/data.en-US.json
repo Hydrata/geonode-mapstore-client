@@ -203,6 +203,9 @@
         "memberRole": "Role",
         "memberUser": "User",
         "members": "Permissions",
+        "permsUnavailable": {
+            "message": "Permissions could not be loaded. The member list is read-only until permissions are available again."
+        },
         "mesh": "Mesh",
         "meshRegions": "Mesh",
         "meshWillAppear": "Mesh will appear here when a Scenario is built.",
