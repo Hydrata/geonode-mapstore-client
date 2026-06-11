@@ -21,6 +21,8 @@ import {
     setTerrainBboxError,
     createTerrainFromBbox
 } from "../actionsAnuga";
+// TASK-1648: close the Inputs menu when draw starts.
+import { setAnugaInputMenu } from '../actions/uiActions';
 import { changeDrawingStatus } from '../../../../../MapStore2/web/client/actions/draw';
 import { trackEvent } from "@js/utils/analytics";
 import {
@@ -57,8 +59,8 @@ export class TerrainBboxPanelClass extends React.Component {
         setTerrainBboxError: PropTypes.func,
         createTerrainFromBbox: PropTypes.func,
         changeDrawingStatus: PropTypes.func,
-        // TASK-1648: callback to close the Inputs menu when draw starts.
-        onCloseInputsMenu: PropTypes.func,
+        // TASK-1648: dispatch to close the Inputs menu when draw starts.
+        setAnugaInputMenu: PropTypes.func,
     };
 
     constructor(props) {
@@ -68,14 +70,23 @@ export class TerrainBboxPanelClass extends React.Component {
         };
     }
 
+    // TASK-1648: if the panel becomes hidden while draw is active (e.g. navigated
+    // away), ensure draw state is cleaned up so no orphaned draw tool remains.
+    componentDidUpdate(prevProps) {
+        if (prevProps.visible && !this.props.visible && this.props.drawingActive) {
+            this.props.changeDrawingStatus('clean', '', 'terrain-bbox', [], {});
+            this.props.setTerrainBboxDrawing(false);
+        }
+    }
+
     // TASK-1647: 'Define import area' button click. TASK-1648: also closes Inputs menu.
     handleDrawClick = () => {
         this.props.setTerrainBbox(null);
         this.props.setTerrainBboxError(null);
         this.props.setTerrainBboxDrawing(true);
         this.props.changeDrawingStatus('start', 'BBOX', 'terrain-bbox', [], {});
-        // TASK-1648: close Inputs menu to give drawing space.
-        if (this.props.onCloseInputsMenu) this.props.onCloseInputsMenu();
+        // TASK-1648: close Inputs menu to give drawing space; import panel stays open.
+        if (this.props.setAnugaInputMenu) this.props.setAnugaInputMenu(false);
         trackEvent('button', 'click', 'anuga-terrain-bbox-draw-start');
     };
 
@@ -275,7 +286,9 @@ const mapDispatchToProps = (dispatch) => ({
     setTerrainBboxError: (error) => dispatch(setTerrainBboxError(error)),
     createTerrainFromBbox: (title, bbox) => dispatch(createTerrainFromBbox(title, bbox)),
     changeDrawingStatus: (status, method, owner, features, options) =>
-        dispatch(changeDrawingStatus(status, method, owner, features, options))
+        dispatch(changeDrawingStatus(status, method, owner, features, options)),
+    // TASK-1648: close the Inputs menu when 'Define import area' is clicked.
+    setAnugaInputMenu: (visible) => dispatch(setAnugaInputMenu(visible)),
 });
 
 export const TerrainBboxPanel = connect(mapStateToProps, mapDispatchToProps)(TerrainBboxPanelClass);
