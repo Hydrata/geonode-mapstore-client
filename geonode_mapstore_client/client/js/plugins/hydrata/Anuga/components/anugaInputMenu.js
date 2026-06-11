@@ -1095,6 +1095,11 @@ class AnugaInputMenuClass extends React.Component {
                     <AnugaInputStarterCard
                         phase={this.props.starterPhase}
                         onUploadTerrain={() => this.props.setVisibleUploaderPanel(true, "terrain", null)}
+                        onImportFromWeb={() => {
+                            // TASK-1646: open GLO-30 import panel directly.
+                            this.props.setVisibleTerrainBboxPanel(true);
+                            trackEvent('button', 'click', 'anuga-starter-import-from-web-click');
+                        }}
                     />
                 }
                 <div className={'menu-rows-container'}>

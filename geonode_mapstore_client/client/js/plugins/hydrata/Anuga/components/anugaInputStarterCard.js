@@ -41,11 +41,16 @@ const renderMarker = (marker) => {
     return marker;
 };
 
-const AnugaInputStarterCard = ({phase, onUploadTerrain}) => {
+// TASK-1646 (W1.5): add onImportFromWeb prop for the 'Import from web' CTA.
+const AnugaInputStarterCard = ({phase, onUploadTerrain, onImportFromWeb}) => {
     const cfg = PHASE_CONFIG[phase];
     const handleUpload = () => {
         trackEvent("button", "click", "anuga-input-starter-upload-terrain");
         onUploadTerrain();
+    };
+    const handleImport = () => {
+        trackEvent("button", "click", "anuga-input-starter-import-from-web");
+        if (onImportFromWeb) onImportFromWeb();
     };
 
     return (
@@ -73,6 +78,21 @@ const AnugaInputStarterCard = ({phase, onUploadTerrain}) => {
                     </div>
                     {cfg.showStep1Cta ?
                         <div className={"anuga-starter-step-cta"}>
+                            {/* TASK-1646: 'Import from web' left of 'Upload Terrain' */}
+                            <button
+                                type="button"
+                                className={"btn btn-success btn-sm"}
+                                onClick={handleImport}
+                                data-testid="anuga-starter-import-from-web"
+                                style={{marginRight: 8}}
+                            >
+                                <span
+                                    className={"glyphicon glyphicon-globe"}
+                                    style={{marginRight: 6}}
+                                    aria-hidden="true"
+                                />
+                                Import from web
+                            </button>
                             <button
                                 type="button"
                                 className={"btn btn-success btn-sm"}
@@ -126,7 +146,8 @@ const AnugaInputStarterCard = ({phase, onUploadTerrain}) => {
 
 AnugaInputStarterCard.propTypes = {
     phase: PropTypes.oneOf(Object.keys(PHASE_CONFIG)),
-    onUploadTerrain: PropTypes.func
+    onUploadTerrain: PropTypes.func,
+    onImportFromWeb: PropTypes.func  // TASK-1646
 };
 
 AnugaInputStarterCard.defaultProps = {
