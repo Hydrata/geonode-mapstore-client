@@ -57,6 +57,24 @@ jobs:
         run: npm run lint
         working-directory: ${{ env.working-directory }}
 
+  css-namespace-guard:
+    name: CSS namespace guard
+    # Independent of ESLint — required even while ESLint is being greened.
+    # Runs in ~1s (pure Node, no npm install needed — uses only built-ins).
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checking out"
+        uses: actions/checkout@v4
+
+      - name: "Setting up Node"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: "Run CSS namespace guard"
+        run: node js/plugins/hydrata/SimpleView/css-namespace-guard.js
+        working-directory: ./geonode_mapstore_client/client
+
   test:
     name: Karma unit tests
     runs-on: ubuntu-latest

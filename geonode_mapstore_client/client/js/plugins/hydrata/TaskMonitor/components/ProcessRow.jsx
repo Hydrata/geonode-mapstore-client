@@ -1,6 +1,14 @@
+/**
+ * ProcessRow — TASK-1665 dark-glass migration.
+ * Migrated: tm-* classes → sv-tm-* classes (styled in simpleView.css).
+ * StatusBadge primitive replaces hand-rolled tm-badge-* spans.
+ * Behaviour and DOM structure unchanged.
+ */
+
 import React from 'react';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
+import {StatusBadge, ProgressBar} from '../../SimpleView/components/primitives';
 
 const typeIcons = {
     anuga_run: 'glyphicon-flash',
@@ -13,18 +21,17 @@ const typeIcons = {
     comparison: 'glyphicon-transfer'
 };
 
-const statusBadgeClass = (status) => {
+// Map TaskMonitor process status → StatusBadge status
+const toBadgeStatus = (status) => {
     switch (status) {
-    case 'running': return 'tm-badge tm-badge-running';
-    case 'pending': return 'tm-badge tm-badge-pending';
-    case 'complete': return 'tm-badge tm-badge-complete';
-    case 'error': return 'tm-badge tm-badge-error';
-    case 'cancelled': return 'tm-badge tm-badge-cancelled';
-    default: return 'tm-badge';
+    case 'running':   return 'running';
+    case 'pending':   return 'pending';
+    case 'complete':  return 'complete';
+    case 'error':     return 'error';
+    case 'cancelled': return 'cancelled';
+    default:          return 'pending';
     }
 };
-
-const statusMsgId = (status) => `hydrata.taskMonitor.status${status.charAt(0).toUpperCase() + status.slice(1)}`;
 
 // 'processing' renders as "Processing Results" so users see the post-evolve
 // phase explicitly. Unknown details fall through to a capitalized token.
@@ -52,26 +59,26 @@ class ProcessRow extends React.Component {
 
         return (
             <div
-                className={`tm-process-row ${expanded ? 'tm-expanded' : ''}`}
+                className={`sv-tm-process-row${expanded ? ' sv-tm-expanded' : ''}`}
                 onClick={() => this.props.onClick(process.id)}
             >
-                <span className={`glyphicon ${icon} tm-type-icon`} />
-                <div className="tm-row-content">
-                    <div className="tm-row-header">
-                        <span className="tm-process-name">{process.name}</span>
-                        <span className={statusBadgeClass(process.status)}>
-                            {detailAsBadge
+                <span className={`glyphicon ${icon} sv-tm-type-icon`} />
+                <div className="sv-tm-row-content">
+                    <div className="sv-tm-row-header">
+                        <span className="sv-tm-process-name">{process.name}</span>
+                        <StatusBadge
+                            status={toBadgeStatus(process.status)}
+                            label={detailAsBadge
                                 ? formatStatusDetail(process.status_detail)
-                                : <Message msgId={statusMsgId(process.status)} />}
-                        </span>
+                                : undefined}
+                            compact
+                        />
                     </div>
                     {!detailAsBadge && process.status_detail ? (
-                        <span className="tm-status-detail">{formatStatusDetail(process.status_detail)}</span>
+                        <span className="sv-tm-status-detail">{formatStatusDetail(process.status_detail)}</span>
                     ) : null}
                     {showProgress ? (
-                        <div className="tm-progress-bar-container">
-                            <div className="tm-progress-bar" style={{width: `${process.progress_pct}%`}} />
-                        </div>
+                        <ProgressBar pct={process.progress_pct} />
                     ) : null}
                 </div>
             </div>

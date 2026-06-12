@@ -1,3 +1,9 @@
+/**
+ * FilterBar — TASK-1665 dark-glass migration.
+ * Migrated: .tm-filter-bar → .sv-tm-filter-bar (styled in simpleView.css).
+ * Behaviour unchanged: 4 filter tabs (active/completed/failed/all).
+ */
+
 import React from 'react';
 import {ButtonGroup, Button} from 'react-bootstrap';
 const PropTypes = require('prop-types');
@@ -18,7 +24,7 @@ class FilterBar extends React.Component {
 
     render() {
         return (
-            <ButtonGroup className="tm-filter-bar">
+            <ButtonGroup className="sv-tm-filter-bar">
                 {filters.map(f => (
                     <Button
                         key={f.key}

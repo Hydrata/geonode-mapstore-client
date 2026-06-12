@@ -346,7 +346,7 @@ describe('TASK-1451 W4 — design-storm combine', () => {
                 payload: [{id: 9, name: 'Legacy', pattern_type: 'preset'}]
             });
             const tp = state.temporalPatterns[0];
-            expect(tp.pattern_key == null).toBe(true);
+            expect(tp.pattern_key === null || tp.pattern_key === undefined).toBe(true);
             expect(tp.selectedPreset).toBe(ALTERNATING_BLOCK);
         });
     });

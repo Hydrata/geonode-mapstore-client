@@ -1,31 +1,20 @@
+/**
+ * ProcessLogViewer — TASK-1665 dark-glass migration.
+ * Delegates to the LogViewer primitive (sv-log-viewer CSS in simpleView.css).
+ * Behaviour unchanged: auto-scroll on log change.
+ */
+
 import React from 'react';
 const PropTypes = require('prop-types');
+import {LogViewer} from '../../SimpleView/components/primitives';
 
 class ProcessLogViewer extends React.Component {
     static propTypes = {
         log: PropTypes.string
     };
 
-    constructor(props) {
-        super(props);
-        this.logRef = React.createRef();
-    }
-
-    componentDidUpdate(prevProps) {
-        if (prevProps.log !== this.props.log && this.logRef.current) {
-            this.logRef.current.scrollTop = this.logRef.current.scrollHeight;
-        }
-    }
-
     render() {
-        return (
-            <pre
-                ref={this.logRef}
-                className="tm-log-viewer"
-            >
-                {this.props.log || '(no log output)'}
-            </pre>
-        );
+        return <LogViewer log={this.props.log} />;
     }
 }
 

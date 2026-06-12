@@ -368,7 +368,7 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
                     selectedRPs={[]}
                     onDurationsChange={() => {}}
                     onRPsChange={() => {}}
-                    showHours={true}
+                    showHours
                 />,
                 matrixContainer
             );

@@ -1,3 +1,9 @@
+/**
+ * ProcessDetail — TASK-1665 dark-glass migration.
+ * Migrated: tm-* classes → sv-tm-* classes (styled in simpleView.css).
+ * Behaviour and DOM structure unchanged.
+ */
+
 import React from 'react';
 import {Button} from 'react-bootstrap';
 const PropTypes = require('prop-types');
@@ -7,7 +13,7 @@ import ProcessLogViewer from './ProcessLogViewer';
 const statusIcon = (status) => {
     switch (status) {
     case 'complete': return 'glyphicon glyphicon-ok text-success';
-    case 'running': return 'glyphicon glyphicon-refresh tm-spin';
+    case 'running': return 'glyphicon glyphicon-refresh sv-tm-spin';
     case 'error': return 'glyphicon glyphicon-exclamation-sign text-danger';
     case 'pending': return 'glyphicon glyphicon-time text-muted';
     default: return 'glyphicon glyphicon-time text-muted';
@@ -30,20 +36,20 @@ class ProcessDetail extends React.Component {
         const isCancellable = process.status === 'pending' || process.status === 'running';
 
         return (
-            <div className="tm-process-detail">
+            <div className="sv-tm-process-detail">
                 {subtasks.length > 0 ? (
-                    <div className="tm-subtask-list">
+                    <div className="sv-tm-subtask-list">
                         {subtasks.map((st, i) => (
-                            <div key={i} className="tm-subtask-row">
+                            <div key={i} className="sv-tm-subtask-row">
                                 <span className={statusIcon(st.status)} />
-                                <span className="tm-subtask-name">{st.name}</span>
+                                <span className="sv-tm-subtask-name">{st.name}</span>
                             </div>
                         ))}
                     </div>
                 ) : null}
 
                 {process.error_message ? (
-                    <div className="tm-error-message">{process.error_message}</div>
+                    <div className="sv-tm-error-message">{process.error_message}</div>
                 ) : null}
 
                 {/* TASK-1651 (W1.5): terrain export "Ready – Download" affordance.
@@ -55,7 +61,7 @@ class ProcessDetail extends React.Component {
                     && process.status === 'complete'
                     && process.metadata?.download_url
                     ? (
-                        <div className="tm-detail-actions">
+                        <div className="sv-tm-detail-actions">
                             <a
                                 href={process.metadata.download_url}
                                 download={process.metadata.filename || 'terrain.tif'}
@@ -67,7 +73,8 @@ class ProcessDetail extends React.Component {
                             </a>
                         </div>
                     ) : null}
-                <div className="tm-detail-actions">
+                <div className="sv-tm-detail-actions">
+
                     <Button bsSize="xsmall" bsStyle="default"
                         onClick={() => this.props.onToggleLog(!showLog)}>
                         <Message msgId="hydrata.taskMonitor.log" />

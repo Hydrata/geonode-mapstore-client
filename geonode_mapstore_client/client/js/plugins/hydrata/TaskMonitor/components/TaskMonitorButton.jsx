@@ -19,7 +19,7 @@ class TaskMonitorButton extends React.Component {
             >
                 <Glyphicon glyph="tasks" />
                 {activeCount > 0 && !panelOpen ? (
-                    <span className="tm-notification-dot" />
+                    <span className="sv-tm-notification-dot" />
                 ) : null}
             </button>
         );
