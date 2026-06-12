@@ -117,7 +117,11 @@
     top: var(--sv-panel-top, 65px);
     left: 20px;
     min-width: 500px;
-    max-height: calc(100vh - 80px);
+    /* The panel's rendered top = --sv-panel-top + the ~48px navbar above the
+       offset parent; the map footer is ~34px. The old calc(100vh - 80px)
+       ignored both, clipping the panel bottom under the footer
+       (UAT 2026-06-12 finding #6). 110px = navbar 48 + footer 34 + gap. */
+    max-height: calc(100vh - var(--sv-panel-top, 65px) - 110px);
     background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
     /* Blur the map showing through the glass so text contrast stays stable
        over busy terrain (UAT 2026-06-12 finding #2). */

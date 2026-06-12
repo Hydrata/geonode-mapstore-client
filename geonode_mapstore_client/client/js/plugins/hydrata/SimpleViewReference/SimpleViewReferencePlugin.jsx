@@ -30,7 +30,10 @@ const PANEL_STYLE = {
     top: 65,
     left: 105,
     width: 400,
-    maxHeight: 'calc(100vh - 80px)',
+    /* navbar 48 + footer 34 + gap = 110; keep in sync with .simple-view-panel.
+       The old 80px ignored the footer, clipping the panel bottom under it —
+       and being inline, it beat the stylesheet fix (UAT 2026-06-12 finding #6). */
+    maxHeight: 'calc(100vh - var(--sv-panel-top, 65px) - 110px)',
     overflowY: 'auto',
     zIndex: 1030,
     display: 'flex',
