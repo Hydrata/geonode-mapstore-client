@@ -1,10 +1,11 @@
 /**
  * TASK-1599 / TASK-1600 (W1) — TerrainWorkbench actions.
+ * TASK-1671 (W1.6) — Single DEM priority stack, atomic save-on-derive.
  *
  * Section UI (shell — TASK-1599):
  *   SET_SECTION, SET_VISIBLE
  *
- * Recipe lifecycle (TASK-1600):
+ * Recipe lifecycle (TASK-1600 + TASK-1671):
  *   TW_LOAD_DATA               — fetch terrain list + surface list on open
  *   TW_LOAD_DATA_SUCCESS       — store terrains + surfaces
  *   TW_LOAD_DATA_ERROR         — surface fetch failure
@@ -20,11 +21,7 @@
  *   TW_DELETE_SURFACE_SUCCESS  — remove from list
  *   TW_DELETE_SURFACE_ERROR
  *
- *   TW_SET_DESIGN_INPUTS       — POST /design-inputs/ on selected surface
- *   TW_SET_DESIGN_INPUTS_SUCCESS
- *   TW_SET_DESIGN_INPUTS_ERROR
- *
- *   TW_DERIVE                  — POST /derive/ and store process_id
+ *   TW_DERIVE                  — POST /derive/ (atomic: inputs + params in body)
  *   TW_DERIVE_SUCCESS          — store process_id, flip deriving=true
  *   TW_DERIVE_ERROR            — surface derive error
  *   TW_DERIVE_COMPLETE         — TaskMonitor flipped to complete; fetch updated surface
@@ -106,7 +103,7 @@ export function twSetDesignInputsSuccess(surface) {
 }
 export function twSetDesignInputsError(error) { return { type: TW_SET_DESIGN_INPUTS_ERROR, error }; }
 
-// ── Derive ─────────────────────────────────────────────────────────────────
+// ── Derive (TASK-1671: atomic — inputs + params in body) ───────────────────
 
 export const TW_DERIVE = 'TW_DERIVE';
 export const TW_DERIVE_SUCCESS = 'TW_DERIVE_SUCCESS';
@@ -114,7 +111,9 @@ export const TW_DERIVE_ERROR = 'TW_DERIVE_ERROR';
 export const TW_DERIVE_COMPLETE = 'TW_DERIVE_COMPLETE';
 export const TW_DERIVE_COMPLETE_ERROR = 'TW_DERIVE_COMPLETE_ERROR';
 
-export function twDerive(surfaceId) { return { type: TW_DERIVE, surfaceId }; }
+// TASK-1671: twDerive now carries the full derive body (inputs + params).
+// surfaceId is kept for process polling; body is forwarded to the API.
+export function twDerive(surfaceId, body) { return { type: TW_DERIVE, surfaceId, body }; }
 export function twDeriveSuccess(surfaceId, processId) {
     return { type: TW_DERIVE_SUCCESS, surfaceId, processId };
 }

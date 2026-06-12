@@ -33,14 +33,13 @@ import {
     stopAnugaModelCreationPolling,
     setVisibleTerrainBboxPanel
 } from "../actionsAnuga";
-// TASK-1645 (W1.5) — recipe builder actions re-homed from TerrainWorkbench plugin.
+// TASK-1645 (W1.5) / TASK-1671 (W1.6) — recipe builder actions.
 import {
     twLoadData,
     twSelectSurface,
     twCreateSurface,
     twUpdateSurface,
     twDeleteSurface,
-    twSetDesignInputs,
     twDerive,
 } from '../../TerrainWorkbench/actionsTerrainWorkbench';
 // TASK-1440 (W9): Networks action creators removed from this file — the Networks
@@ -69,7 +68,7 @@ import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils"
 // W6 (TASK-1422): MapStore2 utility for computing extent from a GeoJSON object.
 import CoordinatesUtils from "../../../../../MapStore2/web/client/utils/CoordinatesUtils";
 
-// ── TASK-1645 (W1.5): AnalysisSurface recipe builder — re-homed from TerrainWorkbench ──
+// ── TASK-1645 (W1.5) / TASK-1671 (W1.6): AnalysisSurface recipe builder ────
 
 // S1 param defaults.
 const TW_PARAM_DEFAULTS = {
@@ -78,6 +77,70 @@ const TW_PARAM_DEFAULTS = {
     breach_max_cost: 20,
     breach_search_dist: 100,
 };
+
+// ── TASK-1671: Client-side output-size estimator ───────────────────────────
+//
+// Uses the terrain's `bbox_wgs84` [west, south, east, north] (EPSG:4326) and
+// `native_resolution_m` (metres) to compute a conservative upper-bound on the
+// output pixel count, then converts to bytes (float32 = 4 bytes/pixel).
+//
+// Union bbox = min/max of all selected terrain bboxes.
+// Resolution = target_resolution_m if the user provided it, else finest
+//              native_resolution_m among the selected terrains.
+//
+// lat_m  ≈ 111 320 m/°  (standard constant)
+// lon_m  ≈ 111 320 · cos(mean_lat) m/°
+//
+// Returns { estimatedGB, tooLarge } where tooLarge = estimatedGB > 10.
+// Returns null if not enough metadata is available to estimate.
+const MAX_OUTPUT_GB = 10;
+
+function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
+    if (!selectedInputs || selectedInputs.length === 0) return null;
+    // Collect bbox + resolution for each selected terrain.
+    let unionWest = null;
+    let unionSouth = null;
+    let unionEast = null;
+    let unionNorth = null;
+    let finestResM = null;
+
+    for (const inp of selectedInputs) {
+        const t = terrains.find(x => x.id === inp.terrain_id);
+        if (!t) continue;
+        const bbox = t.bbox_wgs84;
+        const resM = t.native_resolution_m;
+        if (bbox && Array.isArray(bbox) && bbox.length === 4) {
+            const [w, s, e, n] = bbox;
+            if (unionWest === null || w < unionWest) unionWest = w;
+            if (unionSouth === null || s < unionSouth) unionSouth = s;
+            if (unionEast === null || e > unionEast) unionEast = e;
+            if (unionNorth === null || n > unionNorth) unionNorth = n;
+        }
+        if (typeof resM === 'number' && resM > 0) {
+            if (finestResM === null || resM < finestResM) finestResM = resM;
+        }
+    }
+
+    if (unionWest === null || finestResM === null) return null;
+
+    const effectiveResM = (typeof targetResolutionM === 'number' && targetResolutionM > 0)
+        ? targetResolutionM
+        : finestResM;
+
+    const meanLat = (unionSouth + unionNorth) / 2;
+    const latMPerDeg = 111320;
+    const lonMPerDeg = 111320 * Math.cos(meanLat * Math.PI / 180);
+
+    const widthM = Math.abs(unionEast - unionWest) * lonMPerDeg;
+    const heightM = Math.abs(unionNorth - unionSouth) * latMPerDeg;
+    const areaM2 = widthM * heightM;
+
+    const pixels = areaM2 / (effectiveResM * effectiveResM);
+    const bytes = pixels * 4; // float32
+    const estimatedGB = bytes / (1024 ** 3);
+
+    return { estimatedGB, tooLarge: estimatedGB > MAX_OUTPUT_GB };
+}
 
 function TWStaleBadge({ isStale }) {
     if (!isStale) return null;
@@ -106,49 +169,152 @@ function TWSeamQAPanel({ enforcementLog }) {
 TWSeamQAPanel.propTypes = { enforcementLog: PropTypes.object };
 TWSeamQAPanel.defaultProps = { enforcementLog: null };
 
-function TWDesignInputPicker({ terrains, designInputs, onChange, disabled }) {
+// TASK-1671: Single ordered DEM stack (replaces design DEMs + regional terrain).
+// Stack order: index 0 = top = highest priority (priority value 0).
+// Base = last item (highest priority number) — its unmodified toggle is LOCKED false.
+// Default-seamless init: only the TOP entry is unmodified=true, all others false.
+function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
     const addTerrain = (terrainId) => {
         const id = parseInt(terrainId, 10);
-        if (!id || designInputs.find(d => d.terrain_id === id)) return;
-        onChange([...designInputs, { terrain_id: id, priority: designInputs.length }]);
+        if (!id || inputs.find(d => d.terrain_id === id)) return;
+        const newInputs = [...inputs, { terrain_id: id, priority: inputs.length, unmodified: false }];
+        // Re-apply default-seamless when adding: top = unmodified, rest = false.
+        const reindexed = newInputs.map((d, i) => ({ ...d, priority: i, unmodified: i === 0 }));
+        onChange(reindexed);
     };
     const remove = (idx) => {
-        onChange(designInputs.filter((_, i) => i !== idx).map((d, i) => ({ ...d, priority: i })));
+        const next = inputs.filter((_, i) => i !== idx).map((d, i) => ({ ...d, priority: i }));
+        onChange(next);
     };
     const moveUp = (idx) => {
         if (idx === 0) return;
-        const next = [...designInputs];
+        const next = [...inputs];
         [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
         onChange(next.map((d, i) => ({ ...d, priority: i })));
     };
-    const available = terrains.filter(t => !designInputs.find(d => d.terrain_id === t.id));
+    const toggleUnmodified = (idx) => {
+        // Base row (last) is locked modifiable — cannot be toggled.
+        if (idx === inputs.length - 1) return;
+        const next = inputs.map((d, i) =>
+            i === idx ? { ...d, unmodified: !d.unmodified } : d
+        );
+        onChange(next);
+    };
+    const available = terrains.filter(t => !inputs.find(d => d.terrain_id === t.id));
+    const baseIdx = inputs.length - 1;
     return (
         <div className="tw-design-inputs">
-            <label className="tw-label">Design DEMs <span className="tw-label-sub">(ordered by priority)</span></label>
-            {designInputs.map((di, idx) => {
-                const t = terrains.find(x => x.id === di.terrain_id);
+            <label className="tw-label">
+                DEM Stack <span className="tw-label-sub">(top = highest priority, bottom = base)</span>
+            </label>
+            {inputs.map((inp, idx) => {
+                const t = terrains.find(x => x.id === inp.terrain_id);
+                const isBase = idx === baseIdx;
+                const isTop = idx === 0;
                 return (
-                    <div key={di.terrain_id} className="tw-design-input-row">
-                        <span className="tw-priority-badge">{idx + 1}</span>
-                        <span className="tw-input-title">{t ? (t.title || t.name) : `Terrain #${di.terrain_id}`}</span>
+                    <div key={inp.terrain_id} className="tw-design-input-row" data-testid={`dem-stack-row-${inp.terrain_id}`}>
+                        <span className="tw-priority-badge" title={isTop ? 'Highest priority' : isBase ? 'Base' : `Priority ${idx + 1}`}>
+                            {isBase ? 'B' : idx + 1}
+                        </span>
+                        <span className="tw-input-title">{t ? (t.title || t.name) : `Terrain #${inp.terrain_id}`}</span>
+                        <OverlayTrigger
+                            placement="top"
+                            overlay={
+                                <Tooltip>
+                                    {isBase
+                                        ? 'Base is always modifiable (anchors datum reconciliation)'
+                                        : inp.unmodified ? 'Unmodified (seamless pass-through)' : 'Modifiable (hydro-enforced)'}
+                                </Tooltip>
+                            }
+                        >
+                            <button
+                                type="button"
+                                className={`tw-icon-btn tw-unmodified-toggle${inp.unmodified ? ' tw-unmodified-on' : ''}`}
+                                onClick={() => toggleUnmodified(idx)}
+                                disabled={disabled || isBase}
+                                title={isBase ? 'Locked modifiable' : 'Toggle unmodified'}
+                                aria-label={`Unmodified: ${inp.unmodified ? 'on' : 'off'}`}
+                                aria-pressed={inp.unmodified}
+                                data-testid={`unmodified-toggle-${inp.terrain_id}`}
+                            >
+                                {inp.unmodified ? '⊙' : '○'}
+                            </button>
+                        </OverlayTrigger>
                         <button type="button" className="tw-icon-btn" onClick={() => moveUp(idx)} disabled={disabled || idx === 0} title="Move up">↑</button>
                         <button type="button" className="tw-icon-btn tw-icon-btn-danger" onClick={() => remove(idx)} disabled={disabled} title="Remove">×</button>
                     </div>
                 );
             })}
             {available.length > 0 && (
-                <select className="tw-select" value="" onChange={(e) => addTerrain(e.target.value)} disabled={disabled}>
-                    <option value="">+ Add design DEM…</option>
+                <select className="tw-select" value="" onChange={(e) => addTerrain(e.target.value)} disabled={disabled} data-testid="dem-stack-add-select">
+                    <option value="">+ Add DEM to stack…</option>
                     {available.map(t => <option key={t.id} value={t.id}>{t.title || t.name}</option>)}
                 </select>
             )}
-            {designInputs.length === 0 && <div className="tw-validation-hint">At least one design DEM is required.</div>}
+            {inputs.length === 0 && <div className="tw-validation-hint">At least one DEM is required.</div>}
+            {inputs.length > 0 && inputs.every(d => !d.unmodified) === false && inputs.every(d => d.unmodified) && (
+                <div className="tw-validation-hint">At least one DEM must be modifiable (not unmodified).</div>
+            )}
         </div>
     );
 }
-TWDesignInputPicker.propTypes = { terrains: PropTypes.array.isRequired, designInputs: PropTypes.array.isRequired, onChange: PropTypes.func.isRequired, disabled: PropTypes.bool };
-TWDesignInputPicker.defaultProps = { disabled: false };
+TWDemStackPicker.propTypes = { terrains: PropTypes.array.isRequired, inputs: PropTypes.array.isRequired, onChange: PropTypes.func.isRequired, disabled: PropTypes.bool };
+TWDemStackPicker.defaultProps = { disabled: false };
 
+// TASK-1671: Size-confirm dialog shown before derive.
+// sizeEstimate = { estimatedGB, tooLarge } | null
+function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
+    const tooLarge = sizeEstimate && sizeEstimate.tooLarge;
+    const gbStr = sizeEstimate
+        ? sizeEstimate.estimatedGB < 1
+            ? `~${(sizeEstimate.estimatedGB * 1024).toFixed(0)} MB`
+            : `~${sizeEstimate.estimatedGB.toFixed(1)} GB`
+        : null;
+    return (
+        <div className="tw-derive-confirm-overlay" data-testid="derive-confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirm derive">
+            <div className="tw-derive-confirm-box">
+                {tooLarge ? (
+                    <React.Fragment>
+                        <div className="tw-derive-confirm-title tw-derive-confirm-title--error">
+                            Cannot derive — estimated output too large
+                        </div>
+                        <div className="tw-derive-confirm-body">
+                            Estimated output size {gbStr} exceeds the 10 GB limit.
+                            Reduce the DEM stack extent or increase Target resolution (m).
+                        </div>
+                        <div className="tw-derive-confirm-actions">
+                            <button type="button" className="tw-save-btn" onClick={onCancel} data-testid="derive-confirm-cancel">Close</button>
+                        </div>
+                    </React.Fragment>
+                ) : (
+                    <React.Fragment>
+                        <div className="tw-derive-confirm-title">Confirm derive</div>
+                        <div className="tw-derive-confirm-body">
+                            {gbStr
+                                ? <React.Fragment>Estimated output size: <strong>{gbStr}</strong>. Proceed?</React.Fragment>
+                                : 'Proceed with derive?'}
+                        </div>
+                        <div className="tw-derive-confirm-actions">
+                            <Button bsStyle="primary" bsSize="small" className="tw-derive-btn" onClick={onConfirm} data-testid="derive-confirm-ok">
+                                Derive
+                            </Button>
+                            <button type="button" className="tw-save-btn" onClick={onCancel} data-testid="derive-confirm-cancel">Cancel</button>
+                        </div>
+                    </React.Fragment>
+                )}
+            </div>
+        </div>
+    );
+}
+TWDeriveConfirmDialog.propTypes = {
+    sizeEstimate: PropTypes.shape({ estimatedGB: PropTypes.number, tooLarge: PropTypes.bool }),
+    onConfirm: PropTypes.func.isRequired,
+    onCancel: PropTypes.func.isRequired,
+};
+TWDeriveConfirmDialog.defaultProps = { sizeEstimate: null };
+
+// TASK-1671: Recipe builder — single DEM stack, no Save buttons, atomic derive,
+// size-confirm dialog. Save buttons REMOVED per AC#2.
 class TWRecipeBuilder extends React.Component {
     static propTypes = {
         surface: PropTypes.object.isRequired,
@@ -158,84 +324,124 @@ class TWRecipeBuilder extends React.Component {
         saving: PropTypes.bool,
         saveError: PropTypes.string,
         onUpdate: PropTypes.func.isRequired,
-        onSetDesignInputs: PropTypes.func.isRequired,
         onDerive: PropTypes.func.isRequired,
     };
     static defaultProps = { deriving: false, deriveError: null, saving: false, saveError: null };
 
+    // Build default-seamless inputs from the new BE shape `inputs_ordered`.
+    // inputs_ordered = [{id, terrain, priority, unmodified}]
+    // FE internal shape: [{terrain_id, priority, unmodified}]
+    static _inputsFromSurface(surface) {
+        const ordered = surface.inputs_ordered || [];
+        return ordered.map(d => ({
+            terrain_id: d.terrain,
+            priority: d.priority,
+            unmodified: !!d.unmodified,
+        }));
+    }
+
     constructor(props) {
         super(props);
         const s = props.surface;
-        // NOTE: the recipe title is no longer edited here — it is renamed inline
-        // in the surface list (TWSurfaceListItem). The builder only owns the
-        // design inputs + parameters, so it never sends `title` on save.
         this.state = {
-            regional_terrain: s.regional_terrain || '',
             use_culverts: !!s.use_culverts,
             feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
             target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
             breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
             breach_search_dist: s.breach_search_dist ?? TW_PARAM_DEFAULTS.breach_search_dist,
-            designInputs: (s.design_inputs_ordered || []).map(d => ({ terrain_id: d.terrain, priority: d.priority })),
+            // TASK-1671: single ordered DEM stack (replaces designInputs + regional_terrain)
+            inputs: TWRecipeBuilder._inputsFromSurface(s),
+            // Confirm dialog state
+            confirmOpen: false,
+            sizeEstimate: null, // { estimatedGB, tooLarge } | null
         };
     }
 
     componentDidUpdate(prevProps) {
+        // Re-sync when switching surface or when the server updates inputs_ordered.
         if (prevProps.surface.id !== this.props.surface.id) {
             const s = this.props.surface;
             this.setState({
-                regional_terrain: s.regional_terrain || '', use_culverts: !!s.use_culverts,
+                use_culverts: !!s.use_culverts,
                 feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
                 target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
                 breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
                 breach_search_dist: s.breach_search_dist ?? TW_PARAM_DEFAULTS.breach_search_dist,
-                designInputs: (s.design_inputs_ordered || []).map(d => ({ terrain_id: d.terrain, priority: d.priority })),
+                inputs: TWRecipeBuilder._inputsFromSurface(s),
+                confirmOpen: false,
+                sizeEstimate: null,
             });
-        }
-        if (prevProps.surface.design_inputs_ordered !== this.props.surface.design_inputs_ordered) {
-            this.setState({ designInputs: (this.props.surface.design_inputs_ordered || []).map(d => ({ terrain_id: d.terrain, priority: d.priority })) });
+        } else if (prevProps.surface.inputs_ordered !== this.props.surface.inputs_ordered) {
+            this.setState({ inputs: TWRecipeBuilder._inputsFromSurface(this.props.surface) });
         }
     }
 
     handleParam = (key, val) => this.setState({ [key]: val });
 
-    handleSaveParams = () => {
-        const { regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
-        this.props.onUpdate(this.props.surface.id, {
-            regional_terrain: regional_terrain || null, use_culverts,
-            feather_width_m: parseFloat(feather_width_m), target_resolution_m: parseFloat(target_resolution_m),
-            breach_max_cost: parseFloat(breach_max_cost), breach_search_dist: parseFloat(breach_search_dist),
-        });
+    // AC#3 + AC#4: Derive → compute size estimate → show confirm dialog.
+    // The actual derive is dispatched only after user confirms.
+    handleDeriveClick = () => {
+        const { inputs, target_resolution_m } = this.state;
+        const { terrains } = this.props;
+        const targetResM = parseFloat(target_resolution_m) || null;
+        const sizeEstimate = estimateOutputSize(inputs, terrains, targetResM);
+        this.setState({ confirmOpen: true, sizeEstimate });
     };
 
-    handleSaveDesignInputs = () => {
-        this.props.onSetDesignInputs(this.props.surface.id, this.state.designInputs);
+    handleConfirmDerive = () => {
+        const { surface, onDerive } = this.props;
+        const { inputs, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
+        this.setState({ confirmOpen: false });
+        // TASK-1671: dispatch atomic derive — body carries inputs + params.
+        const body = {
+            inputs: inputs.map(inp => ({
+                terrain_id: inp.terrain_id,
+                priority: inp.priority,
+                unmodified: !!inp.unmodified,
+            })),
+            use_culverts: !!use_culverts,
+            feather_width_m: parseFloat(feather_width_m),
+            target_resolution_m: parseFloat(target_resolution_m),
+            breach_max_cost: parseFloat(breach_max_cost),
+            breach_search_dist: parseFloat(breach_search_dist),
+        };
+        onDerive(surface.id, body);
     };
 
-    handleDerive = () => {
-        if (!this.state.designInputs.length || !this.state.regional_terrain) return;
-        this.props.onDerive(this.props.surface.id);
+    handleCancelDerive = () => {
+        this.setState({ confirmOpen: false, sizeEstimate: null });
     };
+
+    _canDerive() {
+        const { inputs } = this.state;
+        const { deriving, saving } = this.props;
+        if (deriving || saving) return false;
+        if (inputs.length === 0) return false;
+        // Must not be all-unmodified (mirrors BE V5).
+        if (inputs.every(d => d.unmodified)) return false;
+        return true;
+    }
 
     render() {
         const { surface, terrains, deriving, deriveError, saving, saveError } = this.props;
-        const { regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, designInputs } = this.state;
-        const canDerive = designInputs.length > 0 && !!regional_terrain && !deriving && !saving;
-        const regionalChoices = terrains.filter(t => !designInputs.find(d => d.terrain_id === t.id));
+        const { use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, inputs, confirmOpen, sizeEstimate } = this.state;
+        const canDerive = this._canDerive();
+        const allUnmodified = inputs.length > 0 && inputs.every(d => d.unmodified);
         return (
             <div className="tw-recipe-builder" data-testid="recipe-builder">
-                {/* Title is renamed inline in the surface list above; delete lives
-                    on the surface row too — so the builder has no header row. */}
-                <TWDesignInputPicker terrains={terrains} designInputs={designInputs} onChange={(inputs) => this.setState({ designInputs: inputs })} disabled={saving || deriving}/>
-                <button type="button" className="tw-save-btn" onClick={this.handleSaveDesignInputs} disabled={saving || deriving} data-testid="save-design-inputs-btn">{saving ? 'Saving…' : 'Save design inputs'}</button>
-                <div className="tw-field">
-                    <label className="tw-label">Regional terrain</label>
-                    <select className="tw-select" value={regional_terrain || ''} onChange={(e) => this.handleParam('regional_terrain', e.target.value ? parseInt(e.target.value, 10) : '')} disabled={saving || deriving} data-testid="regional-terrain-select">
-                        <option value="">— select regional terrain —</option>
-                        {terrains.map(t => <option key={t.id} value={t.id}>{t.title || t.name}</option>)}
-                    </select>
-                    {!regional_terrain && <div className="tw-validation-hint">Regional terrain is required.</div>}
-                </div>
+                {/* TASK-1671: single DEM stack (replaces TWDesignInputPicker + regional terrain picker) */}
+                <TWDemStackPicker
+                    terrains={terrains}
+                    inputs={inputs}
+                    onChange={(next) => this.setState({ inputs: next })}
+                    disabled={saving || deriving}
+                />
+                {allUnmodified && (
+                    <div className="tw-validation-hint" data-testid="all-unmodified-hint">
+                        At least one DEM must be modifiable (not set to unmodified).
+                    </div>
+                )}
+                {/* TASK-1671: Parameters section — NO Save parameters button */}
                 <div className="tw-params-section">
                     <div className="tw-label">Parameters</div>
                     <div className="tw-param-grid">
@@ -250,16 +456,32 @@ class TWRecipeBuilder extends React.Component {
                         <label>Breach search dist</label>
                         <input type="number" className="tw-number-input" value={breach_search_dist} min="1" onChange={(e) => this.handleParam('breach_search_dist', e.target.value)} disabled={saving || deriving} data-testid="breach-search-dist-input"/>
                     </div>
-                    <button type="button" className="tw-save-btn" onClick={this.handleSaveParams} disabled={saving || deriving} data-testid="save-params-btn">{saving ? 'Saving…' : 'Save parameters'}</button>
+                    {/* TASK-1671: Save parameters button REMOVED — params saved atomically on derive */}
                 </div>
                 {saveError && <div className="tw-error" data-testid="save-error">{saveError}</div>}
+                {/* TASK-1671: Derive section — single button triggers confirm dialog */}
                 <div className="tw-derive-section">
-                    <Button bsStyle="primary" bsSize="small" className="tw-derive-btn" onClick={this.handleDerive} disabled={!canDerive} data-testid="derive-btn">
+                    <Button
+                        bsStyle="primary"
+                        bsSize="small"
+                        className="tw-derive-btn"
+                        onClick={this.handleDeriveClick}
+                        disabled={!canDerive}
+                        data-testid="derive-btn"
+                    >
                         {deriving ? 'Deriving…' : 'Derive terrain'}
                     </Button>
                     {deriving && <div className="tw-derive-progress" data-testid="derive-progress">Processing — watch the Task Monitor for progress.</div>}
                     {deriveError && <div className="tw-error" data-testid="derive-error">{deriveError}</div>}
                 </div>
+                {/* TASK-1671: Size-confirm dialog */}
+                {confirmOpen && (
+                    <TWDeriveConfirmDialog
+                        sizeEstimate={sizeEstimate}
+                        onConfirm={this.handleConfirmDerive}
+                        onCancel={this.handleCancelDerive}
+                    />
+                )}
                 <TWSeamQAPanel enforcementLog={surface.enforcement_log}/>
             </div>
         );
@@ -1153,12 +1375,12 @@ class AnugaInputMenuClass extends React.Component {
                 </OverlayTrigger>
             </React.Fragment>
         );
-        // TASK-1645 (W1.5): recipe builder state from props (terrainWorkbench slice).
+        // TASK-1645 (W1.5) / TASK-1671 (W1.6): recipe builder state from props.
         const {
             twTerrains, twSurfaces, twSelectedSurfaceId,
             twLoading, twError, twSaving, twSaveError, twDeriving, twDeriveError,
             onTwLoadData, onTwSelectSurface, onTwCreateSurface,
-            onTwUpdateSurface, onTwDeleteSurface, onTwSetDesignInputs, onTwDerive,
+            onTwUpdateSurface, onTwDeleteSurface, onTwDerive,
             projectId
         } = this.props;
         const { twSurfaceSectionOpen } = this.state;
@@ -1225,7 +1447,6 @@ class AnugaInputMenuClass extends React.Component {
                                             onDelete={onTwDeleteSurface}
                                             onNew={() => onTwCreateSurface({
                                                 title: `New Analysis Surface ${(twSurfaces || []).length + 1}`,
-                                                regional_terrain: null,
                                                 use_culverts: false,
                                                 ...TW_PARAM_DEFAULTS,
                                             })}
@@ -1240,7 +1461,6 @@ class AnugaInputMenuClass extends React.Component {
                                                 saving={twSaving}
                                                 saveError={twSaveError}
                                                 onUpdate={onTwUpdateSurface}
-                                                onSetDesignInputs={onTwSetDesignInputs}
                                                 onDerive={onTwDerive}
                                             />
                                         )}
@@ -1566,14 +1786,14 @@ const mapDispatchToProps = ( dispatch ) => {
                 dispatchThunk(saveDirectContent());
             });
         },
-        // TASK-1645 (W1.5) — recipe builder actions.
+        // TASK-1645 (W1.5) / TASK-1671 (W1.6) — recipe builder actions.
         onTwLoadData: () => dispatch(twLoadData()),
         onTwSelectSurface: (id) => dispatch(twSelectSurface(id)),
         onTwCreateSurface: (payload) => dispatch(twCreateSurface(payload)),
         onTwUpdateSurface: (id, payload) => dispatch(twUpdateSurface(id, payload)),
         onTwDeleteSurface: (id) => dispatch(twDeleteSurface(id)),
-        onTwSetDesignInputs: (id, inputs) => dispatch(twSetDesignInputs(id, inputs)),
-        onTwDerive: (id) => dispatch(twDerive(id)),
+        // TASK-1671: twDerive now carries the atomic body {inputs, params}.
+        onTwDerive: (id, body) => dispatch(twDerive(id, body)),
     };
 };
 

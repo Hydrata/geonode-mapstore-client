@@ -1,11 +1,12 @@
 /**
  * TASK-1600 (W1) — TerrainWorkbench API client.
+ * TASK-1671 (W1.6) — Updated for single DEM priority stack.
  *
  * Thin axios wrappers for:
- *   - Terrain listing (design-DEM + regional pickers)
+ *   - Terrain listing
  *   - AnalysisSurface CRUD
- *   - AnalysisSurface /design-inputs/ sub-resource
- *   - AnalysisSurface /derive/ trigger
+ *   - AnalysisSurface /inputs/ sub-resource (TASK-1671: replaces /design-inputs/)
+ *   - AnalysisSurface /derive/ trigger (TASK-1671: atomic save-on-derive)
  *
  * All calls return Promises; error handling is left to the calling epic.
  */
@@ -43,22 +44,25 @@ export const patchAnalysisSurface = (projectId, surfaceId, payload) =>
 export const deleteAnalysisSurface = (projectId, surfaceId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/analysis-surfaces/${surfaceId}/`);
 
-// ── Design inputs sub-resource ─────────────────────────────────────────────
+// ── Inputs sub-resource (TASK-1671: replaces /design-inputs/) ─────────────
 
-// POST /api/v2/anuga/projects/{pid}/analysis-surfaces/{id}/design-inputs/
-// Payload: { design_inputs: [{terrain_id, priority}] }
-// Replaces the ordered list atomically.
-export const setDesignInputs = (projectId, surfaceId, designInputs) =>
+// POST /api/v2/anuga/projects/{pid}/analysis-surfaces/{id}/inputs/
+// Payload: { inputs: [{terrain_id, priority, unmodified}] }
+// Replaces the ordered stack atomically.
+export const setInputs = (projectId, surfaceId, inputs) =>
     axios.post(
-        `/api/v2/anuga/projects/${projectId}/analysis-surfaces/${surfaceId}/design-inputs/`,
-        { design_inputs: designInputs }
+        `/api/v2/anuga/projects/${projectId}/analysis-surfaces/${surfaceId}/inputs/`,
+        { inputs }
     );
 
-// ── Derive trigger ─────────────────────────────────────────────────────────
+// ── Derive trigger (TASK-1671: atomic save-on-derive) ──────────────────────
 
 // POST /api/v2/anuga/projects/{pid}/analysis-surfaces/{id}/derive/
-// Returns 202 { task_id, process_id }
-export const deriveAnalysisSurface = (projectId, surfaceId) =>
+// Body: { inputs:[{terrain_id,priority,unmodified}], feather_width_m,
+//         target_resolution_m, breach_max_cost, breach_search_dist, use_culverts }
+// Returns 202 { detail, process_id, task_id }
+export const deriveAnalysisSurface = (projectId, surfaceId, body) =>
     axios.post(
-        `/api/v2/anuga/projects/${projectId}/analysis-surfaces/${surfaceId}/derive/`
+        `/api/v2/anuga/projects/${projectId}/analysis-surfaces/${surfaceId}/derive/`,
+        body || {}
     );

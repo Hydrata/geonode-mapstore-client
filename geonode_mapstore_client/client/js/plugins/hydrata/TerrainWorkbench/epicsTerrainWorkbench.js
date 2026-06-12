@@ -1,5 +1,6 @@
 /**
  * TASK-1600 (W1) — TerrainWorkbench epics.
+ * TASK-1671 (W1.6) — Atomic save-on-derive: body carries inputs + params.
  *
  * All epics exported here MUST also appear in the createPlugin epics object
  * in TerrainWorkbench.js — per memory/mapstore-epic-never-registered-in-barrel.md.
@@ -9,8 +10,8 @@
  *   twCreateSurfaceEpic     — POST new surface
  *   twUpdateSurfaceEpic     — PATCH surface params
  *   twDeleteSurfaceEpic     — DELETE surface
- *   twSetDesignInputsEpic   — POST /design-inputs/
- *   twDeriveEpic            — POST /derive/ → store process_id
+ *   twSetDesignInputsEpic   — kept for backward compat (no longer dispatched by UI)
+ *   twDeriveEpic            — POST /derive/ with atomic body → store process_id
  *   twDeriveCompleteEpic    — watch TaskMonitor, on complete re-fetch surface + addLayer
  */
 import Rx from 'rxjs';
@@ -47,7 +48,7 @@ import {
     createAnalysisSurface,
     patchAnalysisSurface,
     deleteAnalysisSurface,
-    setDesignInputs,
+    setInputs,
     deriveAnalysisSurface,
     getAnalysisSurface,
 } from './api/terrainWorkbenchApi';
@@ -135,15 +136,17 @@ export const twDeleteSurfaceEpic = (action$, store) =>
                 );
         });
 
-// ── Design inputs ──────────────────────────────────────────────────────────
+// ── Design inputs (kept for backward compat; no longer dispatched by UI) ──
 
 export const twSetDesignInputsEpic = (action$, store) =>
     action$
         .ofType(TW_SET_DESIGN_INPUTS)
         .switchMap(action => {
             const projectId = getProjectId(store.getState());
+            // TASK-1671: UI no longer dispatches TW_SET_DESIGN_INPUTS.
+            // This epic is preserved so reducer cases and existing tests remain valid.
             return Rx.Observable
-                .from(setDesignInputs(projectId, action.surfaceId, action.designInputs))
+                .from(setInputs(projectId, action.surfaceId, action.designInputs))
                 .map(resp => twSetDesignInputsSuccess(resp.data))
                 .catch(err => {
                     const detail = err?.response?.data?.detail
@@ -153,15 +156,18 @@ export const twSetDesignInputsEpic = (action$, store) =>
                 });
         });
 
-// ── Derive ─────────────────────────────────────────────────────────────────
+// ── Derive (TASK-1671: body carries atomic inputs + params) ────────────────
 
 export const twDeriveEpic = (action$, store) =>
     action$
         .ofType(TW_DERIVE)
         .switchMap(action => {
             const projectId = getProjectId(store.getState());
+            // TASK-1671: action.body = { inputs:[{terrain_id,priority,unmodified}],
+            //   feather_width_m, target_resolution_m, breach_max_cost,
+            //   breach_search_dist, use_culverts }
             return Rx.Observable
-                .from(deriveAnalysisSurface(projectId, action.surfaceId))
+                .from(deriveAnalysisSurface(projectId, action.surfaceId, action.body || {}))
                 .switchMap(resp => Rx.Observable.from([
                     // TASK-1649: open Tasks Panel so derive progress is visible.
                     toggleTaskMonitorPanel(true),

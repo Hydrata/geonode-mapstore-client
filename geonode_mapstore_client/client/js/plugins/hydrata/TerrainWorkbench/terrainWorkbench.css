@@ -619,3 +619,74 @@
     padding: 16px 0;
     text-align: center;
 }
+
+/* ── TASK-1671: Unmodified toggle (per DEM stack row) ────────────────────── */
+
+/* Toggling between modifiable (○) and unmodified (⊙).
+ * Mirrors the lime accent used on selected surface rows and priority badges. */
+.tw-unmodified-toggle {
+    min-width: 24px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.tw-unmodified-toggle.tw-unmodified-on {
+    color: rgb(202, 227, 59);
+    background: rgba(202, 227, 59, 0.12);
+    border-color: rgba(202, 227, 59, 0.4);
+}
+
+.tw-unmodified-toggle:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.tw-unmodified-toggle.tw-unmodified-on:hover:not(:disabled) {
+    background: rgba(202, 227, 59, 0.2);
+}
+
+/* ── TASK-1671: Derive confirm dialog ─────────────────────────────────────── */
+
+/* Inline confirm box rendered inside the recipe builder (not a full modal).
+ * Positioned below the Derive button within the .tw-derive-section flow. */
+.tw-derive-confirm-overlay {
+    margin-top: 10px;
+    padding: 0;
+}
+
+.tw-derive-confirm-box {
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tw-derive-confirm-title {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: #fff;
+}
+
+.tw-derive-confirm-title--error {
+    color: rgb(244, 185, 183);
+}
+
+.tw-derive-confirm-body {
+    margin-bottom: 12px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.tw-derive-confirm-body strong {
+    color: #fff;
+}
+
+.tw-derive-confirm-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}

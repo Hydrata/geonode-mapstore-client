@@ -1,5 +1,6 @@
 /**
  * TASK-1599 / TASK-1600 (W1) — TerrainWorkbench unit tests.
+ * TASK-1671 (W1.6) — Updated for single DEM priority stack + atomic derive body.
  *
  * Tests cover:
  *  1. Reducer: default state, SET_SECTION, SET_VISIBLE actions (shell).
@@ -8,7 +9,7 @@
  *     TW_DELETE_SURFACE_SUCCESS, TW_DERIVE / TW_DERIVE_SUCCESS /
  *     TW_DERIVE_COMPLETE.
  *  3. Action creators: setTerrainWorkbenchSection, setTerrainWorkbenchVisible,
- *     twCreateSurface, twDerive, twDeriveSuccess, twDeriveComplete.
+ *     twCreateSurface, twDerive (with body), twDeriveSuccess, twDeriveComplete.
  */
 
 import expect from 'expect';
@@ -91,12 +92,30 @@ describe('TerrainWorkbench reducer — recipe state', () => {
     });
 
     it('TW_LOAD_DATA_SUCCESS stores terrains + surfaces, clears loading', () => {
-        const terrains = [{ id: 1, title: 'DEM A' }];
-        const surfaces = [{ id: 10, title: 'Surface 1', is_stale: false }];
+        // TASK-1671: terrains now include bbox_wgs84 + native_resolution_m fields.
+        const terrains = [{
+            id: 1,
+            title: 'DEM A',
+            bbox_wgs84: [150.0, -35.0, 151.0, -34.0],
+            native_crs: 'EPSG:28356',
+            native_resolution_m: 5,
+        }];
+        // TASK-1671: surfaces now use inputs_ordered (not design_inputs_ordered).
+        const surfaces = [{
+            id: 10,
+            title: 'Surface 1',
+            is_stale: false,
+            inputs_ordered: [
+                { id: 1, terrain: 1, priority: 0, unmodified: true },
+            ],
+        }];
         const state = reducer(undefined, { type: TW_LOAD_DATA_SUCCESS, terrains, surfaces });
         expect(state.loading).toEqual(false);
         expect(state.terrains).toEqual(terrains);
         expect(state.surfaces).toEqual(surfaces);
+        expect(state.terrains[0].bbox_wgs84.length).toEqual(4);
+        expect(state.terrains[0].native_resolution_m).toEqual(5);
+        expect(state.surfaces[0].inputs_ordered[0].unmodified).toEqual(true);
     });
 
     it('TW_LOAD_DATA_ERROR stores error, clears loading', () => {
@@ -154,12 +173,15 @@ describe('TerrainWorkbench reducer — recipe state', () => {
         expect(state.selectedSurfaceId).toEqual(2);
     });
 
-    it('TW_SET_DESIGN_INPUTS_SUCCESS merges surface', () => {
-        const surfaces = [{ id: 3, design_inputs_ordered: [] }];
+    it('TW_SET_DESIGN_INPUTS_SUCCESS merges surface (backward compat)', () => {
+        // TASK-1671: TW_SET_DESIGN_INPUTS is no longer dispatched by the UI but
+        // the reducer case is preserved for backward compatibility. Verify merge
+        // still works using the new inputs_ordered shape.
+        const surfaces = [{ id: 3, inputs_ordered: [] }];
         const initial = { ...reducer(undefined, {}), surfaces };
-        const updated = { id: 3, design_inputs_ordered: [{ terrain: 5, priority: 0 }] };
+        const updated = { id: 3, inputs_ordered: [{ id: 1, terrain: 5, priority: 0, unmodified: false }] };
         const state = reducer(initial, { type: TW_SET_DESIGN_INPUTS_SUCCESS, surface: updated });
-        expect(state.surfaces[0].design_inputs_ordered.length).toEqual(1);
+        expect(state.surfaces[0].inputs_ordered.length).toEqual(1);
     });
 
     it('TW_DERIVE sets deriving=true, clears errors', () => {
@@ -191,12 +213,24 @@ describe('TerrainWorkbench reducer — recipe state', () => {
             deriving: true,
             derivingProcessId: 99,
         };
-        const completed = { id: 7, is_stale: false, enforcement_log: { max_seam_step_m: 0.05 } };
+        // TASK-1671: surface now returns inputs_ordered (not design_inputs_ordered).
+        const completed = {
+            id: 7,
+            is_stale: false,
+            enforcement_log: { max_seam_step_m: 0.05 },
+            inputs_ordered: [
+                { id: 1, terrain: 5, priority: 0, unmodified: true },
+                { id: 2, terrain: 7, priority: 1, unmodified: false },
+            ],
+        };
         const state = reducer(initial, { type: TW_DERIVE_COMPLETE, surface: completed });
         expect(state.deriving).toEqual(false);
         expect(state.derivingProcessId).toEqual(null);
         expect(state.surfaces[0].is_stale).toEqual(false);
         expect(state.surfaces[0].enforcement_log.max_seam_step_m).toEqual(0.05);
+        expect(state.surfaces[0].inputs_ordered.length).toEqual(2);
+        expect(state.surfaces[0].inputs_ordered[0].unmodified).toEqual(true);
+        expect(state.surfaces[0].inputs_ordered[1].unmodified).toEqual(false);
     });
 });
 
@@ -224,10 +258,37 @@ describe('TerrainWorkbench action creators', () => {
         expect(action.payload).toEqual(payload);
     });
 
-    it('twDerive returns surfaceId', () => {
+    it('twDerive returns surfaceId (no body)', () => {
         const action = twDerive(11);
         expect(action.type).toEqual(TW_DERIVE);
         expect(action.surfaceId).toEqual(11);
+        expect(action.body).toEqual(undefined);
+    });
+
+    it('twDerive carries atomic derive body (TASK-1671)', () => {
+        // TASK-1671: twDerive now carries the full derive body so the epic
+        // can POST it as one atomic call to /derive/.
+        const body = {
+            inputs: [
+                { terrain_id: 5, priority: 0, unmodified: true },
+                { terrain_id: 7, priority: 1, unmodified: false },
+            ],
+            feather_width_m: 50,
+            target_resolution_m: 5,
+            breach_max_cost: 20,
+            breach_search_dist: 100,
+            use_culverts: false,
+        };
+        const action = twDerive(11, body);
+        expect(action.type).toEqual(TW_DERIVE);
+        expect(action.surfaceId).toEqual(11);
+        expect(action.body).toEqual(body);
+        expect(action.body.inputs.length).toEqual(2);
+        expect(action.body.inputs[0].unmodified).toEqual(true);
+        expect(action.body.inputs[1].unmodified).toEqual(false);
+        // Priority convention: 0 = top (highest priority), 1 = base.
+        expect(action.body.inputs[0].priority).toEqual(0);
+        expect(action.body.inputs[1].priority).toEqual(1);
     });
 
     it('twDeriveSuccess returns surfaceId + processId', () => {
