@@ -174,23 +174,44 @@ TWSeamQAPanel.defaultProps = { enforcementLog: null };
 // Base = last item (highest priority number) — its unmodified toggle is LOCKED false.
 // Default-seamless init: only the TOP entry is unmodified=true, all others false.
 function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
+    // Enforce the base-always-modifiable invariant: the bottom entry (highest
+    // priority number) must always have unmodified=false.
+    const enforceBaseInvariant = (stack) => {
+        if (stack.length === 0) return stack;
+        const lastIdx = stack.length - 1;
+        if (stack[lastIdx].unmodified === false) return stack;
+        return stack.map((d, i) => i === lastIdx ? { ...d, unmodified: false } : d);
+    };
+
     const addTerrain = (terrainId) => {
         const id = parseInt(terrainId, 10);
         if (!id || inputs.find(d => d.terrain_id === id)) return;
-        const newInputs = [...inputs, { terrain_id: id, priority: inputs.length, unmodified: false }];
-        // Re-apply default-seamless when adding: top = unmodified, rest = false.
-        const reindexed = newInputs.map((d, i) => ({ ...d, priority: i, unmodified: i === 0 }));
-        onChange(reindexed);
+        // New entry appended at the bottom (new base) — always unmodified:false.
+        // Existing entries keep their flags; only re-index priority.
+        // Default-seamless (top=unmodified, rest=false) applies ONLY when the
+        // stack was empty before this add (i.e. this is the first entry).
+        const wasEmpty = inputs.length === 0;
+        const newEntry = { terrain_id: id, priority: inputs.length, unmodified: false };
+        const combined = [...inputs, newEntry];
+        const reindexed = combined.map((d, i) => {
+            if (wasEmpty) {
+                // Single-entry stack: only entry is the base → always modifiable.
+                return { ...d, priority: i, unmodified: false };
+            }
+            // Preserve existing flags; new entry is already unmodified:false.
+            return { ...d, priority: i };
+        });
+        onChange(enforceBaseInvariant(reindexed));
     };
     const remove = (idx) => {
         const next = inputs.filter((_, i) => i !== idx).map((d, i) => ({ ...d, priority: i }));
-        onChange(next);
+        onChange(enforceBaseInvariant(next));
     };
     const moveUp = (idx) => {
         if (idx === 0) return;
         const next = [...inputs];
         [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-        onChange(next.map((d, i) => ({ ...d, priority: i })));
+        onChange(enforceBaseInvariant(next.map((d, i) => ({ ...d, priority: i }))));
     };
     const toggleUnmodified = (idx) => {
         // Base row (last) is locked modifiable — cannot be toggled.
@@ -252,7 +273,7 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
                 </select>
             )}
             {inputs.length === 0 && <div className="tw-validation-hint">At least one DEM is required.</div>}
-            {inputs.length > 0 && inputs.every(d => !d.unmodified) === false && inputs.every(d => d.unmodified) && (
+            {inputs.length > 0 && inputs.every(d => d.unmodified) && (
                 <div className="tw-validation-hint">At least one DEM must be modifiable (not unmodified).</div>
             )}
         </div>
