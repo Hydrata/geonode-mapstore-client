@@ -8,8 +8,7 @@
 import React from 'react';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
-import {StatusBadge} from '../../SimpleView/components/primitives';
-import {ProgressBar} from '../../SimpleView/components/primitives';
+import {StatusBadge, ProgressBar} from '../../SimpleView/components/primitives';
 
 const typeIcons = {
     anuga_run: 'glyphicon-flash',

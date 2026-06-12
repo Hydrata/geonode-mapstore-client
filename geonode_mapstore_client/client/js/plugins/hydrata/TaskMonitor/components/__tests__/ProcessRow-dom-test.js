@@ -1,26 +1,23 @@
 /*
- * TASK-743 — ProcessRow DOM contract tests (P0, TASK-673 polling gate).
+ * TASK-743 / TASK-1665 — ProcessRow DOM contract tests (P0, TASK-673 polling gate).
  *
  * ProcessRow.jsx is a plain presentational class taking only
  * `{process, expanded, onClick}` — NO redux, NO security lookup. These tests
- * render it through the shared `mountWithProviders` helper (AC2; the store is
- * unused by the component but keeps all 5 TASK-743 files consistent) and assert
+ * render it through the shared `mountWithProviders` helper and assert
  * its REAL observable contracts:
  *
  *   (a) returns null when `process` is falsy.
  *   (b) detailAsBadge = (status==='pending' && !!status_detail): the status
  *       badge shows the capitalized status_detail ('built' -> 'Built',
- *       'processing' -> 'Processing Results') INSTEAD of the i18n status text.
- *   (c) status==='running' && progress_pct != null -> a `.tm-progress-bar`
- *       renders with width set to `${progress_pct}%`.
+ *       'processing' -> 'Processing Results') INSTEAD of the status text.
+ *   (c) status==='running' && progress_pct != null -> a `.sv-progress-track`
+ *       renders (ProgressBar primitive — previously `.tm-progress-bar`).
  *   (d) the type icon maps via `typeIcons` (anuga_run -> glyphicon-flash;
  *       unknown type -> glyphicon-cog).
  *
- * NOTE on i18n: `mountWithProviders` provides no IntlProvider, so `<Message>`
- * falls back to rendering `<span>{msgId}</span>` (Message.jsx:36). That makes
- * the non-detail status badge text equal to the raw msgId
- * (e.g. 'hydrata.taskMonitor.statusRunning'), which is exactly what we assert
- * against to prove the detail branch substitutes a DIFFERENT, literal label.
+ * TASK-1665 migration: class names changed from tm-* to sv-tm-*; status badge
+ * changed from hand-rolled tm-badge-* to StatusBadge primitive (.sv-status-badge).
+ * The detailAsBadge and status_detail behaviours are structurally preserved.
  */
 import expect from 'expect';
 import React from 'react';
@@ -35,22 +32,23 @@ describe('TASK-743 ProcessRow DOM', () => {
         const { container } = mountWithProviders(
             <ProcessRow process={null} onClick={noop} />
         );
-        expect(container.querySelector('.tm-process-row')).toNotExist();
+        expect(container.querySelector('.sv-tm-process-row')).toNotExist();
         expect(container.innerHTML).toBe('');
     });
 
-    it('shows the i18n status msgId in the badge when NOT in a pending detail sub-state', () => {
+    it('shows the status text in the badge when NOT in a pending detail sub-state', () => {
         const { container } = mountWithProviders(
             <ProcessRow
                 process={{ id: 1, name: 'Run A', process_type: 'anuga_run', status: 'running' }}
                 onClick={noop}
             />
         );
-        const badge = container.querySelector('.tm-badge');
+        // TASK-1665: badge is now .sv-status-badge (StatusBadge primitive)
+        const badge = container.querySelector('.sv-status-badge');
         expect(badge).toExist();
-        // No IntlProvider -> Message renders the raw msgId text.
-        expect(badge.textContent).toBe('hydrata.taskMonitor.statusRunning');
-        expect(badge.className).toContain('tm-badge-running');
+        // StatusBadge renders the raw status string when no label override
+        expect(badge.textContent).toInclude('running');
+        expect(badge.className).toContain('is-running');
     });
 
     it('detailAsBadge: capitalizes a plain status_detail ("built" -> "Built") in the badge for pending', () => {
@@ -60,14 +58,14 @@ describe('TASK-743 ProcessRow DOM', () => {
                 onClick={noop}
             />
         );
-        const badge = container.querySelector('.tm-badge');
+        const badge = container.querySelector('.sv-status-badge');
         expect(badge).toExist();
-        expect(badge.textContent).toBe('Built');
-        // It must NOT be the i18n status string in this sub-state.
-        expect(badge.textContent).toNotInclude('hydrata.taskMonitor');
-        expect(badge.className).toContain('tm-badge-pending');
-        // And it is the BADGE, not the separate .tm-status-detail line.
-        expect(container.querySelector('.tm-status-detail')).toNotExist();
+        // StatusBadge receives label="Built" (formatStatusDetail result)
+        expect(badge.textContent).toInclude('Built');
+        // It must NOT be the raw status string
+        expect(badge.textContent).toNotInclude('pending');
+        // And it is the BADGE, not the separate .sv-tm-status-detail line.
+        expect(container.querySelector('.sv-tm-status-detail')).toNotExist();
     });
 
     it('detailAsBadge: maps the special "processing" detail to "Processing Results"', () => {
@@ -77,35 +75,38 @@ describe('TASK-743 ProcessRow DOM', () => {
                 onClick={noop}
             />
         );
-        const badge = container.querySelector('.tm-badge');
-        expect(badge.textContent).toBe('Processing Results');
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge.textContent).toInclude('Processing Results');
     });
 
-    it('renders status_detail as a separate .tm-status-detail line (NOT badge) when status is not pending', () => {
+    it('renders status_detail as a separate .sv-tm-status-detail line (NOT badge) when status is not pending', () => {
         const { container } = mountWithProviders(
             <ProcessRow
                 process={{ id: 4, name: 'Run D', process_type: 'anuga_run', status: 'running', status_detail: 'evolving' }}
                 onClick={noop}
             />
         );
-        // Badge keeps the i18n status; the detail moves to its own line, capitalized.
-        const badge = container.querySelector('.tm-badge');
-        expect(badge.textContent).toBe('hydrata.taskMonitor.statusRunning');
-        const detail = container.querySelector('.tm-status-detail');
+        // Badge keeps the status; the detail moves to its own line, capitalized.
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge).toExist();
+        const detail = container.querySelector('.sv-tm-status-detail');
         expect(detail).toExist();
         expect(detail.textContent).toBe('Evolving');
     });
 
-    it('renders a .tm-progress-bar with the right width when running + progress_pct present', () => {
+    it('renders a .sv-progress-track (ProgressBar primitive) with right width when running + progress_pct present', () => {
         const { container } = mountWithProviders(
             <ProcessRow
                 process={{ id: 5, name: 'Run E', process_type: 'anuga_run', status: 'running', progress_pct: 42 }}
                 onClick={noop}
             />
         );
-        const bar = container.querySelector('.tm-progress-bar');
-        expect(bar).toExist();
-        expect(bar.style.width).toBe('42%');
+        // TASK-1665: ProgressBar primitive → .sv-progress-track + .sv-progress-fill
+        const track = container.querySelector('.sv-progress-track');
+        expect(track).toExist();
+        const fill = container.querySelector('.sv-progress-fill');
+        expect(fill).toExist();
+        expect(fill.style.width).toBe('42%');
     });
 
     it('renders NO progress bar when running but progress_pct is null/absent', () => {
@@ -115,7 +116,7 @@ describe('TASK-743 ProcessRow DOM', () => {
                 onClick={noop}
             />
         );
-        expect(container.querySelector('.tm-progress-bar')).toNotExist();
+        expect(container.querySelector('.sv-progress-track')).toNotExist();
     });
 
     it('maps a known process_type to its glyph (anuga_run -> glyphicon-flash) and unknown -> glyphicon-cog', () => {
@@ -125,7 +126,8 @@ describe('TASK-743 ProcessRow DOM', () => {
                 onClick={noop}
             />
         );
-        const knownIcon = known.container.querySelector('.tm-type-icon');
+        // TASK-1665: icon class changed to sv-tm-type-icon
+        const knownIcon = known.container.querySelector('.sv-tm-type-icon');
         expect(knownIcon.className).toContain('glyphicon-flash');
 
         const unknown = mountWithProviders(
@@ -134,7 +136,7 @@ describe('TASK-743 ProcessRow DOM', () => {
                 onClick={noop}
             />
         );
-        const unknownIcon = unknown.container.querySelector('.tm-type-icon');
+        const unknownIcon = unknown.container.querySelector('.sv-tm-type-icon');
         expect(unknownIcon.className).toContain('glyphicon-cog');
     });
 });

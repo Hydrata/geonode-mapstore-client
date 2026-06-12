@@ -6,9 +6,14 @@
  * as the pre-migration light-theme components. The CSS class names change
  * (tm-* → sv-tm-*) but the DOM structure is identical.
  *
+ * NOTE on i18n: We use ReactDOM.render without an IntlProvider. Message.jsx
+ * falls back to rendering its msgId string when no provider is present, so
+ * we can assert on msgId text where needed. This matches the pattern used in
+ * ProcessRow-dom-test.js (mountWithProviders without IntlProvider).
+ *
  * NOTE: ProcessRow imports StatusBadge and ProgressBar from the SimpleView
- * primitives barrel. Since these are peer files (not external deps), they
- * render identically under karma.
+ * primitives barrel. These are peer files (not external deps) that render
+ * identically under karma.
  */
 
 import expect from 'expect';
@@ -18,14 +23,6 @@ import TaskMonitorPanel from '../components/TaskMonitorPanel';
 import ProcessRow from '../components/ProcessRow';
 import ProcessDetail from '../components/ProcessDetail';
 import ProcessLogViewer from '../components/ProcessLogViewer';
-
-// Stub <Message> so we don't need the I18N provider
-jest.mock('@mapstore/framework/components/I18N/Message', () => {
-    const React = require('react');
-    return function Message({ msgId }) {
-        return React.createElement('span', { 'data-msgid': msgId }, msgId);
-    };
-});
 
 describe('TaskMonitor dark-glass migration (TASK-1665 W2)', () => {
     let container;
@@ -45,128 +42,74 @@ describe('TaskMonitor dark-glass migration (TASK-1665 W2)', () => {
     // ── Panel shell ───────────────────────────────────────────────────────────
 
     describe('TaskMonitorPanel', () => {
+        const renderPanel = (props = {}) => ReactDOM.render(
+            <TaskMonitorPanel
+                processes={[]}
+                filter="active"
+                onClose={() => {}}
+                onSetFilter={() => {}}
+                onExpandProcess={() => {}}
+                onToggleLog={() => {}}
+                onCancel={() => {}}
+                {...props}
+            />,
+            container
+        );
+
         it('uses .simple-view-panel (dark-glass shell) NOT .tm-panel', (done) => {
-            ReactDOM.render(
-                <TaskMonitorPanel
-                    processes={[]}
-                    filter="active"
-                    onClose={() => {}}
-                    onSetFilter={() => {}}
-                    onExpandProcess={() => {}}
-                    onToggleLog={() => {}}
-                    onCancel={() => {}}
-                />,
-                container,
-                () => {
-                    expect(container.querySelector('.simple-view-panel')).toExist();
-                    expect(container.querySelector('.tm-panel')).toNotExist();
-                    done();
-                }
-            );
+            renderPanel();
+            setTimeout(() => {
+                expect(container.querySelector('.simple-view-panel')).toExist();
+                expect(container.querySelector('.tm-panel')).toNotExist();
+                done();
+            });
         });
 
         it('also carries .sv-tm-container class (layout + size)', (done) => {
-            ReactDOM.render(
-                <TaskMonitorPanel
-                    processes={[]}
-                    filter="active"
-                    onClose={() => {}}
-                    onSetFilter={() => {}}
-                    onExpandProcess={() => {}}
-                    onToggleLog={() => {}}
-                    onCancel={() => {}}
-                />,
-                container,
-                () => {
-                    expect(container.querySelector('.sv-tm-container')).toExist();
-                    done();
-                }
-            );
+            renderPanel();
+            setTimeout(() => {
+                expect(container.querySelector('.sv-tm-container')).toExist();
+                done();
+            });
         });
 
         it('renders .sv-tm-header (NOT .tm-panel-header)', (done) => {
-            ReactDOM.render(
-                <TaskMonitorPanel
-                    processes={[]}
-                    filter="active"
-                    onClose={() => {}}
-                    onSetFilter={() => {}}
-                    onExpandProcess={() => {}}
-                    onToggleLog={() => {}}
-                    onCancel={() => {}}
-                />,
-                container,
-                () => {
-                    expect(container.querySelector('.sv-tm-header')).toExist();
-                    expect(container.querySelector('.tm-panel-header')).toNotExist();
-                    done();
-                }
-            );
+            renderPanel();
+            setTimeout(() => {
+                expect(container.querySelector('.sv-tm-header')).toExist();
+                expect(container.querySelector('.tm-panel-header')).toNotExist();
+                done();
+            });
         });
 
         it('close button uses .legend-close (NOT .tm-close-btn)', (done) => {
-            const onClose = () => {};
-            ReactDOM.render(
-                <TaskMonitorPanel
-                    processes={[]}
-                    filter="active"
-                    onClose={onClose}
-                    onSetFilter={() => {}}
-                    onExpandProcess={() => {}}
-                    onToggleLog={() => {}}
-                    onCancel={() => {}}
-                />,
-                container,
-                () => {
-                    const closeBtn = container.querySelector('.legend-close');
-                    expect(closeBtn).toExist();
-                    expect(container.querySelector('.tm-close-btn')).toNotExist();
-                    done();
-                }
-            );
+            renderPanel();
+            setTimeout(() => {
+                expect(container.querySelector('.legend-close')).toExist();
+                expect(container.querySelector('.tm-close-btn')).toNotExist();
+                done();
+            });
         });
 
         it('renders .sv-tm-empty when processes=[]', (done) => {
-            ReactDOM.render(
-                <TaskMonitorPanel
-                    processes={[]}
-                    filter="active"
-                    onClose={() => {}}
-                    onSetFilter={() => {}}
-                    onExpandProcess={() => {}}
-                    onToggleLog={() => {}}
-                    onCancel={() => {}}
-                />,
-                container,
-                () => {
-                    expect(container.querySelector('.sv-tm-empty')).toExist();
-                    expect(container.querySelector('.tm-empty')).toNotExist();
-                    done();
-                }
-            );
+            renderPanel();
+            setTimeout(() => {
+                expect(container.querySelector('.sv-tm-empty')).toExist();
+                expect(container.querySelector('.tm-empty')).toNotExist();
+                done();
+            });
         });
 
-        it('renders one process row per process', (done) => {
+        it('renders one .sv-tm-process-row per process', (done) => {
             const processes = [
                 { id: '1', status: 'running', name: 'Process A', process_type: 'anuga_run' },
                 { id: '2', status: 'complete', name: 'Process B', process_type: 'layer_create' }
             ];
-            ReactDOM.render(
-                <TaskMonitorPanel
-                    processes={processes}
-                    filter="active"
-                    onClose={() => {}}
-                    onSetFilter={() => {}}
-                    onExpandProcess={() => {}}
-                    onToggleLog={() => {}}
-                    onCancel={() => {}}
-                />,
-                container,
-                () => {
-                    expect(container.querySelectorAll('.sv-tm-process-row').length).toBe(2);
-                    done();
-                }
-            );
+            renderPanel({ processes });
+            setTimeout(() => {
+                expect(container.querySelectorAll('.sv-tm-process-row').length).toBe(2);
+                done();
+            });
         });
     });
 
@@ -215,20 +158,19 @@ describe('TaskMonitor dark-glass migration (TASK-1665 W2)', () => {
             );
         });
 
-        it('renders a .sv-status-badge (from StatusBadge primitive)', (done) => {
+        it('renders a .sv-status-badge (from StatusBadge primitive, NOT .tm-badge)', (done) => {
             ReactDOM.render(
                 <ProcessRow process={makeProcess({ status: 'complete' })} expanded={false} onClick={() => {}} />,
                 container,
                 () => {
                     expect(container.querySelector('.sv-status-badge')).toExist();
-                    // NOT the old tm-badge
                     expect(container.querySelector('.tm-badge')).toNotExist();
                     done();
                 }
             );
         });
 
-        it('renders a .sv-progress-track when status=running and progress_pct is set', (done) => {
+        it('renders a .sv-progress-track (ProgressBar primitive) when status=running and progress_pct set', (done) => {
             ReactDOM.render(
                 <ProcessRow process={makeProcess({ status: 'running', progress_pct: 60 })} expanded={false} onClick={() => {}} />,
                 container,
