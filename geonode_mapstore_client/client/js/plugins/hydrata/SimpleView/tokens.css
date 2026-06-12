@@ -1,0 +1,72 @@
+/*
+ * SimpleView Design System — CSS Custom Properties (Design Tokens)
+ *
+ * This file is the SINGLE SOURCE OF TRUTH for all --sv-* tokens.
+ * Import it ONCE, at the top of simpleView.css (already done via @import).
+ *
+ * Proof-cap: only tokens that the v1 proof-capped primitive set or the
+ * parity-proof panel (TaskMonitor, W2) will actually consume are declared
+ * here. No speculative tokens.
+ *
+ * Input blue unification (TASK-1661):
+ *   Canonical value: #5178af  (most-used; foundational in simpleView.css)
+ *   Losing values (documented here, not used going forward):
+ *     #537ab1  — was swamm/bmp-type-group-glyph
+ *     #5279B0  — was swamm/simple-view-panel-item-row select, #bmp-notes
+ *     #6085b5  — was anuga/scenario-tab, anuga-btn-compare, anuga-btn-duplicate-header
+ *   See DESIGN-SYSTEM-AUDIT.md § Input blue divergence for rationale.
+ */
+
+:root {
+    /* ── Button chrome ── */
+    --sv-button-bg:            rgba(0, 60, 136, 0.6);
+    --sv-button-bg-hover:      rgba(0, 60, 136, 0.8);
+    --sv-button-bg-active:     rgba(0, 60, 136, 0.9);
+    --sv-button-border:        rgba(255, 255, 255, 0.5);
+    --sv-button-border-hover:  rgba(255, 255, 255, 0.7);
+    --sv-button-border-active: rgba(255, 255, 255, 0.9);
+
+    /* ── Panel chrome ── */
+    --sv-panel-bg:     rgba(0, 60, 136, 0.8);
+    --sv-panel-border: rgba(255, 255, 255, 0.6);
+    --sv-panel-top:       65px;
+    --sv-panel-top-anuga: 70px;
+
+    /* ── Section / layout ── */
+    --sv-section-border: rgba(255, 255, 255, 0.6);
+    --sv-icon-size:      24px;
+
+    /* ── Glyph / action-chip colours ── */
+    --sv-glyph-active:   limegreen;
+    --sv-glyph-inactive: red;
+    --sv-glyph-partial:  orange;
+    --sv-glyph-zoom:     #4dabf7;
+    --sv-glyph-edit:     grey;
+    --sv-glyph-delete:   darkred;
+    --sv-glyph-save:     limegreen;
+    --sv-glyph-settings: #325f93;
+
+    /* ── Error / delete feedback ── */
+    --sv-delete-error-bg:     rgba(220, 53, 69, 0.1);
+    --sv-delete-error-border: #dc3545;
+    --sv-delete-error-color:  #842029;
+
+    /* ── Input ── */
+    /* Canonical input blue = #5178af (see header comment for losing values) */
+    --sv-input-bg:          rgba(255, 255, 255, 0.22);
+    --sv-input-readonly-bg: rgba(255, 255, 255, 0.03);
+
+    /* ── Text ── */
+    /* These were previously undeclared (consumed via fallback in anuga.css).
+       Formalised here so downstream primitives can reference them without
+       relying on CSS fallback. */
+    --sv-text:     rgba(255, 255, 255, 0.85);
+    --sv-text-dim: rgba(255, 255, 255, 0.55);
+
+    /* ── Info / hint banner ── */
+    /* Undeclared in prior simpleView.css; formally added here (proof-capped:
+       consumed by the read-only hint in anuga-scenario-pane-readonly-hint, which
+       the reference panel may adopt). */
+    --sv-info-bg:     rgba(91, 192, 222, 0.12);
+    --sv-info-border: #5bc0de;
+}

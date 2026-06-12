@@ -1,27 +1,7 @@
-/* ── Shared theming custom properties ── */
-:root {
-    --sv-button-bg: rgba(0, 60, 136, 0.6);
-    --sv-button-bg-hover: rgba(0, 60, 136, 0.8);
-    --sv-button-bg-active: rgba(0, 60, 136, 0.9);
-    --sv-button-border: rgba(255, 255, 255, 0.5);
-    --sv-button-border-hover: rgba(255, 255, 255, 0.7);
-    --sv-button-border-active: rgba(255, 255, 255, 0.9);
-    --sv-panel-bg: rgba(0, 60, 136, 0.8);
-    --sv-panel-border: rgba(255, 255, 255, 0.6);
-    --sv-glyph-active: limegreen;
-    --sv-glyph-inactive: red;
-    --sv-glyph-partial: orange;
-    --sv-glyph-zoom: #4dabf7;
-    --sv-glyph-edit: grey;
-    --sv-glyph-delete: darkred;
-    --sv-glyph-save: limegreen;
-    --sv-glyph-settings: #325f93;
-    --sv-input-bg: rgba(255, 255, 255, 0.22);
-    --sv-section-border: rgba(255, 255, 255, 0.6);
-    --sv-icon-size: 24px;
-    --sv-panel-top: 65px;
-    --sv-panel-top-anuga: 70px;
-}
+/* ── Design tokens — imported from the single source of truth ── */
+/* All --sv-* custom properties live in tokens.css.             */
+/* Do NOT add :root declarations here; edit tokens.css instead. */
+@import "./tokens.css";
 
 #mapstore-sidebar-menu-container{
     /*z-index: 1;*/
