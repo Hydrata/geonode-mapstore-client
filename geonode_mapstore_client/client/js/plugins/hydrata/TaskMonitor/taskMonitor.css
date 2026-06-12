@@ -36,13 +36,22 @@
     animation: tm-spin 1s linear infinite;
 }
 
-/* TaskMonitor panel container — keeps the panel sized as a right-side drawer. */
-.sv-tm-container {
+/* TaskMonitor panel container — keeps the panel sized as a right-side drawer.
+   Double-class selector (0,2,0) so the drawer geometry beats the
+   .simple-view-panel base rule (0,1,0) regardless of stylesheet load order —
+   the single-class form lost the cascade to simpleView.css (loaded later) and
+   the panel inherited position:absolute; left:20px inside the right-anchored
+   #task-monitor-container, rendering off-screen (UAT 2026-06-12 finding #1). */
+.simple-view-panel.sv-tm-container {
     position: fixed;
-    top: 0;
-    right: 0;
+    top: var(--sv-panel-top, 65px);
+    right: 70px; /* clear of the right toolbar button column (right: 15px) */
+    left: auto;
     width: 350px;
-    height: 100vh;
+    min-width: 0;
+    height: auto;
+    /* stop short of the bottom edge so the corner map controls stay visible */
+    max-height: calc(100vh - var(--sv-panel-top, 65px) - 120px);
     z-index: 1200;
     display: flex;
     flex-direction: column;
