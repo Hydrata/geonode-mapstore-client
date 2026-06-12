@@ -1050,6 +1050,61 @@ span.menu-row-glyph {
     font-size: 10px;
 }
 
+/* ── Tooltip ── */
+/* Focusable tag + hover/focus bubble (TASK-1682, W2 UAT richness verdict).
+   Portal-free: positions inside the panel stacking context. */
+.sv-tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.sv-tooltip-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px dashed var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    cursor: help;
+}
+
+.sv-tooltip-trigger:focus-visible {
+    outline: 2px solid var(--sv-glyph-zoom, #4dabf7);
+    outline-offset: 1px;
+}
+
+.sv-tooltip-glyph {
+    font-size: 10px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+}
+
+.sv-tooltip-bubble {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(100% + 6px); /* .is-top default */
+    width: max-content;
+    max-width: 220px;
+    background: rgba(8, 24, 48, 0.97);
+    border: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    border-radius: 4px;
+    padding: 6px 9px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    text-align: left; /* override inherited .simple-view-panel text-align:center */
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.sv-tooltip-bubble.is-bottom {
+    bottom: auto;
+    top: calc(100% + 6px);
+}
+
 /* ── ProgressBar ── */
 /* Thin horizontal track + fill. */
 .sv-progress-track {

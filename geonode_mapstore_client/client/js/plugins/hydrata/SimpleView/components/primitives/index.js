@@ -8,6 +8,8 @@ export {CategoryRail, tristateGlyph} from './CategoryRail';
 export {StatusBadge} from './StatusBadge';
 export {ProgressBar} from './ProgressBar';
 export {LogViewer} from './LogViewer';
+// V1 addition (TASK-1682): operator richness verdict at the W2 UAT gate
+export {Tooltip} from './Tooltip';
 
 // Deferred to W3 (rule-of-three not yet met, or single-consumer organisms):
 //   EmptyState, ErrorStrip, StarterCard, InlineHint, SelectField, InlineConfirm,

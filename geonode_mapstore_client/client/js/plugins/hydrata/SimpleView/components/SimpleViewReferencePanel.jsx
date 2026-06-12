@@ -25,7 +25,8 @@ import {
     ProgressBar,
     LogViewer,
     CategoryRail,
-    SectionHeader
+    SectionHeader,
+    Tooltip
 } from './primitives';
 
 const DEMO_LOG = [
@@ -132,6 +133,25 @@ class SimpleViewReferencePanel extends React.Component {
                     <Note type="dont">Don{"'"}t wrap in a .simple-view-panel input rule — the bg is terminal convention.</Note>
                 </Section>
 
+                {/* ── Tooltip ── */}
+                <Section title="Tooltip">
+                    <Row label="Tag w/ hover">
+                        <Tooltip label="DEM" placement="bottom">
+                            Digital Elevation Model — the terrain raster this scenario derives from.
+                        </Tooltip>
+                        <Tooltip label="CRS" placement="bottom">
+                            Coordinate Reference System — how map coordinates map to the Earth.
+                        </Tooltip>
+                    </Row>
+                    <Row label="No glyph">
+                        <Tooltip label="hover me" showGlyph={false} placement="bottom">
+                            Bubble without the info glyph on the trigger.
+                        </Tooltip>
+                    </Row>
+                    <Note type="do">Tooltip triggers are real tab stops — the bubble opens on keyboard focus too, and Escape dismisses it.</Note>
+                    <Note type="dont">Don{"'"}t body-portal tooltip bubbles — they fight the .gn-page-wrapper z-index stack. The bubble positions off the trigger.</Note>
+                </Section>
+
                 {/* ── SectionHeader ── */}
                 <Section title="SectionHeader">
                     <SectionHeader>
@@ -179,9 +199,9 @@ class SimpleViewReferencePanel extends React.Component {
                 {/* ── Token swatch ── */}
                 <Section title="Token swatches">
                     {[
-                        { name: '--sv-panel-bg', sample: 'rgba(0,60,136,0.8)' },
+                        { name: '--sv-panel-bg', sample: 'rgba(0,60,136,0.88)' },
                         { name: '--sv-text', sample: 'rgba(255,255,255,0.85)' },
-                        { name: '--sv-text-dim', sample: 'rgba(255,255,255,0.55)' },
+                        { name: '--sv-text-dim', sample: 'rgba(255,255,255,0.68)' },
                         { name: '--sv-input-blue', sample: '#5178af' },
                         { name: '--sv-input-bg', sample: 'rgba(255,255,255,0.22)' },
                         { name: '--sv-info-bg', sample: 'rgba(91,192,222,0.12)' },
