@@ -1102,8 +1102,10 @@ span.menu-row-glyph {
 .sv-ref-section-title {
     font-size: 13px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    /* No uppercase transform: titles are the exact PascalCase component
+       names (greppable), and uppercasing erased the word boundaries
+       (UAT 2026-06-12 finding #4). */
+    letter-spacing: 0.04em;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
     border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     padding-bottom: 3px;
