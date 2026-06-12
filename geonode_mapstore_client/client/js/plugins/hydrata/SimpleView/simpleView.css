@@ -141,7 +141,7 @@
 }
 
 .simple-view-panel input {
-    background-color: #5178af;
+    background-color: var(--sv-input-blue, #5178af); /* TASK-1677 */
     border: 0;
     border-radius: 4px;
     color: white;
@@ -156,7 +156,7 @@
 }
 
 .simple-view-panel ::-webkit-scrollbar-thumb {
-    background-color: #5178af;
+    background-color: var(--sv-input-blue, #5178af); /* TASK-1677 */
     border-radius: 4px;
 }
 
@@ -383,7 +383,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: #5178af transparent;
+    scrollbar-color: var(--sv-input-blue, #5178af) transparent; /* TASK-1677 */
 }
 
 .subheading-row {
@@ -814,7 +814,7 @@ span.menu-row-glyph {
     background-color: rgba(0, 0, 0, 0.16);
     border-right: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     scrollbar-width: thin;
-    scrollbar-color: #5178af transparent;
+    scrollbar-color: var(--sv-input-blue, #5178af) transparent; /* TASK-1677 */
 }
 
 .simple-view-panel--miller .sv-category-rail-item {
@@ -987,3 +987,339 @@ span.menu-row-glyph {
     color: #ffffff;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   V1 Primitive CSS — TASK-1664 (W2)
+   All rules use sv- prefix. Tokens-only; no hardcoded colour values
+   except the intentional terminal bg (#1e1e1e in LogViewer).
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── StatusBadge ── */
+/* 5-state status pill. States: is-running | is-pending | is-ok | is-err | is-cancelled */
+.sv-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    background: rgba(255, 255, 255, 0.12);
+    text-align: left; /* override inherited .simple-view-panel text-align:center */
+}
+
+.sv-status-badge.is-compact {
+    font-size: 9px;
+    padding: 1px 5px;
+}
+
+.sv-status-badge.is-ok {
+    background: rgba(92, 184, 92, 0.20);
+    color: #a8e6a8;
+}
+
+.sv-status-badge.is-warn,
+.sv-status-badge.is-pending {
+    background: rgba(240, 173, 78, 0.20);
+    color: #f0e08a;
+}
+
+.sv-status-badge.is-err {
+    background: rgba(217, 83, 79, 0.20);
+    color: var(--sv-delete-error-color, #842029);
+}
+
+.sv-status-badge.is-running {
+    background: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
+    color: var(--sv-info-border, #5bc0de);
+}
+
+.sv-status-badge.is-cancelled {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+}
+
+.sv-status-badge-glyph {
+    font-size: 9px;
+}
+
+/* ── ProgressBar ── */
+/* Thin horizontal track + fill. */
+.sv-progress-track {
+    height: 5px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.sv-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--sv-info-border, #5bc0de), var(--sv-glyph-active, limegreen));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* ── LogViewer ── */
+/* Terminal-style scrollable log pane. Intentional dark bg (#1e1e1e)
+   even within a dark-glass panel — this is a terminal, not panel chrome. */
+.sv-log-viewer {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 8px;
+    border-radius: 3px;
+    max-height: 250px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    text-align: left; /* override inherited .simple-view-panel text-align:center */
+    resize: vertical;
+}
+
+/* ── ReferencePanel catalogue ── (dev-only, TASK-1662) */
+.sv-ref-panel {
+    text-align: left; /* override inherited .simple-view-panel text-align:center */
+    padding: 8px 12px;
+    overflow-y: auto;
+    flex: 1;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-ref-section {
+    margin-bottom: 16px;
+}
+
+.sv-ref-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    padding-bottom: 3px;
+    margin-bottom: 8px;
+}
+
+.sv-ref-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    flex-wrap: wrap;
+}
+
+.sv-ref-label {
+    font-size: 10px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.sv-ref-do {
+    font-size: 10px;
+    color: var(--sv-glyph-active, limegreen);
+    margin-top: 4px;
+}
+
+.sv-ref-dont {
+    font-size: 10px;
+    color: var(--sv-glyph-inactive, red);
+    margin-top: 2px;
+}
+
+.sv-ref-note {
+    font-size: 10px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    font-style: italic;
+    margin-top: 2px;
+}
+
+/* TaskMonitor dark-glass migration — TASK-1665 */
+/* The .tm-panel class is replaced by .simple-view-panel shell;
+   these rules handle the structural layout inside it. */
+.sv-tm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    flex-shrink: 0;
+    text-align: left; /* override .simple-view-panel text-align:center */
+}
+
+.sv-tm-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-tm-filter-bar {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    display: flex;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.sv-tm-filter-bar .btn {
+    flex: 1;
+    font-size: 11px;
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
+    border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-tm-filter-bar .btn.active,
+.sv-tm-filter-bar .btn:active {
+    background-color: var(--sv-button-bg-active, rgba(0, 60, 136, 0.9));
+    border-color: var(--sv-button-border-active, rgba(255, 255, 255, 0.9));
+    color: #ffffff;
+}
+
+.sv-tm-process-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.sv-tm-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    font-style: italic;
+}
+
+.sv-tm-process-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 0.15s;
+    text-align: left; /* override inherited .simple-view-panel text-align:center */
+}
+
+.sv-tm-process-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.sv-tm-process-row.sv-tm-expanded {
+    background: rgba(255, 255, 255, 0.10);
+}
+
+.sv-tm-type-icon {
+    margin-top: 3px;
+    margin-right: 10px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    font-size: 14px;
+}
+
+.sv-tm-row-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.sv-tm-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sv-tm-process-name {
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 8px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-tm-status-detail {
+    font-size: 11px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+    margin-top: 2px;
+}
+
+.sv-tm-process-detail {
+    padding: 8px 12px 12px 36px;
+    background: rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left; /* override inherited .simple-view-panel text-align:center */
+}
+
+.sv-tm-subtask-list {
+    margin-bottom: 8px;
+}
+
+.sv-tm-subtask-row {
+    display: flex;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+}
+
+.sv-tm-subtask-row .glyphicon {
+    margin-right: 8px;
+    font-size: 12px;
+}
+
+.sv-tm-subtask-name {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
+}
+
+.sv-tm-error-message {
+    padding: 6px 8px;
+    background: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
+    color: var(--sv-delete-error-color, #842029);
+    border-left: 3px solid var(--sv-delete-error-border, #dc3545);
+    border-radius: 3px;
+    font-size: 12px;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.sv-tm-detail-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.sv-tm-detail-actions .btn {
+    font-size: 11px;
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
+    border-color: var(--sv-button-border, rgba(255, 255, 255, 0.5));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.sv-tm-detail-actions .btn-danger {
+    background-color: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
+    border-color: var(--sv-delete-error-border, #dc3545);
+    color: var(--sv-delete-error-color, #842029);
+}
+
+/* Spinner animation for running status icon (reused from taskMonitor.css) */
+@keyframes sv-tm-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.sv-tm-spin {
+    animation: sv-tm-spin 1s linear infinite;
+}
+
+.sv-tm-notification-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sv-glyph-inactive, red);
+}

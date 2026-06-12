@@ -53,6 +53,8 @@
 
     /* ── Input ── */
     /* Canonical input blue = #5178af (see header comment for losing values) */
+    /* TASK-1677: formally tokenised; replaces 2 hardcodes in simpleView.css */
+    --sv-input-blue:        #5178af;
     --sv-input-bg:          rgba(255, 255, 255, 0.22);
     --sv-input-readonly-bg: rgba(255, 255, 255, 0.03);
 
