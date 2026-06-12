@@ -1,3 +1,15 @@
+/**
+ * TaskMonitorPanel — dark-glass migration (TASK-1665, W2 epic/1659-simpleview-design-system).
+ *
+ * Structural-parity migration: preserves all DOM structure + behaviour exactly.
+ * Replaces the light-theme (.tm-panel) shell with .simple-view-panel (dark-glass)
+ * and migrates inner classes from tm-* to sv-tm-* (all styled in simpleView.css).
+ * taskMonitor.css no longer carries any panel rules — only button-positioning remains.
+ *
+ * Visual shifts vs BEFORE (light theme) — enumerated for operator sign-off at W2 gate:
+ *   See SIMPLEVIEW-BUILD-A-PANEL-GUIDE.md § "TaskMonitor 1665 visual-shift list".
+ */
+
 import React from 'react';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
@@ -29,20 +41,21 @@ class TaskMonitorPanel extends React.Component {
             : null;
 
         return (
-            <div className="tm-panel">
-                <div className="tm-panel-header">
-                    <h5 className="tm-panel-title">
+            <div className="simple-view-panel sv-tm-container">
+                <div className="sv-tm-header">
+                    <h5 className="sv-tm-title">
                         <Message msgId="hydrata.taskMonitor.title" />
                     </h5>
                     <span
-                        className="glyphicon glyphicon-remove tm-close-btn"
+                        className="glyphicon glyphicon-remove legend-close"
                         onClick={onClose}
+                        title="Close"
                     />
                 </div>
                 <FilterBar activeFilter={filter} onSetFilter={onSetFilter} />
-                <div className="tm-process-list">
+                <div className="sv-tm-process-list">
                     {(!processes || processes.length === 0) ? (
-                        <div className="tm-empty">
+                        <div className="sv-tm-empty">
                             <Message msgId="hydrata.taskMonitor.noProcesses" />
                         </div>
                     ) : (
