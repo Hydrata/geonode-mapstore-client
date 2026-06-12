@@ -37,8 +37,6 @@
  *   node js/plugins/hydrata/SimpleView/css-namespace-guard.js  # from client/
  */
 
-'use strict';
-
 const fs = require('fs');
 const path = require('path');
 
@@ -116,7 +114,7 @@ const ALLOWED_PREFIXES = new Set([
     'list',
     'text',
     'ol',
-    'time',
+    'time'
 ]);
 
 // ── The 8 hydrata panel CSS files to scan ──
@@ -134,7 +132,7 @@ const PANEL_CSS_FILES = [
     'js/plugins/hydrata/Swamps/swamps.css',
     'js/plugins/hydrata/HGeval/styles/hgeval.css',
     'js/plugins/hydrata/TaskMonitor/taskMonitor.css',
-    'js/plugins/hydrata/VectorDraw/components/vectorDrawPopup.css',
+    'js/plugins/hydrata/VectorDraw/components/vectorDrawPopup.css'
 ].map(f => path.join(CLIENT_DIR, f));
 
 // ── CSS class selector regex ──
@@ -164,11 +162,12 @@ function stripComments(source) {
 function extractClassPrefixes(source) {
     const clean = stripComments(source);
     const prefixes = new Set();
-    let m;
 
     CLASS_WITH_HYPHEN_RE.lastIndex = 0;
-    while ((m = CLASS_WITH_HYPHEN_RE.exec(clean)) !== null) {
+    let m = CLASS_WITH_HYPHEN_RE.exec(clean);
+    while (m !== null) {
         prefixes.add(m[1]);
+        m = CLASS_WITH_HYPHEN_RE.exec(clean);
     }
 
     return prefixes;
@@ -180,7 +179,7 @@ const violations = [];
 
 for (const filePath of PANEL_CSS_FILES) {
     if (!fs.existsSync(filePath)) {
-        console.error(`[css-namespace-guard] ERROR: file not found: ${filePath}`);
+        process.stderr.write(`[css-namespace-guard] ERROR: file not found: ${filePath}\n`);
         process.exit(1);
     }
 
@@ -196,16 +195,16 @@ for (const filePath of PANEL_CSS_FILES) {
 }
 
 if (failed) {
-    console.error('[css-namespace-guard] FAIL — new class prefix(es) not in allowlist:');
+    process.stderr.write('[css-namespace-guard] FAIL — new class prefix(es) not in allowlist:\n');
     for (const { file, prefix } of violations) {
-        console.error(`  ${prefix}-*  in  ${file}`);
+        process.stderr.write(`  ${prefix}-*  in  ${file}\n`);
     }
-    console.error('');
-    console.error('To add a new panel namespace, add its prefix to ALLOWED_PREFIXES in:');
-    console.error('  js/plugins/hydrata/SimpleView/css-namespace-guard.js');
-    console.error('Prefix should follow the sv-* migration path (see RATCHET PROTOCOL above).');
+    process.stderr.write('\n');
+    process.stderr.write('To add a new panel namespace, add its prefix to ALLOWED_PREFIXES in:\n');
+    process.stderr.write('  js/plugins/hydrata/SimpleView/css-namespace-guard.js\n');
+    process.stderr.write('Prefix should follow the sv-* migration path (see RATCHET PROTOCOL above).\n');
     process.exit(1);
 } else {
-    console.log('[css-namespace-guard] PASS — all class prefixes are in the allowlist.');
+    process.stdout.write('[css-namespace-guard] PASS — all class prefixes are in the allowlist.\n');
     process.exit(0);
 }
