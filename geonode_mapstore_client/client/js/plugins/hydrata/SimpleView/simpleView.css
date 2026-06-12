@@ -1003,7 +1003,7 @@ span.menu-row-glyph {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 10px;
+    font-size: 11px;
     padding: 2px 7px;
     border-radius: 3px;
     white-space: nowrap;
@@ -1013,7 +1013,7 @@ span.menu-row-glyph {
 }
 
 .sv-status-badge.is-compact {
-    font-size: 9px;
+    font-size: 10px;
     padding: 1px 5px;
 }
 
@@ -1047,7 +1047,7 @@ span.menu-row-glyph {
 }
 
 .sv-status-badge-glyph {
-    font-size: 9px;
+    font-size: 10px;
 }
 
 /* ── ProgressBar ── */
@@ -1074,7 +1074,7 @@ span.menu-row-glyph {
     background: #1e1e1e;
     color: #d4d4d4;
     font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
     padding: 8px;
     border-radius: 3px;
@@ -1100,7 +1100,7 @@ span.menu-row-glyph {
 }
 
 .sv-ref-section-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -1119,26 +1119,26 @@ span.menu-row-glyph {
 }
 
 .sv-ref-label {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
-    width: 80px;
+    width: 92px;
     flex-shrink: 0;
 }
 
 .sv-ref-do {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--sv-text-ok, #7ee787); /* glyph tokens fail WCAG AA as 10px text — see tokens.css */
     margin-top: 4px;
 }
 
 .sv-ref-dont {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--sv-text-danger, #ffb3b3);
     margin-top: 2px;
 }
 
 .sv-ref-note {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
     font-style: italic;
     margin-top: 2px;
