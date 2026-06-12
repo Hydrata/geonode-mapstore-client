@@ -160,15 +160,16 @@ class TWRecipeBuilder extends React.Component {
         onUpdate: PropTypes.func.isRequired,
         onSetDesignInputs: PropTypes.func.isRequired,
         onDerive: PropTypes.func.isRequired,
-        onDelete: PropTypes.func.isRequired,
     };
     static defaultProps = { deriving: false, deriveError: null, saving: false, saveError: null };
 
     constructor(props) {
         super(props);
         const s = props.surface;
+        // NOTE: the recipe title is no longer edited here — it is renamed inline
+        // in the surface list (TWSurfaceListItem). The builder only owns the
+        // design inputs + parameters, so it never sends `title` on save.
         this.state = {
-            title: s.title || '',
             regional_terrain: s.regional_terrain || '',
             use_culverts: !!s.use_culverts,
             feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
@@ -183,7 +184,7 @@ class TWRecipeBuilder extends React.Component {
         if (prevProps.surface.id !== this.props.surface.id) {
             const s = this.props.surface;
             this.setState({
-                title: s.title || '', regional_terrain: s.regional_terrain || '', use_culverts: !!s.use_culverts,
+                regional_terrain: s.regional_terrain || '', use_culverts: !!s.use_culverts,
                 feather_width_m: s.feather_width_m ?? TW_PARAM_DEFAULTS.feather_width_m,
                 target_resolution_m: s.target_resolution_m ?? TW_PARAM_DEFAULTS.target_resolution_m,
                 breach_max_cost: s.breach_max_cost ?? TW_PARAM_DEFAULTS.breach_max_cost,
@@ -199,9 +200,9 @@ class TWRecipeBuilder extends React.Component {
     handleParam = (key, val) => this.setState({ [key]: val });
 
     handleSaveParams = () => {
-        const { title, regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
+        const { regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist } = this.state;
         this.props.onUpdate(this.props.surface.id, {
-            title, regional_terrain: regional_terrain || null, use_culverts,
+            regional_terrain: regional_terrain || null, use_culverts,
             feather_width_m: parseFloat(feather_width_m), target_resolution_m: parseFloat(target_resolution_m),
             breach_max_cost: parseFloat(breach_max_cost), breach_search_dist: parseFloat(breach_search_dist),
         });
@@ -217,17 +218,14 @@ class TWRecipeBuilder extends React.Component {
     };
 
     render() {
-        const { surface, terrains, deriving, deriveError, saving, saveError, onDelete } = this.props;
-        const { title, regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, designInputs } = this.state;
+        const { surface, terrains, deriving, deriveError, saving, saveError } = this.props;
+        const { regional_terrain, use_culverts, feather_width_m, target_resolution_m, breach_max_cost, breach_search_dist, designInputs } = this.state;
         const canDerive = designInputs.length > 0 && !!regional_terrain && !deriving && !saving;
         const regionalChoices = terrains.filter(t => !designInputs.find(d => d.terrain_id === t.id));
         return (
             <div className="tw-recipe-builder" data-testid="recipe-builder">
-                <div className="tw-recipe-header">
-                    <input className="tw-title-input" value={title} onChange={(e) => this.handleParam('title', e.target.value)} placeholder="Recipe title" disabled={saving || deriving} data-testid="recipe-title-input"/>
-                    <TWStaleBadge isStale={surface.is_stale}/>
-                    <button type="button" className="tw-icon-btn tw-icon-btn-danger" onClick={() => onDelete(surface.id)} disabled={saving || deriving} title="Delete recipe" data-testid="recipe-delete-btn">×</button>
-                </div>
+                {/* Title is renamed inline in the surface list above; delete lives
+                    on the surface row too — so the builder has no header row. */}
                 <TWDesignInputPicker terrains={terrains} designInputs={designInputs} onChange={(inputs) => this.setState({ designInputs: inputs })} disabled={saving || deriving}/>
                 <button type="button" className="tw-save-btn" onClick={this.handleSaveDesignInputs} disabled={saving || deriving} data-testid="save-design-inputs-btn">{saving ? 'Saving…' : 'Save design inputs'}</button>
                 <div className="tw-field">
@@ -268,7 +266,82 @@ class TWRecipeBuilder extends React.Component {
     }
 }
 
-function TWSurfaceList({ surfaces, selectedId, onSelect, onNew, saving }) {
+// One surface row — the name is edited INLINE here (click and type) rather than
+// in a separate field; commits on blur / Enter via onRename (a title-only
+// PATCH), Esc reverts. The row also owns selection and delete.
+class TWSurfaceListItem extends React.Component {
+    static propTypes = {
+        surface: PropTypes.object.isRequired,
+        selected: PropTypes.bool,
+        saving: PropTypes.bool,
+        onSelect: PropTypes.func.isRequired,
+        onRename: PropTypes.func.isRequired,
+        onDelete: PropTypes.func.isRequired,
+    };
+    static defaultProps = { selected: false, saving: false };
+
+    constructor(props) {
+        super(props);
+        this.state = { draft: props.surface.title || '' };
+    }
+
+    componentDidUpdate(prevProps) {
+        // Resync the editable draft when the row switches surface or the server
+        // title changes elsewhere (e.g. another save).
+        if (prevProps.surface.id !== this.props.surface.id ||
+            prevProps.surface.title !== this.props.surface.title) {
+            this.setState({ draft: this.props.surface.title || '' });
+        }
+    }
+
+    commit = () => {
+        const title = (this.state.draft || '').trim();
+        if (!title) { this.setState({ draft: this.props.surface.title || '' }); return; }
+        if (title !== this.props.surface.title) this.props.onRename(this.props.surface.id, title);
+    };
+
+    render() {
+        const { surface, selected, saving, onSelect, onDelete } = this.props;
+        return (
+            <div
+                className={`tw-surface-item${selected ? ' selected' : ''}`}
+                onClick={() => onSelect(surface.id)}
+                data-testid={`surface-item-${surface.id}`}
+            >
+                <input
+                    className="tw-surface-title-input"
+                    value={this.state.draft}
+                    placeholder={`Surface #${surface.id}`}
+                    title="Click to rename this analysis surface"
+                    aria-label="Analysis surface name"
+                    disabled={saving}
+                    onChange={(e) => this.setState({ draft: e.target.value })}
+                    onClick={(e) => { e.stopPropagation(); onSelect(surface.id); }}
+                    onBlur={this.commit}
+                    onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+                        else if (e.key === 'Escape') { this.setState({ draft: surface.title || '' }, () => this.input && this.input.blur()); }
+                    }}
+                    ref={(el) => { this.input = el; }}
+                    data-testid={`surface-title-${surface.id}`}
+                />
+                <TWStaleBadge isStale={surface.is_stale}/>
+                <button
+                    type="button"
+                    className="tw-icon-btn tw-icon-btn-danger tw-surface-delete"
+                    onClick={(e) => { e.stopPropagation(); onDelete(surface.id); }}
+                    disabled={saving}
+                    title="Delete this analysis surface"
+                    aria-label="Delete analysis surface"
+                    data-testid={`surface-delete-${surface.id}`}
+                >×</button>
+            </div>
+        );
+    }
+}
+
+function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onNew, saving }) {
     return (
         <div className="tw-surface-list">
             <div className="tw-surface-list-header">
@@ -277,15 +350,20 @@ function TWSurfaceList({ surfaces, selectedId, onSelect, onNew, saving }) {
             </div>
             {surfaces.length === 0 && <div className="tw-empty-hint">No analysis surfaces yet. Create one with <strong>+ New analysis surface</strong>.</div>}
             {surfaces.map(s => (
-                <div key={s.id} className={`tw-surface-item${selectedId === s.id ? ' selected' : ''}`} onClick={() => onSelect(s.id)} role="button" tabIndex={0} onKeyPress={(e) => e.key === 'Enter' && onSelect(s.id)} data-testid={`surface-item-${s.id}`}>
-                    <span className="tw-surface-title">{s.title || `Surface #${s.id}`}</span>
-                    <TWStaleBadge isStale={s.is_stale}/>
-                </div>
+                <TWSurfaceListItem
+                    key={s.id}
+                    surface={s}
+                    selected={selectedId === s.id}
+                    saving={saving}
+                    onSelect={onSelect}
+                    onRename={onRename}
+                    onDelete={onDelete}
+                />
             ))}
         </div>
     );
 }
-TWSurfaceList.propTypes = { surfaces: PropTypes.array.isRequired, selectedId: PropTypes.number, onSelect: PropTypes.func.isRequired, onNew: PropTypes.func.isRequired, saving: PropTypes.bool };
+TWSurfaceList.propTypes = { surfaces: PropTypes.array.isRequired, selectedId: PropTypes.number, onSelect: PropTypes.func.isRequired, onRename: PropTypes.func.isRequired, onDelete: PropTypes.func.isRequired, onNew: PropTypes.func.isRequired, saving: PropTypes.bool };
 TWSurfaceList.defaultProps = { selectedId: null, saving: false };
 
 // ── end TASK-1645 recipe builder components ──────────────────────────────────
@@ -1143,6 +1221,8 @@ class AnugaInputMenuClass extends React.Component {
                                             surfaces={twSurfaces || []}
                                             selectedId={twSelectedSurfaceId}
                                             onSelect={onTwSelectSurface}
+                                            onRename={(id, title) => onTwUpdateSurface(id, { title })}
+                                            onDelete={onTwDeleteSurface}
                                             onNew={() => onTwCreateSurface({
                                                 title: `New Analysis Surface ${(twSurfaces || []).length + 1}`,
                                                 regional_terrain: null,
@@ -1162,7 +1242,6 @@ class AnugaInputMenuClass extends React.Component {
                                                 onUpdate={onTwUpdateSurface}
                                                 onSetDesignInputs={onTwSetDesignInputs}
                                                 onDerive={onTwDerive}
-                                                onDelete={onTwDeleteSurface}
                                             />
                                         )}
                                     </React.Fragment>
