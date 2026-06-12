@@ -517,7 +517,15 @@ export const plugins = {
     VectorDrawPlugin: toModulePlugin(
         'VectorDraw',
         () => import(/* webpackChunkName: 'plugins/vectordraw-plugin' */ '@js/plugins/hydrata/VectorDraw/VectorDraw')
-    )
+    ),
+    // Dev-only: SimpleView primitive catalogue. Tree-shaken in prod; never add to per-site deploy files.
+    // TASK-1662 (W2 epic/1659-simpleview-design-system)
+    ...(process.env.NODE_ENV !== 'production' ? {
+        SimpleViewReferencePlugin: toModulePlugin(
+            'SimpleViewReference',
+            () => import(/* webpackChunkName: 'plugins/simpleviewreference-dev' */ '@js/plugins/hydrata/SimpleViewReference/SimpleViewReferencePlugin')
+        )
+    } : {})
 };
 
 const pluginsDefinition = {

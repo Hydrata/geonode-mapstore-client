@@ -31,7 +31,7 @@ import {
     SET_FOCUSED_PREVIEW, setFocusedPreview,
     ATTACH_DESIGN_STORM_REQUEST, attachDesignStormRequest,
     ATTACH_DESIGN_STORM_SUCCESS, attachDesignStormSuccess,
-    ATTACH_DESIGN_STORM_FAILURE, attachDesignStormFailure,
+    ATTACH_DESIGN_STORM_FAILURE, attachDesignStormFailure as _attachDesignStormFailure,
     MARK_PROJECTION_STALE, markProjectionStale,
     SAVE_HYDROLOGY_ITEM_SUCCESS,
     FETCH_HYDROLOGY_TIME_SERIES_DATA
