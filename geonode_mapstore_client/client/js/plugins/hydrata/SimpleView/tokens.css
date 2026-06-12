@@ -27,7 +27,10 @@
     --sv-button-border-active: rgba(255, 255, 255, 0.9);
 
     /* ── Panel chrome ── */
-    --sv-panel-bg:     rgba(0, 60, 136, 0.8);
+    /* Alpha 0.8 -> 0.88 (UAT 2026-06-12 finding #2): at 0.8 a bright map under
+       the glass dropped small-text contrast below WCAG AA; pairs with the
+       backdrop-filter blur on .simple-view-panel. */
+    --sv-panel-bg:     rgba(0, 60, 136, 0.88);
     --sv-panel-border: rgba(255, 255, 255, 0.6);
     --sv-panel-top:       65px;
     --sv-panel-top-anuga: 70px;
@@ -63,7 +66,18 @@
        Formalised here so downstream primitives can reference them without
        relying on CSS fallback. */
     --sv-text:     rgba(255, 255, 255, 0.85);
-    --sv-text-dim: rgba(255, 255, 255, 0.55);
+    /* Dim alpha 0.55 -> 0.68 (UAT 2026-06-12 finding #2): 0.55 measured
+       3.1:1 over a bright map at 10px — below the WCAG AA 4.5:1 floor. */
+    --sv-text-dim: rgba(255, 255, 255, 0.68);
+
+    /* ── Semantic text on dark glass (UAT 2026-06-12 finding #2) ──
+       High-luminance ok/danger TEXT colours, measured >= 4.5:1 (WCAG AA)
+       against the worst-case bright-map pixel under 0.88 glass. The
+       --sv-glyph-* tokens (limegreen/red) remain for ICON glyphs only —
+       as 10px text they measured 3.0:1 / 1.6:1. Colour-blind safety comes
+       from luminance + the redundant ✓/✗ glyph and label encoding, not hue. */
+    --sv-text-ok:     #7ee787;
+    --sv-text-danger: #ffb3b3;
 
     /* ── Info / hint banner ── */
     /* Undeclared in prior simpleView.css; formally added here (proof-capped:

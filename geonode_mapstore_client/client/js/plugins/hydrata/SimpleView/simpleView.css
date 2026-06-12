@@ -118,7 +118,11 @@
     left: 20px;
     min-width: 500px;
     max-height: calc(100vh - 80px);
-    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
+    background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
+    /* Blur the map showing through the glass so text contrast stays stable
+       over busy terrain (UAT 2026-06-12 finding #2). */
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     border: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
     padding: 5px 10px;
@@ -1026,12 +1030,15 @@ span.menu-row-glyph {
 
 .sv-status-badge.is-err {
     background: rgba(217, 83, 79, 0.20);
-    color: var(--sv-delete-error-color, #842029);
+    /* --sv-delete-error-color (#842029) measured 1.0-1.5:1 on dark glass —
+       it is a light-background token; use the dark-glass danger text token
+       (UAT 2026-06-12 finding #2). */
+    color: var(--sv-text-danger, #ffb3b3);
 }
 
 .sv-status-badge.is-running {
     background: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
-    color: var(--sv-info-border, #5bc0de);
+    color: #7cd3ec; /* --sv-info-border (#5bc0de) is 3.8:1 over a bright map; lightened to pass AA */
 }
 
 .sv-status-badge.is-cancelled {
@@ -1120,13 +1127,13 @@ span.menu-row-glyph {
 
 .sv-ref-do {
     font-size: 10px;
-    color: var(--sv-glyph-active, limegreen);
+    color: var(--sv-text-ok, #7ee787); /* glyph tokens fail WCAG AA as 10px text — see tokens.css */
     margin-top: 4px;
 }
 
 .sv-ref-dont {
     font-size: 10px;
-    color: var(--sv-glyph-inactive, red);
+    color: var(--sv-text-danger, #ffb3b3);
     margin-top: 2px;
 }
 
