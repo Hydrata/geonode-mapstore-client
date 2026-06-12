@@ -172,7 +172,7 @@ class SimpleViewReferencePanel extends React.Component {
                         Consume only --sv-* tokens. Never hardcode a colour that a token covers.
                     </Note>
                     <Note type="do">
-                        See docs/reports/SIMPLEVIEW-BUILD-A-PANEL-GUIDE.md for the full panel skeleton + worked example.
+                        See SimpleView/BUILD-A-PANEL-GUIDE.md for the full panel skeleton + worked example.
                     </Note>
                 </Section>
 
