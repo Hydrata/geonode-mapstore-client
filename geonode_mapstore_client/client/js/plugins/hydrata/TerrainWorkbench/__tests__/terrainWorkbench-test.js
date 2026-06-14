@@ -13,8 +13,6 @@
  */
 
 import expect from 'expect';
-import React from 'react';
-import ReactDOM from 'react-dom';
 
 import reducer from '../reducersTerrainWorkbench';
 import {
@@ -41,7 +39,6 @@ import {
     twDeriveSuccess,
     twDeriveComplete,
 } from '../actionsTerrainWorkbench';
-import { TerrainWorkbenchPanel } from '../components/TerrainWorkbenchPanel';
 
 // ---------------------------------------------------------------------------
 // Reducer — shell tests (TASK-1599)
@@ -315,98 +312,9 @@ describe('TerrainWorkbench action creators', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// TerrainWorkbenchPanel — visible-gating (TASK-1599 fix)
-// ---------------------------------------------------------------------------
-
-describe('TerrainWorkbenchPanel visible gating', () => {
-    let container;
-
-    beforeEach(() => {
-        container = document.createElement('div');
-        document.body.appendChild(container);
-    });
-
-    afterEach(() => {
-        ReactDOM.unmountComponentAtNode(container);
-        document.body.removeChild(container);
-        container = null;
-    });
-
-    it('renders null when visible=false even if isAnugaProject=true', () => {
-        ReactDOM.render(
-            <TerrainWorkbenchPanel
-                isAnugaProject
-                visible={false}
-                activeSection="terrain"
-                onSetSection={() => {}}
-            />,
-            container
-        );
-        expect(container.querySelector('.terrain-workbench-panel')).toNotExist();
-    });
-
-    it('renders null when isAnugaProject=false even if visible=true', () => {
-        ReactDOM.render(
-            <TerrainWorkbenchPanel
-                isAnugaProject={false}
-                visible
-                activeSection="terrain"
-                onSetSection={() => {}}
-            />,
-            container
-        );
-        expect(container.querySelector('.terrain-workbench-panel')).toNotExist();
-    });
-
-    it('renders the panel when both isAnugaProject=true and visible=true', () => {
-        ReactDOM.render(
-            <TerrainWorkbenchPanel
-                isAnugaProject
-                visible
-                activeSection="terrain"
-                onSetSection={() => {}}
-            />,
-            container
-        );
-        expect(container.querySelector('.terrain-workbench-panel')).toExist();
-    });
-
-    it('SET_VISIBLE true drives panel visible via reducer state', () => {
-        // Reducer produces visible=true after SET_VISIBLE action.
-        const state = reducer(undefined, { type: TERRAIN_WORKBENCH_SET_VISIBLE, visible: true });
-        expect(state.visible).toEqual(true);
-        // And the panel renders given that state.
-        ReactDOM.render(
-            <TerrainWorkbenchPanel
-                isAnugaProject
-                visible={state.visible}
-                activeSection="terrain"
-                onSetSection={() => {}}
-            />,
-            container
-        );
-        expect(container.querySelector('.terrain-workbench-panel')).toExist();
-    });
-
-    it('SET_VISIBLE false hides panel via reducer state', () => {
-        const state = reducer(
-            { ...reducer(undefined, {}), visible: true },
-            { type: TERRAIN_WORKBENCH_SET_VISIBLE, visible: false }
-        );
-        expect(state.visible).toEqual(false);
-        ReactDOM.render(
-            <TerrainWorkbenchPanel
-                isAnugaProject
-                visible={state.visible}
-                activeSection="terrain"
-                onSetSection={() => {}}
-            />,
-            container
-        );
-        expect(container.querySelector('.terrain-workbench-panel')).toNotExist();
-    });
-});
+// TASK-1657: the panel visible-gating describe block was removed with the dead
+// workbench shell component (the 1645 dissolution). The reducer's SET_VISIBLE /
+// SET_SECTION cases + their action creators are still covered above.
 
 // ---------------------------------------------------------------------------
 // TASK-1658 — extractTwError: map the BE {success:false, errors:[...]} shape
