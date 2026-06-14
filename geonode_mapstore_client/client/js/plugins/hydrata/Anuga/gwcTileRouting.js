@@ -106,15 +106,21 @@ export function isShareableTileLayer(layer) {
  * The returned array is intended for MapStore2 layer config's `tileUrls` field,
  * which the vectortiles / WMS plugin reads to request tiles via WMTS instead of OWS.
  *
+ * TASK-1721 (W4): An optional `style` parameter allows specifying a named GeoServer
+ * style (e.g. 'dem_contours') for layers that should use a non-default style via GWC.
+ * When `style` is empty (default), the STYLE= parameter is left blank, which is the
+ * existing behaviour preserved for all callers that omit the argument.
+ *
  * @param {string} layerName - Fully-qualified GeoServer layer name (e.g. 'geonode:mesh_triangle_render').
  * @param {string} [format='image/png'] - MIME type for the tile request.
+ * @param {string} [style=''] - Named GeoServer style (e.g. 'dem_contours'). Empty = default style.
  * @returns {string[]} Single-element array containing the WMTS URL template.
  */
-export function buildGwcTileUrls(layerName, format = 'image/png') {
+export function buildGwcTileUrls(layerName, format = 'image/png', style = '') {
     const ts = GWC_TILEMATRIXSET;
     return [
         `${GWC_WMTS_ENDPOINT}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0` +
-        `&LAYER=${layerName}&STYLE=` +
+        `&LAYER=${layerName}&STYLE=${style}` +
         `&TILEMATRIXSET=${ts}&TILEMATRIX=${ts}:{z}&TILEROW={y}&TILECOL={x}` +
         `&FORMAT=${format}`
     ];
@@ -220,6 +226,60 @@ export function buildMeshTriangleLayer(token) {
         title: 'Mesh triangles',
         visibility: true,
         group: 'Input Data.Mesh',
+        params,
+        tileUrls
+    };
+}
+
+/**
+ * TASK-1721 (W4): Build a MapStore2 layer config for the DEM contour overlay.
+ *
+ * The contour layer is SEPARATE from the DEM colormap layer — it is overlaid on top
+ * of the colormap to show contour lines rendered on-the-fly by GeoServer's
+ * ``ras:Contour`` rendering transformation via the ``dem_contours`` named style.
+ *
+ * GWC CACHEABILITY:
+ *   The layer uses STYLES=dem_contours (a named global style) and NO env= parameter,
+ *   so it passes ``isShareableTileLayer`` and tiles are served from the shared GWC
+ *   cache fleet-wide.  The ``buildGwcTileUrls`` style param emits ``&STYLE=dem_contours``
+ *   in the WMTS URL so GWC serves the correct style bucket.
+ *
+ * CONVENTION: The FE knows the style name ``dem_contours`` — no API round-trip is
+ * needed to discover it.  The caller provides the DEM coverage layer name (e.g.
+ * ``'geonode:ele_7_grand_canyon_cog'``) which it already has from the terrain row.
+ *
+ * @param {string} demLayerName - Fully-qualified GeoServer coverage name (e.g. 'geonode:ele_7_...').
+ * @param {string|null} [token] - OAuth2 access token. When null/undefined, no token injected.
+ * @returns {Object} MapStore2 WMS layer config for the contour overlay.
+ */
+export const DEM_CONTOUR_STYLE_NAME = 'dem_contours';
+
+export function buildContourLayer(demLayerName, token = null) {
+    const params = {
+        LAYERS: demLayerName,
+        STYLES: DEM_CONTOUR_STYLE_NAME,
+        FORMAT: 'image/png',
+        TRANSPARENT: true,
+        VERSION: '1.1.1',
+        TILED: true,
+        ...(token ? {access_token: token} : {})
+    };
+    const baseTileUrls = buildGwcTileUrls(demLayerName, 'image/png', DEM_CONTOUR_STYLE_NAME);
+    const tileUrls = token
+        ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
+        : baseTileUrls;
+    return {
+        type: 'wms',
+        url: GWC_WMTS_ENDPOINT,
+        name: demLayerName,
+        // Unique id to distinguish contour overlay from the colormap layer.
+        id: `${demLayerName}__contours`,
+        title: 'Contours',
+        visibility: true,
+        // Place contour layer in the same terrain group, above the colormap.
+        group: 'Input Data.Terrain',
+        style: DEM_CONTOUR_STYLE_NAME,
+        // No env= — contours use a fixed interval; GWC can cache fleet-wide.
         params,
         tileUrls
     };

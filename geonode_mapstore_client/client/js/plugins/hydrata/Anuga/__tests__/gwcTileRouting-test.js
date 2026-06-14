@@ -21,6 +21,8 @@ import {
     applyGwcRouting,
     routeLayerTileSource,
     buildMeshTriangleLayer,
+    buildContourLayer,
+    DEM_CONTOUR_STYLE_NAME,
     GWC_WMTS_ENDPOINT,
     GWC_TILEMATRIXSET,
     DIRECT_WMS_ENDPOINT
@@ -204,6 +206,121 @@ describe('gwcTileRouting — buildGwcTileUrls', () => {
             `&FORMAT=application/vnd.mapbox-vector-tile`;
         const [url] = buildGwcTileUrls(LAYER_NAME, 'application/vnd.mapbox-vector-tile');
         expect(url).toBe(expectedUrl);
+    });
+
+    // TASK-1721 (W4): style parameter
+
+    it('emits STYLE= (empty) by default — back-compat for all existing callers', () => {
+        const [url] = buildGwcTileUrls('geonode:ele_7');
+        // Must contain STYLE= with nothing after it (before the next & delimiter).
+        expect(url).toContain('&STYLE=&');
+    });
+
+    it('emits STYLE=dem_contours when style param is passed (TASK-1721)', () => {
+        const [url] = buildGwcTileUrls('geonode:ele_7', 'image/png', 'dem_contours');
+        expect(url).toContain('&STYLE=dem_contours&');
+        expect(url).toNotContain('&STYLE=&');
+    });
+
+    it('emits STYLE=<style> for arbitrary named styles', () => {
+        const [url] = buildGwcTileUrls('geonode:my_layer', 'image/png', 'my_custom_style');
+        expect(url).toContain('&STYLE=my_custom_style&');
+    });
+
+    it('back-compat: buildGwcMvtTileUrls (wrapper) still produces empty STYLE=', () => {
+        // buildGwcMvtTileUrls calls buildGwcTileUrls with no style — must be unchanged.
+        const [url] = buildGwcMvtTileUrls('geonode:mesh_triangle_render');
+        expect(url).toContain('&STYLE=&');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// buildContourLayer — TASK-1721 (W4): GWC-cached ras:Contour overlay
+// ---------------------------------------------------------------------------
+
+describe('gwcTileRouting — buildContourLayer (TASK-1721)', () => {
+
+    const DEM_LAYER = 'geonode:ele_7_grand_canyon_cog';
+
+    it('returns a wms layer with the correct DEM name', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.type).toBe('wms');
+        expect(layer.name).toBe(DEM_LAYER);
+    });
+
+    it('uses the GWC WMTS endpoint (not direct /geoserver/ows)', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.url).toBe(GWC_WMTS_ENDPOINT);
+    });
+
+    it('has tileUrls array with WMTS URL containing STYLE=dem_contours', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(Array.isArray(layer.tileUrls)).toBe(true);
+        expect(layer.tileUrls.length).toBe(1);
+        expect(layer.tileUrls[0]).toContain(`&STYLE=${DEM_CONTOUR_STYLE_NAME}&`);
+    });
+
+    it('has tileUrls pointing at the correct layer name', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.tileUrls[0]).toContain(`LAYER=${DEM_LAYER}`);
+    });
+
+    it('has unique id <demLayerName>__contours to distinguish from colormap layer', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.id).toBe(`${DEM_LAYER}__contours`);
+    });
+
+    it('sets style=dem_contours on the layer config', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.style).toBe(DEM_CONTOUR_STYLE_NAME);
+    });
+
+    it('params include STYLES=dem_contours (WMS params for direct requests)', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.params.STYLES).toBe(DEM_CONTOUR_STYLE_NAME);
+    });
+
+    it('params do NOT include env= (no per-session colormap — GWC-cacheable)', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.params.env).toNotExist();
+    });
+
+    it('params include TILED: true', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.params.TILED).toBe(true);
+    });
+
+    it('params include TRANSPARENT: true (overlay on colormap)', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.params.TRANSPARENT).toBe(true);
+    });
+
+    it('the resulting layer passes isShareableTileLayer (no env, no CQL, no SLD_BODY)', () => {
+        // A contour layer must be GWC-cacheable — isShareableTileLayer must approve it.
+        // Note: layer.style (published default) is not a disqualifier.
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(isShareableTileLayer(layer)).toBe(true);
+    });
+
+    it('group is Input Data.Terrain (placed in terrain panel)', () => {
+        const layer = buildContourLayer(DEM_LAYER);
+        expect(layer.group).toBe('Input Data.Terrain');
+    });
+
+    it('does not inject access_token when token is null', () => {
+        const layer = buildContourLayer(DEM_LAYER, null);
+        expect(layer.params.access_token).toNotExist();
+        expect(layer.tileUrls[0]).toNotContain('access_token');
+    });
+
+    it('injects access_token into params and tileUrls when token is provided', () => {
+        const layer = buildContourLayer(DEM_LAYER, 'test-token-xyz');
+        expect(layer.params.access_token).toBe('test-token-xyz');
+        expect(layer.tileUrls[0]).toContain('access_token=test-token-xyz');
+    });
+
+    it('DEM_CONTOUR_STYLE_NAME constant is "dem_contours"', () => {
+        expect(DEM_CONTOUR_STYLE_NAME).toBe('dem_contours');
     });
 });
 
