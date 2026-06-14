@@ -57,26 +57,39 @@ describe('gwcTileRouting — isShareableTileLayer', () => {
         expect(isShareableTileLayer(layer)).toBe(true);
     });
 
-    // --- DEM / terrain canonical "must NOT share-cache" case ---
+    // --- DEM / terrain layer shareability (TASK-1719: Traditional vs Dynamic) ---
 
-    it('returns false for a layer in the Input Data.Terrain group (per-session env= rescale)', () => {
-        // This is the canonical demRescaleEpic.js case. If this ever returns true
-        // it means DEM colormap tiles would flood the shared GWC cache.
+    it('returns false for a Dynamic terrain layer (Input Data.Terrain + params.env set)', () => {
+        // DYNAMIC mode: demRescaleEpic.js injects per-session env= colormap rescale.
+        // The env= check (condition 2) must reject it. If this ever returns true,
+        // DEM dynamic colormap tiles would poison the shared GWC cache.
         const demLayer = makeWmsLayer({
             group: 'Input Data.Terrain',
-            name: 'geonode:ele_7_my_dem_cog'
+            name: 'geonode:ele_7_my_dem_cog',
+            params: { env: 'elevMin:100.000;elevMax:900.000' }
         });
         expect(isShareableTileLayer(demLayer)).toBe(false);
     });
 
-    it('returns false when params.env is set (per-session DEM colormap rescale)', () => {
+    it('returns true for a Traditional terrain layer (Input Data.Terrain, NO params.env)', () => {
+        // TRADITIONAL mode (TASK-1719): static literal colour-relief SLD, no env=.
+        // GWC can safely cache tiles fleet-wide — this MUST be shareable.
+        const demLayer = makeWmsLayer({
+            group: 'Input Data.Terrain',
+            name: 'geonode:ele_7_my_dem_cog'
+            // no params.env
+        });
+        expect(isShareableTileLayer(demLayer)).toBe(true);
+    });
+
+    it('returns false when params.env is set (per-session DEM colormap rescale, any group)', () => {
         const demLayer = makeWmsLayer({
             params: { env: 'elevMin:100.000;elevMax:900.000' }
         });
         expect(isShareableTileLayer(demLayer)).toBe(false);
     });
 
-    it('returns false when params.env is set AND group is terrain (belt-and-braces)', () => {
+    it('returns false when params.env is set AND group is terrain (belt-and-braces, Dynamic)', () => {
         const demLayer = makeWmsLayer({
             group: 'Input Data.Terrain',
             params: { env: 'elevMin:100.000;elevMax:900.000' }
@@ -265,7 +278,8 @@ describe('gwcTileRouting — routeLayerTileSource', () => {
         expect(result.tileUrls).toBeA('array');
     });
 
-    it('returns the layer unchanged for a DEM terrain layer (per-session env=)', () => {
+    it('returns the layer unchanged for a Dynamic DEM terrain layer (per-session env=)', () => {
+        // Dynamic mode: env= present → stays on direct WMS, not routed to GWC.
         const demLayer = makeWmsLayer({
             group: 'Input Data.Terrain',
             url: '/geoserver/ows',
@@ -276,6 +290,20 @@ describe('gwcTileRouting — routeLayerTileSource', () => {
         expect(result.url).toBe('/geoserver/ows');
         // tileUrls must NOT be injected
         expect(result.tileUrls).toBe(undefined);
+    });
+
+    it('routes a Traditional terrain layer (no env=) to GWC (TASK-1719)', () => {
+        // Traditional mode: static SLD, no env= → shareable, must be routed to GWC.
+        const traditionalLayer = makeWmsLayer({
+            group: 'Input Data.Terrain',
+            name: 'geonode:ele_7_grand_canyon_cog',
+            url: '/geoserver/ows'
+            // no params.env
+        });
+        const result = routeLayerTileSource(traditionalLayer);
+        expect(result.url).toBe(GWC_WMTS_ENDPOINT);
+        expect(result.tileUrls).toBeA('array');
+        expect(result.tileUrls.length).toBe(1);
     });
 
     it('returns the layer unchanged for a per-user CQL_FILTER layer', () => {

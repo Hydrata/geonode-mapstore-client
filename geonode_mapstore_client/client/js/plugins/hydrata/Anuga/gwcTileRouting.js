@@ -12,10 +12,13 @@
  * Gridset: EPSG:900913 fleet-wide (ADR — W1 confirmed, follow MeshWorkflow.js:223).
  * Endpoint: /geoserver/gwc/service/wmts (NOT /ows tiled=true — GeoServer 2.27.4 NPE).
  *
- * DEM/terrain layers (group 'Input Data.Terrain') carry per-session env= colormap
- * rescale (demRescaleEpic.js). They MUST remain singleTile/direct/uncached and are
- * the canonical "must NOT share-cache" example. The shareability predicate REJECTS
- * them via the env= / group checks.
+ * DEM/terrain layers (group 'Input Data.Terrain'):
+ *   - DYNAMIC mode (params.env present): carry per-session env= colormap rescale
+ *     (demRescaleEpic.js). MUST remain singleTile/direct/uncached. Rejected by the
+ *     env= check (condition 2) — the PER_SESSION_GROUPS guard is no longer needed
+ *     as a blunt instrument.
+ *   - TRADITIONAL mode (no params.env): static literal-quantity colour-relief SLD
+ *     (TASK-1719). GWC can safely cache tiles fleet-wide. SHAREABLE.
  *
  * Out-of-scope (W7 / TASK-1191/1192): SwammLayers.js, contourLayers.js,
  * epicsSwamm.js filterBmpEpic. Those layers carry per-user CQL_FILTER / per-user
@@ -46,8 +49,14 @@ export const DIRECT_WMS_ENDPOINT = '/geoserver/ows';
 export const GWC_TILEMATRIXSET = 'EPSG:900913';
 
 /**
- * Layer groups that carry per-session env= rescale and MUST stay direct/uncached.
- * Extend this list if new per-session terrain groups are added.
+ * Layer groups known to carry per-session env= rescale parameters.
+ * Listed here for documentation; the actual enforcement is the params.env check
+ * in isShareableTileLayer rather than this set — a terrain layer WITHOUT params.env
+ * (Traditional static style, TASK-1719) is shareable and must NOT be blocked by
+ * group membership alone.
+ *
+ * Keep this set updated if new per-session terrain groups are introduced; it serves
+ * as the canonical inventory even though shareability is decided by param presence.
  */
 const PER_SESSION_GROUPS = new Set([
     'Input Data.Terrain'
@@ -58,12 +67,20 @@ const PER_SESSION_GROUPS = new Set([
  *
  * A layer is SHAREABLE iff ALL conditions hold:
  *   1. It is of WMS type (type === 'wms') — only WMS layers can be GWC-cached.
- *   2. It is NOT in a per-session group (i.e. not a DEM/terrain layer).
- *   3. Its params contain NO env= value (per-session DEM colormap rescale).
- *   4. Its params contain NO CQL_FILTER (per-user row-level filter).
- *   5. It does NOT carry a per-user style override via params.SLD or params.SLD_BODY.
+ *   2. Its params contain NO env= value (per-session DEM colormap rescale).
+ *   3. Its params contain NO CQL_FILTER (per-user row-level filter).
+ *   4. It does NOT carry a per-user style override via params.SLD or params.SLD_BODY.
  *      (Note: layer.style is the default published style — acceptable on shared cache;
  *       dynamic per-user SLD injection via params is NOT.)
+ *
+ * TERRAIN LAYERS (group 'Input Data.Terrain') — TWO modes (TASK-1719):
+ *   - Dynamic (params.env present): per-session colormap rescale via demRescaleEpic.js.
+ *     Rejected by condition (2). MUST NOT be cached by GWC.
+ *   - Traditional (no params.env): static literal-quantity colour-relief SLD.
+ *     Passes all conditions → SHAREABLE. GWC can cache tiles fleet-wide.
+ *
+ * The PER_SESSION_GROUPS set documents which groups CAN carry env= params; the
+ * group itself is NOT a disqualifier — params.env presence is.
  *
  * @param {Object} layer - A MapStore2 layer config object.
  * @returns {boolean}
@@ -71,10 +88,9 @@ const PER_SESSION_GROUPS = new Set([
 export function isShareableTileLayer(layer) {
     if (!layer || layer.type !== 'wms') return false;
 
-    // Condition 2: reject per-session groups (DEM terrain -> env= rescale)
-    if (layer.group && PER_SESSION_GROUPS.has(layer.group)) return false;
-
-    // Conditions 3-5: inspect layer.params for per-session / per-user parameters
+    // Conditions 2-4: inspect layer.params for per-session / per-user parameters.
+    // NOTE: terrain group membership is NOT checked here — a Traditional terrain
+    // (no params.env) is shareable; only a Dynamic terrain (params.env set) is not.
     const params = layer.params || {};
     if (params.env) return false;
     if (params.CQL_FILTER) return false;

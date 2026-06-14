@@ -30,9 +30,8 @@
  *
  *   Part 2 — Client-side params check (via routeLayerTileSource / isShareableTileLayer):
  *     - type === 'wms' (only WMS layers can be GWC-cached via WMTS)
- *     - group NOT in {Input Data.Terrain} (DEM/terrain layers carry per-session
- *       env= colormap rescale from demRescaleEpic; MUST stay direct/untiled)
- *     - No params.env (per-session DEM colormap)
+ *     - No params.env (per-session DEM colormap rescale). NOTE TASK-1719: a Traditional
+ *       DEM layer carries NO env= and IS now cache-shareable; only a Dynamic (env=) terrain stays direct.
  *     - No params.CQL_FILTER (per-user row-level filter, e.g. SWAMM BMP)
  *     - No params.SLD / params.SLD_BODY (per-user style injection)
  *
