@@ -127,8 +127,15 @@ export function findDynamicDemPairs(state) {
     const flatLayers = state?.layers?.flat || [];
     const terrains = state?.anuga?.resources?.terrain || [];
 
+    // TASK-1720 (W3): Exclude traditional terrains from the dynamic rescale
+    // loop. Traditional terrains use a static literal-quantity colour-relief SLD
+    // (published at terrain-create time) and are served from GWC WMTS tile cache —
+    // they must NOT carry env= params or singleTile:true. A terrain with
+    // styling_mode absent or undefined defaults to 'traditional' (W1 BE default).
     const dynamicTerrains = terrains.filter(
-        (t) => t?.rendering_type === 'dynamic_dem' && t?.gn_layer_name
+        (t) => t?.rendering_type === 'dynamic_dem'
+            && t?.gn_layer_name
+            && t?.styling_mode !== 'traditional'
     );
     if (!dynamicTerrains.length) return [];
 

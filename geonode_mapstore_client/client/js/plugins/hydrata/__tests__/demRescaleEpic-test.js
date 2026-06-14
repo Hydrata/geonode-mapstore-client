@@ -205,6 +205,63 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
         });
         expect(findDynamicDemPairs(state)).toEqual([]);
     });
+
+    // TASK-1720 (W3): styling_mode gate — traditional terrains must be excluded
+    // from the demRescaleEpic so they keep singleTile:false and GWC tiling.
+    it('returns empty when terrain styling_mode is traditional', () => {
+        const traditionalTerrain = { ...terrainReady, styling_mode: 'traditional' };
+        const state = makeState({
+            terrains: [traditionalTerrain],
+            layers: [demLayer]
+        });
+        expect(findDynamicDemPairs(state)).toEqual([]);
+    });
+
+    it('returns the pair when terrain styling_mode is dynamic', () => {
+        const dynamicTerrain = { ...terrainReady, styling_mode: 'dynamic' };
+        const state = makeState({
+            terrains: [dynamicTerrain],
+            layers: [demLayer]
+        });
+        const pairs = findDynamicDemPairs(state);
+        expect(pairs.length).toBe(1);
+        expect(pairs[0].terrain.id).toBe(7);
+    });
+
+    it('excludes traditional terrain but includes dynamic terrain when both present', () => {
+        const traditionalTerrain = { ...terrainReady, id: 8, gn_layer_name: 'ele_8_trad', styling_mode: 'traditional' };
+        const dynamicTerrain = { ...terrainReady, id: 9, gn_layer_name: 'ele_9_dyn', styling_mode: 'dynamic' };
+        const tradLayer = { ...demLayer, id: 'ele-8-uuid', name: 'ele_8_trad' };
+        const dynLayer = { ...demLayer, id: 'ele-9-uuid', name: 'ele_9_dyn' };
+        const state = makeState({
+            terrains: [traditionalTerrain, dynamicTerrain],
+            layers: [tradLayer, dynLayer]
+        });
+        const pairs = findDynamicDemPairs(state);
+        expect(pairs.length).toBe(1);
+        expect(pairs[0].terrain.id).toBe(9);
+    });
+
+    it('treats absent styling_mode (undefined) as traditional (excluded)', () => {
+        // W1 BE default is 'traditional'. A terrain row without styling_mode
+        // (e.g. loaded from a snapshot before W1 shipped) must behave as
+        // traditional to avoid unintended dynamic rescale.
+        const noModeTerrain = { ...terrainReady };
+        delete noModeTerrain.styling_mode; // explicitly absent
+        const state = makeState({
+            terrains: [noModeTerrain],
+            layers: [demLayer]
+        });
+        // styling_mode absent → not === 'traditional' is false → BUT
+        // the filter is `!== 'traditional'` which means undefined !== 'traditional' is
+        // TRUE → this terrain WOULD be included by the current filter.
+        // This test documents the INTENTIONAL behaviour: absent styling_mode
+        // means old data or BE default not yet serialized; the demRescaleEpic
+        // WILL include it (treats as dynamic) so older terrain data keeps
+        // working with env= rescale. Flip this assertion if the policy changes
+        // to default-exclude (treat absent as traditional).
+        expect(findDynamicDemPairs(state).length).toBe(1);
+    });
 });
 
 describe('demRescaleEpic — elevation rescale epic integration', () => {

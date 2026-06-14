@@ -1327,6 +1327,146 @@ describe('Polling Epics', () => {
         });
     });
 
+    // TASK-1720 (W3) — buildTerrainAddSequence singleTile gate on styling_mode.
+    // Traditional terrains must be added with singleTile:false so GWC WMTS
+    // tile routing activates. Dynamic terrains must have singleTile:true so
+    // the demRescaleEpic's env-bearing GetMap fires as a single untiled request.
+    describe('taskCompleteLayerEpic — buildTerrainAddSequence singleTile gate (TASK-1720)', () => {
+        it('stamps singleTile:false on ADD_LAYER when terrain styling_mode is traditional', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: {
+                        resources: {
+                            terrainLoaded: true,
+                            terrain: [{ id: 200, styling_mode: 'traditional' }]
+                        }
+                    }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'trad-terrain',
+                    process_type: 'terrain_create',
+                    status: 'complete',
+                    metadata: {
+                        terrain_id: 200,
+                        target_group: 'Input Data.Terrain',
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_200_dem', type: 'wms', url: '/geoserver/ows', singleTile: false },
+                            { name: 'geonode:ele_200_hs', type: 'wms', url: '/geoserver/ows', singleTile: false }
+                        ]
+                    }
+                }]
+            });
+            try {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(2);
+                // Traditional → singleTile:false must be preserved (not overridden to true)
+                expect(adds[0].layer.singleTile).toBe(false);
+                expect(adds[1].layer.singleTile).toBe(false);
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
+        });
+
+        it('stamps singleTile:true on ADD_LAYER when terrain styling_mode is dynamic', (done) => {
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: {
+                        resources: {
+                            terrainLoaded: true,
+                            terrain: [{ id: 201, styling_mode: 'dynamic' }]
+                        }
+                    }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'dyn-terrain',
+                    process_type: 'terrain_create',
+                    status: 'complete',
+                    metadata: {
+                        terrain_id: 201,
+                        target_group: 'Input Data.Terrain',
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_201_dem', type: 'wms', url: '/geoserver/ows', singleTile: false }
+                        ]
+                    }
+                }]
+            });
+            try {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                // Dynamic → singleTile must be stamped true for demRescaleEpic
+                expect(adds[0].layer.singleTile).toBe(true);
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
+        });
+
+        it('defaults to traditional (singleTile:false) when terrain_id not found in state', (done) => {
+            // Race condition: terrain_create completes before the terrain row
+            // is in state.anuga.resources.terrain. We default to traditional
+            // (the safer choice — GWC tiled) rather than dynamic (uncached).
+            const store = {
+                getState: () => ({
+                    taskMonitor: { processes: { byId: {} } },
+                    layers: { flat: [], groups: [] },
+                    anuga: {
+                        resources: {
+                            terrainLoaded: true,
+                            terrain: [] // terrain row not yet in state
+                        }
+                    }
+                })
+            };
+            const { subject, action$ } = liveActions();
+            const emitted = [];
+            const sub = taskCompleteLayerEpic(action$, store)
+                .subscribe(a => emitted.push(a), err => done(err));
+            subject.next({
+                type: TM_SET_PROCESSES,
+                processes: [{
+                    id: 'race-terrain',
+                    process_type: 'terrain_create',
+                    status: 'complete',
+                    metadata: {
+                        terrain_id: 999, // not in state
+                        target_group: 'Input Data.Terrain',
+                        is_first_upload: false,
+                        mapstore_layers: [
+                            { name: 'geonode:ele_999_dem', type: 'wms', url: '/geoserver/ows', singleTile: false }
+                        ]
+                    }
+                }]
+            });
+            try {
+                const adds = emitted.filter(a => a.type === 'ADD_LAYER');
+                expect(adds.length).toBe(1);
+                // Not found in state → isTraditional=true → singleTile:false
+                expect(adds[0].layer.singleTile).toBe(false);
+                sub.unsubscribe();
+                done();
+            } catch (e) { sub.unsubscribe(); done(e); }
+        });
+    });
+
     // Persistence of handled-completion-ids across page reload. Without
     // persistence, the module-scoped Set resets on every reload so every
     // completed Process re-fires the addLayer path and (for any whose name

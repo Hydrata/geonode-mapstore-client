@@ -43,9 +43,12 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
-import {addLayer} from "../../../../../MapStore2/web/client/actions/layers";
+import {addLayer, changeLayerProperties} from "../../../../../MapStore2/web/client/actions/layers";
 // W6 (TASK-1422): zoom to mesh extent after successful preview.
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
+// TASK-1720 (W3): DEM styling-mode toggle — persist map + update terrain via API.
+import {saveDirectContent} from "@js/actions/gnsave";
+import {patchTerrainStylingMode} from "../api/anugaApi";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
 import {buildMeshTriangleLayer} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
@@ -215,7 +218,10 @@ class AnugaInputMenuClass extends React.Component {
         flatLayers: PropTypes.array,
         onAddMeshLayer: PropTypes.func,
         // W6 (TASK-1422)
-        onZoomToExtent: PropTypes.func
+        onZoomToExtent: PropTypes.func,
+        // TASK-1720 (W3): Dynamic/Traditional terrain styling mode toggle
+        onChangeTerrainLayerProperties: PropTypes.func,
+        onSaveMap: PropTypes.func
     };
 
     static defaultProps = {}
@@ -598,8 +604,45 @@ class AnugaInputMenuClass extends React.Component {
         );
     }
 
+    // TASK-1720 (W3): Toggle Dynamic/Traditional styling mode for a single terrain.
+    // Calls the BE PATCH endpoint to persist, then updates the map layer live so the
+    // demRescaleEpic and gwcCatalogRouting both see the new mode immediately.
+    _handleTerrainStylingModeChange = (terrainModel, mapLayer, newMode) => {
+        const projectId = this.props.projectId;
+        if (!projectId || !terrainModel?.id || !mapLayer?.id) return;
+        // Fire-and-forget the BE persist; no optimistic-update-rollback here because
+        // the FE layer update is idempotent and the next initAnuga will sync.
+        patchTerrainStylingMode(projectId, terrainModel.id, newMode)
+            .catch(() => {
+                // eslint-disable-next-line no-console
+                console.warn('[anugaInputMenu] patchTerrainStylingMode failed; FE already updated map layer');
+            });
+        if (newMode === 'traditional') {
+            // Traditional: drop env= from params, set singleTile:false so GWC
+            // WMTS tiled path activates on the next map render. The
+            // gwcCatalogRouting / routeLayerTileSource will route tiles to GWC
+            // because there is no params.env on the layer.
+            const updatedParams = Object.assign({}, mapLayer.params || {});
+            delete updatedParams.env;
+            delete updatedParams._v_;
+            this.props.onChangeTerrainLayerProperties(mapLayer.id, {
+                singleTile: false,
+                params: updatedParams
+            });
+        } else {
+            // Dynamic: mark singleTile:true so the next CHANGE_MAP_VIEW fires
+            // a single fresh ImageWMS request; demRescaleEpic will stamp env=
+            // on the first pan/zoom after this toggle.
+            this.props.onChangeTerrainLayerProperties(mapLayer.id, { singleTile: true });
+        }
+        // Persist the map blob so the styling mode choice survives reload.
+        this.props.onSaveMap();
+    };
+
     renderTerrainPane() {
         const layers = this.props.terrainLayers || [];
+        const terrainModels = this.props.terrainModels || [];
+        const canEdit = this.props.canEditAnugaMap;
         const actions = (
             <React.Fragment>
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
@@ -627,7 +670,42 @@ class AnugaInputMenuClass extends React.Component {
             <div className="menu-rows-pane anuga-pane">
                 {this.renderPaneHead('terrain', actions)}
                 <div className="anuga-pane-rows">
-                    {layers.map(t => <MenuRow key={t?.name || t?.id} layer={t}/>)}
+                    {layers.map(layer => {
+                        // Match this map layer to its terrain resource row by gn_layer_name.
+                        // The layer.name may carry a 'geonode:' prefix.
+                        const bareName = layer?.name?.replace(/^geonode:/, '') || '';
+                        const model = terrainModels.find(
+                            t => t?.gn_layer_name === bareName || t?.gn_layer_name === layer?.name
+                        );
+                        // Default to 'traditional' when no model found (W1 BE default).
+                        const mode = model?.styling_mode || 'traditional';
+                        const isDynamic = mode === 'dynamic';
+                        return (
+                            <div key={layer?.name || layer?.id} className="anuga-terrain-row-wrapper">
+                                <MenuRow layer={layer}/>
+                                {canEdit && model ? (
+                                    <div className="anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
+                                        <span className="anuga-terrain-mode-label">
+                                            {isDynamic ? 'Dynamic' : 'Traditional'}
+                                        </span>
+                                        <button
+                                            className={`btn btn-xs anuga-terrain-mode-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
+                                            title={isDynamic
+                                                ? 'Switch to Traditional (static colour relief, GWC tiled)'
+                                                : 'Switch to Dynamic (live ramp rescale on pan/zoom)'}
+                                            aria-pressed={isDynamic}
+                                            data-testid={`terrain-mode-toggle-btn-${model.id}`}
+                                            onClick={() => this._handleTerrainStylingModeChange(
+                                                model, layer, isDynamic ? 'traditional' : 'dynamic'
+                                            )}
+                                        >
+                                            {isDynamic ? 'Dynamic' : 'Traditional'}
+                                        </button>
+                                    </div>
+                                ) : null}
+                            </div>
+                        );
+                    })}
                     {layers.length === 0 ? this.renderTerrainEmpty() : null}
                 </div>
             </div>
@@ -861,7 +939,10 @@ const mapDispatchToProps = ( dispatch ) => {
         // W5.3 (TASK-1275) — Add mesh triangle render layer to map
         onAddMeshLayer: (layer) => dispatch(addLayer(layer)),
         // W6 (TASK-1422) — Zoom map to mesh extent after successful preview
-        onZoomToExtent: (extent, crs, maxZoom) => dispatch(zoomToExtent(extent, crs, maxZoom))
+        onZoomToExtent: (extent, crs, maxZoom) => dispatch(zoomToExtent(extent, crs, maxZoom)),
+        // TASK-1720 (W3): Dynamic/Traditional terrain styling mode toggle
+        onChangeTerrainLayerProperties: (layerId, props) => dispatch(changeLayerProperties(layerId, props)),
+        onSaveMap: () => dispatch(saveDirectContent())
     };
 };
 

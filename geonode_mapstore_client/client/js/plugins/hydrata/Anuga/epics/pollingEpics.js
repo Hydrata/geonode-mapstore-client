@@ -650,6 +650,21 @@ const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
     if (!newLayers.length) {
         return Rx.Observable.empty();
     }
+    // TASK-1720 (W3): Look up the terrain's styling_mode from Redux state so
+    // we can gate singleTile stamping at first-add time. The BE (W1) sets
+    // singleTile:false + gwc_tileable:true on the mapstore_layer config for
+    // traditional terrains. For dynamic terrains (styling_mode !== 'traditional'),
+    // we add singleTile:true so the demRescaleEpic's env-bearing GetMap fires as
+    // a single untiled request per pan/zoom rather than GWC tile grid requests.
+    // Default 'traditional' when terrain is not yet in state (race: the terrain
+    // row may not be in state at the time of first terrain_create completion).
+    const terrainId = metadata?.terrain_id;
+    const terrainResources = store.getState()?.anuga?.resources?.terrain || [];
+    const matchedTerrain = terrainId != null
+        ? terrainResources.find(t => t?.id === terrainId)
+        : null;
+    const isTraditional = !matchedTerrain || matchedTerrain.styling_mode !== 'dynamic';
+
     // Stamp the BE-resolved group on each layer so the Layer Menu / Results
     // tab filter (simpleViewMenuRows.js — gates on layer.group.split('.')[0])
     // routes the layer into the correct tab without waiting for the next
@@ -660,7 +675,12 @@ const buildTerrainAddSequence = (metadata, action$, store, currentNames) => {
     const stampedLayers = newLayers.map(l => {
         const group = resolveAnugaGroup(metadata, l);
         const layerWithGroup = group ? Object.assign({}, l, { group }) : Object.assign({}, l);
-        return Object.assign(layerWithGroup, { opacity: 0.5 });
+        // TASK-1720: override singleTile based on styling_mode.
+        // Dynamic → singleTile:true (demRescaleEpic will stamp env= on next pan/zoom).
+        // Traditional → singleTile:false (GWC WMTS tiled; no env= will be set;
+        //   the gwcCatalogRouting / routeLayerTileSource paths route tiles correctly).
+        const singleTileOverride = isTraditional ? { singleTile: false } : { singleTile: true };
+        return Object.assign(layerWithGroup, { opacity: 0.5 }, singleTileOverride);
     });
     return Rx.Observable.concat(
         Rx.Observable.defer(() => {
