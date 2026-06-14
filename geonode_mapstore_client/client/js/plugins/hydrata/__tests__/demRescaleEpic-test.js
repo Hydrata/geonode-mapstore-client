@@ -260,6 +260,45 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
         });
         expect(findDynamicDemPairs(state).length).toBe(0);
     });
+
+    // TASK-1721 (W4 review FIX C): the contour overlay layer (<name>__contours)
+    // shares the same `name` as the DEM layer but must NEVER be treated as a
+    // dynamic DEM pair — stamping env=/singleTile on it would break GWC
+    // cacheability and corrupt the overlay.
+    it('never returns the __contours overlay layer as a dynamic DEM pair (FIX C)', () => {
+        const contourLayer = {
+            ...demLayer,
+            // Contour layers use id = <name>__contours (from buildContourLayer).
+            id: `${terrainReady.gn_layer_name}__contours`,
+            name: terrainReady.gn_layer_name,
+            style: 'dem_contours',
+            // Place it BEFORE the real DEM in flat list so .find() encounters it first.
+        };
+        const state = makeState({
+            terrains: [terrainReady],
+            layers: [contourLayer, demLayer] // contour first — adversarial ordering
+        });
+        const pairs = findDynamicDemPairs(state);
+        // The real DEM layer (id = 'ele-7-uuid') must be paired, not the contour.
+        expect(pairs.length).toBe(1);
+        expect(pairs[0].layer.id).toBe('ele-7-uuid');
+        expect(pairs[0].layer.id).toNotContain('__contours');
+    });
+
+    it('returns empty when ONLY the __contours layer is present (no real DEM layer)', () => {
+        const contourOnlyLayer = {
+            ...demLayer,
+            id: `${terrainReady.gn_layer_name}__contours`,
+            name: terrainReady.gn_layer_name,
+            style: 'dem_contours',
+        };
+        const state = makeState({
+            terrains: [terrainReady],
+            layers: [contourOnlyLayer]
+        });
+        // No real DEM layer → no pair should be returned.
+        expect(findDynamicDemPairs(state)).toEqual([]);
+    });
 });
 
 describe('demRescaleEpic — elevation rescale epic integration', () => {

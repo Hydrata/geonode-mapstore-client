@@ -671,9 +671,15 @@ class AnugaInputMenuClass extends React.Component {
     // State is local (this.state.contoursEnabled keyed by layer name) for immediate UI
     // feedback.  The flatLayers prop is authoritative for whether the contour layer is
     // actually in the map — state is reset if the layer is absent (e.g. after map reload).
-    _handleContoursToggle = (demLayerName) => {
-        const isEnabled = !!(this.state.contoursEnabled[demLayerName]);
-        if (!isEnabled) {
+    //
+    // TASK-1721 (W4 review FIX D): accept the DERIVED enabled state as a parameter
+    // (computed in renderTerrainPane from flatLayers) instead of reading
+    // this.state.contoursEnabled directly.  After a page reload the local state is
+    // reset to {} while the contour layer IS still in flatLayers (restored from the saved
+    // map blob), so reading this.state would always take the "enable" branch and add a
+    // duplicate layer.  Passing the derived value mirrors the W3 mode-toggle pattern.
+    _handleContoursToggle = (demLayerName, currentlyEnabled) => {
+        if (!currentlyEnabled) {
             // Enable: add the contour overlay layer.
             const token = getToken ? getToken() : null;
             const contourLayer = buildContourLayer(demLayerName, token);
@@ -739,7 +745,7 @@ class AnugaInputMenuClass extends React.Component {
                         // contour layer id in case of external state change.
                         const contourLayerId = `${layer?.name}__contours`;
                         const contoursInMap = (this.props.flatLayers || []).some(
-                            l => l?.id === contourLayerId || l?.name === layer?.name && l?.style === DEM_CONTOUR_STYLE_NAME
+                            l => l?.id === contourLayerId || (l?.name === layer?.name && l?.style === DEM_CONTOUR_STYLE_NAME)
                         );
                         const contoursEnabled = this.state.contoursEnabled[layer?.name] || contoursInMap;
                         return (
@@ -780,7 +786,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 : 'Show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
                                             aria-pressed={contoursEnabled}
                                             data-testid={`terrain-contour-toggle-btn-${model.id}`}
-                                            onClick={() => this._handleContoursToggle(layer?.name)}
+                                            onClick={() => this._handleContoursToggle(layer?.name, contoursEnabled)}
                                         >
                                             {contoursEnabled ? 'Hide Contours' : 'Show Contours'}
                                         </button>

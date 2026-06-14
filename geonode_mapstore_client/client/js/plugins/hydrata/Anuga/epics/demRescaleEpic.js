@@ -142,10 +142,14 @@ export function findDynamicDemPairs(state) {
 
     const pairs = [];
     for (const terrain of dynamicTerrains) {
+        // TASK-1721 (W4 review): exclude the contour overlay layer (<name>__contours)
+        // — it shares the DEM name but is not a DEM coverage; stamping env=/singleTile
+        // on it would break GWC cacheability and corrupt the overlay.
         const layer = flatLayers.find(
             (l) => l?.type === 'wms'
                 && l?.group === 'Input Data.Terrain'
                 && l?.name
+                && !l?.id?.endsWith('__contours')
                 && (l.name === terrain.gn_layer_name
                     || l.name === `geonode:${terrain.gn_layer_name}`)
         );
