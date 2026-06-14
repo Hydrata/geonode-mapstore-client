@@ -1420,10 +1420,13 @@ describe('Polling Epics', () => {
             } catch (e) { sub.unsubscribe(); done(e); }
         });
 
-        it('defaults to traditional (singleTile:false) when terrain_id not found in state', (done) => {
-            // Race condition: terrain_create completes before the terrain row
-            // is in state.anuga.resources.terrain. We default to traditional
-            // (the safer choice — GWC tiled) rather than dynamic (uncached).
+        it('defaults to traditional (singleTile:false) when terrain styling_mode is absent/unknown', (done) => {
+            // buildTerrainAddSequence reads styling_mode from the matched terrain
+            // in state. When styling_mode is absent (e.g. a terrain created before
+            // the field existed, or a future mode value), isTraditional defaults to
+            // true (i.e. NOT dynamic), giving singleTile:false (safe: GWC tiled).
+            // Note: orphanStatus must return 'present' for buildTerrainAddSequence
+            // to be called — the terrain row must be in state.anuga.resources.terrain.
             const store = {
                 getState: () => ({
                     taskMonitor: { processes: { byId: {} } },
@@ -1431,7 +1434,7 @@ describe('Polling Epics', () => {
                     anuga: {
                         resources: {
                             terrainLoaded: true,
-                            terrain: [] // terrain row not yet in state
+                            terrain: [{ id: 999 }] // terrain present but NO styling_mode field
                         }
                     }
                 })
@@ -1447,7 +1450,7 @@ describe('Polling Epics', () => {
                     process_type: 'terrain_create',
                     status: 'complete',
                     metadata: {
-                        terrain_id: 999, // not in state
+                        terrain_id: 999,
                         target_group: 'Input Data.Terrain',
                         is_first_upload: false,
                         mapstore_layers: [
@@ -1459,7 +1462,7 @@ describe('Polling Epics', () => {
             try {
                 const adds = emitted.filter(a => a.type === 'ADD_LAYER');
                 expect(adds.length).toBe(1);
-                // Not found in state → isTraditional=true → singleTile:false
+                // styling_mode absent → isTraditional=true → singleTile:false
                 expect(adds[0].layer.singleTile).toBe(false);
                 sub.unsubscribe();
                 done();
