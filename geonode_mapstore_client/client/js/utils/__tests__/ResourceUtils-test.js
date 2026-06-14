@@ -1200,4 +1200,53 @@ describe('Test Resource Utils', () => {
         expect(formatResourceLinkUrl({ uuid: '123' })).toContain('/catalogue/uuid/123');
         expect(formatResourceLinkUrl({ pk: '123' })).toNotContain('/catalogue/uuid/123');
     });
+    // TASK-1722: dataset preview must send STYLES='' (empty) so GeoServer uses its
+    // configured defaultStyle (colour-relief) not GeoNode's default_style name (grey ramp).
+    // The fix in gnresource.js builds the preview layer via
+    // resourceToLayerConfig(omit(gnLayer, ['default_style'])), relying on the behaviour below.
+    it('resourceToLayerConfig with default_style returns workspace-prefixed style name', () => {
+        const DEM_RESOURCE = {
+            alternate: 'geonode:ele_123_dem',
+            links: [{
+                extension: 'html',
+                link_type: 'OGC:WMS',
+                name: 'OGC WMS Service',
+                mime: 'text/html',
+                url: 'http://localhost:8080/geoserver/ows'
+            }],
+            title: 'My DEM',
+            perms: [],
+            pk: 999,
+            default_style: {
+                pk: 1,
+                name: 'ele_123_dem',
+                workspace: 'geonode',
+                sld_title: 'ele_123_dem',
+                sld_url: 'http://localhost:8080/geoserver/rest/workspaces/geonode/styles/ele_123_dem.sld'
+            }
+        };
+        const layerWithStyle = resourceToLayerConfig(DEM_RESOURCE);
+        // With default_style present, the WMS STYLES param is set explicitly (workspace:name format)
+        expect(layerWithStyle.style).toBe('geonode:ele_123_dem');
+    });
+    it('resourceToLayerConfig without default_style returns empty style (TASK-1722: preview sends STYLES=\'\')', () => {
+        const DEM_RESOURCE_NO_DEFAULT_STYLE = {
+            alternate: 'geonode:ele_123_dem',
+            links: [{
+                extension: 'html',
+                link_type: 'OGC:WMS',
+                name: 'OGC WMS Service',
+                mime: 'text/html',
+                url: 'http://localhost:8080/geoserver/ows'
+            }],
+            title: 'My DEM',
+            perms: [],
+            pk: 999
+            // no default_style — matches omit(gnLayer, ['default_style']) in gnresource.js
+        };
+        const layerWithoutStyle = resourceToLayerConfig(DEM_RESOURCE_NO_DEFAULT_STYLE);
+        // Without default_style, style is empty: WMS sends STYLES='' so GeoServer uses its
+        // configured defaultStyle (colour-relief for DEMs), not a potentially stale GeoNode style.
+        expect(layerWithoutStyle.style).toBe('');
+    });
 });

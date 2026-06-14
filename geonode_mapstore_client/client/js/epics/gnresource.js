@@ -12,6 +12,7 @@ import uuid from "uuid";
 import url from "url";
 import get from 'lodash/get';
 import isNil from 'lodash/isNil';
+import omit from 'lodash/omit';
 
 import {
     getNewMapConfiguration,
@@ -160,7 +161,10 @@ const resourceTypes = {
                         const [mapConfig, gnLayer, timeseries] = response;
                         const newLayer = options?.isSamePreviousResource
                             ? selectedLayer // keep configuration for other pages when resource id is the same (eg: filters)
-                            : resourceToLayerConfig(gnLayer);
+                            // Omit default_style so the preview sends STYLES='' and GeoServer uses its configured
+                            // defaultStyle (e.g. colour-relief for DEMs) rather than the GeoNode default_style name
+                            // which may resolve to a different (grey ramp) style on the GeoServer side (TASK-1722).
+                            : resourceToLayerConfig(omit(gnLayer, ['default_style']));
                         const _gnLayer = {...gnLayer, layerSettings: gnLayer.data};
                         return [mapConfig, {..._gnLayer, timeseries}, newLayer];
                     })
