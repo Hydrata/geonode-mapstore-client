@@ -584,13 +584,16 @@ class TWSurfaceListItem extends React.Component {
     }
 }
 
-function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onNew, saving }) {
+function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onNew, saving, createError }) {
     return (
         <div className="tw-surface-list">
             <div className="tw-surface-list-header">
                 <span className="tw-label">Analysis Surfaces</span>
                 <button type="button" className="tw-new-btn" onClick={onNew} disabled={saving} data-testid="new-surface-btn">+ New analysis surface</button>
             </div>
+            {/* TASK-1658: a failed create has no selectedSurface, so the recipe-form
+                error would be invisible — surface it here at the list level. */}
+            {createError && <div className="tw-error" data-testid="create-error">{createError}</div>}
             {surfaces.length === 0 && <div className="tw-empty-hint">No analysis surfaces yet. Create one with <strong>+ New analysis surface</strong>.</div>}
             {surfaces.map(s => (
                 <TWSurfaceListItem
@@ -606,8 +609,8 @@ function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onN
         </div>
     );
 }
-TWSurfaceList.propTypes = { surfaces: PropTypes.array.isRequired, selectedId: PropTypes.number, onSelect: PropTypes.func.isRequired, onRename: PropTypes.func.isRequired, onDelete: PropTypes.func.isRequired, onNew: PropTypes.func.isRequired, saving: PropTypes.bool };
-TWSurfaceList.defaultProps = { selectedId: null, saving: false };
+TWSurfaceList.propTypes = { surfaces: PropTypes.array.isRequired, selectedId: PropTypes.number, onSelect: PropTypes.func.isRequired, onRename: PropTypes.func.isRequired, onDelete: PropTypes.func.isRequired, onNew: PropTypes.func.isRequired, saving: PropTypes.bool, createError: PropTypes.string };
+TWSurfaceList.defaultProps = { selectedId: null, saving: false, createError: null };
 
 // ── end TASK-1645 recipe builder components ──────────────────────────────────
 
@@ -1472,6 +1475,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 ...TW_PARAM_DEFAULTS,
                                             })}
                                             saving={twSaving}
+                                            createError={!selectedSurface ? twSaveError : null}
                                         />
                                         {selectedSurface && (
                                             <TWRecipeBuilder

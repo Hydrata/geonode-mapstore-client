@@ -407,3 +407,34 @@ describe('TerrainWorkbenchPanel visible gating', () => {
         expect(container.querySelector('.terrain-workbench-panel')).toNotExist();
     });
 });
+
+// ---------------------------------------------------------------------------
+// TASK-1658 — extractTwError: map the BE {success:false, errors:[...]} shape
+// ---------------------------------------------------------------------------
+
+import { extractTwError } from '../epicsTerrainWorkbench';
+
+describe('TASK-1658 extractTwError', () => {
+    it('joins an errors array of plain strings', () => {
+        const err = { response: { data: { success: false, code: 'validation', errors: ['priorities must be unique', 'terrain not found'] } } };
+        expect(extractTwError(err, 'Create failed')).toEqual('priorities must be unique; terrain not found');
+    });
+    it('maps errors array of {message} objects', () => {
+        const err = { response: { data: { errors: [{ message: 'bad input' }, { detail: 'also bad' }] } } };
+        expect(extractTwError(err, 'Create failed')).toEqual('bad input; also bad');
+    });
+    it('maps errors array of {field,error} objects', () => {
+        const err = { response: { data: { errors: [{ field: 'inputs', error: 'required' }] } } };
+        expect(extractTwError(err, 'Create failed')).toEqual('inputs: required');
+    });
+    it('falls back to detail then error then message then default', () => {
+        expect(extractTwError({ response: { data: { detail: 'd' } } }, 'fb')).toEqual('d');
+        expect(extractTwError({ response: { data: { error: 'e' } } }, 'fb')).toEqual('e');
+        expect(extractTwError({ message: 'm' }, 'fb')).toEqual('m');
+        expect(extractTwError({}, 'fb')).toEqual('fb');
+    });
+    it('ignores an empty errors array and uses the fallback chain', () => {
+        const err = { response: { data: { errors: [], error: 'real' } } };
+        expect(extractTwError(err, 'fb')).toEqual('real');
+    });
+});

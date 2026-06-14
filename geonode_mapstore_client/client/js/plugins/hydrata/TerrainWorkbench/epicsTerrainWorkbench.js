@@ -58,6 +58,36 @@ const TW_DERIVE_POLL_MAX = 150;
 export const TW_DERIVE_TIMEOUT_MESSAGE =
     'Derive timed out — check the task monitor for status.';
 
+// TASK-1658: extract a human-readable message from a Hydrata/DRF error response.
+// The BE returns {success:false, errors:[...], code} for validation failures, so
+// reading only detail/error/message collapses a 400 to the generic fallback (the
+// silent-failure UAT finding 12). errors entries may be plain strings OR objects
+// ({message}/{detail}/{field,error}). Falls back to detail -> error -> message ->
+// the caller's default.
+export const extractTwError = (err, fallback) => {
+    const data = err?.response?.data;
+    const errors = data?.errors;
+    if (Array.isArray(errors) && errors.length) {
+        const parts = errors
+            .map(e => {
+                if (typeof e === 'string') {
+                    return e;
+                }
+                if (e && typeof e === 'object') {
+                    return e.message
+                        || e.detail
+                        || (e.field ? `${e.field}: ${e.error || e.message || ''}`.trim() : null);
+                }
+                return null;
+            })
+            .filter(Boolean);
+        if (parts.length) {
+            return parts.join('; ');
+        }
+    }
+    return String(data?.detail || data?.error || err?.message || fallback);
+};
+
 // ── Load ───────────────────────────────────────────────────────────────────
 
 export const twLoadDataEpic = (action$, store) =>
@@ -94,13 +124,9 @@ export const twCreateSurfaceEpic = (action$, store) =>
             return Rx.Observable
                 .from(createAnalysisSurface(projectId, action.payload))
                 .map(resp => twCreateSurfaceSuccess(resp.data))
-                .catch(err => {
-                    const detail = err?.response?.data?.detail
-                        || err?.response?.data?.error
-                        || err?.message
-                        || 'Create failed';
-                    return Rx.Observable.of(twCreateSurfaceError(String(detail)));
-                });
+                .catch(err =>
+                    Rx.Observable.of(twCreateSurfaceError(extractTwError(err, 'Create failed')))
+                );
         });
 
 // ── Update surface ─────────────────────────────────────────────────────────
@@ -113,12 +139,9 @@ export const twUpdateSurfaceEpic = (action$, store) =>
             return Rx.Observable
                 .from(patchAnalysisSurface(projectId, action.surfaceId, action.payload))
                 .map(resp => twUpdateSurfaceSuccess(resp.data))
-                .catch(err => {
-                    const detail = err?.response?.data?.detail
-                        || err?.message
-                        || 'Update failed';
-                    return Rx.Observable.of(twUpdateSurfaceError(String(detail)));
-                });
+                .catch(err =>
+                    Rx.Observable.of(twUpdateSurfaceError(extractTwError(err, 'Update failed')))
+                );
         });
 
 // ── Delete surface ─────────────────────────────────────────────────────────
@@ -173,13 +196,9 @@ export const twDeriveEpic = (action$, store) =>
                     toggleTaskMonitorPanel(true),
                     twDeriveSuccess(action.surfaceId, resp?.data?.process_id),
                 ]))
-                .catch(err => {
-                    const detail = err?.response?.data?.detail
-                        || err?.response?.data?.error
-                        || err?.message
-                        || 'Derive failed';
-                    return Rx.Observable.of(twDeriveError(String(detail)));
-                });
+                .catch(err =>
+                    Rx.Observable.of(twDeriveError(extractTwError(err, 'Derive failed')))
+                );
         });
 
 // ── Derive-complete watcher ────────────────────────────────────────────────
