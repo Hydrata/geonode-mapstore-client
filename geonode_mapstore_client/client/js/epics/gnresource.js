@@ -161,10 +161,13 @@ const resourceTypes = {
                         const [mapConfig, gnLayer, timeseries] = response;
                         const newLayer = options?.isSamePreviousResource
                             ? selectedLayer // keep configuration for other pages when resource id is the same (eg: filters)
-                            // Omit default_style so the preview sends STYLES='' and GeoServer uses its configured
-                            // defaultStyle (e.g. colour-relief for DEMs) rather than the GeoNode default_style name
-                            // which may resolve to a different (grey ramp) style on the GeoServer side (TASK-1722).
-                            : resourceToLayerConfig(omit(gnLayer, ['default_style']));
+                            // Omit default_style for raster datasets so the preview sends STYLES='' and
+                            // GeoServer uses its configured defaultStyle (e.g. colour-relief for DEMs)
+                            // rather than the GeoNode default_style name which may resolve to a different
+                            // (grey ramp) style on the GeoServer side (TASK-1722).
+                            // Scoped to raster only — vector datasets may carry an intentional custom
+                            // GeoNode default_style that should be preserved in preview.
+                            : resourceToLayerConfig(gnLayer?.subtype === 'raster' ? omit(gnLayer, ['default_style']) : gnLayer);
                         const _gnLayer = {...gnLayer, layerSettings: gnLayer.data};
                         return [mapConfig, {..._gnLayer, timeseries}, newLayer];
                     })

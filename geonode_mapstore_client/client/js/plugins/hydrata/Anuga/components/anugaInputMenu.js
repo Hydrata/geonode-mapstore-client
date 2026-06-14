@@ -49,6 +49,7 @@ import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
 // TASK-1720 (W3): DEM styling-mode toggle — persist map + update terrain via API.
 import {saveDirectContent} from "@js/actions/gnsave";
 import {patchTerrainStylingMode} from "../api/anugaApi";
+import {updateTerrainRow} from "../actionsAnuga";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
 import {buildMeshTriangleLayer} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
@@ -605,38 +606,47 @@ class AnugaInputMenuClass extends React.Component {
     }
 
     // TASK-1720 (W3): Toggle Dynamic/Traditional styling mode for a single terrain.
-    // Calls the BE PATCH endpoint to persist, then updates the map layer live so the
-    // demRescaleEpic and gwcCatalogRouting both see the new mode immediately.
+    // 1. AWAIT the BE PATCH so we know whether to proceed.
+    // 2. On SUCCESS: update state.anuga.resources.terrain (so findDynamicDemPairs
+    //    reads the new mode on the very next CHANGE_MAP_VIEW without re-fetching),
+    //    then apply the map-layer change and persist the blob.
+    // 3. On FAILURE: leave UI unchanged and surface a warning — no partial update.
     _handleTerrainStylingModeChange = (terrainModel, mapLayer, newMode) => {
         const projectId = this.props.projectId;
         if (!projectId || !terrainModel?.id || !mapLayer?.id) return;
-        // Fire-and-forget the BE persist; no optimistic-update-rollback here because
-        // the FE layer update is idempotent and the next initAnuga will sync.
         patchTerrainStylingMode(projectId, terrainModel.id, newMode)
-            .catch(() => {
+            .then(() => {
+                // Sync the Redux terrain row immediately so findDynamicDemPairs
+                // reads the correct styling_mode on the next CHANGE_MAP_VIEW.
+                this.props.onUpdateTerrainRow(terrainModel.id, { styling_mode: newMode });
+                if (newMode === 'traditional') {
+                    // Traditional: drop env= from params, set singleTile:false so GWC
+                    // WMTS tiled path activates on the next map render. The
+                    // gwcCatalogRouting / routeLayerTileSource will route tiles to GWC
+                    // because there is no params.env on the layer.
+                    const updatedParams = Object.assign({}, mapLayer.params || {});
+                    delete updatedParams.env;
+                    delete updatedParams._v_;
+                    this.props.onChangeTerrainLayerProperties(mapLayer.id, {
+                        singleTile: false,
+                        params: updatedParams
+                    });
+                } else {
+                    // Dynamic: mark singleTile:true so the next CHANGE_MAP_VIEW fires
+                    // a single fresh ImageWMS request; demRescaleEpic will stamp env=
+                    // on the first pan/zoom after this toggle.
+                    this.props.onChangeTerrainLayerProperties(mapLayer.id, { singleTile: true });
+                }
+                // Persist the map blob so the styling mode choice survives reload.
+                this.props.onSaveMap();
+            })
+            .catch((err) => {
+                // BE PATCH failed — do NOT apply the FE layer change. The UI
+                // re-renders from Redux state (which is unchanged) so the
+                // toggle shows the correct prior mode automatically.
                 // eslint-disable-next-line no-console
-                console.warn('[anugaInputMenu] patchTerrainStylingMode failed; FE already updated map layer');
+                console.warn('[anugaInputMenu] patchTerrainStylingMode failed; leaving mode unchanged:', err && (err.message || err));
             });
-        if (newMode === 'traditional') {
-            // Traditional: drop env= from params, set singleTile:false so GWC
-            // WMTS tiled path activates on the next map render. The
-            // gwcCatalogRouting / routeLayerTileSource will route tiles to GWC
-            // because there is no params.env on the layer.
-            const updatedParams = Object.assign({}, mapLayer.params || {});
-            delete updatedParams.env;
-            delete updatedParams._v_;
-            this.props.onChangeTerrainLayerProperties(mapLayer.id, {
-                singleTile: false,
-                params: updatedParams
-            });
-        } else {
-            // Dynamic: mark singleTile:true so the next CHANGE_MAP_VIEW fires
-            // a single fresh ImageWMS request; demRescaleEpic will stamp env=
-            // on the first pan/zoom after this toggle.
-            this.props.onChangeTerrainLayerProperties(mapLayer.id, { singleTile: true });
-        }
-        // Persist the map blob so the styling mode choice survives reload.
-        this.props.onSaveMap();
     };
 
     renderTerrainPane() {
@@ -686,7 +696,7 @@ class AnugaInputMenuClass extends React.Component {
                                 {canEdit && model ? (
                                     <div className="anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
                                         <span className="anuga-terrain-mode-label">
-                                            {isDynamic ? 'Dynamic' : 'Traditional'}
+                                            {'Mode: ' + (isDynamic ? 'Dynamic' : 'Traditional')}
                                         </span>
                                         <button
                                             className={`btn btn-xs anuga-terrain-mode-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
@@ -699,7 +709,7 @@ class AnugaInputMenuClass extends React.Component {
                                                 model, layer, isDynamic ? 'traditional' : 'dynamic'
                                             )}
                                         >
-                                            {isDynamic ? 'Dynamic' : 'Traditional'}
+                                            {isDynamic ? 'Switch to Traditional' : 'Switch to Dynamic'}
                                         </button>
                                     </div>
                                 ) : null}
@@ -942,6 +952,9 @@ const mapDispatchToProps = ( dispatch ) => {
         onZoomToExtent: (extent, crs, maxZoom) => dispatch(zoomToExtent(extent, crs, maxZoom)),
         // TASK-1720 (W3): Dynamic/Traditional terrain styling mode toggle
         onChangeTerrainLayerProperties: (layerId, props) => dispatch(changeLayerProperties(layerId, props)),
+        // TASK-1720 (W3) fix: sync terrain Redux row after successful PATCH so
+        // findDynamicDemPairs reads the new styling_mode without a full initAnuga.
+        onUpdateTerrainRow: (id, fields) => dispatch(updateTerrainRow(id, fields)),
         onSaveMap: () => dispatch(saveDirectContent())
     };
 };

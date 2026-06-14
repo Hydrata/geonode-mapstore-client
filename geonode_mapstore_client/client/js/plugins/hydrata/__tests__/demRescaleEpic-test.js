@@ -147,11 +147,14 @@ describe('demRescaleEpic — extractWgs84Bbox', () => {
 });
 
 describe('demRescaleEpic — findDynamicDemPairs', () => {
+    // Must include styling_mode: 'dynamic' — the filter is now === 'dynamic'
+    // (absent/undefined is treated as traditional per BE default and excluded).
     const terrainReady = {
         id: 7,
         rendering_type: 'dynamic_dem',
         gn_layer_name: 'ele_7_my_dem_cog',
-        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/'
+        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/',
+        styling_mode: 'dynamic'
     };
     const demLayer = {
         id: 'ele-7-uuid',
@@ -246,21 +249,16 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
         // W1 BE default is 'traditional'. A terrain row without styling_mode
         // (e.g. loaded from a snapshot before W1 shipped) must behave as
         // traditional to avoid unintended dynamic rescale.
+        // The filter is `=== 'dynamic'`, so absent/undefined is NOT included.
+        // This matches the BE default, buildTerrainAddSequence (pollingEpics), and
+        // the toggle UI (all treat absent as traditional).
         const noModeTerrain = { ...terrainReady };
         delete noModeTerrain.styling_mode; // explicitly absent
         const state = makeState({
             terrains: [noModeTerrain],
             layers: [demLayer]
         });
-        // styling_mode absent → not === 'traditional' is false → BUT
-        // the filter is `!== 'traditional'` which means undefined !== 'traditional' is
-        // TRUE → this terrain WOULD be included by the current filter.
-        // This test documents the INTENTIONAL behaviour: absent styling_mode
-        // means old data or BE default not yet serialized; the demRescaleEpic
-        // WILL include it (treats as dynamic) so older terrain data keeps
-        // working with env= rescale. Flip this assertion if the policy changes
-        // to default-exclude (treat absent as traditional).
-        expect(findDynamicDemPairs(state).length).toBe(1);
+        expect(findDynamicDemPairs(state).length).toBe(0);
     });
 });
 
@@ -275,11 +273,14 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
         setTimeout(done);
     });
 
+    // Must include styling_mode: 'dynamic' — the filter is now === 'dynamic'
+    // (absent/undefined is treated as traditional and excluded).
     const terrainReady = {
         id: 7,
         rendering_type: 'dynamic_dem',
         gn_layer_name: 'ele_7_my_dem_cog',
-        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/'
+        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/',
+        styling_mode: 'dynamic'
     };
     const demLayer = {
         id: 'ele-7-uuid',
