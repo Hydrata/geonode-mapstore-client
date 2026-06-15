@@ -12,10 +12,13 @@
  * Gridset: EPSG:900913 fleet-wide (ADR — W1 confirmed, follow MeshWorkflow.js:223).
  * Endpoint: /geoserver/gwc/service/wmts (NOT /ows tiled=true — GeoServer 2.27.4 NPE).
  *
- * DEM/terrain layers (group 'Input Data.Terrain') carry per-session env= colormap
- * rescale (demRescaleEpic.js). They MUST remain singleTile/direct/uncached and are
- * the canonical "must NOT share-cache" example. The shareability predicate REJECTS
- * them via the env= / group checks.
+ * DEM/terrain layers (group 'Input Data.Terrain'):
+ *   - DYNAMIC mode (params.env present): carry per-session env= colormap rescale
+ *     (demRescaleEpic.js). MUST remain singleTile/direct/uncached. Rejected by the
+ *     env= check (condition 2) — the PER_SESSION_GROUPS guard is no longer needed
+ *     as a blunt instrument.
+ *   - TRADITIONAL mode (no params.env): static literal-quantity colour-relief SLD
+ *     (TASK-1719). GWC can safely cache tiles fleet-wide. SHAREABLE.
  *
  * Out-of-scope (W7 / TASK-1191/1192): SwammLayers.js, contourLayers.js,
  * epicsSwamm.js filterBmpEpic. Those layers carry per-user CQL_FILTER / per-user
@@ -46,8 +49,14 @@ export const DIRECT_WMS_ENDPOINT = '/geoserver/ows';
 export const GWC_TILEMATRIXSET = 'EPSG:900913';
 
 /**
- * Layer groups that carry per-session env= rescale and MUST stay direct/uncached.
- * Extend this list if new per-session terrain groups are added.
+ * Layer groups known to carry per-session env= rescale parameters.
+ * Listed here for documentation; the actual enforcement is the params.env check
+ * in isShareableTileLayer rather than this set — a terrain layer WITHOUT params.env
+ * (Traditional static style, TASK-1719) is shareable and must NOT be blocked by
+ * group membership alone.
+ *
+ * Keep this set updated if new per-session terrain groups are introduced; it serves
+ * as the canonical inventory even though shareability is decided by param presence.
  */
 const PER_SESSION_GROUPS = new Set([
     'Input Data.Terrain'
@@ -58,12 +67,20 @@ const PER_SESSION_GROUPS = new Set([
  *
  * A layer is SHAREABLE iff ALL conditions hold:
  *   1. It is of WMS type (type === 'wms') — only WMS layers can be GWC-cached.
- *   2. It is NOT in a per-session group (i.e. not a DEM/terrain layer).
- *   3. Its params contain NO env= value (per-session DEM colormap rescale).
- *   4. Its params contain NO CQL_FILTER (per-user row-level filter).
- *   5. It does NOT carry a per-user style override via params.SLD or params.SLD_BODY.
+ *   2. Its params contain NO env= value (per-session DEM colormap rescale).
+ *   3. Its params contain NO CQL_FILTER (per-user row-level filter).
+ *   4. It does NOT carry a per-user style override via params.SLD or params.SLD_BODY.
  *      (Note: layer.style is the default published style — acceptable on shared cache;
  *       dynamic per-user SLD injection via params is NOT.)
+ *
+ * TERRAIN LAYERS (group 'Input Data.Terrain') — TWO modes (TASK-1719):
+ *   - Dynamic (params.env present): per-session colormap rescale via demRescaleEpic.js.
+ *     Rejected by condition (2). MUST NOT be cached by GWC.
+ *   - Traditional (no params.env): static literal-quantity colour-relief SLD.
+ *     Passes all conditions → SHAREABLE. GWC can cache tiles fleet-wide.
+ *
+ * The PER_SESSION_GROUPS set documents which groups CAN carry env= params; the
+ * group itself is NOT a disqualifier — params.env presence is.
  *
  * @param {Object} layer - A MapStore2 layer config object.
  * @returns {boolean}
@@ -71,10 +88,9 @@ const PER_SESSION_GROUPS = new Set([
 export function isShareableTileLayer(layer) {
     if (!layer || layer.type !== 'wms') return false;
 
-    // Condition 2: reject per-session groups (DEM terrain -> env= rescale)
-    if (layer.group && PER_SESSION_GROUPS.has(layer.group)) return false;
-
-    // Conditions 3-5: inspect layer.params for per-session / per-user parameters
+    // Conditions 2-4: inspect layer.params for per-session / per-user parameters.
+    // NOTE: terrain group membership is NOT checked here — a Traditional terrain
+    // (no params.env) is shareable; only a Dynamic terrain (params.env set) is not.
     const params = layer.params || {};
     if (params.env) return false;
     if (params.CQL_FILTER) return false;
@@ -90,15 +106,21 @@ export function isShareableTileLayer(layer) {
  * The returned array is intended for MapStore2 layer config's `tileUrls` field,
  * which the vectortiles / WMS plugin reads to request tiles via WMTS instead of OWS.
  *
+ * TASK-1721 (W4): An optional `style` parameter allows specifying a named GeoServer
+ * style (e.g. 'dem_contours') for layers that should use a non-default style via GWC.
+ * When `style` is empty (default), the STYLE= parameter is left blank, which is the
+ * existing behaviour preserved for all callers that omit the argument.
+ *
  * @param {string} layerName - Fully-qualified GeoServer layer name (e.g. 'geonode:mesh_triangle_render').
  * @param {string} [format='image/png'] - MIME type for the tile request.
+ * @param {string} [style=''] - Named GeoServer style (e.g. 'dem_contours'). Empty = default style.
  * @returns {string[]} Single-element array containing the WMTS URL template.
  */
-export function buildGwcTileUrls(layerName, format = 'image/png') {
+export function buildGwcTileUrls(layerName, format = 'image/png', style = '') {
     const ts = GWC_TILEMATRIXSET;
     return [
         `${GWC_WMTS_ENDPOINT}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0` +
-        `&LAYER=${layerName}&STYLE=` +
+        `&LAYER=${layerName}&STYLE=${style}` +
         `&TILEMATRIXSET=${ts}&TILEMATRIX=${ts}:{z}&TILEROW={y}&TILECOL={x}` +
         `&FORMAT=${format}`
     ];
@@ -204,6 +226,60 @@ export function buildMeshTriangleLayer(token) {
         title: 'Mesh triangles',
         visibility: true,
         group: 'Input Data.Mesh',
+        params,
+        tileUrls
+    };
+}
+
+/**
+ * TASK-1721 (W4): Build a MapStore2 layer config for the DEM contour overlay.
+ *
+ * The contour layer is SEPARATE from the DEM colormap layer — it is overlaid on top
+ * of the colormap to show contour lines rendered on-the-fly by GeoServer's
+ * ``ras:Contour`` rendering transformation via the ``dem_contours`` named style.
+ *
+ * GWC CACHEABILITY:
+ *   The layer uses STYLES=dem_contours (a named global style) and NO env= parameter,
+ *   so it passes ``isShareableTileLayer`` and tiles are served from the shared GWC
+ *   cache fleet-wide.  The ``buildGwcTileUrls`` style param emits ``&STYLE=dem_contours``
+ *   in the WMTS URL so GWC serves the correct style bucket.
+ *
+ * CONVENTION: The FE knows the style name ``dem_contours`` — no API round-trip is
+ * needed to discover it.  The caller provides the DEM coverage layer name (e.g.
+ * ``'geonode:ele_7_grand_canyon_cog'``) which it already has from the terrain row.
+ *
+ * @param {string} demLayerName - Fully-qualified GeoServer coverage name (e.g. 'geonode:ele_7_...').
+ * @param {string|null} [token] - OAuth2 access token. When null/undefined, no token injected.
+ * @returns {Object} MapStore2 WMS layer config for the contour overlay.
+ */
+export const DEM_CONTOUR_STYLE_NAME = 'dem_contours';
+
+export function buildContourLayer(demLayerName, token = null) {
+    const params = {
+        LAYERS: demLayerName,
+        STYLES: DEM_CONTOUR_STYLE_NAME,
+        FORMAT: 'image/png',
+        TRANSPARENT: true,
+        VERSION: '1.1.1',
+        TILED: true,
+        ...(token ? {access_token: token} : {})
+    };
+    const baseTileUrls = buildGwcTileUrls(demLayerName, 'image/png', DEM_CONTOUR_STYLE_NAME);
+    const tileUrls = token
+        ? baseTileUrls.map(u => u + '&access_token=' + encodeURIComponent(token))
+        : baseTileUrls;
+    return {
+        type: 'wms',
+        url: GWC_WMTS_ENDPOINT,
+        name: demLayerName,
+        // Unique id to distinguish contour overlay from the colormap layer.
+        id: `${demLayerName}__contours`,
+        title: 'Contours',
+        visibility: true,
+        // Place contour layer in the same terrain group, above the colormap.
+        group: 'Input Data.Terrain',
+        style: DEM_CONTOUR_STYLE_NAME,
+        // No env= — contours use a fixed interval; GWC can cache fleet-wide.
         params,
         tileUrls
     };

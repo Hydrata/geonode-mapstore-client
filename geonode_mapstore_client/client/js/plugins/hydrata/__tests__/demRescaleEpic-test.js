@@ -147,11 +147,14 @@ describe('demRescaleEpic — extractWgs84Bbox', () => {
 });
 
 describe('demRescaleEpic — findDynamicDemPairs', () => {
+    // Must include styling_mode: 'dynamic' — the filter is now === 'dynamic'
+    // (absent/undefined is treated as traditional per BE default and excluded).
     const terrainReady = {
         id: 7,
         rendering_type: 'dynamic_dem',
         gn_layer_name: 'ele_7_my_dem_cog',
-        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/'
+        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/',
+        styling_mode: 'dynamic'
     };
     const demLayer = {
         id: 'ele-7-uuid',
@@ -205,6 +208,97 @@ describe('demRescaleEpic — findDynamicDemPairs', () => {
         });
         expect(findDynamicDemPairs(state)).toEqual([]);
     });
+
+    // TASK-1720 (W3): styling_mode gate — traditional terrains must be excluded
+    // from the demRescaleEpic so they keep singleTile:false and GWC tiling.
+    it('returns empty when terrain styling_mode is traditional', () => {
+        const traditionalTerrain = { ...terrainReady, styling_mode: 'traditional' };
+        const state = makeState({
+            terrains: [traditionalTerrain],
+            layers: [demLayer]
+        });
+        expect(findDynamicDemPairs(state)).toEqual([]);
+    });
+
+    it('returns the pair when terrain styling_mode is dynamic', () => {
+        const dynamicTerrain = { ...terrainReady, styling_mode: 'dynamic' };
+        const state = makeState({
+            terrains: [dynamicTerrain],
+            layers: [demLayer]
+        });
+        const pairs = findDynamicDemPairs(state);
+        expect(pairs.length).toBe(1);
+        expect(pairs[0].terrain.id).toBe(7);
+    });
+
+    it('excludes traditional terrain but includes dynamic terrain when both present', () => {
+        const traditionalTerrain = { ...terrainReady, id: 8, gn_layer_name: 'ele_8_trad', styling_mode: 'traditional' };
+        const dynamicTerrain = { ...terrainReady, id: 9, gn_layer_name: 'ele_9_dyn', styling_mode: 'dynamic' };
+        const tradLayer = { ...demLayer, id: 'ele-8-uuid', name: 'ele_8_trad' };
+        const dynLayer = { ...demLayer, id: 'ele-9-uuid', name: 'ele_9_dyn' };
+        const state = makeState({
+            terrains: [traditionalTerrain, dynamicTerrain],
+            layers: [tradLayer, dynLayer]
+        });
+        const pairs = findDynamicDemPairs(state);
+        expect(pairs.length).toBe(1);
+        expect(pairs[0].terrain.id).toBe(9);
+    });
+
+    it('treats absent styling_mode (undefined) as traditional (excluded)', () => {
+        // W1 BE default is 'traditional'. A terrain row without styling_mode
+        // (e.g. loaded from a snapshot before W1 shipped) must behave as
+        // traditional to avoid unintended dynamic rescale.
+        // The filter is `=== 'dynamic'`, so absent/undefined is NOT included.
+        // This matches the BE default, buildTerrainAddSequence (pollingEpics), and
+        // the toggle UI (all treat absent as traditional).
+        const noModeTerrain = { ...terrainReady };
+        delete noModeTerrain.styling_mode; // explicitly absent
+        const state = makeState({
+            terrains: [noModeTerrain],
+            layers: [demLayer]
+        });
+        expect(findDynamicDemPairs(state).length).toBe(0);
+    });
+
+    // TASK-1721 (W4 review FIX C): the contour overlay layer (<name>__contours)
+    // shares the same `name` as the DEM layer but must NEVER be treated as a
+    // dynamic DEM pair — stamping env=/singleTile on it would break GWC
+    // cacheability and corrupt the overlay.
+    it('never returns the __contours overlay layer as a dynamic DEM pair (FIX C)', () => {
+        const contourLayer = {
+            ...demLayer,
+            // Contour layers use id = <name>__contours (from buildContourLayer).
+            id: `${terrainReady.gn_layer_name}__contours`,
+            name: terrainReady.gn_layer_name,
+            style: 'dem_contours',
+            // Place it BEFORE the real DEM in flat list so .find() encounters it first.
+        };
+        const state = makeState({
+            terrains: [terrainReady],
+            layers: [contourLayer, demLayer] // contour first — adversarial ordering
+        });
+        const pairs = findDynamicDemPairs(state);
+        // The real DEM layer (id = 'ele-7-uuid') must be paired, not the contour.
+        expect(pairs.length).toBe(1);
+        expect(pairs[0].layer.id).toBe('ele-7-uuid');
+        expect(pairs[0].layer.id).toNotContain('__contours');
+    });
+
+    it('returns empty when ONLY the __contours layer is present (no real DEM layer)', () => {
+        const contourOnlyLayer = {
+            ...demLayer,
+            id: `${terrainReady.gn_layer_name}__contours`,
+            name: terrainReady.gn_layer_name,
+            style: 'dem_contours',
+        };
+        const state = makeState({
+            terrains: [terrainReady],
+            layers: [contourOnlyLayer]
+        });
+        // No real DEM layer → no pair should be returned.
+        expect(findDynamicDemPairs(state)).toEqual([]);
+    });
 });
 
 describe('demRescaleEpic — elevation rescale epic integration', () => {
@@ -218,11 +312,14 @@ describe('demRescaleEpic — elevation rescale epic integration', () => {
         setTimeout(done);
     });
 
+    // Must include styling_mode: 'dynamic' — the filter is now === 'dynamic'
+    // (absent/undefined is treated as traditional and excluded).
     const terrainReady = {
         id: 7,
         rendering_type: 'dynamic_dem',
         gn_layer_name: 'ele_7_my_dem_cog',
-        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/'
+        bbox_stats_url: '/api/v2/anuga/projects/42/terrain/7/bbox-stats/',
+        styling_mode: 'dynamic'
     };
     const demLayer = {
         id: 'ele-7-uuid',

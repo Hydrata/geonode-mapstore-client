@@ -127,17 +127,29 @@ export function findDynamicDemPairs(state) {
     const flatLayers = state?.layers?.flat || [];
     const terrains = state?.anuga?.resources?.terrain || [];
 
+    // TASK-1720 (W3): Exclude non-dynamic terrains from the dynamic rescale
+    // loop. Traditional terrains use a static literal-quantity colour-relief SLD
+    // (published at terrain-create time) and are served from GWC WMTS tile cache —
+    // they must NOT carry env= params or singleTile:true.
+    // Absent/undefined styling_mode is treated as 'traditional' (excluded), matching
+    // the W1 BE default, buildTerrainAddSequence (pollingEpics), and the toggle UI.
     const dynamicTerrains = terrains.filter(
-        (t) => t?.rendering_type === 'dynamic_dem' && t?.gn_layer_name
+        (t) => t?.rendering_type === 'dynamic_dem'
+            && t?.gn_layer_name
+            && t?.styling_mode === 'dynamic'
     );
     if (!dynamicTerrains.length) return [];
 
     const pairs = [];
     for (const terrain of dynamicTerrains) {
+        // TASK-1721 (W4 review): exclude the contour overlay layer (<name>__contours)
+        // — it shares the DEM name but is not a DEM coverage; stamping env=/singleTile
+        // on it would break GWC cacheability and corrupt the overlay.
         const layer = flatLayers.find(
             (l) => l?.type === 'wms'
                 && l?.group === 'Input Data.Terrain'
                 && l?.name
+                && !l?.id?.endsWith('__contours')
                 && (l.name === terrain.gn_layer_name
                     || l.name === `geonode:${terrain.gn_layer_name}`)
         );

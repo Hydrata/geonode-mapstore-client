@@ -71,6 +71,12 @@ const DELETE_TERRAIN = 'ANUGA:DELETE_TERRAIN';
 const DELETE_TERRAIN_SUCCESS = 'ANUGA:DELETE_TERRAIN_SUCCESS';
 const DELETE_TERRAIN_BLOCKED = 'ANUGA:DELETE_TERRAIN_BLOCKED';
 const DELETE_TERRAIN_ERROR = 'ANUGA:DELETE_TERRAIN_ERROR';
+// TASK-1720 (W3) fix — in-place patch of a single terrain row in Redux state.
+// Carries id + a partial object of fields to merge (e.g. {styling_mode: 'dynamic'}).
+// Used by _handleTerrainStylingModeChange after a successful PATCH /terrain/{id}/ so
+// that findDynamicDemPairs reads the new styling_mode on the very next CHANGE_MAP_VIEW
+// without triggering a full initAnuga re-fetch.
+const UPDATE_TERRAIN_ROW = 'ANUGA:UPDATE_TERRAIN_ROW';
 
 const DELETE_BOUNDARY = 'ANUGA:DELETE_BOUNDARY';
 const DELETE_BOUNDARY_SUCCESS = 'ANUGA:DELETE_BOUNDARY_SUCCESS';
@@ -311,6 +317,11 @@ function deleteTerrainBlocked(id, blocking, message) {
 function deleteTerrainError(id, error) {
     return { type: DELETE_TERRAIN_ERROR, id, error };
 }
+// TASK-1720 (W3) fix — merge partial fields into a single terrain row without
+// replacing the whole array (no flicker, no initAnuga re-fetch).
+function updateTerrainRow(id, fields) {
+    return { type: UPDATE_TERRAIN_ROW, id, fields };
+}
 
 function deleteBoundary(projectId, id, layerIds) {
     return { type: DELETE_BOUNDARY, projectId, id, layerIds: _toLayerIds(layerIds) };
@@ -505,6 +516,8 @@ module.exports = {
     FETCH_MY_PERMS, fetchMyPerms,
     SET_ANUGA_RESOURCE_PERMS, setAnugaResourcePerms,
     SET_PERMS_LOAD_FAILED, setPermsLoadFailed,
+    // TASK-1720 (W3) fix — in-place single-row terrain merge
+    UPDATE_TERRAIN_ROW, updateTerrainRow,
     // V2P-714 — cascade-delete dataset rows
     DELETE_TERRAIN, deleteTerrain,
     DELETE_TERRAIN_SUCCESS, deleteTerrainSuccess,
