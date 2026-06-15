@@ -51,7 +51,9 @@ describe('anugaApi', () => {
             // TASK-930 (W2-FE) — Global Copernicus GLO-30 DEM ingest
             'createTerrainFromBbox',
             // TASK-860 — email-invite API
-            'listInvitations', 'sendInvitation', 'revokeInvitation', 'resendInvitation'
+            'listInvitations', 'sendInvitation', 'revokeInvitation', 'resendInvitation',
+            // TASK-1720 (W3) — DEM styling-mode toggle
+            'patchTerrainStylingMode'
         ];
 
         expectedFunctions.forEach(name => {
@@ -60,13 +62,14 @@ describe('anugaApi', () => {
             });
         });
 
-        it('should export exactly 53 API functions', () => {
+        it('should export exactly 54 API functions', () => {
             // 49 baseline + TASK-860 listInvitations + sendInvitation
-            // + revokeInvitation + resendInvitation = 53.
+            // + revokeInvitation + resendInvitation = 53
+            // + TASK-1720 patchTerrainStylingMode = 54.
             const exportedFunctions = Object.keys(anugaApi).filter(
                 k => typeof anugaApi[k] === 'function' && k !== '__esModule'
             );
-            expect(exportedFunctions.length).toBe(53);
+            expect(exportedFunctions.length).toBe(54);
         });
 
         it('V2P-79: getAvailableLayers is no longer exported', () => {

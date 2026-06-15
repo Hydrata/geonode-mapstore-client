@@ -270,3 +270,170 @@ describe('TASK-1652 _buildTerrainGroups terrain hierarchy grouping', () => {
         expect(sortedNodes.map(n => n.id)).toEqual(['l3', 'l1', 'l2', 'l2hs']);
     });
 });
+
+// ---------------------------------------------------------------------------
+// TASK-1721 (W4 review FIX D): contours toggle reload-desync regression test.
+//
+// After a page reload, this.state.contoursEnabled is reset to {}.  If the
+// toggle reads `this.state` to determine the current enabled state it will
+// ALWAYS see false → always take the "enable" branch → add a DUPLICATE
+// contour layer on "Hide Contours" click.
+//
+// The fix passes the DERIVED `contoursEnabled` value (computed from flatLayers
+// by renderTerrainPane) as the second argument to _handleContoursToggle, so
+// the handler uses the authoritative value from the map, not the stale local
+// state.
+//
+// This test mounts the unconnected AnugaInputMenuClass (bypasses connect())
+// with a contour layer already present in flatLayers (simulating post-reload
+// state), and verifies that clicking the toggle fires onRemoveLayer
+// (NOT onAddContourLayer).
+// ---------------------------------------------------------------------------
+
+describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () => {
+    let container;
+
+    const DEM_LAYER_NAME = 'ele_7_grand_canyon_cog';
+    const CONTOUR_LAYER_ID = `${DEM_LAYER_NAME}__contours`;
+    const DEM_CONTOUR_STYLE_NAME_FIXD = 'dem_contours';
+
+    // Minimal terrain model with a gn_layer_name so the contour toggle renders.
+    const terrainModel = {
+        id: 7,
+        gn_layer_name: DEM_LAYER_NAME,
+        styling_mode: 'traditional',
+        rendering_type: 'dynamic_dem',
+    };
+
+    // Contour overlay layer as it would appear in flatLayers after reload.
+    const contourLayer = {
+        id: CONTOUR_LAYER_ID,
+        type: 'wms',
+        name: DEM_LAYER_NAME,
+        style: DEM_CONTOUR_STYLE_NAME_FIXD,
+        group: 'Input Data.Terrain',
+        visibility: true,
+    };
+
+    // Base DEM layer.
+    const demLayer = {
+        id: 'ele-7-uuid',
+        type: 'wms',
+        name: DEM_LAYER_NAME,
+        group: 'Input Data.Terrain',
+        visibility: true,
+    };
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    it('clicking Hide Contours (contour layer in flatLayers, state={}) calls onRemoveLayer NOT onAddContourLayer (FIX D)', () => {
+        // Use the unconnected class to control props directly, but wrap with a
+        // Provider so child connected components (UploaderPanel, TerrainBboxPanel)
+        // don't throw "Could not find store".
+        // AnugaInputMenuClass + makeAnugaResourceState are module-imported at the top (merge 5.x→epic).
+
+        let removeLayerCalledWith = null;
+        let addContourLayerCalled = false;
+
+        // flatLayers contains both the DEM and the contour overlay (post-reload).
+        // state.contoursEnabled is {} (reset on reload) — the bug was reading from state.
+        const resources = makeAnugaResourceState('owner', 0);
+        resources.terrain = [terrainModel];
+        const storeState = {
+            anuga: {
+                resources,
+                projects: { data: { id: 42, my_role: 'owner', projection: 'EPSG:32756' } },
+                ui: { isCreatingAnugaLayer: false }
+            },
+            // Both layers in flatLayers — simulating post-reload restored map state.
+            layers: { flat: [demLayer, contourLayer], groups: [] },
+            security: { user: { pk: 9999 } },
+            gnsettings: { geonodeUrl: 'http://localhost', jobName: 'hydratabase' },
+            controls: {},
+            localConfig: { plugins: {} }
+        };
+        const mockStore = {
+            getState: () => storeState,
+            subscribe: () => () => {},
+            dispatch: () => {}
+        };
+
+        const props = {
+            projectData: { id: 42, my_role: 'owner', projection: 'EPSG:32756' },
+            canEditAnugaMap: true,
+            projectId: 42,
+            // terrainLayers: only the bare DEM layer (not the contour overlay).
+            terrainLayers: [demLayer],
+            terrainModels: [terrainModel],
+            // flatLayers: both DEM + contour overlay (simulating map reload).
+            flatLayers: [demLayer, contourLayer],
+            boundaryLayers: [], inflowLayers: [], rainfallLayers: [],
+            frictionLayers: [], frictionRasterLayers: [], structureLayers: [],
+            meshRegionLayers: [],
+            boundaryModels: [], inflowModels: [], rainfallModels: [],
+            frictionModels: [], structureModels: [], meshRegionModels: [],
+            pendingBoundaries: [], pendingInflows: [], pendingRainfalls: [],
+            pendingFrictions: [], pendingStructures: [], pendingMeshRegions: [],
+            isCreatingAnugaLayer: false,
+            starterPhase: null,
+            selectedScenarioId: null,
+            selectedScenario: null,
+            builtMeshes: [],
+            onRemoveLayer: (layerId) => { removeLayerCalledWith = layerId; },
+            onAddContourLayer: () => { addContourLayerCalled = true; },
+            onSaveMap: () => {},
+            onChangeTerrainLayerProperties: () => {},
+            onUpdateTerrainRow: () => {},
+            onAddMeshLayer: () => {},
+            onZoomToExtent: () => {},
+            setVisibleUploaderPanel: () => {},
+            setVisibleTerrainBboxPanel: () => {},
+            setCreatingAnugaLayer: () => {},
+            addAnugaBoundary: () => {}, addAnugaFriction: () => {},
+            addAnugaInflow: () => {}, addAnugaRainfall: () => {},
+            addAnugaStructure: () => {}, addAnugaMeshRegion: () => {},
+            startAnugaModelCreationPolling: () => {},
+            stopAnugaModelCreationPolling: () => {},
+            createAnugaBoundary: () => {}, createAnugaInflow: () => {},
+            createAnugaRainfall: () => {}, createAnugaStructure: () => {},
+            createAnugaFriction: () => {}, createAnugaMeshRegion: () => {},
+        };
+
+        return new Promise((resolve) => {
+            ReactDOM.render(
+                <Provider store={mockStore}>
+                    <AnugaInputMenuClass {...props} />
+                </Provider>,
+                container,
+                () => {
+                    // Terrain pane is the default (selectedCategory: 'terrain',
+                    // projection is set → rail+pane layout → renderPane() → terrain).
+                    // The toggle button must read "Hide Contours" because contoursInMap
+                    // is true (contour IS in flatLayers).
+                    const toggleBtn = container.querySelector('[data-testid^="terrain-contour-toggle-btn-"]');
+                    expect(toggleBtn).toExist('contour toggle button must render');
+                    expect(toggleBtn.textContent).toContain('Hide Contours');
+
+                    toggleBtn.click();
+
+                    // FIX D: handler must fire onRemoveLayer (not onAddContourLayer)
+                    // because the derived contoursEnabled (from flatLayers) is true,
+                    // even though this.state.contoursEnabled[DEM_LAYER_NAME] === undefined.
+                    expect(removeLayerCalledWith).toBe(CONTOUR_LAYER_ID,
+                        'onRemoveLayer must be called with the contour layer id when contour is in flatLayers');
+                    expect(addContourLayerCalled).toBe(false,
+                        'onAddContourLayer must NOT be called (FIX D reload-desync)');
+                    resolve();
+                }
+            );
+        });
+    });
+});

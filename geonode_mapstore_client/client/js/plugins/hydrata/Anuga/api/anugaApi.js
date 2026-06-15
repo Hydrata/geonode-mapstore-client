@@ -380,6 +380,16 @@ export const revokeInvitation = (projectId, invitationId) =>
 export const resendInvitation = (projectId, invitationId) =>
     axios.post(`/api/v2/anuga/projects/${projectId}/invitations/${invitationId}/resend/`);
 
+// TASK-1720 (W3) — Patch a terrain's styling_mode ('dynamic'|'traditional').
+// PATCH /api/v2/anuga/projects/{pid}/terrain/{pk}/ with body {styling_mode}.
+// Returns the updated Terrain serializer (TerrainSerializerV2 shape).
+// Only styling_mode is writable here (all other fields are read-only on PATCH).
+export const patchTerrainStylingMode = (projectId, terrainId, stylingMode) =>
+    axios.patch(
+        `/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/`,
+        { styling_mode: stylingMode }
+    );
+
 // -- Site config (TASK-964) -----------------------------------------------
 
 // GET /api/v2/anuga/config/ — returns {default_compute_backend: 'local'|'ec2'|'batch'}

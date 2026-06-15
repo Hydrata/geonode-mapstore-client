@@ -18,6 +18,8 @@ import {
     UPDATE_NETWORK,
     SET_ANUGA_RESOURCE_PERMS,
     SET_PERMS_LOAD_FAILED,
+    // TASK-1720 (W3) fix — in-place single-row terrain merge (styling_mode toggle sync)
+    UPDATE_TERRAIN_ROW,
     DELETE_TERRAIN,
     DELETE_TERRAIN_SUCCESS,
     DELETE_TERRAIN_BLOCKED,
@@ -248,6 +250,17 @@ export default (state = initialState, action) => {
     }
     case SET_PERMS_LOAD_FAILED:
         return { ...state, permsLoadFailed: !!action.failed };
+    // TASK-1720 (W3) fix — in-place patch of a single terrain row. Merges
+    // action.fields into the matching row (by id) without replacing the array.
+    // Used after a successful PATCH /terrain/{id}/ so findDynamicDemPairs
+    // reads the updated styling_mode on the next CHANGE_MAP_VIEW immediately.
+    case UPDATE_TERRAIN_ROW:
+        return {
+            ...state,
+            terrain: (state.terrain || []).map(r =>
+                r?.id === action.id ? { ...r, ...action.fields } : r
+            )
+        };
     // V2P-714 — cascade-delete dataset rows. Each pair is (start, success,
     // blocked, error). On start we set deleting:true on the row. On success
     // we drop the row entirely; on blocked/error we clear deleting and stamp

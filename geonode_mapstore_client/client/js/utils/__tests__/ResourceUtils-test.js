@@ -10,6 +10,7 @@
 import expect from 'expect';
 import get from 'lodash/get';
 import set from 'lodash/set';
+import omit from 'lodash/omit';
 import {
     resourceToLayerConfig,
     getResourcePermissions,
@@ -1199,5 +1200,91 @@ describe('Test Resource Utils', () => {
     it('formatResourceLinkUrl', () => {
         expect(formatResourceLinkUrl({ uuid: '123' })).toContain('/catalogue/uuid/123');
         expect(formatResourceLinkUrl({ pk: '123' })).toNotContain('/catalogue/uuid/123');
+    });
+    // TASK-1722: dataset preview must send STYLES='' (empty) so GeoServer uses its
+    // configured defaultStyle (colour-relief) not GeoNode's default_style name (grey ramp).
+    // The fix in gnresource.js builds the preview layer via
+    // resourceToLayerConfig(omit(gnLayer, ['default_style'])), relying on the behaviour below.
+    it('resourceToLayerConfig with default_style returns workspace-prefixed style name', () => {
+        const DEM_RESOURCE = {
+            alternate: 'geonode:ele_123_dem',
+            links: [{
+                extension: 'html',
+                link_type: 'OGC:WMS',
+                name: 'OGC WMS Service',
+                mime: 'text/html',
+                url: 'http://localhost:8080/geoserver/ows'
+            }],
+            title: 'My DEM',
+            perms: [],
+            pk: 999,
+            default_style: {
+                pk: 1,
+                name: 'ele_123_dem',
+                workspace: 'geonode',
+                sld_title: 'ele_123_dem',
+                sld_url: 'http://localhost:8080/geoserver/rest/workspaces/geonode/styles/ele_123_dem.sld'
+            }
+        };
+        const layerWithStyle = resourceToLayerConfig(DEM_RESOURCE);
+        // With default_style present, the WMS STYLES param is set explicitly (workspace:name format)
+        expect(layerWithStyle.style).toBe('geonode:ele_123_dem');
+    });
+    it('resourceToLayerConfig without default_style returns empty style (TASK-1722: preview sends STYLES=\'\')', () => {
+        const DEM_RESOURCE_NO_DEFAULT_STYLE = {
+            alternate: 'geonode:ele_123_dem',
+            links: [{
+                extension: 'html',
+                link_type: 'OGC:WMS',
+                name: 'OGC WMS Service',
+                mime: 'text/html',
+                url: 'http://localhost:8080/geoserver/ows'
+            }],
+            title: 'My DEM',
+            perms: [],
+            pk: 999
+            // no default_style — matches omit(gnLayer, ['default_style']) in gnresource.js
+        };
+        const layerWithoutStyle = resourceToLayerConfig(DEM_RESOURCE_NO_DEFAULT_STYLE);
+        // Without default_style, style is empty: WMS sends STYLES='' so GeoServer uses its
+        // configured defaultStyle (colour-relief for DEMs), not a potentially stale GeoNode style.
+        expect(layerWithoutStyle.style).toBe('');
+    });
+
+    // TASK-1722 (W3 review fix): the omit(gnLayer, ['default_style']) in gnresource.js
+    // is now scoped to raster datasets only (subtype === 'raster'), so vector datasets
+    // with a custom GeoNode default_style are NOT regressed.
+    it('raster dataset preview: omit(gnLayer, [default_style]) strips style (GeoServer uses colour-relief)', () => {
+        // Simulates gnresource.js: resourceToLayerConfig(omit(gnLayer, ['default_style']))
+        // for a raster dataset (subtype === 'raster' branch).
+        const rasterGnLayer = {
+            alternate: 'geonode:ele_123_dem',
+            subtype: 'raster',
+            links: [],
+            title: 'My DEM',
+            perms: [],
+            pk: 1001,
+            default_style: { pk: 2, name: 'colour_relief', workspace: 'geonode', sld_title: 'Colour Relief', sld_url: '' }
+        };
+        const previewLayer = resourceToLayerConfig(omit(rasterGnLayer, ['default_style']));
+        // Raster: default_style omitted → STYLES='' → GeoServer uses its own defaultStyle
+        expect(previewLayer.style).toBe('');
+    });
+
+    it('vector dataset preview: gnLayer passed as-is preserves custom default_style', () => {
+        // Simulates gnresource.js: resourceToLayerConfig(gnLayer) for a vector dataset.
+        // The subtype !== 'raster' branch skips the omit, so default_style is preserved.
+        const vectorGnLayer = {
+            alternate: 'geonode:my_vector_layer',
+            subtype: 'vector',
+            links: [],
+            title: 'My Vector Layer',
+            perms: [],
+            pk: 1002,
+            default_style: { pk: 3, name: 'custom_vector_style', workspace: 'geonode', sld_title: 'Custom', sld_url: '' }
+        };
+        const previewLayer = resourceToLayerConfig(vectorGnLayer);
+        // Vector: default_style preserved → STYLES=geonode:custom_vector_style
+        expect(previewLayer.style).toBe('geonode:custom_vector_style');
     });
 });

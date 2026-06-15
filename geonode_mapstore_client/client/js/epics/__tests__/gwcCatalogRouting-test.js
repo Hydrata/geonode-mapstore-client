@@ -251,19 +251,24 @@ describe('gnRouteCatalogLayersToGwcEpic', () => {
         );
     });
 
-    // ---- Test 5: DEM terrain layer → DIRECT ------------------------------
+    // ---- Test 5: Traditional DEM terrain layer (no env=) → GWC WMTS (TASK-1719) ------
+    // W2 change: terrain layers WITHOUT params.env are now SHAREABLE (Traditional mode).
+    // Only Dynamic terrain (params.env set) stays on the direct WMS path.
 
-    it('emits nothing for a DEM/Terrain group layer (per-session env= rescale)', (done) => {
+    it('routes a Traditional DEM terrain layer (no params.env) to GWC WMTS (TASK-1719)', (done) => {
         const action = makePermsUpdateNode(DEM_LAYER.id, ['view_resourcebase']);
         const state = makeState(DEM_LAYER);
 
-        const { addTimeoutEpic, TEST_TIMEOUT } = require('@mapstore/framework/epics/__tests__/epicTestUtils');
         testEpic(
-            addTimeoutEpic(gnRouteCatalogLayersToGwcEpic, 50),
+            gnRouteCatalogLayersToGwcEpic,
             1,
             action,
             ([result]) => {
-                expect(result.type).toBe(TEST_TIMEOUT);
+                expect(result.type).toBe(CHANGE_LAYER_PROPERTIES);
+                expect(result.layer).toBe(DEM_LAYER.id);
+                expect(result.newProperties.url).toBe(GWC_WMTS_ENDPOINT);
+                expect(result.newProperties.tileUrls).toBeA('array');
+                expect(result.newProperties.tileUrls.length).toBe(1);
             },
             state,
             done

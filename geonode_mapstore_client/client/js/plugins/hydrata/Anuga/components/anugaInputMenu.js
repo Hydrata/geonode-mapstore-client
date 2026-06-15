@@ -31,7 +31,9 @@ import {
     setCreatingAnugaLayer,
     startAnugaModelCreationPolling,
     stopAnugaModelCreationPolling,
-    setVisibleTerrainBboxPanel
+    setVisibleTerrainBboxPanel,
+    // TASK-1720 (W3): sync the terrain Redux row after a styling-mode PATCH (merge 5.x→epic).
+    updateTerrainRow
 } from "../actionsAnuga";
 // TASK-1645 (W1.5) / TASK-1671 (W1.6) — recipe builder actions.
 import {
@@ -56,14 +58,20 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {trackEvent} from "@js/utils/analytics";
 // W5.1 (TASK-1273): MeshWorkflow consolidates preview + cost estimate + import/export slots.
 import {MeshWorkflow} from "./MeshWorkflow";
-import {addLayer, moveNode, sortNode} from "../../../../../MapStore2/web/client/actions/layers";
+// Merge note (5.x→epic 2026-06-15): union of TASK-1652 reorder imports and
+// TASK-1720/1721 styling-mode/contour imports.
+import {addLayer, moveNode, sortNode, changeLayerProperties, removeLayer} from "../../../../../MapStore2/web/client/actions/layers";
 import {getNode} from "../../../../../MapStore2/web/client/utils/LayersUtils";
 // W6 (TASK-1422): zoom to mesh extent after successful preview.
 import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
-// TASK-1652 (W1.5): blob persist after terrain reorder.
+// TASK-1652 (W1.5): blob persist after terrain reorder. TASK-1720 (W3): styling-mode toggle persist.
 import {saveDirectContent} from "@js/actions/gnsave";
+// TASK-1720 (W3): DEM styling-mode toggle — update terrain via the API.
+// (updateTerrainRow is folded into the ../actionsAnuga import block above.)
+import {patchTerrainStylingMode} from "../api/anugaApi";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
-import {buildMeshTriangleLayer} from "../gwcTileRouting";
+// TASK-1721 (W4): buildContourLayer builds the GWC-cached ras:Contour overlay config.
+import {buildMeshTriangleLayer, buildContourLayer, DEM_CONTOUR_STYLE_NAME} from "../gwcTileRouting";
 import {getToken} from "../../../../../MapStore2/web/client/utils/SecurityUtils";
 // W6 (TASK-1422): MapStore2 utility for computing extent from a GeoJSON object.
 import CoordinatesUtils from "../../../../../MapStore2/web/client/utils/CoordinatesUtils";
@@ -757,15 +765,26 @@ class TerrainHierarchyRow extends React.Component {
         onDragOver: PropTypes.func,
         onDragEnd: PropTypes.func,
         onDrop: PropTypes.func,
+        // TASK-1720/1721 rendering-mode + contour toggles (merged 5.x→epic 2026-06-15)
+        terrainModel: PropTypes.object,        // the real Terrain model row (null for orphan rows)
+        canEdit: PropTypes.bool,
+        contoursEnabled: PropTypes.bool,
+        onStylingModeChange: PropTypes.func,   // (terrainModel, demLayer, newMode)
+        onContoursToggle: PropTypes.func,      // (demLayerName, currentlyEnabled)
     };
 
     render() {
         const {
             terrain, demLayer, hillshadeLayer, expanded, onToggleExpand,
-            dragging, dragOver, onDragStart, onDragOver, onDragEnd, onDrop
+            dragging, dragOver, onDragStart, onDragOver, onDragEnd, onDrop,
+            // Merge (5.x→epic 2026-06-15): TASK-1720/1721 per-DEM rendering-mode + contour toggles.
+            terrainModel, canEdit, contoursEnabled, onStylingModeChange, onContoursToggle
         } = this.props;
 
         const hasDerivatives = !!hillshadeLayer;
+        // TASK-1720 (W3): styling mode for this terrain (default 'traditional' = the W1 BE default).
+        const mode = terrainModel?.styling_mode || 'traditional';
+        const isDynamic = mode === 'dynamic';
 
         return (
             <div
@@ -804,6 +823,47 @@ class TerrainHierarchyRow extends React.Component {
                         </span>
                     )}
                 </div>
+                {/* TASK-1720 (W3) / TASK-1721 (W4): per-DEM rendering-mode + contour toggles,
+                    folded into the hierarchy parent row at the 5.x→epic merge (2026-06-15).
+                    Gated on a REAL terrain model — orphan / analysis-surface rows have none. */}
+                {canEdit && terrainModel?.id ? (
+                    <div className="anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
+                        <span className="anuga-terrain-mode-label">
+                            {'Mode: ' + (isDynamic ? 'Dynamic' : 'Traditional')}
+                        </span>
+                        <button
+                            className={`btn btn-xs anuga-terrain-mode-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
+                            title={isDynamic
+                                ? 'Switch to Traditional (static colour relief, GWC tiled)'
+                                : 'Switch to Dynamic (live ramp rescale on pan/zoom)'}
+                            aria-pressed={isDynamic}
+                            data-testid={`terrain-mode-toggle-btn-${terrainModel.id}`}
+                            onClick={() => onStylingModeChange && onStylingModeChange(
+                                terrainModel, demLayer, isDynamic ? 'traditional' : 'dynamic'
+                            )}
+                        >
+                            {isDynamic ? 'Switch to Traditional' : 'Switch to Dynamic'}
+                        </button>
+                    </div>
+                ) : null}
+                {terrainModel?.id ? (
+                    <div className="anuga-terrain-contour-toggle" data-testid="terrain-contour-toggle">
+                        <span className="anuga-terrain-mode-label">
+                            {'Contours: ' + (contoursEnabled ? 'On' : 'Off')}
+                        </span>
+                        <button
+                            className={`btn btn-xs anuga-terrain-mode-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
+                            title={contoursEnabled
+                                ? 'Hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
+                                : 'Show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
+                            aria-pressed={contoursEnabled}
+                            data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
+                            onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled)}
+                        >
+                            {contoursEnabled ? 'Hide Contours' : 'Show Contours'}
+                        </button>
+                    </div>
+                ) : null}
                 {/* Child derivative rows */}
                 {expanded && hillshadeLayer ? (
                     <div className="terrain-derivatives">
@@ -827,6 +887,12 @@ class TerrainListWithDragDrop extends React.Component {
         expandedIds: PropTypes.instanceOf(Set),
         onToggleExpand: PropTypes.func,
         onReorder: PropTypes.func,  // (fromIndex, toIndex)
+        // TASK-1720/1721 rendering-mode + contour toggles (merged 5.x→epic 2026-06-15)
+        canEdit: PropTypes.bool,
+        flatLayers: PropTypes.array,            // map flat layers — authoritative for contour-in-map
+        localContoursEnabled: PropTypes.object, // {demLayerName: bool} local optimistic toggle state
+        onStylingModeChange: PropTypes.func,
+        onContoursToggle: PropTypes.func,
     };
 
     constructor(props) {
@@ -858,27 +924,47 @@ class TerrainListWithDragDrop extends React.Component {
     }
 
     render() {
-        const { terrainGroups, expandedIds, onToggleExpand } = this.props;
+        const {
+            terrainGroups, expandedIds, onToggleExpand,
+            canEdit, flatLayers, localContoursEnabled,
+            onStylingModeChange, onContoursToggle
+        } = this.props;
         const { dragFromIndex, dragOverIndex } = this.state;
+        const localContours = localContoursEnabled || {};
 
         return (
             <div className="terrain-hierarchy-list">
-                {terrainGroups.map((group, idx) => (
-                    <TerrainHierarchyRow
-                        key={group.terrain ? group.terrain.id : group.demLayer?.name || idx}
-                        terrain={group.terrain || {id: group.demLayer?.name, title: group.demLayer?.title}}
-                        demLayer={group.demLayer}
-                        hillshadeLayer={group.hillshadeLayer}
-                        expanded={!!(expandedIds && expandedIds.has(group.terrain?.id))}
-                        onToggleExpand={onToggleExpand}
-                        dragging={dragFromIndex === idx}
-                        dragOver={dragOverIndex === idx && dragFromIndex !== idx}
-                        onDragStart={() => this.handleDragStart(idx)}
-                        onDragOver={() => this.handleDragOver(idx)}
-                        onDrop={() => this.handleDrop(idx)}
-                        onDragEnd={() => this.handleDragEnd()}
-                    />
-                ))}
+                {terrainGroups.map((group, idx) => {
+                    const demLayer = group.demLayer;
+                    // TASK-1721 (W4): derive contour-overlay enabled state — local optimistic
+                    // toggle OR the contour layer already present in the map (restored from blob).
+                    const contourLayerId = `${demLayer?.name}__contours`;
+                    const contoursInMap = (flatLayers || []).some(
+                        l => l?.id === contourLayerId || (l?.name === demLayer?.name && l?.style === DEM_CONTOUR_STYLE_NAME)
+                    );
+                    const contoursEnabled = !!(localContours[demLayer?.name] || contoursInMap);
+                    return (
+                        <TerrainHierarchyRow
+                            key={group.terrain ? group.terrain.id : group.demLayer?.name || idx}
+                            terrain={group.terrain || {id: group.demLayer?.name, title: group.demLayer?.title}}
+                            terrainModel={group.terrain || null}
+                            demLayer={group.demLayer}
+                            hillshadeLayer={group.hillshadeLayer}
+                            expanded={!!(expandedIds && expandedIds.has(group.terrain?.id))}
+                            onToggleExpand={onToggleExpand}
+                            canEdit={canEdit}
+                            contoursEnabled={contoursEnabled}
+                            onStylingModeChange={onStylingModeChange}
+                            onContoursToggle={onContoursToggle}
+                            dragging={dragFromIndex === idx}
+                            dragOver={dragOverIndex === idx && dragFromIndex !== idx}
+                            onDragStart={() => this.handleDragStart(idx)}
+                            onDragOver={() => this.handleDragOver(idx)}
+                            onDrop={() => this.handleDrop(idx)}
+                            onDragEnd={() => this.handleDragEnd()}
+                        />
+                    );
+                })}
             </div>
         );
     }
@@ -948,7 +1034,13 @@ class AnugaInputMenuClass extends React.Component {
         flatLayers: PropTypes.array,
         onAddMeshLayer: PropTypes.func,
         // W6 (TASK-1422)
-        onZoomToExtent: PropTypes.func
+        onZoomToExtent: PropTypes.func,
+        // TASK-1720 (W3): Dynamic/Traditional terrain styling mode toggle
+        onChangeTerrainLayerProperties: PropTypes.func,
+        onSaveMap: PropTypes.func,
+        // TASK-1721 (W4): Contours overlay toggle
+        onAddContourLayer: PropTypes.func,
+        onRemoveLayer: PropTypes.func
     };
 
     static defaultProps = {}
@@ -988,7 +1080,10 @@ class AnugaInputMenuClass extends React.Component {
             twSurfaceSectionOpen: false,
             // TASK-1652 (W1.5) — terrain hierarchy: Set of terrain model IDs
             // whose derivative rows (hillshade, etc.) are expanded.
-            expandedTerrainIds: new Set()
+            expandedTerrainIds: new Set(),
+            // TASK-1721 (W4) — per-terrain contour overlay enabled state.
+            // Keyed by DEM layer name (bare, without 'geonode:' prefix).
+            contoursEnabled: {}
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
@@ -1374,8 +1469,96 @@ class AnugaInputMenuClass extends React.Component {
         return groups;
     }
 
+    // TASK-1720 (W3): Toggle Dynamic/Traditional styling mode for a single terrain.
+    // 1. AWAIT the BE PATCH so we know whether to proceed.
+    // 2. On SUCCESS: update state.anuga.resources.terrain (so findDynamicDemPairs
+    //    reads the new mode on the very next CHANGE_MAP_VIEW without re-fetching),
+    //    then apply the map-layer change and persist the blob.
+    // 3. On FAILURE: leave UI unchanged and surface a warning — no partial update.
+    _handleTerrainStylingModeChange = (terrainModel, mapLayer, newMode) => {
+        const projectId = this.props.projectId;
+        if (!projectId || !terrainModel?.id || !mapLayer?.id) return;
+        patchTerrainStylingMode(projectId, terrainModel.id, newMode)
+            .then(() => {
+                // Sync the Redux terrain row immediately so findDynamicDemPairs
+                // reads the correct styling_mode on the next CHANGE_MAP_VIEW.
+                this.props.onUpdateTerrainRow(terrainModel.id, { styling_mode: newMode });
+                if (newMode === 'traditional') {
+                    // Traditional: drop env= from params, set singleTile:false so GWC
+                    // WMTS tiled path activates on the next map render. The
+                    // gwcCatalogRouting / routeLayerTileSource will route tiles to GWC
+                    // because there is no params.env on the layer.
+                    const updatedParams = Object.assign({}, mapLayer.params || {});
+                    delete updatedParams.env;
+                    delete updatedParams._v_;
+                    this.props.onChangeTerrainLayerProperties(mapLayer.id, {
+                        singleTile: false,
+                        params: updatedParams
+                    });
+                } else {
+                    // Dynamic: mark singleTile:true so the next CHANGE_MAP_VIEW fires
+                    // a single fresh ImageWMS request; demRescaleEpic will stamp env=
+                    // on the first pan/zoom after this toggle.
+                    this.props.onChangeTerrainLayerProperties(mapLayer.id, { singleTile: true });
+                }
+                // Persist the map blob so the styling mode choice survives reload.
+                this.props.onSaveMap();
+            })
+            .catch((err) => {
+                // BE PATCH failed — do NOT apply the FE layer change. The UI
+                // re-renders from Redux state (which is unchanged) so the
+                // toggle shows the correct prior mode automatically.
+                // eslint-disable-next-line no-console
+                console.warn('[anugaInputMenu] patchTerrainStylingMode failed; leaving mode unchanged:', err && (err.message || err));
+            });
+    };
+
+    // TASK-1721 (W4): Toggle the GWC-cached ras:Contour overlay for a terrain DEM layer.
+    //
+    // On ENABLE:
+    //   1. Build the contour layer config via buildContourLayer (GWC WMTS, STYLES=dem_contours,
+    //      no env=, type=wms) — passes isShareableTileLayer.
+    //   2. Dispatch addLayer to add it ABOVE the colormap in the map (MapStore2 adds to top).
+    //   3. Persist the map blob via saveDirectContent.
+    //
+    // On DISABLE:
+    //   1. Dispatch removeLayer with the contour layer's id (<demLayerName>__contours).
+    //   2. Persist the map blob.
+    //
+    // State is local (this.state.contoursEnabled keyed by layer name) for immediate UI
+    // feedback.  The flatLayers prop is authoritative for whether the contour layer is
+    // actually in the map — state is reset if the layer is absent (e.g. after map reload).
+    //
+    // TASK-1721 (W4 review FIX D): accept the DERIVED enabled state as a parameter
+    // (computed in renderTerrainPane from flatLayers) instead of reading
+    // this.state.contoursEnabled directly.  After a page reload the local state is
+    // reset to {} while the contour layer IS still in flatLayers (restored from the saved
+    // map blob), so reading this.state would always take the "enable" branch and add a
+    // duplicate layer.  Passing the derived value mirrors the W3 mode-toggle pattern.
+    _handleContoursToggle = (demLayerName, currentlyEnabled) => {
+        if (!currentlyEnabled) {
+            // Enable: add the contour overlay layer.
+            const token = getToken ? getToken() : null;
+            const contourLayer = buildContourLayer(demLayerName, token);
+            this.props.onAddContourLayer(contourLayer);
+            this.setState(prev => ({
+                contoursEnabled: {...prev.contoursEnabled, [demLayerName]: true}
+            }));
+        } else {
+            // Disable: remove the contour overlay layer by its id.
+            const contourLayerId = `${demLayerName}__contours`;
+            this.props.onRemoveLayer(contourLayerId);
+            this.setState(prev => ({
+                contoursEnabled: {...prev.contoursEnabled, [demLayerName]: false}
+            }));
+        }
+        // Persist map blob so the contour toggle survives page reload.
+        this.props.onSaveMap();
+    };
+
     renderTerrainPane() {
         const layers = this.props.terrainLayers || [];
+        const canEdit = this.props.canEditAnugaMap;
         const actions = (
             <React.Fragment>
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
@@ -1428,6 +1611,14 @@ class AnugaInputMenuClass extends React.Component {
                                 this.setState({ expandedTerrainIds: next });
                             }}
                             onReorder={this.props.onReorderTerrainLayers || null}
+                            /* Merge (5.x→epic 2026-06-15): TASK-1720/1721 per-DEM Mode +
+                               Contours toggles, folded into the hierarchy rows — they used
+                               to live on the flat layers.map list that TASK-1652 replaced. */
+                            canEdit={canEdit}
+                            flatLayers={this.props.flatLayers}
+                            localContoursEnabled={this.state.contoursEnabled}
+                            onStylingModeChange={this._handleTerrainStylingModeChange}
+                            onContoursToggle={this._handleContoursToggle}
                         />
                     ) : null}
                     {layers.length === 0 ? this.renderTerrainEmpty() : null}
@@ -1819,6 +2010,15 @@ const mapDispatchToProps = ( dispatch ) => {
         onTwDeleteSurface: (id) => dispatch(twDeleteSurface(id)),
         // TASK-1671: twDerive now carries the atomic body {inputs, params}.
         onTwDerive: (id, body) => dispatch(twDerive(id, body)),
+        // TASK-1720 (W3): Dynamic/Traditional terrain styling mode toggle
+        onChangeTerrainLayerProperties: (layerId, props) => dispatch(changeLayerProperties(layerId, props)),
+        // TASK-1720 (W3) fix: sync terrain Redux row after successful PATCH so
+        // findDynamicDemPairs reads the new styling_mode without a full initAnuga.
+        onUpdateTerrainRow: (id, fields) => dispatch(updateTerrainRow(id, fields)),
+        onSaveMap: () => dispatch(saveDirectContent()),
+        // TASK-1721 (W4): Contours overlay add/remove
+        onAddContourLayer: (layer) => dispatch(addLayer(layer)),
+        onRemoveLayer: (layerId) => dispatch(removeLayer(layerId))
     };
 };
 
