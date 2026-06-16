@@ -153,7 +153,7 @@ export class TerrainBboxPanelClass extends React.Component {
                     <Message msgId="hydrata.anuga.terrainBboxConfirmHeading" />
                 </div>
                 {tooLarge ? (
-                    <div className="terrain-bbox-confirm-toolarge alert alert-danger" data-testid="terrain-bbox-confirm-toolarge">
+                    <div className="terrain-bbox-confirm-toolarge" data-testid="terrain-bbox-confirm-toolarge">
                         <Message msgId="hydrata.anuga.terrainBboxConfirmTooLarge" msgParams={{max: maxStr}} />
                     </div>
                 ) : (

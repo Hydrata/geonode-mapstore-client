@@ -72,8 +72,16 @@ const ARI_LEGEND_LABEL = ARI_COLUMNS.reduce((acc, c) => {
 // Explicit log-scale reference ticks. recharts does NOT auto-generate ticks for
 // a numeric log axis with an 'auto' domain bound (the ticks render blank), so
 // we supply a fixed log-spaced set; out-of-domain ticks are dropped by recharts.
-const DURATION_TICKS = [5, 10, 15, 30, 60, 120, 240, 360, 720, 1440, 2880, 4320];
+export const DURATION_TICKS = [5, 10, 15, 30, 60, 120, 240, 360, 720, 1440, 2880, 4320];
 const INTENSITY_TICKS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+
+// TASK-1754 — fixed log-scale duration domain. Pinning to [first, last] tick
+// (5..4320 min) with allowDataOverflow keeps every DURATION_TICKS entry evenly
+// spaced regardless of the plotted data's max; a floating `'auto'` upper bound
+// crowded the right-edge ticks (720/1440/2880/4320) whenever the data max sat
+// below 4320. Exported so the log-axis contract is unit-assertable without
+// depending on recharts rendering a measurable chart in jsdom.
+export const DURATION_X_DOMAIN = [DURATION_TICKS[0], DURATION_TICKS[DURATION_TICKS.length - 1]];
 
 // Build the IDF-curve scatter data from rowData, keyed per ARI column, dropping
 // every 0/empty cell (same zero-drop rule as classesHydrology.js getChartData,
@@ -218,13 +226,23 @@ const IdfCurveChart = ({chartData}) => (
                         }}
                     >
                         <CartesianGrid/>
+                        {/* TASK-1754 — the duration axis is LOGARITHMIC across a
+                            fixed 5..4320 min domain. The earlier `domain={[5,'auto']}`
+                            let recharts float the upper bound from the data, so the
+                            right-hand ticks (720/1440/2880/4320) bunched and overlapped
+                            whenever the plotted max sat below 4320; pinning the domain to
+                            [5, 4320] with allowDataOverflow spaces all DURATION_TICKS
+                            evenly across the log scale and stops the right-edge crowding.
+                            The series accessor stays dataKey="duration" (minutes), which
+                            maps unchanged under the log scale. */}
                         <XAxis
                             type="number"
                             dataKey="duration"
                             name="Duration"
                             unit="min"
                             scale="log"
-                            domain={[5, 'auto']}
+                            domain={DURATION_X_DOMAIN}
+                            allowDataOverflow
                             ticks={DURATION_TICKS}
                             allowDecimals={false}
                             tickFormatter={(value) => value}

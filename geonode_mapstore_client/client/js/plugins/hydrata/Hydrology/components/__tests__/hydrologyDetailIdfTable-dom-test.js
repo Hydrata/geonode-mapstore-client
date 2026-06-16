@@ -25,7 +25,7 @@ import mountWithProviders from '../../../../../__tests__/helpers/mountWithProvid
 import createTestStore from '../../../../../__tests__/helpers/createTestStore';
 import { UPDATE_IDF_ROW_DATA } from '../../actionsHydrology';
 import { IdfTable } from '../../classesHydrology';
-import HydrologyDetailIdfTable from '../hydrologyDetailIdfTable';
+import HydrologyDetailIdfTable, { DURATION_TICKS, DURATION_X_DOMAIN } from '../hydrologyDetailIdfTable';
 
 // Wrap a real (passthrough) store's dispatch to record dispatched actions.
 function recordingStore(preloadedState) {
@@ -370,5 +370,42 @@ describe('TASK-1524 hydrologyDetailIdfTable no-clip (all durations reachable)', 
         const wrapper = container.querySelector('.idf-matrix-wrapper');
         const outerBox = wrapper.parentElement;
         expect(outerBox.style.height).toNotEqual('600px');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-1754 — the IDF-curve duration X-axis is LOGARITHMIC over a FIXED domain.
+// The earlier `domain={[5, 'auto']}` let recharts float the upper bound off the
+// plotted data, so the right-hand DURATION_TICKS (720/1440/2880/4320 min)
+// bunched and overlapped whenever the data max sat below 4320. The fix pins the
+// domain to [firstTick, lastTick] (= [5, 4320]) with allowDataOverflow, which
+// keeps every tick evenly spaced. recharts renders 0-tall in jsdom (no
+// measurable SVG to assert tick geometry on), so the contract is locked at the
+// exported-config level: the domain spans the full tick range, and the ticks
+// are strictly increasing (a precondition for an even log-axis layout).
+// ---------------------------------------------------------------------------
+describe('TASK-1754 IDF-curve log duration axis', () => {
+    it('pins the X-axis domain to the first..last duration tick (5..4320), not a floating auto', () => {
+        expect(DURATION_X_DOMAIN).toEqual([5, 4320]);
+        // The domain bounds are exactly the tick extremes — no clipping, no float.
+        expect(DURATION_X_DOMAIN[0]).toBe(DURATION_TICKS[0]);
+        expect(DURATION_X_DOMAIN[1]).toBe(DURATION_TICKS[DURATION_TICKS.length - 1]);
+    });
+
+    it('DURATION_TICKS are strictly increasing and positive (valid for a log scale)', () => {
+        // A log axis is undefined at <=0; strictly-increasing ticks are the
+        // precondition for the evenly-spaced layout the fix delivers.
+        DURATION_TICKS.forEach(t => expect(t).toBeGreaterThan(0));
+        for (let i = 1; i < DURATION_TICKS.length; i++) {
+            expect(DURATION_TICKS[i]).toBeGreaterThan(DURATION_TICKS[i - 1]);
+        }
+    });
+
+    it('every duration tick lies within the pinned domain (none dropped at the edges)', () => {
+        const [lo, hi] = DURATION_X_DOMAIN;
+        DURATION_TICKS.forEach(t => {
+            expect(t).toBeGreaterThanOrEqualTo(lo);
+            expect(t).toBeLessThanOrEqualTo(hi);
+        });
     });
 });

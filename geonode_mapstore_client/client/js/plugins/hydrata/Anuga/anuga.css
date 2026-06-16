@@ -1761,83 +1761,65 @@ div that holds the feature-grid */
 
 /* ── End TASK-C scenarios-miller-columns W1+W2 ─────────────────────────── */
 
-/* ── TASK-930 (W2-FE) — Global GLO-30 bbox confirmation popup ──────────────
-   Reuses the .anuga-scenario-confirm-dialog + .is-open always-rendered shell
-   (visibility toggled via CSS, never an unmount, so Karma stays
-   deterministic). Overrides position/width to centre it over the bbox panel
-   and stacks the stat lines vertically rather than the inline scenario layout. */
-.terrain-bbox-confirm-dialog {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    right: auto;
-    transform: translate(-50%, -50%);
-    min-width: 340px;
-    max-width: 460px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    padding: 14px 16px;
+/* ── TASK-930 / TASK-1647 / TASK-1754 — GLO-30 import inline review ─────────
+   The separate light-background confirm popup (TASK-1647) was dissolved into an
+   INLINE review section that renders INSIDE the dark-glass .simple-view-panel.
+   TASK-1754 retheme: the old popup left dark text (#333 / #666) on that section,
+   illegible on the navy glass. These rules give the inline review the
+   SimpleView look — light text on the panel's translucent navy, tinted stat
+   card, sv-token error chip — so it matches the other SimpleView dialogs.
+   The dead popup-shell classes (.terrain-bbox-confirm-dialog / -body / -note /
+   -actions / -hint) are removed; only the inline classes the JSX still emits
+   remain. */
+.terrain-bbox-inline-review {
+    margin-top: 12px;
+    padding: 10px 12px;
     text-align: left;
-}
-
-.terrain-bbox-confirm-dialog.is-open {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
+    border-radius: 4px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .terrain-bbox-confirm-heading {
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #333;
-}
-
-.terrain-bbox-confirm-body {
-    font-size: 12px;
-    color: #333;
+    color: #fff;
 }
 
 .terrain-bbox-confirm-stat {
     margin-bottom: 4px;
     line-height: 1.4;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.terrain-bbox-confirm-note {
-    margin-top: 8px;
-    font-size: 11px;
-    color: #666;
-    font-style: italic;
-    line-height: 1.4;
-}
-
+/* Too-large warning chip — sv error tokens (red text/border over a faint red
+   tint) so it reads on the navy glass like every other SimpleView error. */
 .terrain-bbox-confirm-toolarge {
     margin: 4px 0 0 0;
     padding: 6px 10px;
     font-size: 12px;
+    background: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
+    border: 1px solid var(--sv-delete-error-border, #dc3545);
+    border-radius: 4px;
+    color: var(--sv-text-danger, #ffb3b3);
 }
 
-.terrain-bbox-confirm-actions {
+.terrain-bbox-inline-review-actions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
     margin-top: 12px;
 }
 
-/* Disabled Confirm when the area exceeds the 40,000 km2 ceiling. */
-.terrain-bbox-confirm-actions .save-confirm-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Small helper line under the Draw button explaining the review-then-download
-   flow. Inherits the panel's white-on-blue chrome. */
-.terrain-bbox-hint {
+/* Area-limit guidance line under the Draw button — dimmer light text, reads on
+   the navy glass (was an undefined-class plain inherit before). */
+.terrain-bbox-area-guidance {
     font-size: 11px;
-    opacity: 0.85;
-    margin-bottom: 10px;
     line-height: 1.4;
+    text-align: left;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 /* Richer terrain-pane empty state (two ways to get terrain). Left-aligned and

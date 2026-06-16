@@ -1290,6 +1290,30 @@
     padding: 4px 0 2px 0;
 }
 
+/* ── TASK-1754 — readable IDF-curve legend + series labels ───────────────────
+   The IDF curve sits on a WHITE chart body (.idf-curve-modal-body). recharts
+   colours each legend entry's TEXT with that series' fill, and the viridis
+   palette's bright end (#b8de29 / #fde725) is illegible on white. Force the
+   legend text and the axis tick labels to the SimpleView panel-blue (--sv-glyph-
+   settings #325f93, a WCAG-AA dark navy on white) so every ARI label reads
+   regardless of its line colour; the coloured swatch still keys each entry to
+   its line. Scoped to the modal body so it never bleeds into other recharts. */
+.idf-curve-modal-body .recharts-legend-item-text {
+    color: var(--sv-glyph-settings, #325f93) !important;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.idf-curve-modal-body .recharts-default-legend {
+    padding-left: 6px;
+}
+
+/* Axis tick labels (durations / intensities) — same readable navy on white. */
+.idf-curve-modal-body .recharts-cartesian-axis-tick-value {
+    fill: #063167;
+    font-size: 12px;
+}
+
 /* ── TASK-1534 (UAT2) — Design Storms detail view: dark-navy theme ──────────
    The Design Storms browser (former Timeseries) was the only Hydrology detail
    view using ad-hoc light/white inline cards (#f7f9fb / #fff / #f0f5ff). It
