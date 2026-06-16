@@ -272,7 +272,9 @@ describe('TASK-1728 terrain upload — no inline strip, surfaces on Tasks Panel'
 //   • Each terrainModel with a matching terrainLayer → { terrain, demLayer, hillshadeLayer }
 //   • Hillshade layers are excluded from parent-row candidates
 //   • Unmatched layers (analysis surface outputs, etc.) → { terrain:null, demLayer, hillshadeLayer:null }
-import { AnugaInputMenuClass } from '../anugaInputMenu';
+// TASK-1674: TW* presentational pieces are imported here too (single import to
+// satisfy no-duplicate-imports) for the SimpleView-primitive conform specs below.
+import { AnugaInputMenuClass, TWStaleBadge, TWSurfaceList, TWRecipeBuilder } from '../anugaInputMenu';
 
 function buildGroupsWithProps({ terrainLayers = [], terrainModels = [] } = {}) {
     // Directly invoke the instance method with a mock `this.props`.
@@ -735,5 +737,150 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                 }
             );
         });
+    });
+});
+
+// ── TASK-1674 (1673 rollout, Phase C): SimpleView-primitive conform ──────────
+// The terrain recipe builder's hand-rolled dark-glass chrome (tw-error blocks,
+// the tw-empty-hint, the CSS-orphaned stale pill) is now the shared token-backed
+// ErrorStrip / EmptyState / StatusBadge. These specs render the presentational
+// TW pieces in isolation and assert: (a) the SimpleView primitive class hooks
+// are emitted, (b) the per-panel tw-* variant hooks survive (extraClassName), and
+// (c) the stable data-testids are preserved.
+// (TWStaleBadge / TWSurfaceList / TWRecipeBuilder imported alongside
+//  AnugaInputMenuClass above to satisfy no-duplicate-imports.)
+
+describe('TASK-1674 terrain recipe builder conformed onto SimpleView primitives', () => {
+    let container;
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    const surface = {
+        id: 7,
+        title: 'Surface A',
+        inputs_ordered: [],
+        use_culverts: false,
+        feather_width_m: 10,
+        target_resolution_m: 1,
+        breach_max_cost: 100,
+        breach_search_dist: 50
+    };
+
+    it('TWStaleBadge renders the shared StatusBadge (amber pending) when stale, nothing when fresh', () => {
+        ReactDOM.render(<TWStaleBadge isStale />, container);
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge).toExist('stale badge must be the shared StatusBadge primitive');
+        expect(badge.className).toContain('is-pending'); // amber warn palette
+        expect(badge.textContent).toContain('stale');
+        // The tooltip-bearing wrapper hook survives so the title/selector is intact.
+        expect(container.querySelector('.terrain-workbench-stale-badge')).toExist('stale wrapper hook preserved');
+
+        ReactDOM.unmountComponentAtNode(container);
+        ReactDOM.render(<TWStaleBadge isStale={false} />, container);
+        expect(container.querySelector('.sv-status-badge')).toNotExist('fresh surface renders no badge');
+    });
+
+    it('TWSurfaceList empty state is the shared EmptyState (sv-empty-state + tw-empty-hint hook)', () => {
+        ReactDOM.render(
+            <TWSurfaceList
+                surfaces={[]}
+                selectedId={null}
+                onSelect={() => {}}
+                onRename={() => {}}
+                onDelete={() => {}}
+                onNew={() => {}}
+            />,
+            container
+        );
+        const empty = container.querySelector('.sv-empty-state');
+        expect(empty).toExist('empty surfaces use the shared EmptyState primitive');
+        expect(empty.className).toContain('tw-empty-hint'); // per-panel variant hook preserved
+        expect(empty.textContent).toContain('No analysis surfaces yet');
+        // The "+ New analysis surface" emphasis survives as the EmptyState subcopy.
+        expect(empty.querySelector('strong')).toExist('the "+ New analysis surface" emphasis survives');
+    });
+
+    it('TWSurfaceList create error renders the shared ErrorStrip under the create-error testid', () => {
+        ReactDOM.render(
+            <TWSurfaceList
+                surfaces={[]}
+                selectedId={null}
+                createError={'Boom: create failed'}
+                onSelect={() => {}}
+                onRename={() => {}}
+                onDelete={() => {}}
+                onNew={() => {}}
+            />,
+            container
+        );
+        const wrap = container.querySelector('[data-testid="create-error"]');
+        expect(wrap).toExist('create-error testid is preserved');
+        const strip = wrap.querySelector('.sv-error-strip');
+        expect(strip).toExist('create error uses the shared ErrorStrip primitive');
+        expect(strip.className).toContain('tw-error'); // per-panel variant hook preserved
+        expect(strip.getAttribute('role')).toBe('alert');
+        expect(strip.textContent).toContain('Boom: create failed');
+    });
+
+    it('TWSurfaceList renders NO create-error wrapper / ErrorStrip on the happy path', () => {
+        ReactDOM.render(
+            <TWSurfaceList
+                surfaces={[]}
+                selectedId={null}
+                createError={null}
+                onSelect={() => {}}
+                onRename={() => {}}
+                onDelete={() => {}}
+                onNew={() => {}}
+            />,
+            container
+        );
+        expect(container.querySelector('[data-testid="create-error"]')).toNotExist('no error wrapper when createError is falsy');
+        expect(container.querySelector('.sv-error-strip')).toNotExist('no ErrorStrip on the happy path');
+    });
+
+    it('TWRecipeBuilder save + derive errors are shared ErrorStrips under their testids', () => {
+        ReactDOM.render(
+            <TWRecipeBuilder
+                surface={surface}
+                terrains={[]}
+                saveError={'save kaput'}
+                deriveError={'derive kaput'}
+                onUpdate={() => {}}
+                onDerive={() => {}}
+            />,
+            container
+        );
+        const saveWrap = container.querySelector('[data-testid="save-error"]');
+        expect(saveWrap).toExist('save-error testid preserved');
+        expect(saveWrap.querySelector('.sv-error-strip')).toExist('save error is a shared ErrorStrip');
+        expect(saveWrap.querySelector('.sv-error-strip').className).toContain('tw-error');
+        expect(saveWrap.textContent).toContain('save kaput');
+
+        const deriveWrap = container.querySelector('[data-testid="derive-error"]');
+        expect(deriveWrap).toExist('derive-error testid preserved');
+        expect(deriveWrap.querySelector('.sv-error-strip')).toExist('derive error is a shared ErrorStrip');
+        expect(deriveWrap.textContent).toContain('derive kaput');
+    });
+
+    it('TWRecipeBuilder shows NO ErrorStrip when there are no errors (self-hide guard)', () => {
+        ReactDOM.render(
+            <TWRecipeBuilder
+                surface={surface}
+                terrains={[]}
+                onUpdate={() => {}}
+                onDerive={() => {}}
+            />,
+            container
+        );
+        expect(container.querySelector('[data-testid="save-error"]')).toNotExist();
+        expect(container.querySelector('[data-testid="derive-error"]')).toNotExist();
+        expect(container.querySelector('.sv-error-strip')).toNotExist('no ErrorStrip without an error');
     });
 });

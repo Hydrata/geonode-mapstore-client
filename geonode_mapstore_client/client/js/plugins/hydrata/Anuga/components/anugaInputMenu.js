@@ -50,6 +50,13 @@ import {
 
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
+// TASK-1674 (1673 rollout, Phase C): conform the Terrain recipe builder onto the
+// SimpleView shared primitives — the error blocks (tw-error), the empty hint
+// (tw-empty-hint) and the stale pill (terrain-workbench-stale-badge) are now the
+// token-backed ErrorStrip / EmptyState / StatusBadge, so the panel stops
+// hand-rolling dark-glass chrome. Markup was already reworked (BUG-4 UAT); this
+// is a styling conform only.
+import {ErrorStrip, EmptyState, StatusBadge} from "../../SimpleView/components/primitives";
 // BUG (UAT, TASK-1648 regression): TerrainBboxPanel is now mounted in
 // anugaContainer.js (container level), NOT here. 'Define import area' dispatches
 // setAnugaInputMenu(false), which unmounts THIS component; when the bbox panel
@@ -163,9 +170,15 @@ function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
 
 function TWStaleBadge({ isStale }) {
     if (!isStale) return null;
+    // TASK-1674: the bespoke (and CSS-orphaned) terrain-workbench-stale-badge span is
+    // now the shared amber StatusBadge — "stale" reads as a pending/needs-attention
+    // pill, exactly the .is-warn palette the old .tw-stale-badge rule chased.
     return (
-        <span className="terrain-workbench-stale-badge" title="Recipe inputs have changed since last derive — re-derive to update">
-            stale
+        <span
+            className="terrain-workbench-stale-badge"
+            title="Recipe inputs have changed since last derive — re-derive to update"
+        >
+            <StatusBadge status="pending" label="stale" compact />
         </span>
     );
 }
@@ -498,7 +511,15 @@ class TWRecipeBuilder extends React.Component {
                     </div>
                     {/* TASK-1671: Save parameters button REMOVED — params saved atomically on derive */}
                 </div>
-                {saveError && <div className="tw-error" data-testid="save-error">{saveError}</div>}
+                {/* TASK-1674: tw-error -> shared ErrorStrip. The {saveError && …} guard is
+                    kept (rather than leaning on ErrorStrip's self-hide) so the data-testid
+                    wrapper still appears/disappears exactly as before — ErrorStrip does not
+                    forward arbitrary DOM props, hence the wrapper carries the testid. */}
+                {saveError && (
+                    <div data-testid="save-error">
+                        <ErrorStrip message={saveError} extraClassName="tw-error"/>
+                    </div>
+                )}
                 {/* TASK-1671: Derive section — single button triggers confirm dialog */}
                 <div className="tw-derive-section">
                     <Button
@@ -512,7 +533,12 @@ class TWRecipeBuilder extends React.Component {
                         {deriving ? 'Deriving…' : 'Derive terrain'}
                     </Button>
                     {deriving && <div className="tw-derive-progress" data-testid="derive-progress">Processing — watch the Task Monitor for progress.</div>}
-                    {deriveError && <div className="tw-error" data-testid="derive-error">{deriveError}</div>}
+                    {/* TASK-1674: tw-error -> shared ErrorStrip (testid kept on the wrapper). */}
+                    {deriveError && (
+                        <div data-testid="derive-error">
+                            <ErrorStrip message={deriveError} extraClassName="tw-error"/>
+                        </div>
+                    )}
                 </div>
                 {/* TASK-1671: Size-confirm dialog */}
                 {confirmOpen && (
@@ -612,8 +638,17 @@ function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onN
             </div>
             {/* TASK-1658: a failed create has no selectedSurface, so the recipe-form
                 error would be invisible — surface it here at the list level. */}
-            {createError && <div className="tw-error" data-testid="create-error">{createError}</div>}
-            {surfaces.length === 0 && <div className="tw-empty-hint">No analysis surfaces yet. Create one with <strong>+ New analysis surface</strong>.</div>}
+            {/* TASK-1674: tw-error -> shared ErrorStrip; tw-empty-hint -> shared EmptyState. */}
+            {createError && (
+                <div data-testid="create-error">
+                    <ErrorStrip message={createError} extraClassName="tw-error"/>
+                </div>
+            )}
+            {surfaces.length === 0 && (
+                <EmptyState extraClassName="tw-empty-hint">
+                    No analysis surfaces yet. Create one with <strong>+ New analysis surface</strong>.
+                </EmptyState>
+            )}
             {surfaces.map(s => (
                 <TWSurfaceListItem
                     key={s.id}
@@ -1879,7 +1914,12 @@ class AnugaInputMenuClass extends React.Component {
                         {twSurfaceSectionOpen && (
                             <div className="anuga-terrain-recipe-body">
                                 {twLoading && <div className="tw-loading">Loading…</div>}
-                                {twError && <div className="tw-error" data-testid="tw-load-error">{twError}</div>}
+                                {/* TASK-1674: tw-error -> shared ErrorStrip (testid kept on the wrapper). */}
+                                {twError && (
+                                    <div data-testid="tw-load-error">
+                                        <ErrorStrip message={twError} extraClassName="tw-error"/>
+                                    </div>
+                                )}
                                 {!twLoading && !twError && (
                                     <React.Fragment>
                                         <TWSurfaceList
@@ -2289,3 +2329,7 @@ const mapDispatchToProps = ( dispatch ) => {
 const AnugaInputMenu = connect(mapStateToProps, mapDispatchToProps)(AnugaInputMenuClass);
 
 export {AnugaInputMenu, AnugaInputMenuClass};
+// TASK-1674: export the presentational TW pieces so the SimpleView-primitive
+// conform (ErrorStrip / EmptyState / StatusBadge substitution) can be unit-tested
+// in isolation without standing up the connected menu + a mock store.
+export {TWStaleBadge, TWSurfaceList, TWRecipeBuilder};
