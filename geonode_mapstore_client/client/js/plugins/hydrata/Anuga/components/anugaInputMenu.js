@@ -72,7 +72,11 @@ import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
 import {saveDirectContent} from "@js/actions/gnsave";
 // TASK-1720 (W3): DEM styling-mode toggle — update terrain via the API.
 // (updateTerrainRow is folded into the ../actionsAnuga import block above.)
-import {patchTerrainStylingMode} from "../api/anugaApi";
+import {patchTerrainStylingMode, uploadTerrainDirect} from "../api/anugaApi";
+// TASK-1729 (W1.7): direct-to-S3 upload progress feedback uses the Phase-0
+// shared primitives (token-backed, cascade-proof). The full modal/Tasks-Panel
+// surfacing reshape is the sibling TASK-1728.
+import {ProgressBar, ErrorStrip} from "../../SimpleView/components/primitives";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
 // TASK-1721 (W4): buildContourLayer builds the GWC-cached ras:Contour overlay config.
 import {buildMeshTriangleLayer, buildContourLayer, DEM_CONTOUR_STYLE_NAME} from "../gwcTileRouting";
@@ -1139,11 +1143,73 @@ class AnugaInputMenuClass extends React.Component {
             expandedTerrainIds: new Set(),
             // TASK-1721 (W4) — per-terrain contour overlay enabled state.
             // Keyed by DEM layer name (bare, without 'geonode:' prefix).
-            contoursEnabled: {}
+            contoursEnabled: {},
+            // TASK-1729 (W1.7) — direct-to-S3 terrain upload progress.
+            //   phase: null | 'uploading' | 'finalizing' | 'done' | 'error'
+            //   pct: 0..100 (byte transfer)
+            //   filename: the file being uploaded
+            //   error: a human-readable error string (rendered via ErrorStrip)
+            terrainUpload: { phase: null, pct: 0, filename: null, error: null }
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
+        // TASK-1729: hidden <input type="file"> the upload glyph triggers.
+        this._terrainFileInputRef = React.createRef();
     }
+
+    // TASK-1729 (W1.7) — direct-to-S3 presigned-PUT terrain upload.
+    // Open the OS file picker; the actual upload runs in _onTerrainFileSelected.
+    _openTerrainFilePicker = () => {
+        const input = this._terrainFileInputRef.current;
+        if (input) {
+            input.value = '';   // allow re-selecting the same file after an error
+            input.click();
+        }
+    };
+
+    // TASK-1729: file chosen → run presign → XHR PUT (progress) → finalize.
+    // Replaces the legacy synchronous multipart POST that streamed the whole
+    // GeoTIFF through uwsgi and died at harakiri=120. On PUT failure the BE
+    // reconcile sweep + S3 lifecycle clean up — the FE just surfaces the error.
+    _onTerrainFileSelected = (event) => {
+        const file = event && event.target && event.target.files && event.target.files[0];
+        if (!file) return;
+        const projectId = this.props.projectId;
+        if (!projectId) {
+            this.setState({ terrainUpload: { phase: 'error', pct: 0, filename: file.name, error: 'No project selected.' } });
+            return;
+        }
+        const title = (file.name || '').replace(/\.[^.]+$/, '') || file.name;
+        this.setState({ terrainUpload: { phase: 'uploading', pct: 0, filename: file.name, error: null } });
+        trackEvent('process', 'start', 'anuga-terrain-direct-upload');
+
+        uploadTerrainDirect(projectId, file, {
+            title,
+            onProgress: (pct) => {
+                // When the byte transfer completes, flip to the finalize phase.
+                const phase = pct >= 100 ? 'finalizing' : 'uploading';
+                this.setState(prev => ({ terrainUpload: { ...prev.terrainUpload, phase, pct } }));
+            }
+        })
+            .then(() => {
+                this.setState({ terrainUpload: { phase: 'done', pct: 100, filename: file.name, error: null } });
+                // The presign Process is already in the W1.5 Tasks Panel; kick the
+                // existing layer-creation poll so the new Terrain row surfaces when
+                // the async import chain finishes (no new poll — contract §Notes).
+                if (this.props.startAnugaModelCreationPolling) this.props.startAnugaModelCreationPolling();
+                trackEvent('process', 'complete', 'anuga-terrain-direct-upload');
+            })
+            .catch((err) => {
+                const detail = err?.response?.data?.detail || err?.message || 'Upload failed.';
+                this.setState({ terrainUpload: { phase: 'error', pct: 0, filename: file.name, error: detail } });
+                trackEvent('process', 'error', 'anuga-terrain-direct-upload');
+            });
+    };
+
+    // TASK-1729: dismiss the progress/error strip (e.g. after a done/error).
+    _dismissTerrainUpload = () => {
+        this.setState({ terrainUpload: { phase: null, pct: 0, filename: null, error: null } });
+    };
 
     _toggleMeshWorkflow = () => {
         this.setState(prev => ({meshWorkflowOpen: !prev.meshWorkflowOpen}));
@@ -1631,6 +1697,53 @@ class AnugaInputMenuClass extends React.Component {
         // next mount. Do NOT save the map resource here.
     };
 
+    // TASK-1729 (W1.7): inline progress / error feedback for the direct-to-S3
+    // terrain upload. Visible while a file is uploading/finalizing, on success
+    // (briefly, until the user dismisses), and on error. The richer Tasks-Panel
+    // surfacing is the sibling TASK-1728 — here we give working byte-level
+    // feedback so the modeller knows the (multi-hundred-MB) upload is alive.
+    _renderTerrainUploadProgress() {
+        const { phase, pct, filename, error } = this.state.terrainUpload || {};
+        if (!phase) return null;
+        if (phase === 'error') {
+            return (
+                <div className="anuga-terrain-upload-status" data-testid="anuga-terrain-upload-error">
+                    <ErrorStrip head="Terrain upload failed" message={error} payload={filename} />
+                    <div style={{textAlign: 'right', margin: '0 10px 6px'}}>
+                        <Button bsSize="xsmall" bsStyle="default" data-testid="anuga-terrain-upload-dismiss" onClick={this._dismissTerrainUpload}>
+                            <Message msgId="hydrata.simpleView.close" />
+                        </Button>
+                    </div>
+                </div>
+            );
+        }
+        // 'importing' is a known server-merged key (reused by simpleViewUploader);
+        // the uploading/done labels are plain text to avoid a missing-msgId echo.
+        const label = phase === 'finalizing'
+            ? <Message msgId="hydrata.simpleView.importing" />
+            : (phase === 'done' ? 'Upload complete' : 'Uploading');
+        return (
+            <div
+                className="anuga-terrain-upload-status"
+                data-testid="anuga-terrain-upload-progress"
+                style={{padding: '6px 10px', fontSize: '11.5px'}}
+            >
+                <div style={{marginBottom: '4px', color: 'var(--sv-text-dim, #aaa)'}}>
+                    {label} {filename ? `· ${filename}` : ''}
+                    {phase === 'uploading' ? ` · ${pct}%` : ''}
+                </div>
+                <ProgressBar pct={phase === 'finalizing' ? 100 : pct} />
+                {phase === 'done' ? (
+                    <div style={{textAlign: 'right', marginTop: '4px'}}>
+                        <Button bsSize="xsmall" bsStyle="default" data-testid="anuga-terrain-upload-dismiss" onClick={this._dismissTerrainUpload}>
+                            <Message msgId="hydrata.simpleView.close" />
+                        </Button>
+                    </div>
+                ) : null}
+            </div>
+        );
+    }
+
     renderTerrainPane() {
         const layers = this.props.terrainLayers || [];
         const canEdit = this.props.canEditAnugaMap;
@@ -1649,12 +1762,25 @@ class AnugaInputMenuClass extends React.Component {
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
                     <span
                         className={"btn glyphicon menu-row-glyph glyph-active glyphicon-upload"}
+                        data-testid="anuga-terrain-upload-button"
                         onClick={() => {
-                            this.props.setVisibleUploaderPanel(true, "terrain", null);
+                            // TASK-1729 (W1.7): direct-to-S3 presigned-PUT upload —
+                            // open the file picker instead of the legacy synchronous
+                            // multipart uploader panel (which died at harakiri=120).
+                            this._openTerrainFilePicker();
                             trackEvent('button', 'click', 'anuga-input-menu-show-terrain-uploader');
                         }}
                     />
                 </OverlayTrigger>
+                {/* TASK-1729: hidden file input driven by the upload glyph. */}
+                <input
+                    ref={this._terrainFileInputRef}
+                    type="file"
+                    accept=".tif,.tiff,image/tiff"
+                    data-testid="anuga-terrain-file-input"
+                    style={{display: 'none'}}
+                    onChange={this._onTerrainFileSelected}
+                />
             </React.Fragment>
         );
         // TASK-1645 (W1.5) / TASK-1671 (W1.6): recipe builder state from props.
@@ -1675,6 +1801,8 @@ class AnugaInputMenuClass extends React.Component {
         return (
             <div className="menu-rows-pane anuga-pane">
                 {this.renderPaneHead('terrain', actions)}
+                {/* TASK-1729 (W1.7): direct-to-S3 upload progress / error feedback. */}
+                {this._renderTerrainUploadProgress()}
                 <div className="anuga-pane-rows">
                     {terrainGroups.length > 0 ? (
                         <TerrainListWithDragDrop

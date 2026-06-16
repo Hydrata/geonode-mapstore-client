@@ -149,6 +149,97 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
             expect(upload).toExist();
         });
     });
+
+    // ── TASK-1729 (W1.7): direct-to-S3 presigned-PUT terrain upload ────────
+    it('terrain upload glyph triggers the hidden file input (direct-to-S3, not the legacy panel)', () => {
+        return mountMenu({ role: 'editor', layerCount: 0 }).then(() => {
+            const fileInput = container.querySelector('[data-testid="anuga-terrain-file-input"]');
+            expect(fileInput).toExist();
+            expect(fileInput.type).toBe('file');
+            // Clicking the glyph must click() the hidden input — spy on it.
+            let clicked = 0;
+            fileInput.click = () => { clicked += 1; };
+            const glyph = container.querySelector('[data-testid="anuga-terrain-upload-button"]');
+            expect(glyph).toExist();
+            glyph.click();
+            expect(clicked).toBe(1);
+        });
+    });
+});
+
+// ── TASK-1729 (W1.7): upload progress/error strip rendering ────────────────
+// Exercise _renderTerrainUploadProgress in isolation against a mock instance,
+// mirroring the _buildTerrainGroups direct-prototype pattern below. The
+// presign→PUT→finalize chain itself is covered by anugaApi-test.js.
+describe('TASK-1729 terrain upload progress strip', () => {
+    const ReactT = require('react');
+    const ReactDOMServer = require('react-dom/server');
+
+    function renderStrip(terrainUpload) {
+        const { AnugaInputMenuClass } = require('../anugaInputMenu');
+        const instance = Object.create(AnugaInputMenuClass.prototype);
+        instance.state = { terrainUpload };
+        instance._dismissTerrainUpload = () => {};
+        const node = instance._renderTerrainUploadProgress();
+        if (node === null) return '';
+        return ReactDOMServer.renderToStaticMarkup(ReactT.createElement(ReactT.Fragment, null, node));
+    }
+
+    it('renders nothing when phase is null (idle)', () => {
+        expect(renderStrip({ phase: null, pct: 0 })).toBe('');
+    });
+
+    it('renders a progress bar + percentage while uploading', () => {
+        const html = renderStrip({ phase: 'uploading', pct: 42, filename: 'dem.tif', error: null });
+        expect(html).toContain('anuga-terrain-upload-progress');
+        expect(html).toContain('sv-progress-fill');
+        expect(html).toContain('42%');
+        expect(html).toContain('dem.tif');
+    });
+
+    it('renders a full bar while finalizing', () => {
+        const html = renderStrip({ phase: 'finalizing', pct: 100, filename: 'dem.tif', error: null });
+        expect(html).toContain('anuga-terrain-upload-progress');
+        expect(html).toContain('width:100%');
+    });
+
+    it('renders the ErrorStrip on error (with the detail + filename)', () => {
+        const html = renderStrip({ phase: 'error', pct: 0, filename: 'dem.tif', error: 'File exceeds the 5 GiB limit.' });
+        expect(html).toContain('anuga-terrain-upload-error');
+        expect(html).toContain('sv-error-strip');
+        expect(html).toContain('File exceeds the 5 GiB limit.');
+        expect(html).toContain('dem.tif');
+    });
+});
+
+// ── TASK-1729: _onTerrainFileSelected guard + state transitions ────────────
+describe('TASK-1729 _onTerrainFileSelected', () => {
+    function makeInstance(props) {
+        const { AnugaInputMenuClass } = require('../anugaInputMenu');
+        // _onTerrainFileSelected is a bound class-field arrow fn (assigned in the
+        // constructor), so it does NOT live on the prototype — construct a real
+        // instance. The constructor only sets state/refs/timers (no DOM).
+        const instance = new AnugaInputMenuClass(props);
+        instance.props = props;
+        instance.setState = (updater) => {
+            const patch = typeof updater === 'function' ? updater(instance.state) : updater;
+            instance.state = Object.assign({}, instance.state, patch);
+        };
+        return instance;
+    }
+
+    it('sets an error state (no network) when no project is selected', () => {
+        const instance = makeInstance({ projectId: null });
+        instance._onTerrainFileSelected({ target: { files: [{ name: 'dem.tif', size: 10, type: 'image/tiff' }] } });
+        expect(instance.state.terrainUpload.phase).toBe('error');
+        expect(instance.state.terrainUpload.filename).toBe('dem.tif');
+    });
+
+    it('no-ops when no file is selected', () => {
+        const instance = makeInstance({ projectId: 7 });
+        instance._onTerrainFileSelected({ target: { files: [] } });
+        expect(instance.state.terrainUpload.phase).toBe(null);
+    });
 });
 
 // ── TASK-1652 (W1.5): Terrain hierarchy _buildTerrainGroups unit tests ─────

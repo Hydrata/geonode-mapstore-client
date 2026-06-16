@@ -151,6 +151,114 @@ export const getTerrainBboxStats = (projectId, terrainId, bbox) =>
 export const getTerrainDownloadUrl = (projectId, terrainId) =>
     axios.get(`/api/v2/anuga/projects/${projectId}/terrain/${terrainId}/download/`);
 
+// ── TASK-1729 (W1.7) — Direct-to-S3 presigned-PUT terrain upload ──────────
+//
+// Replaces the synchronous multipart POST (which streamed a multi-hundred-MB
+// GeoTIFF through uwsgi and died at harakiri=120). The BE contract (TASK-1727)
+// is a 3-step flow: presign → browser PUT straight to S3 → finalize. See
+// /tmp/task-1727-fe-contract.md for the exact shapes.
+
+// Step 1 — PRESIGN. POST returns a presigned SigV4 S3 PUT URL + staging_key +
+// process_id (201). The presign-time Process appears in the W1.5 Tasks Panel
+// immediately (keyed on metadata.project_id), so the upload is visible during
+// the byte transfer with NO Terrain row yet. body: {filename (required),
+// content_type (optional; signs the PUT Content-Type), size (optional; >5 GiB
+// → 400)}. Response: {process_id, staging_key, upload_url, content_type, ...}.
+export const presignTerrainUpload = (projectId, { filename, contentType, size } = {}) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/terrain/upload/presign/`, {
+        filename,
+        // Default to octet-stream so the BE signs *some* Content-Type; the PUT
+        // (putFileToS3) must echo whatever the presign response says it signed.
+        content_type: contentType || 'application/octet-stream',
+        ...(typeof size === 'number' ? { size } : {})
+    });
+
+// Step 2 — BROWSER PUT TO S3 (no Django/uwsgi involved). Uses raw
+// XMLHttpRequest (NOT axios) so we get xhr.upload.onprogress for a real
+// byte-level progress bar, AND so axios's default XSRF header / baseURL /
+// interceptors never touch the request — any extra header beyond the signed
+// `Content-Type` would yield a 403 SignatureDoesNotMatch from S3.
+//
+//   uploadUrl   — the presigned URL from presignTerrainUpload (upload_url).
+//   file        — the File/Blob to upload (raw bytes).
+//   contentType — MUST equal the content_type the presign response signed.
+//   onProgress  — optional (pct:0..100) callback driven by xhr.upload.onprogress.
+//
+// Resolves with {status, etag} on 2xx; rejects with an Error (carrying
+// .status when the server replied) on non-2xx / network error / abort. On
+// rejection the caller simply does NOT finalize — the BE reconcile sweep
+// errors the orphan Process and the S3 lifecycle rule expires the staging blob.
+export const putFileToS3 = (uploadUrl, file, contentType, onProgress) =>
+    new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl, true);
+        // The ONLY header we may set — it is the one the presign signed.
+        xhr.setRequestHeader('Content-Type', contentType || 'application/octet-stream');
+        if (xhr.upload && typeof onProgress === 'function') {
+            xhr.upload.onprogress = (evt) => {
+                if (evt.lengthComputable && evt.total > 0) {
+                    onProgress(Math.round((evt.loaded * 100) / evt.total));
+                }
+            };
+        }
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                if (typeof onProgress === 'function') onProgress(100);
+                resolve({ status: xhr.status, etag: xhr.getResponseHeader('ETag') });
+            } else {
+                const err = new Error(`S3 PUT failed (HTTP ${xhr.status})`);
+                err.status = xhr.status;
+                reject(err);
+            }
+        };
+        xhr.onerror = () => reject(new Error('S3 PUT failed (network error)'));
+        xhr.onabort = () => reject(new Error('S3 PUT aborted'));
+        xhr.send(file);
+    });
+
+// Step 3 — FINALIZE. Called AFTER the S3 PUT returns 2xx. POST creates the
+// Terrain row, server-side-copies the staged object to a permanent key,
+// re-uses the SAME presign Process (so the Tasks Panel transitions from
+// "Uploading" straight into the 3 import subtasks — no duplicate row), and
+// kicks the async import chain. Returns 202 + serialized Terrain. body:
+// {process_id (recommended), staging_key (required), title (optional;
+// defaults to filename minus .tif)}.
+export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title } = {}) =>
+    axios.post(`/api/v2/anuga/projects/${projectId}/terrain/upload/finalize/`, {
+        ...(processId ? { process_id: processId } : {}),
+        staging_key: stagingKey,
+        ...(title ? { title } : {})
+    });
+
+// Orchestrator — the full presign → PUT → finalize chain for one File. Keeps
+// the 3-step dance in the API layer so callers (anugaInputMenu) only deal with
+// {file, title, onProgress}. Resolves with the finalize response (the
+// serialized Terrain row); rejects on any step's failure (presign 4xx, S3 PUT
+// failure, or finalize 4xx) WITHOUT having created a Terrain row when the PUT
+// fails (finalize is never called).
+//
+//   onProgress(pct)  — 0..100 byte-transfer progress (PUT phase only).
+//
+// Returns the axios finalize response (caller reads response.data for Terrain).
+export const uploadTerrainDirect = (projectId, file, { title, onProgress } = {}) => {
+    const filename = file && file.name;
+    const contentType = (file && file.type) || 'application/octet-stream';
+    const size = file && typeof file.size === 'number' ? file.size : undefined;
+    return presignTerrainUpload(projectId, { filename, contentType, size })
+        .then((presignResp) => {
+            const data = presignResp && presignResp.data || {};
+            // The PUT Content-Type MUST match what the presign signed. The BE
+            // echoes it back as content_type; fall back to what we sent.
+            const signedContentType = data.content_type || contentType;
+            return putFileToS3(data.upload_url, file, signedContentType, onProgress)
+                .then(() => finalizeTerrainUpload(projectId, {
+                    processId: data.process_id,
+                    stagingKey: data.staging_key,
+                    title
+                }));
+        });
+};
+
 export const deleteBoundaryV2 = (projectId, boundaryId) =>
     axios.delete(`/api/v2/anuga/projects/${projectId}/boundaries/${boundaryId}/`);
 
