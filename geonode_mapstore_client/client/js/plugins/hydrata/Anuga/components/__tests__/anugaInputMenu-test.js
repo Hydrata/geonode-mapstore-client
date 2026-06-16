@@ -29,6 +29,11 @@ import expect from 'expect';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { Provider } from 'react-redux';
+import MockAdapter from 'axios-mock-adapter';
+// TASK-1751 (W1.8): mock the styling_mode PATCH (patchTerrainStylingMode) made by
+// _handleTerrainStylingModeChange. anugaApi imports this same shared axios instance
+// via the @mapstore/framework alias, so a MockAdapter on it intercepts the PATCH.
+import axios from '@mapstore/framework/libs/ajax';
 import { makeAnugaResourceState } from '../../__tests__/fixtures/anugaState';
 
 function createMockStore({ role = 'viewer', layerCount = 0 } = {}) {
@@ -1108,5 +1113,142 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         const treeOne = renderTerrainPaneTree([{ id: 11, title: 'Top DEM' }]);
         expect(findClassInTree(treeOne, 'anuga-terrain-recipe-section'))
             .toBe(true, 'recipe section renders once at least one terrain exists');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-1751 (W1.8): terrain Mode toggle — no map-blob save + Dynamic restyle nudge.
+//
+// #8: _handleTerrainStylingModeChange must NOT persist the map blob (no
+//     onSaveMap/saveDirectContent). styling_mode is the single source of truth
+//     and persists via the BE PATCH (patchTerrainStylingMode) ONLY; the
+//     transient singleTile/env= params are reconstructed from styling_mode on
+//     load by demRescaleEpic. This mirrors _handleContoursToggle (BUG-6).
+// #20: switching to Dynamic must re-emit the current map view (onNudgeMapView)
+//      so demRescaleEpic — which keys ONLY on CHANGE_MAP_VIEW — stamps env=
+//      immediately, instead of producing NO visible restyle until a manual pan.
+//
+// These call the handler directly on an Object.create(prototype) instance
+// (no React render) and mock the patchTerrainStylingMode axios PATCH so we can
+// assert the post-PATCH dispatch behaviour deterministically.
+// ---------------------------------------------------------------------------
+describe('TASK-1751 terrain Mode toggle — no map save + Dynamic restyle nudge', () => {
+    const TERRAIN = { id: 7, gn_layer_name: 'ele_7_my_dem_cog', styling_mode: 'traditional', rendering_type: 'dynamic_dem' };
+    const MAP_LAYER = { id: 'ele-7-uuid', type: 'wms', name: 'ele_7_my_dem_cog', group: 'Input Data.Terrain', params: {} };
+
+    let mockAxios;
+    let calls;
+
+    function makeInstance() {
+        calls = { saveMap: 0, nudge: 0, updateRow: [], layerProps: [] };
+        const props = {
+            projectId: 42,
+            onSaveMap: () => { calls.saveMap++; },
+            onNudgeMapView: () => { calls.nudge++; },
+            onUpdateTerrainRow: (id, fields) => { calls.updateRow.push({ id, fields }); },
+            onChangeTerrainLayerProperties: (layerId, p) => { calls.layerProps.push({ layerId, props: p }); }
+        };
+        // _handleTerrainStylingModeChange is a bound class-field arrow fn (assigned in
+        // the constructor), so it does NOT live on the prototype — construct a real
+        // instance (the constructor only sets state/refs/timers, no DOM).
+        const instance = new AnugaInputMenuClass(props);
+        instance.props = props;
+        return instance;
+    }
+
+    beforeEach((done) => {
+        mockAxios = new MockAdapter(axios);
+        // The BE PATCH that persists styling_mode — succeed so the .then() chain runs.
+        mockAxios.onPatch(/\/api\/v2\/anuga\/projects\/42\/terrain\/7\//).reply(200, { id: 7, styling_mode: 'dynamic' });
+        setTimeout(done);
+    });
+
+    afterEach((done) => {
+        mockAxios.restore();
+        setTimeout(done);
+    });
+
+    it('#8(b): switching to Dynamic fires the styling_mode PATCH and syncs the Redux row', (done) => {
+        const instance = makeInstance();
+        let patchedBody = null;
+        mockAxios.onPatch(/\/api\/v2\/anuga\/projects\/42\/terrain\/7\//).reply((config) => {
+            patchedBody = JSON.parse(config.data);
+            return [200, { id: 7, styling_mode: 'dynamic' }];
+        });
+        instance._handleTerrainStylingModeChange(TERRAIN, MAP_LAYER, 'dynamic');
+        // Let the patch promise + .then() chain settle.
+        setTimeout(() => {
+            try {
+                // (b) the BE PATCH carries the new styling_mode (the persistence path).
+                expect(patchedBody).toEqual({ styling_mode: 'dynamic' });
+                // and the Redux terrain row is synced so findDynamicDemPairs reads it.
+                expect(calls.updateRow.length).toBe(1);
+                expect(calls.updateRow[0]).toEqual({ id: 7, fields: { styling_mode: 'dynamic' } });
+                done();
+            } catch (e) { done(e); }
+        }, 50);
+    });
+
+    it('#8(a): the Dynamic toggle does NOT save the map blob (no onSaveMap)', (done) => {
+        const instance = makeInstance();
+        instance._handleTerrainStylingModeChange(TERRAIN, MAP_LAYER, 'dynamic');
+        setTimeout(() => {
+            try {
+                // styling_mode persists via the BE PATCH only — NOT a map-blob save.
+                expect(calls.saveMap).toBe(0,
+                    'onSaveMap must NOT be called on a Mode toggle (#8: no silent map PATCH)');
+                done();
+            } catch (e) { done(e); }
+        }, 50);
+    });
+
+    it('#8(a): the Traditional toggle also does NOT save the map blob', (done) => {
+        const instance = makeInstance();
+        const dynTerrain = { ...TERRAIN, styling_mode: 'dynamic' };
+        instance._handleTerrainStylingModeChange(dynTerrain, MAP_LAYER, 'traditional');
+        setTimeout(() => {
+            try {
+                expect(calls.saveMap).toBe(0,
+                    'onSaveMap must NOT be called when switching to Traditional either');
+                done();
+            } catch (e) { done(e); }
+        }, 50);
+    });
+
+    it('#20: switching to Dynamic re-emits the map view (onNudgeMapView) to trigger the rescale', (done) => {
+        const instance = makeInstance();
+        instance._handleTerrainStylingModeChange(TERRAIN, MAP_LAYER, 'dynamic');
+        setTimeout(() => {
+            try {
+                // The nudge re-emits CHANGE_MAP_VIEW so demRescaleEpic stamps env=
+                // immediately — without it, switching to Dynamic showed no restyle
+                // until a manual pan (#20 root cause).
+                expect(calls.nudge).toBe(1,
+                    'onNudgeMapView must fire on Dynamic so demRescaleEpic runs at once');
+                // singleTile:true must be stamped so the rescale GetMap is untiled.
+                const stamp = calls.layerProps.find(c => c.props && c.props.singleTile === true);
+                expect(stamp).toExist('singleTile:true must be stamped on the Dynamic branch');
+                done();
+            } catch (e) { done(e); }
+        }, 50);
+    });
+
+    it('#20: switching to Traditional does NOT nudge the map view (GWC tiling, no rescale loop)', (done) => {
+        const instance = makeInstance();
+        const dynTerrain = { ...TERRAIN, styling_mode: 'dynamic' };
+        const layerWithEnv = { ...MAP_LAYER, params: { env: 'elevMin:1.000', _v_: 123 } };
+        instance._handleTerrainStylingModeChange(dynTerrain, layerWithEnv, 'traditional');
+        setTimeout(() => {
+            try {
+                expect(calls.nudge).toBe(0,
+                    'onNudgeMapView must NOT fire for Traditional (it leaves the dynamic rescale loop)');
+                // Traditional drops env=/_v_ and turns tiling back on.
+                const stamp = calls.layerProps.find(c => c.props && c.props.singleTile === false);
+                expect(stamp).toExist('singleTile:false must be stamped on the Traditional branch');
+                expect(stamp.props.params.env).toBe(undefined, 'env= must be removed for Traditional');
+                expect(stamp.props.params._v_).toBe(undefined, '_v_ must be removed for Traditional');
+                done();
+            } catch (e) { done(e); }
+        }, 50);
     });
 });

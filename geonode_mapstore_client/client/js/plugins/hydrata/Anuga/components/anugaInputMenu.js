@@ -74,7 +74,11 @@ import {MeshWorkflow} from "./MeshWorkflow";
 import {addLayer, moveNode, sortNode, changeLayerProperties, removeLayer} from "../../../../../MapStore2/web/client/actions/layers";
 import {getNode} from "../../../../../MapStore2/web/client/utils/LayersUtils";
 // W6 (TASK-1422): zoom to mesh extent after successful preview.
-import {zoomToExtent} from "../../../../../MapStore2/web/client/actions/map";
+// TASK-1751 (W1.8): changeMapView is re-emitted after a Dynamic toggle so
+// demRescaleEpic stamps env= immediately (it keys ONLY on CHANGE_MAP_VIEW,
+// which is otherwise fired solely by an OpenLayers pan/zoom moveend).
+import {zoomToExtent, changeMapView} from "../../../../../MapStore2/web/client/actions/map";
+import {mapSelector} from "../../../../../MapStore2/web/client/selectors/map";
 // TASK-1652 (W1.5): blob persist after terrain reorder. TASK-1720 (W3): styling-mode toggle persist.
 import {saveDirectContent} from "@js/actions/gnsave";
 // TASK-1720 (W3): DEM styling-mode toggle — update terrain via the API.
@@ -1158,6 +1162,8 @@ class AnugaInputMenuClass extends React.Component {
         onZoomToExtent: PropTypes.func,
         // TASK-1720 (W3): Dynamic/Traditional terrain styling mode toggle
         onChangeTerrainLayerProperties: PropTypes.func,
+        // TASK-1751 (#20): re-emit current map view to trigger demRescaleEpic on toggle.
+        onNudgeMapView: PropTypes.func,
         onSaveMap: PropTypes.func,
         // TASK-1721 (W4): Contours overlay toggle
         onAddContourLayer: PropTypes.func,
@@ -1755,13 +1761,31 @@ class AnugaInputMenuClass extends React.Component {
                         params: updatedParams
                     });
                 } else {
-                    // Dynamic: mark singleTile:true so the next CHANGE_MAP_VIEW fires
-                    // a single fresh ImageWMS request; demRescaleEpic will stamp env=
-                    // on the first pan/zoom after this toggle.
+                    // Dynamic: mark singleTile:true so the rescale GetMap is a single
+                    // fresh ImageWMS request (not a GWC tile grid).
                     this.props.onChangeTerrainLayerProperties(mapLayer.id, { singleTile: true });
+                    // TASK-1751 (#20) — demRescaleEpic keys ONLY on CHANGE_MAP_VIEW,
+                    // which OpenLayers fires solely on a pan/zoom moveend. Stamping
+                    // singleTile:true does NOT emit CHANGE_MAP_VIEW, so before this fix
+                    // switching to Dynamic produced NO visible restyle until the
+                    // modeller happened to pan the map. Re-emit the CURRENT map view so
+                    // the epic runs immediately and stamps env= for the new dynamic DEM.
+                    // (Mirrors MapStore2 identify.js:316 restore-position re-emit.)
+                    this.props.onNudgeMapView();
                 }
-                // Persist the map blob so the styling mode choice survives reload.
-                this.props.onSaveMap();
+                // BUG (#8) — styling_mode is the ONLY thing that must persist, and it
+                // persists via the patchTerrainStylingMode() BE call above (the source
+                // of truth that findDynamicDemPairs/demRescaleEpic reconstruct from on
+                // every map load), NOT via a map-blob save. The old
+                // this.props.onSaveMap() here dispatched saveDirectContent() → a full
+                // PATCH /api/v2/maps/<id>/?include[]=data on every Mode toggle (a silent
+                // map save the modeller never asked for), and it persisted the transient
+                // singleTile/env= params into the blob. Those params are reconstructed
+                // from styling_mode on load by demRescaleEpic (which stamps
+                // singleTile:true + env= for every dynamic terrain on the initial
+                // CHANGE_MAP_VIEW), so saving them is both unnecessary and a source of
+                // stale-param drift. Mirrors _handleContoursToggle, which dropped its
+                // onSaveMap() for the same reason. Do NOT save the map resource here.
             })
             .catch((err) => {
                 // BE PATCH failed — do NOT apply the FE layer change. The UI
@@ -2339,6 +2363,18 @@ const mapDispatchToProps = ( dispatch ) => {
         // TASK-1720 (W3) fix: sync terrain Redux row after successful PATCH so
         // findDynamicDemPairs reads the new styling_mode without a full initAnuga.
         onUpdateTerrainRow: (id, fields) => dispatch(updateTerrainRow(id, fields)),
+        // TASK-1751 (#20): re-emit the CURRENT map view so demRescaleEpic (which keys
+        // ONLY on CHANGE_MAP_VIEW) fires immediately after a Dynamic toggle instead of
+        // waiting for the next manual pan/zoom. Reads the live map state via the thunk's
+        // getState so we forward the real center/zoom/bbox (mirrors MapStore2
+        // identify.js:316). No-op if the map view is not yet populated.
+        onNudgeMapView: () => dispatch((dispatchThunk, getState) => {
+            const map = mapSelector(getState());
+            if (!map || !map.center || map.zoom === undefined || map.zoom === null) return;
+            dispatchThunk(changeMapView(
+                map.center, map.zoom, map.bbox, map.size, map.mapStateSource, map.projection
+            ));
+        }),
         onSaveMap: () => dispatch(saveDirectContent()),
         // TASK-1721 (W4): Contours overlay add/remove
         onAddContourLayer: (layer) => dispatch(addLayer(layer)),
