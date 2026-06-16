@@ -154,6 +154,18 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         expect(err.textContent.indexOf('503')).toBeGreaterThan(-1);
     });
 
+    // TASK-1667 conform-migration: the bespoke .idf-derive-error box is now the
+    // shared SimpleView <ErrorStrip> primitive (token-backed dark-glass danger
+    // strip, role="alert"). The #idf-derive-error id wrapper is preserved so the
+    // existing test/behaviour hooks above keep working.
+    it('idf-derive error block composes the shared ErrorStrip primitive', () => {
+        mount({error: 'BE said 503'});
+        const err = container.querySelector('#idf-derive-error');
+        const strip = err.querySelector('.sv-error-strip[role="alert"]');
+        expect(strip).toExist();
+        expect(strip.textContent.indexOf('503')).toBeGreaterThan(-1);
+    });
+
     it('renders progress message when inFlight + processId set', () => {
         mount({inFlight: true, processId: 99, processName: 'IDF derive @ (-37.8,144.9)'});
         const progress = container.querySelector('#idf-derive-progress');

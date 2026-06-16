@@ -45,6 +45,7 @@ import {
 } from '../actionsHydrology';
 import {PRESET_FAMILIES, ALTERNATING_BLOCK} from '../temporalPatternPresets';
 import ManualPasteGrid from './ManualPasteGrid';
+import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
 
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
@@ -534,18 +535,13 @@ const DesignStormsBrowser = ({
             )}
 
             {error && (
-                <div id="design-storm-preview-error" style={{
-                    padding: '6px 10px', marginBottom: 8, background: '#fdf0f0',
-                    border: '1px solid #f5c6cb', borderRadius: 3, color: '#c0392b', fontSize: '0.85rem'
-                }}>
-                    {error}
+                <div id="design-storm-preview-error">
+                    <ErrorStrip message={error} style={{margin: '0 0 8px'}} />
                 </div>
             )}
 
             {!selectedIdfTableId && (
-                <div className="design-storm-muted" style={{padding: '8px 0', fontSize: '0.85rem'}}>
-                    Select an IDF table to browse design storms.
-                </div>
+                <EmptyState heading="Select an IDF table to browse design storms." />
             )}
 
             {/* Focused hyetograph chart — defaults to first preview (AC3).
@@ -847,19 +843,8 @@ const ManualEntryForm = ({
 
                 {/* Error */}
                 {error && (
-                    <div
-                        id="design-storm-error"
-                        style={{
-                            marginBottom: 10,
-                            padding: '6px 10px',
-                            background: '#fdf0f0',
-                            border: '1px solid #f5c6cb',
-                            borderRadius: 3,
-                            color: '#c0392b',
-                            fontSize: '0.85rem'
-                        }}
-                    >
-                        {error}
+                    <div id="design-storm-error">
+                        <ErrorStrip message={error} style={{margin: '0 0 10px'}} />
                     </div>
                 )}
 
@@ -1162,18 +1147,14 @@ const DesignStormDerive = ({
             {/* Preview area */}
             <div id="design-storm-derive-preview" style={{marginTop: 12}}>
                 {noSelection ? (
-                    <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '18px 14px', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 4, textAlign: 'center'}}>
-                        <Message msgId="hydrata.hydrology.deriveNoPreviews" />
-                    </p>
+                    <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
                 ) : previewInFlight ? (
                     <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
                         <span className="glyphicon glyphicon-refresh" style={{marginRight: 6}} />
                         Loading previews…
                     </p>
                 ) : patternPreviews.length === 0 ? (
-                    <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
-                        <Message msgId="hydrata.hydrology.deriveNoPreviews" />
-                    </p>
+                    <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
                 ) : (
                     <div>
                         <p className="design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>

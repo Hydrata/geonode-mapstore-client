@@ -39,6 +39,7 @@ import {
     useReactTable
 } from '@tanstack/react-table';
 import Message from '@mapstore/framework/components/I18N/Message';
+import { ErrorStrip } from '../../SimpleView/components/primitives';
 
 import {
     setIdfDeriveLat,
@@ -693,20 +694,14 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         <IdfDeriveStepHeader step={3} titleMsgId="hydrata.hydrology.idfDeriveStepDerive" />
 
                         {errors.length > 0 && (
-                            <div
-                                id={'idf-derive-validation-errors'}
-                                className="idf-derive-validation-errors"
-                            >
-                                {errors.join('; ')}
+                            <div id={'idf-derive-validation-errors'}>
+                                <ErrorStrip message={errors.join('; ')} />
                             </div>
                         )}
 
                         {this.props.error && (
-                            <div
-                                id={'idf-derive-error'}
-                                className="idf-derive-error"
-                            >
-                                {this.props.error}
+                            <div id={'idf-derive-error'}>
+                                <ErrorStrip message={this.props.error} />
                             </div>
                         )}
 

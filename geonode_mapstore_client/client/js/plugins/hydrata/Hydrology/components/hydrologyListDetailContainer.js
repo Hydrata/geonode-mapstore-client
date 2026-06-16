@@ -516,7 +516,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             <textarea
                                                 id={'description'}
                                                 key={`description-${this.props.activeHydrologyItem.id}`}
-                                                className={'hydrology-text-input hyrdology-textarea'}
+                                                className={'hydrology-text-input hydrology-textarea'}
                                                 rows={1}
                                                 style={{textAlign: "left", resize: "vertical", width: "685px"}}
                                                 value={this.props.activeHydrologyItem.description}

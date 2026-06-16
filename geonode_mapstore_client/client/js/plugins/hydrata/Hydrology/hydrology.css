@@ -202,7 +202,7 @@
     font-size: 12px;
 }
 
-.hyrdology-textarea {
+.hydrology-textarea {
     color: white;
     border: solid 1px rgba(53, 133, 176);
     border-radius: 4px;
@@ -557,21 +557,9 @@
     margin-top: 1px;
 }
 
-/* Validation error text */
-.idf-derive-validation-errors {
-    color: #f2dede;
-    font-size: 11.5px;
-    padding: 4px 12px;
-    margin-bottom: 4px;
-}
-
-/* Backend error text */
-.idf-derive-error {
-    color: #f2dede;
-    font-size: 11.5px;
-    padding: 4px 12px;
-    margin-bottom: 4px;
-}
+/* idf-derive validation + backend error blocks now render via the shared
+   SimpleView <ErrorStrip> primitive (TASK-1667 conform-migration); the bespoke
+   .idf-derive-validation-errors / .idf-derive-error rules were removed. */
 
 /* In-flight progress row */
 .idf-derive-progress {

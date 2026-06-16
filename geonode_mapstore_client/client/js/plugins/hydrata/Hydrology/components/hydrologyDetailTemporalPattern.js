@@ -51,6 +51,7 @@ import {
     suggestPatternFromLatLon,
     getSuggestionLabel
 } from '../temporalPatternPresets';
+import { ErrorStrip } from '../../SimpleView/components/primitives';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 
@@ -368,20 +369,8 @@ const CustomPatternEditor = ({ rows, onChange }) => {
 
             {/* Validation error */}
             {validationError && (
-                <div
-                    id="custom-pattern-validation-error"
-                    style={{
-                        padding: '6px 10px',
-                        background: '#fdecec',
-                        border: '1px solid #e8b4b4',
-                        borderRadius: 4,
-                        color: '#c0392b',
-                        fontSize: '0.8rem',
-                        marginBottom: 10
-                    }}
-                >
-                    <span className="glyphicon glyphicon-warning-sign" style={{marginRight: 6}}/>
-                    {validationError}
+                <div id="custom-pattern-validation-error">
+                    <ErrorStrip message={validationError} style={{margin: '0 0 10px'}} />
                 </div>
             )}
             {pasteError && (
