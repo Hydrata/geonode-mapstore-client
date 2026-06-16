@@ -781,7 +781,11 @@ class TerrainHierarchyRow extends React.Component {
             terrainModel, canEdit, contoursEnabled, onStylingModeChange, onContoursToggle
         } = this.props;
 
-        const hasDerivatives = !!hillshadeLayer;
+        // TASK-1587 (grill 2026-06-15): the expanded zone now ALWAYS holds the
+        // Rendering-mode + Contours rows for a real terrain, so a row is expandable
+        // whenever there is a real terrain model OR a hillshade derivative — not only
+        // when a hillshade exists. Orphan / analysis-surface rows (no model) stay flat.
+        const hasDerivatives = !!hillshadeLayer || !!terrainModel?.id;
         // TASK-1720 (W3): styling mode for this terrain (default 'traditional' = the W1 BE default).
         const mode = terrainModel?.styling_mode || 'traditional';
         const isDynamic = mode === 'dynamic';
@@ -823,57 +827,69 @@ class TerrainHierarchyRow extends React.Component {
                         </span>
                     )}
                 </div>
-                {/* TASK-1720 (W3) / TASK-1721 (W4): per-DEM rendering-mode + contour toggles,
-                    folded into the hierarchy parent row at the 5.x→epic merge (2026-06-15).
-                    Gated on a REAL terrain model — orphan / analysis-surface rows have none. */}
-                {canEdit && terrainModel?.id ? (
-                    <div className="anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
-                        <span className="anuga-terrain-mode-label">
-                            {'Mode: ' + (isDynamic ? 'Dynamic' : 'Traditional')}
-                        </span>
-                        <button
-                            className={`btn btn-xs anuga-terrain-mode-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
-                            title={isDynamic
-                                ? 'Switch to Traditional (static colour relief, GWC tiled)'
-                                : 'Switch to Dynamic (live ramp rescale on pan/zoom)'}
-                            aria-pressed={isDynamic}
-                            data-testid={`terrain-mode-toggle-btn-${terrainModel.id}`}
-                            onClick={() => onStylingModeChange && onStylingModeChange(
-                                terrainModel, demLayer, isDynamic ? 'traditional' : 'dynamic'
-                            )}
-                        >
-                            {isDynamic ? 'Switch to Traditional' : 'Switch to Dynamic'}
-                        </button>
-                    </div>
-                ) : null}
-                {terrainModel?.id ? (
-                    <div className="anuga-terrain-contour-toggle" data-testid="terrain-contour-toggle">
-                        <span className="anuga-terrain-mode-label">
-                            {'Contours: ' + (contoursEnabled ? 'On' : 'Off')}
-                        </span>
-                        <button
-                            className={`btn btn-xs anuga-terrain-mode-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
-                            title={contoursEnabled
-                                ? 'Hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
-                                : 'Show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
-                            aria-pressed={contoursEnabled}
-                            data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
-                            onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled)}
-                        >
-                            {contoursEnabled ? 'Hide Contours' : 'Show Contours'}
-                        </button>
-                    </div>
-                ) : null}
-                {/* Child derivative rows */}
-                {expanded && hillshadeLayer ? (
+                {/* Expanded zone (TASK-1587 grill 2026-06-15): the parent row above is
+                    DEM IDENTITY ONLY. The Rendering mode (a property OF the parent DEM)
+                    and the derivative rows (hillshade, contour overlay) live HERE as flat
+                    sibling rows, each with a distinguishing glyph. data-testids are
+                    preserved from the 5.x→epic merge (TASK-1720/1721) so the existing
+                    tests/selectors keep working. */}
+                {expanded ? (
                     <div className="terrain-derivatives">
-                        <div className="terrain-derivative-row">
-                            <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
-                            <span className="glyphicon glyphicon-picture" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} />
-                            <div style={{flex: 1, minWidth: 0}}>
-                                <MenuRow layer={hillshadeLayer} />
+                        {/* ⚙ Rendering mode (styling_mode): Dynamic ↔ Traditional. A property
+                            of the parent, NOT a derivative (glossary: Rendering mode). */}
+                        {canEdit && terrainModel?.id ? (
+                            <div className="terrain-derivative-row anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
+                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                <span className="glyphicon glyphicon-cog" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} aria-hidden="true" />
+                                <span className="anuga-terrain-mode-label" style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)'}}>
+                                    {'Mode: ' + (isDynamic ? 'Dynamic' : 'Traditional')}
+                                </span>
+                                <button
+                                    className={`btn btn-xs anuga-terrain-mode-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
+                                    title={isDynamic
+                                        ? 'Switch to Traditional (static colour relief, GWC tiled)'
+                                        : 'Switch to Dynamic (live ramp rescale on pan/zoom)'}
+                                    aria-pressed={isDynamic}
+                                    data-testid={`terrain-mode-toggle-btn-${terrainModel.id}`}
+                                    onClick={() => onStylingModeChange && onStylingModeChange(
+                                        terrainModel, demLayer, isDynamic ? 'traditional' : 'dynamic'
+                                    )}
+                                >
+                                    {isDynamic ? 'Switch to Traditional' : 'Switch to Dynamic'}
+                                </button>
                             </div>
-                        </div>
+                        ) : null}
+                        {/* ◔ Hillshade: always-present derivative (when published). */}
+                        {hillshadeLayer ? (
+                            <div className="terrain-derivative-row">
+                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                <span className="glyphicon glyphicon-picture" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} />
+                                <div style={{flex: 1, minWidth: 0}}>
+                                    <MenuRow layer={hillshadeLayer} />
+                                </div>
+                            </div>
+                        ) : null}
+                        {/* ◷ Contour overlay: toggled derivative (glossary: Terrain derivative). */}
+                        {terrainModel?.id ? (
+                            <div className="terrain-derivative-row anuga-terrain-contour-toggle" data-testid="terrain-contour-toggle">
+                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                <span className="glyphicon glyphicon-menu-hamburger" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} aria-hidden="true" />
+                                <span className="anuga-terrain-mode-label" style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)'}}>
+                                    {'Contours: ' + (contoursEnabled ? 'On' : 'Off')}
+                                </span>
+                                <button
+                                    className={`btn btn-xs anuga-terrain-mode-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
+                                    title={contoursEnabled
+                                        ? 'Hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
+                                        : 'Show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
+                                    aria-pressed={contoursEnabled}
+                                    data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
+                                    onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled)}
+                                >
+                                    {contoursEnabled ? 'Hide Contours' : 'Show Contours'}
+                                </button>
+                            </div>
+                        ) : null}
                     </div>
                 ) : null}
             </div>
@@ -1953,17 +1969,35 @@ const mapDispatchToProps = ( dispatch ) => {
                 const [moved] = reordered.splice(fromIndex, 1);
                 reordered.splice(toIndex, 0, moved);
 
-                // Build the desired flat order of layer IDs (DEM then hillshade per group).
+                // Get current group nodes from Redux state — both to build the sortNode
+                // index array AND to detect which contour overlays are currently in the map.
+                const state = getState();
+                const terrainGroupNode = getNode(state?.layers?.groups || [], 'Input Data.Terrain');
+                const currentNodes = terrainGroupNode?.nodes || [];
+                const currentNodeIds = new Set(currentNodes.map(n => n.id || n));
+
+                // Build the desired flat order of layer IDs: DEM, then hillshade, then the
+                // contour overlay per group. The contour overlay is a Terrain derivative
+                // (glossary) that lives in the Terrain group as `<demName>__contours` when
+                // the modeller has enabled it — include it adjacent to its parent so the
+                // derivative rides along on reorder (otherwise it would be left behind and
+                // force the partial moveNode fallback). Resolve the contour by the SAME
+                // dual predicate the row uses (conventional id OR style match) so one
+                // restored-from-blob with a non-conventional id still rides along; guarded
+                // on the resolved node actually being in the Terrain group.
+                const flat = state?.layers?.flat || [];
                 const desiredIds = [];
                 reordered.forEach(group => {
                     if (group.demLayer) desiredIds.push(group.demLayer.id);
                     if (group.hillshadeLayer) desiredIds.push(group.hillshadeLayer.id);
+                    const demName = group.demLayer?.name;
+                    if (demName) {
+                        const contour = flat.find(
+                            l => l?.id === `${demName}__contours` || (l?.name === demName && l?.style === DEM_CONTOUR_STYLE_NAME)
+                        );
+                        if (contour && currentNodeIds.has(contour.id)) desiredIds.push(contour.id);
+                    }
                 });
-
-                // Get current group nodes from Redux state to build sortNode index array.
-                const state = getState();
-                const terrainGroupNode = getNode(state?.layers?.groups || [], 'Input Data.Terrain');
-                const currentNodes = terrainGroupNode?.nodes || [];
 
                 // Build the sortNode `order` array: order[i] = index of the node that
                 // should be at position i in the new ordering.

@@ -407,7 +407,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
             createAnugaFriction: () => {}, createAnugaMeshRegion: () => {},
         };
 
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             ReactDOM.render(
                 <Provider store={mockStore}>
                     <AnugaInputMenuClass {...props} />
@@ -416,22 +416,41 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
                 () => {
                     // Terrain pane is the default (selectedCategory: 'terrain',
                     // projection is set → rail+pane layout → renderPane() → terrain).
-                    // The toggle button must read "Hide Contours" because contoursInMap
-                    // is true (contour IS in flatLayers).
-                    const toggleBtn = container.querySelector('[data-testid^="terrain-contour-toggle-btn-"]');
-                    expect(toggleBtn).toExist('contour toggle button must render');
-                    expect(toggleBtn.textContent).toContain('Hide Contours');
+                    // TASK-1587 (grill 2026-06-15): the Mode + Contours toggles moved OUT
+                    // of the parent row INTO the expanded zone, so the row must be EXPANDED
+                    // before the contour toggle button exists. Click the expand chevron.
+                    const expandBtn = container.querySelector('.terrain-expand-btn');
+                    expect(expandBtn).toExist('terrain row must be expandable (a real terrain model)');
+                    expandBtn.click();
 
-                    toggleBtn.click();
+                    // setState from the chevron click re-renders on the event flush; reading
+                    // the DOM in the same tick can be stale (karma render-callback gotcha),
+                    // so defer the contour-button query + assertions to the next tick. Wrap
+                    // in try/catch → reject so a deferred assertion failure surfaces loudly
+                    // as a named failure (not a swallowed throw / spec timeout) and the
+                    // Promise always settles inside the timer (no afterEach teardown race).
+                    setTimeout(() => {
+                        try {
+                            // The toggle button must read "Hide Contours" because contoursInMap
+                            // is true (contour IS in flatLayers).
+                            const toggleBtn = container.querySelector('[data-testid^="terrain-contour-toggle-btn-"]');
+                            expect(toggleBtn).toExist('contour toggle button must render (expanded)');
+                            expect(toggleBtn.textContent).toContain('Hide Contours');
 
-                    // FIX D: handler must fire onRemoveLayer (not onAddContourLayer)
-                    // because the derived contoursEnabled (from flatLayers) is true,
-                    // even though this.state.contoursEnabled[DEM_LAYER_NAME] === undefined.
-                    expect(removeLayerCalledWith).toBe(CONTOUR_LAYER_ID,
-                        'onRemoveLayer must be called with the contour layer id when contour is in flatLayers');
-                    expect(addContourLayerCalled).toBe(false,
-                        'onAddContourLayer must NOT be called (FIX D reload-desync)');
-                    resolve();
+                            toggleBtn.click();
+
+                            // FIX D: handler must fire onRemoveLayer (not onAddContourLayer)
+                            // because the derived contoursEnabled (from flatLayers) is true,
+                            // even though this.state.contoursEnabled[DEM_LAYER_NAME] === undefined.
+                            expect(removeLayerCalledWith).toBe(CONTOUR_LAYER_ID,
+                                'onRemoveLayer must be called with the contour layer id when contour is in flatLayers');
+                            expect(addContourLayerCalled).toBe(false,
+                                'onAddContourLayer must NOT be called (FIX D reload-desync)');
+                            resolve();
+                        } catch (err) {
+                            reject(err);
+                        }
+                    }, 0);
                 }
             );
         });
