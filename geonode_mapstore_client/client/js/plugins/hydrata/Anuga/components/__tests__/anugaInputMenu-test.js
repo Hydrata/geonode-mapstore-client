@@ -220,6 +220,32 @@ describe('TASK-1652 _buildTerrainGroups terrain hierarchy grouping', () => {
         expect(groups[1].hillshadeLayer).toBe(null);
     });
 
+    // BUG-5 (UAT 2026-06-16): the dead "Switch to Dynamic" button.
+    // gn_layer_name is the BARE GeoNode dataset name, but a map layer's `name`
+    // can carry the 'geonode:' workspace prefix. The old strict equality match
+    // resolved demLayer=null for namespaced layers → the parent row showed the
+    // pending placeholder and the Mode toggle (gated only on terrainModel.id)
+    // no-opped on click because _handleTerrainStylingModeChange early-returns
+    // when mapLayer.id is missing. _buildTerrainGroups must match either form.
+    it('BUG-5: namespaced map layer name (geonode:<name>) resolves the DEM layer', () => {
+        const terrainModels = [
+            { id: 5, title: 'GLO-30', gn_layer_name: 'glo30_utm', gn_layer_hillshade_name: 'glo30_hillshade' }
+        ];
+        const terrainLayers = [
+            { id: 'l1', name: 'geonode:glo30_utm', title: 'GLO-30 DEM', group: 'Input Data.Terrain' },
+            { id: 'l2', name: 'geonode:glo30_hillshade', title: 'GLO-30 Hillshade', group: 'Input Data.Terrain' }
+        ];
+        const groups = buildGroupsWithProps({ terrainLayers, terrainModels });
+        expect(groups.length).toBe(1);
+        // demLayer must resolve (NOT null) — the dead-button precondition.
+        expect(groups[0].demLayer).toExist();
+        expect(groups[0].demLayer.id).toBe('l1');
+        expect(groups[0].hillshadeLayer).toExist();
+        expect(groups[0].hillshadeLayer.id).toBe('l2');
+        // The namespaced hillshade must NOT also appear as a standalone parent row.
+        expect(groups.length).toBe(1);
+    });
+
     it('hillshade layers are excluded from unmatched (parent) candidates', () => {
         // If a terrain model has a hillshade, that hillshade should NOT appear
         // as a standalone parent row even if it appears in terrainLayers.
@@ -342,6 +368,8 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
 
         let removeLayerCalledWith = null;
         let addContourLayerCalled = false;
+        // BUG-6 (UAT 2026-06-16): the contour toggle must NOT persist the map.
+        let saveMapCalled = false;
 
         // flatLayers contains both the DEM and the contour overlay (post-reload).
         // state.contoursEnabled is {} (reset on reload) — the bug was reading from state.
@@ -389,7 +417,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
             builtMeshes: [],
             onRemoveLayer: (layerId) => { removeLayerCalledWith = layerId; },
             onAddContourLayer: () => { addContourLayerCalled = true; },
-            onSaveMap: () => {},
+            onSaveMap: () => { saveMapCalled = true; },
             onChangeTerrainLayerProperties: () => {},
             onUpdateTerrainRow: () => {},
             onAddMeshLayer: () => {},
@@ -446,10 +474,150 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
                                 'onRemoveLayer must be called with the contour layer id when contour is in flatLayers');
                             expect(addContourLayerCalled).toBe(false,
                                 'onAddContourLayer must NOT be called (FIX D reload-desync)');
+                            // BUG-6: the contour overlay is ephemeral view state — toggling it
+                            // must NOT persist the map resource (no saveDirectContent / map PATCH).
+                            expect(saveMapCalled).toBe(false,
+                                'onSaveMap must NOT be called when toggling contours (BUG-6: no map save)');
                             resolve();
                         } catch (err) {
                             reject(err);
                         }
+                    }, 0);
+                }
+            );
+        });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// BUG-4 (UAT 2026-06-16): fold DEM & Hillshade into the collapsible section.
+//
+// The DEM and Hillshade rows must live INSIDE the collapsible derivatives zone
+// (.terrain-derivatives), not at the top-level parent row. The parent row stays
+// DEM IDENTITY ONLY (expand chevron + drag handle + a lightweight title), so it
+// must NOT contain the full DEM MenuRow (.menu-row).
+// ---------------------------------------------------------------------------
+
+describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section', () => {
+    let container;
+
+    const DEM_NAME = 'glo30_utm';
+    const HILLSHADE_NAME = 'glo30_hillshade';
+
+    const terrainModel = {
+        id: 11,
+        gn_layer_name: DEM_NAME,
+        gn_layer_hillshade_name: HILLSHADE_NAME,
+        styling_mode: 'traditional',
+        rendering_type: 'dynamic_dem'
+    };
+    const demLayer = { id: 'dem-uuid', type: 'wms', name: DEM_NAME, title: 'GLO-30 DEM', group: 'Input Data.Terrain', visibility: true };
+    const hillshadeLayer = { id: 'hs-uuid', type: 'wms', name: HILLSHADE_NAME, title: 'GLO-30 Hillshade', group: 'Input Data.Terrain', visibility: true };
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    function buildProps() {
+        const resources = makeAnugaResourceState('owner', 0);
+        resources.terrain = [terrainModel];
+        return {
+            storeState: {
+                anuga: { resources, projects: { data: { id: 42, my_role: 'owner', projection: 'EPSG:32756' } }, ui: { isCreatingAnugaLayer: false } },
+                layers: { flat: [demLayer, hillshadeLayer], groups: [] },
+                security: { user: { pk: 9999 } },
+                gnsettings: { geonodeUrl: 'http://localhost', jobName: 'hydratabase' },
+                controls: {},
+                localConfig: { plugins: {} }
+            },
+            props: {
+                projectData: { id: 42, my_role: 'owner', projection: 'EPSG:32756' },
+                canEditAnugaMap: true,
+                projectId: 42,
+                terrainLayers: [demLayer, hillshadeLayer],
+                terrainModels: [terrainModel],
+                flatLayers: [demLayer, hillshadeLayer],
+                boundaryLayers: [], inflowLayers: [], rainfallLayers: [],
+                frictionLayers: [], frictionRasterLayers: [], structureLayers: [],
+                meshRegionLayers: [],
+                boundaryModels: [], inflowModels: [], rainfallModels: [],
+                frictionModels: [], structureModels: [], meshRegionModels: [],
+                pendingBoundaries: [], pendingInflows: [], pendingRainfalls: [],
+                pendingFrictions: [], pendingStructures: [], pendingMeshRegions: [],
+                isCreatingAnugaLayer: false, starterPhase: null,
+                selectedScenarioId: null, selectedScenario: null, builtMeshes: [],
+                onRemoveLayer: () => {}, onAddContourLayer: () => {}, onSaveMap: () => {},
+                onChangeTerrainLayerProperties: () => {}, onUpdateTerrainRow: () => {},
+                onAddMeshLayer: () => {}, onZoomToExtent: () => {},
+                setVisibleUploaderPanel: () => {}, setVisibleTerrainBboxPanel: () => {}, setCreatingAnugaLayer: () => {},
+                addAnugaBoundary: () => {}, addAnugaFriction: () => {}, addAnugaInflow: () => {},
+                addAnugaRainfall: () => {}, addAnugaStructure: () => {}, addAnugaMeshRegion: () => {},
+                startAnugaModelCreationPolling: () => {}, stopAnugaModelCreationPolling: () => {},
+                createAnugaBoundary: () => {}, createAnugaInflow: () => {}, createAnugaRainfall: () => {},
+                createAnugaStructure: () => {}, createAnugaFriction: () => {}, createAnugaMeshRegion: () => {}
+            }
+        };
+    }
+
+    it('collapsed: parent row is identity-only — no DEM MenuRow at the top level', () => {
+        const { storeState, props } = buildProps();
+        const mockStore = { getState: () => storeState, subscribe: () => () => {}, dispatch: () => {} };
+        return new Promise((resolve, reject) => {
+            ReactDOM.render(
+                <Provider store={mockStore}><AnugaInputMenuClass {...props} /></Provider>,
+                container,
+                () => {
+                    setTimeout(() => {
+                        try {
+                            const parentRow = container.querySelector('.terrain-parent-row');
+                            expect(parentRow).toExist('terrain parent row must render');
+                            // Parent row holds the identity title, NOT the full MenuRow.
+                            expect(parentRow.querySelector('.terrain-parent-title')).toExist('parent row shows identity title');
+                            expect(parentRow.querySelector('.menu-row')).toNotExist('parent row must NOT contain the DEM MenuRow (identity-only)');
+                            // Collapsed → no derivatives zone yet.
+                            expect(container.querySelector('.terrain-derivatives')).toNotExist('derivatives zone hidden while collapsed');
+                            resolve();
+                        } catch (err) { reject(err); }
+                    }, 0);
+                }
+            );
+        });
+    });
+
+    it('expanded: DEM + Hillshade MenuRows render INSIDE the collapsible derivatives zone', () => {
+        const { storeState, props } = buildProps();
+        const mockStore = { getState: () => storeState, subscribe: () => () => {}, dispatch: () => {} };
+        return new Promise((resolve, reject) => {
+            ReactDOM.render(
+                <Provider store={mockStore}><AnugaInputMenuClass {...props} /></Provider>,
+                container,
+                () => {
+                    const expandBtn = container.querySelector('.terrain-expand-btn');
+                    expect(expandBtn).toExist('terrain row must be expandable');
+                    expandBtn.click();
+                    setTimeout(() => {
+                        try {
+                            const derivatives = container.querySelector('.terrain-derivatives');
+                            expect(derivatives).toExist('derivatives zone must render when expanded');
+                            // BUG-4: the DEM MenuRow now lives inside the collapsible zone.
+                            const demRow = derivatives.querySelector('.terrain-dem-row');
+                            expect(demRow).toExist('DEM row must be inside the collapsible derivatives zone');
+                            expect(demRow.querySelector('.menu-row')).toExist('DEM MenuRow renders inside the collapsible zone');
+                            // Hillshade MenuRow is also inside the collapsible zone:
+                            // expect at least 2 MenuRows (DEM + Hillshade) under .terrain-derivatives.
+                            const menuRows = derivatives.querySelectorAll('.menu-row');
+                            expect(menuRows.length >= 2).toBe(true,
+                                'both DEM and Hillshade MenuRows render inside the collapsible zone');
+                            // And the top-level parent row still holds NO MenuRow.
+                            const parentRow = container.querySelector('.terrain-parent-row');
+                            expect(parentRow.querySelector('.menu-row')).toNotExist('parent row stays identity-only when expanded');
+                            resolve();
+                        } catch (err) { reject(err); }
                     }, 0);
                 }
             );

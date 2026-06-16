@@ -799,7 +799,13 @@ class TerrainHierarchyRow extends React.Component {
                 onDragEnd={onDragEnd}
                 onDrop={(e) => { e.preventDefault(); onDrop && onDrop(e); }}
             >
-                {/* Parent row: DEM layer, with optional expand toggle */}
+                {/* Parent row (BUG-4, UAT): DEM IDENTITY ONLY — the expand chevron, the
+                    drag handle, and a lightweight DEM title label so the modeller can tell
+                    which DEM this is while collapsed. The DEM MenuRow itself (visibility /
+                    zoom / per-layer controls) is NOT here — per the finding it lives INSIDE
+                    the collapsible derivatives section below, alongside Hillshade, so the
+                    top level stays a clean identity-only header. Clicking the title toggles
+                    expansion too (the whole header acts as the disclosure control). */}
                 <div className="terrain-parent-row">
                     {hasDerivatives ? (
                         <span
@@ -816,7 +822,25 @@ class TerrainHierarchyRow extends React.Component {
                         <span style={{display: 'inline-block', width: 14, marginRight: 4}} />
                     )}
                     <span className="glyphicon glyphicon-move terrain-drag-handle" style={{color: 'rgba(255,255,255,0.35)', cursor: 'grab', marginRight: 4, fontSize: 10}} aria-hidden="true" />
-                    {demLayer ? (
+                    {/* Expandable (real terrain) rows show a lightweight identity title; the
+                        full DEM MenuRow is folded into the collapsible zone (BUG-4). NON-expandable
+                        orphan / analysis-surface rows (no model, no hillshade) have no collapsible
+                        zone, so they keep the full DEM MenuRow inline here — otherwise their
+                        visibility/zoom controls would have nowhere to live. */}
+                    {hasDerivatives ? (
+                        <span
+                            className="terrain-parent-title"
+                            data-testid="terrain-parent-title"
+                            style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
+                            onClick={() => onToggleExpand && onToggleExpand(terrain.id)}
+                            title={demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
+                        >
+                            {demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
+                            {!demLayer && (
+                                <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
+                            )}
+                        </span>
+                    ) : demLayer ? (
                         <div style={{flex: 1, minWidth: 0}}>
                             <MenuRow layer={demLayer} />
                         </div>
@@ -827,14 +851,26 @@ class TerrainHierarchyRow extends React.Component {
                         </span>
                     )}
                 </div>
-                {/* Expanded zone (TASK-1587 grill 2026-06-15): the parent row above is
-                    DEM IDENTITY ONLY. The Rendering mode (a property OF the parent DEM)
-                    and the derivative rows (hillshade, contour overlay) live HERE as flat
-                    sibling rows, each with a distinguishing glyph. data-testids are
+                {/* Expanded zone (TASK-1587 grill 2026-06-15 + BUG-4 UAT 2026-06-16): the
+                    parent row above is DEM IDENTITY ONLY. The DEM MenuRow, the Rendering
+                    mode (a property OF the parent DEM) and the derivative rows (hillshade,
+                    contour overlay) ALL live HERE as flat sibling rows inside the
+                    collapsible section, each with a distinguishing glyph. data-testids are
                     preserved from the 5.x→epic merge (TASK-1720/1721) so the existing
                     tests/selectors keep working. */}
                 {expanded ? (
                     <div className="terrain-derivatives">
+                        {/* ⛰ DEM layer row (BUG-4): the full DEM MenuRow with its visibility /
+                            zoom controls, folded into the collapsible section. */}
+                        {demLayer ? (
+                            <div className="terrain-derivative-row terrain-dem-row" data-testid="terrain-dem-row">
+                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                <span className="glyphicon glyphicon-picture" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} aria-hidden="true" />
+                                <div style={{flex: 1, minWidth: 0}}>
+                                    <MenuRow layer={demLayer} />
+                                </div>
+                            </div>
+                        ) : null}
                         {/* ⚙ Rendering mode (styling_mode): Dynamic ↔ Traditional. A property
                             of the parent, NOT a derivative (glossary: Rendering mode). */}
                         {canEdit && terrainModel?.id ? (
@@ -1456,17 +1492,30 @@ class AnugaInputMenuClass extends React.Component {
         const terrainLayers = this.props.terrainLayers || [];
         const terrainModels = this.props.terrainModels || [];
 
+        // BUG-5 (UAT) — name-matching parity with demRescaleEpic.js:153-154. The
+        // serializer's gn_layer_name is the BARE GeoNode dataset name (e.g.
+        // 'ele_7_grand_canyon'), but a map layer's `name` can carry the workspace
+        // prefix ('geonode:ele_7_grand_canyon'). The old strict `l.name === gn_layer_name`
+        // match therefore resolved demLayer=null for namespaced layers, so the parent
+        // row showed the pending placeholder AND the Mode toggle (gated only on
+        // terrainModel.id) silently no-opped on click — _handleTerrainStylingModeChange
+        // early-returns when mapLayer.id is missing → the dead "Switch to Dynamic" button.
+        // Match either form, mirroring the epic's predicate.
+        const layerNameMatches = (layer, gnName) =>
+            !!layer && !!gnName && (layer.name === gnName || layer.name === `geonode:${gnName}`);
+
         // Collect all layer names that are known hillshades (to exclude from parent rows).
-        const hillshadeNames = new Set(terrainModels.map(m => m.gn_layer_hillshade_name).filter(Boolean));
+        const hillshadeNames = terrainModels.map(m => m.gn_layer_hillshade_name).filter(Boolean);
+        const isKnownHillshade = (layer) => hillshadeNames.some(hn => layerNameMatches(layer, hn));
 
         // Build groups in terrain model order (preserves current layer z-order).
         const groups = [];
         const consumedNames = new Set();
 
         terrainModels.forEach(model => {
-            const demLayer = terrainLayers.find(l => l.name === model.gn_layer_name) || null;
+            const demLayer = terrainLayers.find(l => layerNameMatches(l, model.gn_layer_name)) || null;
             const hillshadeLayer = model.gn_layer_hillshade_name
-                ? terrainLayers.find(l => l.name === model.gn_layer_hillshade_name) || null
+                ? terrainLayers.find(l => layerNameMatches(l, model.gn_layer_hillshade_name)) || null
                 : null;
             if (demLayer) consumedNames.add(demLayer.name);
             if (hillshadeLayer) consumedNames.add(hillshadeLayer.name);
@@ -1477,7 +1526,7 @@ class AnugaInputMenuClass extends React.Component {
         // Remaining terrain layers not matched to a model (analysis surface outputs,
         // or model rows not yet fetched) become stand-alone parent rows.
         terrainLayers
-            .filter(l => !consumedNames.has(l.name) && !hillshadeNames.has(l.name))
+            .filter(l => !consumedNames.has(l.name) && !isKnownHillshade(l))
             .forEach(l => {
                 groups.push({ terrain: null, demLayer: l, hillshadeLayer: null });
             });
@@ -1552,6 +1601,7 @@ class AnugaInputMenuClass extends React.Component {
     // map blob), so reading this.state would always take the "enable" branch and add a
     // duplicate layer.  Passing the derived value mirrors the W3 mode-toggle pattern.
     _handleContoursToggle = (demLayerName, currentlyEnabled) => {
+        if (!demLayerName) return;
         if (!currentlyEnabled) {
             // Enable: add the contour overlay layer.
             const token = getToken ? getToken() : null;
@@ -1568,8 +1618,13 @@ class AnugaInputMenuClass extends React.Component {
                 contoursEnabled: {...prev.contoursEnabled, [demLayerName]: false}
             }));
         }
-        // Persist map blob so the contour toggle survives page reload.
-        this.props.onSaveMap();
+        // BUG-6 (UAT) — the contour overlay is a PURELY VISUAL view-state toggle, so
+        // it must NOT persist the map. The old `this.props.onSaveMap()` here dispatched
+        // saveDirectContent() → a full `PATCH /api/v2/maps/<id>/?include[]=data` on every
+        // Show/Hide Contours click (a silent map save the modeller never asked for).
+        // addLayer/removeLayer already mutate the live map in Redux for immediate
+        // feedback; visibility is ephemeral and is re-derived from flatLayers on the
+        // next mount. Do NOT save the map resource here.
     };
 
     renderTerrainPane() {
