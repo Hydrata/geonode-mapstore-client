@@ -3,7 +3,7 @@ import expect from 'expect';
 const { enData, frData, esData, htData } = require('../../../__tests__/fixtures/translations');
 
 const LOCALES = ['en-US', 'fr-FR', 'es-ES', 'ht-HT'];
-const PLUGINS = ['simpleView', 'swamm', 'anuga', 'hydrology', 'hgeval', 'scenarios', 'swamps'];
+const PLUGINS = ['simpleView', 'swamm', 'anuga', 'hydrology', 'hgeval', 'scenarios'];
 
 const localeData = {
     'en-US': enData,

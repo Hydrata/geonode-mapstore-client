@@ -155,8 +155,8 @@ export const getTerrainDownloadUrl = (projectId, terrainId) =>
 //
 // Replaces the synchronous multipart POST (which streamed a multi-hundred-MB
 // GeoTIFF through uwsgi and died at harakiri=120). The BE contract (TASK-1727)
-// is a 3-step flow: presign → browser PUT straight to S3 → finalize. See
-// /tmp/task-1727-fe-contract.md for the exact shapes.
+// is a 3-step flow: presign → browser PUT straight to S3 → finalize. The exact
+// request/response shapes are documented inline at each step below.
 
 // Step 1 — PRESIGN. POST returns a presigned SigV4 S3 PUT URL + staging_key +
 // process_id (201). The presign-time Process appears in the W1.5 Tasks Panel
