@@ -75,6 +75,18 @@ describe('TASK-743 DashboardContainer DOM', () => {
         expect(container.querySelector('[role="radiogroup"]')).toNotExist();
     });
 
+    // TASK-1668 — the empty case is the shared <EmptyState> primitive, not a
+    // bespoke div. Pin the primitive hook so the conformance can't silently
+    // regress to a hand-rolled block.
+    it('renders the empty case via the EmptyState primitive (sv-empty-state)', () => {
+        const { container } = mountWithProviders(<SwammBmpChart />, {
+            state: { swamm: { targets: [] } }
+        });
+        const empty = container.querySelector('.sv-empty-state');
+        expect(empty).toExist();
+        expect(empty.textContent).toInclude('No pollutant loading targets configured');
+    });
+
     it('renders the "no targets configured" message when state.swamm has no targets key at all', () => {
         const { container } = mountWithProviders(<SwammBmpChart />, {
             state: { swamm: {} }

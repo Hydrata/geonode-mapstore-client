@@ -1,3 +1,9 @@
+/* HGeval — dark-glass standard form (TASK-1668).
+ * Conformed off the SimpleView --sv-* token set; colour values are composed
+ * from tokens with literal fallbacks so the sheet stands alone if loaded
+ * before tokens.css. Error blocks are now the shared <ErrorStrip> primitive;
+ * empty/status are handled in JSX, so no bespoke alert/badge CSS remains here. */
+
 /* Right-side panel */
 .hgeval-panel {
     position: fixed;
@@ -5,9 +11,12 @@
     right: 0;
     width: 360px;
     height: 100%;
-    background: #fff;
+    background: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     z-index: 10000;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.35);
     display: flex;
     flex-direction: column;
 }
@@ -17,26 +26,25 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    border-bottom: 1px solid #ddd;
-    background: #f8f8f8;
+    border-bottom: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
     flex-shrink: 0;
 }
 
 .hgeval-header h4 {
     margin: 0;
     font-size: 14px;
-    color: #333;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .hgeval-close {
     font-size: 16px;
-    color: #999;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     padding: 0 4px;
     line-height: 1;
 }
 
 .hgeval-close:hover {
-    color: #333;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .hgeval-content {
@@ -59,7 +67,7 @@
 .hgeval-input-panel label {
     font-weight: 600;
     font-size: 12px;
-    color: #555;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     margin-bottom: 2px;
     display: block;
 }
@@ -75,10 +83,12 @@
 
 .hgeval-selected-coords {
     padding: 4px 8px;
-    background: #e8f5e9;
+    background: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
+    border-left: 3px solid var(--sv-info-border, #5bc0de);
     border-radius: 3px;
     margin-bottom: 8px;
     font-size: 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .hgeval-optional-fields {
@@ -87,7 +97,7 @@
 
 .hgeval-optional-fields summary {
     cursor: pointer;
-    color: #337ab7;
+    color: var(--sv-glyph-zoom, #4dabf7);
     font-size: 12px;
     margin-bottom: 4px;
     outline: none;
@@ -101,18 +111,12 @@
     margin-bottom: 6px;
 }
 
-.hgeval-alert-sm {
-    padding: 6px 10px;
-    font-size: 12px;
-    margin-bottom: 8px;
-}
-
 .hgeval-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding-top: 8px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     margin-top: 4px;
 }
 
@@ -125,10 +129,12 @@
 .hgeval-progress h4 {
     font-size: 14px;
     margin-bottom: 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .hgeval-progress .progress {
     height: 22px;
+    background: var(--sv-input-readonly-bg, rgba(255, 255, 255, 0.03));
 }
 
 .hgeval-progress .progress-bar {
@@ -138,19 +144,20 @@
 
 .hgeval-progress .text-muted {
     font-size: 12px;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 /* Report display */
 .hgeval-report h4 {
     font-size: 14px;
-    color: #333;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     margin-bottom: 2px;
 }
 
 .hgeval-project-name {
     font-size: 13px;
     margin-bottom: 10px;
-    color: #555;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 .hgeval-section {
@@ -158,8 +165,8 @@
 }
 
 .hgeval-section h5 {
-    color: #337ab7;
-    border-bottom: 2px solid #337ab7;
+    color: var(--sv-glyph-zoom, #4dabf7);
+    border-bottom: 2px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     padding-bottom: 3px;
     margin-bottom: 6px;
     font-size: 13px;
@@ -168,20 +175,22 @@
 .hgeval-section .table {
     margin-bottom: 0;
     font-size: 12px;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .hgeval-section .table td {
     padding: 3px 6px;
+    border-color: var(--sv-section-border, rgba(255, 255, 255, 0.6));
 }
 
 .hgeval-label {
     font-weight: bold;
     width: 45%;
-    color: #555;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 .hgeval-value {
-    color: #333;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .hgeval-warnings .list-group {
@@ -194,27 +203,30 @@
     align-items: flex-start;
     padding: 6px 10px;
     font-size: 12px;
+    background: rgba(240, 173, 78, 0.12);
+    border-color: rgba(240, 173, 78, 0.3);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .hgeval-warnings .glyphicon-alert {
-    color: #8a6d3b;
+    color: var(--sv-glyph-partial, orange);
     margin-top: 2px;
     flex-shrink: 0;
 }
 
 .hgeval-disclaimer {
-    background: #f9f9f9;
+    background: var(--sv-input-readonly-bg, rgba(255, 255, 255, 0.03));
     padding: 8px 10px;
     border-radius: 3px;
 }
 
 .hgeval-disclaimer h5 {
-    color: #999;
-    border-color: #ddd;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    border-color: var(--sv-section-border, rgba(255, 255, 255, 0.6));
 }
 
 .hgeval-disclaimer p {
-    color: #777;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     font-size: 11px;
     font-style: italic;
     margin: 0;
@@ -222,7 +234,7 @@
 
 /* Map click hint */
 .hgeval-hint {
-    color: #337ab7;
+    color: var(--sv-glyph-zoom, #4dabf7);
     font-size: 12px;
     margin: 0 0 8px 0;
 }
@@ -233,8 +245,8 @@
 
 /* Contact prompt on report page */
 .hgeval-contact-prompt {
-    background: #f0f7ff;
-    border: 1px solid #bee5eb;
+    background: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
+    border: 1px solid var(--sv-info-border, #5bc0de);
     border-radius: 4px;
     padding: 8px 10px;
     margin-bottom: 8px;
@@ -242,7 +254,7 @@
 
 .hgeval-contact-prompt p {
     font-size: 12px;
-    color: #555;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     margin: 0 0 6px 0;
     font-weight: 600;
 }
@@ -259,7 +271,7 @@
 
 .hgeval-contact-or {
     font-size: 11px;
-    color: #999;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     flex-shrink: 0;
 }
 
@@ -270,10 +282,14 @@
     gap: 8px;
 }
 
+.hgeval-saved-actions .text-success {
+    color: var(--sv-text-ok, #7ee787);
+}
+
 /* Signup form */
 .hgeval-signup-form {
-    background: #f0f7ff;
-    border: 1px solid #bee5eb;
+    background: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
+    border: 1px solid var(--sv-info-border, #5bc0de);
     border-radius: 4px;
     padding: 10px 12px;
     margin-bottom: 8px;
@@ -282,7 +298,7 @@
 .hgeval-signup-title {
     font-size: 12px;
     font-weight: 600;
-    color: #333;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     margin: 0 0 8px 0;
 }
 
@@ -306,17 +322,18 @@
 .hgeval-field-error {
     font-size: 11px;
     margin-top: 2px;
+    color: var(--sv-text-danger, #ffb3b3);
 }
 
 .hgeval-login-link {
     font-size: 11px;
-    color: #777;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     margin: 8px 0 0 0;
     text-align: center;
 }
 
 .hgeval-login-link a {
-    color: #337ab7;
+    color: var(--sv-glyph-zoom, #4dabf7);
 }
 
 @keyframes hgeval-spin {

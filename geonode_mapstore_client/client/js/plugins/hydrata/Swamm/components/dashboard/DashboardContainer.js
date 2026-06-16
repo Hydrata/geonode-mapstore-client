@@ -10,6 +10,7 @@ import {PollutantCard} from "./PollutantCard";
 import {SummaryTable} from "./SummaryTable";
 import {LegendPanel} from "./LegendPanel";
 import {OrgTable} from "./OrgTable";
+import {EmptyState} from "../../../SimpleView/components/primitives";
 
 const DashboardErrorFallback = () => (
     <div style={{padding: '20px', color: 'white', textAlign: 'center'}}>
@@ -107,9 +108,11 @@ class SwammBmpChartClass extends React.Component {
                 </div>
                 <div id={"swamm-bmp-chart-body"}>
                     {(!this.props.targets || this.props.targets.length === 0) ? (
-                        <div style={{padding: '20px', color: 'white', textAlign: 'center', width: '100%'}}>
-                            No pollutant loading targets configured for this project.
-                        </div>
+                        <EmptyState
+                            glyph="glyphicon-stats"
+                            heading="No pollutant loading targets configured for this project."
+                            style={{width: '100%'}}
+                        />
                     ) : (
                         <React.Fragment>
                             <TargetSelector

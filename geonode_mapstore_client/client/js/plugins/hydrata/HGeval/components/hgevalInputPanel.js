@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+import { ErrorStrip } from '../../SimpleView/components/primitives';
 
 const SECTOR_OPTIONS = [
     { value: '', msgId: 'hydrata.hgeval.sectorSelectPrompt' },
@@ -145,8 +146,8 @@ const HGevalInputPanel = ({
                     />
                 </div>
             </details>
-            {validationError && <div className="alert alert-danger hgeval-alert-sm">{validationError}</div>}
-            {error && <div className="alert alert-danger hgeval-alert-sm">{error}</div>}
+            <ErrorStrip message={validationError} />
+            <ErrorStrip message={error} />
             <div className="hgeval-actions">
                 <button className="btn btn-default btn-sm" onClick={onCancel}><Message msgId="hydrata.hgeval.cancel" /></button>
                 <button

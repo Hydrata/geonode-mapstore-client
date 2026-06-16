@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
+import { ErrorStrip } from '../../SimpleView/components/primitives';
 
 const HGevalSignupForm = ({
     signupErrors, signingUp, loginErrors, loggingIn,
@@ -112,9 +113,7 @@ const HGevalSignupForm = ({
                     />
                     {errors.password && <span className="help-block hgeval-field-error">{errors.password}</span>}
                 </div>
-                {errors.detail && (
-                    <div className="alert alert-danger hgeval-alert-sm">{errors.detail}</div>
-                )}
+                <ErrorStrip message={errors.detail} />
                 <button
                     type="submit"
                     className="btn btn-primary btn-sm btn-block"
