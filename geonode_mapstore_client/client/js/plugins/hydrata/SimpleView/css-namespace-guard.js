@@ -61,7 +61,7 @@ const ALLOWED_PREFIXES = new Set([
     'hgeval',
     'hydrology',
     'swamm',
-    'tm',
+    // 'tm' RATCHETED OUT (TASK-1680): TaskMonitor fully migrated; taskMonitor.css is sv-/simple- only.
     'vector',
 
     // ── Feature namespaces within panels ──
@@ -97,7 +97,7 @@ const ALLOWED_PREFIXES = new Set([
     'add',
     'custom',
     'non',
-    'hyrdology',   // typo in hydrology.css (.hyrdology-textarea); kept as-is
+    // 'hyrdology' RATCHETED OUT (TASK-1678): the .hyrdology-textarea typo was fixed to .hydrology-textarea.
     'sk',          // .sk-circle in simpleView.css
     'gn',          // .gn-brand-navbar override in simpleView.css
     'mapstore',    // .mapstore-slider override in simpleView.css
@@ -117,10 +117,11 @@ const ALLOWED_PREFIXES = new Set([
     'time'
 ]);
 
-// ── The 8 hydrata panel CSS files to scan ──
+// ── The 7 hydrata panel CSS files to scan ──
 // Paths are relative to the client/ directory (process.cwd() when run via npm).
 // The script resolves them relative to its own location so it can also be
 // invoked directly from any directory.
+// (Swamps/swamps.css removed — the deprecated Swamps plugin was deleted, TASK-1731.)
 const SCRIPT_DIR = path.dirname(path.resolve(__filename));
 const CLIENT_DIR = path.resolve(SCRIPT_DIR, '../../../../');
 
@@ -129,7 +130,6 @@ const PANEL_CSS_FILES = [
     'js/plugins/hydrata/Anuga/anuga.css',
     'js/plugins/hydrata/Hydrology/hydrology.css',
     'js/plugins/hydrata/Swamm/swamm.css',
-    'js/plugins/hydrata/Swamps/swamps.css',
     'js/plugins/hydrata/HGeval/styles/hgeval.css',
     'js/plugins/hydrata/TaskMonitor/taskMonitor.css',
     'js/plugins/hydrata/VectorDraw/components/vectorDrawPopup.css'

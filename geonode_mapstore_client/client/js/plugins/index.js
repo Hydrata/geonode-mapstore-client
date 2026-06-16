@@ -486,10 +486,6 @@ export const plugins = {
         'SimpleView',
         () => import(/* webpackChunkName: 'plugins/simpleview-plugin' */ '@js/plugins/hydrata/SimpleView/SimpleView')
     ),
-    SwampsPlugin: toModulePlugin(
-        'Swamps',
-        () => import(/* webpackChunkName: 'plugins/swamps-plugin' */ '@js/plugins/hydrata/Swamps/Swamps')
-    ),
     AnugaPlugin: toModulePlugin(
         'Anuga',
         () => import(/* webpackChunkName: 'plugins/anuga-plugin' */ '@js/plugins/hydrata/Anuga/Anuga')
