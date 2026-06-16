@@ -299,7 +299,7 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
                         >
                             <button
                                 type="button"
-                                className={`tw-icon-btn tw-unmodified-toggle tw-pencil-toggle${isModifiable ? ' tw-modifiable-on' : ''}${inp.unmodified ? ' tw-unmodified-on' : ''}`}
+                                className={`tw-icon-btn tw-pencil-toggle${isModifiable ? ' tw-modifiable-on' : ''}`}
                                 onClick={() => toggleUnmodified(idx)}
                                 disabled={disabled || isBase}
                                 title={isBase ? 'modifiable (locked)' : inp.unmodified ? 'unmodified' : 'modifiable'}
@@ -856,9 +856,14 @@ class TerrainHierarchyRow extends React.Component {
         // TASK-1753 (W1.8): clicking a terrain identity row toggles its derivatives
         // AND, when it is a real terrain model, asks the recipe builder to load that
         // terrain's source AnalysisSurface (a no-op for plain uploads with no recipe).
+        // TASK-1587 (W1.8 P1.7 fix B2): only populate-on-select on the EXPAND
+        // transition. COLLAPSING a row must neither re-open the Analysis Surfaces
+        // section nor re-dispatch selection — `expanded` is the pre-toggle state, so
+        // the row is being expanded when it was previously collapsed.
         const handleRowSelect = () => {
+            const willExpand = !expanded;
             if (onToggleExpand) onToggleExpand(terrain.id);
-            if (onSelectTerrain && terrainModel?.id) onSelectTerrain(terrainModel.id);
+            if (willExpand && onSelectTerrain && terrainModel?.id) onSelectTerrain(terrainModel.id);
         };
 
         // TASK-1587 (grill 2026-06-15): the expanded zone now ALWAYS holds the
@@ -1179,13 +1184,17 @@ class AnugaInputMenuClass extends React.Component {
         onChangeTerrainLayerProperties: PropTypes.func,
         // TASK-1751 (#20): re-emit current map view to trigger demRescaleEpic on toggle.
         onNudgeMapView: PropTypes.func,
-        onSaveMap: PropTypes.func,
         // TASK-1721 (W4): Contours overlay toggle
         onAddContourLayer: PropTypes.func,
         onRemoveLayer: PropTypes.func,
         // TASK-1728 (W1.7): surface terrain-upload progress on the W1.5 Tasks Panel.
         onUpdateProcess: PropTypes.func,    // inject/update an optimistic process row
-        onOpenTaskMonitor: PropTypes.func   // open the Tasks Panel so the row is visible
+        onOpenTaskMonitor: PropTypes.func,  // open the Tasks Panel so the row is visible
+        // TASK-1753 (W1.8) / TASK-1720 (W3): recipe-builder + terrain-row dispatch
+        // callbacks wired in mapDispatchToProps and used at runtime.
+        onTwLoadData: PropTypes.func,
+        onTwSelectSurfaceForTerrain: PropTypes.func,
+        onUpdateTerrainRow: PropTypes.func
     };
 
     static defaultProps = {}
@@ -1955,7 +1964,7 @@ class AnugaInputMenuClass extends React.Component {
                                 if (next.has(terrainId)) { next.delete(terrainId); } else { next.add(terrainId); }
                                 this.setState({ expandedTerrainIds: next });
                             }}
-                            onReorder={this.props.onReorderTerrainLayers || null}
+                            onReorder={this.props.onReorderTerrainLayers}
                             /* TASK-1753 (W1.8): selecting a derived terrain populates the
                                Analysis Surfaces recipe builder with its source recipe. */
                             onSelectTerrain={this._handleSelectTerrainRow}
@@ -2438,7 +2447,6 @@ const mapDispatchToProps = ( dispatch ) => {
                 map.center, map.zoom, map.bbox, map.size, map.mapStateSource, map.projection
             ));
         }),
-        onSaveMap: () => dispatch(saveDirectContent()),
         // TASK-1721 (W4): Contours overlay add/remove
         onAddContourLayer: (layer) => dispatch(addLayer(layer)),
         onRemoveLayer: (layerId) => dispatch(removeLayer(layerId)),
@@ -2457,6 +2465,10 @@ export {AnugaInputMenu, AnugaInputMenuClass};
 // conform (ErrorStrip / EmptyState / StatusBadge substitution) can be unit-tested
 // in isolation without standing up the connected menu + a mock store.
 export {TWStaleBadge, TWSurfaceList, TWRecipeBuilder};
+// TASK-1587 (W1.8 P1.7, B2): export the terrain hierarchy row so the
+// select-on-expand-only behaviour (collapsing must NOT re-dispatch selection)
+// can be unit-tested directly.
+export {TerrainHierarchyRow};
 // TASK-1752 (W1.8): export the dispatch map so the terrain-reorder thunk
 // (onReorderTerrainLayers) can be exercised end-to-end through the REAL layers
 // reducer in a unit test — guarding the sortLayers-callback regression that a

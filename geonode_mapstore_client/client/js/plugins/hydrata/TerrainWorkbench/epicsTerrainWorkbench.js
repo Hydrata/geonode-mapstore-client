@@ -3,7 +3,8 @@
  * TASK-1671 (W1.6) — Atomic save-on-derive: body carries inputs + params.
  *
  * All epics exported here MUST also appear in the createPlugin epics object
- * in TerrainWorkbench.js — per memory/mapstore-epic-never-registered-in-barrel.md.
+ * in Anuga.js (since W1.5 — the standalone TerrainWorkbench.js barrel was
+ * removed) — per memory/mapstore-epic-never-registered-in-barrel.md.
  *
  * Epics:
  *   twLoadDataEpic          — fetch terrains + surfaces on TW_LOAD_DATA
@@ -168,6 +169,18 @@ export const twSelectSurfaceForTerrainEpic = (action$, store) =>
                     }
                     // Ensure the resolved surface is in the list before selecting so
                     // the builder can render it, then select it.
+                    //
+                    // TASK-1587 (W1.8 P1.7, A6): we already have `surface` here, but
+                    // there is no action creator that upserts a single fetched surface
+                    // into state.terrainWorkbench.surfaces (the reducer's mergeSurface
+                    // is internal to the BE-flow *_SUCCESS cases only). Rather than
+                    // invent a fragile new TW_UPSERT_SURFACE action, we refetch via
+                    // twLoadData() and select. selectedSurfaceId is set immediately;
+                    // the surface row lands one reducer cycle later when twLoadData
+                    // resolves, so the builder's selectedSurface lookup can be null for
+                    // a single cycle (a brief empty flash) before populating. This is
+                    // self-healing and acceptable — the populate is correct, just one
+                    // cycle late.
                     return Rx.Observable.of(twLoadData(), twSelectSurface(surface.id));
                 })
                 .catch(() => Rx.Observable.empty());

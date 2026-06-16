@@ -279,7 +279,7 @@ describe('TASK-1728 terrain upload — no inline strip, surfaces on Tasks Panel'
 //   • Unmatched layers (analysis surface outputs, etc.) → { terrain:null, demLayer, hillshadeLayer:null }
 // TASK-1674: TW* presentational pieces are imported here too (single import to
 // satisfy no-duplicate-imports) for the SimpleView-primitive conform specs below.
-import { AnugaInputMenuClass, TWStaleBadge, TWSurfaceList, TWRecipeBuilder } from '../anugaInputMenu';
+import { AnugaInputMenuClass, TWStaleBadge, TWSurfaceList, TWRecipeBuilder, TerrainHierarchyRow } from '../anugaInputMenu';
 
 function buildGroupsWithProps({ terrainLayers = [], terrainModels = [] } = {}) {
     // Directly invoke the instance method with a mock `this.props`.
@@ -480,6 +480,62 @@ describe('TASK-1753 _handleSelectTerrainRow populates the recipe builder', () =>
         instance._handleSelectTerrainRow(null);
         instance._handleSelectTerrainRow(undefined);
         expect(selectedForTerrain).toBe('untouched');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-1587 (W1.8 P1.7 fix B2): the recipe-load (onSelectTerrain) must fire on
+// the EXPAND transition only. COLLAPSING a derived terrain row must NOT
+// re-dispatch selection (which previously re-opened the Analysis Surfaces
+// section + re-fired twSelectSurfaceForTerrain — surprising UX + redundant).
+// TerrainHierarchyRow reads `expanded` as a prop, so the parent's toggle is
+// simulated by re-rendering with the flipped value after each click.
+// ---------------------------------------------------------------------------
+describe('TASK-1587 B2 terrain row select-on-expand-only', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); container = undefined; });
+
+    const TERRAIN = { id: 42, title: 'Derived DEM' };
+
+    // Render with NO demLayer/hillshadeLayer so no connected <MenuRow> mounts
+    // (that would need a Redux Provider). A real terrainModel.id still makes the
+    // row expandable (hasDerivatives) and renders the clickable identity title.
+    function renderRow(expanded, handlers) {
+        ReactDOM.render(
+            <TerrainHierarchyRow
+                terrain={TERRAIN}
+                terrainModel={TERRAIN}
+                expanded={expanded}
+                onToggleExpand={handlers.onToggleExpand}
+                onSelectTerrain={handlers.onSelectTerrain}
+            />,
+            container
+        );
+    }
+
+    it('fires onSelectTerrain on EXPAND but NOT on collapse', () => {
+        const toggled = [];
+        let selectCalls = 0;
+        let lastSelectedId = null;
+        const handlers = {
+            onToggleExpand: (id) => toggled.push(id),
+            onSelectTerrain: (id) => { selectCalls += 1; lastSelectedId = id; }
+        };
+
+        // 1) Row starts collapsed. Clicking the title/chevron EXPANDS it.
+        renderRow(false, handlers);
+        container.querySelector('.terrain-parent-title').click();
+        expect(toggled).toEqual([42]);          // expansion toggled
+        expect(selectCalls).toBe(1);            // recipe-load fired on expand
+        expect(lastSelectedId).toBe(42);
+
+        // 2) Parent flips `expanded` to true; clicking again COLLAPSES it.
+        //    Selection must NOT fire again.
+        renderRow(true, handlers);
+        container.querySelector('.terrain-parent-title').click();
+        expect(toggled).toEqual([42, 42]);      // collapse toggled
+        expect(selectCalls).toBe(1);            // NO re-dispatch on collapse
     });
 });
 
