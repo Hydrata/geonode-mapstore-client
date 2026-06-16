@@ -1406,3 +1406,72 @@ describe('TASK-1752 anugaInputMenu terrain reorder lands on state.flat (regressi
         expect(store.getState().layers.flat.map(l => l.id)).toEqual(baseFlat, 'flat untouched on a no-op reorder');
     });
 });
+
+// ---------------------------------------------------------------------------
+// TASK-1755 (W1.8): Culvert menu entry — blank placeholder pane + i18n keys.
+//
+// Two bugs were fixed:
+//   (1) renderPane()'s switch had NO `case 'culverts':` arm, so selecting the
+//       Culvert rail fell through to `default:` and showed the TERRAIN pane.
+//       renderPane() must now route 'culverts' to renderCulvertPane() (a clean
+//       blank placeholder), NOT renderTerrainPane().
+//   (2) the i18n keys for the culvert heading (hydrata.anuga.culverts) and the
+//       empty-state body (hydrata.anuga.culvertPlaceholder) were MISSING, so the
+//       heading rendered a raw key. They must exist (and be non-empty) in en-US
+//       and at parity across the test-enforced locales.
+//
+// These assertions inspect the React element tree returned by the render
+// methods (no connected mount / IntlProvider needed) and the shared en-US
+// translation fixture, mirroring the patterns already used in this file.
+// ---------------------------------------------------------------------------
+describe('TASK-1755 culvert menu entry — placeholder pane + i18n', () => {
+    const { AnugaInputMenuClass } = require('../anugaInputMenu');
+
+    // Walk a React element tree collecting every props.msgId (the <Message/> ids).
+    function collectMsgIds(el, acc) {
+        if (!el || typeof el !== 'object') return acc;
+        if (Array.isArray(el)) { el.forEach(c => collectMsgIds(c, acc)); return acc; }
+        if (el.props) {
+            if (typeof el.props.msgId === 'string') acc.push(el.props.msgId);
+            collectMsgIds(el.props.children, acc);
+        }
+        return acc;
+    }
+
+    it('#1: renderPane() routes selectedCategory="culverts" to renderCulvertPane (NOT the terrain pane)', () => {
+        const instance = Object.create(AnugaInputMenuClass.prototype);
+        instance.state = { selectedCategory: 'culverts' };
+        let culvertCalls = 0;
+        let terrainCalls = 0;
+        instance.renderCulvertPane = () => { culvertCalls++; return 'CULVERT_PANE'; };
+        instance.renderTerrainPane = () => { terrainCalls++; return 'TERRAIN_PANE'; };
+        const out = instance.renderPane();
+        expect(culvertCalls).toBe(1, 'culvert category must dispatch to renderCulvertPane');
+        expect(terrainCalls).toBe(0, 'culvert category must NOT fall through to renderTerrainPane');
+        expect(out).toBe('CULVERT_PANE');
+    });
+
+    it('#2: renderCulvertPane() heads the pane with the culverts category and shows the placeholder Message (no raw key markup)', () => {
+        const instance = Object.create(AnugaInputMenuClass.prototype);
+        let headCatId = null;
+        // Stub renderPaneHead so we can confirm the translated heading is driven by
+        // the 'culverts' category (whose titleMsgId is hydrata.anuga.culverts).
+        instance.renderPaneHead = (catId) => { headCatId = catId; return null; };
+        const tree = instance.renderCulvertPane();
+        expect(headCatId).toBe('culverts', 'pane head must render the culverts category heading');
+        const msgIds = collectMsgIds(tree, []);
+        expect(msgIds.indexOf('hydrata.anuga.culvertPlaceholder')).toBeGreaterThan(-1,
+            'placeholder pane must render the translated empty-state Message, not a raw key');
+    });
+
+    it('#3: the culvert i18n keys exist and are non-empty in the en-US bundle', () => {
+        const { enMessages } = require('../../../../../__tests__/fixtures/translations');
+        ['hydrata.anuga.culverts', 'hydrata.anuga.culvertPlaceholder'].forEach(key => {
+            expect(enMessages[key]).toExist(`Missing i18n key: ${key}`);
+            expect(typeof enMessages[key]).toBe('string', `Key ${key} should be a string`);
+            expect(enMessages[key].trim().length).toBeGreaterThan(0, `Empty value for key: ${key}`);
+            // No raw-key leakage: the resolved value must not be the key itself.
+            expect(enMessages[key]).toNotBe(key.split('.').pop(), `Key ${key} resolves to a raw key`);
+        });
+    });
+});

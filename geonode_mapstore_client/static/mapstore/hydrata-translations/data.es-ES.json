@@ -221,6 +221,8 @@
         "noFrictionRastersAvailable": "No friction rasters available",
         "nodes": "Nodos",
         "none": "Ninguno",
+        "culverts": "Alcantarillas",
+        "culvertPlaceholder": "Herramientas de alcantarillas — dibuje alcantarillas en el mapa.",
         "projectVisibility": "Visibilidad",
         "publish": "Publicar",
         "publishPrefix": "Publicar:",

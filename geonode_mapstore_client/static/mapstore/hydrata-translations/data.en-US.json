@@ -221,6 +221,8 @@
         "noFrictionRastersAvailable": "No friction rasters available",
         "nodes": "Nodes",
         "none": "None",
+        "culverts": "Culverts",
+        "culvertPlaceholder": "Culvert tools — draw culverts on the map.",
         "projectVisibility": "Visibility",
         "publish": "Publish",
         "publishPrefix": "Publish:",

@@ -2112,6 +2112,26 @@ class AnugaInputMenuClass extends React.Component {
     // tab in the Hydrology panel (hydrologyMainMenu.js). The `case 'networks':`
     // switch arm below is correspondingly removed.
 
+    // TASK-1755 (W1.8): Culvert pane — there is NO dedicated culvert PANEL
+    // component yet, so this is a clean BLANK placeholder (standard Inputs-pane
+    // chrome + the translated heading + a short empty-state hint). Culverts are
+    // still DRAWN on the map via the VectorDraw WFST path (culvertTranslate.js),
+    // which is wired independently of this pane — so the placeholder does not
+    // regress draw. Before this arm existed, selecting Culvert fell through to
+    // `default:` and showed the Terrain pane.
+    renderCulvertPane() {
+        return (
+            <div className="menu-rows-pane anuga-pane">
+                {this.renderPaneHead('culverts', null)}
+                <div className="anuga-pane-rows">
+                    <div className="row menu-row anuga-section-empty-row">
+                        <Message msgId="hydrata.anuga.culvertPlaceholder" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     renderPane() {
         switch (this.state.selectedCategory) {
         case 'terrain':         return this.renderTerrainPane();
@@ -2123,6 +2143,9 @@ class AnugaInputMenuClass extends React.Component {
         case 'friction':        return this.renderCreatePane('friction');
         case 'frictionRasters': return this.renderFrictionRastersPane();
         case 'structures':      return this.renderCreatePane('structures');
+        // TASK-1755 (W1.8): 'culverts' renders a blank placeholder pane (no
+        // dedicated panel exists yet); previously fell through to the Terrain pane.
+        case 'culverts':        return this.renderCulvertPane();
         // TASK-1440 (W9): 'networks' case removed — rendered in Hydrology panel.
         default:                return this.renderTerrainPane();
         }
