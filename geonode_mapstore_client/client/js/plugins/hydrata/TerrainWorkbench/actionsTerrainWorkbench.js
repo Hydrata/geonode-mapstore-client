@@ -57,6 +57,16 @@ export function twLoadDataError(error) { return { type: TW_LOAD_DATA_ERROR, erro
 export const TW_SELECT_SURFACE = 'TW_SELECT_SURFACE';
 export function twSelectSurface(surfaceId) { return { type: TW_SELECT_SURFACE, surfaceId }; }
 
+// TASK-1753 (W1.8) — Select the source recipe of a DERIVED terrain row.
+// When the modeller clicks a Terrain produced by an analysis-surface recipe,
+// twSelectSurfaceForTerrainEpic resolves its source AnalysisSurface (from
+// already-loaded surfaces, else via ?output_terrain=<id>), ensures the recipe
+// list is loaded, and dispatches twSelectSurface so the builder populates.
+export const TW_SELECT_SURFACE_FOR_TERRAIN = 'TW_SELECT_SURFACE_FOR_TERRAIN';
+export function twSelectSurfaceForTerrain(terrainId) {
+    return { type: TW_SELECT_SURFACE_FOR_TERRAIN, terrainId };
+}
+
 // ── Create surface ─────────────────────────────────────────────────────────
 
 export const TW_CREATE_SURFACE = 'TW_CREATE_SURFACE';

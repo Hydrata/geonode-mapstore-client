@@ -23,8 +23,13 @@ export const listTerrains = (projectId) =>
 // ── AnalysisSurface CRUD ───────────────────────────────────────────────────
 
 // GET /api/v2/anuga/projects/{pid}/analysis-surfaces/
-export const listAnalysisSurfaces = (projectId) =>
-    axios.get(`/api/v2/anuga/projects/${projectId}/analysis-surfaces/`);
+// TASK-1753 (W1.8): optional params (e.g. {output_terrain: <id>}) forwarded as the
+// query string so the FE can resolve a derived Terrain's source recipe in one call.
+export const listAnalysisSurfaces = (projectId, params) =>
+    axios.get(
+        `/api/v2/anuga/projects/${projectId}/analysis-surfaces/`,
+        params ? { params } : undefined
+    );
 
 // POST /api/v2/anuga/projects/{pid}/analysis-surfaces/
 // Payload: { title, regional_terrain, use_culverts, feather_width_m,

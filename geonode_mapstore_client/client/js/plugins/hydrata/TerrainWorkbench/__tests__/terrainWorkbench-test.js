@@ -13,6 +13,9 @@
  */
 
 import expect from 'expect';
+import MockAdapter from 'axios-mock-adapter';
+import axios from '@mapstore/framework/libs/ajax';
+import { testEpic } from '@mapstore/framework/epics/__tests__/epicTestUtils';
 
 import reducer from '../reducersTerrainWorkbench';
 import {
@@ -38,6 +41,7 @@ import {
     twDerive,
     twDeriveSuccess,
     twDeriveComplete,
+    twSelectSurfaceForTerrain,
 } from '../actionsTerrainWorkbench';
 
 // ---------------------------------------------------------------------------
@@ -320,7 +324,7 @@ describe('TerrainWorkbench action creators', () => {
 // TASK-1658 — extractTwError: map the BE {success:false, errors:[...]} shape
 // ---------------------------------------------------------------------------
 
-import { extractTwError } from '../epicsTerrainWorkbench';
+import { extractTwError, twSelectSurfaceForTerrainEpic } from '../epicsTerrainWorkbench';
 
 describe('TASK-1658 extractTwError', () => {
     it('joins an errors array of plain strings', () => {
@@ -344,5 +348,66 @@ describe('TASK-1658 extractTwError', () => {
     it('ignores an empty errors array and uses the fallback chain', () => {
         const err = { response: { data: { errors: [], error: 'real' } } };
         expect(extractTwError(err, 'fb')).toEqual('real');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-1753 (W1.8) — selecting a derived terrain populates the recipe builder
+// ---------------------------------------------------------------------------
+
+describe('TASK-1753 twSelectSurfaceForTerrainEpic', () => {
+    const makeState = (surfaces = []) => ({
+        anuga: { projects: { data: { id: 42 } } },
+        terrainWorkbench: { surfaces }
+    });
+
+    it('resolves the source recipe from already-loaded surfaces and selects it', (done) => {
+        // Surface 11 produced terrain 7 — its output_terrain === 7.
+        const state = makeState([
+            { id: 10, output_terrain: null },
+            { id: 11, output_terrain: 7 },
+            { id: 12, output_terrain: 99 }
+        ]);
+        testEpic(
+            twSelectSurfaceForTerrainEpic,
+            1,
+            twSelectSurfaceForTerrain(7),
+            (actions) => {
+                expect(actions.length).toBe(1);
+                expect(actions[0].type).toBe(TW_SELECT_SURFACE);
+                expect(actions[0].surfaceId).toBe(11);
+                done();
+            },
+            state
+        );
+    });
+
+    it('falls back to the ?output_terrain=<id> BE filter and dispatches load + select', (done) => {
+        // No loaded surface carries output_terrain === 7 → hit the BE filter.
+        // MockAdapter matches config.url (the base path) and exposes the query as
+        // config.params, so assert the ?output_terrain= filter is forwarded there.
+        const mockAxios = new MockAdapter(axios);
+        mockAxios.onGet(/analysis-surfaces\/$/).reply((config) => {
+            expect(config.params).toEqual({ output_terrain: 7 });
+            return [200, [{ id: 21, output_terrain: 7 }]];
+        });
+        testEpic(
+            twSelectSurfaceForTerrainEpic,
+            2,
+            twSelectSurfaceForTerrain(7),
+            (actions) => {
+                try {
+                    // First load the list (so the resolved surface is present for the
+                    // builder), then select it.
+                    expect(actions[0].type).toBe(TW_LOAD_DATA);
+                    expect(actions[1].type).toBe(TW_SELECT_SURFACE);
+                    expect(actions[1].surfaceId).toBe(21);
+                } finally {
+                    mockAxios.restore();
+                }
+                done();
+            },
+            makeState([])
+        );
     });
 });

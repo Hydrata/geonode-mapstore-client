@@ -68,6 +68,7 @@ import {
 // TASK-1645 (W1.5): TerrainWorkbench recipe epics re-homed into Anuga plugin.
 import {
     twLoadDataEpic,
+    twSelectSurfaceForTerrainEpic,
     twCreateSurfaceEpic,
     twUpdateSurfaceEpic,
     twDeleteSurfaceEpic,
@@ -166,6 +167,7 @@ export default createPlugin('Anuga', {
         demRescaleOnMoveEndEpic,
         // TASK-1645 (W1.5): TerrainWorkbench recipe epics registered under Anuga plugin.
         twLoadDataEpic,
+        twSelectSurfaceForTerrainEpic,
         twCreateSurfaceEpic,
         twUpdateSurfaceEpic,
         twDeleteSurfaceEpic,

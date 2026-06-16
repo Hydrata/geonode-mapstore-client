@@ -418,6 +418,72 @@ describe('TASK-1652 _buildTerrainGroups terrain hierarchy grouping', () => {
 });
 
 // ---------------------------------------------------------------------------
+// TASK-1753 (W1.8): selecting a derived terrain row populates the Analysis
+// Surfaces recipe builder with that terrain's source AnalysisSurface.
+// _handleSelectTerrainRow opens the recipe section, loads the data, and
+// dispatches twSelectSurfaceForTerrain(terrainId) (the epic resolves + selects
+// the source surface). This test constructs the unconnected class and invokes
+// the handler directly (mirrors the TASK-1728 makeInstance pattern).
+// ---------------------------------------------------------------------------
+describe('TASK-1753 _handleSelectTerrainRow populates the recipe builder', () => {
+    function makeInstance(props) {
+        const instance = new AnugaInputMenuClass(props);
+        instance.props = props;
+        instance.setState = (updater) => {
+            const patch = typeof updater === 'function' ? updater(instance.state) : updater;
+            instance.state = Object.assign({}, instance.state, patch);
+        };
+        return instance;
+    }
+
+    it('dispatches twSelectSurfaceForTerrain and opens the recipe section', () => {
+        let selectedForTerrain = null;
+        let loaded = false;
+        const instance = makeInstance({
+            onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
+            onTwLoadData: () => { loaded = true; }
+        });
+        // Section starts closed.
+        instance.state = Object.assign({}, instance.state, { twSurfaceSectionOpen: false });
+
+        instance._handleSelectTerrainRow(7);
+
+        // The source recipe of terrain 7 is requested.
+        expect(selectedForTerrain).toBe(7);
+        // Section opened so the populated builder is visible, and data was loaded.
+        expect(instance.state.twSurfaceSectionOpen).toBe(true);
+        expect(loaded).toBe(true);
+    });
+
+    it('does not re-load when the recipe section is already open', () => {
+        let selectedForTerrain = null;
+        let loadCalls = 0;
+        const instance = makeInstance({
+            onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
+            onTwLoadData: () => { loadCalls += 1; }
+        });
+        instance.state = Object.assign({}, instance.state, { twSurfaceSectionOpen: true });
+
+        instance._handleSelectTerrainRow(12);
+
+        expect(selectedForTerrain).toBe(12);
+        // Already open → no redundant load.
+        expect(loadCalls).toBe(0);
+    });
+
+    it('no-ops on a null/undefined terrain id (orphan row)', () => {
+        let selectedForTerrain = 'untouched';
+        const instance = makeInstance({
+            onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
+            onTwLoadData: () => {}
+        });
+        instance._handleSelectTerrainRow(null);
+        instance._handleSelectTerrainRow(undefined);
+        expect(selectedForTerrain).toBe('untouched');
+    });
+});
+
+// ---------------------------------------------------------------------------
 // TASK-1721 (W4 review FIX D): contours toggle reload-desync regression test.
 //
 // After a page reload, this.state.contoursEnabled is reset to {}.  If the

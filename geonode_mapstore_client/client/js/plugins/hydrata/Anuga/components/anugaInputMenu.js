@@ -39,6 +39,7 @@ import {
 import {
     twLoadData,
     twSelectSurface,
+    twSelectSurfaceForTerrain,
     twCreateSurface,
     twUpdateSurface,
     twDeleteSurface,
@@ -827,6 +828,9 @@ class TerrainHierarchyRow extends React.Component {
         hillshadeLayer: PropTypes.object,
         expanded: PropTypes.bool,
         onToggleExpand: PropTypes.func,
+        // TASK-1753 (W1.8): selecting a DERIVED terrain row populates the recipe
+        // builder with its source AnalysisSurface. (terrainModel id passed up.)
+        onSelectTerrain: PropTypes.func,
         // Drag-and-drop props (passed by TerrainListWithDragDrop)
         dragging: PropTypes.bool,
         dragOver: PropTypes.bool,
@@ -844,11 +848,18 @@ class TerrainHierarchyRow extends React.Component {
 
     render() {
         const {
-            terrain, demLayer, hillshadeLayer, expanded, onToggleExpand,
+            terrain, demLayer, hillshadeLayer, expanded, onToggleExpand, onSelectTerrain,
             dragging, dragOver, onDragStart, onDragOver, onDragEnd, onDrop,
             // Merge (5.x→epic 2026-06-15): TASK-1720/1721 per-DEM rendering-mode + contour toggles.
             terrainModel, canEdit, contoursEnabled, onStylingModeChange, onContoursToggle
         } = this.props;
+        // TASK-1753 (W1.8): clicking a terrain identity row toggles its derivatives
+        // AND, when it is a real terrain model, asks the recipe builder to load that
+        // terrain's source AnalysisSurface (a no-op for plain uploads with no recipe).
+        const handleRowSelect = () => {
+            if (onToggleExpand) onToggleExpand(terrain.id);
+            if (onSelectTerrain && terrainModel?.id) onSelectTerrain(terrainModel.id);
+        };
 
         // TASK-1587 (grill 2026-06-15): the expanded zone now ALWAYS holds the
         // Rendering-mode + Contours rows for a real terrain, so a row is expandable
@@ -883,8 +894,8 @@ class TerrainHierarchyRow extends React.Component {
                             tabIndex={0}
                             aria-expanded={expanded}
                             aria-label={expanded ? 'Collapse derivatives' : 'Expand derivatives'}
-                            onClick={() => onToggleExpand && onToggleExpand(terrain.id)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpand && onToggleExpand(terrain.id); } }}
+                            onClick={handleRowSelect}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowSelect(); } }}
                             style={{cursor: 'pointer', marginRight: 4, fontSize: 10, color: 'rgba(255,255,255,0.6)'}}
                         />
                     ) : (
@@ -901,7 +912,7 @@ class TerrainHierarchyRow extends React.Component {
                             className="terrain-parent-title"
                             data-testid="terrain-parent-title"
                             style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
-                            onClick={() => onToggleExpand && onToggleExpand(terrain.id)}
+                            onClick={handleRowSelect}
                             title={demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
                         >
                             {demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
@@ -1011,6 +1022,9 @@ class TerrainListWithDragDrop extends React.Component {
         terrainGroups: PropTypes.array.isRequired,  // [{terrain, demLayer, hillshadeLayer}]
         expandedIds: PropTypes.instanceOf(Set),
         onToggleExpand: PropTypes.func,
+        // TASK-1753 (W1.8): forwarded to each row so selecting a derived terrain
+        // populates the Analysis Surfaces recipe builder.
+        onSelectTerrain: PropTypes.func,
         onReorder: PropTypes.func,  // (fromIndex, toIndex)
         // TASK-1720/1721 rendering-mode + contour toggles (merged 5.x→epic 2026-06-15)
         canEdit: PropTypes.bool,
@@ -1050,7 +1064,7 @@ class TerrainListWithDragDrop extends React.Component {
 
     render() {
         const {
-            terrainGroups, expandedIds, onToggleExpand,
+            terrainGroups, expandedIds, onToggleExpand, onSelectTerrain,
             canEdit, flatLayers, localContoursEnabled,
             onStylingModeChange, onContoursToggle
         } = this.props;
@@ -1077,6 +1091,7 @@ class TerrainListWithDragDrop extends React.Component {
                             hillshadeLayer={group.hillshadeLayer}
                             expanded={!!(expandedIds && expandedIds.has(group.terrain?.id))}
                             onToggleExpand={onToggleExpand}
+                            onSelectTerrain={onSelectTerrain}
                             canEdit={canEdit}
                             contoursEnabled={contoursEnabled}
                             onStylingModeChange={onStylingModeChange}
@@ -1734,6 +1749,26 @@ class AnugaInputMenuClass extends React.Component {
         return groups;
     }
 
+    // TASK-1753 (W1.8): selecting a DERIVED terrain row populates the Analysis
+    // Surfaces recipe builder with that terrain's source AnalysisSurface (its DEM
+    // priority stack, params, unmodified flags, feather/target-resolution), so the
+    // modeller can inspect / edit / re-derive instead of starting empty.
+    //
+    // Open the recipe section (so the populated builder is visible) and dispatch
+    // twSelectSurfaceForTerrain — the epic resolves the source surface from the
+    // already-loaded list or the BE ?output_terrain=<id> filter, then selects it.
+    // A plain upload with no source recipe is a no-op in the epic.
+    _handleSelectTerrainRow = (terrainId) => {
+        if (terrainId === undefined || terrainId === null) return;
+        if (!this.state.twSurfaceSectionOpen) {
+            this.setState({ twSurfaceSectionOpen: true });
+            if (this.props.onTwLoadData) this.props.onTwLoadData();
+        }
+        if (this.props.onTwSelectSurfaceForTerrain) {
+            this.props.onTwSelectSurfaceForTerrain(terrainId);
+        }
+    };
+
     // TASK-1720 (W3): Toggle Dynamic/Traditional styling mode for a single terrain.
     // 1. AWAIT the BE PATCH so we know whether to proceed.
     // 2. On SUCCESS: update state.anuga.resources.terrain (so findDynamicDemPairs
@@ -1921,6 +1956,9 @@ class AnugaInputMenuClass extends React.Component {
                                 this.setState({ expandedTerrainIds: next });
                             }}
                             onReorder={this.props.onReorderTerrainLayers || null}
+                            /* TASK-1753 (W1.8): selecting a derived terrain populates the
+                               Analysis Surfaces recipe builder with its source recipe. */
+                            onSelectTerrain={this._handleSelectTerrainRow}
                             /* Merge (5.x→epic 2026-06-15): TASK-1720/1721 per-DEM Mode +
                                Contours toggles, folded into the hierarchy rows — they used
                                to live on the flat layers.map list that TASK-1652 replaced. */
@@ -2376,6 +2414,8 @@ const mapDispatchToProps = ( dispatch ) => {
         // TASK-1645 (W1.5) / TASK-1671 (W1.6) — recipe builder actions.
         onTwLoadData: () => dispatch(twLoadData()),
         onTwSelectSurface: (id) => dispatch(twSelectSurface(id)),
+        // TASK-1753 (W1.8): select a derived terrain's source recipe by terrain id.
+        onTwSelectSurfaceForTerrain: (terrainId) => dispatch(twSelectSurfaceForTerrain(terrainId)),
         onTwCreateSurface: (payload) => dispatch(twCreateSurface(payload)),
         onTwUpdateSurface: (id, payload) => dispatch(twUpdateSurface(id, payload)),
         onTwDeleteSurface: (id) => dispatch(twDeleteSurface(id)),

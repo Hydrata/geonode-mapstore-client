@@ -21,14 +21,17 @@ import { getProjectId } from '../Anuga/selectorsAnuga';
 import { toggleTaskMonitorPanel } from '../TaskMonitor/actionsTaskMonitor';
 import {
     TW_LOAD_DATA,
+    TW_SELECT_SURFACE_FOR_TERRAIN,
     TW_CREATE_SURFACE,
     TW_UPDATE_SURFACE,
     TW_DELETE_SURFACE,
     TW_SET_DESIGN_INPUTS,
     TW_DERIVE,
     TW_DERIVE_SUCCESS,
+    twLoadData,
     twLoadDataSuccess,
     twLoadDataError,
+    twSelectSurface,
     twCreateSurfaceSuccess,
     twCreateSurfaceError,
     twUpdateSurfaceSuccess,
@@ -112,6 +115,62 @@ export const twLoadDataEpic = (action$, store) =>
                 .catch(err =>
                     Rx.Observable.of(twLoadDataError(err?.message || 'Load failed'))
                 );
+        });
+
+// ── Select source recipe of a derived terrain (TASK-1753, W1.8) ─────────────
+//
+// When the modeller selects a DERIVED Terrain row (one produced by an
+// analysis-surface recipe), populate the recipe builder with its source
+// AnalysisSurface so they can inspect / edit / re-derive instead of starting
+// from an empty recipe.
+//
+// Resolution order:
+//   1. Already-loaded state — find a surface whose output_terrain === terrainId.
+//      (After the section has been opened once, twSurfaces is populated.)
+//   2. Otherwise hit the BE filter ?output_terrain=<id> (a OneToOneField, so at
+//      most one match) and merge the result via twLoadData semantics.
+//
+// The matched surface must be present in state.terrainWorkbench.surfaces for the
+// builder to render it, so when we resolve via the BE we also dispatch
+// twLoadData() to refresh the list before selecting. A terrain with NO source
+// recipe (a plain upload) is a no-op — nothing to populate.
+
+export const twSelectSurfaceForTerrainEpic = (action$, store) =>
+    action$
+        .ofType(TW_SELECT_SURFACE_FOR_TERRAIN)
+        .switchMap(action => {
+            const terrainId = action.terrainId;
+            if (terrainId === undefined || terrainId === null) {
+                return Rx.Observable.empty();
+            }
+            const state = store.getState();
+            const surfaces = state?.terrainWorkbench?.surfaces || [];
+            // Compare as strings so a numeric terrain id matches a string id from
+            // the map layer name without loose-equality lint noise.
+            const sameTerrain = (a, b) =>
+                a !== undefined && a !== null && String(a) === String(b);
+            const loaded = surfaces.find(s => sameTerrain(s.output_terrain, terrainId));
+            if (loaded) {
+                return Rx.Observable.of(twSelectSurface(loaded.id));
+            }
+            const projectId = getProjectId(state);
+            if (!projectId) {
+                return Rx.Observable.empty();
+            }
+            return Rx.Observable
+                .from(listAnalysisSurfaces(projectId, { output_terrain: terrainId }))
+                .switchMap(resp => {
+                    const matches = resp?.data?.results || resp?.data || [];
+                    const surface = Array.isArray(matches) ? matches[0] : null;
+                    if (!surface) {
+                        // Plain upload (no source recipe) — nothing to populate.
+                        return Rx.Observable.empty();
+                    }
+                    // Ensure the resolved surface is in the list before selecting so
+                    // the builder can render it, then select it.
+                    return Rx.Observable.of(twLoadData(), twSelectSurface(surface.id));
+                })
+                .catch(() => Rx.Observable.empty());
         });
 
 // ── Create surface ─────────────────────────────────────────────────────────
