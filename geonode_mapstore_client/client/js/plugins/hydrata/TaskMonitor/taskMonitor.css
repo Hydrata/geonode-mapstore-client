@@ -22,19 +22,15 @@
 }
 
 /* Toolbar button */
-.tm-button {
+.sv-tm-button {
     position: relative;
 }
 
-/* Spinner animation for running-state icon */
-@keyframes tm-spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-.tm-spin {
-    animation: tm-spin 1s linear infinite;
-}
+/* NOTE (TASK-1680): the running-state spinner keyframe + class previously lived
+   here as tm-spin. The live spinner is sv-tm-spin in simpleView.css (used by
+   ProcessDetail's running glyph); the bare tm-spin copy here was a dead
+   duplicate of it, so it was removed rather than renamed to avoid a second
+   @keyframes sv-tm-spin definition. */
 
 /* TaskMonitor panel container — keeps the panel sized as a right-side drawer.
    Double-class selector (0,2,0) so the drawer geometry beats the

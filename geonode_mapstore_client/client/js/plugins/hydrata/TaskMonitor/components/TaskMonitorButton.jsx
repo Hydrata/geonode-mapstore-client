@@ -13,7 +13,7 @@ class TaskMonitorButton extends React.Component {
         const { panelOpen, activeCount } = this.props;
         return (
             <button
-                className={`simple-view-right-button tm-button ${panelOpen ? 'active' : ''}`}
+                className={`simple-view-right-button sv-tm-button ${panelOpen ? 'active' : ''}`}
                 onClick={this.props.onClick}
                 title="Tasks"
             >

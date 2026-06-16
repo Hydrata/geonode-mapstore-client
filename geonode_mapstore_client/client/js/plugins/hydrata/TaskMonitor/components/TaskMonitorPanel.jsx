@@ -13,6 +13,7 @@
 import React from 'react';
 const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
+import {EmptyState} from '../../SimpleView/components/primitives';
 import FilterBar from './FilterBar';
 import ProcessRow from './ProcessRow';
 import ProcessDetail from './ProcessDetail';
@@ -55,9 +56,13 @@ class TaskMonitorPanel extends React.Component {
                 <FilterBar activeFilter={filter} onSetFilter={onSetFilter} />
                 <div className="sv-tm-process-list">
                     {(!processes || processes.length === 0) ? (
-                        <div className="sv-tm-empty">
-                            <Message msgId="hydrata.taskMonitor.noProcesses" />
-                        </div>
+                        // TASK-1680: compose the shared EmptyState primitive (the
+                        // .sv-tm-empty hook is carried via extraClassName so the
+                        // existing CSS + DOM-contract test keep working).
+                        <EmptyState
+                            extraClassName="sv-tm-empty"
+                            heading={<Message msgId="hydrata.taskMonitor.noProcesses" />}
+                        />
                     ) : (
                         processes.map(p => (
                             <div key={p.id}>
