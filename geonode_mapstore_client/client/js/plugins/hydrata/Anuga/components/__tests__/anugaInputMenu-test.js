@@ -576,9 +576,12 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
                         try {
                             // The toggle button must read "Hide Contours" because contoursInMap
                             // is true (contour IS in flatLayers).
+                            // TASK-1749 (W1.8 #5): the contour toggle is now ICON-ONLY (no text
+                            // label) — the "Hide Contours"/"Show Contours" semantics live on the
+                            // aria-label, so assert there rather than on textContent.
                             const toggleBtn = container.querySelector('[data-testid^="terrain-contour-toggle-btn-"]');
                             expect(toggleBtn).toExist('contour toggle button must render (expanded)');
-                            expect(toggleBtn.textContent).toContain('Hide Contours');
+                            expect(toggleBtn.getAttribute('aria-label')).toContain('Hide Contours');
 
                             toggleBtn.click();
 

@@ -619,3 +619,75 @@
     gap: 8px;
     align-items: center;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * TASK-1749 (W1.8) — Terrain layer-menu row layout
+ *   (re-UAT findings #4, #5, #6, #13; decision 2026-06-16-q-4 revises ADR#9).
+ *
+ * #4: Mode + Contours are DEM sub-options → nest under the DEM (.terrain-dem-
+ *     group / .terrain-dem-suboptions). Hillshade is a separate sibling row.
+ * #5: Mode + Contours controls are ICON-ONLY, LEFT-justified within their row.
+ * #6: Remove the visibility/zoom/download/trash clutter cluster on each terrain
+ *     row (the MenuRow toolbar) — hidden via CSS so MenuRow behaviour elsewhere
+ *     is untouched.
+ * #13: Left-justify the terrain item headings.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* #13: left-justify the terrain item heading (parent identity title) — overrides
+ * .simple-view-panel's inherited text-align:center. */
+.terrain-parent-title,
+.terrain-pending-name {
+    text-align: left;
+}
+
+/* #4: DEM owns its two sub-options (Mode + Contours) nested beneath it. */
+.terrain-dem-suboptions {
+    display: flex;
+    align-items: center;
+    /* Left-justify the icon buttons (#5) and indent one level under the DEM so
+     * they read as sub-options of this DEM. */
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 3px 4px 5px 32px;
+}
+
+.terrain-dem-suboption {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 0;
+}
+
+/* #5: icon-only Mode + Contours buttons. Square, glyph-centred, no text label. */
+.anuga-terrain-icon-btn.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 24px;
+    padding: 0;
+}
+
+.anuga-terrain-icon-btn.btn .glyphicon {
+    font-size: 12px;
+    top: 0;
+}
+
+/* #6: hide the visibility/zoom/download/trash glyph clusters on terrain DEM +
+ * hillshade rows. The MenuRow renders its primary toolbar (.menu-row-toolbar)
+ * and secondary toolbar (.menu-row-toolbar-secondary, trash/upload) inside
+ * .menu-row-left; scoping the hide to .terrain-dem-row / .terrain-hillshade-row
+ * keeps MenuRow's toolbar intact for every other (non-terrain) layer row. */
+.terrain-dem-row .menu-row-toolbar,
+.terrain-dem-row .menu-row-toolbar-secondary,
+.terrain-hillshade-row .menu-row-toolbar,
+.terrain-hillshade-row .menu-row-toolbar-secondary {
+    display: none;
+}
+
+/* With the toolbar hidden, pull the layer title back to the left edge so the
+ * heading is flush (#13) rather than carrying the removed-toolbar gap. */
+.terrain-dem-row .menu-row-title,
+.terrain-hillshade-row .menu-row-title {
+    margin-left: 0;
+    text-align: left;
+}

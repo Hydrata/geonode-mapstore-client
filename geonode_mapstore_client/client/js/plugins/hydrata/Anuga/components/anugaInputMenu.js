@@ -897,79 +897,83 @@ class TerrainHierarchyRow extends React.Component {
                         </span>
                     )}
                 </div>
-                {/* Expanded zone (TASK-1587 grill 2026-06-15 + BUG-4 UAT 2026-06-16): the
-                    parent row above is DEM IDENTITY ONLY. The DEM MenuRow, the Rendering
-                    mode (a property OF the parent DEM) and the derivative rows (hillshade,
-                    contour overlay) ALL live HERE as flat sibling rows inside the
-                    collapsible section, each with a distinguishing glyph. data-testids are
-                    preserved from the 5.x→epic merge (TASK-1720/1721) so the existing
-                    tests/selectors keep working. */}
+                {/* Expanded zone (TASK-1587 grill 2026-06-15 + BUG-4 UAT 2026-06-16 +
+                    decision 2026-06-16-q-4 REVISING ADR#9): the parent row above is DEM
+                    IDENTITY ONLY. Inside the collapsible section the DEM now OWNS its two
+                    sub-options — Rendering mode and Contours both DERIVE from DEM elevation
+                    so they are NESTED under the DEM (terrain-dem-group). Hillshade is a
+                    SEPARATE sibling row with NO sub-options (it is just a display
+                    derivative). Mode + Contours are icon-only, left-justified buttons.
+                    data-testids are preserved from the 5.x→epic merge (TASK-1720/1721) so
+                    the existing tests/selectors keep working. */}
                 {expanded ? (
                     <div className="terrain-derivatives">
-                        {/* ⛰ DEM layer row (BUG-4): the full DEM MenuRow with its visibility /
-                            zoom controls, folded into the collapsible section. */}
+                        {/* ⛰ DEM group: the DEM MenuRow with Mode + Contours nested beneath it. */}
                         {demLayer ? (
-                            <div className="terrain-derivative-row terrain-dem-row" data-testid="terrain-dem-row">
-                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
-                                <span className="glyphicon glyphicon-picture" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} aria-hidden="true" />
-                                <div style={{flex: 1, minWidth: 0}}>
-                                    <MenuRow layer={demLayer} />
+                            <div className="terrain-dem-group">
+                                {/* DEM layer row (BUG-4): the full DEM MenuRow, folded into
+                                    the collapsible section. The visibility/zoom/download/trash
+                                    glyph cluster is hidden for terrain rows via CSS (#6). */}
+                                <div className="terrain-derivative-row terrain-dem-row" data-testid="terrain-dem-row">
+                                    <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                    <span className="glyphicon glyphicon-picture" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} aria-hidden="true" />
+                                    <div style={{flex: 1, minWidth: 0}}>
+                                        <MenuRow layer={demLayer} />
+                                    </div>
+                                </div>
+                                {/* DEM sub-options (#4): Mode + Contours both derive from DEM
+                                    elevation, so they nest UNDER the DEM, indented one level. */}
+                                <div className="terrain-dem-suboptions">
+                                    {/* ⚙ Rendering mode (styling_mode): Dynamic ↔ Traditional.
+                                        Icon-only, left-justified (#5). */}
+                                    {canEdit && terrainModel?.id ? (
+                                        <div className="terrain-derivative-row terrain-dem-suboption anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
+                                            <button
+                                                className={`btn btn-xs anuga-terrain-mode-btn anuga-terrain-icon-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
+                                                title={isDynamic
+                                                    ? 'Mode: Dynamic — switch to Traditional (static colour relief, GWC tiled)'
+                                                    : 'Mode: Traditional — switch to Dynamic (live ramp rescale on pan/zoom)'}
+                                                aria-label={isDynamic ? 'Switch to Traditional rendering' : 'Switch to Dynamic rendering'}
+                                                aria-pressed={isDynamic}
+                                                data-testid={`terrain-mode-toggle-btn-${terrainModel.id}`}
+                                                onClick={() => onStylingModeChange && onStylingModeChange(
+                                                    terrainModel, demLayer, isDynamic ? 'traditional' : 'dynamic'
+                                                )}
+                                            >
+                                                <span className="glyphicon glyphicon-cog" aria-hidden="true" />
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                    {/* ◷ Contour overlay: toggled derivative. Icon-only,
+                                        left-justified (#5). */}
+                                    {terrainModel?.id ? (
+                                        <div className="terrain-derivative-row terrain-dem-suboption anuga-terrain-contour-toggle" data-testid="terrain-contour-toggle">
+                                            <button
+                                                className={`btn btn-xs anuga-terrain-mode-btn anuga-terrain-icon-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
+                                                title={contoursEnabled
+                                                    ? 'Contours: On — hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
+                                                    : 'Contours: Off — show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
+                                                aria-label={contoursEnabled ? 'Hide Contours' : 'Show Contours'}
+                                                aria-pressed={contoursEnabled}
+                                                data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
+                                                onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled)}
+                                            >
+                                                <span className="glyphicon glyphicon-menu-hamburger" aria-hidden="true" />
+                                            </button>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
                         ) : null}
-                        {/* ⚙ Rendering mode (styling_mode): Dynamic ↔ Traditional. A property
-                            of the parent, NOT a derivative (glossary: Rendering mode). */}
-                        {canEdit && terrainModel?.id ? (
-                            <div className="terrain-derivative-row anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
-                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
-                                <span className="glyphicon glyphicon-cog" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} aria-hidden="true" />
-                                <span className="anuga-terrain-mode-label" style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)'}}>
-                                    {'Mode: ' + (isDynamic ? 'Dynamic' : 'Traditional')}
-                                </span>
-                                <button
-                                    className={`btn btn-xs anuga-terrain-mode-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
-                                    title={isDynamic
-                                        ? 'Switch to Traditional (static colour relief, GWC tiled)'
-                                        : 'Switch to Dynamic (live ramp rescale on pan/zoom)'}
-                                    aria-pressed={isDynamic}
-                                    data-testid={`terrain-mode-toggle-btn-${terrainModel.id}`}
-                                    onClick={() => onStylingModeChange && onStylingModeChange(
-                                        terrainModel, demLayer, isDynamic ? 'traditional' : 'dynamic'
-                                    )}
-                                >
-                                    {isDynamic ? 'Switch to Traditional' : 'Switch to Dynamic'}
-                                </button>
-                            </div>
-                        ) : null}
-                        {/* ◔ Hillshade: always-present derivative (when published). */}
+                        {/* ◔ Hillshade: SEPARATE sibling derivative with NO sub-options (#4).
+                            Just a display derivative. */}
                         {hillshadeLayer ? (
-                            <div className="terrain-derivative-row">
+                            <div className="terrain-derivative-row terrain-hillshade-row">
                                 <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
                                 <span className="glyphicon glyphicon-picture" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} />
                                 <div style={{flex: 1, minWidth: 0}}>
                                     <MenuRow layer={hillshadeLayer} />
                                 </div>
-                            </div>
-                        ) : null}
-                        {/* ◷ Contour overlay: toggled derivative (glossary: Terrain derivative). */}
-                        {terrainModel?.id ? (
-                            <div className="terrain-derivative-row anuga-terrain-contour-toggle" data-testid="terrain-contour-toggle">
-                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
-                                <span className="glyphicon glyphicon-menu-hamburger" style={{color: 'rgba(255,255,255,0.4)', marginRight: 4, fontSize: 10}} aria-hidden="true" />
-                                <span className="anuga-terrain-mode-label" style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)'}}>
-                                    {'Contours: ' + (contoursEnabled ? 'On' : 'Off')}
-                                </span>
-                                <button
-                                    className={`btn btn-xs anuga-terrain-mode-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
-                                    title={contoursEnabled
-                                        ? 'Hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
-                                        : 'Show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
-                                    aria-pressed={contoursEnabled}
-                                    data-testid={`terrain-contour-toggle-btn-${terrainModel.id}`}
-                                    onClick={() => onContoursToggle && onContoursToggle(demLayer?.name, contoursEnabled)}
-                                >
-                                    {contoursEnabled ? 'Hide Contours' : 'Show Contours'}
-                                </button>
                             </div>
                         ) : null}
                     </div>
