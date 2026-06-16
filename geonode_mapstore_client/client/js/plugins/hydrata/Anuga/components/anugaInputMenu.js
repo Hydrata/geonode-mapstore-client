@@ -72,7 +72,7 @@ import {MeshWorkflow} from "./MeshWorkflow";
 // Merge note (5.x→epic 2026-06-15): union of TASK-1652 reorder imports and
 // TASK-1720/1721 styling-mode/contour imports.
 import {addLayer, moveNode, sortNode, changeLayerProperties, removeLayer} from "../../../../../MapStore2/web/client/actions/layers";
-import {getNode} from "../../../../../MapStore2/web/client/utils/LayersUtils";
+import {getNode, sortLayers} from "../../../../../MapStore2/web/client/utils/LayersUtils";
 // W6 (TASK-1422): zoom to mesh extent after successful preview.
 // TASK-1751 (W1.8): changeMapView is re-emitted after a Dynamic toggle so
 // demRescaleEpic stamps env= immediately (it keys ONLY on CHANGE_MAP_VIEW,
@@ -2323,23 +2323,23 @@ const mapDispatchToProps = ( dispatch ) => {
 
                 if (order.length === currentNodes.length) {
                     // All nodes accounted for: emit a single sortNode action.
-                    // sortLayers fn rebuilds flat in group-node order.
-                    dispatchThunk(sortNode(
-                        'Input Data.Terrain',
-                        order,
-                        (newGroupNodes, flatLayers) => {
-                            // Re-sort flat by pulling terrain layers out and
-                            // re-inserting them in the new group node order.
-                            const terrainIds = new Set(newGroupNodes.map(n => n.id || n));
-                            const nonTerrain = flatLayers.filter(l => !terrainIds.has(l.id));
-                            const newTerrain = newGroupNodes
-                                .map(n => flatLayers.find(l => l.id === (n.id || n)))
-                                .filter(Boolean);
-                            // Preserve the original split point (terrain layers were at the
-                            // end of the flat array in their group — keep that assumption).
-                            return [...nonTerrain, ...newTerrain];
-                        }
-                    ));
+                    // TASK-1752 (W1.8) REGRESSION FIX: the SORT_NODE reducer invokes the
+                    // sortLayers callback as sortLayers(newGroups, state.flat) where
+                    // newGroups is the WHOLE reordered state.groups TREE (deepChange returns
+                    // the full top-level groups array, not just the terrain group's nodes).
+                    // The old hand-rolled callback assumed its first arg was the reordered
+                    // terrain-node array, so `new Set(newGroupNodes.map(n => n.id || n))`
+                    // collected the TOP-LEVEL GROUP ids ('Input Data', 'Results') instead of
+                    // terrain LAYER ids → nonTerrain kept every layer, newTerrain was empty →
+                    // state.flat was returned UNCHANGED. state.groups reordered (so the tree
+                    // re-rendered) but flat — which drives map z-order AND is what
+                    // saveDirectContent persists — never moved, so the reorder "didn't land".
+                    // Use the canonical LayersUtils.sortLayers, which rebuilds flat from the
+                    // full groups tree (the exact callback MapStore2's own TOC DnD passes via
+                    // sortUsing(sortLayers, sortNode)). Because flat is rebuilt purely from the
+                    // reordered terrain group node order, a DEM moves TOGETHER with its nested
+                    // hillshade + contour derivatives as a group.
+                    dispatchThunk(sortNode('Input Data.Terrain', order, sortLayers));
                 } else {
                     // Partial match (some layers pending): fall back to sequential moveNode.
                     // This is safe for a small number of nodes.
@@ -2394,3 +2394,8 @@ export {AnugaInputMenu, AnugaInputMenuClass};
 // conform (ErrorStrip / EmptyState / StatusBadge substitution) can be unit-tested
 // in isolation without standing up the connected menu + a mock store.
 export {TWStaleBadge, TWSurfaceList, TWRecipeBuilder};
+// TASK-1752 (W1.8): export the dispatch map so the terrain-reorder thunk
+// (onReorderTerrainLayers) can be exercised end-to-end through the REAL layers
+// reducer in a unit test — guarding the sortLayers-callback regression that a
+// hand-rolled equivalent would miss.
+export {mapDispatchToProps};

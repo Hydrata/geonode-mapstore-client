@@ -1252,3 +1252,157 @@ describe('TASK-1751 terrain Mode toggle — no map save + Dynamic restyle nudge'
         }, 50);
     });
 });
+
+// ---------------------------------------------------------------------------
+// TASK-1752 (W1.8): terrain reorder drag-and-drop regression.
+//
+// The onReorderTerrainLayers thunk dispatches a single sortNode('Input
+// Data.Terrain', order, sortLayers) so the Terrain group re-orders and
+// state.layers.flat is rebuilt in the new order, then saveDirectContent()
+// persists the blob.
+//
+// THE REGRESSION (root cause): the SORT_NODE reducer invokes its sortLayers
+// callback as sortLayers(newGroups, state.flat) where `newGroups` is the WHOLE
+// reordered state.groups TREE (deepChange returns the full top-level groups
+// array — 'Input Data', 'Results', … — with only the Terrain group's nodes
+// replaced). The old hand-rolled callback assumed its first argument was the
+// flat array of reordered TERRAIN nodes, so it built `new Set(newGroupNodes.map(
+// n => n.id || n))` from the TOP-LEVEL GROUP ids, found no flat layer matching
+// them, kept every layer in `nonTerrain`, produced an empty `newTerrain`, and
+// returned state.flat UNCHANGED. The TOC tree re-rendered (groups moved) but the
+// map z-order + the persisted blob (both driven by flat) never moved — so the
+// reorder visibly "didn't land". The fix uses the canonical
+// LayersUtils.sortLayers, which rebuilds flat from the whole groups tree (the
+// exact callback MapStore2's own TOC DnD passes via sortUsing(sortLayers,
+// sortNode)).
+//
+// This test drives the REAL onReorderTerrainLayers thunk (the exported production
+// mapDispatchToProps) through a REAL redux store wired to the REAL MapStore2
+// layers reducer + thunk middleware — NOT a hand-rolled re-derivation. That is
+// load-bearing: the bug lived in the sortLayers CALLBACK the thunk passes to
+// sortNode, so a test that re-implements the algorithm (or passes the canonical
+// sortLayers itself) would pass against BOTH the broken and fixed code. Calling
+// the real thunk and asserting on the resulting state.flat is what makes this a
+// genuine regression guard: it FAILS against the old callback (flat unchanged)
+// and PASSES against the fix.
+// ---------------------------------------------------------------------------
+describe('TASK-1752 anugaInputMenu terrain reorder lands on state.flat (regression)', () => {
+    const { combineReducers, createStore, applyMiddleware } = require('redux');
+    const reduxThunk = require('redux-thunk');
+    const thunkMiddleware = reduxThunk.default || reduxThunk.thunk || reduxThunk;
+    const layersReducer = require('../../../../../../MapStore2/web/client/reducers/layers').default;
+    const { getLayersByGroup } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
+    const { getNode } = require('../../../../../../MapStore2/web/client/utils/LayersUtils');
+    const { SAVE_DIRECT_CONTENT } = require('@js/actions/gnsave');
+    const { mapDispatchToProps } = require('../anugaInputMenu');
+
+    // Two DEMs, each with a hillshade derivative, plus a contour overlay on dem1.
+    // group nodes are render-top-first; flat carries every layer.
+    const mkLayers = () => ([
+        { id: 'l_d1', name: 'dem1', group: 'Input Data.Terrain' },
+        { id: 'l_d1_hs', name: 'dem1_hs', group: 'Input Data.Terrain' },
+        { id: 'dem1__contours', name: 'dem1', style: 'dem_contours', group: 'Input Data.Terrain' },
+        { id: 'l_d2', name: 'dem2', group: 'Input Data.Terrain' },
+        { id: 'l_d2_hs', name: 'dem2_hs', group: 'Input Data.Terrain' },
+        // a non-terrain layer must be left untouched by the reorder
+        { id: 'l_bnd', name: 'bnd1', group: 'Input Data.Boundaries' }
+    ]);
+
+    // terrainGroups as _buildTerrainGroups yields them: group order dem1, dem2.
+    const mkTerrainGroups = () => ([
+        { terrain: { id: 1 }, demLayer: { id: 'l_d1', name: 'dem1' }, hillshadeLayer: { id: 'l_d1_hs', name: 'dem1_hs' } },
+        { terrain: { id: 2 }, demLayer: { id: 'l_d2', name: 'dem2' }, hillshadeLayer: { id: 'l_d2_hs', name: 'dem2_hs' } }
+    ]);
+
+    const makeRealStore = () => {
+        const flat = mkLayers();
+        const groups = getLayersByGroup(flat, []);
+        const dispatched = [];
+        // capture every plain action AFTER the reducer has applied it.
+        const captureLast = () => (next) => (action) => {
+            if (action && action.type) dispatched.push(action);
+            return next(action);
+        };
+        const store = createStore(
+            combineReducers({ layers: layersReducer }),
+            { layers: { flat, groups } },
+            applyMiddleware(thunkMiddleware, captureLast)
+        );
+        return { store, dispatched };
+    };
+
+    it('reorder fires the thunk → state.flat is rebuilt so the moved DEM rides with its hillshade + contour, then saveDirectContent persists', () => {
+        const { store, dispatched } = makeRealStore();
+
+        const baselineFlatTerrain = store.getState().layers.flat
+            .filter(l => l.group === 'Input Data.Terrain')
+            .map(l => l.id);
+        const terrainNode = getNode(store.getState().layers.groups, 'Input Data.Terrain');
+        expect(terrainNode).toExist('Terrain group node must exist');
+        expect(terrainNode.nodes.length).toBe(5, 'Terrain group must hold dem1+hs+contour and dem2+hs');
+
+        // Drive the REAL production thunk. Move dem2 (index 1) to the TOP (index 0).
+        const thunk = mapDispatchToProps(store.dispatch).onReorderTerrainLayers;
+        thunk(mkTerrainGroups(), 1, 0);
+
+        const state = store.getState().layers;
+
+        // GROUPS reordered (this part worked even with the old broken callback)…
+        const newTerrainNodes = getNode(state.groups, 'Input Data.Terrain').nodes
+            .map(n => (n && n.id) || n);
+        expect(newTerrainNodes).toEqual(
+            ['l_d2', 'l_d2_hs', 'l_d1', 'l_d1_hs', 'dem1__contours'],
+            'Terrain group nodes must follow the new order (dem2 group on top)'
+        );
+
+        // …and CRITICALLY state.flat must ALSO be reordered (the regression).
+        // MapStore2's flat is the REVERSE of group-node order (flat is bottom-to-top,
+        // nodes are top-to-bottom — see LayersUtils.initialReorderLayers).
+        const flatTerrainOrder = state.flat
+            .filter(l => l.group === 'Input Data.Terrain')
+            .map(l => l.id);
+
+        // 1) flat genuinely CHANGED — the old callback returned state.flat UNCHANGED
+        //    so the reorder "didn't land" on the map / persisted blob.
+        expect(flatTerrainOrder).toNotEqual(
+            baselineFlatTerrain,
+            'state.flat terrain order must change — the reorder must LAND on flat, not just groups'
+        );
+
+        // 2) flat mirrors the reordered group nodes (every node rebuilt; none dropped).
+        expect(flatTerrainOrder).toEqual(
+            ['l_d2', 'l_d2_hs', 'l_d1', 'l_d1_hs', 'dem1__contours'].slice().reverse(),
+            'state.flat must mirror the reordered group nodes (reverse convention)'
+        );
+
+        // 3) each DEM stays adjacent to its derivatives — the group moved as a unit.
+        const i = (id) => flatTerrainOrder.indexOf(id);
+        expect(Math.abs(i('l_d2_hs') - i('l_d2'))).toBe(1, 'dem2 hillshade stays adjacent to dem2');
+        expect(Math.abs(i('l_d1_hs') - i('l_d1'))).toBe(1, 'dem1 hillshade stays adjacent to dem1');
+        const dem1Slots = [i('l_d1'), i('l_d1_hs'), i('dem1__contours')].sort((a, b) => a - b);
+        expect(dem1Slots[2] - dem1Slots[0]).toBe(2,
+            'dem1 + hillshade + contour are contiguous in flat (derivatives ride along)');
+        const dem2Slots = [i('l_d2'), i('l_d2_hs')];
+        expect(Math.min(...dem2Slots)).toBeGreaterThan(Math.max(...dem1Slots),
+            'the moved dem2 group changed sides relative to the dem1 group');
+
+        // 4) the non-terrain layer survives untouched.
+        expect(state.flat.some(l => l.id === 'l_bnd')).toBe(true, 'non-terrain layer must survive the reorder');
+
+        // 5) the blob is persisted (saveDirectContent dispatched after the sort).
+        expect(dispatched.some(a => a.type === SAVE_DIRECT_CONTENT)).toBe(true,
+            'saveDirectContent must fire so the new order persists to the map blob');
+    });
+
+    it('no-op guards: same index / single group do not dispatch anything', () => {
+        const { store, dispatched } = makeRealStore();
+        const baseFlat = store.getState().layers.flat.map(l => l.id);
+        const thunk = mapDispatchToProps(store.dispatch).onReorderTerrainLayers;
+        // fromIndex === toIndex → early return.
+        thunk(mkTerrainGroups(), 1, 1);
+        // single group → early return.
+        thunk([mkTerrainGroups()[0]], 0, 0);
+        expect(dispatched.length).toBe(0, 'guarded no-ops must not dispatch SORT_NODE or saveDirectContent');
+        expect(store.getState().layers.flat.map(l => l.id)).toEqual(baseFlat, 'flat untouched on a no-op reorder');
+    });
+});
