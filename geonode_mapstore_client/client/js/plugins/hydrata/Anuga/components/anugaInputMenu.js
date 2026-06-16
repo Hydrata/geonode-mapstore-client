@@ -257,17 +257,29 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
     const baseIdx = inputs.length - 1;
     return (
         <div className="tw-design-inputs">
-            <label className="tw-label">
-                DEM Stack <span className="tw-label-sub">(top = highest priority, bottom = base)</span>
+            {/* #15 (re-UAT): user-facing label is the normal-case "Merge terrains".
+                The internal/domain term stays "DEM priority stack". */}
+            <label className="tw-label tw-label-normalcase">
+                Merge terrains <span className="tw-label-sub">(top = highest priority, bottom = base)</span>
             </label>
             {inputs.map((inp, idx) => {
                 const t = terrains.find(x => x.id === inp.terrain_id);
                 const isBase = idx === baseIdx;
                 const isTop = idx === 0;
+                // #14 (re-UAT): bottom entry = BASE, top entry = TOP, any layers in
+                // between numbered 1,2,3… with 1 = closest to the TOP.
+                const badgeLabel = isBase ? 'BASE' : isTop ? 'TOP' : idx;
+                // #16 (re-UAT): the per-entry toggle is a PENCIL/edit affordance.
+                // Greyed pencil = "unmodified" (default datum anchor); GREEN pencil =
+                // "modifiable" (feather-merge may reconcile it). The base entry carries
+                // the SAME pencil for visual consistency but is locked-on (modifiable)
+                // because the base can never be unmodified per the domain model.
+                // For the base row the effective "modifiable" state is always true.
+                const isModifiable = isBase ? true : !inp.unmodified;
                 return (
                     <div key={inp.terrain_id} className="tw-design-input-row" data-testid={`dem-stack-row-${inp.terrain_id}`}>
                         <span className="tw-priority-badge" title={isTop ? 'Highest priority' : isBase ? 'Base' : `Priority ${idx + 1}`}>
-                            {isBase ? 'B' : idx + 1}
+                            {badgeLabel}
                         </span>
                         <span className="tw-input-title">{t ? (t.title || t.name) : `Terrain #${inp.terrain_id}`}</span>
                         <OverlayTrigger
@@ -275,22 +287,22 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
                             overlay={
                                 <Tooltip>
                                     {isBase
-                                        ? 'Base is always modifiable (anchors datum reconciliation)'
-                                        : inp.unmodified ? 'Unmodified (seamless pass-through)' : 'Modifiable (hydro-enforced)'}
+                                        ? 'modifiable (base always reconciles datum)'
+                                        : inp.unmodified ? 'unmodified' : 'modifiable'}
                                 </Tooltip>
                             }
                         >
                             <button
                                 type="button"
-                                className={`tw-icon-btn tw-unmodified-toggle${inp.unmodified ? ' tw-unmodified-on' : ''}`}
+                                className={`tw-icon-btn tw-unmodified-toggle tw-pencil-toggle${isModifiable ? ' tw-modifiable-on' : ''}${inp.unmodified ? ' tw-unmodified-on' : ''}`}
                                 onClick={() => toggleUnmodified(idx)}
                                 disabled={disabled || isBase}
-                                title={isBase ? 'Locked modifiable' : 'Toggle unmodified'}
-                                aria-label={`Unmodified: ${inp.unmodified ? 'on' : 'off'}`}
-                                aria-pressed={inp.unmodified}
+                                title={isBase ? 'modifiable (locked)' : inp.unmodified ? 'unmodified' : 'modifiable'}
+                                aria-label={isBase ? 'modifiable (locked)' : `modifiable: ${isModifiable ? 'on' : 'off'}`}
+                                aria-pressed={isModifiable}
                                 data-testid={`unmodified-toggle-${inp.terrain_id}`}
                             >
-                                {inp.unmodified ? '⊙' : '○'}
+                                <span className="glyphicon glyphicon-pencil" aria-hidden="true" />
                             </button>
                         </OverlayTrigger>
                         <button type="button" className="tw-icon-btn" onClick={() => moveUp(idx)} disabled={disabled || idx === 0} title="Move up">↑</button>
@@ -494,9 +506,10 @@ class TWRecipeBuilder extends React.Component {
                         At least one DEM must be modifiable (not set to unmodified).
                     </div>
                 )}
-                {/* TASK-1671: Parameters section — NO Save parameters button */}
+                {/* TASK-1671: Parameters section — NO Save parameters button.
+                    #10 (re-UAT): the "PARAMETERS" sub-heading was redundant with the
+                    collapsible panel title and is removed. */}
                 <div className="tw-params-section">
-                    <div className="tw-label">Parameters</div>
                     <div className="tw-param-grid">
                         <label>Use culverts</label>
                         <input type="checkbox" checked={!!use_culverts} onChange={(e) => this.handleParam('use_culverts', e.target.checked)} disabled={saving || deriving} data-testid="use-culverts-check"/>
@@ -530,7 +543,8 @@ class TWRecipeBuilder extends React.Component {
                         disabled={!canDerive}
                         data-testid="derive-btn"
                     >
-                        {deriving ? 'Deriving…' : 'Derive terrain'}
+                        {/* #9 (re-UAT): "Derive terrain" renamed to "Create". */}
+                        {deriving ? 'Creating…' : 'Create'}
                     </Button>
                     {deriving && <div className="tw-derive-progress" data-testid="derive-progress">Processing — watch the Task Monitor for progress.</div>}
                     {/* TASK-1674: tw-error -> shared ErrorStrip (testid kept on the wrapper). */}
@@ -614,7 +628,11 @@ class TWSurfaceListItem extends React.Component {
                     ref={(el) => { this.input = el; }}
                     data-testid={`surface-title-${surface.id}`}
                 />
-                <TWStaleBadge isStale={surface.is_stale}/>
+                {/* #11 (re-UAT): never show "stale" on a surface that has never been
+                    derived. is_stale is True both when no output exists yet AND when a
+                    derived output's inputs have since changed — only the latter is a real
+                    "stale" state. Gate on output_terrain existing (a derived output). */}
+                <TWStaleBadge isStale={!!surface.is_stale && !!surface.output_terrain}/>
                 <button
                     type="button"
                     className="tw-icon-btn tw-icon-btn-danger tw-surface-delete"
@@ -632,8 +650,9 @@ class TWSurfaceListItem extends React.Component {
 function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onNew, saving, createError }) {
     return (
         <div className="tw-surface-list">
-            <div className="tw-surface-list-header">
-                <span className="tw-label">Analysis Surfaces</span>
+            {/* #10 (re-UAT): the "ANALYSIS SURFACES" sub-heading was redundant with the
+                collapsible panel title above; only the "+ New" action remains in the header. */}
+            <div className="tw-surface-list-header tw-surface-list-header--no-label">
                 <button type="button" className="tw-new-btn" onClick={onNew} disabled={saving} data-testid="new-surface-btn">+ New analysis surface</button>
             </div>
             {/* TASK-1658: a failed create has no selectedSurface, so the recipe-form
@@ -1890,8 +1909,10 @@ class AnugaInputMenuClass extends React.Component {
                     ) : null}
                     {layers.length === 0 ? this.renderTerrainEmpty() : null}
                 </div>
-                {/* TASK-1645 (W1.5): Analysis Surface recipe builder, re-homed from TerrainWorkbench */}
-                {projectId ? (
+                {/* TASK-1645 (W1.5): Analysis Surface recipe builder, re-homed from TerrainWorkbench.
+                    #1 (re-UAT): with ZERO terrains there is nothing to merge into an analysis
+                    surface, so the whole section is hidden until at least one terrain exists. */}
+                {projectId && (twTerrains || []).length >= 1 ? (
                     <div className="anuga-terrain-recipe-section">
                         <div
                             className="anuga-terrain-recipe-toggle"

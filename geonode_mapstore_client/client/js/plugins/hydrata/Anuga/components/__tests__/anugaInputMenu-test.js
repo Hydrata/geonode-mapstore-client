@@ -887,3 +887,226 @@ describe('TASK-1674 terrain recipe builder conformed onto SimpleView primitives'
         expect(container.querySelector('.sv-error-strip')).toNotExist('no ErrorStrip without an error');
     });
 });
+
+// ── TASK-1750 (W1.8): Analysis Surfaces recipe panel — labels, badges, headings,
+//    modifiable/unmodified pencil toggle, stale-only-when-derived, zero-terrain
+//    section guard. (re-UAT findings #1,#9,#10,#11,#14,#15,#16) ─────────────────
+describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/headings', () => {
+    let container;
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+    afterEach(() => {
+        ReactDOM.unmountComponentAtNode(container);
+        document.body.removeChild(container);
+    });
+
+    // A 3-entry DEM stack: index 0 = top, index 2 = base.
+    const terrains3 = [
+        { id: 11, title: 'Top DEM' },
+        { id: 12, title: 'Mid DEM' },
+        { id: 13, title: 'Base DEM' }
+    ];
+    const surface3 = {
+        id: 7, title: 'Surface A',
+        inputs_ordered: [
+            { id: 1, terrain: 11, priority: 0, unmodified: true },
+            { id: 2, terrain: 12, priority: 1, unmodified: false },
+            { id: 3, terrain: 13, priority: 2, unmodified: false }
+        ],
+        use_culverts: false, feather_width_m: 10, target_resolution_m: 1,
+        breach_max_cost: 100, breach_search_dist: 50
+    };
+
+    function renderRecipe(props) {
+        ReactDOM.render(
+            <TWRecipeBuilder
+                surface={surface3}
+                terrains={terrains3}
+                onUpdate={() => {}}
+                onDerive={() => {}}
+                {...props}
+            />,
+            container
+        );
+    }
+
+    // #15: the DEM-stack heading is the normal-case "Merge terrains" (internal
+    //      term stays "DEM priority stack"); NOT the old "DEM Stack".
+    it('#15: DEM-stack heading reads "Merge terrains" in normal case (tw-label-normalcase)', () => {
+        renderRecipe();
+        const label = container.querySelector('.tw-design-inputs .tw-label');
+        expect(label).toExist('the DEM-stack heading label exists');
+        expect(label.textContent).toContain('Merge terrains');
+        expect(label.textContent).toNotContain('DEM Stack');
+        expect(label.className).toContain('tw-label-normalcase');
+    });
+
+    // #14: bottom = BASE, top = TOP, in-between numbered (1 = closest to TOP).
+    it('#14: stack badges are TOP / 1 / BASE (top, in-between numbered, base)', () => {
+        renderRecipe();
+        const badges = [...container.querySelectorAll('.tw-priority-badge')].map(b => b.textContent.trim());
+        expect(badges).toEqual(['TOP', '1', 'BASE']);
+    });
+
+    // #16: per-entry toggle is a PENCIL. Greyed (no .tw-modifiable-on) = unmodified;
+    //      GREEN (.tw-modifiable-on) = modifiable. Tooltips say modifiable/unmodified
+    //      (never fixed/adjustable). Base pencil is locked-on (green, disabled).
+    it('#16: pencil toggle — greyed=unmodified, green=modifiable, base locked-on green', () => {
+        renderRecipe();
+        // Every toggle renders a pencil glyph (no ⊙/○).
+        const pencils = container.querySelectorAll('.tw-pencil-toggle .glyphicon-pencil');
+        expect(pencils.length).toBe(3);
+        expect(container.textContent).toNotContain('⊙');
+        expect(container.textContent).toNotContain('○');
+
+        const topBtn = container.querySelector('[data-testid="unmodified-toggle-11"]');  // unmodified
+        const midBtn = container.querySelector('[data-testid="unmodified-toggle-12"]');  // modifiable
+        const baseBtn = container.querySelector('[data-testid="unmodified-toggle-13"]'); // base, locked-on
+
+        // Top entry is unmodified → greyed pencil (NOT modifiable-on).
+        expect(topBtn.className).toNotContain('tw-modifiable-on');
+        expect(topBtn.getAttribute('aria-pressed')).toBe('false');
+        expect(topBtn.getAttribute('title')).toBe('unmodified');
+
+        // Mid entry is modifiable → green pencil.
+        expect(midBtn.className).toContain('tw-modifiable-on');
+        expect(midBtn.getAttribute('aria-pressed')).toBe('true');
+        expect(midBtn.getAttribute('title')).toBe('modifiable');
+
+        // Base is always modifiable (locked-on green) and disabled.
+        expect(baseBtn.className).toContain('tw-modifiable-on');
+        expect(baseBtn.disabled).toBe(true);
+        expect(baseBtn.getAttribute('title')).toContain('modifiable');
+
+        // Glossary: never "fixed"/"adjustable"/"locked"/"frozen" in the affordance copy.
+        const toggleCopy = [topBtn, midBtn, baseBtn]
+            .map(b => `${b.getAttribute('title')} ${b.getAttribute('aria-label')}`)
+            .join(' ')
+            .toLowerCase();
+        expect(toggleCopy).toNotContain('fixed');
+        expect(toggleCopy).toNotContain('adjustable');
+    });
+
+    // #9: the derive button is renamed "Create" (was "Derive terrain").
+    it('#9: the derive action button reads "Create" (not "Derive terrain")', () => {
+        renderRecipe();
+        const btn = container.querySelector('[data-testid="derive-btn"]');
+        expect(btn).toExist();
+        expect(btn.textContent).toContain('Create');
+        expect(btn.textContent).toNotContain('Derive terrain');
+    });
+
+    // #10: the redundant "PARAMETERS" sub-heading is removed.
+    it('#10: the redundant "Parameters" sub-heading is gone', () => {
+        renderRecipe();
+        const labels = [...container.querySelectorAll('.tw-params-section .tw-label')];
+        expect(labels.length).toBe(0);
+    });
+
+    // #10: the redundant "ANALYSIS SURFACES" sub-heading (surface-list header) is removed.
+    it('#10: the redundant "Analysis Surfaces" sub-heading is gone from the list header', () => {
+        ReactDOM.render(
+            <TWSurfaceList
+                surfaces={[]}
+                selectedId={null}
+                onSelect={() => {}}
+                onRename={() => {}}
+                onDelete={() => {}}
+                onNew={() => {}}
+            />,
+            container
+        );
+        const header = container.querySelector('.tw-surface-list-header');
+        expect(header).toExist('the header (with the + New action) survives');
+        expect(header.querySelector('.tw-label')).toNotExist('no sub-heading label in the header');
+        expect(header.className).toContain('tw-surface-list-header--no-label');
+        // The + New action is still present.
+        expect(container.querySelector('[data-testid="new-surface-btn"]')).toExist();
+    });
+
+    // #11: never show "stale" on a surface that has never been derived.
+    it('#11: stale badge hidden when never derived (no output_terrain), shown once derived + stale', () => {
+        const base = {
+            id: 9, title: 'Surf', inputs_ordered: [], use_culverts: false,
+            feather_width_m: 10, target_resolution_m: 1, breach_max_cost: 100, breach_search_dist: 50
+        };
+        const renderList = (s) => ReactDOM.render(
+            <TWSurfaceList
+                surfaces={[s]}
+                selectedId={null}
+                onSelect={() => {}}
+                onRename={() => {}}
+                onDelete={() => {}}
+                onNew={() => {}}
+            />,
+            container
+        );
+
+        // Never derived: is_stale true (BE returns true with no output), output_terrain null.
+        renderList({ ...base, is_stale: true, output_terrain: null });
+        expect(container.querySelector('.sv-status-badge')).toNotExist('no stale pill before any derive');
+
+        // Derived but inputs changed since: a derived output exists AND is_stale.
+        ReactDOM.unmountComponentAtNode(container);
+        renderList({ ...base, is_stale: true, output_terrain: 1234 });
+        const badge = container.querySelector('.sv-status-badge');
+        expect(badge).toExist('stale pill shows once a derived output exists and inputs changed');
+        expect(badge.textContent).toContain('stale');
+
+        // Derived and fresh: no stale pill.
+        ReactDOM.unmountComponentAtNode(container);
+        renderList({ ...base, is_stale: false, output_terrain: 1234 });
+        expect(container.querySelector('.sv-status-badge')).toNotExist('no stale pill when fresh');
+    });
+
+    // #1: with ZERO terrains, the whole Analysis Surfaces section is absent.
+    //     Walk the React-element tree returned by renderTerrainPane (avoids a full
+    //     connected mount) looking for the .anuga-terrain-recipe-section node.
+    function findClassInTree(el, cls) {
+        if (!el || typeof el !== 'object') return false;
+        if (Array.isArray(el)) return el.some(c => findClassInTree(c, cls));
+        const cn = el.props && el.props.className;
+        if (typeof cn === 'string' && cn.split(/\s+/).indexOf(cls) !== -1) return true;
+        const children = el.props && el.props.children;
+        return findClassInTree(children, cls);
+    }
+
+    function renderTerrainPaneTree(twTerrains) {
+        const instance = Object.create(AnugaInputMenuClass.prototype);
+        instance.props = {
+            terrainLayers: [], canEditAnugaMap: true, flatLayers: [],
+            projectId: 42, twTerrains,
+            twSurfaces: [], twSelectedSurfaceId: null,
+            twLoading: false, twError: null, twSaving: false, twSaveError: null,
+            twDeriving: false, twDeriveError: null,
+            onTwLoadData: () => {}, onTwSelectSurface: () => {}, onTwCreateSurface: () => {},
+            onTwUpdateSurface: () => {}, onTwDeleteSurface: () => {}, onTwDerive: () => {},
+            setVisibleTerrainBboxPanel: () => {}
+        };
+        instance.state = {
+            twSurfaceSectionOpen: false, expandedTerrainIds: new Set(), contoursEnabled: {}
+        };
+        // Stub the heavy helpers renderTerrainPane delegates to.
+        instance.renderPaneHead = () => null;
+        instance.renderTerrainEmpty = () => null;
+        instance._buildTerrainGroups = () => [];
+        instance._terrainFileInputRef = { current: null };
+        instance._openTerrainFilePicker = () => {};
+        instance._onTerrainFileSelected = () => {};
+        instance._handleTerrainStylingModeChange = () => {};
+        instance._handleContoursToggle = () => {};
+        return instance.renderTerrainPane();
+    }
+
+    it('#1: Analysis Surfaces section is ABSENT with zero terrains, PRESENT with >=1', () => {
+        const treeZero = renderTerrainPaneTree([]);
+        expect(findClassInTree(treeZero, 'anuga-terrain-recipe-section'))
+            .toBe(false, 'recipe section must not render with zero terrains');
+
+        const treeOne = renderTerrainPaneTree([{ id: 11, title: 'Top DEM' }]);
+        expect(findClassInTree(treeOne, 'anuga-terrain-recipe-section'))
+            .toBe(true, 'recipe section renders once at least one terrain exists');
+    });
+});
