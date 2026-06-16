@@ -232,21 +232,28 @@ export const finalizeTerrainUpload = (projectId, { processId, stagingKey, title 
 
 // Orchestrator — the full presign → PUT → finalize chain for one File. Keeps
 // the 3-step dance in the API layer so callers (anugaInputMenu) only deal with
-// {file, title, onProgress}. Resolves with the finalize response (the
+// {file, title, onProgress, onPresign}. Resolves with the finalize response (the
 // serialized Terrain row); rejects on any step's failure (presign 4xx, S3 PUT
 // failure, or finalize 4xx) WITHOUT having created a Terrain row when the PUT
 // fails (finalize is never called).
 //
 //   onProgress(pct)  — 0..100 byte-transfer progress (PUT phase only).
+//   onPresign(data)  — TASK-1728: fires once with the presign response body the
+//                      instant it returns (carries process_id + staging_key), so
+//                      the caller can key the Tasks-Panel row on the REAL BE
+//                      process_id BEFORE the byte transfer starts — the row then
+//                      merges seamlessly with the polled BE Process (no duplicate)
+//                      and the upload is non-blocking from the first byte.
 //
 // Returns the axios finalize response (caller reads response.data for Terrain).
-export const uploadTerrainDirect = (projectId, file, { title, onProgress } = {}) => {
+export const uploadTerrainDirect = (projectId, file, { title, onProgress, onPresign } = {}) => {
     const filename = file && file.name;
     const contentType = (file && file.type) || 'application/octet-stream';
     const size = file && typeof file.size === 'number' ? file.size : undefined;
     return presignTerrainUpload(projectId, { filename, contentType, size })
         .then((presignResp) => {
             const data = presignResp && presignResp.data || {};
+            if (typeof onPresign === 'function') onPresign(data);
             // The PUT Content-Type MUST match what the presign signed. The BE
             // echoes it back as content_type; fall back to what we sent.
             const signedContentType = data.content_type || contentType;

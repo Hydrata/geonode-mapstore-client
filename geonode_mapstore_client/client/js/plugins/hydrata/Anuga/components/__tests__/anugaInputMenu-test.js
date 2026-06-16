@@ -167,53 +167,15 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
     });
 });
 
-// ── TASK-1729 (W1.7): upload progress/error strip rendering ────────────────
-// Exercise _renderTerrainUploadProgress in isolation against a mock instance,
-// mirroring the _buildTerrainGroups direct-prototype pattern below. The
-// presign→PUT→finalize chain itself is covered by anugaApi-test.js.
-describe('TASK-1729 terrain upload progress strip', () => {
-    const ReactT = require('react');
-    const ReactDOMServer = require('react-dom/server');
-
-    function renderStrip(terrainUpload) {
-        const { AnugaInputMenuClass } = require('../anugaInputMenu');
-        const instance = Object.create(AnugaInputMenuClass.prototype);
-        instance.state = { terrainUpload };
-        instance._dismissTerrainUpload = () => {};
-        const node = instance._renderTerrainUploadProgress();
-        if (node === null) return '';
-        return ReactDOMServer.renderToStaticMarkup(ReactT.createElement(ReactT.Fragment, null, node));
-    }
-
-    it('renders nothing when phase is null (idle)', () => {
-        expect(renderStrip({ phase: null, pct: 0 })).toBe('');
-    });
-
-    it('renders a progress bar + percentage while uploading', () => {
-        const html = renderStrip({ phase: 'uploading', pct: 42, filename: 'dem.tif', error: null });
-        expect(html).toContain('anuga-terrain-upload-progress');
-        expect(html).toContain('sv-progress-fill');
-        expect(html).toContain('42%');
-        expect(html).toContain('dem.tif');
-    });
-
-    it('renders a full bar while finalizing', () => {
-        const html = renderStrip({ phase: 'finalizing', pct: 100, filename: 'dem.tif', error: null });
-        expect(html).toContain('anuga-terrain-upload-progress');
-        expect(html).toContain('width:100%');
-    });
-
-    it('renders the ErrorStrip on error (with the detail + filename)', () => {
-        const html = renderStrip({ phase: 'error', pct: 0, filename: 'dem.tif', error: 'File exceeds the 5 GiB limit.' });
-        expect(html).toContain('anuga-terrain-upload-error');
-        expect(html).toContain('sv-error-strip');
-        expect(html).toContain('File exceeds the 5 GiB limit.');
-        expect(html).toContain('dem.tif');
-    });
-});
-
-// ── TASK-1729: _onTerrainFileSelected guard + state transitions ────────────
-describe('TASK-1729 _onTerrainFileSelected', () => {
+// ── TASK-1728 (W1.7): terrain upload surfaces on the Tasks Panel ───────────
+//
+// The blocking modal AND the interim inline progress strip (TASK-1729) are gone:
+// _renderTerrainUploadProgress / _dismissTerrainUpload no longer exist, and
+// renderTerrainPane no longer renders any upload-status node. Progress, success,
+// and failure all surface on the W1.5 Tasks Panel via onUpdateProcess +
+// onOpenTaskMonitor. These tests pin that contract. The presign→PUT→finalize
+// chain itself (incl. the new onPresign callback) is covered by anugaApi-test.js.
+describe('TASK-1728 terrain upload — no inline strip, surfaces on Tasks Panel', () => {
     function makeInstance(props) {
         const { AnugaInputMenuClass } = require('../anugaInputMenu');
         // _onTerrainFileSelected is a bound class-field arrow fn (assigned in the
@@ -228,17 +190,77 @@ describe('TASK-1729 _onTerrainFileSelected', () => {
         return instance;
     }
 
-    it('sets an error state (no network) when no project is selected', () => {
-        const instance = makeInstance({ projectId: null });
+    it('the legacy inline progress-strip method is removed (lives on the Tasks Panel now)', () => {
+        const { AnugaInputMenuClass } = require('../anugaInputMenu');
+        expect(AnugaInputMenuClass.prototype._renderTerrainUploadProgress).toBe(undefined);
+    });
+
+    it('no project → opens the Tasks Panel and injects an ERROR process row (no inline strip)', () => {
+        let opened = null;
+        const processes = [];
+        const instance = makeInstance({
+            projectId: null,
+            onOpenTaskMonitor: (open) => { opened = open; },
+            onUpdateProcess: (p) => processes.push(p)
+        });
         instance._onTerrainFileSelected({ target: { files: [{ name: 'dem.tif', size: 10, type: 'image/tiff' }] } });
-        expect(instance.state.terrainUpload.phase).toBe('error');
+        // Panel opened, one synthetic error row injected, no in-flight latch.
+        expect(opened).toBe(true);
+        expect(processes.length).toBe(1);
+        expect(processes[0].status).toBe('error');
+        expect(processes[0].process_type).toBe('terrain_create');
+        expect(processes[0].name).toContain('dem.tif');
+        expect(instance.state.terrainUpload.uploading).toBe(false);
+    });
+
+    it('no-ops when no file is selected (no panel open, no process row)', () => {
+        let opened = null;
+        const processes = [];
+        const instance = makeInstance({
+            projectId: 7,
+            onOpenTaskMonitor: (open) => { opened = open; },
+            onUpdateProcess: (p) => processes.push(p)
+        });
+        instance._onTerrainFileSelected({ target: { files: [] } });
+        expect(opened).toBe(null);
+        expect(processes.length).toBe(0);
+        expect(instance.state.terrainUpload.uploading).toBe(false);
+    });
+
+    it('with a project → latches in-flight, opens the Tasks Panel, and starts the upload', () => {
+        let opened = null;
+        const instance = makeInstance({
+            projectId: 7,
+            onOpenTaskMonitor: (open) => { opened = open; },
+            onUpdateProcess: () => {}
+        });
+        // A real File-shaped object so uploadTerrainDirect kicks off (the presign
+        // POST is async — we don't await it; we assert the synchronous side effects).
+        instance._onTerrainFileSelected({ target: { files: [{ name: 'dem.tif', size: 10, type: 'image/tiff' }] } });
+        expect(opened).toBe(true);
+        expect(instance.state.terrainUpload.uploading).toBe(true);
         expect(instance.state.terrainUpload.filename).toBe('dem.tif');
     });
 
-    it('no-ops when no file is selected', () => {
+    it('_emitTerrainUploadProcess builds a terrain_create row keyed on the given id', () => {
+        const processes = [];
+        const instance = makeInstance({ projectId: 7, onUpdateProcess: (p) => processes.push(p) });
+        instance._emitTerrainUploadProcess('proc-9', { name: 'Terrain upload: dem.tif', status: 'running', progress_pct: 42, status_detail: 'Uploading' });
+        expect(processes.length).toBe(1);
+        expect(processes[0].id).toBe('proc-9');
+        expect(processes[0].process_type).toBe('terrain_create');
+        expect(processes[0].status).toBe('running');
+        expect(processes[0].progress_pct).toBe(42);
+        expect(processes[0].status_detail).toBe('Uploading');
+        // ProcessRow renders a ProgressBar only for running rows with progress_pct.
+        expect(typeof processes[0].created).toBe('string');
+    });
+
+    it('_emitTerrainUploadProcess is a no-op when onUpdateProcess is absent (defensive)', () => {
         const instance = makeInstance({ projectId: 7 });
-        instance._onTerrainFileSelected({ target: { files: [] } });
-        expect(instance.state.terrainUpload.phase).toBe(null);
+        // Must not throw.
+        instance._emitTerrainUploadProcess('x', { name: 'n', status: 'running' });
+        expect(true).toBe(true);
     });
 });
 

@@ -73,10 +73,13 @@ import {saveDirectContent} from "@js/actions/gnsave";
 // TASK-1720 (W3): DEM styling-mode toggle — update terrain via the API.
 // (updateTerrainRow is folded into the ../actionsAnuga import block above.)
 import {patchTerrainStylingMode, uploadTerrainDirect} from "../api/anugaApi";
-// TASK-1729 (W1.7): direct-to-S3 upload progress feedback uses the Phase-0
-// shared primitives (token-backed, cascade-proof). The full modal/Tasks-Panel
-// surfacing reshape is the sibling TASK-1728.
-import {ProgressBar, ErrorStrip} from "../../SimpleView/components/primitives";
+// TASK-1728 (W1.7): the direct-to-S3 terrain upload no longer owns a blocking
+// modal or an inline progress strip — its progress lives on the W1.5 Tasks Panel.
+// The presign-time Process (created by the BE, TASK-1727) surfaces via polling;
+// we inject an OPTIMISTIC row keyed on that same process_id so it appears instantly
+// and reflects byte-level progress while the modeller keeps working, then the
+// polled BE Process takes over the Uploading -> UTM -> Hillshade -> Style lifecycle.
+import {updateProcess, toggleTaskMonitorPanel} from "../../TaskMonitor/actionsTaskMonitor";
 // W6 (TASK-1423): shared helper builds the authenticated mesh layer config.
 // TASK-1721 (W4): buildContourLayer builds the GWC-cached ras:Contour overlay config.
 import {buildMeshTriangleLayer, buildContourLayer, DEM_CONTOUR_STYLE_NAME} from "../gwcTileRouting";
@@ -1100,7 +1103,10 @@ class AnugaInputMenuClass extends React.Component {
         onSaveMap: PropTypes.func,
         // TASK-1721 (W4): Contours overlay toggle
         onAddContourLayer: PropTypes.func,
-        onRemoveLayer: PropTypes.func
+        onRemoveLayer: PropTypes.func,
+        // TASK-1728 (W1.7): surface terrain-upload progress on the W1.5 Tasks Panel.
+        onUpdateProcess: PropTypes.func,    // inject/update an optimistic process row
+        onOpenTaskMonitor: PropTypes.func   // open the Tasks Panel so the row is visible
     };
 
     static defaultProps = {}
@@ -1144,12 +1150,15 @@ class AnugaInputMenuClass extends React.Component {
             // TASK-1721 (W4) — per-terrain contour overlay enabled state.
             // Keyed by DEM layer name (bare, without 'geonode:' prefix).
             contoursEnabled: {},
-            // TASK-1729 (W1.7) — direct-to-S3 terrain upload progress.
-            //   phase: null | 'uploading' | 'finalizing' | 'done' | 'error'
-            //   pct: 0..100 (byte transfer)
-            //   filename: the file being uploaded
-            //   error: a human-readable error string (rendered via ErrorStrip)
-            terrainUpload: { phase: null, pct: 0, filename: null, error: null }
+            // TASK-1728 (W1.7) — direct-to-S3 terrain upload tracking. Progress is
+            // surfaced ON THE TASKS PANEL (not an inline strip / blocking modal),
+            // so this state is just an in-flight latch keyed on the BE process_id:
+            //   uploading: true while a byte transfer is in flight (prevents a
+            //              second concurrent picker submit)
+            //   processId: the REAL presign process_id the optimistic Tasks-Panel
+            //              row is keyed on (null until presign returns)
+            //   filename:  the file being uploaded (for the row name)
+            terrainUpload: { uploading: false, processId: null, filename: null }
         };
         this._meshPreviewPollTimer = null;
         this._meshPreviewPollCount = 0;
@@ -1157,58 +1166,115 @@ class AnugaInputMenuClass extends React.Component {
         this._terrainFileInputRef = React.createRef();
     }
 
-    // TASK-1729 (W1.7) — direct-to-S3 presigned-PUT terrain upload.
+    // TASK-1728 (W1.7) — direct-to-S3 presigned-PUT terrain upload.
     // Open the OS file picker; the actual upload runs in _onTerrainFileSelected.
     _openTerrainFilePicker = () => {
         const input = this._terrainFileInputRef.current;
         if (input) {
-            input.value = '';   // allow re-selecting the same file after an error
+            input.value = '';   // allow re-selecting the same file after a previous run
             input.click();
         }
     };
 
-    // TASK-1729: file chosen → run presign → XHR PUT (progress) → finalize.
-    // Replaces the legacy synchronous multipart POST that streamed the whole
-    // GeoTIFF through uwsgi and died at harakiri=120. On PUT failure the BE
-    // reconcile sweep + S3 lifecycle clean up — the FE just surfaces the error.
+    // TASK-1728: inject/update the OPTIMISTIC Tasks-Panel row for this upload.
+    // Keyed on the REAL BE process_id once presign returns (so the polled BE
+    // Process merges onto it with no duplicate); a synthetic id is used only for
+    // the pre-presign error case (no real Process exists yet). process_type is
+    // 'terrain_create' to match the BE Process (ProcessRow's terrain icon).
+    _emitTerrainUploadProcess = (id, fields) => {
+        if (!this.props.onUpdateProcess) return;
+        const now = new Date().toISOString();
+        this.props.onUpdateProcess({
+            id,
+            process_type: 'terrain_create',
+            created: now,
+            updated: now,
+            subtasks: [],
+            log: '',
+            ...fields
+        });
+    };
+
+    // TASK-1728: file chosen → run presign → XHR PUT → finalize, with progress
+    // surfaced ON THE TASKS PANEL (non-blocking) — NOT a modal or an inline strip.
+    // The presign-time Process (BE, TASK-1727) already appears in the panel via
+    // polling; we open the panel and inject an optimistic row keyed on the SAME
+    // process_id so progress shows from the first byte while the modeller keeps
+    // working. Upload progress is FE-local (browser xhr.upload.onprogress); we do
+    // NOT chatty-PATCH the BE Process per chunk — the optimistic row's progress_pct
+    // is purely local and the polled Process takes over the lifecycle on finalize.
+    // Replaces the legacy synchronous multipart POST that streamed the whole GeoTIFF
+    // through uwsgi and died at harakiri=120. On PUT failure the BE reconcile sweep
+    // + S3 lifecycle clean up the orphan — the FE just reflects the error on the row.
     _onTerrainFileSelected = (event) => {
         const file = event && event.target && event.target.files && event.target.files[0];
         if (!file) return;
         const projectId = this.props.projectId;
+        const name = `Terrain upload: ${file.name}`;
         if (!projectId) {
-            this.setState({ terrainUpload: { phase: 'error', pct: 0, filename: file.name, error: 'No project selected.' } });
+            // No real BE Process — surface a synthetic error row on the Tasks Panel.
+            if (this.props.onOpenTaskMonitor) this.props.onOpenTaskMonitor(true);
+            this._emitTerrainUploadProcess(`terrain-upload-${Date.now()}`, {
+                name, status: 'error', status_detail: null, error_message: 'No project selected.'
+            });
+            this.setState({ terrainUpload: { uploading: false, processId: null, filename: file.name } });
             return;
         }
         const title = (file.name || '').replace(/\.[^.]+$/, '') || file.name;
-        this.setState({ terrainUpload: { phase: 'uploading', pct: 0, filename: file.name, error: null } });
+        // Latch in-flight + open the Tasks Panel so the upload is immediately visible.
+        this.setState({ terrainUpload: { uploading: true, processId: null, filename: file.name } });
+        if (this.props.onOpenTaskMonitor) this.props.onOpenTaskMonitor(true);
         trackEvent('process', 'start', 'anuga-terrain-direct-upload');
+
+        // The optimistic row id is the REAL process_id once presign returns; until
+        // then track a synthetic id so a PUT-progress tick before presign resolves
+        // (it never does, but be defensive) still has a row to update.
+        let rowId = `terrain-upload-${Date.now()}`;
 
         uploadTerrainDirect(projectId, file, {
             title,
+            onPresign: (data) => {
+                // Re-key the optimistic row on the BE process_id so the polled BE
+                // Process merges onto it (no duplicate row).
+                if (data && data.process_id) rowId = data.process_id;
+                this.setState(prev => ({ terrainUpload: { ...prev.terrainUpload, processId: rowId } }));
+                this._emitTerrainUploadProcess(rowId, {
+                    name, status: 'running', progress_pct: 0, status_detail: 'Uploading'
+                });
+            },
             onProgress: (pct) => {
-                // When the byte transfer completes, flip to the finalize phase.
-                const phase = pct >= 100 ? 'finalizing' : 'uploading';
-                this.setState(prev => ({ terrainUpload: { ...prev.terrainUpload, phase, pct } }));
+                // Byte-level progress on the Tasks-Panel row. At 100% the bytes are
+                // on S3 and finalize is about to run → show the import handoff.
+                this._emitTerrainUploadProcess(rowId, pct >= 100
+                    ? { name, status: 'running', progress_pct: 100, status_detail: 'Importing' }
+                    : { name, status: 'running', progress_pct: pct, status_detail: 'Uploading' });
             }
         })
             .then(() => {
-                this.setState({ terrainUpload: { phase: 'done', pct: 100, filename: file.name, error: null } });
-                // The presign Process is already in the W1.5 Tasks Panel; kick the
-                // existing layer-creation poll so the new Terrain row surfaces when
-                // the async import chain finishes (no new poll — contract §Notes).
+                this.setState({ terrainUpload: { uploading: false, processId: rowId, filename: file.name } });
+                // Finalize succeeded: the BE Process is now mid-import. Hand the row
+                // back to polling (which carries the real Uploading -> UTM -> Hillshade
+                // -> Style lifecycle); a 'pending' running row keeps the panel live
+                // until the next poll merges authoritative server state.
+                this._emitTerrainUploadProcess(rowId, {
+                    name, status: 'running', progress_pct: 100, status_detail: 'Importing'
+                });
+                // Kick the existing layer-creation poll so the new Terrain row surfaces
+                // when the async import chain finishes (no new poll — contract §Notes).
                 if (this.props.startAnugaModelCreationPolling) this.props.startAnugaModelCreationPolling();
                 trackEvent('process', 'complete', 'anuga-terrain-direct-upload');
             })
             .catch((err) => {
                 const detail = err?.response?.data?.detail || err?.message || 'Upload failed.';
-                this.setState({ terrainUpload: { phase: 'error', pct: 0, filename: file.name, error: detail } });
+                this.setState({ terrainUpload: { uploading: false, processId: rowId, filename: file.name } });
+                // Reflect the failure on the SAME row. On a presign failure rowId is
+                // still synthetic (no BE Process was created); on a PUT failure the BE
+                // reconcile sweep errors the real Process — either way the panel shows it.
+                this._emitTerrainUploadProcess(rowId, {
+                    name, status: 'error', status_detail: null, error_message: String(detail)
+                });
                 trackEvent('process', 'error', 'anuga-terrain-direct-upload');
             });
-    };
-
-    // TASK-1729: dismiss the progress/error strip (e.g. after a done/error).
-    _dismissTerrainUpload = () => {
-        this.setState({ terrainUpload: { phase: null, pct: 0, filename: null, error: null } });
     };
 
     _toggleMeshWorkflow = () => {
@@ -1697,52 +1763,11 @@ class AnugaInputMenuClass extends React.Component {
         // next mount. Do NOT save the map resource here.
     };
 
-    // TASK-1729 (W1.7): inline progress / error feedback for the direct-to-S3
-    // terrain upload. Visible while a file is uploading/finalizing, on success
-    // (briefly, until the user dismisses), and on error. The richer Tasks-Panel
-    // surfacing is the sibling TASK-1728 — here we give working byte-level
-    // feedback so the modeller knows the (multi-hundred-MB) upload is alive.
-    _renderTerrainUploadProgress() {
-        const { phase, pct, filename, error } = this.state.terrainUpload || {};
-        if (!phase) return null;
-        if (phase === 'error') {
-            return (
-                <div className="anuga-terrain-upload-status" data-testid="anuga-terrain-upload-error">
-                    <ErrorStrip head="Terrain upload failed" message={error} payload={filename} />
-                    <div style={{textAlign: 'right', margin: '0 10px 6px'}}>
-                        <Button bsSize="xsmall" bsStyle="default" data-testid="anuga-terrain-upload-dismiss" onClick={this._dismissTerrainUpload}>
-                            <Message msgId="hydrata.simpleView.close" />
-                        </Button>
-                    </div>
-                </div>
-            );
-        }
-        // 'importing' is a known server-merged key (reused by simpleViewUploader);
-        // the uploading/done labels are plain text to avoid a missing-msgId echo.
-        const label = phase === 'finalizing'
-            ? <Message msgId="hydrata.simpleView.importing" />
-            : (phase === 'done' ? 'Upload complete' : 'Uploading');
-        return (
-            <div
-                className="anuga-terrain-upload-status"
-                data-testid="anuga-terrain-upload-progress"
-                style={{padding: '6px 10px', fontSize: '11.5px'}}
-            >
-                <div style={{marginBottom: '4px', color: 'var(--sv-text-dim, #aaa)'}}>
-                    {label} {filename ? `· ${filename}` : ''}
-                    {phase === 'uploading' ? ` · ${pct}%` : ''}
-                </div>
-                <ProgressBar pct={phase === 'finalizing' ? 100 : pct} />
-                {phase === 'done' ? (
-                    <div style={{textAlign: 'right', marginTop: '4px'}}>
-                        <Button bsSize="xsmall" bsStyle="default" data-testid="anuga-terrain-upload-dismiss" onClick={this._dismissTerrainUpload}>
-                            <Message msgId="hydrata.simpleView.close" />
-                        </Button>
-                    </div>
-                ) : null}
-            </div>
-        );
-    }
+    // TASK-1728 (W1.7): the direct-to-S3 terrain upload no longer renders an inline
+    // progress strip here. Progress + success + failure all surface on the W1.5
+    // Tasks Panel (see _onTerrainFileSelected → _emitTerrainUploadProcess), so the
+    // upload is non-blocking and the modeller keeps working. The legacy
+    // _renderTerrainUploadProgress / _dismissTerrainUpload helpers are removed.
 
     renderTerrainPane() {
         const layers = this.props.terrainLayers || [];
@@ -1801,8 +1826,8 @@ class AnugaInputMenuClass extends React.Component {
         return (
             <div className="menu-rows-pane anuga-pane">
                 {this.renderPaneHead('terrain', actions)}
-                {/* TASK-1729 (W1.7): direct-to-S3 upload progress / error feedback. */}
-                {this._renderTerrainUploadProgress()}
+                {/* TASK-1728 (W1.7): the terrain upload is non-blocking — its progress,
+                    success, and failure surface on the W1.5 Tasks Panel, not here. */}
                 <div className="anuga-pane-rows">
                     {terrainGroups.length > 0 ? (
                         <TerrainListWithDragDrop
@@ -2025,7 +2050,12 @@ class AnugaInputMenuClass extends React.Component {
                 {this.props.starterPhase &&
                     <AnugaInputStarterCard
                         phase={this.props.starterPhase}
-                        onUploadTerrain={() => this.props.setVisibleUploaderPanel(true, "terrain", null)}
+                        // TASK-1728 (W1.7): the starter "Upload terrain" CTA opens the
+                        // direct-to-S3 file picker (non-blocking, surfaces on the Tasks
+                        // Panel) — NOT the legacy blocking 'Upload Terrain File' modal.
+                        // The hidden file input is mounted by renderTerrainPane(), which
+                        // runs in the starter (no-projection) phase.
+                        onUploadTerrain={() => this._openTerrainFilePicker()}
                         onImportFromWeb={() => {
                             // TASK-1646: open GLO-30 import panel directly.
                             this.props.setVisibleTerrainBboxPanel(true);
@@ -2043,6 +2073,12 @@ class AnugaInputMenuClass extends React.Component {
                         this.renderTerrainPane()
                     )}
                 </div>
+                {/* TASK-1728 (W1.7): this shared UploaderPanel is now reached ONLY by the
+                    friction_raster pane (setVisibleUploaderPanel(true, "friction_raster")) —
+                    the live config is driven by state.simpleView.importerConfigKey, not the
+                    fileType prop. The TERRAIN upload no longer opens this modal; it uses the
+                    direct-to-S3 file picker that surfaces on the Tasks Panel. The fileType
+                    default is harmless (overridden by importerConfigKey on open). */}
                 <UploaderPanel fileType={'terrain'}/>
                 {/* BUG (UAT, TASK-1648 regression): <TerrainBboxPanel/> moved to
                     anugaContainer.js so closing the Inputs menu (which 'Define
@@ -2241,7 +2277,12 @@ const mapDispatchToProps = ( dispatch ) => {
         onSaveMap: () => dispatch(saveDirectContent()),
         // TASK-1721 (W4): Contours overlay add/remove
         onAddContourLayer: (layer) => dispatch(addLayer(layer)),
-        onRemoveLayer: (layerId) => dispatch(removeLayer(layerId))
+        onRemoveLayer: (layerId) => dispatch(removeLayer(layerId)),
+        // TASK-1728 (W1.7): surface terrain-upload progress on the W1.5 Tasks Panel.
+        // updateProcess injects/merges an optimistic process row (keyed on the BE
+        // process_id); toggleTaskMonitorPanel(true) opens the panel so it's visible.
+        onUpdateProcess: (process) => dispatch(updateProcess(process)),
+        onOpenTaskMonitor: (open) => dispatch(toggleTaskMonitorPanel(open))
     };
 };
 

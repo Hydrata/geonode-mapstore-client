@@ -855,6 +855,44 @@ describe('anugaApi', () => {
                 }).catch(done);
             });
 
+            // TASK-1728: onPresign fires once with the presign body the instant it
+            // returns, so the caller can key the Tasks-Panel row on the REAL
+            // process_id BEFORE the byte transfer starts.
+            it('fires onPresign with the presign body (process_id) before the PUT', (done) => {
+                mockAxios.reset();
+                mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
+                    process_id: 'proc-77',
+                    staging_key: 'terrain_uploads/staging/u/dem.tif',
+                    upload_url: 'https://s3/u?sig=1',
+                    content_type: 'image/tiff'
+                });
+                mockAxios.onPost(/terrain\/upload\/finalize\/$/).reply(202, { id: 5, status: 'creating' });
+
+                let presignData = null;
+                const file = { name: 'dem.tif', type: 'image/tiff', size: 10 };
+                const p = anugaApi.uploadTerrainDirect(7, file, {
+                    title: 'My DEM',
+                    onPresign: (data) => { presignData = data; }
+                });
+
+                const tick = () => {
+                    if (lastXhr && lastXhr.onload) {
+                        lastXhr.status = 200;
+                        lastXhr.onload();
+                    } else {
+                        setTimeout(tick, 5);
+                    }
+                };
+                setTimeout(tick, 5);
+
+                p.then(() => {
+                    expect(presignData).toExist();
+                    expect(presignData.process_id).toBe('proc-77');
+                    expect(presignData.staging_key).toBe('terrain_uploads/staging/u/dem.tif');
+                    done();
+                }).catch(done);
+            });
+
             it('does NOT finalize when the S3 PUT fails (BE reconcile cleans the orphan)', (done) => {
                 mockAxios.reset();
                 mockAxios.onPost(/terrain\/upload\/presign\/$/).reply(201, {
