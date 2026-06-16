@@ -89,17 +89,25 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 });
             });
 
-            it('renders the empty-state glyph', (done) => {
+            // TASK-1730 (Phase-C parity migration) — the empty state now renders
+            // through the shared {EmptyState} primitive. The outer
+            // `.anuga-scenario-rail-empty` class is preserved (via extraClassName);
+            // the inner glyph/heading/subcopy hooks canonicalised to the
+            // primitive's `.sv-empty-state-glyph/-heading/-subcopy`.
+            it('renders the empty-state glyph via the shared primitive', (done) => {
                 ReactDOM.render(<ScenarioRail scenarios={[]} />, container, () => {
-                    expect(container.querySelector('.anuga-scenario-rail-empty-glyph')).toExist();
+                    const empty = container.querySelector('.anuga-scenario-rail-empty');
+                    expect(empty).toExist();
+                    expect(empty.className).toInclude('sv-empty-state');
+                    expect(container.querySelector('.sv-empty-state-glyph')).toExist();
                     done();
                 });
             });
 
-            it('renders the empty-state heading + sub-copy', (done) => {
+            it('renders the empty-state heading + sub-copy via the shared primitive', (done) => {
                 ReactDOM.render(<ScenarioRail scenarios={[]} />, container, () => {
-                    expect(container.querySelector('.anuga-scenario-rail-empty-heading')).toExist();
-                    expect(container.querySelector('.anuga-scenario-rail-empty-subcopy')).toExist();
+                    expect(container.querySelector('.sv-empty-state-heading')).toExist();
+                    expect(container.querySelector('.sv-empty-state-subcopy')).toExist();
                     done();
                 });
             });

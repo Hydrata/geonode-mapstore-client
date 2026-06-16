@@ -3,6 +3,7 @@ const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {getMessageById} from '@mapstore/framework/utils/LocaleUtils';
 import {trackEvent} from "@js/utils/analytics";
+import {EmptyState} from '../../SimpleView/components/primitives';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 
 /**
@@ -182,6 +183,12 @@ ScenarioRailItem.contextTypes = {
  * zero-state with a glyph + heading + sub-copy that points the user at the
  * "+ New scenario" button in the header above the rail. Keep the rail
  * container in the DOM so the surrounding shell layout is undisturbed.
+ *
+ * TASK-1730 (Phase-C rollout) — PARITY-migrated onto the shared
+ * {EmptyState} primitive (harvested FROM this very `.anuga-scenario-rail-empty`
+ * glyph + heading + subcopy column). The outer `anuga-scenario-rail-empty`
+ * class is preserved (via `extraClassName`) for the legacy CSS + tests,
+ * while the inner hooks canonicalise to `sv-empty-state-glyph/-heading/-subcopy`.
  */
 const ScenarioRail = ({
     scenarios,
@@ -195,18 +202,13 @@ const ScenarioRail = ({
     if (list.length === 0) {
         return (
             <div className="sv-category-rail anuga-scenario-rail" role="tablist">
-                <div className="anuga-scenario-rail-empty">
-                    <span
-                        className="anuga-scenario-rail-empty-glyph glyphicon glyphicon-list-alt"
-                        aria-hidden="true"
-                    />
-                    <h5 className="anuga-scenario-rail-empty-heading">
-                        <Message msgId="hydrata.anuga.emptyScenariosHeading" />
-                    </h5>
-                    <p className="anuga-scenario-rail-empty-subcopy">
-                        <Message msgId="hydrata.anuga.emptyScenariosSubcopy" />
-                    </p>
-                </div>
+                <EmptyState
+                    extraClassName="anuga-scenario-rail-empty"
+                    glyph="glyphicon-list-alt"
+                    heading={<Message msgId="hydrata.anuga.emptyScenariosHeading" />}
+                >
+                    <Message msgId="hydrata.anuga.emptyScenariosSubcopy" />
+                </EmptyState>
             </div>
         );
     }

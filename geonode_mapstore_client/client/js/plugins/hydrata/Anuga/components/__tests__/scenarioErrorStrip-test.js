@@ -7,6 +7,14 @@ import {ScenarioErrorStrip} from '../scenarioErrorStrip';
  * TASK-C-scenarios-miller Wave 3A — render contract for the
  * ScenarioErrorStrip component. The strip is visible only when the
  * resolved scenario status is 'error'.
+ *
+ * TASK-1730 (Phase-C parity migration) — the strip now renders through the
+ * shared {ErrorStrip} primitive. The outer `.anuga-scenario-error-strip`
+ * class + `role="alert"` are preserved (via `extraClassName`); the inner
+ * head/payload hooks canonicalised from `.anuga-scenario-error-strip-head/
+ * -payload` to the primitive's `.sv-error-strip-head/-payload`. These specs
+ * assert BOTH the preserved outer hook AND the canonical inner hooks so the
+ * structural parity is pinned.
  */
 
 describe('Wave 3A — ScenarioErrorStrip', () => {
@@ -55,8 +63,10 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
                 const strip = container.querySelector('.anuga-scenario-error-strip');
                 expect(strip).toExist();
                 expect(strip.getAttribute('role')).toBe('alert');
-                expect(container.querySelector('.anuga-scenario-error-strip-head')).toExist();
-                const payload = container.querySelector('.anuga-scenario-error-strip-payload');
+                // Canonical: the shared primitive carries the sv-error-strip hook too.
+                expect(strip.className).toInclude('sv-error-strip');
+                expect(container.querySelector('.sv-error-strip-head')).toExist();
+                const payload = container.querySelector('.sv-error-strip-payload');
                 expect(payload).toExist();
                 expect(payload.textContent).toInclude('mesh validation failed');
                 done();
@@ -70,7 +80,7 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
             <ScenarioErrorStrip scenario={s} />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-error-strip-payload')).toExist();
+                expect(container.querySelector('.sv-error-strip-payload')).toExist();
                 done();
             }
         );
@@ -98,7 +108,7 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
             <ScenarioErrorStrip scenario={s} />,
             container,
             () => {
-                const code = container.querySelector('code.anuga-scenario-error-strip-payload');
+                const code = container.querySelector('code.sv-error-strip-payload');
                 expect(code).toExist();
                 expect(code.textContent).toBe('Boom');
                 done();
