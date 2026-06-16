@@ -131,6 +131,23 @@ describe('TASK-803 PickerView text filter', () => {
         expect(container.querySelector('.vector-draw-picker-add-new')).toExist();
     });
 
+    // TASK-1669 — the empty placeholder is now the shared EmptyState primitive.
+    // The legacy `.vector-draw-picker-empty` hook is preserved via extraClassName
+    // (so the test above + any scoped CSS still match) AND the primitive's own
+    // `.sv-empty-state` class is present, proving the conform-migration landed.
+    it('the no-match placeholder is the shared EmptyState primitive (sv-empty-state) carrying the legacy hook', () => {
+        render(makeFeatures(15, 'Inlet'));
+        const input = container.querySelector('.vector-draw-picker-filter');
+        Simulate.change(input, { target: { value: 'zzz_no_match' } });
+        const empty = container.querySelector('.vector-draw-picker-empty');
+        expect(empty).toExist();
+        // Same element carries the shared primitive class.
+        expect(empty.classList.contains('sv-empty-state')).toBe(true);
+        // The copy lives in the primitive's heading slot.
+        expect(container.querySelector('.sv-empty-state-heading').textContent)
+            .toMatch(/No features match/);
+    });
+
     it('clearing the filter restores the full list', () => {
         render(makeFeatures(15, 'Inlet'));
         const input = container.querySelector('.vector-draw-picker-filter');

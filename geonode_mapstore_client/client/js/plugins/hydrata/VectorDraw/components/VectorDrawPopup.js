@@ -2,6 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { connect } from 'react-redux';
 import { Button } from 'react-bootstrap';
 import FormField from './FormField';
+// TASK-1669 — conform-migrate onto the shared SimpleView primitives.
+// ErrorStrip replaces the bespoke red-<p> save-failure block; EmptyState
+// replaces the hand-rolled italic "No features match" picker placeholder.
+// Both are token-backed (--sv-*) and self-styled, so the popup's danger /
+// empty chrome now flows from the design system instead of inline JSX.
+import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
 import {
     cancelVectorDraw,
     submitForm,
@@ -273,13 +279,15 @@ export const PickerView = ({
                             <span>+ Add new</span>
                         </div>
                         {filteredList.length === 0 && filterText ? (
-                            <div className="vector-draw-picker-empty" style={{
-                                padding: '8px',
-                                opacity: 0.7,
-                                fontStyle: 'italic'
-                            }}>
-                                No features match &ldquo;{filterText}&rdquo;
-                            </div>
+                            // TASK-1669 — shared EmptyState primitive replaces the
+                            // bespoke italic placeholder. The legacy
+                            // `.vector-draw-picker-empty` hook is preserved via
+                            // extraClassName so existing tests + any scoped CSS
+                            // still match; the "No features match" copy is unchanged.
+                            <EmptyState
+                                extraClassName="vector-draw-picker-empty"
+                                heading={`No features match “${filterText}”`}
+                            />
                         ) : null}
                         {filteredList.map(feature => {
                             // TASK-795 review I3 — dim + disable the trash icon
@@ -634,7 +642,11 @@ const VectorDrawPopup = ({
                 minWidth: 200,
                 padding: '12px'
             }}>
-                <p style={{color: 'red', margin: 0}}>Save failed. Please try again.</p>
+                {/* TASK-1669 — shared ErrorStrip primitive replaces the bespoke
+                    red-<p>. It self-styles from the --sv-text-danger token and
+                    carries role="alert"; margin is zeroed so it sits flush in
+                    the already-padded popup body. */}
+                <ErrorStrip message="Save failed. Please try again." style={{margin: 0}} />
                 <div style={{display: 'flex', justifyContent: 'flex-end', marginTop: '8px'}}>
                     <Button bsSize="small" onClick={onCancel}>
                         Close

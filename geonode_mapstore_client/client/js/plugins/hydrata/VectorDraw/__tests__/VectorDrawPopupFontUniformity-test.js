@@ -119,6 +119,20 @@ const STATES = {
 const FORBIDDEN_INLINE_STYLES = ['fontSize', 'fontWeight', 'fontFamily', 'lineHeight'];
 const FORBIDDEN_TAGS = ['STRONG', 'B', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'EM'];
 
+// TASK-1669 — the popup now composes the shared SimpleView primitives
+// (ErrorStrip / EmptyState). Those are token-backed design-system widgets
+// that legitimately own their typographic chrome (fontSize / fontWeight,
+// and EmptyState's <h5> heading) — the TASK-784 "no ad-hoc font overrides"
+// contract is about VectorDraw's OWN bespoke JSX, not the shared primitives.
+// Exempt any element living inside an `sv-error-strip` / `sv-empty-state`
+// subtree from the forbidden-style + forbidden-tag walks so the contract
+// still pins VectorDraw's hand-rolled markup while the primitives stay
+// self-styled. The exemption is scoped (closest ancestor lookup) so a
+// regression in VectorDraw's own JSX is still caught.
+const PRIMITIVE_SUBTREE_SELECTOR = '.sv-error-strip, .sv-empty-state';
+const isInsidePrimitive = (el) =>
+    !!(el.closest && el.closest(PRIMITIVE_SUBTREE_SELECTOR));
+
 describe('TASK-784 VectorDraw popup font uniformity', () => {
 
     Object.keys(STATES).forEach(phaseName => {
@@ -139,10 +153,11 @@ describe('TASK-784 VectorDraw popup font uniformity', () => {
                 expect(popup).toExist();
             });
 
-            it('does not contain any <strong>, <b>, <em>, or <h1>..<h6> tag', () => {
+            it('does not contain any <strong>, <b>, <em>, or <h1>..<h6> tag (outside shared primitives)', () => {
                 const all = popup.querySelectorAll('*');
                 const offenders = [];
                 all.forEach(el => {
+                    if (isInsidePrimitive(el)) return; // TASK-1669 primitive subtree exempt
                     if (FORBIDDEN_TAGS.indexOf(el.tagName) !== -1) {
                         offenders.push(el.tagName.toLowerCase());
                     }
@@ -150,10 +165,11 @@ describe('TASK-784 VectorDraw popup font uniformity', () => {
                 expect(offenders).toEqual([]);
             });
 
-            it('has no inline fontSize / fontWeight / fontFamily / lineHeight on root or descendants', () => {
+            it('has no inline fontSize / fontWeight / fontFamily / lineHeight on root or descendants (outside shared primitives)', () => {
                 const all = [popup, ...popup.querySelectorAll('*')];
                 const offenders = [];
                 all.forEach(el => {
+                    if (isInsidePrimitive(el)) return; // TASK-1669 primitive subtree exempt
                     FORBIDDEN_INLINE_STYLES.forEach(prop => {
                         // el.style.fontSize etc — empty string when absent.
                         if (el.style && el.style[prop]) {
@@ -164,5 +180,34 @@ describe('TASK-784 VectorDraw popup font uniformity', () => {
                 expect(offenders).toEqual([]);
             });
         });
+    });
+});
+
+// TASK-1669 — conform-migration: the error phase now surfaces the failure via
+// the shared ErrorStrip primitive (role="alert", token-backed --sv-text-danger)
+// instead of a bespoke inline-red <p>. Pin the migrated structure so a future
+// regression to a hand-rolled danger block is caught.
+describe('TASK-1669 VectorDraw error phase uses the shared ErrorStrip primitive', () => {
+    let container;
+    afterEach(() => {
+        if (container) {
+            teardown(container);
+            container = null;
+        }
+    });
+
+    it('renders an .sv-error-strip with role=alert carrying the save-failed copy', () => {
+        container = render(STATES.error);
+        const strip = container.querySelector('.vector-draw-popup .sv-error-strip');
+        expect(strip).toExist();
+        expect(strip.getAttribute('role')).toBe('alert');
+        expect(strip.textContent).toMatch(/Save failed/);
+    });
+
+    it('no longer renders a bespoke inline-red <p> for the failure message', () => {
+        container = render(STATES.error);
+        const reds = Array.from(container.querySelectorAll('.vector-draw-popup p'))
+            .filter(p => p.style && p.style.color === 'red');
+        expect(reds.length).toBe(0);
     });
 });
