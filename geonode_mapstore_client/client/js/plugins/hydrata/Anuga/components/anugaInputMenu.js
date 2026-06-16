@@ -50,7 +50,11 @@ import {
 
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
-import {TerrainBboxPanel} from "./terrainBboxPanel";
+// BUG (UAT, TASK-1648 regression): TerrainBboxPanel is now mounted in
+// anugaContainer.js (container level), NOT here. 'Define import area' dispatches
+// setAnugaInputMenu(false), which unmounts THIS component; when the bbox panel
+// lived here it unmounted mid-draw and the map froze in BBOX draw mode with no
+// panel to return to. The globe button (setVisibleTerrainBboxPanel(true)) stays.
 import AnugaInputStarterCard from "./anugaInputStarterCard";
 
 import {canEditAnugaMap, getProjectId, getSelectedScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
@@ -1912,7 +1916,9 @@ class AnugaInputMenuClass extends React.Component {
                     )}
                 </div>
                 <UploaderPanel fileType={'terrain'}/>
-                <TerrainBboxPanel/>
+                {/* BUG (UAT, TASK-1648 regression): <TerrainBboxPanel/> moved to
+                    anugaContainer.js so closing the Inputs menu (which 'Define
+                    import area' does) no longer unmounts it mid-draw. */}
             </div>
         );
     }

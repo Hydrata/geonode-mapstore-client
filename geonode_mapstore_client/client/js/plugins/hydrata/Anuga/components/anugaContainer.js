@@ -16,6 +16,14 @@ import {
 import {canEditAnugaMap, canViewAnugaMap, canCreateScenario} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 import Message from '@mapstore/framework/components/I18N/Message';
 import {AnugaInputMenu} from './anugaInputMenu';
+// BUG (UAT, TASK-1648 regression): the GLO-30 bbox panel must be mounted at the
+// CONTAINER level, NOT inside AnugaInputMenu. 'Define import area' dispatches
+// setAnugaInputMenu(false) to clear the map for drawing, which unmounts
+// AnugaInputMenu (anugaContainer:206 gates it on showAnugaInputMenu). When the
+// bbox panel was a child of AnugaInputMenu it unmounted too, leaving the map
+// stuck in BBOX draw mode with no panel to return to (the "freeze"). Mounting it
+// here keeps it alive across the menu close; it self-gates on terrainBboxPanelVisible.
+import {TerrainBboxPanel} from './terrainBboxPanel';
 import {AnugaScenarioMenu} from './anugaScenarioMenu';
 import {PublicationPanel} from './publicationPanel';
 import {NetworkMenu} from "./networkMenu";
@@ -27,7 +35,10 @@ import {MembershipPanel} from "./membershipPanel";
 import RunPollingPausedBanner from "./runPollingPausedBanner";
 import {trackEvent} from "@js/utils/analytics";
 
-class AnugaContainer extends React.Component {
+// Exported (in addition to the connected default) so the UAT regression test can
+// render the bare container and assert the GLO-30 bbox panel mounts INDEPENDENTLY
+// of showAnugaInputMenu (TASK-1648 mount-gating freeze fix).
+export class AnugaContainer extends React.Component {
     static propTypes = {
         initAnuga: PropTypes.func,
         showAnugaInputMenu: PropTypes.bool,
@@ -212,6 +223,11 @@ class AnugaContainer extends React.Component {
                     }
                     {this.props.showNetworkMenu ? <NetworkMenu/> : null}
                     {this.props.showMembershipPanel ? <MembershipPanel/> : null}
+                    {/* BUG (UAT, TASK-1648 regression): bbox panel mounted at the
+                        container level so closing the Inputs menu (which 'Define
+                        import area' does) does NOT unmount it mid-draw. It self-gates
+                        on terrainBboxPanelVisible, so it renders null until opened. */}
+                    <TerrainBboxPanel/>
                     {/* W7 (TASK-1045) — paused-polling banner. Always
                         mounted under isAnugaProject so the connected
                         component can react to pollingTimeoutFor without
