@@ -471,9 +471,9 @@ class MenuRowClass extends React.Component {
     render() {
         if (!this.props.layer) {
             return (
-                <div className={"menu-row"}>
-                    <div className={"menu-row-left"}>
-                        <div className="h5 menu-row-text"><Message msgId="hydrata.simpleView.noDatasetsYet" /></div>
+                <div className={"sv-menu-row"}>
+                    <div className={"sv-menu-row-left"}>
+                        <div className="h5 sv-menu-row-text"><Message msgId="hydrata.simpleView.noDatasetsYet" /></div>
                     </div>
                 </div>
             );
@@ -482,7 +482,7 @@ class MenuRowClass extends React.Component {
         // Locked 4-icon toolbar order is now: vis | zoom | edit | download.
         // Trash + delete-confirm overlay moved to the secondary toolbar
         // (alongside upload). The delete-confirm overlay stays a sibling of
-        // the trash glyph so `.menu-row-delete-confirm .sv-save-confirm-btn.danger`
+        // the trash glyph so `.sv-menu-row-delete-confirm .sv-save-confirm-btn.danger`
         // continues to resolve (R03).
         const canEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
         const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
@@ -495,7 +495,7 @@ class MenuRowClass extends React.Component {
         // TASK-1010 B2 — secondary toolbar (delete glyph + always-mounted
         // confirm overlay + SWAMM-only upload) is now a `secondaryActions`
         // payload passed to LayerActionToolbar. The primitive owns the
-        // `.menu-row-toolbar-secondary` wrapper so the className contract
+        // `.sv-menu-row-toolbar-secondary` wrapper so the className contract
         // (R03) lives in one place. The confirm overlay is itself a `<span>`
         // (not a glyph) so it uses the primitive's `render` escape hatch.
         const secondaryActions = [];
@@ -514,7 +514,7 @@ class MenuRowClass extends React.Component {
                 render: () => (
                     <span
                         className={
-                            "menu-row-delete-confirm"
+                            "sv-menu-row-delete-confirm"
                             + (this.state.deleteConfirmVisible ? " is-open" : "")
                         }
                         role="alertdialog"
@@ -522,7 +522,7 @@ class MenuRowClass extends React.Component {
                         aria-hidden={this.state.deleteConfirmVisible ? undefined : true}
                     >
                         <span className="btn glyphicon glyphicon-trash" style={{fontSize: 14}} aria-hidden="true"/>
-                        <span className="menu-row-delete-confirm-text">
+                        <span className="sv-menu-row-delete-confirm-text">
                             <Message msgId="hydrata.simpleView.confirmDelete"/>
                             {' "'}{this.props.layer?.title}{'"?'}
                         </span>
@@ -562,8 +562,8 @@ class MenuRowClass extends React.Component {
             });
         }
         return (
-            <div className={"menu-row"}>
-                <span className={"menu-row-left"}>
+            <div className={"sv-menu-row"}>
+                <span className={"sv-menu-row-left"}>
                     <LayerActionToolbar
                         layer={this.props.layer}
                         canEdit={canEdit}
@@ -581,7 +581,7 @@ class MenuRowClass extends React.Component {
                         RIGHT of tick/glass/delete. Additive + generic — each entry is
                         {key, render}; non-terrain rows pass nothing and nothing renders. */}
                     {(this.props.extraToolbarActions && this.props.extraToolbarActions.length > 0) ? (
-                        <span className={"menu-row-toolbar-extra"}>
+                        <span className={"sv-menu-row-toolbar-extra"}>
                             {this.props.extraToolbarActions.map((a, i) => (
                                 <React.Fragment key={a.key || `extra-${i}`}>
                                     {a.render ? a.render() : null}
@@ -590,7 +590,7 @@ class MenuRowClass extends React.Component {
                         </span>
                     ) : null}
 
-                    <div className={"menu-row-title"}>
+                    <div className={"sv-menu-row-title"}>
                         {canEdit ? (
                             <React.Fragment>
                                 <input
@@ -604,7 +604,7 @@ class MenuRowClass extends React.Component {
                                 />
                                 {this.props.layer?.title === this.state.newTitle ? null :
                                     <span
-                                        className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk sv-glyph-save"}
+                                        className={"btn glyphicon sv-menu-row-glyph glyphicon-floppy-disk sv-glyph-save"}
                                         onClick={
                                             () => {
                                                 this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);
@@ -616,11 +616,11 @@ class MenuRowClass extends React.Component {
                                 }
                             </React.Fragment>
                         ) : (
-                            <span className="menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
+                            <span className="sv-menu-row-text" style={this.props.layer?.loadingError === "Error" ? {"textDecoration": "lineThrough"} : null}>{this.props.layer?.title}</span>
                         )}
                     </div>
                 </span>
-                {/* Transparency slider — last child of .menu-row. Always-
+                {/* Transparency slider — last child of .sv-menu-row. Always-
                     mounted + CSS-toggled via `hidden` (R04) so the nouislider
                     instance survives delete-confirm overlay show/hide. */}
                 <OpacitySlider
@@ -686,7 +686,7 @@ class MenuRowClass extends React.Component {
             // Raster early-return: rasters have no VectorDraw editing AND
             // would crash the legacy FeatureGrid (no WFS features). Per-
             // raster replace-upload is launched from anugaInputMenu.js, not
-            // from the menu-row pencil. The pencil renders (canEditLayer
+            // from the sv-menu-row pencil. The pencil renders (canEditLayer
             // doesn't distinguish raster vs vector) but clicks are inert.
             if (cfg.geomType === 'Raster') {
                 return;
@@ -919,12 +919,12 @@ class MenuRowClass extends React.Component {
                 ? `Cannot delete: ${blocking.length} active scenario${blocking.length === 1 ? '' : 's'} reference${blocking.length === 1 ? 's' : ''} this dataset.`
                 : 'Cannot delete: this dataset is referenced by active scenarios.';
             return (
-                <div className="menu-row-delete-error" role="alert">
-                    <div className="menu-row-delete-error-message">
+                <div className="sv-menu-row-delete-error" role="alert">
+                    <div className="sv-menu-row-delete-error-message">
                         {row.blockingError.message || fallbackMsg}
                     </div>
                     {blocking.length > 0 ? (
-                        <ul className="menu-row-delete-error-list">
+                        <ul className="sv-menu-row-delete-error-list">
                             {blocking.map((b, i) => (
                                 <li key={`${b?.type || 'scenario'}-${b?.id || i}`}>
                                     {b?.name || `Scenario ${b?.id}`}
@@ -943,8 +943,8 @@ class MenuRowClass extends React.Component {
                 msg = 'You do not have permission to delete this dataset.';
             }
             return (
-                <div className="menu-row-delete-error" role="alert">
-                    <div className="menu-row-delete-error-message">{msg}</div>
+                <div className="sv-menu-row-delete-error" role="alert">
+                    <div className="sv-menu-row-delete-error-message">{msg}</div>
                 </div>
             );
         }

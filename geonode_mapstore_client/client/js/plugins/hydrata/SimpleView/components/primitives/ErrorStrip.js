@@ -8,7 +8,7 @@ import PropTypes from 'prop-types';
  * error blocks into one token-backed widget so Phase-1 panel agents stop
  * hand-rolling a danger box each time:
  *   - Anuga Scenarios  .anuga-scenario-error-strip  (head + monospace <code> payload)
- *   - SimpleView       .menu-row-delete-error       (message + blocking <ul>)
+ *   - SimpleView       .sv-menu-row-delete-error       (message + blocking <ul>)
  *   - TaskMonitor      .sv-tm-error-message         (bare message)
  *   - Terrain (TW)     .tw-error                    (saveError/deriveError/createError)
  *   - HGeval           .alert.alert-danger          (validationError/error)

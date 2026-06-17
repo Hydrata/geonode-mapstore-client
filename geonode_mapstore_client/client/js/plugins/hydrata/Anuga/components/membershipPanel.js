@@ -375,9 +375,9 @@ class MembershipPanelClass extends React.Component {
     render() {
         return (
             <div id="membership-panel" className="simple-view-panel anuga-panel">
-                <div className="menu-rows-container">
+                <div className="sv-menu-rows-container">
                     <PanelHeader
-                        extraClassName="menu-row-header sv-membership-header-row"
+                        extraClassName="sv-menu-row-header sv-membership-header-row"
                         title={<Message msgId="hydrata.anuga.members" />}
                         onClose={() => {
                             this.props.setMembershipPanel(false);

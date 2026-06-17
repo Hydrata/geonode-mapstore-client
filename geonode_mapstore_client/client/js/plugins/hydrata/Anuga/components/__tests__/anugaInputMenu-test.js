@@ -740,7 +740,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
 // The DEM and Hillshade rows must live INSIDE the collapsible derivatives zone
 // (.sv-terrain-derivatives), not at the top-level parent row. The parent row stays
 // DEM IDENTITY ONLY (expand chevron + drag handle + a lightweight title), so it
-// must NOT contain the full DEM MenuRow (.menu-row).
+// must NOT contain the full DEM MenuRow (.sv-menu-row).
 // ---------------------------------------------------------------------------
 
 describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section', () => {
@@ -823,7 +823,7 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                             expect(parentRow).toExist('terrain parent row must render');
                             // Parent row holds the identity title, NOT the full MenuRow.
                             expect(parentRow.querySelector('.sv-terrain-parent-title')).toExist('parent row shows identity title');
-                            expect(parentRow.querySelector('.menu-row')).toNotExist('parent row must NOT contain the DEM MenuRow (identity-only)');
+                            expect(parentRow.querySelector('.sv-menu-row')).toNotExist('parent row must NOT contain the DEM MenuRow (identity-only)');
                             // Collapsed → no derivatives zone yet.
                             expect(container.querySelector('.sv-terrain-derivatives')).toNotExist('derivatives zone hidden while collapsed');
                             resolve();
@@ -852,7 +852,7 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                             // BUG-4: the DEM MenuRow now lives inside the collapsible zone.
                             const demRow = derivatives.querySelector('.sv-terrain-dem-row');
                             expect(demRow).toExist('DEM row must be inside the collapsible derivatives zone');
-                            expect(demRow.querySelector('.menu-row')).toExist('DEM MenuRow renders inside the collapsible zone');
+                            expect(demRow.querySelector('.sv-menu-row')).toExist('DEM MenuRow renders inside the collapsible zone');
                             // UAT 2026-06-17: the decorative photo glyph LEFT of the title was
                             // removed (a 2026-06-16 miscommunication had dropped the per-layer
                             // control toolbar instead of the photo icon). Guard against the glyph
@@ -860,12 +860,12 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                             expect(derivatives.querySelector('.glyphicon-picture')).toNotExist('no decorative photo glyph on terrain rows');
                             // Hillshade MenuRow is also inside the collapsible zone:
                             // expect at least 2 MenuRows (DEM + Hillshade) under .sv-terrain-derivatives.
-                            const menuRows = derivatives.querySelectorAll('.menu-row');
+                            const menuRows = derivatives.querySelectorAll('.sv-menu-row');
                             expect(menuRows.length >= 2).toBe(true,
                                 'both DEM and Hillshade MenuRows render inside the collapsible zone');
                             // And the top-level parent row still holds NO MenuRow.
                             const parentRow = container.querySelector('.sv-terrain-parent-row');
-                            expect(parentRow.querySelector('.menu-row')).toNotExist('parent row stays identity-only when expanded');
+                            expect(parentRow.querySelector('.sv-menu-row')).toNotExist('parent row stays identity-only when expanded');
                             resolve();
                         } catch (err) { reject(err); }
                     }, 0);

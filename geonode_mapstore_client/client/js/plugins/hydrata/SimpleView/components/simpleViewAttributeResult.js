@@ -32,7 +32,7 @@ class SimpleViewAttributeResultClass extends React.Component {
         return (
             <div
                 id={'simple-view-attribute-result-panel'}
-                className={'simple-view-panel menu-rows-container'}
+                className={'simple-view-panel sv-menu-rows-container'}
                 style={{
                     textAlign: "left"
                 }}

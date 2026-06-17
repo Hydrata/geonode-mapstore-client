@@ -74,7 +74,7 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
     });
 
     describe('Rail+pane activation at >=2 subheadings (AC#1, AC#3, AC#10)', () => {
-        it('renders sv-rail-pane-shell + sv-category-rail + menu-rows-pane', (done) => {
+        it('renders sv-rail-pane-shell + sv-category-rail + sv-menu-rows-pane', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('t1', true, 'grp.Terrain'),
@@ -93,9 +93,9 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                 () => {
                     expect(container.querySelector('.sv-rail-pane-shell')).toExist();
                     expect(container.querySelector('.sv-category-rail')).toExist();
-                    expect(container.querySelector('.menu-rows-pane')).toExist();
-                    // AC#7: existing .menu-rows-container still wraps the shell
-                    expect(container.querySelector('.menu-rows-container')).toExist();
+                    expect(container.querySelector('.sv-menu-rows-pane')).toExist();
+                    // AC#7: existing .sv-menu-rows-container still wraps the shell
+                    expect(container.querySelector('.sv-menu-rows-container')).toExist();
                     done();
                 }
             );
@@ -263,7 +263,7 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
     });
 
     describe('Basemaps short-circuit + empty fallback preserved (AC#7)', () => {
-        it('basemaps openMenuGroupId returns legacy flat .menu-rows-container with no rail', (done) => {
+        it('basemaps openMenuGroupId returns legacy flat .sv-menu-rows-container with no rail', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const baseMapLayer = { ...makeLayer('bm1', true, 'background'), group: 'background' };
             const store = createMockStore({
@@ -276,7 +276,7 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                 </Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.menu-rows-container')).toExist();
+                    expect(container.querySelector('.sv-menu-rows-container')).toExist();
                     expect(container.querySelector('.sv-rail-pane-shell')).toNotExist();
                     expect(container.querySelector('.sv-category-rail')).toNotExist();
                     done();
@@ -296,7 +296,7 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                 </Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.menu-rows-container')).toExist();
+                    expect(container.querySelector('.sv-menu-rows-container')).toExist();
                     expect(container.querySelector('.sv-rail-pane-shell')).toNotExist();
                     done();
                 }

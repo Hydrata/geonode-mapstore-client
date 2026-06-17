@@ -184,7 +184,7 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
             );
         });
 
-        it('tristate span also carries the shared btn + glyphicon + menu-row-glyph + sv-category-rail-item-tristate classes', (done) => {
+        it('tristate span also carries the shared btn + glyphicon + sv-menu-row-glyph + sv-category-rail-item-tristate classes', (done) => {
             ReactDOM.render(
                 <CategoryRail items={[makeItem('A')]} onSelect={() => {}} onToggleGroupVisibility={() => {}} />,
                 container,
@@ -192,7 +192,7 @@ describe('SimpleView CategoryRail primitive (TASK-1007 W3, tested in W4)', () =>
                     const tri = container.querySelector('.sv-category-rail-item-tristate');
                     expect(tri.className).toInclude('btn');
                     expect(tri.className).toInclude('glyphicon');
-                    expect(tri.className).toInclude('menu-row-glyph');
+                    expect(tri.className).toInclude('sv-menu-row-glyph');
                     expect(tri.className).toInclude('sv-category-rail-item-tristate');
                     done();
                 }

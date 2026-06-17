@@ -77,7 +77,7 @@ describe('SimpleView Glyph Classes', () => {
                 </Provider>,
                 container,
                 () => {
-                    const glyph = container.querySelector('.menu-row-glyph');
+                    const glyph = container.querySelector('.sv-menu-row-glyph');
                     expect(glyph).toExist();
                     expect(glyph.className).toInclude('sv-glyph-active');
                     expect(glyph.className).toNotInclude('sv-glyph-inactive');
@@ -98,7 +98,7 @@ describe('SimpleView Glyph Classes', () => {
                 </Provider>,
                 container,
                 () => {
-                    const glyph = container.querySelector('.menu-row-glyph');
+                    const glyph = container.querySelector('.sv-menu-row-glyph');
                     expect(glyph).toExist();
                     expect(glyph.className).toInclude('sv-glyph-inactive');
                     expect(glyph.className).toNotInclude('sv-glyph-active');
@@ -145,7 +145,7 @@ describe('SimpleView Glyph Classes', () => {
                 () => {
                     const subheadingRow = container.querySelector('.sv-subheading-row');
                     expect(subheadingRow).toExist();
-                    const glyph = subheadingRow.querySelector('.menu-row-glyph');
+                    const glyph = subheadingRow.querySelector('.sv-menu-row-glyph');
                     expect(glyph).toExist();
                     expect(glyph.className).toInclude('sv-glyph-active');
                     expect(glyph.className).toNotInclude('sv-glyph-inactive');
@@ -175,7 +175,7 @@ describe('SimpleView Glyph Classes', () => {
                 () => {
                     const subheadingRow = container.querySelector('.sv-subheading-row');
                     expect(subheadingRow).toExist();
-                    const glyph = subheadingRow.querySelector('.menu-row-glyph');
+                    const glyph = subheadingRow.querySelector('.sv-menu-row-glyph');
                     expect(glyph).toExist();
                     expect(glyph.className).toInclude('sv-glyph-inactive');
                     expect(glyph.className).toNotInclude('sv-glyph-active');
@@ -205,7 +205,7 @@ describe('SimpleView Glyph Classes', () => {
                 () => {
                     const subheadingRow = container.querySelector('.sv-subheading-row');
                     expect(subheadingRow).toExist();
-                    const glyph = subheadingRow.querySelector('.menu-row-glyph');
+                    const glyph = subheadingRow.querySelector('.sv-menu-row-glyph');
                     expect(glyph).toExist();
                     expect(glyph.className).toInclude('sv-glyph-partial');
                     expect(glyph.className).toNotInclude('sv-glyph-active');

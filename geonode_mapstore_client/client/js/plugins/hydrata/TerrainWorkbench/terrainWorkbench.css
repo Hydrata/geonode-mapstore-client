@@ -694,7 +694,7 @@
  *   (re-UAT findings #4, #5, #6, #13; decision 2026-06-16-q-4 revises ADR#9).
  *
  * #4: Mode + Contours are DEM sub-options. UAT 2026-06-17: rendered in the MenuRow
- *     EXTRA-TOOLBAR slot (.menu-row-toolbar-extra) — to the RIGHT of the per-layer
+ *     EXTRA-TOOLBAR slot (.sv-menu-row-toolbar-extra) — to the RIGHT of the per-layer
  *     controls (tick / glass / delete), before the title. The Hillshade row passes
  *     an empty extra slot of the SAME fixed width so the controls + titles line up
  *     in columns across both rows. Hillshade is a separate sibling row.
@@ -720,9 +720,9 @@
  * icon buttons + one 6px gap. The DEM row fills it with the two toggles; the
  * Hillshade row renders the same (empty) slot, so the controls + titles line up in
  * columns across both rows. Scoped to terrain rows — non-terrain MenuRows pass no
- * extra actions, so .menu-row-toolbar-extra never renders for them. */
-.sv-tw-terrain-dem-row .menu-row-toolbar-extra,
-.sv-tw-terrain-hillshade-row .menu-row-toolbar-extra {
+ * extra actions, so .sv-menu-row-toolbar-extra never renders for them. */
+.sv-tw-terrain-dem-row .sv-menu-row-toolbar-extra,
+.sv-tw-terrain-hillshade-row .sv-menu-row-toolbar-extra {
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
@@ -753,7 +753,7 @@
  * decorative photo glyph LEFT of the title (now done in anugaInputMenu.js), not
  * these controls. Titles stay left-justified (#13) — the rule still overrides
  * .simple-view-panel's inherited text-align:center. */
-.sv-tw-terrain-dem-row .menu-row-title,
-.sv-tw-terrain-hillshade-row .menu-row-title {
+.sv-tw-terrain-dem-row .sv-menu-row-title,
+.sv-tw-terrain-hillshade-row .sv-menu-row-title {
     text-align: left;
 }

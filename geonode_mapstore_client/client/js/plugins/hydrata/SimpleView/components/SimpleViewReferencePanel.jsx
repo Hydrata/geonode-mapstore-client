@@ -168,7 +168,7 @@ class SimpleViewReferencePanel extends React.Component {
                     <SectionHeader extraClassName="anuga-section-header">
                         <h5>With extraClassName</h5>
                     </SectionHeader>
-                    <Note type="do">SectionHeader always wraps children — it applies .row.menu-row.menu-row-header.</Note>
+                    <Note type="do">SectionHeader always wraps children — it applies .row.sv-menu-row.sv-menu-row-header.</Note>
                     <Note type="dont">Don{"'"}t add text-align:center on section content — it inherits from .simple-view-panel. Override with text-align:left.</Note>
                 </RefSection>
 

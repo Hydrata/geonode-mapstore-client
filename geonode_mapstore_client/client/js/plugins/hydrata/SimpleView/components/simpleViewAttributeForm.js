@@ -118,7 +118,7 @@ class SimpleViewAttributeFormClass extends React.Component {
         return (
             <div
                 id={'simple-view-attribute-form-panel'}
-                className={'simple-view-panel menu-rows-container'}
+                className={'simple-view-panel sv-menu-rows-container'}
             >
                 <div id={"simple-view-attribute-form-header"}>
                     <div className={'simple-view-panel-header'}>

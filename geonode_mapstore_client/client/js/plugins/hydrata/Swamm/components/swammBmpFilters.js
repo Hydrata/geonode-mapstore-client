@@ -80,13 +80,13 @@ class SwammBmpFiltersClass extends React.Component {
         return (
             <React.Fragment>
                 <div id={'swamm-bmp-filters'} className={'simple-view-panel'} style={{width: "480px"}}>
-                    <div className={'menu-rows-container'}>
-                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
+                    <div className={'sv-menu-rows-container'}>
+                        <div className={"row sv-menu-row sv-menu-row-bmp-filter pull-left"}>
                             <span
                                 className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('bmpType');}}
                             />
-                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpType" /></div></span>
+                            <span className="sv-menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpType" /></div></span>
                         </div>
                         { this.props.expandedFilter === "bmpType" ?
                             <div className="sv-bmp-filter-group-expanded-panel">
@@ -110,7 +110,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                     {group[1]}
                                                 </span>
                                                 <span
-                                                    className={"btn glyphicon menu-row-glyph sv-bmp-filter-type-heading-last-item" + (group?.[2] ? " glyphicon-ok" : " glyphicon-remove")}
+                                                    className={"btn glyphicon sv-menu-row-glyph sv-bmp-filter-type-heading-last-item" + (group?.[2] ? " glyphicon-ok" : " glyphicon-remove")}
                                                     style={{"color": group?.[2] ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                     onClick={() => {
                                                         this.props.toggleBmpTypeGroup(group);
@@ -129,7 +129,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                                 >
                                                                     <span
                                                                         id={`bmp-type-toggle-box-${bmpType?.name}`}
-                                                                        className={"btn glyphicon menu-row-glyph " + (bmpType?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                                        className={"btn glyphicon sv-menu-row-glyph " + (bmpType?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                                         style={{"color": bmpType?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                                         onClick={() => {
                                                                             this.props.toggleBmpTypeVisibility(bmpType);
@@ -152,12 +152,12 @@ class SwammBmpFiltersClass extends React.Component {
                             </div>
                             : null
                         }
-                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
+                        <div className={"row sv-menu-row sv-menu-row-bmp-filter pull-left"}>
                             <span
                                 className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "priority" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('priority');}}
                             />
-                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpPriority" /></div></span>
+                            <span className="sv-menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpPriority" /></div></span>
                         </div>
                         { this.props.expandedFilter === "priority" ?
                             <div className="sv-bmp-filter-group-expanded-panel">
@@ -169,7 +169,7 @@ class SwammBmpFiltersClass extends React.Component {
                                         >
                                             <span
                                                 id={`bmp-type-toggle-box-${priority?.label}`}
-                                                className={"btn glyphicon menu-row-glyph " + (priority?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                className={"btn glyphicon sv-menu-row-glyph " + (priority?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                 style={{"color": priority?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                 onClick={() => {
                                                     this.props.toggleBmpPriorityVisibility(priority);
@@ -187,12 +187,12 @@ class SwammBmpFiltersClass extends React.Component {
                             </div>
                             : null
                         }
-                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
+                        <div className={"row sv-menu-row sv-menu-row-bmp-filter pull-left"}>
                             <span
                                 className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "status" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('status');}}
                             />
-                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpStatus" /></div></span>
+                            <span className="sv-menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpStatus" /></div></span>
                         </div>
                         {
                             this.props.expandedFilter === "status" ?
@@ -206,7 +206,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                 >
                                                     <span
                                                         id={`bmp-type-toggle-box-${status?.name}`}
-                                                        className={"btn glyphicon menu-row-glyph " + (status?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                        className={"btn glyphicon sv-menu-row-glyph " + (status?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                         style={{"color": status?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                         onClick={() => {
                                                             this.props.toggleBmpStatusVisibility(status);
@@ -225,12 +225,12 @@ class SwammBmpFiltersClass extends React.Component {
                                 </div>
                                 : null
                         }
-                        <div className={"row menu-row menu-row-bmp-filter pull-left"}>
+                        <div className={"row sv-menu-row sv-menu-row-bmp-filter pull-left"}>
                             <span
                                 className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "groupProfile" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('groupProfile');}}
                             />
-                            <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByOrganization" /></div></span>
+                            <span className="sv-menu-row-text"><div><Message msgId="hydrata.swamm.filterByOrganization" /></div></span>
                         </div>
                         {
                             this.props.expandedFilter === "groupProfile" ?
@@ -244,7 +244,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                 >
                                                     <span
                                                         id={`bmp-type-toggle-box-${groupProfile?.title}`}
-                                                        className={"btn glyphicon menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
+                                                        className={"btn glyphicon sv-menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
                                                         style={{"color": groupProfile?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                         onClick={() => {
                                                             this.props.toggleBmpGroupProfileVisibility(groupProfile);

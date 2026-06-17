@@ -2,7 +2,7 @@ import React from "react";
 import PropTypes from 'prop-types';
 
 /**
- * Presentational `.row.menu-row.menu-row-header` section header used by
+ * Presentational `.row.sv-menu-row.sv-menu-row-header` section header used by
  * anugaInputMenu / InputSection / swammInputMenu.
  *
  * Presentation-only; no redux. `extraClassName` carries the per-site
@@ -11,7 +11,7 @@ import PropTypes from 'prop-types';
  * from Swamm CSS.
  */
 const SectionHeader = ({children, extraClassName, style}) => {
-    const className = "row menu-row menu-row-header"
+    const className = "row sv-menu-row sv-menu-row-header"
         + (extraClassName ? " " + extraClassName : "");
     return (
         <div className={className} style={style}>

@@ -70,11 +70,11 @@ const InputSection = ({
 
     return (
         <div
-            className={'menu-rows-container anuga-section'}
+            className={'sv-menu-rows-container anuga-section'}
         >
             <SectionHeader extraClassName="anuga-section-header">
                 <span
-                    className={"pull-left menu-row-text" + (collapsible ? " anuga-section-header-clickable" : "")}
+                    className={"pull-left sv-menu-row-text" + (collapsible ? " anuga-section-header-clickable" : "")}
                     onClick={collapsible ? onToggleCollapse : undefined}
                     role={collapsible ? "button" : undefined}
                     tabIndex={collapsible ? 0 : undefined}
@@ -89,7 +89,7 @@ const InputSection = ({
                 {canEdit ?
                     <React.Fragment>
                         <span
-                            className={`btn glyphicon menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            className={`btn glyphicon sv-menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                             style={{
                                 fontSize: "smaller",
                                 textAlign: "right",
@@ -129,7 +129,7 @@ const InputSection = ({
                 }
                 {collapsible && (
                     <span
-                        className={`btn glyphicon menu-row-glyph sv-glyph-collapse ${collapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                        className={`btn glyphicon sv-menu-row-glyph sv-glyph-collapse ${collapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
                         style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
                         onClick={onToggleCollapse}
                         aria-label={collapsed ? "Expand section" : "Collapse section"}
@@ -140,7 +140,7 @@ const InputSection = ({
             {!collapsed && pendingItems?.map((item, idx) => (
                 <div
                     key={`pending-${item?.id || idx}`}
-                    className={"row menu-row anuga-pending-row"}
+                    className={"row sv-menu-row anuga-pending-row"}
                     aria-busy="true"
                     aria-live="polite"
                 >
@@ -152,7 +152,7 @@ const InputSection = ({
                 </div>
             ))}
             {!collapsed && layers?.length === 0 && pendingItems?.length === 0 ?
-                <div className={"row menu-row anuga-section-empty-row"} aria-busy={isInitializing ? "true" : undefined} aria-live={isInitializing ? "polite" : undefined}>
+                <div className={"row sv-menu-row anuga-section-empty-row"} aria-busy={isInitializing ? "true" : undefined} aria-live={isInitializing ? "polite" : undefined}>
                     {isInitializing ?
                         <React.Fragment>
                             <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>

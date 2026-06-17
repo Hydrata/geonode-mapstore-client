@@ -42,24 +42,24 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
     });
 
     describe('Toolbar locked-order (4 glyphs, vis -> zoom -> edit -> download) — AC#2', () => {
-        it('renders exactly 4 .menu-row-glyph spans when canEdit && canDownload', (done) => {
+        it('renders exactly 4 .sv-menu-row-glyph spans when canEdit && canDownload', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit canDownload />,
                 container,
                 () => {
-                    const glyphs = container.querySelectorAll('.menu-row-glyph');
+                    const glyphs = container.querySelectorAll('.sv-menu-row-glyph');
                     expect(glyphs.length).toBe(4);
                     done();
                 }
             );
         });
 
-        it('renders exactly 3 .menu-row-glyph spans when canEdit && !canDownload (no download)', (done) => {
+        it('renders exactly 3 .sv-menu-row-glyph spans when canEdit && !canDownload (no download)', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit canDownload={false} />,
                 container,
                 () => {
-                    const glyphs = container.querySelectorAll('.menu-row-glyph');
+                    const glyphs = container.querySelectorAll('.sv-menu-row-glyph');
                     expect(glyphs.length).toBe(3);
                     expect(container.querySelector('.glyphicon-download')).toNotExist();
                     done();
@@ -67,12 +67,12 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
             );
         });
 
-        it('renders exactly 3 .menu-row-glyph spans when !canEdit && canDownload (no pencil)', (done) => {
+        it('renders exactly 3 .sv-menu-row-glyph spans when !canEdit && canDownload (no pencil)', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit={false} canDownload />,
                 container,
                 () => {
-                    const glyphs = container.querySelectorAll('.menu-row-glyph');
+                    const glyphs = container.querySelectorAll('.sv-menu-row-glyph');
                     expect(glyphs.length).toBe(3);
                     expect(container.querySelector('.sv-glyph-edit')).toNotExist();
                     done();
@@ -80,12 +80,12 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
             );
         });
 
-        it('renders exactly 2 .menu-row-glyph spans when !canEdit && !canDownload', (done) => {
+        it('renders exactly 2 .sv-menu-row-glyph spans when !canEdit && !canDownload', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit={false} canDownload={false} />,
                 container,
                 () => {
-                    const glyphs = container.querySelectorAll('.menu-row-glyph');
+                    const glyphs = container.querySelectorAll('.sv-menu-row-glyph');
                     expect(glyphs.length).toBe(2);
                     expect(container.querySelector('.sv-glyph-edit')).toNotExist();
                     expect(container.querySelector('.glyphicon-download')).toNotExist();
@@ -99,7 +99,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 <LayerActionToolbar layer={makeLayer()} canEdit canDownload />,
                 container,
                 () => {
-                    const glyphs = container.querySelectorAll('.menu-row-glyph');
+                    const glyphs = container.querySelectorAll('.sv-menu-row-glyph');
                     expect(glyphs[0].className).toInclude('glyphicon-ok');
                     expect(glyphs[1].className).toInclude('glyphicon-zoom-to');
                     expect(glyphs[2].className).toInclude('glyphicon-pencil');
@@ -114,7 +114,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 <LayerActionToolbar layer={makeLayer()} canEdit={false} canDownload />,
                 container,
                 () => {
-                    const glyphs = container.querySelectorAll('.menu-row-glyph');
+                    const glyphs = container.querySelectorAll('.sv-menu-row-glyph');
                     expect(glyphs[0].className).toInclude('glyphicon-ok');
                     expect(glyphs[1].className).toInclude('glyphicon-zoom-to');
                     expect(glyphs[2].className).toInclude('glyphicon-download');
@@ -128,7 +128,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 <LayerActionToolbar layer={makeLayer()} canEdit canDownload={false} />,
                 container,
                 () => {
-                    const glyphs = container.querySelectorAll('.menu-row-glyph');
+                    const glyphs = container.querySelectorAll('.sv-menu-row-glyph');
                     expect(glyphs[0].className).toInclude('glyphicon-ok');
                     expect(glyphs[1].className).toInclude('glyphicon-zoom-to');
                     expect(glyphs[2].className).toInclude('glyphicon-pencil');
@@ -144,7 +144,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 <LayerActionToolbar layer={makeLayer({visibility: true})} canEdit canDownload />,
                 container,
                 () => {
-                    const glyph = container.querySelectorAll('.menu-row-glyph')[0];
+                    const glyph = container.querySelectorAll('.sv-menu-row-glyph')[0];
                     expect(glyph.className).toInclude('glyphicon-ok');
                     expect(glyph.className).toInclude('sv-glyph-active');
                     expect(glyph.className).toNotInclude('sv-glyph-inactive');
@@ -158,7 +158,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 <LayerActionToolbar layer={makeLayer({visibility: false})} canEdit canDownload />,
                 container,
                 () => {
-                    const glyph = container.querySelectorAll('.menu-row-glyph')[0];
+                    const glyph = container.querySelectorAll('.sv-menu-row-glyph')[0];
                     expect(glyph.className).toInclude('glyphicon-remove');
                     expect(glyph.className).toInclude('sv-glyph-inactive');
                     expect(glyph.className).toNotInclude('sv-glyph-active');
@@ -179,7 +179,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 />,
                 container,
                 () => {
-                    const glyph = container.querySelectorAll('.menu-row-glyph')[0];
+                    const glyph = container.querySelectorAll('.sv-menu-row-glyph')[0];
                     glyph.click();
                     expect(toggles).toBe(1);
                     done();
@@ -197,7 +197,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                     const zoom = container.querySelector('.sv-glyph-zoom');
                     expect(zoom).toExist();
                     expect(zoom.className).toInclude('glyphicon-zoom-to');
-                    expect(zoom.className).toInclude('menu-row-glyph');
+                    expect(zoom.className).toInclude('sv-menu-row-glyph');
                     done();
                 }
             );
@@ -232,7 +232,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                     const edit = container.querySelector('.sv-glyph-edit');
                     expect(edit).toExist();
                     expect(edit.className).toInclude('glyphicon-pencil');
-                    expect(edit.className).toInclude('menu-row-glyph');
+                    expect(edit.className).toInclude('sv-menu-row-glyph');
                     done();
                 }
             );
@@ -278,7 +278,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 () => {
                     const download = container.querySelector('.glyphicon-download');
                     expect(download).toExist();
-                    expect(download.className).toInclude('menu-row-glyph');
+                    expect(download.className).toInclude('sv-menu-row-glyph');
                     expect(download.className).toInclude('sv-glyph-active');
                     done();
                 }
@@ -329,12 +329,12 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
             );
         });
 
-        it('never renders .menu-row-delete-confirm inside the primitive (now lives in secondary toolbar)', (done) => {
+        it('never renders .sv-menu-row-delete-confirm inside the primitive (now lives in secondary toolbar)', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit canDownload />,
                 container,
                 () => {
-                    expect(container.querySelector('.menu-row-delete-confirm')).toNotExist();
+                    expect(container.querySelector('.sv-menu-row-delete-confirm')).toNotExist();
                     done();
                 }
             );

@@ -98,7 +98,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                 container,
                 () => {
                     expect(container.querySelector('.sv-category-rail')).toExist();
-                    expect(container.querySelector('.menu-rows-pane')).toExist();
+                    expect(container.querySelector('.sv-menu-rows-pane')).toExist();
                     done();
                 }
             );
@@ -174,8 +174,8 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                     expect(boundaryItem).toExist();
                     boundaryItem.click();
                     setTimeout(() => {
-                        const pane = container.querySelector('.menu-rows-pane');
-                        const paneRows = pane.querySelectorAll('.menu-row');
+                        const pane = container.querySelector('.sv-menu-rows-pane');
+                        const paneRows = pane.querySelectorAll('.sv-menu-row');
                         expect(paneRows.length).toBe(2);
                         done();
                     }, 0);
@@ -279,12 +279,12 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                     expect(targetRailItem).toExist();
                     targetRailItem.click();
                     setTimeout(() => {
-                        const pane = container.querySelector('.menu-rows-pane');
-                        const row = pane.querySelector('.menu-row');
+                        const pane = container.querySelector('.sv-menu-rows-pane');
+                        const row = pane.querySelector('.sv-menu-row');
                         expect(row).toExist();
-                        const toolbar = row.querySelector('.menu-row-toolbar');
+                        const toolbar = row.querySelector('.sv-menu-row-toolbar');
                         expect(toolbar).toExist();
-                        const glyphs = toolbar.querySelectorAll('.menu-row-glyph');
+                        const glyphs = toolbar.querySelectorAll('.sv-menu-row-glyph');
                         expect(glyphs.length >= 2).toBe(true);
                         expect(glyphs[0].className).toInclude('sv-glyph-active');
                         expect(glyphs[1].className).toInclude('sv-glyph-zoom');
@@ -314,7 +314,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
 
     // D. Slider sub-row lifted as a sibling of the row body
     describe('D. Slider sub-row lifted', () => {
-        it('renders .menu-row-slider-subrow as a direct child of .menu-row (NOT inside the toolbar)', (done) => {
+        it('renders .sv-menu-row-slider-subrow as a direct child of .sv-menu-row (NOT inside the toolbar)', (done) => {
             const layers = [
                 makeLayer('t1', true, 'grp.Terrain', {opacity: 0.5}),
                 makeLayer('b1', true, 'grp.Boundary')
@@ -327,20 +327,20 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                 <Provider store={store}><MenuRows /></Provider>,
                 container,
                 () => {
-                    const row = container.querySelector('.menu-rows-pane .menu-row');
+                    const row = container.querySelector('.sv-menu-rows-pane .sv-menu-row');
                     expect(row).toExist();
                     // Slider must be a direct child of the row (sibling of
-                    // .menu-row-left / .menu-row-toolbar), NOT nested inside
+                    // .sv-menu-row-left / .sv-menu-row-toolbar), NOT nested inside
                     // the toolbar. Use direct-children iteration so we don't
                     // accidentally match a descendant.
                     const slider = Array.from(row.children).find(c =>
-                        c.className && c.className.indexOf('menu-row-slider-subrow') >= 0
+                        c.className && c.className.indexOf('sv-menu-row-slider-subrow') >= 0
                     );
                     expect(slider).toExist();
-                    // Confirm it's NOT inside .menu-row-toolbar.
-                    const toolbar = row.querySelector('.menu-row-toolbar');
+                    // Confirm it's NOT inside .sv-menu-row-toolbar.
+                    const toolbar = row.querySelector('.sv-menu-row-toolbar');
                     if (toolbar) {
-                        expect(toolbar.querySelector('.menu-row-slider-subrow')).toNotExist();
+                        expect(toolbar.querySelector('.sv-menu-row-slider-subrow')).toNotExist();
                     }
                     done();
                 }
@@ -364,7 +364,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                     // render on every row regardless of selection. We assert
                     // existence only — visibility is CSS-toggled and not
                     // testable via .style without a stylesheet load.
-                    const sliders = container.querySelectorAll('.menu-row-slider-subrow');
+                    const sliders = container.querySelectorAll('.sv-menu-row-slider-subrow');
                     expect(sliders.length).toBe(2);
                     done();
                 }
@@ -407,7 +407,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                 <Provider store={store}><MenuRows /></Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.menu-rows-container')).toExist();
+                    expect(container.querySelector('.sv-menu-rows-container')).toExist();
                     expect(container.querySelector('.sv-category-rail')).toNotExist();
                     expect(container.querySelector('.sv-subheading-row')).toNotExist();
                     done();

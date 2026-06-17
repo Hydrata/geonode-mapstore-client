@@ -9,7 +9,7 @@ import PropTypes from 'prop-types';
  * `selectedSubHeading` local state, localStorage collapse helpers,
  * and the dispatchers. `items` is a pre-computed array (see propTypes).
  */
-const MENU_ROW_GLYPH = "btn glyphicon menu-row-glyph";
+const MENU_ROW_GLYPH = "btn glyphicon sv-menu-row-glyph";
 
 /**
  * Tri-state visibility glyph class string. Exported so the legacy

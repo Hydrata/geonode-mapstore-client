@@ -274,11 +274,11 @@
 
 /* ── TASK-423: Consolidated ANUGA InputMenu / InputSection layout classes ── */
 
-/* Chained `.menu-rows-container` boosts specificity above the bare
-   `.menu-rows-container { overflow-y: auto }` rule in simpleView.css —
+/* Chained `.sv-menu-rows-container` boosts specificity above the bare
+   `.sv-menu-rows-container { overflow-y: auto }` rule in simpleView.css —
    without this, the parent rule wins on cascade order and a 4-ish-px
    scrollbar appears in every expanded section. */
-.menu-rows-container.anuga-section {
+.sv-menu-rows-container.anuga-section {
     border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 3px;
     margin: 3px 0;
@@ -308,7 +308,7 @@
    The label gets a min-width so the first action button always starts at the
    same x-position (and a second/third action button alongside also lines up
    row-to-row, provided sections share the same button order). */
-.anuga-section-header .menu-row-text {
+.anuga-section-header .sv-menu-row-text {
     min-width: 120px;
     flex-shrink: 0;
 }
@@ -329,7 +329,7 @@
 /* ── End TASK-423 ── */
 
 /* TASK-1010 W6-polish — Anuga rail+pane Miller layout (C v2 mockup alignment).
-   The pane is a flex column inside .menu-rows-pane (defined in
+   The pane is a flex column inside .sv-menu-rows-pane (defined in
    simpleView.css). Its first child is the pane head (category icon +
    title on the left, per-category action chips on the right). Below it
    scrolls the layer / pending / empty rows. */
@@ -424,7 +424,7 @@
 /* The ANUGA panel keeps its blue chrome but uses the Miller rail+pane
    shell inside. Default rail-item label sizing is fine; override only
    the lefthand pane padding so layer rows hug the rail. */
-.anuga-panel.simple-view-panel--miller .menu-rows-pane {
+.anuga-panel.simple-view-panel--miller .sv-menu-rows-pane {
     padding-left: 4px;
 }
 
@@ -1207,7 +1207,7 @@ div that holds the feature-grid */
 
 /* ── Wave 3A: 3-column Pane 1 / Pane 2 / Pane 3 shell ──────────────── */
 
-/* The .anuga-scenario-pane-shell sits inside the existing .menu-rows-pane
+/* The .anuga-scenario-pane-shell sits inside the existing .sv-menu-rows-pane
    and is the parent of the vertical category rail (Pane 2) plus the
    detail body (Pane 3). The legacy .anuga-pane-rows wrapper is removed
    from the scenarios surface because the category rail + detail are

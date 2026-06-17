@@ -393,7 +393,7 @@
     background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
 }
 
-.menu-rows-container {
+.sv-menu-rows-container {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -416,7 +416,7 @@
     margin-top: 0;
 }
 
-.sv-subheading-row .menu-row-glyph {
+.sv-subheading-row .sv-menu-row-glyph {
     flex-shrink: 0;
 }
 
@@ -435,16 +435,16 @@
     text-decoration: underline;
 }
 
-.menu-row-glyph.sv-glyph-collapse {
+.sv-menu-row-glyph.sv-glyph-collapse {
     color: var(--sv-glyph-chip-bg, #ffffff);
     background: transparent;
 }
 
-.menu-row-glyph.sv-glyph-collapse:hover {
+.sv-menu-row-glyph.sv-glyph-collapse:hover {
     background: rgba(255, 255, 255, 0.15);
 }
 
-.menu-row {
+.sv-menu-row {
     display: flex;
     align-items: center;
     padding-left: 5px;
@@ -452,14 +452,14 @@
     gap: 4px;
 }
 
-.menu-row-header {
+.sv-menu-row-header {
     font-size: larger;
     border-bottom: 2px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     padding-left: 5px;
     margin: 0;
 }
 
-.menu-row-left {
+.sv-menu-row-left {
     display: flex;
     align-items: center;
     flex: 1;
@@ -467,7 +467,7 @@
     gap: 2px;
 }
 
-span.menu-row-glyph {
+span.sv-menu-row-glyph {
     background: var(--sv-glyph-chip-bg, #ffffff);
     border-radius: 3px;
     margin: 2px 2px 2px 0;
@@ -486,15 +486,15 @@ span.menu-row-glyph {
     justify-content: center;
 }
 
-.menu-row-glyph.sv-glyph-active { color: var(--sv-glyph-active, limegreen); }
-.menu-row-glyph.sv-glyph-inactive { color: var(--sv-glyph-inactive, red); }
-.menu-row-glyph.sv-glyph-partial { color: var(--sv-glyph-partial, orange); }
-.menu-row-glyph.sv-glyph-zoom { color: var(--sv-glyph-zoom, #4dabf7); }
-.menu-row-glyph.sv-glyph-edit { color: var(--sv-glyph-edit, grey); }
-.menu-row-glyph.sv-glyph-delete { color: var(--sv-glyph-delete, darkred); }
-.menu-row-glyph.sv-glyph-save { color: var(--sv-glyph-save, limegreen); }
-.menu-row-glyph.sv-glyph-settings { color: var(--sv-glyph-settings, #325f93); }
-.menu-row-glyph.sv-glyph-disabled {
+.sv-menu-row-glyph.sv-glyph-active { color: var(--sv-glyph-active, limegreen); }
+.sv-menu-row-glyph.sv-glyph-inactive { color: var(--sv-glyph-inactive, red); }
+.sv-menu-row-glyph.sv-glyph-partial { color: var(--sv-glyph-partial, orange); }
+.sv-menu-row-glyph.sv-glyph-zoom { color: var(--sv-glyph-zoom, #4dabf7); }
+.sv-menu-row-glyph.sv-glyph-edit { color: var(--sv-glyph-edit, grey); }
+.sv-menu-row-glyph.sv-glyph-delete { color: var(--sv-glyph-delete, darkred); }
+.sv-menu-row-glyph.sv-glyph-save { color: var(--sv-glyph-save, limegreen); }
+.sv-menu-row-glyph.sv-glyph-settings { color: var(--sv-glyph-settings, #325f93); }
+.sv-menu-row-glyph.sv-glyph-disabled {
     opacity: 0.45;
     cursor: not-allowed;
     pointer-events: none;
@@ -503,7 +503,7 @@ span.menu-row-glyph {
 /* V2P-714 — inline cascade-delete error rendered under the row when the BE
    returns 409 ACTIVE_REFERENCES (blocked by active scenarios) or any other
    delete failure. */
-.menu-row-delete-error {
+.sv-menu-row-delete-error {
     flex-basis: 100%;
     margin-top: 2px;
     padding: 4px 8px;
@@ -513,19 +513,19 @@ span.menu-row-glyph {
     font-size: 12px;
     border-radius: 2px;
 }
-.menu-row-delete-error-message {
+.sv-menu-row-delete-error-message {
     font-weight: 500;
 }
-.menu-row-delete-error-list {
+.sv-menu-row-delete-error-list {
     margin: 4px 0 0 16px;
     padding: 0;
     list-style: disc;
 }
-.menu-row-delete-error-list li {
+.sv-menu-row-delete-error-list li {
     margin: 0;
 }
 
-.menu-row-text {
+.sv-menu-row-text {
     /* TASK-1758 W3 conform: was font-size:14px with no weight (inherited 400),
        so feature-row labels (e.g. "Boundary 01") read thinner than the 500/600
        siblings around them. Tokenise size + set the medium weight that matches
@@ -539,14 +539,14 @@ span.menu-row-glyph {
     overflow: hidden;
 }
 
-.menu-row-mini-heading {
+.sv-menu-row-mini-heading {
     width: 100%;
     margin-top: 10px;
     margin-left: 10px;
     text-align: left;
 }
 
-.menu-row-mini-container {
+.sv-menu-row-mini-container {
     border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: var(--sv-card-radius, 4px);
     margin: 1px;
@@ -661,10 +661,10 @@ span.menu-row-glyph {
  * under Karma+JSDOM). Hidden by default; the `is-open` class is flipped on
  * by handleDeleteClick and off by performDelete/cancelDelete.
  */
-.menu-row-delete-confirm {
+.sv-menu-row-delete-confirm {
     display: none;
 }
-.menu-row-delete-confirm.is-open {
+.sv-menu-row-delete-confirm.is-open {
     position: fixed;
     z-index: 1023;
     top: 11px;
@@ -681,14 +681,14 @@ span.menu-row-glyph {
     white-space: nowrap;
 }
 
-.menu-row-delete-confirm-text {
+.sv-menu-row-delete-confirm-text {
     color: white;
 }
 
-/* Pair with .menu-row-delete-confirm.is-open: hide trash + opacity slider
+/* Pair with .sv-menu-row-delete-confirm.is-open: hide trash + opacity slider
  * on the same row while the dialog is open so the dialog visually replaces
  * them at top-right. */
-.menu-row-glyph.sv-glyph-hidden,
+.sv-menu-row-glyph.sv-glyph-hidden,
 .mapstore-slider.sv-glyph-hidden {
     visibility: hidden;
 }
@@ -803,10 +803,10 @@ span.menu-row-glyph {
 /* ───────────────────────────────────────────────────────────────────────────
    Miller-columns rail+pane layout (TASK-1005 W1)
    ──────────────────────────────────────────────────────────────────────────
-   Two-pane shell shown inside .menu-rows-container when openMenuGroupId
+   Two-pane shell shown inside .sv-menu-rows-container when openMenuGroupId
    has 2+ subheadings. Scoped under .simple-view-panel--miller; all new
-   classes use the sv- prefix and never modify existing .menu-row,
-   .menu-rows-container, or .sv-subheading-row rules (R01 mitigation).
+   classes use the sv- prefix and never modify existing .sv-menu-row,
+   .sv-menu-rows-container, or .sv-subheading-row rules (R01 mitigation).
 
    The legacy accordion path (single-subheading fallback in
    simpleViewMenuRows.js) is preserved verbatim so the existing
@@ -869,7 +869,7 @@ span.menu-row-glyph {
     border-left-color: var(--sv-accent-lime, #cae33b);
 }
 
-/* The rail's tri-state visibility glyph keeps the default span.menu-row-glyph
+/* The rail's tri-state visibility glyph keeps the default span.sv-menu-row-glyph
    white "chip" (background:#ffffff + border-radius), matching the white-boxed
    buttons on the layer rows — so the earlier rail background-strip override is
    gone. The zoom glyph that override also covered has been removed from the
@@ -887,7 +887,7 @@ span.menu-row-glyph {
     text-overflow: ellipsis;
 }
 
-.simple-view-panel--miller .menu-rows-pane {
+.simple-view-panel--miller .sv-menu-rows-pane {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -944,40 +944,40 @@ span.menu-row-glyph {
 /* ───────────────────────────────────────────────────────────────────────────
    Layer-row toolbar + slider sub-row layout
    ──────────────────────────────────────────────────────────────────────────
-   .menu-row (horizontal flex)
-     ├ .menu-row-left
-     │    ├ .menu-row-toolbar           — locked 4-icon row: vis | zoom | edit | delete
-     │    │    └ .menu-row-delete-confirm — overlay (sibling of trash)
-     │    ├ .menu-row-toolbar-secondary — download | upload
-     │    └ .menu-row-title              — title input + save glyph (or static text)
-     ├ .menu-row-slider-subrow          — transparency slider (last child)
+   .sv-menu-row (horizontal flex)
+     ├ .sv-menu-row-left
+     │    ├ .sv-menu-row-toolbar           — locked 4-icon row: vis | zoom | edit | delete
+     │    │    └ .sv-menu-row-delete-confirm — overlay (sibling of trash)
+     │    ├ .sv-menu-row-toolbar-secondary — download | upload
+     │    └ .sv-menu-row-title              — title input + save glyph (or static text)
+     ├ .sv-menu-row-slider-subrow          — transparency slider (last child)
      └ renderDeleteFeedback             — sibling, after the slider
    ─────────────────────────────────────────────────────────────────────── */
 
-.menu-row-toolbar,
-.menu-row-toolbar-secondary,
-.menu-row-title {
+.sv-menu-row-toolbar,
+.sv-menu-row-toolbar-secondary,
+.sv-menu-row-title {
     display: inline-flex;
     align-items: center;
     gap: 2px;
 }
 
-.menu-row-toolbar,
-.menu-row-toolbar-secondary {
+.sv-menu-row-toolbar,
+.sv-menu-row-toolbar-secondary {
     flex-shrink: 0;
 }
 
-.menu-row-toolbar-secondary {
+.sv-menu-row-toolbar-secondary {
     margin-left: 4px;
 }
 
-.menu-row-title {
+.sv-menu-row-title {
     flex: 1;
     min-width: 0;
     margin-left: 4px;
 }
 
-.menu-row-slider-subrow {
+.sv-menu-row-slider-subrow {
     flex-shrink: 0;
 }
 

@@ -249,7 +249,7 @@ class NetworksPaneClass extends React.Component {
         const actions = (
             <React.Fragment>
                 <span
-                    className={'btn glyphicon menu-row-glyph sv-glyph-settings glyphicon-cog'}
+                    className={'btn glyphicon sv-menu-row-glyph sv-glyph-settings glyphicon-cog'}
                     title="Network settings"
                     onClick={() => {
                         this.props.setNetworkMenu(true);
@@ -260,7 +260,7 @@ class NetworksPaneClass extends React.Component {
                 {canEdit ? (
                     <React.Fragment>
                         <span
-                            className={`btn glyphicon menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            className={`btn glyphicon sv-menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                             onClick={this._handleCreateClick}
                             aria-label={inputVisible ? 'Save' : 'Add new'}
                         />
@@ -292,7 +292,7 @@ class NetworksPaneClass extends React.Component {
         );
 
         return (
-            <div className="menu-rows-pane anuga-pane hydrology-networks-pane">
+            <div className="sv-menu-rows-pane anuga-pane hydrology-networks-pane">
                 {/* TASK-1453: Terrain selector — step 1 of future network delineation */}
                 <TerrainSelector
                     terrainList={terrainList}
@@ -312,16 +312,16 @@ class NetworksPaneClass extends React.Component {
 
                 {/* TASK-1440: Catchments / Nodes / Links read-only display */}
                 <div className="anuga-pane-rows">
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
+                    <div className={'sv-menu-row-mini-container'}>
+                        <p className={'sv-menu-row-mini-heading'}><Message msgId="hydrata.anuga.catchments" /></p>
                         {(this.props.catchmentLayers || []).map(c => <MenuRow key={c?.name || c?.id} layer={c}/>)}
                     </div>
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
+                    <div className={'sv-menu-row-mini-container'}>
+                        <p className={'sv-menu-row-mini-heading'}><Message msgId="hydrata.anuga.nodes" /></p>
                         {(this.props.nodesLayers || []).map(n => <MenuRow key={n?.name || n?.id} layer={n}/>)}
                     </div>
-                    <div className={'menu-row-mini-container'}>
-                        <p className={'menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
+                    <div className={'sv-menu-row-mini-container'}>
+                        <p className={'sv-menu-row-mini-heading'}><Message msgId="hydrata.anuga.links" /></p>
                         {(this.props.linksLayers || []).map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
                     </div>
                 </div>

@@ -61,7 +61,7 @@ class SwammBmpChartClass extends React.Component {
         return (
             <div
                 id={'swamm-bmp-chart-panel'}
-                className={'simple-view-panel menu-rows-container'}
+                className={'simple-view-panel sv-menu-rows-container'}
                 role="region"
                 aria-label="SWAMM Dashboard"
             >

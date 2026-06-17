@@ -430,8 +430,8 @@ class AnugaScenarioMenuClass extends React.Component {
       const hasSelected = !!(selectedScenario && selectedScenario.id);
       const canDuplicateNow = canCreate && hasSelected;
       // Use the shared SectionHeader primitive (also used by anugaInputMenu /
-      // InputSection / swammInputMenu) instead of a hand-written .row.menu-row
-      // .menu-row-header className chain. extraClassName preserves the per-site
+      // InputSection / swammInputMenu) instead of a hand-written .row.sv-menu-row
+      // .sv-menu-row-header className chain. extraClassName preserves the per-site
       // anuga-section-header and scenario-menu-header CSS hooks.
       return (
           <SectionHeader extraClassName="anuga-section-header scenario-menu-header">
@@ -531,14 +531,14 @@ class AnugaScenarioMenuClass extends React.Component {
       return (
           <span
               className={
-                  "menu-row-delete-confirm anuga-build-validation-dialog"
+                  "sv-menu-row-delete-confirm anuga-build-validation-dialog"
           + (buildValidationError ? " is-open" : "")
               }
               role="alertdialog"
               aria-label={this.tr('hydrata.anuga.buildValidationAriaLabel', 'Build validation error')}
               aria-hidden={buildValidationError ? undefined : true}
           >
-              <span className="menu-row-delete-confirm-text">
+              <span className="sv-menu-row-delete-confirm-text">
                   {buildValidationError ?
                       <Message msgId={`hydrata.anuga.validateMissingField.${buildValidationError}`} />
                       : null
@@ -564,7 +564,7 @@ class AnugaScenarioMenuClass extends React.Component {
               id={'anuga-scenario-menu'}
               className={'simple-view-panel anuga-panel simple-view-panel--miller anuga-scenario-miller'}
           >
-              <div className={'menu-rows-container'}>
+              <div className={'sv-menu-rows-container'}>
                   {this.renderHeader()}
                   {/* ISSUE 32 (TASK-1429): View results button shown on run completion */}
                   {isComplete && selectedScenario?.latest_run ? (

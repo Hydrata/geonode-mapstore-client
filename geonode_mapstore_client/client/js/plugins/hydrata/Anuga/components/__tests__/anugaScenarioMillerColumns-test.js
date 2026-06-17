@@ -137,7 +137,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 () => {
                     expect(container.querySelector('.sv-rail-pane-shell')).toExist();
                     expect(container.querySelector('.sv-category-rail')).toExist();
-                    expect(container.querySelector('.menu-rows-pane')).toExist();
+                    expect(container.querySelector('.sv-menu-rows-pane')).toExist();
                     done();
                 }
             );

@@ -96,12 +96,12 @@ const baseLayer = (overrides = {}) => ({
 // under Karma+JSDOM. Production UX is unchanged: clicking trash flips a
 // `.is-open` class via setState, CSS reveals the dialog.
 const confirmDelete = (c) => {
-    const btn = c.querySelector('.menu-row-delete-confirm .sv-save-confirm-btn.danger');
+    const btn = c.querySelector('.sv-menu-row-delete-confirm .sv-save-confirm-btn.danger');
     if (!btn) throw new Error('confirm dialog Delete button not found in row DOM');
     Simulate.click(btn);
 };
 const cancelDelete = (c) => {
-    const btn = c.querySelector('.menu-row-delete-confirm .sv-save-confirm-btn.cancel');
+    const btn = c.querySelector('.sv-menu-row-delete-confirm .sv-save-confirm-btn.cancel');
     if (!btn) throw new Error('confirm dialog Cancel button not found in row DOM');
     Simulate.click(btn);
 };
@@ -660,7 +660,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                const errBlock = container.querySelector('.menu-row-delete-error');
+                const errBlock = container.querySelector('.sv-menu-row-delete-error');
                 expect(errBlock).toExist();
                 expect(errBlock.textContent).toInclude('Cannot delete');
                 expect(errBlock.textContent).toInclude('Scenario A');
@@ -690,7 +690,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                const errBlock = container.querySelector('.menu-row-delete-error');
+                const errBlock = container.querySelector('.sv-menu-row-delete-error');
                 expect(errBlock).toExist();
                 expect(errBlock.textContent).toInclude('Delete failed');
                 done();
@@ -717,7 +717,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                const errBlock = container.querySelector('.menu-row-delete-error');
+                const errBlock = container.querySelector('.sv-menu-row-delete-error');
                 expect(errBlock).toExist();
                 expect(errBlock.textContent).toInclude('do not have permission');
                 done();
@@ -744,15 +744,15 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             () => {
                 // .sv-glyph-delete is the interactive trash; .glyphicon-trash alone
                 // also matches the decorative trash inside the always-rendered
-                // confirm dialog so we narrow with the menu-row class.
-                const trash = container.querySelector('.menu-row-glyph.glyphicon-trash');
+                // confirm dialog so we narrow with the sv-menu-row class.
+                const trash = container.querySelector('.sv-menu-row-glyph.glyphicon-trash');
                 expect(trash).toExist();
                 expect(trash.getAttribute('aria-disabled')).toBe('true');
                 Simulate.click(trash);
                 // Dialog is rendered (always-in-DOM) but stays in its closed
                 // state — no `.is-open` class — and no dispatch occurs because
                 // onClick was undefined while deleting:true.
-                const dialog = container.querySelector('.menu-row-delete-confirm');
+                const dialog = container.querySelector('.sv-menu-row-delete-confirm');
                 expect(dialog).toExist();
                 expect(dialog.classList.contains('is-open')).toBe(false);
                 expect(dispatched.find(a => a?.type === DELETE_TERRAIN)).toBe(undefined);

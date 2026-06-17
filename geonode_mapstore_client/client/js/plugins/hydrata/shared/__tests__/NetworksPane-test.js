@@ -250,15 +250,15 @@ describe('NetworksPaneClass (TASK-1440 + TASK-1453)', () => {
         expect(toolbar).toExist();
     });
 
-    it('renders three .menu-row-mini-container elements (catchments / nodes / links)', () => {
+    it('renders three .sv-menu-row-mini-container elements (catchments / nodes / links)', () => {
         render();
-        const miniContainers = container.querySelectorAll('.menu-row-mini-container');
+        const miniContainers = container.querySelectorAll('.sv-menu-row-mini-container');
         expect(miniContainers.length).toBe(3);
     });
 
-    it('renders three .menu-row-mini-heading elements', () => {
+    it('renders three .sv-menu-row-mini-heading elements', () => {
         render();
-        const headings = container.querySelectorAll('.menu-row-mini-heading');
+        const headings = container.querySelectorAll('.sv-menu-row-mini-heading');
         expect(headings.length).toBe(3);
     });
 

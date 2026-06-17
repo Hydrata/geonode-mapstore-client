@@ -52,7 +52,7 @@ class PublicationPanelClass extends React.Component {
         const {anugaResources, myRole, currentUserId} = this.props;
         return (
             <div id={'publication-panel'} className={'simple-view-panel anuga-panel'}>
-                <div className={'menu-rows-container'}>
+                <div className={'sv-menu-rows-container'}>
                     <PanelHeader
                         extraClassName="sv-publication-close-row"
                         onClose={() => {
@@ -68,7 +68,7 @@ class PublicationPanelClass extends React.Component {
                             const canEditPublication = canEditLayer(layer, anugaResources, myRole, currentUserId);
                             const canDeletePublication = canDeleteLayer(layer, anugaResources, myRole, currentUserId);
                             return (
-                                <div className={"row menu-row-header sv-publication-row"}>
+                                <div className={"row sv-menu-row-header sv-publication-row"}>
                                     <span className="sv-publication-title"><Message msgId="hydrata.anuga.publishPrefix" /> {publication?.geostory?.title}</span>
                                     {canEditPublication ?
                                         <Button

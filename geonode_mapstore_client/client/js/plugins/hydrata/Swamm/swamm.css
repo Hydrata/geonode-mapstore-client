@@ -393,7 +393,7 @@
     margin-left: 30px;
 }
 
-.menu-row-bmp-filter {
+.sv-menu-row-bmp-filter {
     height: 24px;
     display: flex;
     width: 470px;
@@ -646,7 +646,7 @@
         width: calc(100% - 20px) !important;
     }
 
-    .menu-row-bmp-filter {
+    .sv-menu-row-bmp-filter {
         width: 100%;
     }
 

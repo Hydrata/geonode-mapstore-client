@@ -37,7 +37,7 @@ import PropTypes from 'prop-types';
  *   4. Swamm              — swamm-bmp chart body containers
  *   5. TerrainWorkbench   — terrain bbox review card
  *   6. TaskMonitor        — sv-tm-process-detail card-like detail pane
- *   7. SimpleView         — menu-row-mini-container card
+ *   7. SimpleView         — sv-menu-row-mini-container card
  * Total: 7 consumers.
  *
  * Themed via --sv-* tokens only; no hardcoded panel-chrome colours.

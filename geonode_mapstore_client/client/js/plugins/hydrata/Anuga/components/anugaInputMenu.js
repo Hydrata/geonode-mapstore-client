@@ -878,7 +878,7 @@ class TerrainHierarchyRow extends React.Component {
         // UAT 2026-06-17: Mode (⚙) + Contours (◷) render as an EXTRA toolbar slot on
         // the DEM MenuRow — to the RIGHT of the per-layer controls (tick / glass /
         // delete), before the title. Built as {key, render} entries the MenuRow drops
-        // into its .menu-row-toolbar-extra block. The Hillshade row reserves the SAME
+        // into its .sv-menu-row-toolbar-extra block. The Hillshade row reserves the SAME
         // fixed-width (empty) column so the controls + titles line up across both rows.
         const demExtraActions = [];
         if (canEdit && terrainModel?.id) {
@@ -1630,7 +1630,7 @@ class AnugaInputMenuClass extends React.Component {
     renderPaneEmpty(emptyMsgId, isInitializing) {
         return (
             <div
-                className="row menu-row anuga-section-empty-row"
+                className="row sv-menu-row anuga-section-empty-row"
                 aria-busy={isInitializing ? "true" : undefined}
                 aria-live={isInitializing ? "polite" : undefined}
             >
@@ -1654,7 +1654,7 @@ class AnugaInputMenuClass extends React.Component {
     // bare renderPaneEmpty single-line state.
     renderTerrainEmpty() {
         return (
-            <div className="row menu-row anuga-section-empty-row anuga-terrain-empty-help">
+            <div className="row sv-menu-row anuga-section-empty-row anuga-terrain-empty-help">
                 <Message msgId="hydrata.anuga.noTerrainHelp" />
             </div>
         );
@@ -1664,7 +1664,7 @@ class AnugaInputMenuClass extends React.Component {
         return (
             <div
                 key={`pending-${item?.id || idx}`}
-                className={"row menu-row anuga-pending-row"}
+                className={"row sv-menu-row anuga-pending-row"}
                 aria-busy="true"
                 aria-live="polite"
             >
@@ -1683,7 +1683,7 @@ class AnugaInputMenuClass extends React.Component {
         return (
             <React.Fragment>
                 <span
-                    className={`btn glyphicon menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                    className={`btn glyphicon sv-menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                     onClick={() => this.handleCreateClick(catId, titleKey, createFn, trackEventName)}
                     aria-label={inputVisible ? "Save" : "Add new"}
                 />
@@ -1920,7 +1920,7 @@ class AnugaInputMenuClass extends React.Component {
             <React.Fragment>
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
                     <span
-                        className={"btn glyphicon menu-row-glyph sv-glyph-active glyphicon-globe"}
+                        className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-globe"}
                         data-testid="anuga-terrain-global-dem-button"
                         onClick={() => {
                             this.props.setVisibleTerrainBboxPanel(true);
@@ -1930,7 +1930,7 @@ class AnugaInputMenuClass extends React.Component {
                 </OverlayTrigger>
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
                     <span
-                        className={"btn glyphicon menu-row-glyph sv-glyph-active glyphicon-upload"}
+                        className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-upload"}
                         data-testid="anuga-terrain-upload-button"
                         onClick={() => {
                             // TASK-1729 (W1.7): direct-to-S3 presigned-PUT upload —
@@ -1968,7 +1968,7 @@ class AnugaInputMenuClass extends React.Component {
         const { expandedTerrainIds } = this.state;
 
         return (
-            <div className="menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane anuga-pane">
                 {this.renderPaneHead('terrain', actions)}
                 {/* TASK-1728 (W1.7): the terrain upload is non-blocking — its progress,
                     success, and failure surface on the W1.5 Tasks Panel, not here. */}
@@ -2082,7 +2082,7 @@ class AnugaInputMenuClass extends React.Component {
             ? this.renderCreateControls(catId, conf.titleKey, conf.createProp, conf.inputId, conf.trackEventName)
             : null;
         return (
-            <div className="menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane anuga-pane">
                 {this.renderPaneHead(catId, actions)}
                 <div className="anuga-pane-rows">
                     {layers.map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
@@ -2118,7 +2118,7 @@ class AnugaInputMenuClass extends React.Component {
         const isMeshLayerAdded = (this.props.flatLayers || []).some(l => l?.name === MESH_RENDER_LAYER);
 
         return (
-            <div className="menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane anuga-pane">
                 {this.renderPaneHead('meshRegions', createActions)}
                 <div className="anuga-pane-rows">
                     {layers.map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
@@ -2153,7 +2153,7 @@ class AnugaInputMenuClass extends React.Component {
         const actions = (
             <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadFrictionRasterTooltip" /></Tooltip>}>
                 <span
-                    className={"btn glyphicon menu-row-glyph sv-glyph-active glyphicon-upload"}
+                    className={"btn glyphicon sv-menu-row-glyph sv-glyph-active glyphicon-upload"}
                     onClick={() => {
                         this.props.setVisibleUploaderPanel(true, "friction_raster", null);
                         trackEvent('button', 'click', 'anuga-input-menu-show-friction-raster-uploader');
@@ -2162,7 +2162,7 @@ class AnugaInputMenuClass extends React.Component {
             </OverlayTrigger>
         );
         return (
-            <div className="menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane anuga-pane">
                 {this.renderPaneHead('frictionRasters', actions)}
                 <div className="anuga-pane-rows">
                     {layers.map(fr => <MenuRow key={fr?.name || fr?.id} layer={fr}/>)}
@@ -2186,10 +2186,10 @@ class AnugaInputMenuClass extends React.Component {
     // `default:` and showed the Terrain pane.
     renderCulvertPane() {
         return (
-            <div className="menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane anuga-pane">
                 {this.renderPaneHead('culverts', null)}
                 <div className="anuga-pane-rows">
-                    <div className="row menu-row anuga-section-empty-row">
+                    <div className="row sv-menu-row anuga-section-empty-row">
                         <Message msgId="hydrata.anuga.culvertPlaceholder" />
                     </div>
                 </div>
@@ -2240,7 +2240,7 @@ class AnugaInputMenuClass extends React.Component {
                         }}
                     />
                 }
-                <div className={'menu-rows-container'}>
+                <div className={'sv-menu-rows-container'}>
                     {hasProjection ? (
                         <div className={'sv-rail-pane-shell'}>
                             {this.renderRail()}

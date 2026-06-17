@@ -42,9 +42,9 @@ class NetworkMenuClass extends React.Component {
     render() {
         return (
             <div id={'anuga-network-container'} className={'simple-view-panel anuga-panel'}>
-                <div className={'menu-rows-container'}>
+                <div className={'sv-menu-rows-container'}>
                     <PanelHeader
-                        extraClassName="menu-row-header"
+                        extraClassName="sv-menu-row-header"
                         title={<Message msgId="hydrata.anuga.hydrology" />}
                         onClose={() => {
                             this.props.setNetworkMenu(false);

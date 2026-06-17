@@ -46,7 +46,7 @@ class SwammTargetFormClass extends React.Component {
         return (
             <div
                 id={'swamm-target-form-panel'}
-                className={'simple-view-panel menu-rows-container'}
+                className={'simple-view-panel sv-menu-rows-container'}
             >
                 <PanelHeader
                     extraClassName="sv-swamm-target-form-header"

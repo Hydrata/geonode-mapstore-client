@@ -124,7 +124,7 @@ class SwammBmpFormClass extends React.Component {
         return (
             <div
                 id={'swamm-bmp-form-panel'}
-                className={'simple-view-panel menu-rows-container'}
+                className={'simple-view-panel sv-menu-rows-container'}
             >
                 <div id={"swamm-bmp-form-grid-header"}>
                     <PanelHeader

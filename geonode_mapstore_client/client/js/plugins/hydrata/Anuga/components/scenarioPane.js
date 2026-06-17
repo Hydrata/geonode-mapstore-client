@@ -530,7 +530,7 @@ const ScenarioPane = (props) => {
     );
 
     return (
-        <div className="menu-rows-pane anuga-pane anuga-scenario-pane">
+        <div className="sv-menu-rows-pane anuga-pane anuga-scenario-pane">
             <div className="anuga-pane-toolbar">
                 <span className="anuga-pane-head-label">
                     <Message msgId="hydrata.anuga.scenarios" />

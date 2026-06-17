@@ -10,11 +10,11 @@ import PropTypes from 'prop-types';
  * the trash + delete-confirm overlay are no longer rendered here.
  *
  * TASK-1010 B2 — `secondaryActions` slot. When non-empty, the primitive
- * renders a sibling `<span className='menu-row-toolbar-secondary'>` block
+ * renders a sibling `<span className='sv-menu-row-toolbar-secondary'>` block
  * carrying additional glyphs (currently used by simpleViewMenuRow for the
  * always-mounted delete-confirm trigger + upload). Children pass
  * `{glyph, onClick, ariaLabel?, className?, ariaDisabled?}`; the primitive
- * stamps `btn glyphicon menu-row-glyph ${glyph}` and merges optional
+ * stamps `btn glyphicon sv-menu-row-glyph ${glyph}` and merges optional
  * `className` overrides at the end so callers can layer on
  * `sv-glyph-active` / `sv-glyph-delete` / `sv-glyph-disabled` etc.
  *
@@ -27,7 +27,7 @@ import PropTypes from 'prop-types';
  * the VectorDraw 6-action onClick body, and the download dispatch —
  * `canEdit` / `canDownload` arrive pre-AND'd from the container.
  */
-const MENU_ROW_GLYPH = "btn glyphicon menu-row-glyph";
+const MENU_ROW_GLYPH = "btn glyphicon sv-menu-row-glyph";
 
 const LayerActionToolbar = ({
     layer,
@@ -41,7 +41,7 @@ const LayerActionToolbar = ({
 }) => {
     return (
         <React.Fragment>
-            <div className={"menu-row-toolbar"}>
+            <div className={"sv-menu-row-toolbar"}>
                 <span
                     className={`${MENU_ROW_GLYPH} ${layer?.visibility ? "glyphicon-ok sv-glyph-active" : "glyphicon-remove sv-glyph-inactive"}`}
                     onClick={onToggleVisibility}
@@ -67,7 +67,7 @@ const LayerActionToolbar = ({
             </div>
             {
                 (secondaryActions && secondaryActions.length > 0) ?
-                    <span className={"menu-row-toolbar-secondary"}>
+                    <span className={"sv-menu-row-toolbar-secondary"}>
                         {secondaryActions.map((a, i) => {
                             if (!a) return null;
                             // Custom-content escape hatch — used by the
