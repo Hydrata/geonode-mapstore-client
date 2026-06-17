@@ -304,42 +304,12 @@
 
 /* ── TASK-1448 (W1) — Hydrology miller layout ──────────────────────────── */
 
-/* Override the legacy fixed inline styles from the old panel */
-.hydrology-miller-panel {
-    top: 70px;
-    position: fixed;
-    width: min(1280px, 96vw);
-    height: 85%;
-    background-color: rgba(0, 60, 136, 0.99);
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    left: 20px;
-}
-
-.hydrology-miller-header {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    height: 44px;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
-    font-size: large;
-    text-align: left;
-}
-
-.hydrology-miller-title {
-    flex: 1;
-}
-
-.hydrology-miller-close {
-    cursor: pointer;
-    opacity: 0.8;
-}
-
-.hydrology-miller-close:hover {
-    opacity: 1;
-}
+/* TASK-1760 (epic-1758 W1) — the panel shell + header migrated to the
+   <PanelShell>/<PanelHeader> chassis primitives (hydrologyMainMenu.js), so the
+   bespoke .hydrology-miller-panel / -header / -title / -close layout rules are
+   dead and removed. PanelShell carries the dark-glass box chrome (with the
+   miller box overrides on its style prop); PanelHeader carries the title row +
+   the cascade-safe close chip. The body flex row below stays bespoke. */
 
 /* Body: LHS rail + RHS detail pane */
 .hydrology-miller-body {

@@ -17,6 +17,11 @@ import PropTypes from "prop-types";
 import Message from '@mapstore/framework/components/I18N/Message';
 // TASK-1440 (W9): Networks tab in the Hydrology panel.
 import {NetworksPane} from '../../shared/NetworksPane';
+// TASK-1760 (epic-1758 W1): chassis primitives — the panel shell + header now
+// compose from PanelShell/PanelHeader so the dark-glass chrome is shared and
+// the close chip is the cascade-safe sv-panel-header-close (NOT the
+// position:absolute .legend-close that overlapped the title — red-team item 4).
+import {PanelShell, PanelHeader} from '../../SimpleView/components/primitives';
 
 /**
  * TASK-1448 (W1) — Hydrology panel shell redesigned to a LHS vertical
@@ -54,24 +59,37 @@ class HydrologyMainMenuClass extends React.Component {
     render() {
         const isNetworksTab = this.props.activeHydrologyPage === 'networks';
         return (
-            <div
-                id={'hydrology-main-menu'}
-                className={'simple-view-panel simple-view-panel--miller hydrology-miller-panel'}
+            // TASK-1760 — PanelShell carries the dark-glass chrome (componentized
+            // form of .simple-view-panel). The .simple-view-panel(--miller) classes
+            // are kept via extraClassName because the panel BODY relies on them as
+            // cascade anchors (.simple-view-panel input theming, the --miller
+            // scrollbar rules). The miller-specific box overrides (fixed position,
+            // min(1280px,96vw) × 85% size, top:70, padding:0) ride the style prop.
+            <PanelShell
+                extraClassName={'simple-view-panel simple-view-panel--miller'}
+                style={{
+                    position: 'fixed',
+                    top: 70,
+                    left: 20,
+                    width: 'min(1280px, 96vw)',
+                    minWidth: 'min(1280px, 96vw)',
+                    height: '85%',
+                    maxHeight: '85%',
+                    padding: 0,
+                    textAlign: 'left'
+                }}
             >
-                {/* Header */}
-                <div className={"hydrology-miller-header"}>
-                    <span className={"hydrology-miller-title"}>
-                        <Message msgId="hydrata.hydrology.hydrology" />
-                    </span>
-                    <span
-                        className={"btn glyphicon glyphicon-remove legend-close hydrology-miller-close"}
-                        onClick={() => {
-                            this.props.setHydrologyMainMenu(false);
-                            this.props.setActiveHydrologyPage(null);
-                            trackEvent('button', 'click', 'hydrology-panel-close');
-                        }}
-                    />
-                </div>
+                {/* Header — PanelHeader renders a cascade-SAFE close chip
+                    (sv-panel-header-close, position:static), closing the
+                    .legend-close{position:absolute} trap the old miller header hit. */}
+                <PanelHeader
+                    title={<Message msgId="hydrata.hydrology.hydrology" />}
+                    onClose={() => {
+                        this.props.setHydrologyMainMenu(false);
+                        this.props.setActiveHydrologyPage(null);
+                        trackEvent('button', 'click', 'hydrology-panel-close');
+                    }}
+                />
                 {/* Body: LHS rail + RHS detail */}
                 <div className={"hydrology-miller-body"}>
                     <HydrologyCategoryRail
@@ -89,7 +107,7 @@ class HydrologyMainMenuClass extends React.Component {
                         }
                     </div>
                 </div>
-            </div>
+            </PanelShell>
         );
     }
 }
