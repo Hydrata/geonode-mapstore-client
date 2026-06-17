@@ -65,8 +65,8 @@ class ProcessDetail extends React.Component {
                             <a
                                 href={process.metadata.download_url}
                                 download={process.metadata.filename || 'terrain.tif'}
-                                className="btn btn-success btn-xs"
-                                style={{textDecoration: 'none', color: '#fff'}}
+                                className="btn btn-xs sv-tm-download-cta"
+                                style={{textDecoration: 'none'}}
                             >
                                 <span className="glyphicon glyphicon-download-alt" style={{marginRight: 4}} />
                                 Ready — Download
