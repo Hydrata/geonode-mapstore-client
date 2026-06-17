@@ -26,7 +26,7 @@ const SummaryTable = ({ selectedTarget }) => {
             style={{margin: '10px'}}
             bodyStyle={{padding: 0}}
         >
-            <Table surface="light" extraClassName="text-right" style={{tableLayout: 'auto'}} aria-label="Dashboard summary">
+            <Table surface="light" extraClassName="text-right sv-swamm-summary-table" style={{tableLayout: 'auto'}} aria-label="Dashboard summary">
                 <thead>
                     <tr>
                         <th>Summary</th>

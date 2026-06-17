@@ -142,13 +142,26 @@
     margin-bottom: 5px;
 }
 
-.sv-swamm-bmp-chart-graph-container {
-    margin-bottom: 15px;
-}
-
 .sv-swamm-bmp-chart-graph-box {
     display: flex;
     height: 100px;
+}
+
+/* SummaryTable renders raw thead/tbody children, so the Table primitive only
+   inlines its light-surface cell chrome on the columns/data path — restore the
+   per-cell padding + borders for the children-path summary table here
+   (TASK-1766 W2 polish, item a; values mirror Table.js getThStyle/getTdStyle). */
+.sv-swamm-summary-table th {
+    background-color: var(--sv-input-blue, #5178af);
+    color: #fff;
+    padding: 2px 4px;
+    font-weight: 600;
+}
+
+.sv-swamm-summary-table td {
+    padding: 2px 4px;
+    vertical-align: top;
+    border: 1px solid rgba(53, 133, 176, 0.4);
 }
 
 .sv-swamm-bmp-chart-pie-group {
