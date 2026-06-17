@@ -18,6 +18,37 @@ export {Tooltip} from './Tooltip';
 export {ErrorStrip} from './ErrorStrip';
 export {EmptyState} from './EmptyState';
 
+// ── Chassis (layout) primitives — TASK-1759 / epic-1758 P0 ──────────────────
+// 6 structural primitives the W1 panel agents can compose from.
+// Each cleared the rule-of-three (≥3 real consumers across the 8 panels).
+// See DESIGN-SYSTEM-AUDIT.md § Part F — Chassis layer for the full audit matrix.
+//
+//   PanelShell   7 consumers: SimpleView, Anuga, Hydrology, Swamm, HGeval,
+//                             TaskMonitor, VectorDraw
+//   PanelHeader  8 consumers: SimpleView(legend-header), Anuga(pane-toolbar),
+//                             Hydrology(miller-header), HGeval, TaskMonitor(sv-tm-header),
+//                             VectorDraw, Swamm, TerrainWorkbench
+//   Section      8 consumers: Anuga(section+pane-section), Hydrology(idf-derive-step),
+//                             HGeval(hgeval-section), TerrainWorkbench(recipe-section),
+//                             SimpleView, Swamm, TaskMonitor, VectorDraw
+//   Card         7 consumers: Anuga(status-card,resource-summary,starter-card),
+//                             Hydrology(design-storm-card,chart-card→variant="chart"),
+//                             HGeval(selected-coords), Swamm, TerrainWorkbench,
+//                             TaskMonitor, SimpleView
+//   Table        6 consumers: Hydrology(idf-table,temporal,time-series,matrix),
+//                             Anuga(built-mesh-roster,run-server),
+//                             HGeval(results table), Swamm, VectorDraw, TaskMonitor
+//   FormRow      7 consumers: Anuga(scenario-pane-section label+field rows),
+//                             Hydrology(idf-derive-step rows),
+//                             HGeval(hgeval-input-panel rows),
+//                             SimpleView(panel-item-row), Swamm, TaskMonitor, TerrainWorkbench
+export {PanelShell} from './PanelShell';
+export {PanelHeader} from './PanelHeader';
+export {Section} from './Section';
+export {Card} from './Card';
+export {Table} from './Table';
+export {FormRow} from './FormRow';
+
 // Still deferred (rule-of-three NOT met, or already covered):
 //   StatusTag    — already covered by StatusBadge (5-state pill)
 //   SectionRow   — header concept already covered by SectionHeader; no shared body-row

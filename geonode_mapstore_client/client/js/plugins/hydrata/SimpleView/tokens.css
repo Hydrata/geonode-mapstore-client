@@ -85,4 +85,45 @@
        the reference panel may adopt). */
     --sv-info-bg:     rgba(91, 192, 222, 0.12);
     --sv-info-border: #5bc0de;
+
+    /* ── Chassis layout tokens — TASK-1759 / epic-1758 P0 ──────────────────
+       Consumed by the 6 chassis primitives (PanelShell, PanelHeader, Section,
+       Card, Table, FormRow). One-line comment per token.
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /* Panel internal padding (PanelShell: default content padding) */
+    --sv-panel-padding:   5px 10px;
+
+    /* Header bar height reference — used by consumers that need to offset below
+       the header (e.g. absolute-positioned children inside the panel). */
+    --sv-header-height:   40px;
+
+    /* Header font-size — overridable per-panel (Hydrology uses font-size:large) */
+    --sv-header-font-size: 14px;
+
+    /* Header inner padding (PanelHeader) */
+    --sv-header-padding:   8px 12px;
+
+    /* Gap between adjacent Section components (vertical rhythm) */
+    --sv-section-gap:     8px;
+
+    /* Card internal padding (Card body) */
+    --sv-card-padding:    10px 12px;
+
+    /* Card border-radius — also used by Table */
+    --sv-card-radius:     4px;
+
+    /* Gap between label and control in a FormRow (inline layout) */
+    --sv-form-row-gap:    8px;
+
+    /* ── Chart carve-out token (grill q-1, TASK-1534) ──────────────────────
+       Light background for recharts plotting surfaces inside Card variant="chart".
+       recharts 0.22.4 renders axes/grid on whatever background its container has;
+       on a dark panel the grid lines and axis labels become near-invisible.
+       TASK-1534 deliberately keeps chart cards white so axes/grid/tick labels read.
+       This token is the ONLY mechanism W1 panel agents should use to set the chart
+       surface — do NOT darken recharts or override its container to a dark colour.
+       See docs/reports/2026-06-17-q-1-chart-surface-carveout.html for the full decision.
+       ──────────────────────────────────────────────────────────────────────── */
+    --sv-chart-surface: #ffffff;
 }

@@ -176,3 +176,69 @@ Ordered by effort (lowest first):
 - `hyrdology-` (typo of `hydrology-`) appears once in hydrology.css — noted as technical debt; the allowlist seeds it as-is (one class: `.hyrdology-textarea`).
 - SimpleView's `.simple-view-panel { text-align: center }` INHERITS into all descendant content — panels that add `text-align: left` overrides are working around this. Document in token migration as a gotcha.
 - `.msgapi .simple-view-panel input` wins at specificity (0,3,1) — transparent-input overrides need `!important` (see memory reference-simple-view-panel-css.md).
+
+---
+
+## Part F — Chassis Layer (TASK-1759 / epic-1758 P0)
+
+**Date:** 2026-06-17
+**Branch:** epic/1587-terrain-assembly
+**Scope:** 6 layout/structural chassis primitives built on top of the V1 widget set.
+
+These are the LAYOUT/STRUCTURE primitives that the 1659 widget set deferred (it only covered
+_widgets_ — StatusBadge, ProgressBar, etc.). Each primitive cleared the rule-of-three gate
+(≥ 3 real consumers across the 8 panels), confirmed by reading every panel CSS file.
+
+### Rule-of-three matrix
+
+| Primitive | Source class(es) | Consumers | Panel files confirmed |
+|-----------|-----------------|-----------|----------------------|
+| **PanelShell** | `.simple-view-panel` (simpleView.css) | 7 | SimpleView, Anuga (`.anuga-panel`), Hydrology (`.hydrology-miller-panel`), Swamm (`#swamm-bmp-form-panel`), HGeval (`.hgeval-panel`), TaskMonitor (sv-migrated), VectorDraw (inherits) |
+| **PanelHeader** | `.simple-view-panel-header`, `.anuga-pane-toolbar`, `.sv-tm-header`, `.legend-header`, `.hgeval-header`, `.hydrology-miller-header` | 8 | SimpleView (legend-header + simple-view-panel-header), Anuga (pane-toolbar), Hydrology (miller-header), HGeval, TaskMonitor (sv-tm-header), VectorDraw, Swamm, TerrainWorkbench |
+| **Section** | `.anuga-section`, `.anuga-scenario-pane-section`, `.hgeval-section`, `.anuga-terrain-recipe-section`, `.idf-derive-step`, `.membership-visibility` | 8 | Anuga (section+pane-section+membership), Hydrology (idf-derive-step+subtoggle), HGeval (hgeval-section), TerrainWorkbench (recipe-section), SimpleView, Swamm, TaskMonitor, VectorDraw |
+| **Card** | `.anuga-scenario-status-card`, `.anuga-scenario-resource-summary`, `.design-storm-card`, `.anuga-starter-card`, `.terrain-bbox-inline-review` | 7 | Anuga (status-card, resource-summary, starter-card, terrain-bbox), Hydrology (design-storm-card, design-storm-chart-card → variant="chart"), HGeval (hgeval-disclaimer), Swamm, TerrainWorkbench, TaskMonitor, SimpleView |
+| **Table** | `.idf-table`, `.temporal-pattern-table`, `.time-series-table`, `.idf-matrix-table`, `.anuga-built-mesh-roster-table`, `.hgeval-section .table` | 6 | Hydrology (idf-table, temporal, time-series, matrix), Anuga (built-mesh-roster, run-server, network), HGeval (results table), Swamm, VectorDraw, TaskMonitor |
+| **FormRow** | `.simple-view-panel-item-row`, `.anuga-scenario-pane-section` (label+field pattern), `.hgeval-input-panel label`, `.hgeval-coord-row`, `.membership-add-form-row` | 7 | Anuga (scenario-pane-section — all 3 scenario detail panes), Hydrology (idf-derive-step rows), HGeval (hgeval-input-panel), SimpleView (panel-item-row), Swamm, TaskMonitor, TerrainWorkbench |
+
+### CRITICAL — PanelHeader close chip cascade trap
+
+The `.legend-close` rule in simpleView.css carries `position:absolute`. Any close button
+that inadvertently picks up this class would escape the flex row and overlap the title text.
+PanelHeader renders its close chip with `position:'static'` via inline style (explicit, not
+relying on flex default), and uses the class `sv-panel-header-close` (NOT `legend-close`).
+This blocks the cascade trap at two levels: (1) wrong class name, (2) inline style wins.
+Covered by the `PanelHeader close chip has position:static` karma assertion.
+
+### Chart carve-out (grill q-1 decision)
+
+- Token `--sv-chart-surface: #ffffff` added to `tokens.css`.
+- `Card variant="chart"`: card FRAME is dark-glass, card BODY uses `--sv-chart-surface`.
+- rationale: recharts 0.22.4 renders axes/grid on the container background; a dark container
+  makes all axis labels and grid lines near-invisible. TASK-1534 deliberately keeps chart
+  cards white. The carve-out is the ONLY permitted mechanism — never darken recharts directly.
+- Full decision: `docs/reports/2026-06-17-q-1-chart-surface-carveout.html` (deploy repo).
+
+### Layout tokens added (tokens.css)
+
+6 chassis-specific tokens: `--sv-panel-padding`, `--sv-header-height`, `--sv-header-font-size`,
+`--sv-header-padding`, `--sv-section-gap`, `--sv-card-padding`, `--sv-card-radius`,
+`--sv-form-row-gap`. Plus `--sv-chart-surface` for the carve-out.
+
+### Files changed
+
+- `primitives/PanelShell.js` (new)
+- `primitives/PanelHeader.js` (new)
+- `primitives/Section.js` (new)
+- `primitives/Card.js` (new)
+- `primitives/Table.js` (new)
+- `primitives/FormRow.js` (new)
+- `primitives/index.js` (exports added)
+- `tokens.css` (layout tokens + --sv-chart-surface added)
+- `DESIGN-SYSTEM-AUDIT.md` (this section appended)
+- `SimpleViewReferencePanel.jsx` (chassis showcase added)
+- `primitives/__tests__/PanelShell-test.js` (new)
+- `primitives/__tests__/PanelHeader-test.js` (new)
+- `primitives/__tests__/Section-test.js` (new)
+- `primitives/__tests__/Card-test.js` (new)
+- `primitives/__tests__/Table-test.js` (new)
+- `primitives/__tests__/FormRow-test.js` (new)
