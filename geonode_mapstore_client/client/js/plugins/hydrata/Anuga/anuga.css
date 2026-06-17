@@ -2161,9 +2161,8 @@ div that holds the feature-grid */
     min-width: 0;
 }
 
-.terrain-drag-handle {
-    flex: 0 0 auto;
-}
+/* .terrain-drag-handle removed UAT 2026-06-17 — the parent-row "pan" glyph is
+ * gone; the whole .terrain-hierarchy-item remains draggable for reorder. */
 
 .terrain-expand-btn {
     flex: 0 0 auto;

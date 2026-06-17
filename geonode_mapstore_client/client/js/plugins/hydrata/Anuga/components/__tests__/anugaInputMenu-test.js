@@ -853,6 +853,11 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                             const demRow = derivatives.querySelector('.terrain-dem-row');
                             expect(demRow).toExist('DEM row must be inside the collapsible derivatives zone');
                             expect(demRow.querySelector('.menu-row')).toExist('DEM MenuRow renders inside the collapsible zone');
+                            // UAT 2026-06-17: the decorative photo glyph LEFT of the title was
+                            // removed (a 2026-06-16 miscommunication had dropped the per-layer
+                            // control toolbar instead of the photo icon). Guard against the glyph
+                            // being re-introduced on the DEM or Hillshade rows.
+                            expect(derivatives.querySelector('.glyphicon-picture')).toNotExist('no decorative photo glyph on terrain rows');
                             // Hillshade MenuRow is also inside the collapsible zone:
                             // expect at least 2 MenuRows (DEM + Hillshade) under .terrain-derivatives.
                             const menuRows = derivatives.querySelectorAll('.menu-row');
