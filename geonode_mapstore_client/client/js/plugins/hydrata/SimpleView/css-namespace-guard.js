@@ -112,7 +112,7 @@ const ALLOWED_PREFIXES = new Set([
     'scenario',
     'membership',
     'publication',
-    'hgeval',
+    // 'hgeval' RATCHETED OUT (TASK-1766 W2): HGeval panel renamed hgeval-* -> sv-hgeval-* (CSS + JS); the only test hook (.hgeval-alert-sm) is a negative .toNotExist() assertion (class never rendered).
     'hydrology',
     'swamm',
     'vector',

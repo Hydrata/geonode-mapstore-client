@@ -53,8 +53,8 @@ const HGevalInputPanel = ({
     };
 
     return (
-        <div className="hgeval-input-panel" style={{ textAlign: 'left' }}>
-            <p className="hgeval-hint">
+        <div className="sv-hgeval-input-panel" style={{ textAlign: 'left' }}>
+            <p className="sv-hgeval-hint">
                 <span className="glyphicon glyphicon-map-marker" /> <Message msgId="hydrata.hgeval.clickMapOrEnterCoordinates" />
             </p>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -86,7 +86,7 @@ const HGevalInputPanel = ({
                 </div>
             </div>
             {coordsValid && (
-                <Card variant="info" extraClassName="hgeval-selected-coords">
+                <Card variant="info" extraClassName="sv-hgeval-selected-coords">
                     {parsedLat.toFixed(4)}&deg;N, {Math.abs(parsedLon).toFixed(4)}&deg;W
                 </Card>
             )}
@@ -123,7 +123,7 @@ const HGevalInputPanel = ({
             {/* Native <details>/<summary> disclosure has no chassis-primitive equivalent
                 (no Section variant renders a collapsible). Kept as-is, themed via --sv-* tokens.
                 Flagged as a primitive gap (TASK-1762 gaps_flagged). Inner fields use FormRow. */}
-            <details className="hgeval-optional-fields" open>
+            <details className="sv-hgeval-optional-fields" open>
                 <summary><Message msgId="hydrata.hgeval.contactDetails" /></summary>
                 <FormRow label={<Message msgId="hydrata.hgeval.email" />} layout="stacked">
                     <input

@@ -7,8 +7,8 @@ import HGevalSignupForm from './hgevalSignupForm';
 
 const DataRow = ({ label, value, fallback }) => (
     <tr>
-        <td className="hgeval-label" style={{ fontWeight: 'bold', width: '45%', padding: '3px 6px', color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))', borderBottom: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))' }}>{label}</td>
-        <td className="hgeval-value" style={{ padding: '3px 6px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', borderBottom: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))' }}>{value || fallback || <Message msgId="hydrata.hgeval.dataNotAvailable" />}</td>
+        <td className="sv-hgeval-label" style={{ fontWeight: 'bold', width: '45%', padding: '3px 6px', color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))', borderBottom: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))' }}>{label}</td>
+        <td className="sv-hgeval-value" style={{ padding: '3px 6px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', borderBottom: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))' }}>{value || fallback || <Message msgId="hydrata.hgeval.dataNotAvailable" />}</td>
     </tr>
 );
 
@@ -129,11 +129,11 @@ const HGevalReportDisplay = ({
     };
 
     return (
-        <div className="hgeval-report" style={{ textAlign: 'left' }}>
+        <div className="sv-hgeval-report" style={{ textAlign: 'left' }}>
             <h4 style={{ fontSize: '14px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', marginBottom: '2px' }}>
                 <Message msgId="hydrata.hgeval.evaluationReport" />
             </h4>
-            <p className="hgeval-project-name" style={{ fontSize: '13px', marginBottom: '10px', color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))' }}><strong>{form?.name}</strong></p>
+            <p className="sv-hgeval-project-name" style={{ fontSize: '13px', marginBottom: '10px', color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))' }}><strong>{form?.name}</strong></p>
 
             <Section title={<Message msgId="hydrata.hgeval.locationSection" />}>
                 <Table surface="dark">
@@ -189,7 +189,7 @@ const HGevalReportDisplay = ({
             </Section>
 
             {warnings.length > 0 && (
-                <Section title={<span><Message msgId="hydrata.hgeval.warnings" /> ({warnings.length})</span>} extraClassName="hgeval-warnings">
+                <Section title={<span><Message msgId="hydrata.hgeval.warnings" /> ({warnings.length})</span>} extraClassName="sv-hgeval-warnings">
                     {/* Icon-prefixed warning list has no chassis-primitive equivalent
                         (ErrorStrip is a single-message strip). Kept as bespoke list markup,
                         themed via --sv-* tokens. Flagged as a primitive gap (TASK-1762). */}
@@ -203,7 +203,7 @@ const HGevalReportDisplay = ({
                 </Section>
             )}
 
-            <Card extraClassName="hgeval-disclaimer">
+            <Card extraClassName="sv-hgeval-disclaimer">
                 <h5 style={{ color: 'var(--sv-text-dim, rgba(255, 255, 255, 0.68))', borderBottom: '2px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))', paddingBottom: '3px', marginBottom: '6px', fontSize: '13px' }}>
                     <Message msgId="hydrata.hgeval.disclaimer" />
                 </h5>
@@ -213,7 +213,7 @@ const HGevalReportDisplay = ({
             </Card>
 
             {isLoggedIn && !hasContact && !savedReport && (
-                <Card variant="info" extraClassName="hgeval-contact-prompt">
+                <Card variant="info" extraClassName="sv-hgeval-contact-prompt">
                     <p style={{ fontSize: '12px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', margin: '0 0 6px 0', fontWeight: 600 }}><Message msgId="hydrata.hgeval.enterContactToDownload" /></p>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <input

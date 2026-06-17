@@ -7,7 +7,7 @@ const HGevalProgressIndicator = ({ progress }) => {
     const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return (
-        <div className="hgeval-progress" style={{ textAlign: 'center', padding: '20px 10px' }}>
+        <div className="sv-hgeval-progress" style={{ textAlign: 'center', padding: '20px 10px' }}>
             <h4 style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--sv-text, rgba(255, 255, 255, 0.85))' }}>
                 <Message msgId="hydrata.hgeval.generatingReport" />
             </h4>

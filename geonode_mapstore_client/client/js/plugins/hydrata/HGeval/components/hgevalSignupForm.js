@@ -60,8 +60,8 @@ const HGevalSignupForm = ({
     };
 
     return (
-        <Card variant="info" extraClassName="hgeval-signup-form">
-            <p className="hgeval-signup-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', margin: '0 0 8px 0' }}>
+        <Card variant="info" extraClassName="sv-hgeval-signup-form">
+            <p className="sv-hgeval-signup-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--sv-text, rgba(255, 255, 255, 0.85))', margin: '0 0 8px 0' }}>
                 {isLogin
                     ? <Message msgId="hydrata.hgeval.logInToSave" />
                     : <Message msgId="hydrata.hgeval.createAccountToSave" />
@@ -98,7 +98,7 @@ const HGevalSignupForm = ({
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                     />
-                    {errors.email && <span className="help-block hgeval-field-error">{errors.email}</span>}
+                    {errors.email && <span className="help-block sv-hgeval-field-error">{errors.email}</span>}
                 </div>
                 <div className={'form-group' + (errors.password ? ' has-error' : '')}>
                     <input
@@ -111,7 +111,7 @@ const HGevalSignupForm = ({
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                     />
-                    {errors.password && <span className="help-block hgeval-field-error">{errors.password}</span>}
+                    {errors.password && <span className="help-block sv-hgeval-field-error">{errors.password}</span>}
                 </div>
                 <ErrorStrip message={errors.detail} />
                 <button
@@ -121,7 +121,7 @@ const HGevalSignupForm = ({
                 >
                     {busy
                         ? <span>
-                            <span className="glyphicon glyphicon-refresh hgeval-spin" />{' '}
+                            <span className="glyphicon glyphicon-refresh sv-hgeval-spin" />{' '}
                             {isLogin
                                 ? <Message msgId="hydrata.hgeval.loggingIn" />
                                 : <Message msgId="hydrata.hgeval.creatingAccount" />
@@ -137,7 +137,7 @@ const HGevalSignupForm = ({
                     }
                 </button>
             </form>
-            <p className="hgeval-login-link">
+            <p className="sv-hgeval-login-link">
                 <a href="#" onClick={toggleMode}>
                     {isLogin
                         ? <Message msgId="hydrata.hgeval.needAnAccount" />

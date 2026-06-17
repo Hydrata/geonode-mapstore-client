@@ -17,12 +17,12 @@ const HGevalContainer = ({
     if (step === 'idle') return null;
 
     return (
-        <PanelShell position="fixed-right" minWidth="360px" extraClassName="hgeval-panel">
+        <PanelShell position="fixed-right" minWidth="360px" extraClassName="sv-hgeval-panel">
             <PanelHeader
                 title={<Message msgId="hydrata.hgeval.hydrogeologicalEvaluation" />}
                 onClose={onReset}
             />
-            <div className="hgeval-content" style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', textAlign: 'left' }}>
+            <div className="sv-hgeval-content" style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', textAlign: 'left' }}>
                 {(step === 'selecting' || step === 'form') && (
                     <HGevalInputPanel
                         coordinates={coordinates}

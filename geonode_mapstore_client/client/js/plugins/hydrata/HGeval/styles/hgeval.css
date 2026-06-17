@@ -12,18 +12,18 @@
  * literal fallbacks so the sheet stands alone if loaded before tokens.css. */
 
 /* Map-click hint (input panel) */
-.hgeval-hint {
+.sv-hgeval-hint {
     color: var(--sv-glyph-zoom, #4dabf7);
     font-size: 12px;
     margin: 0 0 8px 0;
 }
 
-.hgeval-hint .glyphicon {
+.sv-hgeval-hint .glyphicon {
     margin-right: 2px;
 }
 
 /* Sector/select sizing inside the input panel */
-.hgeval-input-panel select.form-control {
+.sv-hgeval-input-panel select.form-control {
     height: auto;
     padding: 4px 8px;
 }
@@ -31,11 +31,11 @@
 /* Optional contact-details disclosure — native <details>/<summary>.
  * GAP (TASK-1762): no chassis-primitive expresses a collapsible disclosure;
  * kept as bespoke JSX, themed via tokens here. */
-.hgeval-optional-fields {
+.sv-hgeval-optional-fields {
     margin-bottom: 8px;
 }
 
-.hgeval-optional-fields summary {
+.sv-hgeval-optional-fields summary {
     cursor: pointer;
     color: var(--sv-glyph-zoom, #4dabf7);
     font-size: 12px;
@@ -43,7 +43,7 @@
     outline: none;
 }
 
-.hgeval-optional-fields[open] summary {
+.sv-hgeval-optional-fields[open] summary {
     margin-bottom: 8px;
 }
 
@@ -51,11 +51,11 @@
  * GAP (TASK-1762): ErrorStrip is a single-message strip; an N-item warning list
  * with per-item alert glyphs has no primitive variant. Kept as bespoke list
  * markup, themed via tokens here. */
-.hgeval-warnings .list-group {
+.sv-hgeval-warnings .list-group {
     margin-bottom: 0;
 }
 
-.hgeval-warnings .list-group-item {
+.sv-hgeval-warnings .list-group-item {
     display: flex;
     gap: 6px;
     align-items: flex-start;
@@ -66,47 +66,47 @@
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.hgeval-warnings .glyphicon-alert {
+.sv-hgeval-warnings .glyphicon-alert {
     color: var(--sv-glyph-partial, orange);
     margin-top: 2px;
     flex-shrink: 0;
 }
 
 /* Signup form field spacing (inside the info Card) */
-.hgeval-signup-form .form-group {
+.sv-hgeval-signup-form .form-group {
     margin-bottom: 6px;
 }
 
-.hgeval-signup-form .btn-block {
+.sv-hgeval-signup-form .btn-block {
     margin-top: 4px;
 }
 
 /* Inline field-validation error text */
-.hgeval-field-error {
+.sv-hgeval-field-error {
     font-size: 11px;
     margin-top: 2px;
     color: var(--sv-text-danger, #ffb3b3);
 }
 
 /* "Already have an account?" / "Need an account?" toggle link */
-.hgeval-login-link {
+.sv-hgeval-login-link {
     font-size: 11px;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     margin: 8px 0 0 0;
     text-align: center;
 }
 
-.hgeval-login-link a {
+.sv-hgeval-login-link a {
     color: var(--sv-glyph-zoom, #4dabf7);
 }
 
 /* Busy spinner on the signup/login submit button */
-@keyframes hgeval-spin {
+@keyframes sv-hgeval-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
 
-.hgeval-spin {
+.sv-hgeval-spin {
     display: inline-block;
-    animation: hgeval-spin 1s linear infinite;
+    animation: sv-hgeval-spin 1s linear infinite;
 }
