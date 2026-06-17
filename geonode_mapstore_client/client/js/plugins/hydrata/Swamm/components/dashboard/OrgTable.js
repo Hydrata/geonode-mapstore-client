@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Card, Table } from "../../../SimpleView/components/primitives";
 import { formatMoney, formatCurrency } from "../../../Utils/utils";
 
 const FILTER_LABELS = {
@@ -61,14 +62,21 @@ const OrgTable = ({ barChartData, bmpFilterMode = 'group_profile' }) => {
     };
 
     return (
-        <div style={{ color: '#155481', backgroundColor: 'white', margin: '10px', borderRadius: '4px', padding: '10px', overflowX: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div className="swamm-bmp-chart-heading">{groupLabel} Contributions</div>
-                <button className="swamm-button" onClick={handleCopy} style={{ fontSize: 'small' }}>
-                    Copy
-                </button>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label={`${groupLabel} contributions`}>
+        <Card
+            variant="chart"
+            extraClassName="swamm-bmp-chart-org-table"
+            title={
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{groupLabel} Contributions</span>
+                    <button className="swamm-button" onClick={handleCopy} style={{ fontSize: 'small', marginTop: 0 }}>
+                        Copy
+                    </button>
+                </div>
+            }
+            style={{ margin: '10px', color: '#155481' }}
+            bodyStyle={{ overflowX: 'auto' }}
+        >
+            <Table surface="light" style={{ tableLayout: 'auto' }} aria-label={`${groupLabel} contributions`}>
                 <thead>
                     <tr style={{ backgroundColor: '#063167', color: 'white' }}>
                         <th style={{ padding: '6px', cursor: 'pointer', textAlign: 'left' }} onClick={() => handleSort('label')}>
@@ -106,8 +114,8 @@ const OrgTable = ({ barChartData, bmpFilterMode = 'group_profile' }) => {
                         <td style={{ padding: '6px', textAlign: 'right' }}>{formatMoney(totals.total_s_load_reduction, 0)}</td>
                     </tr>
                 </tbody>
-            </table>
-        </div>
+            </Table>
+        </Card>
     );
 };
 

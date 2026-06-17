@@ -7,6 +7,7 @@ import {
     setUpdatingBmp,
     showBmpForm
 } from '../../actionsSwamm';
+import { PanelHeader } from '../../../SimpleView/components/primitives';
 
 const BmpChooserModal = ({ candidates, onSelect, onClose }) => {
     if (!candidates || candidates.length === 0) return null;
@@ -33,19 +34,11 @@ const BmpChooserModal = ({ candidates, onSelect, onClose }) => {
                 }}
                 onClick={e => e.stopPropagation()}
             >
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px'
-                }}>
-                    <span>Select a BMP</span>
-                    <button
-                        className="legend-close"
-                        onClick={onClose}
-                        style={{position: 'static'}}
-                    >&times;</button>
-                </div>
+                <PanelHeader
+                    title={<span>Select a BMP</span>}
+                    onClose={onClose}
+                    closeLabel="Close BMP chooser"
+                />
                 <div style={{ padding: '8px 12px', maxHeight: 300, overflowY: 'auto' }}>
                     {candidates.map(bmp => (
                         <div

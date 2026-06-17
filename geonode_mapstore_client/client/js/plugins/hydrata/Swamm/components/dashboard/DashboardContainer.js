@@ -10,7 +10,7 @@ import {PollutantCard} from "./PollutantCard";
 import {SummaryTable} from "./SummaryTable";
 import {LegendPanel} from "./LegendPanel";
 import {OrgTable} from "./OrgTable";
-import {EmptyState} from "../../../SimpleView/components/primitives";
+import {EmptyState, PanelHeader} from "../../../SimpleView/components/primitives";
 
 const DashboardErrorFallback = () => (
     <div style={{padding: '20px', color: 'white', textAlign: 'center'}}>
@@ -65,47 +65,33 @@ class SwammBmpChartClass extends React.Component {
                 role="region"
                 aria-label="SWAMM Dashboard"
             >
-                <div id={"swamm-bmp-chart-header"}>
-                    <div>
-                        Dashboard: {this.props.selectedTarget?.name}
-                        <span style={{marginLeft: '20px', fontSize: 'small'}}>
-                            <button
-                                className="swamm-button"
-                                style={{
-                                    fontSize: 'small',
-                                    backgroundColor: !isTableView ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.6)'
-                                }}
-                                onClick={() => this.props.setDashboardView('chart')}
-                            >
-                                Chart
-                            </button>
-                            <button
-                                className="swamm-button"
-                                style={{
-                                    fontSize: 'small',
-                                    backgroundColor: isTableView ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.6)'
-                                }}
-                                onClick={() => this.props.setDashboardView('table')}
-                            >
-                                Table
-                            </button>
-                        </span>
-                    </div>
-                    <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
-                        aria-label="Close dashboard"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                            this.props.hideSwammBmpChart();
+                <PanelHeader
+                    extraClassName="swamm-bmp-chart-header"
+                    title={<span>Dashboard: {this.props.selectedTarget?.name}</span>}
+                    onClose={() => this.props.hideSwammBmpChart()}
+                    closeLabel="Close dashboard"
+                >
+                    <button
+                        className="swamm-button"
+                        style={{
+                            fontSize: 'small',
+                            backgroundColor: !isTableView ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.6)'
                         }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                this.props.hideSwammBmpChart();
-                            }
+                        onClick={() => this.props.setDashboardView('chart')}
+                    >
+                        Chart
+                    </button>
+                    <button
+                        className="swamm-button"
+                        style={{
+                            fontSize: 'small',
+                            backgroundColor: isTableView ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.6)'
                         }}
-                    />
-                </div>
+                        onClick={() => this.props.setDashboardView('table')}
+                    >
+                        Table
+                    </button>
+                </PanelHeader>
                 <div id={"swamm-bmp-chart-body"}>
                     {(!this.props.targets || this.props.targets.length === 0) ? (
                         <EmptyState

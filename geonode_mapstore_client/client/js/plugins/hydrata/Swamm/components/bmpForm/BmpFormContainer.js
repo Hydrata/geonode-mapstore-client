@@ -36,6 +36,7 @@ import {BmpTypeSelector} from "./BmpTypeSelector";
 import {BmpReductionDisplay} from "./BmpReductionDisplay";
 import {BmpOrgStatusFields} from "./BmpOrgStatusFields";
 import {BmpActionButtons} from "./BmpActionButtons";
+import {PanelHeader} from "../../../SimpleView/components/primitives";
 
 class SwammBmpFormClass extends React.Component {
     static propTypes = {
@@ -126,15 +127,12 @@ class SwammBmpFormClass extends React.Component {
                 className={'simple-view-panel menu-rows-container'}
             >
                 <div id={"swamm-bmp-form-grid-header"}>
-                    <div className={'simple-view-panel-header'}>
-                        {this.props.storedBmpForm.id ?
+                    <PanelHeader
+                        title={this.props.storedBmpForm.id ?
                             "BMP " + this.props.storedBmpForm.id + ": " + this.props.storedBmpForm?.bmpName :
                             "Create a new BMP"
                         }
-                    </div>
-                    <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
-                        onClick={() => {
+                        onClose={() => {
                             this.props.clearBmpForm();
                             this.props.setComplexBmpForm(false);
                             this.refreshBmpLayers();

@@ -11,6 +11,7 @@ import {
 import Message from '@mapstore/framework/components/I18N/Message';
 import "../../Swamm/swamm.css";
 import ConfirmOverlay from '../../shared/ConfirmOverlay';
+import {PanelHeader} from "../../SimpleView/components/primitives";
 
 class SwammTargetFormClass extends React.Component {
     static propTypes = {
@@ -47,20 +48,16 @@ class SwammTargetFormClass extends React.Component {
                 id={'swamm-target-form-panel'}
                 className={'simple-view-panel menu-rows-container'}
             >
-                <div id={"swamm-target-form-header"}>
-                    <div className={"swamm-bmp-chart-heading"}>
-                        {this.props.targetForm.id ?
-                            <React.Fragment><Message msgId="hydrata.swamm.editTargetPrefix" /> {this.props.targetForm?.name}</React.Fragment> :
-                            <Message msgId="hydrata.swamm.createNewTarget" />
-                        }
-                    </div>
-                    <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
-                        onClick={() => {
-                            this.props.hideTargetForm();
-                        }}
-                    />
-                </div>
+                <PanelHeader
+                    extraClassName="swamm-target-form-header"
+                    title={this.props.targetForm.id ?
+                        <React.Fragment><Message msgId="hydrata.swamm.editTargetPrefix" /> {this.props.targetForm?.name}</React.Fragment> :
+                        <Message msgId="hydrata.swamm.createNewTarget" />
+                    }
+                    onClose={() => {
+                        this.props.hideTargetForm();
+                    }}
+                />
                 <div id={"swamm-target-form-body"}>
                     <div id={"swamm-target-form-col-one"}>
                         <div className={"swamm-target-row"}>

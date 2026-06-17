@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { connect } from 'react-redux';
 import { hideBmpHistory, fetchBmpHistory } from '../../actionsSwamm';
+import { PanelHeader } from '../../../SimpleView/components/primitives';
 
 const LOAD_FIELD_LABELS = {
     surface_previous_n_load: 'Surface Previous N',
@@ -230,20 +231,11 @@ const BmpHistoryViewer = ({ records, loading, nextCursor, projectId, bmpId, onCl
                 }}
                 onClick={e => e.stopPropagation()}
             >
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    flexShrink: 0
-                }}>
-                    <span>Load History — BMP {bmpId}</span>
-                    <button
-                        className="legend-close"
-                        onClick={onClose}
-                        style={{ position: 'static' }}
-                    >&times;</button>
-                </div>
+                <PanelHeader
+                    title={<span>Load History — BMP {bmpId}</span>}
+                    onClose={onClose}
+                    closeLabel="Close history"
+                />
                 <div style={{ padding: '8px 12px', overflowY: 'auto', flex: 1 }}>
                     {records.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: 20, opacity: 0.7 }}>
