@@ -5,9 +5,10 @@ import {findScenarioStatus} from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 // TASK-1764 (epic-1758 W1) — chassis Card frames the Status-and-actions
 // status card. The .anuga-scenario-status-card[+--status] classes ride
-// extraClassName so the existing dark-glass chrome + the test's
-// .anuga-scenario-status-card--<status> assertions stay intact; the Card
-// frame style is neutralised (the legacy CSS owns margin/padding/border).
+// extraClassName so the legacy inner-element rules + the test's
+// .anuga-scenario-status-card--<status> assertions stay intact. The Card's
+// default token frame supplies bg/border/padding; only the margin is
+// overridden inline (style prop) to preserve the legacy 6px 10px 12px spacing.
 import {Card} from '../../SimpleView/components/primitives';
 
 /**

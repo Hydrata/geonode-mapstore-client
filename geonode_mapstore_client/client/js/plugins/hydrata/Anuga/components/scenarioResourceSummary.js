@@ -2,9 +2,11 @@ import React from "react";
 const PropTypes = require('prop-types');
 // TASK-1764 (epic-1758 W1) — chassis Card frames the per-resource summary.
 // The .anuga-scenario-resource-summary[+--kind][+is-empty] classes ride
-// extraClassName so the legacy chrome + the test class assertions stay
-// intact; the inner glyph/body/meta flex row moves onto the Card body via
-// bodyStyle so the layout is preserved.
+// extraClassName so the legacy inner-element rules + the test class
+// assertions stay intact. The Card's default token frame supplies
+// bg/border/padding; only the margin is overridden inline (style prop) to
+// preserve the legacy 4px 10px 8px spacing, and the glyph/body/meta flex row
+// moves onto the Card body via bodyStyle.
 import {Card} from '../../SimpleView/components/primitives';
 
 /**
