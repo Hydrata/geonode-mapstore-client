@@ -133,7 +133,7 @@
     cursor: not-allowed;
 }
 
-/* Surface rows — mirror .scenario-rail-item (dark, lime active marker) */
+/* Surface rows — mirror .sv-scenario-rail-item (dark, lime active marker) */
 .sv-tw-surface-item {
     display: flex;
     align-items: center;
@@ -322,7 +322,7 @@
     margin-bottom: 12px;
 }
 
-/* Selects/inputs — dark glass, mirrors .simple-view-panel inputs + scenario-select */
+/* Selects/inputs — dark glass, mirrors .simple-view-panel inputs + sv-scenario-select */
 .sv-tw-select {
     width: 100%;
     padding: 5px 8px;

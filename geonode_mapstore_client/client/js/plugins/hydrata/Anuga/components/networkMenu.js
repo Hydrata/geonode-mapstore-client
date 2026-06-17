@@ -69,7 +69,7 @@ class NetworkMenuClass extends React.Component {
                                     {
                                         this.props.networks?.map(network => {
                                             return (
-                                                <tr key={network.id} className={'scenario-table-row'}>
+                                                <tr key={network.id} className={'sv-scenario-table-row'}>
                                                     <td>{network.id}</td>
                                                     <td>
                                                         {network.title}
@@ -79,7 +79,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'terrain'}
                                                             key={`terrain-${network.id}`}
                                                             value={network?.terrain}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
@@ -98,7 +98,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'node'}
                                                             key={`node-${network.id}`}
                                                             value={network?.node}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
@@ -117,7 +117,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'links'}
                                                             key={`links-${network.id}`}
                                                             value={network?.links}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>
@@ -136,7 +136,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'method'}
                                                             key={`method`}
                                                             value={'rational'}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                         >
                                                             <option value={"rational"}>rational</option>
                                                         </select>
@@ -146,7 +146,7 @@ class NetworkMenuClass extends React.Component {
                                                             id={'inflow'}
                                                             key={`inflow-${network.id}`}
                                                             value={network?.inflow}
-                                                            className={'scenario-select'}
+                                                            className={'sv-scenario-select'}
                                                             onChange={(e) => this.handleIntChange(e, network)}
                                                         >
                                                             <option value={""}>-</option>

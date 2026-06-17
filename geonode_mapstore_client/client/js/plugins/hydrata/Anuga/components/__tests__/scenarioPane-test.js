@@ -688,7 +688,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                     expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                     // Pill renders inside the status card; container also has compact
                     // pill in the toolbar.
-                    const pills = container.querySelectorAll('.scenario-status-pill');
+                    const pills = container.querySelectorAll('.sv-scenario-status-pill');
                     expect(pills.length).toBeGreaterThan(0);
                     done();
                 }
@@ -704,7 +704,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-action-toolbar')).toExist();
+                    expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
                     done();
                 }
             );
@@ -721,7 +721,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-build').click();
+                    container.querySelector('.sv-scenario-action-build').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -739,7 +739,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
                 />,
                 container,
                 () => {
-                    container.querySelector('.scenario-action-delete').click();
+                    container.querySelector('.sv-scenario-action-delete').click();
                     expect(captured?.id).toBe(21);
                     done();
                 }
@@ -786,7 +786,7 @@ describe('TASK-C ScenarioPane primitive (Wave 3A)', () => {
     // Inline ScenarioRunLog (rendered at bottom of Status-and-actions pane)
     // ------------------------------------------------------------------
     // The legacy `runLog` standalone pane was removed (along with the
-    // .scenario-action-open-task-monitor button). The log is now rendered
+    // .sv-scenario-action-open-task-monitor button). The log is now rendered
     // inline at the bottom of the Status-and-actions pane via a small
     // ScenarioRunLog component (<pre> auto-scrolled to bottom on log diff).
     describe('Inline ScenarioRunLog in Status-and-actions pane', () => {

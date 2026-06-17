@@ -70,7 +70,7 @@
     border-radius: 3px;
 }
 
-.scenario-input {
+.sv-scenario-input {
     font-size: 14px;
     white-space: nowrap;
     padding-left: 3px;
@@ -110,9 +110,9 @@
 }
 
 /* Scenarios header right-cluster — Compare toggle, Duplicate, New Scenario.
- * Replaces the legacy `.scenario-tab` tab strip + `#new-scenario-button`
+ * Replaces the legacy `.sv-scenario-tab` tab strip + `#new-scenario-button`
  * absolute single-button. Flex row pinned to the right edge of the header. */
-.scenario-header-actions {
+.sv-scenario-header-actions {
     position: absolute;
     right: 12px;
     top: 6px;
@@ -121,7 +121,7 @@
     gap: 6px;
 }
 
-.scenario-header-actions .sv-anuga-btn {
+.sv-scenario-header-actions .sv-anuga-btn {
     margin: 0;
 }
 
@@ -164,13 +164,13 @@
 }
 
 /* TASK-1411 (ISSUE 20.2): Restyle Hydrata-plugin native <select> elements to
- * match the panel's dark-blue aesthetic. Scope: .scenario-select class used
+ * match the panel's dark-blue aesthetic. Scope: .sv-scenario-select class used
  * within the ANUGA scenario-config panel and other Hydrata plugin selects
  * (NOT a MapStore-wide restyle). Uses a custom SVG chevron via
  * appearance:none + background-image to replace the OS-native arrow.
- * Scope-bound: only applies to .scenario-select — MapStore core and
+ * Scope-bound: only applies to .sv-scenario-select — MapStore core and
  * non-Hydrata plugin selects are untouched. */
-.scenario-select {
+.sv-scenario-select {
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -193,20 +193,20 @@
     transition: border-color 0.15s, background-color 0.15s;
 }
 
-.scenario-select:hover:not([disabled]),
-.scenario-select:focus {
+.sv-scenario-select:hover:not([disabled]),
+.sv-scenario-select:focus {
     border-color: rgba(255, 255, 255, 0.55);
     background-color: rgba(0, 60, 136, 0.65);
     outline: none;
 }
 
-.scenario-select:disabled {
+.sv-scenario-select:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
 /* Keep option list readable in browser dropdown */
-.scenario-select option {
+.sv-scenario-select option {
     background-color: #1a3a6a;
     color: #f0f4fa;
 }
@@ -214,7 +214,7 @@
 /* Scenario pane (Miller-columns Pane 3) selects fill the available field
  * column so long resource titles (e.g. "Grand Canyon DEM 1m") are readable
  * without truncation. The legacy 100px fixed width only fit short names. */
-.sv-anuga-scenario-pane-field > .scenario-select {
+.sv-anuga-scenario-pane-field > .sv-scenario-select {
     width: 100%;
     min-width: 0;
     padding-left: 8px;
@@ -581,39 +581,39 @@ div that holds the feature-grid */
     background-color: #622b2b;
 }
 
-/* TASK-1758 W3 conform: deleted dead .scenario-tab / .scenario-tab.active rules
+/* TASK-1758 W3 conform: deleted dead .sv-scenario-tab / .sv-scenario-tab.active rules
    (#6085b5 fill + light-white active state). The archive-filter tab strip is gone;
-   anugaScenarioAnalyticsParity-test asserts no .scenario-tab element renders. */
+   anugaScenarioAnalyticsParity-test asserts no .sv-scenario-tab element renders. */
 
-.scenario-menu-header {
+.sv-scenario-menu-header {
     height: 40px;
     text-align: left;
     font-size: var(--sv-header-font-size, 14px);
 }
 
-.scenario-footer {
+.sv-scenario-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0 10px 10px 10px;
 }
 
-.scenario-log-viewer {
+.sv-scenario-log-viewer {
     color: white;
     background: black;
 }
 
-.scenario-log-header {
+.sv-scenario-log-header {
     margin-left: 9px;
 }
 
-.scenario-log-footer {
+.sv-scenario-log-footer {
     display: flex;
     justify-content: flex-end;
     padding: 10px;
 }
 
-.scenario-input-narrow {
+.sv-scenario-input-narrow {
     width: 80px;
 }
 
@@ -633,7 +633,7 @@ div that holds the feature-grid */
     color: #888;
 }
 
-.scenario-compare-glyph {
+.sv-scenario-compare-glyph {
     font-size: 10px;
 }
 
@@ -701,21 +701,21 @@ div that holds the feature-grid */
     color: var(--sv-warning-color, #fcf8e3);
 }
 
-/* Membership scenario-table (member + invitation rows) — dark cells/borders.
+/* Membership sv-scenario-table (member + invitation rows) — dark cells/borders.
  * The react-bootstrap Table was swapped for the chassis Table surface="dark"
- * (extraClassName="scenario-table"); these rules give the bespoke header/cells
+ * (extraClassName="sv-scenario-table"); these rules give the bespoke header/cells
  * the dark-glass treatment regardless of the underlying Bootstrap .table reset. */
-.scenario-table {
+.sv-scenario-table {
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.scenario-table .scenario-table-header th {
+.sv-scenario-table .sv-scenario-table-header th {
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
     border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
     text-align: left;
 }
 
-.scenario-table td {
+.sv-scenario-table td {
     border-top: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
     vertical-align: middle;
 }
@@ -937,7 +937,7 @@ div that holds the feature-grid */
 /* ── End TASK-425 ── */
 
 /* TASK-61: ownership badge on scenario rows */
-.scenario-ownership-badge {
+.sv-scenario-ownership-badge {
     display: block;
     font-size: 10px;
     line-height: 1.2;
@@ -945,11 +945,11 @@ div that holds the feature-grid */
     opacity: 0.75;
 }
 
-.scenario-ownership-mine {
+.sv-scenario-ownership-mine {
     color: #5cb85c;
 }
 
-.scenario-ownership-other {
+.sv-scenario-ownership-other {
     color: #aaa;
     font-style: italic;
 }
@@ -983,22 +983,22 @@ div that holds the feature-grid */
    with a 2-line body. The leading-edge compare-checkbox is always in
    the DOM (hidden by default via .is-hidden) so Karma tests don't depend
    on a setState→re-render flush. */
-.simple-view-panel--miller .scenario-rail-item {
+.simple-view-panel--miller .sv-scenario-rail-item {
     display: flex;
     align-items: stretch;
     padding: 6px 8px 6px 9px;
     gap: 6px;
 }
 
-.simple-view-panel--miller .scenario-rail-item.is-archived {
+.simple-view-panel--miller .sv-scenario-rail-item.is-archived {
     opacity: 0.55;
 }
 
-.simple-view-panel--miller .scenario-rail-item.is-unsaved {
+.simple-view-panel--miller .sv-scenario-rail-item.is-unsaved {
     border-left-color: #f0ad4e;
 }
 
-.simple-view-panel--miller .scenario-rail-item-body {
+.simple-view-panel--miller .sv-scenario-rail-item-body {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -1006,14 +1006,14 @@ div that holds the feature-grid */
     gap: 2px;
 }
 
-.simple-view-panel--miller .scenario-rail-item-top {
+.simple-view-panel--miller .sv-scenario-rail-item-top {
     display: flex;
     align-items: center;
     gap: 4px;
     min-width: 0;
 }
 
-.simple-view-panel--miller .scenario-rail-item-bottom {
+.simple-view-panel--miller .sv-scenario-rail-item-bottom {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1021,19 +1021,19 @@ div that holds the feature-grid */
     min-width: 0;
 }
 
-.simple-view-panel--miller .scenario-rail-item-id {
+.simple-view-panel--miller .sv-scenario-rail-item-id {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.65);
     flex-shrink: 0;
 }
 
-.simple-view-panel--miller .scenario-rail-item-unsaved {
+.simple-view-panel--miller .sv-scenario-rail-item-unsaved {
     color: #f0ad4e;
     font-weight: 700;
     margin-right: 2px;
 }
 
-.simple-view-panel--miller .scenario-rail-item-name {
+.simple-view-panel--miller .sv-scenario-rail-item-name {
     flex: 1;
     margin: 0;
     font-size: 12px;
@@ -1044,7 +1044,7 @@ div that holds the feature-grid */
     text-overflow: ellipsis;
 }
 
-.simple-view-panel--miller .scenario-rail-item-archived-dot {
+.simple-view-panel--miller .sv-scenario-rail-item-archived-dot {
     font-size: 10px;
     color: rgba(255, 255, 255, 0.6);
     flex-shrink: 0;
@@ -1052,7 +1052,7 @@ div that holds the feature-grid */
 
 /* Compare checkbox — always rendered, visibility toggled via .is-hidden so
    React 16.14/dom 16.10 mismatch doesn't break Karma test selectors. */
-.simple-view-panel--miller .scenario-rail-item-compare-checkbox {
+.simple-view-panel--miller .sv-scenario-rail-item-compare-checkbox {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
@@ -1062,11 +1062,11 @@ div that holds the feature-grid */
     cursor: pointer;
 }
 
-.simple-view-panel--miller .scenario-rail-item-compare-checkbox.is-hidden {
+.simple-view-panel--miller .sv-scenario-rail-item-compare-checkbox.is-hidden {
     display: none;
 }
 
-.simple-view-panel--miller .scenario-rail-item-compare-checkbox.is-checked {
+.simple-view-panel--miller .sv-scenario-rail-item-compare-checkbox.is-checked {
     color: #5cb85c;
 }
 
@@ -1104,7 +1104,7 @@ div that holds the feature-grid */
 }
 
 /* Status pill — used both in the rail (compact) and the Run pane (full). */
-.scenario-status-pill {
+.sv-scenario-status-pill {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1113,27 +1113,27 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.9);
 }
 
-.scenario-status-pill.is-compact {
+.sv-scenario-status-pill.is-compact {
     font-size: 10.5px;
 }
 
-.scenario-status-pill.sv-status-complete {
+.sv-scenario-status-pill.sv-status-complete {
     color: #5cb85c;
 }
 
-.scenario-status-pill.sv-status-error {
+.sv-scenario-status-pill.sv-status-error {
     color: #d9534f;
 }
 
-.scenario-status-pill.sv-status-cancelled {
+.sv-scenario-status-pill.sv-status-cancelled {
     color: #888;
 }
 
-.scenario-status-pill.sv-status-built {
+.sv-scenario-status-pill.sv-status-built {
     color: #5bc0de;
 }
 
-.scenario-status-progress-track {
+.sv-scenario-status-progress-track {
     display: inline-block;
     width: 60px;
     height: 6px;
@@ -1143,24 +1143,24 @@ div that holds the feature-grid */
     vertical-align: middle;
 }
 
-.scenario-status-progress-fill {
+.sv-scenario-status-progress-fill {
     display: block;
     height: 100%;
     background: #5cb85c;
     transition: width 0.5s;
 }
 
-.scenario-status-progress-pct {
+.sv-scenario-status-progress-pct {
     font-size: 10px;
     min-width: 28px;
 }
 
-.scenario-status-progress-eta {
+.sv-scenario-status-progress-eta {
     font-size: 10px;
     color: #888;
 }
 
-.scenario-status-error-detail {
+.sv-scenario-status-error-detail {
     font-size: 10px;
     margin-left: 4px;
     opacity: 0.8;
@@ -1169,12 +1169,12 @@ div that holds the feature-grid */
 /* Wave 3B (B1) — compact + computing mini progress sliver. Sits beneath
    a pulsing dot so the Pane 1 rail row keeps at-a-glance progress
    feedback without taking the full 60px Pane 3 progress track. */
-.scenario-status-pill.is-compact.sv-status-computing {
+.sv-scenario-status-pill.is-compact.sv-status-computing {
     position: relative;
     padding-bottom: 4px;
 }
 
-.scenario-status-mini-pulse {
+.sv-scenario-status-mini-pulse {
     display: inline-block;
     width: 7px;
     height: 7px;
@@ -1185,11 +1185,11 @@ div that holds the feature-grid */
     flex-shrink: 0;
 }
 
-.scenario-status-mini-label {
+.sv-scenario-status-mini-label {
     font-size: 10.5px;
 }
 
-.scenario-status-mini-bar {
+.sv-scenario-status-mini-bar {
     position: absolute;
     left: 0;
     bottom: 0;
@@ -1341,7 +1341,7 @@ div that holds the feature-grid */
 }
 
 /* Wave 3C C4 — unsaved-diff dot prefix on the category tag pill. Mirrors
- * the .scenario-rail-item.is-unsaved amber border on Pane 1 rows so users
+ * the .sv-scenario-rail-item.is-unsaved amber border on Pane 1 rows so users
  * see the same "this scenario has uncommitted changes" signal on Pane 2
  * tags. Coarse signal (scenario-level, not per-category) per scenarioHelpers
  * comment block. */
@@ -1535,20 +1535,20 @@ div that holds the feature-grid */
 
 /* Log button — dark blue background to match the header Duplicate button
  * style and improve contrast vs the light-blue bootstrap "info" default. */
-.sv-anuga-btn.scenario-action-log {
+.sv-anuga-btn.sv-scenario-action-log {
     background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     border-color: rgba(255, 255, 255, 0.25);
 }
 
-.sv-anuga-btn.scenario-action-log:hover:not(.disabled):not([disabled]),
-.sv-anuga-btn.scenario-action-log:focus {
+.sv-anuga-btn.sv-scenario-action-log:hover:not(.disabled):not([disabled]),
+.sv-anuga-btn.sv-scenario-action-log:focus {
     background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.sv-anuga-btn.scenario-action-log:disabled,
-.sv-anuga-btn.scenario-action-log.disabled {
+.sv-anuga-btn.sv-scenario-action-log:disabled,
+.sv-anuga-btn.sv-scenario-action-log.disabled {
     background-color: rgba(0, 60, 136, 0.35);
     color: rgba(255, 255, 255, 0.55);
 }
@@ -1657,7 +1657,7 @@ div that holds the feature-grid */
 }
 
 /* Wave 3A — filter chip count suffix */
-.scenario-tab-count {
+.sv-scenario-tab-count {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.55);
     margin-left: 2px;
@@ -1740,14 +1740,14 @@ div that holds the feature-grid */
 }
 
 /* Action toolbar buttons — locked visual order matches Build | Run | Log | Duplicate | Archive | Delete. */
-.scenario-action-toolbar {
+.sv-scenario-action-toolbar {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
 }
 
-.scenario-action-toolbar-btn.is-hidden {
+.sv-scenario-action-toolbar-btn.is-hidden {
     display: none;
 }
 

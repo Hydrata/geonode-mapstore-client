@@ -8,7 +8,7 @@ import PropTypes from 'prop-types';
  *
  * Best-of-breed source:
  *   anuga.css  .sv-anuga-scenario-category-item-tag.is-ok/.is-warn/.is-err
- *   anuga.css  .scenario-status-pill + .is-compact + status modifiers
+ *   anuga.css  .sv-scenario-status-pill + .is-compact + status modifiers
  *
  * Themed via --sv-* tokens only; no hardcoded colour values.
  *

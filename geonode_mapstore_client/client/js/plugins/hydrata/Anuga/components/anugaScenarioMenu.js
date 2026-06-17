@@ -432,11 +432,11 @@ class AnugaScenarioMenuClass extends React.Component {
       // Use the shared SectionHeader primitive (also used by anugaInputMenu /
       // InputSection / swammInputMenu) instead of a hand-written .row.sv-menu-row
       // .sv-menu-row-header className chain. extraClassName preserves the per-site
-      // sv-anuga-section-header and scenario-menu-header CSS hooks.
+      // sv-anuga-section-header and sv-scenario-menu-header CSS hooks.
       return (
-          <SectionHeader extraClassName="sv-anuga-section-header scenario-menu-header">
+          <SectionHeader extraClassName="sv-anuga-section-header sv-scenario-menu-header">
               <Message msgId="hydrata.anuga.scenarios" />
-              <span id={"scenario-header-actions"} className="scenario-header-actions">
+              <span id={"scenario-header-actions"} className="sv-scenario-header-actions">
                   {canCreate ?
                       <Button
                           bsStyle={'success'}

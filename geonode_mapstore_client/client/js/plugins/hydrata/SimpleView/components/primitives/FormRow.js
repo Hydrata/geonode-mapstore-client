@@ -41,7 +41,7 @@ import PropTypes from 'prop-types';
  * Usage:
  *   // Inline (side-by-side)
  *   <FormRow label="DEM source">
- *     <select className="scenario-select">...</select>
+ *     <select className="sv-scenario-select">...</select>
  *   </FormRow>
  *
  *   // Stacked (label above)

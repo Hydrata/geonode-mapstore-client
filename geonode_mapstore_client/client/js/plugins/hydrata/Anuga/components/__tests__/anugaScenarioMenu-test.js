@@ -94,14 +94,14 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     // Header action strip composition (Option A refactor)
     // ----------------------------------------------------------------
     describe('Header action strip composition', () => {
-        it('renders #scenario-header-actions in place of #scenario-tab-button-group', () => {
+        it('renders #sv-scenario-header-actions in place of #scenario-tab-button-group', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
             // New: action strip.
-            expect(container.querySelector('#scenario-header-actions')).toExist();
+            expect(container.querySelector('#sv-scenario-header-actions')).toExist();
             // Old chip group must NOT come back.
             expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
         });
@@ -112,7 +112,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const strip = container.querySelector('#scenario-header-actions');
+            const strip = container.querySelector('#sv-scenario-header-actions');
             expect(strip).toExist();
             const btns = Array.from(strip.querySelectorAll('button'));
             // 3 buttons rendered (no run-compare).
@@ -191,12 +191,12 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 container
             );
             const compareBtn = container.querySelector('.sv-anuga-btn-compare');
-            const hiddenBefore = container.querySelectorAll('.scenario-rail-item-compare-checkbox.is-hidden');
+            const hiddenBefore = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox.is-hidden');
             expect(hiddenBefore.length).toBe(2);
             compareBtn.click();
             setTimeout(() => {
                 const visibleAfter = container.querySelectorAll(
-                    '.scenario-rail-item-compare-checkbox:not(.is-hidden)'
+                    '.sv-scenario-rail-item-compare-checkbox:not(.is-hidden)'
                 );
                 expect(visibleAfter.length).toBe(2);
                 const compareBtnAfter = container.querySelector('.sv-anuga-btn-compare');

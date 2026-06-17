@@ -166,7 +166,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
     describe('ScenarioRailItem rendering', () => {
         it('renders id label with # prefix for saved scenarios', (done) => {
             ReactDOM.render(<ScenarioRailItem scenario={scenarioA} />, container, () => {
-                const idLabel = container.querySelector('.scenario-rail-item-id');
+                const idLabel = container.querySelector('.sv-scenario-rail-item-id');
                 expect(idLabel).toExist();
                 expect(idLabel.textContent).toBe('#21');
                 done();
@@ -178,7 +178,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 <ScenarioRailItem scenario={scenarioUnsaved} />,
                 container,
                 () => {
-                    const idLabel = container.querySelector('.scenario-rail-item-id');
+                    const idLabel = container.querySelector('.sv-scenario-rail-item-id');
                     expect(idLabel.textContent).toBe('#*');
                     done();
                 }
@@ -190,7 +190,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 <ScenarioRailItem scenario={scenarioUnsaved} />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-rail-item-unsaved')).toExist();
+                    expect(container.querySelector('.sv-scenario-rail-item-unsaved')).toExist();
                     done();
                 }
             );
@@ -198,14 +198,14 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
 
         it('omits unsaved marker for saved scenarios', (done) => {
             ReactDOM.render(<ScenarioRailItem scenario={scenarioA} />, container, () => {
-                expect(container.querySelector('.scenario-rail-item-unsaved')).toNotExist();
+                expect(container.querySelector('.sv-scenario-rail-item-unsaved')).toNotExist();
                 done();
             });
         });
 
         it('renders the scenario name in the label slot', (done) => {
             ReactDOM.render(<ScenarioRailItem scenario={scenarioA} />, container, () => {
-                const label = container.querySelector('.scenario-rail-item-name');
+                const label = container.querySelector('.sv-scenario-rail-item-name');
                 expect(label).toExist();
                 expect(label.textContent).toBe('Baseline');
                 done();
@@ -214,7 +214,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
 
         it('embeds a compact ScenarioStatusPill', (done) => {
             ReactDOM.render(<ScenarioRailItem scenario={scenarioA} />, container, () => {
-                const pill = container.querySelector('.scenario-status-pill');
+                const pill = container.querySelector('.sv-scenario-status-pill');
                 expect(pill).toExist();
                 expect(pill.className).toInclude('is-compact');
                 done();
@@ -228,7 +228,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 () => {
                     const item = container.querySelector('.sv-category-rail-item');
                     expect(item.className).toInclude('is-archived');
-                    expect(container.querySelector('.scenario-rail-item-archived-dot')).toExist();
+                    expect(container.querySelector('.sv-scenario-rail-item-archived-dot')).toExist();
                     done();
                 }
             );
@@ -251,8 +251,8 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 <ScenarioRailItem scenario={scenarioA} currentUserId={7} />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-ownership-mine')).toExist();
-                    expect(container.querySelector('.scenario-ownership-other')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-ownership-mine')).toExist();
+                    expect(container.querySelector('.sv-scenario-ownership-other')).toNotExist();
                     done();
                 }
             );
@@ -263,8 +263,8 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 <ScenarioRailItem scenario={scenarioA} currentUserId={99} />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-ownership-other')).toExist();
-                    expect(container.querySelector('.scenario-ownership-mine')).toNotExist();
+                    expect(container.querySelector('.sv-scenario-ownership-other')).toExist();
+                    expect(container.querySelector('.sv-scenario-ownership-mine')).toNotExist();
                     done();
                 }
             );
@@ -311,7 +311,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
     describe('Compare mode', () => {
         it('renders compare checkbox hidden by default', (done) => {
             ReactDOM.render(<ScenarioRailItem scenario={scenarioA} />, container, () => {
-                const checkbox = container.querySelector('.scenario-rail-item-compare-checkbox');
+                const checkbox = container.querySelector('.sv-scenario-rail-item-compare-checkbox');
                 expect(checkbox).toExist();
                 expect(checkbox.className).toInclude('is-hidden');
                 done();
@@ -323,7 +323,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 <ScenarioRailItem scenario={scenarioA} compareMode />,
                 container,
                 () => {
-                    const checkbox = container.querySelector('.scenario-rail-item-compare-checkbox');
+                    const checkbox = container.querySelector('.sv-scenario-rail-item-compare-checkbox');
                     expect(checkbox.className).toNotInclude('is-hidden');
                     done();
                 }
@@ -338,7 +338,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-rail-item-compare-checkbox .glyphicon-ok'))
+                    expect(container.querySelector('.sv-scenario-rail-item-compare-checkbox .glyphicon-ok'))
                         .toExist();
                     done();
                 }
@@ -350,7 +350,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 <ScenarioRailItem scenario={scenarioA} compareMode />,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-rail-item-compare-checkbox .glyphicon-unchecked'))
+                    expect(container.querySelector('.sv-scenario-rail-item-compare-checkbox .glyphicon-unchecked'))
                         .toExist();
                     done();
                 }
@@ -369,7 +369,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    const checkbox = container.querySelector('.scenario-rail-item-compare-checkbox');
+                    const checkbox = container.querySelector('.sv-scenario-rail-item-compare-checkbox');
                     checkbox.click();
                     expect(toggleCaptured).toBe(scenarioA);
                     expect(onSelectCalls).toBe(0);
@@ -392,7 +392,7 @@ describe('TASK-C ScenarioRail primitive (W1)', () => {
                 <ScenarioRailItem scenario={{id: 1, status: 'created'}} />,
                 container,
                 () => {
-                    const label = container.querySelector('.scenario-rail-item-name');
+                    const label = container.querySelector('.sv-scenario-rail-item-name');
                     expect(label).toExist();
                     expect(label.textContent).toBe('');
                     done();

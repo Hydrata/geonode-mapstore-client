@@ -210,10 +210,10 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.scenario-menu-header')).toExist();
-                    // Option A: header has #scenario-header-actions instead of
+                    expect(container.querySelector('.sv-scenario-menu-header')).toExist();
+                    // Option A: header has #sv-scenario-header-actions instead of
                     // the legacy #scenario-tab-button-group.
-                    expect(container.querySelector('#scenario-header-actions')).toExist();
+                    expect(container.querySelector('#sv-scenario-header-actions')).toExist();
                     expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
                     done();
                 }
@@ -338,7 +338,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                         // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
                         expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
                         expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                        expect(container.querySelector('.scenario-action-toolbar')).toExist();
+                        expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
                         done();
                     });
                 }
@@ -361,7 +361,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     setTimeout(() => {
                         expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
                         expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
-                        expect(container.querySelector('.scenario-action-toolbar')).toExist();
+                        expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
                         done();
                     });
                 }
@@ -556,14 +556,14 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 container,
                 () => {
                     // Initially: checkboxes hidden.
-                    let checkboxes = container.querySelectorAll('.scenario-rail-item-compare-checkbox.is-hidden');
+                    let checkboxes = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox.is-hidden');
                     expect(checkboxes.length).toBe(2);
                     // Click the Compare button in the new action strip.
                     const compareBtn = container.querySelector('.sv-anuga-btn-compare');
                     expect(compareBtn).toExist();
                     compareBtn.click();
                     setTimeout(() => {
-                        const visibleCheckboxes = container.querySelectorAll('.scenario-rail-item-compare-checkbox:not(.is-hidden)');
+                        const visibleCheckboxes = container.querySelectorAll('.sv-scenario-rail-item-compare-checkbox:not(.is-hidden)');
                         expect(visibleCheckboxes.length).toBe(2);
                         const compareBtnAfter = container.querySelector('.sv-anuga-btn-compare');
                         expect(compareBtnAfter.className).toInclude('is-active');

@@ -106,18 +106,17 @@ const ALLOWED_PREFIXES = new Set([
     'sk',          // .sk-circle (spinkit spinner) in simpleView.css
 
     // ══ Category 3 — RATCHET TARGETS (rename to sv-/sv-<panel>-, then delete here) ══
-    // Each prefix below leaves the allowlist the moment its panel's classes are
-    // renamed (TASK-1766 W2). The dark-glass conform (W1/W3) deliberately left
-    // these bespoke-but-tokenised, so they still appear in the CSS today.
+    // All prefixes below have been RATCHETED OUT as of TASK-1766 W1.9b (epic-1587).
+    // Category 3 is now EMPTY — the allowlist collapses to cat-1 + cat-2 only.
+    //
     // 'tm' RATCHETED OUT (TASK-1680): TaskMonitor fully migrated; taskMonitor.css is sv-/simple- only.
     // 'hyrdology' RATCHETED OUT (TASK-1678): the .hyrdology-textarea typo was fixed to .hydrology-textarea.
     // -- panel namespaces --
-    // ⚠ anuga/scenario DEFERRED (TASK-1766 W2): SHARED with epic/1587's TerrainWorkbench
-    //   (terrainWorkbench.css defines .anuga-*/.scenario-* override rules; 1587 actively
-    //   commits to that dir). Renaming on 1758 would desync TerrainWorkbench styling — a
-    //   visual break on the parent epic, not a mergeable text conflict. Rename WITH/AFTER 1587.
-    'anuga',
-    'scenario',
+    // 'anuga' RATCHETED OUT (TASK-1766 W1.9b, epic-1587): 110+ anuga-* classes renamed to sv-anuga-* across
+    //   anuga.css + terrainWorkbench.css + all Anuga JS/tests; data-testid/ids/analytics strings left untouched.
+    //   Also renamed anuga-scenario-* compound classes in the same pass.
+    // 'scenario' RATCHETED OUT (TASK-1766 W1.9b, epic-1587): 37 scenario-* CSS classes + dynamic action modifiers
+    //   renamed to sv-scenario-* (anuga.css, Anuga JS + tests); id=#scenario-header-actions kept unchanged.
     // 'membership' RATCHETED OUT (TASK-1766 W2): Anuga membership-* -> sv-* (Anuga-only).
     // 'publication' RATCHETED OUT (TASK-1766 W2): Anuga publication-* -> sv-* (Anuga-only).
     // 'hgeval' RATCHETED OUT (TASK-1766 W2): HGeval panel renamed hgeval-* -> sv-hgeval-* (CSS + JS); the only test hook (.hgeval-alert-sm) is a negative .toNotExist() assertion (class never rendered).
@@ -129,7 +128,9 @@ const ALLOWED_PREFIXES = new Set([
     // 'vector' RATCHETED OUT (TASK-1766 W2): VectorDraw renamed all 12 vector-draw-* classes -> sv-* (vectorDrawPopup.css + VectorDraw JS incl. tests; pins are positive assertions, renamed in lock-step per the operator-authorized parity-track in-intent test updates). TASK-784 FontUniformity test walks inline font attrs, unaffected.
     // -- feature namespaces within panels --
     // idf/ds/design/hyetograph/temporal/networks RATCHETED OUT (TASK-1766 W2, with Hydrology above).
-    'terrain',     // ⚠ DEFERRED — SHARED with epic/1587 (TerrainWorkbench). Rename WITH/AFTER 1587.
+    // 'terrain' RATCHETED OUT (TASK-1766 W1.9b, epic-1587): 18 terrain-* CSS classes (bbox panel + hierarchy/drag)
+    //   renamed to sv-terrain-* in anuga.css + Anuga JS; data-testid/ids/drawing-owner strings untouched.
+    //   Also handles the previously-DEFERRED shared-with-1587 overlap (done now in the parent epic branch).
     // 'network' RATCHETED OUT (TASK-1766 W2): Anuga network-* -> sv-* (Anuga-only singular; Hydrology's plural 'networks' already retired).
     // 'badge' RATCHETED OUT (TASK-1766 W2): Anuga badge-role -> sv- (Anuga-only).
     // -- hydrata "shared structural" prefixes in simpleView.css (q-7 "do it now") --
@@ -138,14 +139,15 @@ const ALLOWED_PREFIXES = new Set([
     //   renamed -> sv-* in simpleView.css + all consumer-panel JS + pinned tests (28 classes/194 refs;
     //   pins sv-legend-close/sv-glyph-active/-collapse/-delete/sv-subheading-row/sv-uploader-panel kept in lock-step).
     //   These are TerrainWorkbench-free (no terrainWorkbench.css/JS use).
-    'menu',        // ⚠ DEFERRED — in simpleView.css (49) + anuga.css + swamm.css + TerrainWorkbench. Rename WITH 1587.
-    'save',        // ⚠ DEFERRED — TerrainWorkbench JS uses a save- class. Rename WITH 1587.
-    'data',        // ⚠ DEFERRED — in simpleView.css + anuga.css + TerrainWorkbench. Rename WITH 1587.
+    // 'menu' RATCHETED OUT (TASK-1766 W1.9b, epic-1587): 20 menu-row-*/menu-rows-* classes renamed to sv-menu-row-*
+    //   across simpleView.css + swamm.css + anuga.css + terrainWorkbench.css + all consumer JS/tests (293 refs).
+    // 'save' RATCHETED OUT (TASK-1766 W1.9b, epic-1587): save-confirm-btn/-overlay -> sv-save-confirm-* (2 classes, 21 refs).
+    // 'data' RATCHETED OUT (TASK-1766 W1.9b, epic-1587): data-title-input -> sv-data-title-input (12 refs); HTML data-* attrs left untouched.
     // 'chart' RATCHETED OUT (TASK-1766 W2): Anuga chart-footer/-header/-mainbody/-sidebar -> sv-* (Anuga-only chart-card layout; NOT the recharts surface, which stays cat-2).
     // -- misc one-offs in the baseline --
     // 'add' RATCHETED OUT (TASK-1766 W2): .add-data-input -> sv- (Anuga-only).
     // 'custom' RATCHETED OUT (TASK-1766 W2): .custom-pattern-* (Hydrology) + .custom-tooltip-label (Swamm) all -> sv-*. custom-curve etc. are unstyled JS markers.
-    'with'         // .with-tooltip in simpleView.css
+    // 'with' RATCHETED OUT (TASK-1766 W1.9b, epic-1587): with-tooltip -> sv-with-tooltip (simpleView.css + OpacitySlider.js, 4 refs).
 ]);
 
 // ── The 7 hydrata panel CSS files to scan ──

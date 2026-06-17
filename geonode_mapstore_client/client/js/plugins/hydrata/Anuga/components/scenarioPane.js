@@ -145,7 +145,7 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
             <div className={fieldClass}>
                 <select
                     id={id}
-                    className={'scenario-select'}
+                    className={'sv-scenario-select'}
                     value={value || ''}
                     disabled={disabled}
                     onChange={(e) => {
@@ -215,7 +215,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                     <input
                         id="name"
                         type="text"
-                        className="scenario-input"
+                        className="sv-scenario-input"
                         value={scenario?.name || ''}
                         readOnly={!canEdit}
                         onChange={(e) => handleField({name: e.target.value})}
@@ -306,7 +306,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                     <input
                         id="resolution"
                         type="number"
-                        className="scenario-input scenario-input-narrow"
+                        className="sv-scenario-input sv-scenario-input-narrow"
                         value={scenario?.resolution != null ? scenario.resolution : ''} // eslint-disable-line no-eq-null, eqeqeq
                         readOnly={!canEdit}
                         onChange={handleResolutionChange}
@@ -328,7 +328,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                     <input
                         id="duration"
                         type="text"
-                        className="scenario-input scenario-input-narrow"
+                        className="sv-scenario-input sv-scenario-input-narrow"
                         value={scenario?.tempTimeString != null ? scenario.tempTimeString : toHHMM(scenario?.duration)} // eslint-disable-line no-eq-null, eqeqeq
                         readOnly={!canEdit}
                         onChange={handleTimeChange}
@@ -354,7 +354,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                     <div className={selectFieldClass}>
                         <select
                             id="compute_backend"
-                            className="scenario-select"
+                            className="sv-scenario-select"
                             value={scenario?.compute_backend || ''}
                             disabled={!canEdit}
                             onChange={handleBackendChange}
@@ -530,7 +530,7 @@ const ScenarioPane = (props) => {
     );
 
     return (
-        <div className="sv-menu-rows-pane sv-anuga-pane anuga-scenario-pane">
+        <div className="sv-menu-rows-pane sv-anuga-pane sv-anuga-scenario-pane">
             <div className="sv-anuga-pane-toolbar">
                 <span className="sv-anuga-pane-head-label">
                     <Message msgId="hydrata.anuga.scenarios" />

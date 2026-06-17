@@ -226,7 +226,7 @@ class MembershipPanelClass extends React.Component {
                     {canChangeRole ? (
                         <select
                             value={membership.role}
-                            className="scenario-select sv-membership-role-select change-role-btn"
+                            className="sv-scenario-select sv-membership-role-select change-role-btn"
                             onChange={(e) => this.handleRoleChange(membership.id, e.target.value)}
                         >
                             {ROLES.map(r => (
@@ -284,7 +284,7 @@ class MembershipPanelClass extends React.Component {
                         onKeyDown={(e) => { if (e.key === 'Enter') this.handleSendInvitation(); }}
                     />
                     <select
-                        className="scenario-select sv-membership-role-select invite-role-select"
+                        className="sv-scenario-select sv-membership-role-select invite-role-select"
                         value={this.state.inviteRole}
                         disabled={formDisabled}
                         onChange={(e) => this.setState({inviteRole: parseInt(e.target.value, 10)})}
@@ -319,9 +319,9 @@ class MembershipPanelClass extends React.Component {
                 <div className="sv-membership-section-title">
                     Pending invitations
                 </div>
-                <ChassisTable surface="dark" extraClassName="scenario-table membership-invitations-table">
+                <ChassisTable surface="dark" extraClassName="sv-scenario-table membership-invitations-table">
                     <thead>
-                        <tr className="scenario-table-header">
+                        <tr className="sv-scenario-table-header">
                             <th>Email</th>
                             <th>Role</th>
                             <th/>
@@ -417,9 +417,9 @@ class MembershipPanelClass extends React.Component {
                         </div>
                     ) : null}
                     {this.renderVisibilitySection()}
-                    <ChassisTable surface="dark" extraClassName="scenario-table">
+                    <ChassisTable surface="dark" extraClassName="sv-scenario-table">
                         <thead>
-                            <tr className="scenario-table-header">
+                            <tr className="sv-scenario-table-header">
                                 <th><Message msgId="hydrata.anuga.memberUser" /></th>
                                 <th><Message msgId="hydrata.anuga.memberRole" /></th>
                                 <th/>

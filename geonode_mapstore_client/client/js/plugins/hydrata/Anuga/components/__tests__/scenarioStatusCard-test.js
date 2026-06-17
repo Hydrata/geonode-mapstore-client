@@ -40,7 +40,7 @@ describe('Wave 3A — ScenarioStatusCard', () => {
                 const card = container.querySelector('.sv-anuga-scenario-status-card');
                 expect(card).toExist();
                 expect(card.className).toInclude('sv-anuga-scenario-status-card--built');
-                expect(container.querySelector('.scenario-status-pill')).toExist();
+                expect(container.querySelector('.sv-scenario-status-pill')).toExist();
                 // Built status has no progress bar.
                 expect(container.querySelector('.sv-anuga-scenario-status-card-progress')).toNotExist();
                 done();

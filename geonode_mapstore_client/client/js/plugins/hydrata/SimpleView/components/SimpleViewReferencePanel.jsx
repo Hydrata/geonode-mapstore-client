@@ -276,7 +276,7 @@ class SimpleViewReferencePanel extends React.Component {
 
                 <Section title="Chassis: FormRow (sv-form-row)">
                     <FormRow label="DEM source">
-                        <select className="scenario-select" style={{ width: 140 }}>
+                        <select className="sv-scenario-select" style={{ width: 140 }}>
                             <option>LiDAR 1m</option>
                             <option>SRTM 30m</option>
                         </select>
