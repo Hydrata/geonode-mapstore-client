@@ -246,7 +246,7 @@ export class TerrainBboxPanelClass extends React.Component {
                     {/* Error inline */}
                     {this.props.error ?
                         <div
-                            className={"alert alert-danger"}
+                            className={"alert alert-danger terrain-bbox-error"}
                             data-testid="terrain-bbox-error"
                             style={{padding: "6px 10px", marginBottom: "10px"}}
                         >

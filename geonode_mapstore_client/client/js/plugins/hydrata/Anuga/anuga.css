@@ -79,8 +79,8 @@
     overflow: hidden;
     border: white;
     text-align: center;
-    background: rgba(255, 255, 255, 0.22);
-    color: #f4f4f4;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.22));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .table-hover > tbody > tr:hover {
@@ -230,76 +230,15 @@
     overflow: hidden;
     border: white;
     text-align: center;
-    background: rgba(255, 255, 255, 0.22);
-    color: #f4f4f4;
+    background: var(--sv-input-bg, rgba(255, 255, 255, 0.22));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-#anuga-scenario-log-viewer-container {
-    position: absolute;
-    z-index: 2000;
-    top: 5%;
-    min-width: 800px;
-    min-height: 600px;
-    color: #333333;
-    background-color: #f2f2f2;
-    border: 2px solid #dddddd;
-    border-radius: 5px;
-}
-
-#anuga-scenario-log-viewer {
-    overflow-y: scroll;
-    height: 70vh;
-    padding: 10px;
-    margin: 0 0 10px;
-    font-size: 12px;
-    line-height: 1.42857143;
-    white-space: pre-line;
-    word-break: break-all;
-    word-wrap: break-word;
-}
-
-#anuga-run-menu-container {
-    position: absolute;
-    padding: 10px;
-    margin: 0 0 10px;
-    font-size: 12px;
-    z-index: 2000;
-    min-width: 800px;
-    min-height: 600px;
-    color: white;
-    background-color: #003c88cc;
-    border: 1px solid white;
-    border-radius: 5px;
-    white-space: pre-line;
-    word-break: break-all;
-    word-wrap: break-word;
-    text-align: left;
-}
-
-#anuga-run-menu {
-    color: white;
-    background: #000000cc;
-    border-radius: 5px;
-    font-family: Monospace;
-    overflow-x: auto;
-    height: 100px;
-    padding: 10px;
-    margin: 20px 0 10px;
-}
-
-#anuga-compute-instance-menu {
-    color: black;
-    background: white;
-    overflow-y: scroll;
-    overflow-x: auto;
-    height: 35vh;
-    padding: 10px;
-    margin: 0 0 10px;
-    font-size: 12px;
-    white-space: pre-line;
-    word-break: break-all;
-    word-wrap: break-word;
-}
+/* TASK-1758 W3 conform: deleted dead light-surface rule blocks
+   (#anuga-scenario-log-viewer-container #333/#f2f2f2, #anuga-scenario-log-viewer,
+   #anuga-run-menu-container, #anuga-run-menu, #anuga-compute-instance-menu
+   color:black/background:white). Confirmed unreachable — no live JS in the Anuga
+   dir mounts these ids (the live log is the dark .anuga-scenario-pane-log-viewer). */
 
 #anuga-scenario-menu {
     overflow-y: hidden;
@@ -417,7 +356,7 @@
     margin: 0;
     font-size: 14px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -431,7 +370,7 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    color: #ffffff;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     font-size: 12px;
     padding: 2px 4px;
 }
@@ -499,7 +438,7 @@
     margin: 6px 0;
     width: 100%;
     max-width: 720px;
-    color: #f4f4f4;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .anuga-starter-card-heading {
@@ -538,7 +477,7 @@
 
 .anuga-starter-step--active .anuga-starter-step-num {
     background: var(--sv-glyph-active, limegreen);
-    color: #1f3a1f;
+    color: var(--sv-on-accent, #1f3a1f);
 }
 
 .anuga-starter-step--pending {
@@ -567,7 +506,7 @@
 
 .anuga-starter-step--done .anuga-starter-step-num {
     background: var(--sv-glyph-active, limegreen);
-    color: #1f3a1f;
+    color: var(--sv-on-accent, #1f3a1f);
 }
 
 .anuga-starter-step--done .anuga-starter-step-num .glyphicon {
@@ -605,7 +544,7 @@
 .anuga-pending-title {
     font-size: 12px;
     font-style: normal;
-    color: #f4f4f4;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .anuga-pending-status {
@@ -642,26 +581,14 @@ div that holds the feature-grid */
     background-color: #622b2b;
 }
 
-.scenario-tab {
-    margin: 2px 0 -17px 8px;
-    border-radius: 6px 6px 0 0;
-    color: white;
-    background-color: #6085b5;
-}
-
-.scenario-tab:first-child {
-    margin-left: 20px;
-}
-
-.scenario-tab.active {
-    color: #3363a0;
-    background-color: white;
-}
+/* TASK-1758 W3 conform: deleted dead .scenario-tab / .scenario-tab.active rules
+   (#6085b5 fill + light-white active state). The archive-filter tab strip is gone;
+   anugaScenarioAnalyticsParity-test asserts no .scenario-tab element renders. */
 
 .scenario-menu-header {
     height: 40px;
     text-align: left;
-    font-size: large;
+    font-size: var(--sv-header-font-size, 14px);
 }
 
 .scenario-footer {
@@ -729,6 +656,97 @@ div that holds the feature-grid */
 
 /* ── End TASK-424 ── */
 
+/* ── TASK-1758 W3 conform: dark-glass surfaces moved off light Bootstrap defaults ──
+ * The run-polling-paused toast (was an inline cream #fff7e6 surface) and the
+ * membership info/warning Bootstrap alerts (light pastel boxes) re-skinned onto
+ * the sv warning/info/error tokens so they read on the navy glass. Class names
+ * (.run-polling-paused-banner/-resume, .alert-info/.alert-warning,
+ * .membership-invite-disabled/.membership-perms-warning) are preserved — the
+ * Karma tests pin those, this is a pure value re-skin. */
+
+/* Run-polling paused toast — warning-tinted glass, replaces the inline cream style. */
+.run-polling-paused-banner {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 1080;
+    background: var(--sv-warning-bg, rgba(252, 248, 227, 0.12));
+    border: 1px solid var(--sv-warning-border, rgba(250, 235, 204, 0.4));
+    border-radius: var(--sv-card-radius, 4px);
+    padding: 8px 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+.run-polling-paused-text {
+    color: var(--sv-warning-color, #fcf8e3);
+    font-weight: 500;
+}
+
+/* Membership info alert (invitations disabled) — sv info-token tint over glass. */
+.membership-invite-disabled.alert-info {
+    background-color: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
+    border-color: var(--sv-info-border, #5bc0de);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+/* Membership warning alert (perms unavailable fallback) — sv warning-token tint. */
+.membership-perms-warning.alert-warning {
+    background-color: var(--sv-warning-bg, rgba(252, 248, 227, 0.12));
+    border-color: var(--sv-warning-border, rgba(250, 235, 204, 0.4));
+    color: var(--sv-warning-color, #fcf8e3);
+}
+
+/* Membership scenario-table (member + invitation rows) — dark cells/borders.
+ * The react-bootstrap Table was swapped for the chassis Table surface="dark"
+ * (extraClassName="scenario-table"); these rules give the bespoke header/cells
+ * the dark-glass treatment regardless of the underlying Bootstrap .table reset. */
+.scenario-table {
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.scenario-table .scenario-table-header th {
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
+    border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
+    text-align: left;
+}
+
+.scenario-table td {
+    border-top: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
+    vertical-align: middle;
+}
+
+/* Membership remove/visibility inline confirm overlay — small dark-glass card. */
+.membership-confirm-overlay {
+    margin: 6px 0;
+    padding: 8px 12px;
+    text-align: left;
+    background: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
+    border: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    border-radius: var(--sv-card-radius, 4px);
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+}
+
+.membership-confirm-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Terrain-bbox inline error — was Bootstrap .alert-danger (light pink); re-skin
+ * onto the sv error tokens, mirroring the conformed .terrain-bbox-confirm-toolarge
+ * chip. Scoped to the terrain-bbox panel via the data-testid'd error element. */
+.terrain-bbox-error.alert-danger {
+    background-color: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
+    border-color: var(--sv-delete-error-border, #dc3545);
+    color: var(--sv-text-danger, #ffb3b3);
+}
+
 /* ── TASK-425: Consolidated MembershipPanel / PublicationPanel styles ── */
 
 /* -- Role badges (membership panel) -- */
@@ -741,19 +759,19 @@ div that holds the feature-grid */
 }
 
 .badge-owner {
-    background-color: #337ab7;
+    background-color: var(--sv-input-blue, #5178af);
 }
 
 .badge-manager {
-    background-color: #5cb85c;
+    background-color: var(--sv-glyph-active, limegreen);
 }
 
 .badge-editor {
-    background-color: #f0ad4e;
+    background-color: var(--sv-glyph-partial, orange);
 }
 
 .badge-viewer {
-    background-color: #777;
+    background-color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 /* -- Membership panel sections -- */
@@ -856,7 +874,7 @@ div that holds the feature-grid */
 .membership-header-row {
     height: 40px;
     text-align: left;
-    font-size: large;
+    font-size: var(--sv-header-font-size, 14px);
 }
 
 /* -- Publication panel styles -- */
@@ -864,13 +882,13 @@ div that holds the feature-grid */
 .publication-close-row {
     height: 20px;
     text-align: left;
-    font-size: large;
+    font-size: var(--sv-header-font-size, 14px);
 }
 
 .publication-row {
     height: 40px;
     text-align: left;
-    font-size: large;
+    font-size: var(--sv-header-font-size, 14px);
 }
 
 .publication-title {
@@ -1020,7 +1038,7 @@ div that holds the feature-grid */
     margin: 0;
     font-size: 12px;
     font-weight: 500;
-    color: #ffffff;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1251,7 +1269,7 @@ div that holds the feature-grid */
     border: none;
     border-left: 3px solid transparent;
     cursor: pointer;
-    color: #ffffff;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     text-align: left;
     user-select: none;
     outline: none;
@@ -1268,7 +1286,7 @@ div that holds the feature-grid */
 
 .anuga-scenario-category-item.is-active {
     background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
-    border-left-color: #cae33b;
+    border-left-color: var(--sv-accent-lime, #cae33b);
 }
 
 .anuga-scenario-category-item-glyph {
@@ -1356,7 +1374,7 @@ div that holds the feature-grid */
     margin: 0;
     font-size: 14px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     flex: 1;
 }
 
@@ -1518,15 +1536,15 @@ div that holds the feature-grid */
 /* Log button — dark blue background to match the header Duplicate button
  * style and improve contrast vs the light-blue bootstrap "info" default. */
 .anuga-btn.scenario-action-log {
-    background-color: #003c88;
-    color: #ffffff;
+    background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
     border-color: rgba(255, 255, 255, 0.25);
 }
 
 .anuga-btn.scenario-action-log:hover:not(.disabled):not([disabled]),
 .anuga-btn.scenario-action-log:focus {
-    background-color: #1d57a8;
-    color: #ffffff;
+    background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 .anuga-btn.scenario-action-log:disabled,
@@ -1742,9 +1760,10 @@ div that holds the feature-grid */
     right: 50px;
     z-index: 10;
     display: none;
-    background: #ffffff;
-    color: #333;
-    border-radius: 4px;
+    background: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
+    color: var(--sv-text, rgba(255, 255, 255, 0.85));
+    border: 1px solid var(--sv-panel-border, rgba(255, 255, 255, 0.6));
+    border-radius: var(--sv-card-radius, 4px);
     padding: 8px 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -1829,7 +1848,7 @@ div that holds the feature-grid */
     text-align: left;
     line-height: 1.5;
     padding: 10px 12px;
-    color: #d6e0f0;
+    color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 /* TASK-1432 (ISSUE 5): 'Export Data' modal (id=mapstore-export) opens with its

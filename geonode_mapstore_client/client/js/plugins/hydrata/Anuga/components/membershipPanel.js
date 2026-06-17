@@ -1,7 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 const PropTypes = require('prop-types');
-import {Table, Button} from "react-bootstrap";
+import {Button} from "react-bootstrap";
 import '../anuga.css';
 import '../../SimpleView/simpleView.css';
 import {
@@ -35,7 +35,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // The 3-radio visibility group + the react-bootstrap member/invitation Tables
 // stay bespoke (flagged gaps). No test pins the close button class; the
 // #membership-panel id + inner row classes the tests query are untouched.
-import {PanelHeader} from '../../SimpleView/components/primitives';
+import {PanelHeader, Table as ChassisTable} from '../../SimpleView/components/primitives';
 
 const ROLES = [
     {value: 1, label: 'Viewer'},
@@ -319,7 +319,7 @@ class MembershipPanelClass extends React.Component {
                 <div className="membership-section-title">
                     Pending invitations
                 </div>
-                <Table className="scenario-table membership-invitations-table">
+                <ChassisTable surface="dark" extraClassName="scenario-table membership-invitations-table">
                     <thead>
                         <tr className="scenario-table-header">
                             <th>Email</th>
@@ -367,7 +367,7 @@ class MembershipPanelClass extends React.Component {
                             </tr>
                         ))}
                     </tbody>
-                </Table>
+                </ChassisTable>
             </div>
         );
     }
@@ -417,7 +417,7 @@ class MembershipPanelClass extends React.Component {
                         </div>
                     ) : null}
                     {this.renderVisibilitySection()}
-                    <Table className="scenario-table">
+                    <ChassisTable surface="dark" extraClassName="scenario-table">
                         <thead>
                             <tr className="scenario-table-header">
                                 <th><Message msgId="hydrata.anuga.memberUser" /></th>
@@ -429,7 +429,7 @@ class MembershipPanelClass extends React.Component {
                             {this.renderOwnerRow()}
                             {this.props.memberships?.map(m => this.renderMemberRow(m))}
                         </tbody>
-                    </Table>
+                    </ChassisTable>
                     {/* TASK-860 — email invite form (replaces hand-rolled autocomplete) */}
                     {this.renderInviteSection()}
                     {/* TASK-860 — pending invitations list */}
