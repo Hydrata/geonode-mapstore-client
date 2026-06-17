@@ -45,7 +45,10 @@ import {
 } from '../actionsHydrology';
 import {PRESET_FAMILIES, ALTERNATING_BLOCK} from '../temporalPatternPresets';
 import ManualPasteGrid from './ManualPasteGrid';
-import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
+// TASK-1760 (epic-1758 W1) — chassis primitives. Card carries the dark-glass
+// frame for the design-storm cards (default variant) and the dark-frame/light-body
+// carve-out for the recharts hyetograph cards (variant="chart", TASK-1534).
+import { ErrorStrip, EmptyState, Card } from '../../SimpleView/components/primitives';
 
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
@@ -400,119 +403,120 @@ const DesignStormsBrowser = ({
 
     return (
         <div id="design-storms-browser" style={{maxWidth: 720}}>
-            {/* FILTERS row */}
-            <div
-                id="design-storms-filters"
-                className="design-storm-card"
-                style={{
-                    padding: '10px 14px',
-                    marginBottom: 12
-                }}
+            {/* FILTERS row — TASK-1760: chassis Card (default dark-glass). The
+                design-storm-card class rides extraClassName so the nested
+                .design-storm-label/-hint/-muted text rules still apply. */}
+            <Card
+                extraClassName="design-storm-card"
+                style={{marginBottom: 12}}
+                bodyStyle={{padding: '10px 14px'}}
             >
-                <div style={{display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start'}}>
-                    {/* IDF Variant picker */}
-                    <div style={{flex: '1 1 180px'}}>
-                        <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                <div id="design-storms-filters">
+                    <div style={{display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start'}}>
+                        {/* IDF Variant picker */}
+                        <div style={{flex: '1 1 180px'}}>
+                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             IDF Table
-                        </label>
-                        <select
-                            id="ds-browser-idf-table"
-                            className="hydrology-text-input"
-                            style={{width: '100%'}}
-                            value={selectedIdfTableId ?? ''}
-                            onChange={e => onSpecChange({
-                                selectedIdfTableId: e.target.value ? Number(e.target.value) : null
-                            })}
-                        >
-                            <option value="">-- select IDF table --</option>
-                            {(idfTables || []).map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                            </label>
+                            <select
+                                id="ds-browser-idf-table"
+                                className="hydrology-text-input"
+                                style={{width: '100%'}}
+                                value={selectedIdfTableId ?? ''}
+                                onChange={e => onSpecChange({
+                                    selectedIdfTableId: e.target.value ? Number(e.target.value) : null
+                                })}
+                            >
+                                <option value="">-- select IDF table --</option>
+                                {(idfTables || []).map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                    {/* RP view filter (AC2) */}
-                    <div style={{flex: '1 1 120px'}}>
-                        <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                        {/* RP view filter (AC2) */}
+                        <div style={{flex: '1 1 120px'}}>
+                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             RP filter (yr)
-                        </label>
-                        <select
-                            id="ds-browser-ari-filter"
-                            className="hydrology-text-input"
-                            style={{width: '100%'}}
-                            value={viewFilter?.ari ?? ''}
-                            onChange={e => onViewFilterChange({ari: e.target.value ? Number(e.target.value) : null})}
-                        >
-                            <option value="">All RPs</option>
-                            {availableAris.map(a => (
-                                <option key={a} value={a}>{a} yr</option>
-                            ))}
-                        </select>
-                    </div>
+                            </label>
+                            <select
+                                id="ds-browser-ari-filter"
+                                className="hydrology-text-input"
+                                style={{width: '100%'}}
+                                value={viewFilter?.ari ?? ''}
+                                onChange={e => onViewFilterChange({ari: e.target.value ? Number(e.target.value) : null})}
+                            >
+                                <option value="">All RPs</option>
+                                {availableAris.map(a => (
+                                    <option key={a} value={a}>{a} yr</option>
+                                ))}
+                            </select>
+                        </div>
 
-                    {/* Duration view filter (AC2) */}
-                    <div style={{flex: '1 1 120px'}}>
-                        <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                        {/* Duration view filter (AC2) */}
+                        <div style={{flex: '1 1 120px'}}>
+                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             Duration filter
-                        </label>
-                        <select
-                            id="ds-browser-duration-filter"
-                            className="hydrology-text-input"
-                            style={{width: '100%'}}
-                            value={viewFilter?.durationMin ?? ''}
-                            onChange={e => onViewFilterChange({durationMin: e.target.value ? Number(e.target.value) : null})}
-                        >
-                            <option value="">All durations</option>
-                            {availableDurations.map(d => (
-                                <option key={d} value={d}>
-                                    {d >= 60 ? `${(d / 60).toFixed(1)} hr` : `${d} min`}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                            </label>
+                            <select
+                                id="ds-browser-duration-filter"
+                                className="hydrology-text-input"
+                                style={{width: '100%'}}
+                                value={viewFilter?.durationMin ?? ''}
+                                onChange={e => onViewFilterChange({durationMin: e.target.value ? Number(e.target.value) : null})}
+                            >
+                                <option value="">All durations</option>
+                                {availableDurations.map(d => (
+                                    <option key={d} value={d}>
+                                        {d >= 60 ? `${(d / 60).toFixed(1)} hr` : `${d} min`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                    {/* Timestep */}
-                    <div style={{flex: '0 0 90px'}}>
-                        <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                        {/* Timestep */}
+                        <div style={{flex: '0 0 90px'}}>
+                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             Timestep (min)
-                        </label>
-                        <input
-                            id="ds-browser-timestep"
-                            type="number"
-                            className="hydrology-text-input"
-                            style={{width: '100%'}}
-                            value={timestepMin || 60}
-                            min={1}
-                            step={1}
-                            onChange={e => onSpecChange({timestepMin: Number(e.target.value)})}
-                        />
+                            </label>
+                            <input
+                                id="ds-browser-timestep"
+                                type="number"
+                                className="hydrology-text-input"
+                                style={{width: '100%'}}
+                                value={timestepMin || 60}
+                                min={1}
+                                step={1}
+                                onChange={e => onSpecChange({timestepMin: Number(e.target.value)})}
+                            />
+                        </div>
                     </div>
-                </div>
 
-                {/* Pattern multi-select (AC8 — data-driven, not hardcoded) */}
-                <div style={{marginTop: 10}}>
-                    <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 4}}>
+                    {/* Pattern multi-select (AC8 — data-driven, not hardcoded) */}
+                    <div style={{marginTop: 10}}>
+                        <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 4}}>
                         Patterns (all = no filter)
-                    </label>
-                    <div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
-                        {allPatternOptions.map(opt => {
-                            const active = !selectedPatterns || selectedPatterns.length === 0
+                        </label>
+                        <div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
+                            {allPatternOptions.map(opt => {
+                                const active = !selectedPatterns || selectedPatterns.length === 0
                                 || selectedPatterns.includes(opt.id);
-                            return (
-                                <button
-                                    key={opt.id}
-                                    id={`ds-pattern-toggle-${opt.id}`}
-                                    className={`btn btn-xs ${active ? 'btn-primary' : 'btn-default'}`}
-                                    style={{fontSize: '0.78rem'}}
-                                    onClick={() => handleTogglePattern(opt.id)}
-                                >
-                                    {opt.label}
-                                </button>
-                            );
-                        })}
+                                return (
+                                    <button
+                                        key={opt.id}
+                                        id={`ds-pattern-toggle-${opt.id}`}
+                                        className={`btn btn-xs ${active ? 'btn-primary' : 'btn-default'}`}
+                                        style={{fontSize: '0.78rem'}}
+                                        onClick={() => handleTogglePattern(opt.id)}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Card>
 
             {/* Status / stale banner */}
             {stale && !inFlight && (
@@ -545,27 +549,28 @@ const DesignStormsBrowser = ({
             )}
 
             {/* Focused hyetograph chart — defaults to first preview (AC3).
-                KEEP this card WHITE so the recharts axes/grid read (TASK-1534). */}
+                TASK-1760: chassis Card variant="chart" gives the recharts body a
+                LIGHT surface inside a dark-glass frame (TASK-1534 carve-out). */}
             {focusedPreview && (
-                <div
-                    id="design-storm-focused-chart"
-                    className="design-storm-chart-card"
-                    style={{
-                        padding: '12px 16px',
-                        marginBottom: 14
-                    }}
+                <Card
+                    variant="chart"
+                    extraClassName="design-storm-chart-card"
+                    style={{marginBottom: 14}}
+                    bodyStyle={{padding: '12px 16px'}}
                 >
-                    <HyetographChart
-                        rowData={focusedPreview.rowData}
-                        timestepMin={focusedPreview.timestep_min || timestepMin}
-                        title={focusedPreview.name || focusedPreview.source || 'Design Storm'}
-                    />
-                    {focusedPreview.source && (
-                        <p style={{fontSize: '0.78rem', color: '#666', marginTop: 4, marginBottom: 0}}>
-                            Source: {focusedPreview.source}
-                        </p>
-                    )}
-                </div>
+                    <div id="design-storm-focused-chart">
+                        <HyetographChart
+                            rowData={focusedPreview.rowData}
+                            timestepMin={focusedPreview.timestep_min || timestepMin}
+                            title={focusedPreview.name || focusedPreview.source || 'Design Storm'}
+                        />
+                        {focusedPreview.source && (
+                            <p style={{fontSize: '0.78rem', color: '#666', marginTop: 4, marginBottom: 0}}>
+                                Source: {focusedPreview.source}
+                            </p>
+                        )}
+                    </div>
+                </Card>
             )}
 
             {/* Gallery of preview cards */}
@@ -641,13 +646,10 @@ const ManualEntryForm = ({
 
     return (
         <div id="manual-entry-form">
-            <div
-                className="design-storm-card"
-                style={{
-                    padding: '12px 16px',
-                    maxWidth: 700,
-                    marginBottom: 16
-                }}
+            <Card
+                extraClassName="design-storm-card"
+                style={{maxWidth: 700, marginBottom: 16}}
+                bodyStyle={{padding: '12px 16px'}}
             >
                 <h4 style={{marginTop: 0, marginBottom: 12, fontSize: '0.95rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.95)'}}>
                     Manual Design Storm Derive
@@ -860,34 +862,34 @@ const ManualEntryForm = ({
                         ? <span><span className="glyphicon glyphicon-refresh" style={{marginRight: 6}} />Deriving…</span>
                         : 'Derive & Save Design Storm'}
                 </button>
-            </div>
+            </Card>
 
-            {/* Hyetograph preview — shown after a successful derive */}
+            {/* Hyetograph preview — shown after a successful derive. TASK-1760:
+                chassis Card variant="chart" (light body for recharts). */}
             {derivedRowData && derivedRowData.length > 0 && (
-                <div
-                    id="design-storm-preview"
-                    className="design-storm-chart-card"
-                    style={{
-                        maxWidth: 700,
-                        padding: '12px 16px',
-                        marginBottom: 16
-                    }}
+                <Card
+                    variant="chart"
+                    extraClassName="design-storm-chart-card"
+                    style={{maxWidth: 700, marginBottom: 16}}
+                    bodyStyle={{padding: '12px 16px'}}
                 >
-                    <h4 style={{marginTop: 0, marginBottom: 4, fontSize: '0.95rem', fontWeight: 700, color: '#333'}}>
-                        Hyetograph Preview
-                    </h4>
-                    {designStorm.result.name && (
-                        <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 0}}>
-                            Saved as: <strong>{designStorm.result.name}</strong>
-                            {designStorm.result.source && (
-                                <span style={{marginLeft: 8, color: '#666', fontSize: '0.8rem'}}>
-                                    ({designStorm.result.source})
-                                </span>
-                            )}
-                        </p>
-                    )}
-                    <HyetographChart rowData={derivedRowData} timestepMin={designStorm?.timestepMin} />
-                </div>
+                    <div id="design-storm-preview">
+                        <h4 style={{marginTop: 0, marginBottom: 4, fontSize: '0.95rem', fontWeight: 700, color: '#333'}}>
+                            Hyetograph Preview
+                        </h4>
+                        {designStorm.result.name && (
+                            <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 0}}>
+                                Saved as: <strong>{designStorm.result.name}</strong>
+                                {designStorm.result.source && (
+                                    <span style={{marginLeft: 8, color: '#666', fontSize: '0.8rem'}}>
+                                        ({designStorm.result.source})
+                                    </span>
+                                )}
+                            </p>
+                        )}
+                        <HyetographChart rowData={derivedRowData} timestepMin={designStorm?.timestepMin} />
+                    </div>
+                </Card>
             )}
         </div>
     );
@@ -1106,112 +1108,118 @@ const DesignStormDerive = ({
     const noSelection = !selectedIdfTableId || !selectedPattern;
 
     return (
-        <div id="design-storm-derive-shell" className="design-storm-card" style={{padding: '12px 16px', maxWidth: 700}}>
-            {/* IDF table picker */}
-            <div style={{marginBottom: 10}}>
-                <label htmlFor="ds-derive-idf-table" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
-                    <Message msgId="hydrata.hydrology.idfTable" />
-                </label>
-                <select
-                    id="ds-derive-idf-table"
-                    className="hydrology-text-input"
-                    style={{width: '100%'}}
-                    value={selectedIdfTableId ?? ''}
-                    onChange={e => onChange({selectedIdfTableId: e.target.value ? Number(e.target.value) : null})}
-                >
-                    <option value="">-- select an IDF table --</option>
-                    {(idfTables || []).map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                </select>
-            </div>
+        <Card
+            extraClassName="design-storm-card"
+            style={{maxWidth: 700}}
+            bodyStyle={{padding: '12px 16px'}}
+        >
+            <div id="design-storm-derive-shell">
+                {/* IDF table picker */}
+                <div style={{marginBottom: 10}}>
+                    <label htmlFor="ds-derive-idf-table" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
+                        <Message msgId="hydrata.hydrology.idfTable" />
+                    </label>
+                    <select
+                        id="ds-derive-idf-table"
+                        className="hydrology-text-input"
+                        style={{width: '100%'}}
+                        value={selectedIdfTableId ?? ''}
+                        onChange={e => onChange({selectedIdfTableId: e.target.value ? Number(e.target.value) : null})}
+                    >
+                        <option value="">-- select an IDF table --</option>
+                        {(idfTables || []).map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
+                </div>
 
-            {/* Temporal-pattern picker */}
-            <div style={{marginBottom: 10}}>
-                <label htmlFor="ds-derive-pattern" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
-                    <Message msgId="hydrata.hydrology.temporalPattern" />
-                </label>
-                <select
-                    id="ds-derive-pattern"
-                    className="hydrology-text-input"
-                    style={{width: '100%'}}
-                    value={selectedPattern ?? ALTERNATING_BLOCK}
-                    onChange={e => onChange({selectedPattern: e.target.value})}
-                >
-                    {patternOptions.map(opt => (
-                        <option key={opt.id} value={opt.id}>{opt.label}</option>
-                    ))}
-                </select>
-            </div>
+                {/* Temporal-pattern picker */}
+                <div style={{marginBottom: 10}}>
+                    <label htmlFor="ds-derive-pattern" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
+                        <Message msgId="hydrata.hydrology.temporalPattern" />
+                    </label>
+                    <select
+                        id="ds-derive-pattern"
+                        className="hydrology-text-input"
+                        style={{width: '100%'}}
+                        value={selectedPattern ?? ALTERNATING_BLOCK}
+                        onChange={e => onChange({selectedPattern: e.target.value})}
+                    >
+                        {patternOptions.map(opt => (
+                            <option key={opt.id} value={opt.id}>{opt.label}</option>
+                        ))}
+                    </select>
+                </div>
 
-            {/* Preview area */}
-            <div id="design-storm-derive-preview" style={{marginTop: 12}}>
-                {noSelection ? (
-                    <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
-                ) : previewInFlight ? (
-                    <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
-                        <span className="glyphicon glyphicon-refresh" style={{marginRight: 6}} />
+                {/* Preview area */}
+                <div id="design-storm-derive-preview" style={{marginTop: 12}}>
+                    {noSelection ? (
+                        <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
+                    ) : previewInFlight ? (
+                        <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
+                            <span className="glyphicon glyphicon-refresh" style={{marginRight: 6}} />
                         Loading previews…
-                    </p>
-                ) : patternPreviews.length === 0 ? (
-                    <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
-                ) : (
-                    <div>
-                        <p className="design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
-                            <Message msgId="hydrata.hydrology.deriveTickToSave" />
                         </p>
-                        {patternPreviews.map(preview => {
-                            const key = previewKey(preview);
-                            const checked = ticked.has(key);
-                            return (
-                                <div key={key} className="ds-derive-preview-row" style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
-                                    <input
-                                        type="checkbox"
-                                        className="ds-derive-tick"
-                                        checked={checked}
-                                        onChange={() => toggleTick(key)}
-                                        id={`ds-derive-tick-${key}`}
-                                        aria-label={`Select ${key}`}
-                                    />
-                                    <label htmlFor={`ds-derive-tick-${key}`} style={{flex: 1, margin: 0, cursor: 'pointer'}}>
-                                        <PreviewCard
-                                            preview={preview}
-                                            isFocused={false}
-                                            onFocus={() => {}}
+                    ) : patternPreviews.length === 0 ? (
+                        <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
+                    ) : (
+                        <div>
+                            <p className="design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
+                                <Message msgId="hydrata.hydrology.deriveTickToSave" />
+                            </p>
+                            {patternPreviews.map(preview => {
+                                const key = previewKey(preview);
+                                const checked = ticked.has(key);
+                                return (
+                                    <div key={key} className="ds-derive-preview-row" style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
+                                        <input
+                                            type="checkbox"
+                                            className="ds-derive-tick"
+                                            checked={checked}
+                                            onChange={() => toggleTick(key)}
+                                            id={`ds-derive-tick-${key}`}
+                                            aria-label={`Select ${key}`}
                                         />
-                                    </label>
-                                </div>
-                            );
-                        })}
-                        {/* Save these N button */}
-                        <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 10}}>
-                            <button
-                                id="ds-derive-save-btn"
-                                type="button"
-                                className={ticked.size > 0 && !saveInFlight ? 'hydrology-button ds-derive-save-btn' : 'hydrology-button-disabled ds-derive-save-btn'}
-                                disabled={ticked.size === 0 || saveInFlight}
-                                onClick={handleSave}
-                                style={{
-                                    backgroundColor: ticked.size > 0 && !saveInFlight ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.4)',
-                                    minWidth: 120
-                                }}
-                            >
-                                {saveInFlight
-                                    ? 'Saving…'
-                                    : <Message msgId="hydrata.hydrology.deriveSaveTheseN" msgParams={{n: ticked.size}} />
-                                }
-                            </button>
-                            {lastSavedCount !== null && (
-                                <span className="ds-derive-saved-toast" style={{fontSize: '0.82rem', color: '#cae33b'}}>
-                                    <Message msgId="hydrata.hydrology.deriveSavedToast" msgParams={{n: lastSavedCount.created}} />
-                                    {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
-                                </span>
-                            )}
+                                        <label htmlFor={`ds-derive-tick-${key}`} style={{flex: 1, margin: 0, cursor: 'pointer'}}>
+                                            <PreviewCard
+                                                preview={preview}
+                                                isFocused={false}
+                                                onFocus={() => {}}
+                                            />
+                                        </label>
+                                    </div>
+                                );
+                            })}
+                            {/* Save these N button */}
+                            <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 10}}>
+                                <button
+                                    id="ds-derive-save-btn"
+                                    type="button"
+                                    className={ticked.size > 0 && !saveInFlight ? 'hydrology-button ds-derive-save-btn' : 'hydrology-button-disabled ds-derive-save-btn'}
+                                    disabled={ticked.size === 0 || saveInFlight}
+                                    onClick={handleSave}
+                                    style={{
+                                        backgroundColor: ticked.size > 0 && !saveInFlight ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.4)',
+                                        minWidth: 120
+                                    }}
+                                >
+                                    {saveInFlight
+                                        ? 'Saving…'
+                                        : <Message msgId="hydrata.hydrology.deriveSaveTheseN" msgParams={{n: ticked.size}} />
+                                    }
+                                </button>
+                                {lastSavedCount !== null && (
+                                    <span className="ds-derive-saved-toast" style={{fontSize: '0.82rem', color: '#cae33b'}}>
+                                        <Message msgId="hydrata.hydrology.deriveSavedToast" msgParams={{n: lastSavedCount.created}} />
+                                        {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-        </div>
+        </Card>
     );
 };
 

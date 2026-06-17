@@ -51,7 +51,11 @@ import {
     suggestPatternFromLatLon,
     getSuggestionLabel
 } from '../temporalPatternPresets';
-import { ErrorStrip } from '../../SimpleView/components/primitives';
+// TASK-1760 (epic-1758 W1) — chassis primitives. Card (variant="info") frames
+// the alternating-block note; Card (variant="chart") frames the recharts preview
+// (light body, TASK-1534 carve-out). The preset radio-card picker and the custom
+// (t,cum%) editable grid stay bespoke organisms (flagged gaps).
+import { ErrorStrip, Card } from '../../SimpleView/components/primitives';
 import '../hydrology.css';
 import '../../SimpleView/simpleView.css';
 
@@ -92,25 +96,17 @@ const CurvePreview = ({ patternKey }) => {
 
     if (patternKey === ALTERNATING_BLOCK || !curve) {
         return (
-            <div
-                id="temporal-pattern-preview-note"
-                style={{
-                    padding: '14px 16px',
-                    background: '#f7f9fb',
-                    border: '1px solid #d0d8e4',
-                    borderRadius: '4px',
-                    color: '#555',
-                    fontSize: '0.875rem',
-                    lineHeight: '1.5'
-                }}
-            >
-                <span className="glyphicon glyphicon-info-sign" style={{marginRight: 8, color: '#5178af'}}/>
-                <strong>Alternating-Block (IDF-derived)</strong><br/>
-                This method does not have a fixed dimensionless curve — it reads
-                your site&apos;s IDF at every sub-duration and arranges the intensity
-                blocks around the peak. The hyetograph shape is computed at derive
-                time from the IDF table you select.
-            </div>
+            // TASK-1760 — chassis Card (info variant): dark-glass tinted note.
+            <Card variant="info" style={{margin: 0, fontSize: '0.875rem', lineHeight: '1.5'}}>
+                <div id="temporal-pattern-preview-note">
+                    <span className="glyphicon glyphicon-info-sign" style={{marginRight: 8, color: '#5178af'}}/>
+                    <strong>Alternating-Block (IDF-derived)</strong><br/>
+                    This method does not have a fixed dimensionless curve — it reads
+                    your site&apos;s IDF at every sub-duration and arranges the intensity
+                    blocks around the peak. The hyetograph shape is computed at derive
+                    time from the IDF table you select.
+                </div>
+            </Card>
         );
     }
 
@@ -145,48 +141,52 @@ const CurvePreview = ({ patternKey }) => {
                 </button>
             </div>
             {/* HTML axis titles — recharts 0.22.4 ignores the axis label prop;
-                mirrors the .idf-curve-* / .hyetograph-* pattern. */}
-            <div className="temporal-pattern-chart-layout">
-                <div className="temporal-pattern-yaxis-title">{yLabel}</div>
-                <div className="temporal-pattern-plot-area">
-                    <div className="temporal-pattern-plot" style={{ height: 210 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                                data={chartData}
-                                margin={{ top: 4, right: 16, left: 10, bottom: 4 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
-                                <XAxis
-                                    dataKey="t"
-                                    type="number"
-                                    domain={[0, 1]}
-                                    tickFormatter={pctFmt}
-                                    tick={{ fontSize: 11 }}
-                                />
-                                <YAxis
-                                    domain={showIntensity ? [0, 'auto'] : [0, 1]}
-                                    tickFormatter={yFormatter}
-                                    tick={{ fontSize: 11 }}
-                                    width={52}
-                                />
-                                <Tooltip
-                                    formatter={tooltipFormatter}
-                                    labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey={dataKey}
-                                    stroke="#3a6aa8"
-                                    dot={false}
-                                    strokeWidth={2.5}
-                                    isAnimationActive={false}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
+                mirrors the .idf-curve-* / .hyetograph-* pattern. TASK-1760: the
+                recharts surface is framed by chassis Card variant="chart" (light
+                body inside a dark-glass frame, TASK-1534 carve-out). */}
+            <Card variant="chart" style={{margin: 0}} bodyStyle={{padding: '8px 10px'}}>
+                <div className="temporal-pattern-chart-layout">
+                    <div className="temporal-pattern-yaxis-title">{yLabel}</div>
+                    <div className="temporal-pattern-plot-area">
+                        <div className="temporal-pattern-plot" style={{ height: 210 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                    data={chartData}
+                                    margin={{ top: 4, right: 16, left: 10, bottom: 4 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#c8d4e0" />
+                                    <XAxis
+                                        dataKey="t"
+                                        type="number"
+                                        domain={[0, 1]}
+                                        tickFormatter={pctFmt}
+                                        tick={{ fontSize: 11 }}
+                                    />
+                                    <YAxis
+                                        domain={showIntensity ? [0, 'auto'] : [0, 1]}
+                                        tickFormatter={yFormatter}
+                                        tick={{ fontSize: 11 }}
+                                        width={52}
+                                    />
+                                    <Tooltip
+                                        formatter={tooltipFormatter}
+                                        labelFormatter={(t) => `t = ${(t * 100).toFixed(0)}% of duration`}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey={dataKey}
+                                        stroke="#3a6aa8"
+                                        dot={false}
+                                        strokeWidth={2.5}
+                                        isAnimationActive={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
                     </div>
-                    <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };

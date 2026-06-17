@@ -39,7 +39,11 @@ import {
     useReactTable
 } from '@tanstack/react-table';
 import Message from '@mapstore/framework/components/I18N/Message';
-import { ErrorStrip } from '../../SimpleView/components/primitives';
+// TASK-1760 (epic-1758 W1) — chassis primitives. FormRow conforms the Location
+// step's label+field rows; Table (surface="light") conforms the Results table to
+// the white chart-adjacent surface. The interactive boolean matrix
+// (.idf-matrix-*) stays bespoke — an irreducible organism (flagged gap).
+import { ErrorStrip, FormRow, Table } from '../../SimpleView/components/primitives';
 
 import {
     setIdfDeriveLat,
@@ -373,7 +377,11 @@ const ResultsTable = ({idfTable}) => {
     });
     return (
         <div className="idf-derive-results-table-wrap">
-            <table className={'idf-table'}>
+            {/* TASK-1760 — the IDF result table conforms to the Table chassis on
+                the LIGHT chart-adjacent surface (idf-table is a Table source). The
+                .idf-table class rides extraClassName so the existing white-surface
+                rules + the TanStack flexRender children stay intact. */}
+            <Table surface="light" extraClassName="idf-table">
                 <thead>
                     {table.getHeaderGroups().map(headerGroup => (
                         <tr key={headerGroup.id}>
@@ -398,7 +406,7 @@ const ResultsTable = ({idfTable}) => {
                         </tr>
                     ))}
                 </tbody>
-            </table>
+            </Table>
         </div>
     );
 };
@@ -587,60 +595,57 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                     >
                         <IdfDeriveStepHeader step={1} titleMsgId="hydrata.hydrology.idfDeriveStepLocation" />
 
-                        <div className="anuga-scenario-pane-section">
-                            <span className="anuga-scenario-pane-label">
-                                <Message msgId="hydrata.hydrology.idfDeriveLat" />
-                            </span>
-                            <div className="anuga-scenario-pane-field">
-                                <input
-                                    id={'idf-derive-lat'}
-                                    type={'number'}
-                                    className={'hydrology-text-input'}
-                                    // eslint-disable-next-line no-eq-null, eqeqeq
-                                    value={this.props.lat == null ? '' : this.props.lat}
-                                    onChange={(e) => this.props.setIdfDeriveLat(
-                                        e.target.value === '' ? null : Number(e.target.value)
-                                    )}
-                                />
-                            </div>
-                        </div>
+                        {/* TASK-1760 — Location label+field rows conform to the
+                            FormRow chassis (the anuga-scenario-pane-section/-label/
+                            -field idiom is the FormRow rule-of-three source). The
+                            input ids ride through unchanged as children. */}
+                        <FormRow
+                            extraClassName="anuga-scenario-pane-section"
+                            label={<Message msgId="hydrata.hydrology.idfDeriveLat" />}
+                        >
+                            <input
+                                id={'idf-derive-lat'}
+                                type={'number'}
+                                className={'hydrology-text-input'}
+                                // eslint-disable-next-line no-eq-null, eqeqeq
+                                value={this.props.lat == null ? '' : this.props.lat}
+                                onChange={(e) => this.props.setIdfDeriveLat(
+                                    e.target.value === '' ? null : Number(e.target.value)
+                                )}
+                            />
+                        </FormRow>
 
-                        <div className="anuga-scenario-pane-section">
-                            <span className="anuga-scenario-pane-label">
-                                <Message msgId="hydrata.hydrology.idfDeriveLon" />
-                            </span>
-                            <div className="anuga-scenario-pane-field">
-                                <input
-                                    id={'idf-derive-lon'}
-                                    type={'number'}
-                                    className={'hydrology-text-input'}
-                                    // eslint-disable-next-line no-eq-null, eqeqeq
-                                    value={this.props.lon == null ? '' : this.props.lon}
-                                    onChange={(e) => this.props.setIdfDeriveLon(
-                                        e.target.value === '' ? null : Number(e.target.value)
-                                    )}
-                                />
-                            </div>
-                        </div>
+                        <FormRow
+                            extraClassName="anuga-scenario-pane-section"
+                            label={<Message msgId="hydrata.hydrology.idfDeriveLon" />}
+                        >
+                            <input
+                                id={'idf-derive-lon'}
+                                type={'number'}
+                                className={'hydrology-text-input'}
+                                // eslint-disable-next-line no-eq-null, eqeqeq
+                                value={this.props.lon == null ? '' : this.props.lon}
+                                onChange={(e) => this.props.setIdfDeriveLon(
+                                    e.target.value === '' ? null : Number(e.target.value)
+                                )}
+                            />
+                        </FormRow>
 
-                        <div className="anuga-scenario-pane-section">
-                            <span className="anuga-scenario-pane-label" />
-                            <div className="anuga-scenario-pane-field">
-                                <Button
-                                    id={'idf-derive-pick-on-map'}
-                                    bsSize={'small'}
-                                    bsStyle={this.props.mapPickActive ? 'primary' : 'default'}
-                                    onClick={this.handlePickClick}
-                                >
-                                    <span
-                                        className="glyphicon glyphicon-map-marker"
-                                        aria-hidden="true"
-                                    />
-                                    {' '}
-                                    <Message msgId="hydrata.hydrology.idfDerivePickOnMap" />
-                                </Button>
-                            </div>
-                        </div>
+                        <FormRow extraClassName="anuga-scenario-pane-section" label={<span />}>
+                            <Button
+                                id={'idf-derive-pick-on-map'}
+                                bsSize={'small'}
+                                bsStyle={this.props.mapPickActive ? 'primary' : 'default'}
+                                onClick={this.handlePickClick}
+                            >
+                                <span
+                                    className="glyphicon glyphicon-map-marker"
+                                    aria-hidden="true"
+                                />
+                                {' '}
+                                <Message msgId="hydrata.hydrology.idfDerivePickOnMap" />
+                            </Button>
+                        </FormRow>
                     </div>
 
                     {/* ── STEP 2: PARAMETERS (matrix) ─────────────────── */}
