@@ -8,12 +8,12 @@ import PropTypes from 'prop-types';
  *   - `.simple-view-panel-item-row` (simpleView.css lines 141-149):
  *     display:flex, justify-content:space-between, align-items:center,
  *     height:40px, padding:4px 10px, border:1px solid rgba(255,255,255,0.2)
- *   - `.anuga-scenario-pane-section` (anuga.css lines 1649-1655):
+ *   - `.sv-anuga-scenario-pane-section` (anuga.css lines 1649-1655):
  *     display:flex, align-items:center, gap:8px, padding:6px 10px,
  *     border-bottom:1px solid --sv-section-border
- *   - `.anuga-scenario-pane-label` (anuga.css): width:130px, flex-shrink:0,
+ *   - `.sv-anuga-scenario-pane-label` (anuga.css): width:130px, flex-shrink:0,
  *     font-size:12px, color rgba(255,255,255,0.85)
- *   - `.anuga-scenario-pane-field` (anuga.css): flex:1, min-width:0, flex row
+ *   - `.sv-anuga-scenario-pane-field` (anuga.css): flex:1, min-width:0, flex row
  *   - `.hgeval-input-panel label` (hgeval.css): font-weight:600, font-size:12px,
  *     color --sv-text-dim, display:block
  *   - `.hgeval-coord-row .form-group` (hgeval.css): flex:1, margin-bottom:8px
@@ -21,7 +21,7 @@ import PropTypes from 'prop-types';
  *   - `.idf-derive-step` (hydrology.css): label + field structure throughout
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
- *   1. Anuga/Scenarios    — anuga-scenario-pane-section (label+field rows throughout
+ *   1. Anuga/Scenarios    — sv-anuga-scenario-pane-section (label+field rows throughout
  *                           the 3-pane scenario detail — Run, Mesh, Terrain, Inputs)
  *   2. Hydrology          — idf-derive-step label+input rows, hydrology-networks-pane rows
  *   3. HGeval             — hgeval-input-panel form-group rows, hgeval-coord-row
@@ -33,7 +33,7 @@ import PropTypes from 'prop-types';
  *
  * Two layout modes:
  *   - 'inline' (default): label left, control right, single flex row
- *     (matches anuga-scenario-pane-section + simple-view-panel-item-row)
+ *     (matches sv-anuga-scenario-pane-section + simple-view-panel-item-row)
  *   - 'stacked': label above, control below (matches hgeval-input-panel)
  *
  * Themed via --sv-* tokens only; no hardcoded panel-chrome colours.
@@ -54,7 +54,7 @@ import PropTypes from 'prop-types';
  *     <input className="idf-derive-wide-input" />
  *   </FormRow>
  *
- *   // Divider after the row (anuga-scenario-pane-section style)
+ *   // Divider after the row (sv-anuga-scenario-pane-section style)
  *   <FormRow label="Mesh type" divider>
  *     <select />
  *   </FormRow>
@@ -176,7 +176,7 @@ FormRow.propTypes = {
      */
     layout: PropTypes.oneOf(['inline', 'stacked']),
     /**
-     * When true, adds a border-bottom divider (anuga-scenario-pane-section style).
+     * When true, adds a border-bottom divider (sv-anuga-scenario-pane-section style).
      * Use on all but the last row in a section to match the Scenarios pane.
      */
     divider: PropTypes.bool,
@@ -184,7 +184,7 @@ FormRow.propTypes = {
     hint: PropTypes.node,
     /**
      * Override the label column width (inline mode only). CSS length string.
-     * Default: 130px (matches anuga-scenario-pane-label).
+     * Default: 130px (matches sv-anuga-scenario-pane-label).
      */
     labelWidth: PropTypes.string,
     /** Inline style pass-through merged over the token-backed defaults. */

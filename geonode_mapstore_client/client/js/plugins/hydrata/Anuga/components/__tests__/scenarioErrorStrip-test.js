@@ -9,9 +9,9 @@ import {ScenarioErrorStrip} from '../scenarioErrorStrip';
  * resolved scenario status is 'error'.
  *
  * TASK-1730 (Phase-C parity migration) — the strip now renders through the
- * shared {ErrorStrip} primitive. The outer `.anuga-scenario-error-strip`
+ * shared {ErrorStrip} primitive. The outer `.sv-anuga-scenario-error-strip`
  * class + `role="alert"` are preserved (via `extraClassName`); the inner
- * head/payload hooks canonicalised from `.anuga-scenario-error-strip-head/
+ * head/payload hooks canonicalised from `.sv-anuga-scenario-error-strip-head/
  * -payload` to the primitive's `.sv-error-strip-head/-payload`. These specs
  * assert BOTH the preserved outer hook AND the canonical inner hooks so the
  * structural parity is pinned.
@@ -34,7 +34,7 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
 
     it('returns null when scenario is null', (done) => {
         ReactDOM.render(<ScenarioErrorStrip scenario={null} />, container, () => {
-            expect(container.querySelector('.anuga-scenario-error-strip')).toNotExist();
+            expect(container.querySelector('.sv-anuga-scenario-error-strip')).toNotExist();
             done();
         });
     });
@@ -44,7 +44,7 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
             <ScenarioErrorStrip scenario={{id: 1, status: 'built'}} />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-error-strip')).toNotExist();
+                expect(container.querySelector('.sv-anuga-scenario-error-strip')).toNotExist();
                 done();
             }
         );
@@ -60,7 +60,7 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
             <ScenarioErrorStrip scenario={s} />,
             container,
             () => {
-                const strip = container.querySelector('.anuga-scenario-error-strip');
+                const strip = container.querySelector('.sv-anuga-scenario-error-strip');
                 expect(strip).toExist();
                 expect(strip.getAttribute('role')).toBe('alert');
                 // Canonical: the shared primitive carries the sv-error-strip hook too.
@@ -92,7 +92,7 @@ describe('Wave 3A — ScenarioErrorStrip', () => {
             <ScenarioErrorStrip scenario={s} />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-error-strip')).toExist();
+                expect(container.querySelector('.sv-anuga-scenario-error-strip')).toExist();
                 done();
             }
         );

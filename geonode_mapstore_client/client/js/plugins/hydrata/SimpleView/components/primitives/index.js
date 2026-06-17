@@ -12,9 +12,9 @@ export {LogViewer} from './LogViewer';
 export {Tooltip} from './Tooltip';
 // Phase-0 of the 1673 rollout (TASK-1732): the two gap primitives whose
 // rule-of-three the panel-x-primitive gap-audit confirmed —
-//   ErrorStrip  ≥6 consumers (anuga-scenario-error-strip, sv-menu-row-delete-error,
+//   ErrorStrip  ≥6 consumers (sv-anuga-scenario-error-strip, sv-menu-row-delete-error,
 //               sv-tm-error-message, tw-error, hgeval alert-danger, idf-derive-error)
-//   EmptyState  3 consumers  (anuga-scenario-rail-empty, sv-tm-empty, tw-empty-hint)
+//   EmptyState  3 consumers  (sv-anuga-scenario-rail-empty, sv-tm-empty, tw-empty-hint)
 export {ErrorStrip} from './ErrorStrip';
 export {EmptyState} from './EmptyState';
 

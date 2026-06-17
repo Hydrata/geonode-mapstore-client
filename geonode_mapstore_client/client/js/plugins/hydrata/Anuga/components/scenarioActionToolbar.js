@@ -111,7 +111,7 @@ function renderRunControl({scenario, canRunScenario, onBuildClick, onRunClick, o
     const handlers = {onBuildClick, onRunClick, onRetryClick};
     const isUnsaved = !!scenario?.unsaved;
     const extraDisabled = entry.disableWhenNotUnsaved && !isUnsaved ? ' disabled' : '';
-    const className = 'anuga-btn scenario-action-toolbar-btn ' + entry.className + extraDisabled;
+    const className = 'sv-anuga-btn scenario-action-toolbar-btn ' + entry.className + extraDisabled;
 
     if (entry.spinner) {
         return (
@@ -223,7 +223,7 @@ const ScenarioActionToolbar = ({
                 <Button
                     bsStyle={'success'}
                     bsSize={'xsmall'}
-                    className={"anuga-btn scenario-action-toolbar-btn scenario-action-build"
+                    className={"sv-anuga-btn scenario-action-toolbar-btn scenario-action-build"
             + (isBuildEnabled ? '' : ' disabled')}
                     onClick={() => {
                         if (onBuildClick) onBuildClick(scenario);
@@ -237,8 +237,8 @@ const ScenarioActionToolbar = ({
             <Button
                 bsStyle={isArchived ? 'success' : 'warning'}
                 bsSize={'xsmall'}
-                className={"anuga-btn scenario-action-toolbar-btn "
-          + (isArchived ? 'anuga-btn-unarchive scenario-action-unarchive' : 'anuga-btn-archive scenario-action-archive')
+                className={"sv-anuga-btn scenario-action-toolbar-btn "
+          + (isArchived ? 'sv-anuga-btn-unarchive scenario-action-unarchive' : 'sv-anuga-btn-archive scenario-action-archive')
           + (showArchive ? '' : ' is-hidden')
           + (isArchiveDisabled ? ' disabled' : '')}
                 disabled={isArchiveDisabled}
@@ -265,7 +265,7 @@ const ScenarioActionToolbar = ({
             <Button
                 bsStyle={'danger'}
                 bsSize={'xsmall'}
-                className={"anuga-btn-delete scenario-action-toolbar-btn "
+                className={"sv-anuga-btn-delete scenario-action-toolbar-btn "
           + (isCancellable ? 'scenario-action-cancel-run' : 'scenario-action-delete')
           + (showDeleteOrCancel ? '' : ' is-hidden')}
                 onClick={() => {

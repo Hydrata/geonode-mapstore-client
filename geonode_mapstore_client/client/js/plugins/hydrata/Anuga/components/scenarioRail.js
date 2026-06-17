@@ -185,8 +185,8 @@ ScenarioRailItem.contextTypes = {
  * container in the DOM so the surrounding shell layout is undisturbed.
  *
  * TASK-1730 (Phase-C rollout) — PARITY-migrated onto the shared
- * {EmptyState} primitive (harvested FROM this very `.anuga-scenario-rail-empty`
- * glyph + heading + subcopy column). The outer `anuga-scenario-rail-empty`
+ * {EmptyState} primitive (harvested FROM this very `.sv-anuga-scenario-rail-empty`
+ * glyph + heading + subcopy column). The outer `sv-anuga-scenario-rail-empty`
  * class is preserved (via `extraClassName`) for the legacy CSS + tests,
  * while the inner hooks canonicalise to `sv-empty-state-glyph/-heading/-subcopy`.
  */
@@ -201,9 +201,9 @@ const ScenarioRail = ({
     const list = scenarios || [];
     if (list.length === 0) {
         return (
-            <div className="sv-category-rail anuga-scenario-rail" role="tablist">
+            <div className="sv-category-rail sv-anuga-scenario-rail" role="tablist">
                 <EmptyState
-                    extraClassName="anuga-scenario-rail-empty"
+                    extraClassName="sv-anuga-scenario-rail-empty"
                     glyph="glyphicon-list-alt"
                     heading={<Message msgId="hydrata.anuga.emptyScenariosHeading" />}
                 >
@@ -213,7 +213,7 @@ const ScenarioRail = ({
         );
     }
     return (
-        <div className="sv-category-rail anuga-scenario-rail" role="tablist">
+        <div className="sv-category-rail sv-anuga-scenario-rail" role="tablist">
             {list.map(scenario => {
                 const key = scenario.id || scenario._tempId || `unsaved-${scenario.name || 'new'}`;
                 const isActive = !!selectedId && (scenario.id === selectedId || scenario._tempId === selectedId);

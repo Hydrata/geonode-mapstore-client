@@ -76,9 +76,9 @@ describe('SimpleView Card chassis primitive (TASK-1759)', () => {
         });
 
         it('carries extraClassName alongside sv-card', (done) => {
-            ReactDOM.render(<Card extraClassName="anuga-scenario-status-card" />, container, () => {
+            ReactDOM.render(<Card extraClassName="sv-anuga-scenario-status-card" />, container, () => {
                 const el = container.querySelector('.sv-card');
-                expect(el.className).toInclude('anuga-scenario-status-card');
+                expect(el.className).toInclude('sv-anuga-scenario-status-card');
                 done();
             });
         });

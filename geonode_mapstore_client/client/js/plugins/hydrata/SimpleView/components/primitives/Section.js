@@ -5,24 +5,24 @@ import PropTypes from 'prop-types';
  * Section — titled content section with a top-border divider.
  *
  * Best-of-breed sources:
- *   - `.anuga-section` / `.anuga-section-header` (anuga.css): border:1px solid
+ *   - `.sv-anuga-section` / `.sv-anuga-section-header` (anuga.css): border:1px solid
  *     --sv-section-border, border-radius:3px, padding:4px 0 6px
- *   - `.anuga-scenario-pane-section` (anuga.css): flex, padding:6px 10px,
+ *   - `.sv-anuga-scenario-pane-section` (anuga.css): flex, padding:6px 10px,
  *     border-bottom 1px solid --sv-section-border
  *   - `.hgeval-section` / `.hgeval-section h5` (hgeval.css): margin-bottom:12px,
  *     border-bottom:2px solid --sv-section-border, padding-bottom:3px
- *   - `.anuga-terrain-recipe-section` (terrainWorkbench.css): border-top:1px solid
+ *   - `.sv-anuga-terrain-recipe-section` (terrainWorkbench.css): border-top:1px solid
  *     --sv-section-border
  *   - `.idf-derive-step` (hydrology.css): border-bottom:1px solid rgba(255,255,255,0.10)
  *   - `.membership-visibility` (anuga.css): padding:8px 0, border-bottom section
  *   - `.sv-ref-section` (simpleView.css): margin-bottom:16px
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
- *   1. Anuga/Scenarios    — anuga-section, anuga-scenario-pane-section, membership-visibility
+ *   1. Anuga/Scenarios    — sv-anuga-section, sv-anuga-scenario-pane-section, membership-visibility
  *   2. Hydrology          — idf-derive-step, hydrology-idf-subtoggle section, design-storm-card
  *   3. HGeval             — hgeval-section (with h5 border-bottom)
- *   4. TerrainWorkbench   — anuga-terrain-recipe-section (border-top divider)
- *   5. SimpleView         — sv-ref-section, anuga-mesh-workflow-section
+ *   4. TerrainWorkbench   — sv-anuga-terrain-recipe-section (border-top divider)
+ *   5. SimpleView         — sv-ref-section, sv-anuga-mesh-workflow-section
  *   6. Swamm              — section-like groupings in swamm-bmp-form-panel
  *   7. TaskMonitor        — sv-tm-process-detail inner sections
  *   8. VectorDraw         — inherits section patterns from SimpleView chrome
@@ -30,7 +30,7 @@ import PropTypes from 'prop-types';
  *
  * Two variants:
  *   - 'default': border-bottom divider after the title row; content below
- *   - 'boxed': full border around the section (anuga-section style)
+ *   - 'boxed': full border around the section (sv-anuga-section style)
  *
  * Themed via --sv-* tokens only; no hardcoded panel-chrome colours.
  *
@@ -107,7 +107,7 @@ Section.propTypes = {
     /**
      * Visual variant:
      *   - 'default' (default): bottom-border after the title; content flows below
-     *   - 'boxed': full border around the section (anuga-section style)
+     *   - 'boxed': full border around the section (sv-anuga-section style)
      */
     variant: PropTypes.oneOf(['default', 'boxed']),
     /** Inline style pass-through merged over the token-backed defaults. */

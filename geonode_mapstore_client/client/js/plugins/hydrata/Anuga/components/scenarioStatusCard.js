@@ -4,9 +4,9 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import {findScenarioStatus} from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
 // TASK-1764 (epic-1758 W1) — chassis Card frames the Status-and-actions
-// status card. The .anuga-scenario-status-card[+--status] classes ride
+// status card. The .sv-anuga-scenario-status-card[+--status] classes ride
 // extraClassName so the legacy inner-element rules + the test's
-// .anuga-scenario-status-card--<status> assertions stay intact. The Card's
+// .sv-anuga-scenario-status-card--<status> assertions stay intact. The Card's
 // default token frame supplies bg/border/padding; only the margin is
 // overridden inline (style prop) to preserve the legacy 6px 10px 12px spacing.
 import {Card} from '../../SimpleView/components/primitives';
@@ -54,13 +54,13 @@ const ScenarioStatusCard = ({scenario}) => {
     let trailingMeta = null;
     if (status === 'computing' && etaText) {
         trailingMeta = (
-            <span className="anuga-scenario-status-card-eta">
+            <span className="sv-anuga-scenario-status-card-eta">
                 <Message msgId="hydrata.anuga.etaPrefix" /> {etaText}
             </span>
         );
     } else if ((status === 'error' || status === 'cancelled') && elapsedText) {
         trailingMeta = (
-            <span className="anuga-scenario-status-card-eta is-stopped">
+            <span className="sv-anuga-scenario-status-card-eta is-stopped">
                 <Message msgId="hydrata.anuga.stoppedAfter" /> {elapsedText}
             </span>
         );
@@ -68,26 +68,26 @@ const ScenarioStatusCard = ({scenario}) => {
 
     return (
         <Card
-            extraClassName={'anuga-scenario-status-card anuga-scenario-status-card--' + status}
+            extraClassName={'sv-anuga-scenario-status-card sv-anuga-scenario-status-card--' + status}
             style={{margin: '6px 10px 12px'}}
         >
-            <div className="anuga-scenario-status-card-row">
+            <div className="sv-anuga-scenario-status-card-row">
                 <ScenarioStatusPill scenario={scenario} />
                 {trailingMeta}
             </div>
             {showProgressBar ? (
-                <div className="anuga-scenario-status-card-progress">
-                    <div className="anuga-scenario-status-card-progress-track">
+                <div className="sv-anuga-scenario-status-card-progress">
+                    <div className="sv-anuga-scenario-status-card-progress-track">
                         <div
                             className={
-                                'anuga-scenario-status-card-progress-fill'
+                                'sv-anuga-scenario-status-card-progress-fill'
                                 + (status === 'error' ? ' is-error' : '')
                             }
                             style={{width: `${Math.max(0, Math.min(100, pct || 0))}%`}}
                         />
                     </div>
                     {(latestRun.sim_time_label || latestRun.step_label) ? (
-                        <div className="anuga-scenario-status-card-progress-meta">
+                        <div className="sv-anuga-scenario-status-card-progress-meta">
                             {latestRun.sim_time_label ? (
                                 <span>{Math.round(pct || 0)}% · {latestRun.sim_time_label}</span>
                             ) : (

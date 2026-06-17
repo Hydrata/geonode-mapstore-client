@@ -1,4 +1,4 @@
-.anuga-panel {
+.sv-anuga-panel {
     top: var(--sv-panel-top-anuga, 70px);
 }
 
@@ -121,22 +121,22 @@
     gap: 6px;
 }
 
-.scenario-header-actions .anuga-btn {
+.scenario-header-actions .sv-anuga-btn {
     margin: 0;
 }
 
-.anuga-btn-compare {
+.sv-anuga-btn-compare {
     background-color: #6085b5;
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.anuga-btn-compare:hover {
+.sv-anuga-btn-compare:hover {
     background-color: #7297c5;
     color: #ffffff;
 }
 
-.anuga-btn-compare.is-active {
+.sv-anuga-btn-compare.is-active {
     background-color: #ffffff;
     color: #3363a0;
     border-color: #3363a0;
@@ -145,19 +145,19 @@
 /* Duplicate header button — visually identical to the Compare button so the
  * two secondary header actions read as a uniform pair (only New Scenario
  * stands out as the primary green CTA). */
-.anuga-btn-duplicate-header {
+.sv-anuga-btn-duplicate-header {
     background-color: #6085b5;
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.anuga-btn-duplicate-header:hover:not(.disabled) {
+.sv-anuga-btn-duplicate-header:hover:not(.disabled) {
     background-color: #7297c5;
     color: #ffffff;
 }
 
-.anuga-btn-duplicate-header.disabled,
-.anuga-btn-duplicate-header[disabled] {
+.sv-anuga-btn-duplicate-header.disabled,
+.sv-anuga-btn-duplicate-header[disabled] {
     background-color: rgba(96, 133, 181, 0.45);
     color: rgba(255, 255, 255, 0.55);
     cursor: not-allowed;
@@ -214,7 +214,7 @@
 /* Scenario pane (Miller-columns Pane 3) selects fill the available field
  * column so long resource titles (e.g. "Grand Canyon DEM 1m") are readable
  * without truncation. The legacy 100px fixed width only fit short names. */
-.anuga-scenario-pane-field > .scenario-select {
+.sv-anuga-scenario-pane-field > .scenario-select {
     width: 100%;
     min-width: 0;
     padding-left: 8px;
@@ -238,7 +238,7 @@
    (#anuga-scenario-log-viewer-container #333/#f2f2f2, #anuga-scenario-log-viewer,
    #anuga-run-menu-container, #anuga-run-menu, #anuga-compute-instance-menu
    color:black/background:white). Confirmed unreachable — no live JS in the Anuga
-   dir mounts these ids (the live log is the dark .anuga-scenario-pane-log-viewer). */
+   dir mounts these ids (the live log is the dark .sv-anuga-scenario-pane-log-viewer). */
 
 #anuga-scenario-menu {
     overflow-y: hidden;
@@ -278,7 +278,7 @@
    `.sv-menu-rows-container { overflow-y: auto }` rule in simpleView.css —
    without this, the parent rule wins on cascade order and a 4-ish-px
    scrollbar appears in every expanded section. */
-.sv-menu-rows-container.anuga-section {
+.sv-menu-rows-container.sv-anuga-section {
     border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 3px;
     margin: 3px 0;
@@ -288,19 +288,19 @@
     overflow: visible;
 }
 
-.anuga-section-header {
+.sv-anuga-section-header {
     width: 100%;
     max-width: 720px;
     text-align: left;
     border: none;
 }
 
-.anuga-section-header-clickable {
+.sv-anuga-section-header-clickable {
     cursor: pointer;
     user-select: none;
 }
 
-.anuga-section-header-clickable:hover {
+.sv-anuga-section-header-clickable:hover {
     text-decoration: underline;
 }
 
@@ -308,19 +308,19 @@
    The label gets a min-width so the first action button always starts at the
    same x-position (and a second/third action button alongside also lines up
    row-to-row, provided sections share the same button order). */
-.anuga-section-header .sv-menu-row-text {
+.sv-anuga-section-header .sv-menu-row-text {
     min-width: 120px;
     flex-shrink: 0;
 }
 
-.anuga-section-empty-row {
+.sv-anuga-section-empty-row {
     width: 100%;
     max-width: 720px;
     text-align: left;
     border: none;
 }
 
-.anuga-spinner {
+.sv-anuga-spinner {
     display: inline-block;
     position: absolute;
     right: 45px;
@@ -334,13 +334,13 @@
    title on the left, per-category action chips on the right). Below it
    scrolls the layer / pending / empty rows. */
 
-.anuga-pane {
+.sv-anuga-pane {
     display: flex;
     flex-direction: column;
     min-height: 0;
 }
 
-.anuga-pane-toolbar {
+.sv-anuga-pane-toolbar {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -351,7 +351,7 @@
     background-color: rgba(0, 0, 0, 0.10);
 }
 
-.anuga-pane-head-title {
+.sv-anuga-pane-head-title {
     flex: 1;
     margin: 0;
     font-size: 14px;
@@ -365,7 +365,7 @@
 /* Flatten the create-input visual chrome inside the ANUGA pane head so the
    title input visually matches the rail/menu labels. The element stays a
    real <input type="text"> for accessibility; only the styling is muted. */
-.anuga-panel .anuga-pane-head-actions .sv-data-title-input {
+.sv-anuga-panel .sv-anuga-pane-head-actions .sv-data-title-input {
     background: transparent;
     border: 0;
     border-radius: 0;
@@ -375,28 +375,28 @@
     padding: 2px 4px;
 }
 
-.anuga-panel .anuga-pane-head-actions .sv-data-title-input:focus {
+.sv-anuga-panel .sv-anuga-pane-head-actions .sv-data-title-input:focus {
     outline: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.55);
 }
 
-.anuga-pane-head-actions {
+.sv-anuga-pane-head-actions {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
 }
 
-.anuga-pane-toolbar .glyphicon {
+.sv-anuga-pane-toolbar .glyphicon {
     font-size: 14px;
 }
 
-.anuga-pane-toolbar .anuga-spinner {
+.sv-anuga-pane-toolbar .sv-anuga-spinner {
     position: static;
     margin-left: 4px;
 }
 
-.anuga-pane-rows {
+.sv-anuga-pane-rows {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -424,13 +424,13 @@
 /* The ANUGA panel keeps its blue chrome but uses the Miller rail+pane
    shell inside. Default rail-item label sizing is fine; override only
    the lefthand pane padding so layer rows hug the rail. */
-.anuga-panel.simple-view-panel--miller .sv-menu-rows-pane {
+.sv-anuga-panel.simple-view-panel--miller .sv-menu-rows-pane {
     padding-left: 4px;
 }
 
 
 /* ── ANUGA Input starter card (shown until Terrain CRS is set) ── */
-.anuga-starter-card {
+.sv-anuga-starter-card {
     background: rgba(255, 255, 255, 0.08);
     border: 1px dashed var(--sv-section-border, rgba(255, 255, 255, 0.6));
     border-radius: 4px;
@@ -441,27 +441,27 @@
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.anuga-starter-card-heading {
+.sv-anuga-starter-card-heading {
     font-weight: 600;
     font-size: 14px;
     margin-bottom: 4px;
 }
 
-.anuga-starter-card-intro {
+.sv-anuga-starter-card-intro {
     font-size: 12px;
     opacity: 0.85;
     margin-bottom: 10px;
     line-height: 1.45;
 }
 
-.anuga-starter-step {
+.sv-anuga-starter-step {
     display: flex;
     align-items: flex-start;
     margin: 8px 0;
     gap: 10px;
 }
 
-.anuga-starter-step-num {
+.sv-anuga-starter-step-num {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -475,57 +475,57 @@
     margin-top: 1px;
 }
 
-.anuga-starter-step--active .anuga-starter-step-num {
+.sv-anuga-starter-step--active .sv-anuga-starter-step-num {
     background: var(--sv-glyph-active, limegreen);
     color: var(--sv-on-accent, #1f3a1f);
 }
 
-.anuga-starter-step--pending {
+.sv-anuga-starter-step--pending {
     opacity: 0.55;
 }
 
-.anuga-starter-step-body {
+.sv-anuga-starter-step-body {
     flex-grow: 1;
 }
 
-.anuga-starter-step-title {
+.sv-anuga-starter-step-title {
     font-weight: 600;
     font-size: 12.5px;
     margin-bottom: 2px;
 }
 
-.anuga-starter-step-desc {
+.sv-anuga-starter-step-desc {
     font-size: 11.5px;
     opacity: 0.9;
     line-height: 1.35;
 }
 
-.anuga-starter-step-cta {
+.sv-anuga-starter-step-cta {
     margin-top: 6px;
 }
 
-.anuga-starter-step--done .anuga-starter-step-num {
+.sv-anuga-starter-step--done .sv-anuga-starter-step-num {
     background: var(--sv-glyph-active, limegreen);
     color: var(--sv-on-accent, #1f3a1f);
 }
 
-.anuga-starter-step--done .anuga-starter-step-num .glyphicon {
+.sv-anuga-starter-step--done .sv-anuga-starter-step-num .glyphicon {
     font-size: 10px;
     top: 0;
 }
 
-.anuga-starter-step--done .anuga-starter-step-desc {
+.sv-anuga-starter-step--done .sv-anuga-starter-step-desc {
     opacity: 0.7;
 }
 
-.anuga-starter-step-spinner {
+.sv-anuga-starter-step-spinner {
     transform: scale(0.55);
     transform-origin: center;
 }
 /* ── end starter card ── */
 
 /* ── Pending placeholder row (TaskMonitor in-flight layer_create) ── */
-.anuga-pending-row {
+.sv-anuga-pending-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -534,20 +534,20 @@
     font-style: italic;
 }
 
-.anuga-pending-row .anuga-pending-spinner {
+.sv-anuga-pending-row .sv-anuga-pending-spinner {
     flex-shrink: 0;
     transform: scale(0.45);
     transform-origin: left center;
     margin-right: -8px;
 }
 
-.anuga-pending-title {
+.sv-anuga-pending-title {
     font-size: 12px;
     font-style: normal;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.anuga-pending-status {
+.sv-anuga-pending-status {
     font-size: 11px;
     opacity: 0.7;
     margin-left: auto;
@@ -570,12 +570,12 @@ div that holds the feature-grid */
 
 /* ── TASK-424: Consolidated RunMenu/ScenarioMenu/NetworkMenu inline styles ── */
 
-.anuga-btn {
+.sv-anuga-btn {
     margin: 2px;
     border-radius: 2px;
 }
 
-.anuga-btn-delete {
+.sv-anuga-btn-delete {
     margin: 2px;
     border-radius: 2px;
     background-color: #622b2b;
@@ -956,7 +956,7 @@ div that holds the feature-grid */
 
 /* ── TASK-C scenarios-miller-columns W1+W2 layout ─────────────────────── */
 
-.anuga-panel.anuga-scenario-miller {
+.sv-anuga-panel.sv-anuga-scenario-miller {
     width: 920px;
     max-width: 96vw;
 }
@@ -966,16 +966,16 @@ div that holds the feature-grid */
    default simpleView @media (max-width: 900px) rule flips the rail to
    horizontal which breaks readability. */
 @media (max-width: 900px) {
-    .simple-view-panel--miller.anuga-scenario-miller .sv-rail-pane-shell {
+    .simple-view-panel--miller.sv-anuga-scenario-miller .sv-rail-pane-shell {
         flex-direction: row;
     }
-    .simple-view-panel--miller.anuga-scenario-miller .sv-category-rail {
+    .simple-view-panel--miller.sv-anuga-scenario-miller .sv-category-rail {
         flex-direction: column;
         width: 220px;
     }
 }
 
-.simple-view-panel--miller .anuga-scenario-rail {
+.simple-view-panel--miller .sv-anuga-scenario-rail {
     width: 220px;
 }
 
@@ -1072,7 +1072,7 @@ div that holds the feature-grid */
 
 /* Wave 3B (B3) — zero-state placeholder when the project has no scenarios.
    Centered glyph + heading + subcopy nudging the user at "+ New scenario". */
-.simple-view-panel--miller .anuga-scenario-rail-empty {
+.simple-view-panel--miller .sv-anuga-scenario-rail-empty {
     padding: 24px 16px;
     text-align: center;
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.55));
@@ -1082,20 +1082,20 @@ div that holds the feature-grid */
     gap: 6px;
 }
 
-.simple-view-panel--miller .anuga-scenario-rail-empty-glyph {
+.simple-view-panel--miller .sv-anuga-scenario-rail-empty-glyph {
     font-size: 28px;
     opacity: 0.6;
     margin-bottom: 4px;
 }
 
-.simple-view-panel--miller .anuga-scenario-rail-empty-heading {
+.simple-view-panel--miller .sv-anuga-scenario-rail-empty-heading {
     margin: 0;
     font-size: 13px;
     font-weight: 600;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.simple-view-panel--miller .anuga-scenario-rail-empty-subcopy {
+.simple-view-panel--miller .sv-anuga-scenario-rail-empty-subcopy {
     margin: 0;
     font-size: 11.5px;
     line-height: 1.4;
@@ -1181,7 +1181,7 @@ div that holds the feature-grid */
     border-radius: 50%;
     background: var(--sv-glyph-active, #5cb85c);
     box-shadow: 0 0 0 0 rgba(92, 184, 92, 0.55);
-    animation: anuga-scenario-mini-pulse 1.6s ease-out infinite;
+    animation: sv-anuga-scenario-mini-pulse 1.6s ease-out infinite;
     flex-shrink: 0;
 }
 
@@ -1199,7 +1199,7 @@ div that holds the feature-grid */
     border-radius: 1px;
 }
 
-@keyframes anuga-scenario-mini-pulse {
+@keyframes sv-anuga-scenario-mini-pulse {
     0% { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0.55); }
     70% { box-shadow: 0 0 0 5px rgba(92, 184, 92, 0); }
     100% { box-shadow: 0 0 0 0 rgba(92, 184, 92, 0); }
@@ -1207,9 +1207,9 @@ div that holds the feature-grid */
 
 /* ── Wave 3A: 3-column Pane 1 / Pane 2 / Pane 3 shell ──────────────── */
 
-/* The .anuga-scenario-pane-shell sits inside the existing .sv-menu-rows-pane
+/* The .sv-anuga-scenario-pane-shell sits inside the existing .sv-menu-rows-pane
    and is the parent of the vertical category rail (Pane 2) plus the
-   detail body (Pane 3). The legacy .anuga-pane-rows wrapper is removed
+   detail body (Pane 3). The legacy .sv-anuga-pane-rows wrapper is removed
    from the scenarios surface because the category rail + detail are
    structurally side-by-side (not stacked).
 
@@ -1217,11 +1217,11 @@ div that holds the feature-grid */
    parent is unchanged. This adds the SECOND nested split so the
    3-column layout reads:
 
-     [sv-category-rail]  [anuga-scenario-category-rail]  [anuga-scenario-pane-detail]
+     [sv-category-rail]  [sv-anuga-scenario-category-rail]  [sv-anuga-scenario-pane-detail]
      ↑ Pane 1            ↑ Pane 2                        ↑ Pane 3
      (scenario list)     (category rail)                 (field detail)
 */
-.anuga-scenario-pane-shell {
+.sv-anuga-scenario-pane-shell {
     display: flex;
     flex: 1;
     min-height: 0;
@@ -1229,7 +1229,7 @@ div that holds the feature-grid */
 }
 
 /* Pane 2 — vertical category rail */
-.anuga-scenario-category-rail {
+.sv-anuga-scenario-category-rail {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -1242,16 +1242,16 @@ div that holds the feature-grid */
     scrollbar-color: #5178af transparent;
 }
 
-.anuga-scenario-category-section {
+.sv-anuga-scenario-category-section {
     display: flex;
     flex-direction: column;
 }
 
-.anuga-scenario-category-section + .anuga-scenario-category-section {
+.sv-anuga-scenario-category-section + .sv-anuga-scenario-category-section {
     margin-top: 2px;
 }
 
-.anuga-scenario-category-section-label {
+.sv-anuga-scenario-category-section-label {
     font-size: 9.5px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -1260,7 +1260,7 @@ div that holds the feature-grid */
     font-weight: 600;
 }
 
-.anuga-scenario-category-item {
+.sv-anuga-scenario-category-item {
     display: flex;
     align-items: center;
     gap: 9px;
@@ -1275,21 +1275,21 @@ div that holds the feature-grid */
     outline: none;
 }
 
-.anuga-scenario-category-item:hover:not(.is-active) {
+.sv-anuga-scenario-category-item:hover:not(.is-active) {
     background-color: rgba(255, 255, 255, 0.04);
 }
 
-.anuga-scenario-category-item:focus-visible {
+.sv-anuga-scenario-category-item:focus-visible {
     background-color: rgba(255, 255, 255, 0.06);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
-.anuga-scenario-category-item.is-active {
+.sv-anuga-scenario-category-item.is-active {
     background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
     border-left-color: var(--sv-accent-lime, #cae33b);
 }
 
-.anuga-scenario-category-item-glyph {
+.sv-anuga-scenario-category-item-glyph {
     width: 16px;
     height: 16px;
     font-size: 14px;
@@ -1299,7 +1299,7 @@ div that holds the feature-grid */
     background: transparent;
 }
 
-.anuga-scenario-category-item-label {
+.sv-anuga-scenario-category-item-label {
     flex: 1;
     font-size: 12px;
     font-weight: 500;
@@ -1308,7 +1308,7 @@ div that holds the feature-grid */
     text-overflow: ellipsis;
 }
 
-.anuga-scenario-category-item-tag {
+.sv-anuga-scenario-category-item-tag {
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
@@ -1321,22 +1321,22 @@ div that holds the feature-grid */
     text-align: center;
 }
 
-.anuga-scenario-category-item-tag.is-ok {
+.sv-anuga-scenario-category-item-tag.is-ok {
     background: rgba(202, 227, 59, 0.22);
     color: #cae33b;
 }
 
-.anuga-scenario-category-item-tag.is-warn {
+.sv-anuga-scenario-category-item-tag.is-warn {
     background: rgba(240, 173, 78, 0.22);
     color: #f0ad4e;
 }
 
-.anuga-scenario-category-item-tag.is-err {
+.sv-anuga-scenario-category-item-tag.is-err {
     background: rgba(217, 83, 79, 0.22);
     color: #f0a09e;
 }
 
-.anuga-scenario-category-item.is-alert .anuga-scenario-category-item-tag.is-err {
+.sv-anuga-scenario-category-item.is-alert .sv-anuga-scenario-category-item-tag.is-err {
     background: rgba(217, 83, 79, 0.32);
 }
 
@@ -1345,7 +1345,7 @@ div that holds the feature-grid */
  * see the same "this scenario has uncommitted changes" signal on Pane 2
  * tags. Coarse signal (scenario-level, not per-category) per scenarioHelpers
  * comment block. */
-.anuga-scenario-category-item-unsaved-dot {
+.sv-anuga-scenario-category-item-unsaved-dot {
     color: #f0ad4e;
     font-weight: 700;
     margin-right: 3px;
@@ -1353,7 +1353,7 @@ div that holds the feature-grid */
 }
 
 /* Pane 3 — detail body */
-.anuga-scenario-pane-detail {
+.sv-anuga-scenario-pane-detail {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -1361,7 +1361,7 @@ div that holds the feature-grid */
     overflow-y: auto;
 }
 
-.anuga-scenario-pane-detail-head {
+.sv-anuga-scenario-pane-detail-head {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1370,7 +1370,7 @@ div that holds the feature-grid */
     background: rgba(0, 0, 0, 0.10);
 }
 
-.anuga-scenario-pane-detail-head-title {
+.sv-anuga-scenario-pane-detail-head-title {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
@@ -1378,22 +1378,22 @@ div that holds the feature-grid */
     flex: 1;
 }
 
-.anuga-scenario-pane-detail-body {
+.sv-anuga-scenario-pane-detail-body {
     flex: 1;
     padding: 8px 8px 16px;
     overflow-y: auto;
 }
 
-/* Wave 3A — pane sections inside Pane 3 use the existing .anuga-scenario-pane-section
+/* Wave 3A — pane sections inside Pane 3 use the existing .sv-anuga-scenario-pane-section
    layout (label left, field right). The new `--unit` variant lets a numeric
    input show a trailing unit badge ("m²" / "h") to the right of the input. */
-.anuga-scenario-pane-field--unit {
+.sv-anuga-scenario-pane-field--unit {
     display: flex;
     align-items: stretch;
     gap: 0;
 }
 
-.anuga-scenario-pane-field-unit {
+.sv-anuga-scenario-pane-field-unit {
     display: inline-flex;
     align-items: center;
     padding: 0 10px;
@@ -1408,11 +1408,11 @@ div that holds the feature-grid */
     font-weight: 500;
 }
 
-.anuga-scenario-pane-section--help {
+.sv-anuga-scenario-pane-section--help {
     border-bottom: none;
 }
 
-.anuga-scenario-pane-help {
+.sv-anuga-scenario-pane-help {
     font-size: 10.5px;
     color: rgba(255, 255, 255, 0.55);
     margin: 0;
@@ -1420,7 +1420,7 @@ div that holds the feature-grid */
 }
 
 /* Resource summary card (Pane 3 dropdown adornment + run-history list) */
-.anuga-scenario-resource-summary {
+.sv-anuga-scenario-resource-summary {
     margin: 4px 10px 8px;
     background: rgba(0, 0, 0, 0.20);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1433,7 +1433,7 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.65);
 }
 
-.anuga-scenario-resource-summary-glyph {
+.sv-anuga-scenario-resource-summary-glyph {
     width: 14px;
     height: 14px;
     font-size: 12px;
@@ -1441,7 +1441,7 @@ div that holds the feature-grid */
     flex-shrink: 0;
 }
 
-.anuga-scenario-resource-summary-body {
+.sv-anuga-scenario-resource-summary-body {
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -1449,7 +1449,7 @@ div that holds the feature-grid */
     white-space: nowrap;
 }
 
-.anuga-scenario-resource-summary-meta {
+.sv-anuga-scenario-resource-summary-meta {
     margin-left: auto;
     font-size: 10.5px;
     color: rgba(255, 255, 255, 0.45);
@@ -1460,12 +1460,12 @@ div that holds the feature-grid */
 /* Empty-state resource summary — rendered when no value is selected in the
  * adjacent dropdown. Keeps the dark card always visible so the layout
  * doesn't reflow as the user picks values. */
-.anuga-scenario-resource-summary.is-empty {
+.sv-anuga-scenario-resource-summary.is-empty {
     opacity: 0.55;
     font-style: italic;
 }
 
-.anuga-scenario-resource-summary-placeholder {
+.sv-anuga-scenario-resource-summary-placeholder {
     color: rgba(255, 255, 255, 0.45);
 }
 
@@ -1477,7 +1477,7 @@ div that holds the feature-grid */
  * Pane-3 detail body width. Previously margin 6px 10px 10px reduced the
  * viewer to ~60% of the panel. The box-sizing + width:100% ensure the
  * pre fills the available column without overflow. */
-.anuga-scenario-pane-log {
+.sv-anuga-scenario-pane-log {
     margin: 6px 0 10px;
     display: flex;
     flex-direction: column;
@@ -1486,7 +1486,7 @@ div that holds the feature-grid */
     box-sizing: border-box;
 }
 
-.anuga-scenario-pane-log-head {
+.sv-anuga-scenario-pane-log-head {
     display: flex;
     align-items: baseline;
     gap: 6px;
@@ -1496,11 +1496,11 @@ div that holds the feature-grid */
     letter-spacing: 0.04em;
 }
 
-.anuga-scenario-pane-log-title {
+.sv-anuga-scenario-pane-log-title {
     font-weight: 600;
 }
 
-.anuga-scenario-pane-log-viewer {
+.sv-anuga-scenario-pane-log-viewer {
     background: #000000cc;
     color: #c8e6c9;
     border: 1px solid rgba(255, 255, 255, 0.10);
@@ -1513,7 +1513,7 @@ div that holds the feature-grid */
     min-height: 80px;
     /* TASK-1418 (ISSUE 31): span the full scenarios-panel width so each
      * log row is readable on one line. width+box-sizing fill the parent
-     * .anuga-scenario-pane-log column; overflow:auto lets very long lines
+     * .sv-anuga-scenario-pane-log column; overflow:auto lets very long lines
      * scroll horizontally rather than wrap mid-word. */
     width: 100%;
     box-sizing: border-box;
@@ -1527,7 +1527,7 @@ div that holds the feature-grid */
     scrollbar-color: #5178af transparent;
 }
 
-.anuga-scenario-pane-log-viewer:empty::before {
+.sv-anuga-scenario-pane-log-viewer:empty::before {
     content: '(no log output yet)';
     color: rgba(255, 255, 255, 0.35);
     font-style: italic;
@@ -1535,26 +1535,26 @@ div that holds the feature-grid */
 
 /* Log button — dark blue background to match the header Duplicate button
  * style and improve contrast vs the light-blue bootstrap "info" default. */
-.anuga-btn.scenario-action-log {
+.sv-anuga-btn.scenario-action-log {
     background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     border-color: rgba(255, 255, 255, 0.25);
 }
 
-.anuga-btn.scenario-action-log:hover:not(.disabled):not([disabled]),
-.anuga-btn.scenario-action-log:focus {
+.sv-anuga-btn.scenario-action-log:hover:not(.disabled):not([disabled]),
+.sv-anuga-btn.scenario-action-log:focus {
     background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.anuga-btn.scenario-action-log:disabled,
-.anuga-btn.scenario-action-log.disabled {
+.sv-anuga-btn.scenario-action-log:disabled,
+.sv-anuga-btn.scenario-action-log.disabled {
     background-color: rgba(0, 60, 136, 0.35);
     color: rgba(255, 255, 255, 0.55);
 }
 
 /* Status card (Status & actions Pane 3) */
-.anuga-scenario-status-card {
+.sv-anuga-scenario-status-card {
     margin: 6px 10px 12px;
     background: rgba(0, 0, 0, 0.20);
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -1562,14 +1562,14 @@ div that holds the feature-grid */
     padding: 14px 14px 12px;
 }
 
-.anuga-scenario-status-card-row {
+.sv-anuga-scenario-status-card-row {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-bottom: 8px;
 }
 
-.anuga-scenario-status-card-eta {
+.sv-anuga-scenario-status-card-eta {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.65);
     font-weight: 500;
@@ -1577,15 +1577,15 @@ div that holds the feature-grid */
     font-variant-numeric: tabular-nums;
 }
 
-.anuga-scenario-status-card-eta.is-stopped {
+.sv-anuga-scenario-status-card-eta.is-stopped {
     color: rgba(240, 160, 158, 0.85);
 }
 
-.anuga-scenario-status-card-progress {
+.sv-anuga-scenario-status-card-progress {
     margin-top: 4px;
 }
 
-.anuga-scenario-status-card-progress-track {
+.sv-anuga-scenario-status-card-progress-track {
     width: 100%;
     height: 5px;
     background: rgba(0, 0, 0, 0.35);
@@ -1593,18 +1593,18 @@ div that holds the feature-grid */
     overflow: hidden;
 }
 
-.anuga-scenario-status-card-progress-fill {
+.sv-anuga-scenario-status-card-progress-fill {
     height: 100%;
     background: linear-gradient(90deg, #397AAB 0%, #5a9dd1 100%);
     border-radius: 2.5px;
     transition: width 0.4s ease;
 }
 
-.anuga-scenario-status-card-progress-fill.is-error {
+.sv-anuga-scenario-status-card-progress-fill.is-error {
     background: linear-gradient(90deg, #8c3a37, #d9534f);
 }
 
-.anuga-scenario-status-card-progress-meta {
+.sv-anuga-scenario-status-card-progress-meta {
     display: flex;
     justify-content: space-between;
     margin-top: 5px;
@@ -1615,7 +1615,7 @@ div that holds the feature-grid */
 }
 
 /* Error strip (Status & actions Pane 3, error state only) */
-.anuga-scenario-error-strip {
+.sv-anuga-scenario-error-strip {
     margin: 6px 10px 8px;
     background: rgba(217, 83, 79, 0.14);
     border: 1px solid rgba(217, 83, 79, 0.30);
@@ -1627,7 +1627,7 @@ div that holds the feature-grid */
     line-height: 1.45;
 }
 
-.anuga-scenario-error-strip-head {
+.sv-anuga-scenario-error-strip-head {
     color: #ff8a87;
     font-weight: 600;
     margin-bottom: 2px;
@@ -1636,7 +1636,7 @@ div that holds the feature-grid */
     letter-spacing: 0.04em;
 }
 
-.anuga-scenario-error-strip-payload {
+.sv-anuga-scenario-error-strip-payload {
     font-family: 'Menlo', 'Monaco', monospace;
     font-size: 10.5px;
     background: rgba(0, 0, 0, 0.30);
@@ -1649,7 +1649,7 @@ div that holds the feature-grid */
 }
 
 /* Empty-pane glyph (no scenario selected) */
-.anuga-scenario-empty-pane-glyph {
+.sv-anuga-scenario-empty-pane-glyph {
     margin-right: 8px;
     color: rgba(255, 255, 255, 0.45);
     font-size: 18px;
@@ -1664,7 +1664,7 @@ div that holds the feature-grid */
     font-variant-numeric: tabular-nums;
 }
 
-.anuga-scenario-pane-section {
+.sv-anuga-scenario-pane-section {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1672,18 +1672,18 @@ div that holds the feature-grid */
     border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
 }
 
-.anuga-scenario-pane-section:last-child {
+.sv-anuga-scenario-pane-section:last-child {
     border-bottom: none;
 }
 
-.anuga-scenario-pane-label {
+.sv-anuga-scenario-pane-label {
     width: 130px;
     flex-shrink: 0;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.85);
 }
 
-.anuga-scenario-pane-field {
+.sv-anuga-scenario-pane-field {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -1694,19 +1694,19 @@ div that holds the feature-grid */
 /* Wave 3B (B4) — read-only visual when canEdit=false. Dims the wrapper
    and flips the cursor to not-allowed across the field. Inputs keep
    readOnly (not disabled) so users can still focus + copy values. */
-.anuga-scenario-pane-field.is-readonly {
+.sv-anuga-scenario-pane-field.is-readonly {
     opacity: 0.7;
 }
 
-.anuga-scenario-pane-field.is-readonly input,
-.anuga-scenario-pane-field.is-readonly select {
+.sv-anuga-scenario-pane-field.is-readonly input,
+.sv-anuga-scenario-pane-field.is-readonly select {
     cursor: not-allowed;
     background-color: var(--sv-input-readonly-bg, rgba(255, 255, 255, 0.03));
 }
 
 /* Read-only hint banner above the field rows. Small lock glyph plus the
    single-line copy from hydrata.anuga.readOnlyPaneHint. */
-.anuga-scenario-pane-readonly-hint {
+.sv-anuga-scenario-pane-readonly-hint {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1719,20 +1719,20 @@ div that holds the feature-grid */
     border-left: 3px solid var(--sv-info-border, #5bc0de);
 }
 
-.anuga-scenario-pane-readonly-hint-glyph {
+.sv-anuga-scenario-pane-readonly-hint-glyph {
     font-size: 13px;
     opacity: 0.75;
     flex-shrink: 0;
 }
 
-.anuga-scenario-pane-actions {
+.sv-anuga-scenario-pane-actions {
     display: flex;
     gap: 6px;
     padding: 8px 10px;
     flex-wrap: wrap;
 }
 
-.anuga-scenario-empty-pane {
+.sv-anuga-scenario-empty-pane {
     padding: 24px;
     text-align: center;
     color: rgba(255, 255, 255, 0.7);
@@ -1754,7 +1754,7 @@ div that holds the feature-grid */
 /* Container-level inline confirm dialog — always rendered in the DOM,
    visibility toggled via .is-open so Karma tests don't depend on a
    setState→re-render flush. Positioned absolute to overlay the pane. */
-.anuga-scenario-confirm-dialog {
+.sv-anuga-scenario-confirm-dialog {
     position: absolute;
     top: 50px;
     right: 50px;
@@ -1768,13 +1768,13 @@ div that holds the feature-grid */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-.anuga-scenario-confirm-dialog.is-open {
+.sv-anuga-scenario-confirm-dialog.is-open {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.anuga-scenario-confirm-text {
+.sv-anuga-scenario-confirm-text {
     font-size: 12px;
 }
 
@@ -1844,7 +1844,7 @@ div that holds the feature-grid */
 /* Richer terrain-pane empty state (two ways to get terrain). Left-aligned and
    relaxed line-height so the two-option help reads as a paragraph, not a
    single bare label. */
-.anuga-terrain-empty-help {
+.sv-anuga-terrain-empty-help {
     text-align: left;
     line-height: 1.5;
     padding: 10px 12px;
@@ -1864,13 +1864,13 @@ div that holds the feature-grid */
 
 /* ISSUE 32 (TASK-1429): View Results bar shown on run completion, above the
    scenario rail+pane shell. Compact row with success-green button. */
-.anuga-view-results-bar {
+.sv-anuga-view-results-bar {
     padding: 6px 10px;
     display: flex;
     align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
-.anuga-btn-view-results {
+.sv-anuga-btn-view-results {
     font-size: 12px;
 }
 
@@ -1886,8 +1886,8 @@ div that holds the feature-grid */
  * chrome (white text, rgba borders).
  * ─────────────────────────────────────────────────────────────────────────── */
 
-/* Outer container — sits below .anuga-pane-rows, flex column */
-.anuga-mesh-workflow-container {
+/* Outer container — sits below .sv-anuga-pane-rows, flex column */
+.sv-anuga-mesh-workflow-container {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -1897,7 +1897,7 @@ div that holds the feature-grid */
 }
 
 /* Toggle button (btn btn-xs) — full-width, left-aligned */
-.anuga-mesh-workflow-toggle {
+.sv-anuga-mesh-workflow-toggle {
     width: 100%;
     text-align: left;
     background-color: rgba(0, 0, 0, 0.15);
@@ -1909,20 +1909,20 @@ div that holds the feature-grid */
     cursor: pointer;
 }
 
-.anuga-mesh-workflow-toggle:hover {
+.sv-anuga-mesh-workflow-toggle:hover {
     background-color: rgba(0, 0, 0, 0.25);
     color: #ffffff;
     border-color: rgba(255, 255, 255, 0.35);
 }
 
-.anuga-mesh-workflow-toggle.active {
+.sv-anuga-mesh-workflow-toggle.active {
     background-color: rgba(0, 60, 136, 0.35);
     color: #ffffff;
     border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Expanded panel — flex column, each section stacked with gap */
-.anuga-mesh-workflow-panel {
+.sv-anuga-mesh-workflow-panel {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1930,31 +1930,31 @@ div that holds the feature-grid */
 }
 
 /* Each workflow section (preview, estimate, import/export, hint) */
-.anuga-mesh-workflow-section {
+.sv-anuga-mesh-workflow-section {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
 /* Preview section: button + progress/result stacked */
-.anuga-mesh-workflow-preview {
+.sv-anuga-mesh-workflow-preview {
     align-items: flex-start;
 }
 
-.anuga-mesh-preview-btn {
+.sv-anuga-mesh-preview-btn {
     font-size: 12px;
     padding: 4px 10px;
 }
 
 /* Progress bar track + fill */
-.anuga-mesh-preview-progress {
+.sv-anuga-mesh-preview-progress {
     display: flex;
     align-items: center;
     gap: 6px;
     margin-top: 4px;
 }
 
-.anuga-mesh-preview-progress-bar-track {
+.sv-anuga-mesh-preview-progress-bar-track {
     flex: 1;
     height: 5px;
     background: rgba(255, 255, 255, 0.15);
@@ -1962,21 +1962,21 @@ div that holds the feature-grid */
     overflow: hidden;
 }
 
-.anuga-mesh-preview-progress-bar-fill {
+.sv-anuga-mesh-preview-progress-bar-fill {
     height: 100%;
     background: linear-gradient(90deg, #397AAB 0%, #5a9dd1 100%);
     border-radius: 3px;
     transition: width 0.4s ease;
 }
 
-.anuga-mesh-preview-progress-pct {
+.sv-anuga-mesh-preview-progress-pct {
     font-size: 10px;
     color: rgba(255, 255, 255, 0.65);
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
 }
 
-.anuga-mesh-preview-progress-detail {
+.sv-anuga-mesh-preview-progress-detail {
     font-size: 10.5px;
     color: rgba(255, 255, 255, 0.60);
     flex: 1;
@@ -1986,7 +1986,7 @@ div that holds the feature-grid */
 }
 
 /* Preview result metrics / error */
-.anuga-mesh-preview-metrics {
+.sv-anuga-mesh-preview-metrics {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -1995,21 +1995,21 @@ div that holds the feature-grid */
     color: rgba(255, 255, 255, 0.85);
 }
 
-.anuga-mesh-preview-count {
+.sv-anuga-mesh-preview-count {
     font-weight: 600;
 }
 
-.anuga-mesh-preview-qa {
+.sv-anuga-mesh-preview-qa {
     color: rgba(255, 255, 255, 0.65);
     font-size: 11px;
 }
 
-.anuga-mesh-preview-warn {
+.sv-anuga-mesh-preview-warn {
     color: #f0ad4e;
 }
 
 /* "Too large" banner */
-.anuga-mesh-preview-too-large {
+.sv-anuga-mesh-preview-too-large {
     background: rgba(240, 173, 78, 0.12);
     border-left: 3px solid #f0ad4e;
     border-radius: 2px;
@@ -2019,16 +2019,16 @@ div that holds the feature-grid */
     gap: 2px;
 }
 
-.anuga-mesh-preview-warn-icon {
+.sv-anuga-mesh-preview-warn-icon {
     color: #f0ad4e;
 }
 
-.anuga-mesh-preview-note {
+.sv-anuga-mesh-preview-note {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.65);
 }
 
-.anuga-mesh-preview-error {
+.sv-anuga-mesh-preview-error {
     font-size: 11.5px;
     color: #f4b9b7;
     background: rgba(217, 83, 79, 0.12);
@@ -2038,53 +2038,53 @@ div that holds the feature-grid */
 }
 
 /* Cost estimate row */
-.anuga-mesh-workflow-estimate {
+.sv-anuga-mesh-workflow-estimate {
     padding: 2px 0;
     border-top: 1px solid rgba(255, 255, 255, 0.10);
 }
 
-.anuga-scenario-estimate-label {
+.sv-anuga-scenario-estimate-label {
     font-size: 11.5px;
     color: rgba(255, 255, 255, 0.75);
 }
 
 /* Import / Export buttons — side by side */
-.anuga-mesh-workflow-importexport {
+.sv-anuga-mesh-workflow-importexport {
     flex-direction: row;
     gap: 6px;
     border-top: 1px solid rgba(255, 255, 255, 0.10);
     padding-top: 2px;
 }
 
-.anuga-mesh-import-btn,
-.anuga-mesh-export-btn {
+.sv-anuga-mesh-import-btn,
+.sv-anuga-mesh-export-btn {
     font-size: 11.5px;
     padding: 3px 8px;
 }
 
 /* Mesh triangle layer section */
-.anuga-mesh-triangle-layer {
+.sv-anuga-mesh-triangle-layer {
     border-top: 1px solid rgba(255, 255, 255, 0.10);
     padding-top: 2px;
 }
 
-.anuga-mesh-add-layer-btn {
+.sv-anuga-mesh-add-layer-btn {
     font-size: 12px;
     padding: 4px 10px;
 }
 
-.anuga-mesh-triangle-layer-added {
+.sv-anuga-mesh-triangle-layer-added {
     font-size: 11.5px;
     color: #5cb85c;
 }
 
 /* Helper text */
-.anuga-mesh-workflow-hint {
+.sv-anuga-mesh-workflow-hint {
     border-top: 1px solid rgba(255, 255, 255, 0.10);
     padding-top: 4px;
 }
 
-.anuga-mesh-workflow-hint-text {
+.sv-anuga-mesh-workflow-hint-text {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.55);
     line-height: 1.45;
@@ -2092,31 +2092,31 @@ div that holds the feature-grid */
 }
 
 /* Built meshes roster table */
-.anuga-built-mesh-roster {
+.sv-anuga-built-mesh-roster {
     border-top: 1px solid rgba(255, 255, 255, 0.10);
     padding-top: 4px;
 }
 
-.anuga-built-mesh-roster-header {
+.sv-anuga-built-mesh-roster-header {
     font-size: 11.5px;
     color: rgba(255, 255, 255, 0.75);
     margin-bottom: 4px;
 }
 
-.anuga-built-mesh-roster-empty {
+.sv-anuga-built-mesh-roster-empty {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.45);
     font-style: italic;
 }
 
-.anuga-built-mesh-roster-table {
+.sv-anuga-built-mesh-roster-table {
     width: 100%;
     font-size: 11px;
     color: rgba(255, 255, 255, 0.80);
     border-collapse: collapse;
 }
 
-.anuga-built-mesh-roster-table th {
+.sv-anuga-built-mesh-roster-table th {
     color: rgba(255, 255, 255, 0.55);
     font-weight: 600;
     text-align: left;
@@ -2124,7 +2124,7 @@ div that holds the feature-grid */
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.anuga-built-mesh-roster-table td {
+.sv-anuga-built-mesh-roster-table td {
     padding: 3px 4px;
     font-variant-numeric: tabular-nums;
 }

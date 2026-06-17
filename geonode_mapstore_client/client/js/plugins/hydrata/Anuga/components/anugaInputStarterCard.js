@@ -8,11 +8,11 @@ const PHASE_CONFIG = {
     terrain: {
         headingMsgId: "hydrata.anuga.starterCardHeading",
         introMsgId: "hydrata.anuga.starterCardIntro",
-        step1Modifier: "anuga-starter-step--active",
+        step1Modifier: "sv-anuga-starter-step--active",
         step1DescMsgId: "hydrata.anuga.starterStep1Desc",
         step1Marker: "1",
         showStep1Cta: true,
-        step2Modifier: "anuga-starter-step--pending",
+        step2Modifier: "sv-anuga-starter-step--pending",
         step2DescMsgId: "hydrata.anuga.starterStep2Desc",
         step2Marker: "2",
         step2AriaDisabled: "true",
@@ -21,11 +21,11 @@ const PHASE_CONFIG = {
     defaults: {
         headingMsgId: "hydrata.anuga.starterCardHeadingDefaults",
         introMsgId: "hydrata.anuga.starterCardIntroDefaults",
-        step1Modifier: "anuga-starter-step--done",
+        step1Modifier: "sv-anuga-starter-step--done",
         step1DescMsgId: "hydrata.anuga.starterStep1DescDone",
         step1Marker: "check",
         showStep1Cta: false,
-        step2Modifier: "anuga-starter-step--active",
+        step2Modifier: "sv-anuga-starter-step--active",
         step2DescMsgId: "hydrata.anuga.starterStep2DescActive",
         step2Marker: "spinner",
         step2AriaDisabled: undefined,
@@ -36,7 +36,7 @@ const PHASE_CONFIG = {
 const renderMarker = (marker) => {
     if (marker === "check") return <span className={"glyphicon glyphicon-ok"} />;
     if (marker === "spinner") {
-        return <Spinner color="#fff" className="anuga-starter-step-spinner" spinnerName="circle" noFadeIn/>;
+        return <Spinner color="#fff" className="sv-anuga-starter-step-spinner" spinnerName="circle" noFadeIn/>;
     }
     return marker;
 };
@@ -55,29 +55,29 @@ const AnugaInputStarterCard = ({phase, onUploadTerrain, onImportFromWeb}) => {
 
     return (
         <div
-            className={"anuga-starter-card"}
+            className={"sv-anuga-starter-card"}
             role="region"
             aria-label="Project setup checklist"
         >
-            <div className={"anuga-starter-card-heading"}>
+            <div className={"sv-anuga-starter-card-heading"}>
                 <Message msgId={cfg.headingMsgId} />
             </div>
-            <div className={"anuga-starter-card-intro"}>
+            <div className={"sv-anuga-starter-card-intro"}>
                 <Message msgId={cfg.introMsgId} />
             </div>
-            <div className={`anuga-starter-step ${cfg.step1Modifier}`}>
-                <span className={"anuga-starter-step-num"} aria-hidden="true">
+            <div className={`sv-anuga-starter-step ${cfg.step1Modifier}`}>
+                <span className={"sv-anuga-starter-step-num"} aria-hidden="true">
                     {renderMarker(cfg.step1Marker)}
                 </span>
-                <div className={"anuga-starter-step-body"}>
-                    <div className={"anuga-starter-step-title"}>
+                <div className={"sv-anuga-starter-step-body"}>
+                    <div className={"sv-anuga-starter-step-title"}>
                         <Message msgId="hydrata.anuga.starterStep1Title" />
                     </div>
-                    <div className={"anuga-starter-step-desc"}>
+                    <div className={"sv-anuga-starter-step-desc"}>
                         <Message msgId={cfg.step1DescMsgId} />
                     </div>
                     {cfg.showStep1Cta ?
-                        <div className={"anuga-starter-step-cta"}>
+                        <div className={"sv-anuga-starter-step-cta"}>
                             {/* TASK-1646: 'Import from web' left of 'Upload Terrain' */}
                             <button
                                 type="button"
@@ -110,32 +110,32 @@ const AnugaInputStarterCard = ({phase, onUploadTerrain, onImportFromWeb}) => {
                 </div>
             </div>
             <div
-                className={`anuga-starter-step ${cfg.step2Modifier}`}
+                className={`sv-anuga-starter-step ${cfg.step2Modifier}`}
                 aria-disabled={cfg.step2AriaDisabled}
                 aria-busy={cfg.step2AriaBusy}
             >
-                <span className={"anuga-starter-step-num"} aria-hidden="true">
+                <span className={"sv-anuga-starter-step-num"} aria-hidden="true">
                     {renderMarker(cfg.step2Marker)}
                 </span>
-                <div className={"anuga-starter-step-body"}>
-                    <div className={"anuga-starter-step-title"}>
+                <div className={"sv-anuga-starter-step-body"}>
+                    <div className={"sv-anuga-starter-step-title"}>
                         <Message msgId="hydrata.anuga.starterStep2Title" />
                     </div>
-                    <div className={"anuga-starter-step-desc"}>
+                    <div className={"sv-anuga-starter-step-desc"}>
                         <Message msgId={cfg.step2DescMsgId} />
                     </div>
                 </div>
             </div>
             <div
-                className={"anuga-starter-step anuga-starter-step--pending"}
+                className={"sv-anuga-starter-step sv-anuga-starter-step--pending"}
                 aria-disabled="true"
             >
-                <span className={"anuga-starter-step-num"} aria-hidden="true">3</span>
-                <div className={"anuga-starter-step-body"}>
-                    <div className={"anuga-starter-step-title"}>
+                <span className={"sv-anuga-starter-step-num"} aria-hidden="true">3</span>
+                <div className={"sv-anuga-starter-step-body"}>
+                    <div className={"sv-anuga-starter-step-title"}>
                         <Message msgId="hydrata.anuga.starterStep3Title" />
                     </div>
-                    <div className={"anuga-starter-step-desc"}>
+                    <div className={"sv-anuga-starter-step-desc"}>
                         <Message msgId="hydrata.anuga.starterStep3Desc" />
                     </div>
                 </div>

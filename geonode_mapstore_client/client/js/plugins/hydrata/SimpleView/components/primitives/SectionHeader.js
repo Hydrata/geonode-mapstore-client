@@ -6,7 +6,7 @@ import PropTypes from 'prop-types';
  * anugaInputMenu / InputSection / swammInputMenu.
  *
  * Presentation-only; no redux. `extraClassName` carries the per-site
- * variant (Anuga uses `anuga-section-header`); `style` carries the
+ * variant (Anuga uses `sv-anuga-section-header`); `style` carries the
  * Swamm inline-width pass-through so the primitive stays uncoupled
  * from Swamm CSS.
  */

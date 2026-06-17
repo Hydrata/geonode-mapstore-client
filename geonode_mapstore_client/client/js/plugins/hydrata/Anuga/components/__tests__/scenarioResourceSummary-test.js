@@ -32,10 +32,10 @@ describe('Wave 3A — ScenarioResourceSummary', () => {
             />,
             container,
             () => {
-                const card = container.querySelector('.anuga-scenario-resource-summary');
+                const card = container.querySelector('.sv-anuga-scenario-resource-summary');
                 expect(card).toExist();
-                expect(card.className).toInclude('anuga-scenario-resource-summary--terrain');
-                expect(container.querySelector('.anuga-scenario-resource-summary-glyph')).toExist();
+                expect(card.className).toInclude('sv-anuga-scenario-resource-summary--terrain');
+                expect(container.querySelector('.sv-anuga-scenario-resource-summary-glyph')).toExist();
                 expect(container.textContent).toInclude('1.0 m raster');
                 expect(container.textContent).toInclude('EPSG:28356');
                 done();
@@ -48,7 +48,7 @@ describe('Wave 3A — ScenarioResourceSummary', () => {
             <ScenarioResourceSummary kind="boundary" body="4 segments" />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-resource-summary-meta')).toNotExist();
+                expect(container.querySelector('.sv-anuga-scenario-resource-summary-meta')).toNotExist();
                 done();
             }
         );
@@ -59,7 +59,7 @@ describe('Wave 3A — ScenarioResourceSummary', () => {
             <ScenarioResourceSummary kind="inflow" />,
             container,
             () => {
-                expect(container.querySelector('.anuga-scenario-resource-summary')).toNotExist();
+                expect(container.querySelector('.sv-anuga-scenario-resource-summary')).toNotExist();
                 done();
             }
         );
@@ -75,8 +75,8 @@ describe('Wave 3A — ScenarioResourceSummary', () => {
                 <ScenarioResourceSummary kind={kind} body="x" />,
                 wrap,
                 () => {
-                    const card = wrap.querySelector('.anuga-scenario-resource-summary');
-                    expect(card.className).toInclude(`anuga-scenario-resource-summary--${kind}`);
+                    const card = wrap.querySelector('.sv-anuga-scenario-resource-summary');
+                    expect(card.className).toInclude(`sv-anuga-scenario-resource-summary--${kind}`);
                     remaining -= 1;
                     if (remaining === 0) done();
                 }
@@ -87,7 +87,7 @@ describe('Wave 3A — ScenarioResourceSummary', () => {
     // Scenarios Option A redesign — scenarioPane's renderResourceSummary
     // helper passes `extraClassName="is-empty"` when it falls back to the
     // always-rendered placeholder card. The primitive must surface that
-    // class on the root .anuga-scenario-resource-summary div so the
+    // class on the root .sv-anuga-scenario-resource-summary div so the
     // placeholder styling can target it without leaking into populated
     // cards.
     it('includes extraClassName="is-empty" on the root div', (done) => {
@@ -99,10 +99,10 @@ describe('Wave 3A — ScenarioResourceSummary', () => {
             />,
             container,
             () => {
-                const card = container.querySelector('.anuga-scenario-resource-summary');
+                const card = container.querySelector('.sv-anuga-scenario-resource-summary');
                 expect(card).toExist();
                 expect(card.className).toInclude('is-empty');
-                expect(card.className).toInclude('anuga-scenario-resource-summary--terrain');
+                expect(card.className).toInclude('sv-anuga-scenario-resource-summary--terrain');
                 done();
             }
         );

@@ -8,7 +8,7 @@ import {ErrorStrip} from '../ErrorStrip';
  *
  * ErrorStrip is presentation-only (no redux). It is the shared, token-backed
  * red-left-border alert strip pulled from the ≥6 divergent per-panel error
- * blocks (anuga-scenario-error-strip, sv-menu-row-delete-error, sv-tm-error-message,
+ * blocks (sv-anuga-scenario-error-strip, sv-menu-row-delete-error, sv-tm-error-message,
  * tw-error, hgeval alert-danger, idf-derive-error).
  *
  * Spec:

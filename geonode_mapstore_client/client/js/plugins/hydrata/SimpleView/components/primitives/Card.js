@@ -5,16 +5,16 @@ import PropTypes from 'prop-types';
  * Card — content card with optional header slot.
  *
  * Best-of-breed sources:
- *   - `.anuga-scenario-status-card` (anuga.css lines 1539-1545): dark tinted card,
+ *   - `.sv-anuga-scenario-status-card` (anuga.css lines 1539-1545): dark tinted card,
  *     margin:6px 10px 12px, bg rgba(0,0,0,0.20), border rgba(255,255,255,0.18),
  *     border-radius:4px, padding:14px
- *   - `.anuga-scenario-resource-summary` (anuga.css lines 1405-1416): compact card,
+ *   - `.sv-anuga-scenario-resource-summary` (anuga.css lines 1405-1416): compact card,
  *     bg rgba(0,0,0,0.20), border rgba(255,255,255,0.08), border-radius:3px
- *   - `.anuga-starter-card` (anuga.css): bg rgba(255,255,255,0.08), dashed border
+ *   - `.sv-anuga-starter-card` (anuga.css): bg rgba(255,255,255,0.08), dashed border
  *   - `.design-storm-card` (hydrology.css): bg rgba(255,255,255,0.04),
  *     border rgba(255,255,255,0.15), border-radius:4px
  *   - `.sv-terrain-bbox-inline-review` (anuga.css): bg rgba(255,255,255,0.06), full border
- *   - `.anuga-mesh-preview-too-large` (anuga.css): amber-left-border card
+ *   - `.sv-anuga-mesh-preview-too-large` (anuga.css): amber-left-border card
  *   - `.hgeval-selected-coords` info-card (hgeval.css)
  *
  * Chart carve-out (grill q-1, TASK-1534, MANDATORY):
@@ -28,8 +28,8 @@ import PropTypes from 'prop-types';
  *   docs/reports/2026-06-17-q-1-chart-surface-carveout.html
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
- *   1. Anuga/Scenarios    — anuga-scenario-status-card, anuga-scenario-resource-summary,
- *                           anuga-starter-card, sv-terrain-bbox-inline-review
+ *   1. Anuga/Scenarios    — sv-anuga-scenario-status-card, sv-anuga-scenario-resource-summary,
+ *                           sv-anuga-starter-card, sv-terrain-bbox-inline-review
  *   2. Hydrology          — design-storm-card, design-storm-preview-card,
  *                           design-storm-chart-card (→ variant="chart"),
  *                           custom-pattern-editor-card
@@ -173,9 +173,9 @@ Card.propTypes = {
     children: PropTypes.node,
     /**
      * Visual variant:
-     *   - 'default' (default): standard dark-glass card (anuga-scenario-status-card)
+     *   - 'default' (default): standard dark-glass card (sv-anuga-scenario-status-card)
      *   - 'chart': dark frame + LIGHT body (--sv-chart-surface) for recharts — TASK-1534
-     *   - 'dashed': dashed border + lighter bg (anuga-starter-card style)
+     *   - 'dashed': dashed border + lighter bg (sv-anuga-starter-card style)
      *   - 'info': tinted info card (sv-terrain-bbox-inline-review style)
      */
     variant: PropTypes.oneOf(['default', 'chart', 'dashed', 'info']),

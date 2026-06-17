@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
  * LogViewer — terminal-style scrollable log pane.
  *
  * Best-of-breed source:
- *   anuga.css  .anuga-scenario-pane-log-viewer  (dark #000000cc bg)
+ *   anuga.css  .sv-anuga-scenario-pane-log-viewer  (dark #000000cc bg)
  *   taskMonitor.css  .tm-log-viewer  (#1e1e1e bg — kept per decision 1665)
  *
  * The log-viewer bg is intentionally dark (#1e1e1e) even in the dark-glass

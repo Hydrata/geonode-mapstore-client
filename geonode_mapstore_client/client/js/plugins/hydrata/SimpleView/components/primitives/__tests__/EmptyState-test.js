@@ -8,9 +8,9 @@ import {EmptyState} from '../EmptyState';
  *
  * EmptyState is presentation-only (no redux). It is the shared, token-backed,
  * centred "nothing here yet" block pulled from the ≥3 divergent per-panel empty
- * blocks (anuga-scenario-rail-empty, sv-tm-empty, tw-empty-hint).
+ * blocks (sv-anuga-scenario-rail-empty, sv-tm-empty, tw-empty-hint).
  *
- * Best-of-breed source: .anuga-scenario-rail-empty (glyph + heading + subcopy).
+ * Best-of-breed source: .sv-anuga-scenario-rail-empty (glyph + heading + subcopy).
  *
  * Spec:
  *   - Always renders a div.sv-empty-state

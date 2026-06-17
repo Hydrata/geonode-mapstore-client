@@ -432,16 +432,16 @@ class AnugaScenarioMenuClass extends React.Component {
       // Use the shared SectionHeader primitive (also used by anugaInputMenu /
       // InputSection / swammInputMenu) instead of a hand-written .row.sv-menu-row
       // .sv-menu-row-header className chain. extraClassName preserves the per-site
-      // anuga-section-header and scenario-menu-header CSS hooks.
+      // sv-anuga-section-header and scenario-menu-header CSS hooks.
       return (
-          <SectionHeader extraClassName="anuga-section-header scenario-menu-header">
+          <SectionHeader extraClassName="sv-anuga-section-header scenario-menu-header">
               <Message msgId="hydrata.anuga.scenarios" />
               <span id={"scenario-header-actions"} className="scenario-header-actions">
                   {canCreate ?
                       <Button
                           bsStyle={'success'}
                           bsSize={'xsmall'}
-                          className="anuga-btn anuga-btn-new-scenario"
+                          className="sv-anuga-btn anuga-btn-new-scenario"
                           onClick={this.handleNewScenario}
                       >
                           <Message msgId="hydrata.anuga.newScenario" />
@@ -450,7 +450,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   }
                   <Button
                       bsSize={'xsmall'}
-                      className={"anuga-btn anuga-btn-compare" + (compareMode ? ' is-active' : '')}
+                      className={"sv-anuga-btn sv-anuga-btn-compare" + (compareMode ? ' is-active' : '')}
                       onClick={this.handleToggleCompareMode}
                       title={compareMode
                           ? this.tr('hydrata.anuga.exitCompareModeTooltip', 'Exit compare mode')
@@ -463,7 +463,7 @@ class AnugaScenarioMenuClass extends React.Component {
                       <Button
                           bsStyle={'success'}
                           bsSize={'xsmall'}
-                          className="anuga-btn anuga-btn-run-compare"
+                          className="sv-anuga-btn anuga-btn-run-compare"
                           onClick={this.handleExecuteCompare}
                       >
                           <Message msgId="hydrata.anuga.run" />
@@ -472,7 +472,7 @@ class AnugaScenarioMenuClass extends React.Component {
                   }
                   <Button
                       bsSize={'xsmall'}
-                      className={"anuga-btn anuga-btn-duplicate-header"
+                      className={"sv-anuga-btn sv-anuga-btn-duplicate-header"
               + (canDuplicateNow ? '' : ' disabled')}
                       disabled={!canDuplicateNow}
                       onClick={() => {
@@ -498,12 +498,12 @@ class AnugaScenarioMenuClass extends React.Component {
       || this.tr('hydrata.anuga.thisScenario', 'this scenario');
       return (
           <span
-              className={"anuga-scenario-confirm-dialog" + (isOpen ? " is-open" : "")}
+              className={"sv-anuga-scenario-confirm-dialog" + (isOpen ? " is-open" : "")}
               role="alertdialog"
               aria-label={this.tr('hydrata.anuga.confirmActionAriaLabel', 'Confirm scenario action')}
               aria-hidden={isOpen ? undefined : true}
           >
-              <span className="anuga-scenario-confirm-text">
+              <span className="sv-anuga-scenario-confirm-text">
                   {bodyMsgId ? <Message msgId={bodyMsgId} msgParams={{name}} /> : null}
               </span>
               <button
@@ -562,17 +562,17 @@ class AnugaScenarioMenuClass extends React.Component {
       return (
           <div
               id={'anuga-scenario-menu'}
-              className={'simple-view-panel anuga-panel simple-view-panel--miller anuga-scenario-miller'}
+              className={'simple-view-panel sv-anuga-panel simple-view-panel--miller sv-anuga-scenario-miller'}
           >
               <div className={'sv-menu-rows-container'}>
                   {this.renderHeader()}
                   {/* ISSUE 32 (TASK-1429): View results button shown on run completion */}
                   {isComplete && selectedScenario?.latest_run ? (
-                      <div className="anuga-view-results-bar">
+                      <div className="sv-anuga-view-results-bar">
                           <Button
                               bsStyle={'success'}
                               bsSize={'xsmall'}
-                              className="anuga-btn anuga-btn-view-results"
+                              className="sv-anuga-btn sv-anuga-btn-view-results"
                               onClick={() => this.handleViewResults(selectedScenario)}
                           >
                               <span className="glyphicon glyphicon-eye-open" aria-hidden="true" />

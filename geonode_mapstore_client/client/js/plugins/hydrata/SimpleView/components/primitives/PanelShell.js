@@ -11,7 +11,7 @@ import PropTypes from 'prop-types';
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
  *   1. SimpleView         — .simple-view-panel (the canonical origin)
- *   2. Anuga/Scenarios    — .anuga-panel + .simple-view-panel base
+ *   2. Anuga/Scenarios    — .sv-anuga-panel + .simple-view-panel base
  *   3. Hydrology          — .hydrology-miller-panel (top:70px, flex col)
  *   4. Swamm              — #swamm-bmp-form-panel / #swamm-bmp-chart-panel
  *   5. HGeval             — .hgeval-panel (right-side drawer)

@@ -51,7 +51,7 @@ class PublicationPanelClass extends React.Component {
     render() {
         const {anugaResources, myRole, currentUserId} = this.props;
         return (
-            <div id={'publication-panel'} className={'simple-view-panel anuga-panel'}>
+            <div id={'publication-panel'} className={'simple-view-panel sv-anuga-panel'}>
                 <div className={'sv-menu-rows-container'}>
                     <PanelHeader
                         extraClassName="sv-publication-close-row"

@@ -765,7 +765,7 @@
 }
 
 /* Issue 14a — Networks tab: match the other Hydrology tools for text contrast,
-   panel borders/cards and spacing. The pane re-uses anuga-pane styles which
+   panel borders/cards and spacing. The pane re-uses sv-anuga-pane styles which
    have dark/navy backgrounds; normalise here for the hydrology context.
    Scope to .sv-hydrology-networks-pane so anuga contexts are unaffected. */
 .sv-hydrology-networks-pane .sv-networks-terrain-selector {

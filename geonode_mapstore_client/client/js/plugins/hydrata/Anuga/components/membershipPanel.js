@@ -374,7 +374,7 @@ class MembershipPanelClass extends React.Component {
 
     render() {
         return (
-            <div id="membership-panel" className="simple-view-panel anuga-panel">
+            <div id="membership-panel" className="simple-view-panel sv-anuga-panel">
                 <div className="sv-menu-rows-container">
                     <PanelHeader
                         extraClassName="sv-menu-row-header sv-membership-header-row"

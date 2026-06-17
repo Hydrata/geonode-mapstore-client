@@ -20,7 +20,7 @@ import {AnugaScenarioMenu, AnugaScenarioMenuClass} from '../anugaScenarioMenu';
  *      dropdown dispatches UPDATE_ANUGA_SCENARIO).
  *   E. Empty-scenarios fallback (rail empty + pane "no scenario"
  *      placeholder; container does not crash).
- *   F. Compare-mode (Option A header): clicking `.anuga-btn-compare`
+ *   F. Compare-mode (Option A header): clicking `.sv-anuga-btn-compare`
  *      flips local state + shows checkboxes; `.anuga-btn-run-compare`
  *      renders only when readyToCompare; click dispatches
  *      COMPARE_SCENARIOS.
@@ -121,9 +121,9 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     const panel = container.querySelector('#anuga-scenario-menu');
                     expect(panel).toExist();
                     expect(panel.className).toInclude('simple-view-panel');
-                    expect(panel.className).toInclude('anuga-panel');
+                    expect(panel.className).toInclude('sv-anuga-panel');
                     expect(panel.className).toInclude('simple-view-panel--miller');
-                    expect(panel.className).toInclude('anuga-scenario-miller');
+                    expect(panel.className).toInclude('sv-anuga-scenario-miller');
                     done();
                 }
             );
@@ -157,9 +157,9 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     // Pane 1 — scenario list rail (existing sv-category-rail).
                     expect(container.querySelector('.sv-category-rail')).toExist();
                     // Pane 2 — vertical category rail.
-                    expect(container.querySelector('.anuga-scenario-category-rail')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-category-rail')).toExist();
                     // Pane 3 — detail body.
-                    expect(container.querySelector('.anuga-scenario-pane-detail')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-pane-detail')).toExist();
                     done();
                 }
             );
@@ -265,7 +265,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     // TASK-1416: merged 'run' category → 3 items (inputs/advanced/run).
                     expect(items.length).toBe(3);
                     // Default: Inputs is active.
@@ -276,7 +276,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
             );
         });
 
-        it('does not render any .anuga-scenario-category-section-label inside the rail', (done) => {
+        it('does not render any .sv-anuga-scenario-category-section-label inside the rail', (done) => {
             const s1 = makeScenario(21, 'Baseline');
             const store = createMockStore({
                 anuga: {
@@ -287,7 +287,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const labels = container.querySelectorAll('.anuga-scenario-category-section-label');
+                    const labels = container.querySelectorAll('.sv-anuga-scenario-category-section-label');
                     expect(labels.length).toBe(0);
                     done();
                 }
@@ -305,10 +305,10 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     items[1].click(); // advanced
                     setTimeout(() => {
-                        const itemsAfter = container.querySelectorAll('.anuga-scenario-category-item');
+                        const itemsAfter = container.querySelectorAll('.sv-anuga-scenario-category-item');
                         expect(itemsAfter[0].className).toNotInclude('is-active');
                         expect(itemsAfter[1].className).toInclude('is-active');
                         expect(container.querySelector('#friction')).toExist();
@@ -330,14 +330,14 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     items[2].click(); // run (merged)
                     setTimeout(() => {
                         expect(container.querySelector('#resolution')).toExist();
                         expect(container.querySelector('#duration')).toExist();
                         // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
                         expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
-                        expect(container.querySelector('.anuga-scenario-status-card')).toExist();
+                        expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                         expect(container.querySelector('.scenario-action-toolbar')).toExist();
                         done();
                     });
@@ -356,11 +356,11 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     items[2].click(); // run (merged)
                     setTimeout(() => {
                         expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
-                        expect(container.querySelector('.anuga-scenario-status-card')).toExist();
+                        expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                         expect(container.querySelector('.scenario-action-toolbar')).toExist();
                         done();
                     });
@@ -368,7 +368,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
             );
         });
 
-        it('Status and actions also renders the inline .anuga-scenario-pane-log block', (done) => {
+        it('Status and actions also renders the inline .sv-anuga-scenario-pane-log block', (done) => {
             // No run yet → log is empty string, lineCount is undefined (so no
             // " (N)" suffix appears next to the title).
             const s1 = makeScenario(21, 'Baseline', {status: 'created'});
@@ -381,13 +381,13 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     // TASK-1416: Click the 3rd (Run) category — was 4th (Status and actions).
                     items[2].click();
                     setTimeout(() => {
-                        const log = container.querySelector('.anuga-scenario-pane-log');
+                        const log = container.querySelector('.sv-anuga-scenario-pane-log');
                         expect(log).toExist();
-                        const title = container.querySelector('.anuga-scenario-pane-log-title');
+                        const title = container.querySelector('.sv-anuga-scenario-pane-log-title');
                         expect(title).toExist();
                         // No intl provider in this test, so <Message msgId="hydrata.anuga.log" />
                         // renders the literal msgId string. Asserting the msgId substring
@@ -396,7 +396,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                         expect(title.textContent).toInclude('hydrata.anuga.log');
                         // Without latest_run there is no " (N)" parenthetical suffix.
                         expect(title.textContent).toNotInclude('(');
-                        const pre = container.querySelector('.anuga-scenario-pane-log-viewer');
+                        const pre = container.querySelector('.sv-anuga-scenario-pane-log-viewer');
                         expect(pre).toExist();
                         // No log text — CSS handles the placeholder via :empty::before.
                         // textContent must be empty (no string interpolated).
@@ -421,13 +421,13 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const items = container.querySelectorAll('.anuga-scenario-category-item');
+                    const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     items[2].click(); // run (TASK-1416: was statusActions at items[3])
                     setTimeout(() => {
-                        const title = container.querySelector('.anuga-scenario-pane-log-title');
+                        const title = container.querySelector('.sv-anuga-scenario-pane-log-title');
                         expect(title).toExist();
                         expect(title.textContent).toInclude('(42)');
-                        const pre = container.querySelector('.anuga-scenario-pane-log-viewer');
+                        const pre = container.querySelector('.sv-anuga-scenario-pane-log-viewer');
                         expect(pre.textContent).toInclude('first line');
                         expect(pre.textContent).toInclude('second line');
                         done();
@@ -532,7 +532,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.anuga-scenario-empty-pane')).toExist();
+                    expect(container.querySelector('.sv-anuga-scenario-empty-pane')).toExist();
                     done();
                 }
             );
@@ -543,7 +543,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
     // F. Compare-mode (Option A header)
     // ------------------------------------------------------------------
     describe('F. Compare-mode toggle (Option A header)', () => {
-        it('clicking .anuga-btn-compare flips compareMode and surfaces rail checkboxes', (done) => {
+        it('clicking .sv-anuga-btn-compare flips compareMode and surfaces rail checkboxes', (done) => {
             const s1 = makeScenario(21, 'Baseline');
             const s2 = makeScenario(22, 'With levee');
             const store = createMockStore({
@@ -559,13 +559,13 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     let checkboxes = container.querySelectorAll('.scenario-rail-item-compare-checkbox.is-hidden');
                     expect(checkboxes.length).toBe(2);
                     // Click the Compare button in the new action strip.
-                    const compareBtn = container.querySelector('.anuga-btn-compare');
+                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
                     expect(compareBtn).toExist();
                     compareBtn.click();
                     setTimeout(() => {
                         const visibleCheckboxes = container.querySelectorAll('.scenario-rail-item-compare-checkbox:not(.is-hidden)');
                         expect(visibleCheckboxes.length).toBe(2);
-                        const compareBtnAfter = container.querySelector('.anuga-btn-compare');
+                        const compareBtnAfter = container.querySelector('.sv-anuga-btn-compare');
                         expect(compareBtnAfter.className).toInclude('is-active');
                         done();
                     });
@@ -588,7 +588,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 () => {
                     expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
                     // Toggle compare.
-                    const compareBtn = container.querySelector('.anuga-btn-compare');
+                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
                     compareBtn.click();
                     setTimeout(() => {
                         // Still not rendered — no scenarios are .selected.
@@ -614,7 +614,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     // Off-by-default check.
                     expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
                     // Toggle compare on.
-                    const compareBtn = container.querySelector('.anuga-btn-compare');
+                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
                     compareBtn.click();
                     setTimeout(() => {
                         expect(container.querySelector('.anuga-btn-run-compare')).toExist();
@@ -636,7 +636,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container,
                 () => {
-                    const compareBtn = container.querySelector('.anuga-btn-compare');
+                    const compareBtn = container.querySelector('.sv-anuga-btn-compare');
                     compareBtn.click();
                     setTimeout(() => {
                         const runCompare = container.querySelector('.anuga-btn-run-compare');

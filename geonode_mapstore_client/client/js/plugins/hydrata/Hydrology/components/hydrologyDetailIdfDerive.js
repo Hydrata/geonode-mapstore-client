@@ -3,7 +3,7 @@
  * TASK-1500 (W3) — replaced Parameters text inputs with duration×RP matrix.
  *
  * W5 redesign: reflows the one-shot form into a 4-step vertical stepper
- * rendered inside the standard .anuga-scenario-pane-detail idiom:
+ * rendered inside the standard .sv-anuga-scenario-pane-detail idiom:
  *
  *   Step 1 — LOCATION   lat/lon row + Pick-on-map toggle
  *   Step 2 — PARAMETERS duration×RP boolean matrix (W3 replacement)
@@ -579,14 +579,14 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         return (
             <div id={'hydrology-idf-derive-panel'} className="sv-idf-derive-panel">
                 {/* Head title — pane idiom */}
-                <div className="anuga-scenario-pane-detail-head">
-                    <span className="anuga-scenario-pane-detail-head-title">
+                <div className="sv-anuga-scenario-pane-detail-head">
+                    <span className="sv-anuga-scenario-pane-detail-head-title">
                         <Message msgId="hydrata.hydrology.idfDerive" />
                     </span>
                 </div>
 
                 {/* Scrollable body */}
-                <div className="anuga-scenario-pane-detail-body sv-idf-derive-body">
+                <div className="sv-anuga-scenario-pane-detail-body sv-idf-derive-body">
 
                     {/* ── STEP 1: LOCATION ────────────────────────────── */}
                     <div
@@ -596,11 +596,11 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         <IdfDeriveStepHeader step={1} titleMsgId="hydrata.hydrology.idfDeriveStepLocation" />
 
                         {/* TASK-1760 — Location label+field rows conform to the
-                            FormRow chassis (the anuga-scenario-pane-section/-label/
+                            FormRow chassis (the sv-anuga-scenario-pane-section/-label/
                             -field idiom is the FormRow rule-of-three source). The
                             input ids ride through unchanged as children. */}
                         <FormRow
-                            extraClassName="anuga-scenario-pane-section"
+                            extraClassName="sv-anuga-scenario-pane-section"
                             label={<Message msgId="hydrata.hydrology.idfDeriveLat" />}
                         >
                             <input
@@ -616,7 +616,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         </FormRow>
 
                         <FormRow
-                            extraClassName="anuga-scenario-pane-section"
+                            extraClassName="sv-anuga-scenario-pane-section"
                             label={<Message msgId="hydrata.hydrology.idfDeriveLon" />}
                         >
                             <input
@@ -631,7 +631,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                             />
                         </FormRow>
 
-                        <FormRow extraClassName="anuga-scenario-pane-section" label={<span />}>
+                        <FormRow extraClassName="sv-anuga-scenario-pane-section" label={<span />}>
                             <Button
                                 id={'idf-derive-pick-on-map'}
                                 bsSize={'small'}
@@ -658,7 +658,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         {/* Hours display toggle — read-aid only; stored values stay minutes.
                             Flat .sv-idf-matrix-unit-toggle-row markup (TASK-1527) so the
                             checkbox sits flush-left next to its label, matching the Input
-                            sub-view (no .anuga-scenario-pane-label 130px gutter). */}
+                            sub-view (no .sv-anuga-scenario-pane-label 130px gutter). */}
                         <div className="sv-idf-matrix-unit-toggle-row">
                             <input
                                 id="idf-matrix-show-hours"

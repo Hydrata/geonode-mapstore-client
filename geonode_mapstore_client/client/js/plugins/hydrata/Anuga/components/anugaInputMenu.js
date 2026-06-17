@@ -885,9 +885,9 @@ class TerrainHierarchyRow extends React.Component {
             demExtraActions.push({
                 key: 'terrain-mode',
                 render: () => (
-                    <span className="anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
+                    <span className="sv-anuga-terrain-mode-toggle" data-testid="terrain-mode-toggle">
                         <button
-                            className={`btn btn-xs anuga-terrain-mode-btn anuga-terrain-icon-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
+                            className={`btn btn-xs sv-anuga-terrain-mode-btn sv-anuga-terrain-icon-btn ${isDynamic ? 'btn-primary' : 'btn-default'}`}
                             title={isDynamic
                                 ? 'Mode: Dynamic — switch to Traditional (static colour relief, GWC tiled)'
                                 : 'Mode: Traditional — switch to Dynamic (live ramp rescale on pan/zoom)'}
@@ -908,9 +908,9 @@ class TerrainHierarchyRow extends React.Component {
             demExtraActions.push({
                 key: 'terrain-contours',
                 render: () => (
-                    <span className="anuga-terrain-contour-toggle" data-testid="terrain-contour-toggle">
+                    <span className="sv-anuga-terrain-contour-toggle" data-testid="terrain-contour-toggle">
                         <button
-                            className={`btn btn-xs anuga-terrain-mode-btn anuga-terrain-icon-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
+                            className={`btn btn-xs sv-anuga-terrain-mode-btn sv-anuga-terrain-icon-btn ${contoursEnabled ? 'btn-primary' : 'btn-default'}`}
                             title={contoursEnabled
                                 ? 'Contours: On — hide contour overlay (GWC-cached ras:Contour, 100 m interval)'
                                 : 'Contours: Off — show contour overlay (GWC-cached ras:Contour, 100 m interval)'}
@@ -1630,14 +1630,14 @@ class AnugaInputMenuClass extends React.Component {
     renderPaneEmpty(emptyMsgId, isInitializing) {
         return (
             <div
-                className="row sv-menu-row anuga-section-empty-row"
+                className="row sv-menu-row sv-anuga-section-empty-row"
                 aria-busy={isInitializing ? "true" : undefined}
                 aria-live={isInitializing ? "polite" : undefined}
             >
                 {isInitializing ? (
                     <React.Fragment>
-                        <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
-                        <span className={"anuga-pending-status"}>
+                        <Spinner color="#888" className="sv-anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                        <span className={"sv-anuga-pending-status"}>
                             <Message msgId="hydrata.anuga.pendingLayerLabel" />
                         </span>
                     </React.Fragment>
@@ -1654,7 +1654,7 @@ class AnugaInputMenuClass extends React.Component {
     // bare renderPaneEmpty single-line state.
     renderTerrainEmpty() {
         return (
-            <div className="row sv-menu-row anuga-section-empty-row anuga-terrain-empty-help">
+            <div className="row sv-menu-row sv-anuga-section-empty-row sv-anuga-terrain-empty-help">
                 <Message msgId="hydrata.anuga.noTerrainHelp" />
             </div>
         );
@@ -1664,13 +1664,13 @@ class AnugaInputMenuClass extends React.Component {
         return (
             <div
                 key={`pending-${item?.id || idx}`}
-                className={"row sv-menu-row anuga-pending-row"}
+                className={"row sv-menu-row sv-anuga-pending-row"}
                 aria-busy="true"
                 aria-live="polite"
             >
-                <Spinner color="#888" className="anuga-pending-spinner" spinnerName="circle" noFadeIn/>
-                <span className={"anuga-pending-title"}>{item?.title}</span>
-                <span className={"anuga-pending-status"}>
+                <Spinner color="#888" className="sv-anuga-pending-spinner" spinnerName="circle" noFadeIn/>
+                <span className={"sv-anuga-pending-title"}>{item?.title}</span>
+                <span className={"sv-anuga-pending-status"}>
                     <Message msgId="hydrata.anuga.pendingLayerLabel" />
                 </span>
             </div>
@@ -1688,7 +1688,7 @@ class AnugaInputMenuClass extends React.Component {
                     aria-label={inputVisible ? "Save" : "Add new"}
                 />
                 {this.props.isCreatingAnugaLayer ? (
-                    <Spinner color="white" className="anuga-spinner" spinnerName="circle" noFadeIn/>
+                    <Spinner color="white" className="sv-anuga-spinner" spinnerName="circle" noFadeIn/>
                 ) : inputVisible ? (
                     <input
                         id={inputId}
@@ -1716,12 +1716,12 @@ class AnugaInputMenuClass extends React.Component {
     renderPaneHead(catId, actions) {
         const cat = CATEGORY_BY_ID[catId];
         return (
-            <div className="anuga-pane-toolbar">
-                <h3 className="anuga-pane-head-title">
+            <div className="sv-anuga-pane-toolbar">
+                <h3 className="sv-anuga-pane-head-title">
                     <Message msgId={cat.titleMsgId} />
                 </h3>
                 {actions ? (
-                    <span className="anuga-pane-head-actions">{actions}</span>
+                    <span className="sv-anuga-pane-head-actions">{actions}</span>
                 ) : null}
             </div>
         );
@@ -1968,11 +1968,11 @@ class AnugaInputMenuClass extends React.Component {
         const { expandedTerrainIds } = this.state;
 
         return (
-            <div className="sv-menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane sv-anuga-pane">
                 {this.renderPaneHead('terrain', actions)}
                 {/* TASK-1728 (W1.7): the terrain upload is non-blocking — its progress,
                     success, and failure surface on the W1.5 Tasks Panel, not here. */}
-                <div className="anuga-pane-rows">
+                <div className="sv-anuga-pane-rows">
                     {terrainGroups.length > 0 ? (
                         <TerrainListWithDragDrop
                             terrainGroups={terrainGroups}
@@ -2002,9 +2002,9 @@ class AnugaInputMenuClass extends React.Component {
                     #1 (re-UAT): with ZERO terrains there is nothing to merge into an analysis
                     surface, so the whole section is hidden until at least one terrain exists. */}
                 {projectId && (twTerrains || []).length >= 1 ? (
-                    <div className="anuga-terrain-recipe-section">
+                    <div className="sv-anuga-terrain-recipe-section">
                         <div
-                            className="anuga-terrain-recipe-toggle"
+                            className="sv-anuga-terrain-recipe-toggle"
                             role="button"
                             tabIndex={0}
                             onClick={() => {
@@ -2026,7 +2026,7 @@ class AnugaInputMenuClass extends React.Component {
                             Analysis Surfaces
                         </div>
                         {twSurfaceSectionOpen && (
-                            <div className="anuga-terrain-recipe-body">
+                            <div className="sv-anuga-terrain-recipe-body">
                                 {twLoading && <div className="sv-tw-loading">Loading…</div>}
                                 {/* TASK-1674: tw-error -> shared ErrorStrip (testid kept on the wrapper). */}
                                 {twError && (
@@ -2082,9 +2082,9 @@ class AnugaInputMenuClass extends React.Component {
             ? this.renderCreateControls(catId, conf.titleKey, conf.createProp, conf.inputId, conf.trackEventName)
             : null;
         return (
-            <div className="sv-menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane sv-anuga-pane">
                 {this.renderPaneHead(catId, actions)}
-                <div className="anuga-pane-rows">
+                <div className="sv-anuga-pane-rows">
                     {layers.map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
                     {pending.map((item, idx) => this.renderPendingRow(item, idx))}
                     {(layers.length === 0 && pending.length === 0)
@@ -2118,9 +2118,9 @@ class AnugaInputMenuClass extends React.Component {
         const isMeshLayerAdded = (this.props.flatLayers || []).some(l => l?.name === MESH_RENDER_LAYER);
 
         return (
-            <div className="sv-menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane sv-anuga-pane">
                 {this.renderPaneHead('meshRegions', createActions)}
-                <div className="anuga-pane-rows">
+                <div className="sv-anuga-pane-rows">
                     {layers.map(l => <MenuRow key={l?.name || l?.id} layer={l}/>)}
                     {pending.map((item, idx) => this.renderPendingRow(item, idx))}
                     {(layers.length === 0 && pending.length === 0)
@@ -2162,9 +2162,9 @@ class AnugaInputMenuClass extends React.Component {
             </OverlayTrigger>
         );
         return (
-            <div className="sv-menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane sv-anuga-pane">
                 {this.renderPaneHead('frictionRasters', actions)}
-                <div className="anuga-pane-rows">
+                <div className="sv-anuga-pane-rows">
                     {layers.map(fr => <MenuRow key={fr?.name || fr?.id} layer={fr}/>)}
                     {layers.length === 0 ? this.renderPaneEmpty('hydrata.anuga.noFrictionRastersAvailable', false) : null}
                 </div>
@@ -2186,10 +2186,10 @@ class AnugaInputMenuClass extends React.Component {
     // `default:` and showed the Terrain pane.
     renderCulvertPane() {
         return (
-            <div className="sv-menu-rows-pane anuga-pane">
+            <div className="sv-menu-rows-pane sv-anuga-pane">
                 {this.renderPaneHead('culverts', null)}
-                <div className="anuga-pane-rows">
-                    <div className="row sv-menu-row anuga-section-empty-row">
+                <div className="sv-anuga-pane-rows">
+                    <div className="row sv-menu-row sv-anuga-section-empty-row">
                         <Message msgId="hydrata.anuga.culvertPlaceholder" />
                     </div>
                 </div>
@@ -2223,7 +2223,7 @@ class AnugaInputMenuClass extends React.Component {
         // rail+pane Miller layout takes over.
         const hasProjection = !!this.props.projectData?.projection;
         return (
-            <div id={'anuga-input-menu'} className={'simple-view-panel anuga-panel simple-view-panel--miller'}>
+            <div id={'anuga-input-menu'} className={'simple-view-panel sv-anuga-panel simple-view-panel--miller'}>
                 {this.props.starterPhase &&
                     <AnugaInputStarterCard
                         phase={this.props.starterPhase}

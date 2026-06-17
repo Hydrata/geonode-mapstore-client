@@ -76,9 +76,9 @@ describe('SimpleView FormRow chassis primitive (TASK-1759)', () => {
         });
 
         it('carries extraClassName alongside sv-form-row', (done) => {
-            ReactDOM.render(<FormRow label="T" extraClassName="anuga-scenario-pane-section" />, container, () => {
+            ReactDOM.render(<FormRow label="T" extraClassName="sv-anuga-scenario-pane-section" />, container, () => {
                 const el = container.querySelector('.sv-form-row');
-                expect(el.className).toInclude('anuga-scenario-pane-section');
+                expect(el.className).toInclude('sv-anuga-scenario-pane-section');
                 done();
             });
         });

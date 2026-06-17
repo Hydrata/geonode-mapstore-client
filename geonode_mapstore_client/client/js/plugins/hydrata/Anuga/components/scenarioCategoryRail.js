@@ -92,20 +92,20 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, 
 
     return (
         <div
-            className="anuga-scenario-category-rail"
+            className="sv-anuga-scenario-category-rail"
             role="tablist"
             aria-label={railAriaLabel}
         >
             {SECTIONS.map(section => (
                 <div
                     key={section.id}
-                    className={`anuga-scenario-category-section anuga-scenario-category-section-${section.id}`}
+                    className={`sv-anuga-scenario-category-section anuga-scenario-category-section-${section.id}`}
                 >
                     {ITEMS_BY_SECTION[section.id].map(cat => {
                         const isActive = cat.id === selectedCategoryId;
                         const progress = validateCategoryProgress(cat.id, scenario);
                         const className = [
-                            'anuga-scenario-category-item',
+                            'sv-anuga-scenario-category-item',
                             isActive ? 'is-active' : '',
                             progress.severity === 'err' ? 'is-alert' : '',
                             progress.severity === 'warn' ? 'is-warn' : ''
@@ -127,17 +127,17 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, 
                             >
                                 <span
                                     className={
-                                        'anuga-scenario-category-item-glyph glyphicon '
+                                        'sv-anuga-scenario-category-item-glyph glyphicon '
                                         + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
                                     }
                                     aria-hidden="true"
                                 />
-                                <span className="anuga-scenario-category-item-label">
+                                <span className="sv-anuga-scenario-category-item-label">
                                     <Message msgId={cat.msgId} />
                                 </span>
                                 <span
                                     className={
-                                        'anuga-scenario-category-item-tag'
+                                        'sv-anuga-scenario-category-item-tag'
                                         + (progress.severity === 'ok' ? ' is-ok' : '')
                                         + (progress.severity === 'warn' ? ' is-warn' : '')
                                         + (progress.severity === 'err' ? ' is-err' : '')
@@ -150,7 +150,7 @@ const ScenarioCategoryRail = ({scenario, selectedCategoryId, onSelectCategory}, 
                                         a backend snapshot cache). */}
                                     {progress.unsaved ? (
                                         <span
-                                            className="anuga-scenario-category-item-unsaved-dot"
+                                            className="sv-anuga-scenario-category-item-unsaved-dot"
                                             aria-label="unsaved changes"
                                         >
                                             *

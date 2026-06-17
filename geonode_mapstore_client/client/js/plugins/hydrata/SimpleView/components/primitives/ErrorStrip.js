@@ -7,14 +7,14 @@ import PropTypes from 'prop-types';
  * Phase-0 (TASK-1732) shared primitive: collapses the ≥6 divergent per-panel
  * error blocks into one token-backed widget so Phase-1 panel agents stop
  * hand-rolling a danger box each time:
- *   - Anuga Scenarios  .anuga-scenario-error-strip  (head + monospace <code> payload)
+ *   - Anuga Scenarios  .sv-anuga-scenario-error-strip  (head + monospace <code> payload)
  *   - SimpleView       .sv-menu-row-delete-error       (message + blocking <ul>)
  *   - TaskMonitor      .sv-tm-error-message         (bare message)
  *   - Terrain (TW)     .tw-error                    (saveError/deriveError/createError)
  *   - HGeval           .alert.alert-danger          (validationError/error)
  *   - Hydrology        .idf-derive-error            (derive validation)
  *
- * Best-of-breed source: anuga.css `.anuga-scenario-error-strip` (left-border red,
+ * Best-of-breed source: anuga.css `.sv-anuga-scenario-error-strip` (left-border red,
  * tinted bg, uppercase head, monospace payload). That structure is reproduced
  * here; the colour values are composed from the existing `--sv-*` tokens via an
  * inline `style` so the primitive is self-styled WITHOUT touching tokens.css or
@@ -36,7 +36,7 @@ import PropTypes from 'prop-types';
  */
 
 // Danger accent (the red left-border + heading + body text). Mirrors the
-// anuga-scenario-error-strip palette but expressed against the panel's danger
+// sv-anuga-scenario-error-strip palette but expressed against the panel's danger
 // token so a future token retune flows through automatically.
 const DANGER = 'var(--sv-text-danger, #ffb3b3)';
 

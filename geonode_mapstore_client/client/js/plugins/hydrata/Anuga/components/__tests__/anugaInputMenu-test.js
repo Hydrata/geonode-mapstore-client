@@ -20,7 +20,7 @@
  *   - With the TASK-1004 rail+pane Miller layout (W3/W4-plus), only one
  *     category pane is visible at a time. The test navigates the rail to
  *     each role-gated category (boundaries / inflows / rainfalls) and
- *     reads the `.anuga-pane-toolbar` for `.sv-glyph-active.glyphicon-plus`.
+ *     reads the `.sv-anuga-pane-toolbar` for `.sv-glyph-active.glyphicon-plus`.
  *     The same canEditAnugaMap gate is shared by every InputSection-style
  *     pane, so probing those three is sufficient to pin the matrix.
  *   - Each create button uses class .sv-glyph-active per renderCreateControls.
@@ -114,7 +114,7 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
         // TASK-1004 W4-plus rail+pane Miller layout — only ONE category
         // pane is visible at a time (the one matching rail-state
         // selectedCategory). Walk each role-gated rail item, click it to
-        // mount the pane, and probe the visible .anuga-pane-toolbar for the
+        // mount the pane, and probe the visible .sv-anuga-pane-toolbar for the
         // `.sv-glyph-active.glyphicon-plus` create button.
         const targets = [
             {railId: 'boundaries', label: 'boundary-create'},
@@ -126,7 +126,7 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
             const rail = container.querySelector(`[data-anuga-category="${t.railId}"]`);
             if (!rail) continue;
             rail.click(); // React 16 setState in event handler flushes synchronously
-            const toolbar = container.querySelector('.anuga-pane-toolbar');
+            const toolbar = container.querySelector('.sv-anuga-pane-toolbar');
             if (!toolbar) continue;
             if (toolbar.querySelector('.sv-glyph-active.glyphicon-plus')) {
                 buttons.push(t.label);
@@ -1195,7 +1195,7 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
 
     // #1: with ZERO terrains, the whole Analysis Surfaces section is absent.
     //     Walk the React-element tree returned by renderTerrainPane (avoids a full
-    //     connected mount) looking for the .anuga-terrain-recipe-section node.
+    //     connected mount) looking for the .sv-anuga-terrain-recipe-section node.
     function findClassInTree(el, cls) {
         if (!el || typeof el !== 'object') return false;
         if (Array.isArray(el)) return el.some(c => findClassInTree(c, cls));
@@ -1234,11 +1234,11 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
 
     it('#1: Analysis Surfaces section is ABSENT with zero terrains, PRESENT with >=1', () => {
         const treeZero = renderTerrainPaneTree([]);
-        expect(findClassInTree(treeZero, 'anuga-terrain-recipe-section'))
+        expect(findClassInTree(treeZero, 'sv-anuga-terrain-recipe-section'))
             .toBe(false, 'recipe section must not render with zero terrains');
 
         const treeOne = renderTerrainPaneTree([{ id: 11, title: 'Top DEM' }]);
-        expect(findClassInTree(treeOne, 'anuga-terrain-recipe-section'))
+        expect(findClassInTree(treeOne, 'sv-anuga-terrain-recipe-section'))
             .toBe(true, 'recipe section renders once at least one terrain exists');
     });
 });

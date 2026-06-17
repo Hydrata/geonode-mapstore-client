@@ -6,7 +6,7 @@ import PropTypes from 'prop-types';
  *
  * Best-of-breed sources:
  *   - `.simple-view-panel-header` (simpleView.css): font-size:x-large, border-bottom
- *   - `.anuga-pane-toolbar` / `.anuga-pane-head-title` (anuga.css): flex, gap:6px,
+ *   - `.sv-anuga-pane-toolbar` / `.sv-anuga-pane-head-title` (anuga.css): flex, gap:6px,
  *     padding 6px 8px, border-bottom rgba(255,255,255,0.18), dim bg rgba(0,0,0,0.10)
  *   - `.sv-tm-header` / `.sv-tm-title` (simpleView.css): TaskMonitor header
  *   - `.sv-legend-header` (simpleView.css): flex, justify-content:space-between
@@ -15,13 +15,13 @@ import PropTypes from 'prop-types';
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
  *   1. SimpleView         — .simple-view-panel-header / .sv-legend-header
- *   2. Anuga/Scenarios    — .anuga-pane-toolbar + .anuga-pane-head-title
+ *   2. Anuga/Scenarios    — .sv-anuga-pane-toolbar + .sv-anuga-pane-head-title
  *   3. Hydrology          — .hydrology-miller-header
  *   4. HGeval             — .hgeval-header
  *   5. TaskMonitor        — .sv-tm-header / .sv-tm-title
  *   6. VectorDraw         — inherits the .simple-view-panel-header pattern
  *   7. Swamm              — panel header row pattern
- *   8. TerrainWorkbench   — anuga-pane-toolbar usage
+ *   8. TerrainWorkbench   — sv-anuga-pane-toolbar usage
  * Total: 8 consumers.
  *
  * CRITICAL — close chip position:static safety:
@@ -42,7 +42,7 @@ import PropTypes from 'prop-types';
  *   <PanelHeader title="Scenarios" onClose={handleClose} />
  *
  *   <PanelHeader title="Terrain Inputs" onClose={handleClose}>
- *     <button className="anuga-btn" onClick={handleNew}>+ New</button>
+ *     <button className="sv-anuga-btn" onClick={handleNew}>+ New</button>
  *   </PanelHeader>
  *
  *   // No close button (legend-style panels with an external close):

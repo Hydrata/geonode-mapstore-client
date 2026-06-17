@@ -72,9 +72,9 @@ describe('SimpleView Section chassis primitive (TASK-1759)', () => {
         });
 
         it('carries extraClassName alongside sv-section', (done) => {
-            ReactDOM.render(<Section title="T" extraClassName="anuga-section" />, container, () => {
+            ReactDOM.render(<Section title="T" extraClassName="sv-anuga-section" />, container, () => {
                 const el = container.querySelector('.sv-section');
-                expect(el.className).toInclude('anuga-section');
+                expect(el.className).toInclude('sv-anuga-section');
                 done();
             });
         });

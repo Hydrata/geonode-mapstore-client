@@ -6,11 +6,11 @@ import PropTypes from 'prop-types';
  *
  * Phase-0 (TASK-1732) shared primitive: collapses the divergent per-panel empty
  * blocks into one token-backed widget (rule-of-three met by these consumers):
- *   - Anuga Scenarios  .anuga-scenario-rail-empty  (glyph + heading + subcopy)
+ *   - Anuga Scenarios  .sv-anuga-scenario-rail-empty  (glyph + heading + subcopy)
  *   - TaskMonitor      .sv-tm-empty                (bare text)
  *   - Terrain (TW)     .tw-empty-hint              ("No analysis surfaces yet…")
  *
- * Best-of-breed source: anuga.css `.anuga-scenario-rail-empty` — a centred
+ * Best-of-breed source: anuga.css `.sv-anuga-scenario-rail-empty` — a centred
  * glyph + heading + subcopy column. The dim text colour is composed from the
  * existing `--sv-text-dim` token via an inline `style`, so the primitive is
  * self-styled WITHOUT touching tokens.css or any panel stylesheet, and is

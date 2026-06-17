@@ -55,10 +55,10 @@ describe('SimpleView PanelShell chassis primitive (TASK-1759)', () => {
         });
 
         it('carries extraClassName alongside sv-panel-shell', (done) => {
-            ReactDOM.render(<PanelShell extraClassName="anuga-panel" />, container, () => {
+            ReactDOM.render(<PanelShell extraClassName="sv-anuga-panel" />, container, () => {
                 const el = container.querySelector('.sv-panel-shell');
                 expect(el.className).toInclude('sv-panel-shell');
-                expect(el.className).toInclude('anuga-panel');
+                expect(el.className).toInclude('sv-anuga-panel');
                 done();
             });
         });

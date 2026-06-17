@@ -12,7 +12,7 @@ import {
 import Message from '@mapstore/framework/components/I18N/Message';
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 // SectionHeader primitive — Swamm uses the baseline class set
-// (row/sv-menu-row/sv-menu-row-header) WITHOUT `anuga-section-header` (that
+// (row/sv-menu-row/sv-menu-row-header) WITHOUT `sv-anuga-section-header` (that
 // class lives in Anuga/anuga.css and swammInputMenu does not import it).
 // The Swamm-specific width/border are passed via inline `style`.
 import {SectionHeader} from "../../SimpleView/components/primitives";

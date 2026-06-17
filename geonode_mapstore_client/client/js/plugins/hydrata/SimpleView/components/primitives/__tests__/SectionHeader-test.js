@@ -40,11 +40,11 @@ describe('SimpleView SectionHeader primitive (TASK-1007 W3, tested in W4)', () =
 
         it('appends extraClassName separated by a single space', (done) => {
             ReactDOM.render(
-                <SectionHeader extraClassName="anuga-section-header"/>,
+                <SectionHeader extraClassName="sv-anuga-section-header"/>,
                 container,
                 () => {
                     expect(container.firstChild.className)
-                        .toBe('row sv-menu-row sv-menu-row-header anuga-section-header');
+                        .toBe('row sv-menu-row sv-menu-row-header sv-anuga-section-header');
                     done();
                 }
             );

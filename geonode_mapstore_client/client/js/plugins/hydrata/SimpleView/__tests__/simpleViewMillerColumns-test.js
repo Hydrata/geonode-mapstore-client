@@ -426,7 +426,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
             // Render a foreign node into the sibling first to assert it
             // survives a MenuRows mount + unmount cycle untouched.
             ReactDOM.render(
-                <span className="anuga-section-header">test</span>,
+                <span className="sv-anuga-section-header">test</span>,
                 sibling
             );
             const layers = [
@@ -442,7 +442,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                 localContainer,
                 () => {
                     expect(localContainer.querySelector('.sv-category-rail')).toExist();
-                    expect(sibling.querySelector('.anuga-section-header')).toExist();
+                    expect(sibling.querySelector('.sv-anuga-section-header')).toExist();
                     expect(sibling.querySelector('.sv-category-rail')).toNotExist();
                     ReactDOM.unmountComponentAtNode(sibling);
                     container = localContainer;

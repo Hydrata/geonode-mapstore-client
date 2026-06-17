@@ -4,7 +4,7 @@
  *
  * TASK-1657: the standalone TerrainWorkbench panel shell was dissolved (TASK-1645)
  * and its dead chrome rules (.terrain-workbench-panel / -nav / -body / -stub) were
- * removed. The .sv-tw-* and .anuga-terrain-recipe-* rules below remain LIVE — they
+ * removed. The .sv-tw-* and .sv-anuga-terrain-recipe-* rules below remain LIVE — they
  * style the recipe builder re-homed into the Anuga Inputs pane.
  *
  * TASK-1765 (W1.9, epic/1587): tw-/terrain- prefixes migrated to sv-tw- to conform
@@ -40,7 +40,7 @@
 /* Expander: "Analysis Surfaces" collapsible section under the terrain layers.
  * text-align:left overrides .simple-view-panel's inherited center for the whole
  * recipe builder (labels, hints, buttons) — matches the Scenarios pane. */
-.anuga-terrain-recipe-section {
+.sv-anuga-terrain-recipe-section {
     border-top: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     margin-top: 4px;
     flex-shrink: 0;
@@ -48,7 +48,7 @@
     font-family: var(--sv-font-family);
 }
 
-.anuga-terrain-recipe-toggle {
+.sv-anuga-terrain-recipe-toggle {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -63,20 +63,20 @@
     outline: none;
 }
 
-.anuga-terrain-recipe-toggle:hover {
+.sv-anuga-terrain-recipe-toggle:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 
-.anuga-terrain-recipe-toggle:focus-visible {
+.sv-anuga-terrain-recipe-toggle:focus-visible {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
-.anuga-terrain-recipe-toggle .glyphicon {
+.sv-anuga-terrain-recipe-toggle .glyphicon {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.6);
 }
 
-.anuga-terrain-recipe-body {
+.sv-anuga-terrain-recipe-body {
     padding: 8px 10px 14px;
     max-height: 60vh;
     overflow-y: auto;
@@ -233,7 +233,7 @@
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* ── Stale pill — mirrors .anuga-scenario-category-item-tag.is-warn ──────── */
+/* ── Stale pill — mirrors .sv-anuga-scenario-category-item-tag.is-warn ──────── */
 .sv-tw-stale-badge {
     font-size: 10px;
     font-family: var(--sv-font-family);
@@ -257,7 +257,7 @@
     padding-top: 4px;
 }
 
-/* Header — mirrors .anuga-scenario-pane-detail-head */
+/* Header — mirrors .sv-anuga-scenario-pane-detail-head */
 .sv-tw-recipe-header {
     display: flex;
     align-items: center;
@@ -291,7 +291,7 @@
     color: rgba(255, 255, 255, 0.45);
 }
 
-/* Section labels — mirror .anuga-scenario-category-section-label (uppercase, dim) */
+/* Section labels — mirror .sv-anuga-scenario-category-section-label (uppercase, dim) */
 .sv-tw-label {
     display: block;
     font-size: 10px;
@@ -434,7 +434,7 @@
     margin-top: 4px;
 }
 
-/* Parameter rows — label + value rhythm (echoes .anuga-scenario-pane-section) */
+/* Parameter rows — label + value rhythm (echoes .sv-anuga-scenario-pane-section) */
 .sv-tw-params-section {
     margin-bottom: 12px;
 }
@@ -486,7 +486,7 @@
     cursor: not-allowed;
 }
 
-/* Secondary "Save" buttons — mirror .anuga-btn-compare (muted blue) */
+/* Secondary "Save" buttons — mirror .sv-anuga-btn-compare (muted blue) */
 .sv-tw-save-btn {
     padding: 3px 12px;
     font-size: var(--sv-font-size);
@@ -538,7 +538,7 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* Derive in-progress note — info strip (echoes .anuga-scenario-pane-readonly-hint) */
+/* Derive in-progress note — info strip (echoes .sv-anuga-scenario-pane-readonly-hint) */
 .sv-tw-derive-progress {
     font-size: 11.5px;
     font-family: var(--sv-font-family);
@@ -550,7 +550,7 @@
     border-radius: 3px;
 }
 
-/* Seam QA — mirrors .anuga-scenario-resource-summary / status card */
+/* Seam QA — mirrors .sv-anuga-scenario-resource-summary / status card */
 .sv-tw-seam-qa {
     margin-top: 12px;
     padding: 8px 10px;
@@ -578,7 +578,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Error strip — mirrors .anuga-scenario-error-strip */
+/* Error strip — mirrors .sv-anuga-scenario-error-strip */
 .sv-tw-error {
     font-size: 11.5px;
     font-family: var(--sv-font-family);
@@ -733,7 +733,7 @@
 }
 
 /* #5: icon-only Mode + Contours buttons. Square, glyph-centred, no text label. */
-.anuga-terrain-icon-btn.btn {
+.sv-anuga-terrain-icon-btn.btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -742,7 +742,7 @@
     padding: 0;
 }
 
-.anuga-terrain-icon-btn.btn .glyphicon {
+.sv-anuga-terrain-icon-btn.btn .glyphicon {
     font-size: 12px;
     top: 0;
 }

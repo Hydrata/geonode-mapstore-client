@@ -6,7 +6,7 @@
  * TASK-1648 (W1.5) — Idempotent draw cleanup on all exit paths.
  *
  * The panel is a single panel: draw → review inline → confirm. The separate
- * .anuga-scenario-confirm-dialog popup (renderConfirmDialog) is dissolved;
+ * .sv-anuga-scenario-confirm-dialog popup (renderConfirmDialog) is dissolved;
  * after drawing the bbox the review details appear directly in the panel body.
  */
 import React from 'react';

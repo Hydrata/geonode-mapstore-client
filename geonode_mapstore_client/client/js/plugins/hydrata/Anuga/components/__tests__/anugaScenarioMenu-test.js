@@ -7,18 +7,18 @@
  * Anchors:
  *   - Header action strip composition (3 or 4 buttons in the right order).
  *   - + New Scenario dispatches addAnugaScenario via the new class hook.
- *   - Compare-mode toggle (`.anuga-btn-compare`) flips local state, gets
+ *   - Compare-mode toggle (`.sv-anuga-btn-compare`) flips local state, gets
  *     `.is-active` when on, and clears `selected` flags via
  *     toggleScenarioSelected when leaving compare mode.
  *   - Execute Compare button (`.anuga-btn-run-compare`) only renders when
  *     `compareMode && readyToCompare`, and dispatches COMPARE_SCENARIOS.
- *   - Duplicate header button (`.anuga-btn-duplicate-header`) is disabled
+ *   - Duplicate header button (`.sv-anuga-btn-duplicate-header`) is disabled
  *     without a saved selected scenario and opens the inline confirm
  *     dialog when clicked with one.
  *   - Wave 3C C3: Close X removed per operator decision D3 — top-tab
  *     switch on anugaContainer.js handles panel close + polling stop. The
  *     panel header MUST NOT render a .sv-legend-close element.
- *   - Category rail regression: 4 items, no `.anuga-scenario-category-section-label`.
+ *   - Category rail regression: 4 items, no `.sv-anuga-scenario-category-section-label`.
  *
  * Memory pin guardrails:
  *   - feedback-mapstore-react-version-mismatch: use simple
@@ -118,8 +118,8 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             // 3 buttons rendered (no run-compare).
             expect(btns.length).toBe(3);
             expect(btns[0].className).toInclude('anuga-btn-new-scenario');
-            expect(btns[1].className).toInclude('anuga-btn-compare');
-            expect(btns[2].className).toInclude('anuga-btn-duplicate-header');
+            expect(btns[1].className).toInclude('sv-anuga-btn-compare');
+            expect(btns[2].className).toInclude('sv-anuga-btn-duplicate-header');
             // run-compare absent.
             expect(strip.querySelector('.anuga-btn-run-compare')).toNotExist();
         });
@@ -135,8 +135,8 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             );
             expect(container.querySelector('.anuga-btn-new-scenario')).toNotExist();
             // Compare + Duplicate still render.
-            expect(container.querySelector('.anuga-btn-compare')).toExist();
-            expect(container.querySelector('.anuga-btn-duplicate-header')).toExist();
+            expect(container.querySelector('.sv-anuga-btn-compare')).toExist();
+            expect(container.querySelector('.sv-anuga-btn-duplicate-header')).toExist();
         });
     });
 
@@ -171,13 +171,13 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     // Compare-mode toggle
     // ----------------------------------------------------------------
     describe('Compare-mode toggle', () => {
-        it('renders .anuga-btn-compare without .is-active by default', () => {
+        it('renders .sv-anuga-btn-compare without .is-active by default', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const compareBtn = container.querySelector('.anuga-btn-compare');
+            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
             expect(compareBtn).toExist();
             expect(compareBtn.className).toNotInclude('is-active');
         });
@@ -190,7 +190,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const compareBtn = container.querySelector('.anuga-btn-compare');
+            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
             const hiddenBefore = container.querySelectorAll('.scenario-rail-item-compare-checkbox.is-hidden');
             expect(hiddenBefore.length).toBe(2);
             compareBtn.click();
@@ -199,7 +199,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                     '.scenario-rail-item-compare-checkbox:not(.is-hidden)'
                 );
                 expect(visibleAfter.length).toBe(2);
-                const compareBtnAfter = container.querySelector('.anuga-btn-compare');
+                const compareBtnAfter = container.querySelector('.sv-anuga-btn-compare');
                 expect(compareBtnAfter.className).toInclude('is-active');
                 done();
             });
@@ -213,10 +213,10 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const compareBtn = container.querySelector('.anuga-btn-compare');
+            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
             compareBtn.click(); // enter compare
             setTimeout(() => {
-                const compareBtn2 = container.querySelector('.anuga-btn-compare');
+                const compareBtn2 = container.querySelector('.sv-anuga-btn-compare');
                 compareBtn2.click(); // leave compare → should clear flags
                 setTimeout(() => {
                     const toggles = store.__actions().filter(a => a?.type === 'TOGGLE_SCENARIO_SELECTED');
@@ -249,7 +249,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const compareBtn = container.querySelector('.anuga-btn-compare');
+            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
             compareBtn.click();
             setTimeout(() => {
                 expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
@@ -267,7 +267,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             );
             // Before compare-toggle click, button is not rendered.
             expect(container.querySelector('.anuga-btn-run-compare')).toNotExist();
-            const compareBtn = container.querySelector('.anuga-btn-compare');
+            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
             compareBtn.click();
             setTimeout(() => {
                 expect(container.querySelector('.anuga-btn-run-compare')).toExist();
@@ -283,7 +283,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const compareBtn = container.querySelector('.anuga-btn-compare');
+            const compareBtn = container.querySelector('.sv-anuga-btn-compare');
             compareBtn.click();
             setTimeout(() => {
                 const runCompare = container.querySelector('.anuga-btn-run-compare');
@@ -297,7 +297,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     });
 
     // ----------------------------------------------------------------
-    // Duplicate header button (.anuga-btn-duplicate-header)
+    // Duplicate header button (.sv-anuga-btn-duplicate-header)
     // ----------------------------------------------------------------
     describe('Duplicate header button', () => {
         it('renders and is disabled when no selectedScenario.id', () => {
@@ -307,7 +307,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.anuga-btn-duplicate-header');
+            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
             expect(dupBtn).toExist();
             expect(dupBtn.disabled).toBe(true);
             expect(dupBtn.className).toInclude('disabled');
@@ -320,7 +320,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.anuga-btn-duplicate-header');
+            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
             expect(dupBtn).toExist();
             expect(dupBtn.disabled).toBe(false);
             expect(dupBtn.className).toNotInclude('disabled');
@@ -334,13 +334,13 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 container
             );
             // Dialog is always rendered; .is-open toggles via CSS.
-            const dialog = container.querySelector('.anuga-scenario-confirm-dialog');
+            const dialog = container.querySelector('.sv-anuga-scenario-confirm-dialog');
             expect(dialog).toExist();
             expect(dialog.className).toNotInclude('is-open');
-            const dupBtn = container.querySelector('.anuga-btn-duplicate-header');
+            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
             dupBtn.click();
             setTimeout(() => {
-                const dialogAfter = container.querySelector('.anuga-scenario-confirm-dialog');
+                const dialogAfter = container.querySelector('.sv-anuga-scenario-confirm-dialog');
                 expect(dialogAfter.className).toInclude('is-open');
                 done();
             });
@@ -352,12 +352,12 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const dupBtn = container.querySelector('.anuga-btn-duplicate-header');
+            const dupBtn = container.querySelector('.sv-anuga-btn-duplicate-header');
             // .click() on a `disabled` button is a no-op in JSDOM (no event fires).
             // Defensive: even if it did fire, openConfirm is gated on canDuplicateNow.
             dupBtn.click();
             setTimeout(() => {
-                const dialog = container.querySelector('.anuga-scenario-confirm-dialog');
+                const dialog = container.querySelector('.sv-anuga-scenario-confirm-dialog');
                 expect(dialog.className).toNotInclude('is-open');
                 done();
             });
@@ -375,18 +375,18 @@ describe('anugaScenarioMenu — header strip wiring', () => {
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const items = container.querySelectorAll('.anuga-scenario-category-item');
+            const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
             expect(items.length).toBe(3); // TASK-1416: merged run (was 4)
         });
 
-        it('does NOT render .anuga-scenario-category-section-label anywhere', () => {
+        it('does NOT render .sv-anuga-scenario-category-section-label anywhere', () => {
             const s1 = makeScenario(21, 'Baseline');
             const store = makeStore({scenariosArr: [s1]});
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            const labels = container.querySelectorAll('.anuga-scenario-category-section-label');
+            const labels = container.querySelectorAll('.sv-anuga-scenario-category-section-label');
             expect(labels.length).toBe(0);
         });
     });

@@ -10,7 +10,7 @@ import PropTypes from 'prop-types';
  *   - `.temporal-pattern-table` (hydrology.css): same pattern as idf-table
  *   - `.time-series-table` (hydrology.css): same family
  *   - `.idf-matrix-table` (hydrology.css): border-collapse, font-size:11px
- *   - `.anuga-built-mesh-roster-table` (anuga.css): width:100%, font-size:11px,
+ *   - `.sv-anuga-built-mesh-roster-table` (anuga.css): width:100%, font-size:11px,
  *     color rgba(255,255,255,0.80), border-collapse
  *   - `.run-server-table` / `.network-table` (anuga.css): margin-bottom:0, text-align:center
  *   - `.hgeval-section .table` (hgeval.css): margin-bottom:0, font-size:12px,
@@ -19,7 +19,7 @@ import PropTypes from 'prop-types';
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
  *   1. Hydrology  — idf-table, temporal-pattern-table, time-series-table, idf-matrix-table
- *   2. Anuga      — anuga-built-mesh-roster-table, run-server-table, network-table
+ *   2. Anuga      — sv-anuga-built-mesh-roster-table, run-server-table, network-table
  *   3. HGeval     — hgeval-section .table (results table)
  *   4. Swamm      — swamm network/BMP data tables
  *   5. VectorDraw — attribute popup tables

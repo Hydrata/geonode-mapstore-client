@@ -147,12 +147,12 @@ describe('TASK-743 AnugaProjectList DOM', () => {
         const { container } = mountWithProviders(
             <AnugaProjectList
                 resources={[]}
-                header={<div className="anuga-projects-header-probe">My Header</div>}
+                header={<div className="sv-anuga-projects-header-probe">My Header</div>}
                 onLoad={noop}
                 loadFeaturedResources={noop}
             />
         );
-        const header = container.querySelector('.anuga-projects-header-probe');
+        const header = container.querySelector('.sv-anuga-projects-header-probe');
         expect(header).toExist();
         expect(header.textContent).toBe('My Header');
     });

@@ -11,10 +11,10 @@ import {findScenarioStatus} from './scenarioHelpers';
  *
  * TASK-1730 (Phase-C rollout) — PARITY-migrated onto the shared
  * {ErrorStrip} primitive. The primitive was harvested FROM this very
- * `.anuga-scenario-error-strip` (left-border red + tinted bg + uppercase
+ * `.sv-anuga-scenario-error-strip` (left-border red + tinted bg + uppercase
  * head + monospace `<code>` payload), so the structure is unchanged: the
  * outer `role="alert"` div is preserved and still carries the
- * `anuga-scenario-error-strip` class (via `extraClassName`) for the legacy
+ * `sv-anuga-scenario-error-strip` class (via `extraClassName`) for the legacy
  * CSS + scenarioPane assertions, while the inner head/payload hooks
  * canonicalise to `sv-error-strip-head` / `sv-error-strip-payload`.
  *
@@ -37,7 +37,7 @@ const ScenarioErrorStrip = ({scenario}) => {
 
     return (
         <ErrorStrip
-            extraClassName="anuga-scenario-error-strip"
+            extraClassName="sv-anuga-scenario-error-strip"
             head={<Message msgId="hydrata.anuga.runFailedHead" />}
             payload={errorMessage || <Message msgId="hydrata.anuga.statusError" />}
         />

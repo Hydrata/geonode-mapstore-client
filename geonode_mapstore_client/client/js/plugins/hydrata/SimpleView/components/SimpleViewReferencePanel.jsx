@@ -165,7 +165,7 @@ class SimpleViewReferencePanel extends React.Component {
                     <SectionHeader>
                         <h5>Default section header</h5>
                     </SectionHeader>
-                    <SectionHeader extraClassName="anuga-section-header">
+                    <SectionHeader extraClassName="sv-anuga-section-header">
                         <h5>With extraClassName</h5>
                     </SectionHeader>
                     <Note type="do">SectionHeader always wraps children — it applies .row.sv-menu-row.sv-menu-row-header.</Note>
@@ -227,7 +227,7 @@ class SimpleViewReferencePanel extends React.Component {
                     <Section title="Boxed section" variant="boxed">
                         <span style={{ color: 'var(--sv-text-dim)', fontSize: 11 }}>Content inside a boxed Section</span>
                     </Section>
-                    <Note type="do">Use Section to group form fields under a titled separator. variant="boxed" matches anuga-section style.</Note>
+                    <Note type="do">Use Section to group form fields under a titled separator. variant="boxed" matches sv-anuga-section style.</Note>
                 </Section>
 
                 <Section title="Chassis: Card (sv-card)">
@@ -287,7 +287,7 @@ class SimpleViewReferencePanel extends React.Component {
                     <FormRow label="Latitude" layout="stacked">
                         <input type="number" defaultValue="24.33" style={{ width: 120 }} />
                     </FormRow>
-                    <Note type="do">FormRow inline (default): 130px label + flex:1 field — matches anuga-scenario-pane-section. stacked: label above.</Note>
+                    <Note type="do">FormRow inline (default): 130px label + flex:1 field — matches sv-anuga-scenario-pane-section. stacked: label above.</Note>
                     <Note type="dont">Don{"'"}t hand-roll label+input flex rows — they diverge in width and text-align across panels.</Note>
                 </Section>
 

@@ -41,7 +41,7 @@ class NetworkMenuClass extends React.Component {
 
     render() {
         return (
-            <div id={'anuga-network-container'} className={'simple-view-panel anuga-panel'}>
+            <div id={'anuga-network-container'} className={'simple-view-panel sv-anuga-panel'}>
                 <div className={'sv-menu-rows-container'}>
                     <PanelHeader
                         extraClassName="sv-menu-row-header"
@@ -164,7 +164,7 @@ class NetworkMenuClass extends React.Component {
                                                         <Button
                                                             bsStyle={'success'}
                                                             bsSize={'xsmall'}
-                                                            className={"anuga-btn" + (network?.unsaved ? '' : ' disabled')}
+                                                            className={"sv-anuga-btn" + (network?.unsaved ? '' : ' disabled')}
                                                             onClick={() => {
                                                                 if (network?.unsaved) {
                                                                     this.props.saveNetwork(network);
@@ -176,7 +176,7 @@ class NetworkMenuClass extends React.Component {
                                                         <Button
                                                             bsStyle={'success'}
                                                             bsSize={'xsmall'}
-                                                            className="anuga-btn"
+                                                            className="sv-anuga-btn"
                                                             onClick={() => {
                                                                 this.props.runNetwork(network);
                                                             }}
