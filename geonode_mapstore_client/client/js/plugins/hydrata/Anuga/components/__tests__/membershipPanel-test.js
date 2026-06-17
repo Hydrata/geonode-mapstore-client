@@ -139,7 +139,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
             expect(container.querySelectorAll('.change-role-btn').length).toBe(2);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(2);
             // No warning banner
-            expect(container.querySelector('.membership-perms-warning')).toBe(null);
+            expect(container.querySelector('.sv-membership-perms-warning')).toBe(null);
         });
     });
 
@@ -168,7 +168,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
             expect(container.querySelector('.invite-member')).toBe(null);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(0);
             // Visibility section also hidden (canAdd-gated)
-            expect(container.querySelector('.membership-visibility')).toBe(null);
+            expect(container.querySelector('.sv-membership-visibility')).toBe(null);
         });
     });
 
@@ -209,7 +209,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
             expect(container.querySelectorAll('.change-role-btn').length).toBe(0);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(0);
             // Warning banner is visible explaining read-only mode
-            expect(container.querySelector('.membership-perms-warning')).toExist();
+            expect(container.querySelector('.sv-membership-perms-warning')).toExist();
             expect(container.querySelector('.alert.alert-warning')).toExist();
         });
     });
@@ -218,7 +218,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
         return mountPanel({ role: 'owner', layerCount: 1, permsLoadFailed: true }).then(() => {
             // Visibility section is owner-only and destructive — must not
             // render in the read-only fallback even for owners.
-            expect(container.querySelector('.membership-visibility')).toBe(null);
+            expect(container.querySelector('.sv-membership-visibility')).toBe(null);
         });
     });
 
@@ -239,7 +239,7 @@ describe('V2P-24 membershipPanel role-gated UI', () => {
             expect(container.querySelectorAll('.change-role-btn').length).toBe(2);
             expect(container.querySelectorAll('.remove-member-btn').length).toBe(2);
             // Visibility section visible for owner (was canManage-gated; now canAdd-gated)
-            expect(container.querySelector('.membership-visibility')).toExist();
+            expect(container.querySelector('.sv-membership-visibility')).toExist();
         });
     });
 });
@@ -291,7 +291,7 @@ describe('TASK-860 W3 — email-invite gating, pending-invitations, throttle, i1
             expect(sendBtn).toExist();
             expect(sendBtn.disabled).toBe(true);
             // Disabled banner shown when invitationsEnabled=false
-            expect(container.querySelector('.membership-invite-disabled')).toExist();
+            expect(container.querySelector('.sv-membership-invite-disabled')).toExist();
         });
     });
 
@@ -385,7 +385,7 @@ describe('TASK-860 W3 — email-invite gating, pending-invitations, throttle, i1
             rows.forEach(row => {
                 // Each row has a role badge and action buttons, NOT a
                 // "registered user" indicator cell
-                expect(row.querySelector('.badge-role')).toExist();
+                expect(row.querySelector('.sv-badge-role')).toExist();
                 expect(row.querySelector('.registered-indicator')).toBe(null);
             });
         });

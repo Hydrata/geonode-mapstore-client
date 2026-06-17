@@ -13,7 +13,7 @@ import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 // TASK-1764 (epic-1758 W1) — chassis PanelHeader (cascade-safe close chip,
 // replaces the bespoke .legend-close span) + chassis Table (dark-glass surface,
-// .network-table rides extraClassName). No test pins the networkMenu DOM.
+// .sv-network-table rides extraClassName). No test pins the networkMenu DOM.
 import {PanelHeader, Table as ChassisTable} from '../../SimpleView/components/primitives';
 
 class NetworkMenuClass extends React.Component {
@@ -52,9 +52,9 @@ class NetworkMenuClass extends React.Component {
                     />
                     <div className={"row"}>
                         <div>
-                            <ChassisTable surface="dark" extraClassName="network-table">
+                            <ChassisTable surface="dark" extraClassName="sv-network-table">
                                 <thead>
-                                    <tr className={"network-table-header"}>
+                                    <tr className={"sv-network-table-header"}>
                                         <th><Message msgId="hydrata.anuga.id" /></th>
                                         <th><Message msgId="hydrata.anuga.name" /></th>
                                         <th><Message msgId="hydrata.anuga.terrain" /></th>

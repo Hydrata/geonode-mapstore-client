@@ -71,7 +71,7 @@ describe('W7 RunPollingPausedBanner', () => {
                 <Provider store={store}><RunPollingPausedBanner /></Provider>,
                 container,
                 () => {
-                    const banner = container.querySelector('.run-polling-paused-banner');
+                    const banner = container.querySelector('.sv-run-polling-paused-banner');
                     expect(banner).toExist();
                     expect(container.querySelector('.run-polling-paused-resume')).toExist();
                     done();
@@ -91,7 +91,7 @@ describe('W7 RunPollingPausedBanner', () => {
                 <Provider store={store}><RunPollingPausedBanner /></Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.run-polling-paused-banner')).toNotExist();
+                    expect(container.querySelector('.sv-run-polling-paused-banner')).toNotExist();
                     done();
                 }
             );
@@ -112,7 +112,7 @@ describe('W7 RunPollingPausedBanner', () => {
                 <Provider store={store}><RunPollingPausedBanner /></Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.run-polling-paused-banner')).toNotExist();
+                    expect(container.querySelector('.sv-run-polling-paused-banner')).toNotExist();
                     done();
                 }
             );
@@ -130,7 +130,7 @@ describe('W7 RunPollingPausedBanner', () => {
                 <Provider store={store}><RunPollingPausedBanner /></Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.run-polling-paused-banner')).toNotExist();
+                    expect(container.querySelector('.sv-run-polling-paused-banner')).toNotExist();
                     done();
                 }
             );
@@ -229,7 +229,7 @@ describe('W7 RunPollingPausedBanner', () => {
                 <BareBanner paused={false} runId={1} onResume={() => {}} onDismiss={() => {}} />,
                 container,
                 () => {
-                    expect(container.querySelector('.run-polling-paused-banner')).toNotExist();
+                    expect(container.querySelector('.sv-run-polling-paused-banner')).toNotExist();
                     done();
                 }
             );
@@ -240,7 +240,7 @@ describe('W7 RunPollingPausedBanner', () => {
                 <BareBanner paused runId={1} onResume={() => {}} onDismiss={() => {}} />,
                 container,
                 () => {
-                    expect(container.querySelector('.run-polling-paused-banner')).toExist();
+                    expect(container.querySelector('.sv-run-polling-paused-banner')).toExist();
                     // Message renders msgId itself as fallback text when no
                     // IntlProvider — its presence proves the wiring.
                     expect(container.textContent).toInclude('hydrata.anuga.pollingPaused');

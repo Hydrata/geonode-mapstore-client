@@ -74,7 +74,7 @@ class RunPollingPausedBanner extends React.Component {
         // clear via START_ACTIVE_RUN_POLLING reducer side-effect.
         const target = e && e.target;
         if (target && typeof target.closest === 'function') {
-            if (target.closest('.run-polling-paused-banner')) return;
+            if (target.closest('.sv-run-polling-paused-banner')) return;
         }
         if (this.props.onDismiss) this.props.onDismiss(this.props.runId);
     }
@@ -83,11 +83,11 @@ class RunPollingPausedBanner extends React.Component {
         if (!this.props.paused) return null;
         return (
             <div
-                className="run-polling-paused-banner"
+                className="sv-run-polling-paused-banner"
                 role="status"
                 aria-live="polite"
             >
-                <span className="run-polling-paused-text">
+                <span className="sv-run-polling-paused-text">
                     <Message msgId="hydrata.anuga.pollingPaused" />
                 </span>
                 <Button

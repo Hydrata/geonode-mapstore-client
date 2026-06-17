@@ -36,14 +36,14 @@
     text-align: center;
 }
 
-.chart-mainbody {
+.sv-chart-mainbody {
     padding: 20px;
     margin-top: 0;
     height: 85%;
     overflow: auto;
 }
 
-.chart-header {
+.sv-chart-header {
     padding: 20px;
     height: 60px;
     border-bottom: 1px solid #DDD;
@@ -52,7 +52,7 @@
     border-top-right-radius: 5px;
 }
 
-.chart-footer {
+.sv-chart-footer {
     padding: 20px;
     bottom: 0;
     height: 80px;
@@ -62,7 +62,7 @@
     border-bottom-right-radius: 5px;
 }
 
-.chart-sidebar {
+.sv-chart-sidebar {
     padding: 0 30px 0 30px;
     min-height: 600px;
     background-color: #f3f3f3;
@@ -87,19 +87,19 @@
     background-color: #ffffff45;
 }
 
-.network-table {
+.sv-network-table {
     margin-bottom: 0;
 }
 
-.network-table-header {
+.sv-network-table-header {
     height: 45px;
 }
 
-.network-table-header th {
+.sv-network-table-header th {
     text-align:center;
 }
 
-.network-table-row {
+.sv-network-table-row {
     height: 45px
 }
 
@@ -221,7 +221,7 @@
     padding-right: 28px;
 }
 
-.add-data-input {
+.sv-add-data-input {
     font-size: 14px;
     white-space: nowrap;
     padding-left: 3px;
@@ -251,24 +251,24 @@
   opacity: 1; /* Firefox */
 }
 
-.run-server-table {
+.sv-run-server-table {
     margin-bottom: 0;
     text-align: center;
 }
 
-.run-server-table-header {
+.sv-run-server-table-header {
     height: 45px;
 }
 
-.run-server-table-header > th {
+.sv-run-server-table-header > th {
     text-align: center;
 }
 
-.run-server-table-row {
+.sv-run-server-table-row {
     height: 45px
 }
 
-.run-server-table-row {
+.sv-run-server-table-row {
     text-align: center;
 }
 
@@ -617,19 +617,19 @@ div that holds the feature-grid */
     width: 80px;
 }
 
-.status-icon {
+.sv-status-icon {
     margin-right: 4px;
 }
 
-.status-complete {
+.sv-status-complete {
     color: #5cb85c;
 }
 
-.status-error {
+.sv-status-error {
     color: #d9534f;
 }
 
-.status-cancelled {
+.sv-status-cancelled {
     color: #888;
 }
 
@@ -637,20 +637,20 @@ div that holds the feature-grid */
     font-size: 10px;
 }
 
-.run-menu-th-name {
+.sv-run-menu-th-name {
     width: 200px;
     text-align: left;
 }
 
-.run-menu-th-backend {
+.sv-run-menu-th-backend {
     width: 120px;
 }
 
-.run-menu-th-action {
+.sv-run-menu-th-action {
     width: 80px;
 }
 
-.run-menu-td-name {
+.sv-run-menu-td-name {
     text-align: left;
 }
 
@@ -660,12 +660,12 @@ div that holds the feature-grid */
  * The run-polling-paused toast (was an inline cream #fff7e6 surface) and the
  * membership info/warning Bootstrap alerts (light pastel boxes) re-skinned onto
  * the sv warning/info/error tokens so they read on the navy glass. Class names
- * (.run-polling-paused-banner/-resume, .alert-info/.alert-warning,
- * .membership-invite-disabled/.membership-perms-warning) are preserved — the
+ * (.sv-run-polling-paused-banner/-resume, .alert-info/.alert-warning,
+ * .sv-membership-invite-disabled/.sv-membership-perms-warning) are preserved — the
  * Karma tests pin those, this is a pure value re-skin. */
 
 /* Run-polling paused toast — warning-tinted glass, replaces the inline cream style. */
-.run-polling-paused-banner {
+.sv-run-polling-paused-banner {
     position: fixed;
     top: 12px;
     right: 12px;
@@ -682,20 +682,20 @@ div that holds the feature-grid */
     backdrop-filter: blur(10px);
 }
 
-.run-polling-paused-text {
+.sv-run-polling-paused-text {
     color: var(--sv-warning-color, #fcf8e3);
     font-weight: 500;
 }
 
 /* Membership info alert (invitations disabled) — sv info-token tint over glass. */
-.membership-invite-disabled.alert-info {
+.sv-membership-invite-disabled.alert-info {
     background-color: var(--sv-info-bg, rgba(91, 192, 222, 0.12));
     border-color: var(--sv-info-border, #5bc0de);
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
 /* Membership warning alert (perms unavailable fallback) — sv warning-token tint. */
-.membership-perms-warning.alert-warning {
+.sv-membership-perms-warning.alert-warning {
     background-color: var(--sv-warning-bg, rgba(252, 248, 227, 0.12));
     border-color: var(--sv-warning-border, rgba(250, 235, 204, 0.4));
     color: var(--sv-warning-color, #fcf8e3);
@@ -721,7 +721,7 @@ div that holds the feature-grid */
 }
 
 /* Membership remove/visibility inline confirm overlay — small dark-glass card. */
-.membership-confirm-overlay {
+.sv-membership-confirm-overlay {
     margin: 6px 0;
     padding: 8px 12px;
     text-align: left;
@@ -731,7 +731,7 @@ div that holds the feature-grid */
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.membership-confirm-buttons {
+.sv-membership-confirm-buttons {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -751,91 +751,91 @@ div that holds the feature-grid */
 
 /* -- Role badges (membership panel) -- */
 
-.badge-role {
+.sv-badge-role {
     padding: 2px 6px;
     border-radius: 3px;
     font-size: 11px;
     color: white;
 }
 
-.badge-owner {
+.sv-badge-owner {
     background-color: var(--sv-input-blue, #5178af);
 }
 
-.badge-manager {
+.sv-badge-manager {
     background-color: var(--sv-glyph-active, limegreen);
 }
 
-.badge-editor {
+.sv-badge-editor {
     background-color: var(--sv-glyph-partial, orange);
 }
 
-.badge-viewer {
+.sv-badge-viewer {
     background-color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
 
 /* -- Membership panel sections -- */
 
-.membership-visibility {
+.sv-membership-visibility {
     padding: 8px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
     margin-bottom: 8px;
 }
 
-.membership-visibility-options {
+.sv-membership-visibility-options {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-top: 4px;
 }
 
-.membership-visibility-option-row {
+.sv-membership-visibility-option-row {
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-.membership-visibility-btn {
+.sv-membership-visibility-btn {
     flex: 0 0 150px;
     width: 150px;
     max-width: 150px;
     box-sizing: border-box;
 }
 
-.membership-visibility-btn.active,
-.membership-visibility-btn.active:hover,
-.membership-visibility-btn.active:focus,
-.membership-visibility-btn.active:active {
+.sv-membership-visibility-btn.active,
+.sv-membership-visibility-btn.active:hover,
+.sv-membership-visibility-btn.active:focus,
+.sv-membership-visibility-btn.active:active {
     background-color: rgba(30, 126, 52, 0.7);
     border-color: rgba(255, 255, 255, 0.9);
     color: white;
 }
 
-.membership-visibility-desc {
+.sv-membership-visibility-desc {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.85);
     text-align: left;
 }
 
-.membership-section-title {
+.sv-membership-section-title {
     font-weight: bold;
     margin-bottom: 4px;
 }
 
-.membership-add-form {
+.sv-membership-add-form {
     border-top: 2px solid rgba(255, 255, 255, 0.15);
     padding-top: 10px;
     margin-top: 5px;
 }
 
-.membership-add-form-row {
+.sv-membership-add-form-row {
     display: flex;
     gap: 4px;
     align-items: flex-start;
     flex-wrap: wrap;
 }
 
-.membership-search-results {
+.sv-membership-search-results {
     margin-top: 4px;
     max-height: 120px;
     overflow-y: auto;
@@ -843,35 +843,35 @@ div that holds the feature-grid */
     border-radius: 3px;
 }
 
-.membership-search-result {
+.sv-membership-search-result {
     padding: 4px 8px;
     cursor: pointer;
 }
 
-.membership-search-result:hover {
+.sv-membership-search-result:hover {
     background-color: rgba(51, 122, 183, 0.15);
 }
 
-.membership-role-select {
+.sv-membership-role-select {
     width: auto;
     min-width: 90px;
 }
 
-.membership-btn-remove {
+.sv-membership-btn-remove {
     border-radius: 2px;
     background-color: #622b2b;
 }
 
-.membership-btn-sm {
+.sv-membership-btn-sm {
     border-radius: 2px;
     margin-top: 2px;
 }
 
-.membership-search-input {
+.sv-membership-search-input {
     width: 160px;
 }
 
-.membership-header-row {
+.sv-membership-header-row {
     height: 40px;
     text-align: left;
     font-size: var(--sv-header-font-size, 14px);
@@ -879,34 +879,34 @@ div that holds the feature-grid */
 
 /* -- Publication panel styles -- */
 
-.publication-close-row {
+.sv-publication-close-row {
     height: 20px;
     text-align: left;
     font-size: var(--sv-header-font-size, 14px);
 }
 
-.publication-row {
+.sv-publication-row {
     height: 40px;
     text-align: left;
     font-size: var(--sv-header-font-size, 14px);
 }
 
-.publication-title {
+.sv-publication-title {
     line-height: 40px;
 }
 
-.publication-edit-btn {
+.sv-publication-edit-btn {
     margin-top: 4px;
     border-radius: 2px;
     float: right;
     display: inline-block;
 }
 
-.publication-figures-heading {
+.sv-publication-figures-heading {
     display: inline-block;
 }
 
-.publication-figure-btn {
+.sv-publication-figure-btn {
     border-radius: 2px;
     margin-top: 5px;
     display: block;
@@ -914,21 +914,21 @@ div that holds the feature-grid */
     text-align: left;
 }
 
-.publication-create-figure {
+.sv-publication-create-figure {
     border-top: 2px solid #ffffffad;
     padding-top: 15px;
     margin-top: 5px;
     margin-bottom: 10px;
 }
 
-.publication-figure-input {
+.sv-publication-figure-input {
     width: 375px;
     margin-top: 3px;
     margin-right: 5px;
     float: left;
 }
 
-.publication-create-btn {
+.sv-publication-create-btn {
     margin: 2px;
     border-radius: 2px;
     float: left;
@@ -1117,19 +1117,19 @@ div that holds the feature-grid */
     font-size: 10.5px;
 }
 
-.scenario-status-pill.status-complete {
+.scenario-status-pill.sv-status-complete {
     color: #5cb85c;
 }
 
-.scenario-status-pill.status-error {
+.scenario-status-pill.sv-status-error {
     color: #d9534f;
 }
 
-.scenario-status-pill.status-cancelled {
+.scenario-status-pill.sv-status-cancelled {
     color: #888;
 }
 
-.scenario-status-pill.status-built {
+.scenario-status-pill.sv-status-built {
     color: #5bc0de;
 }
 
@@ -1169,7 +1169,7 @@ div that holds the feature-grid */
 /* Wave 3B (B1) — compact + computing mini progress sliver. Sits beneath
    a pulsing dot so the Pane 1 rail row keeps at-a-glance progress
    feedback without taking the full 60px Pane 3 progress track. */
-.scenario-status-pill.is-compact.status-computing {
+.scenario-status-pill.is-compact.sv-status-computing {
     position: relative;
     padding-bottom: 4px;
 }

@@ -12,7 +12,7 @@ import {findScenarioStatus} from './scenarioHelpers';
  *   complete | error     | cancelled  | built
  *
  * Visual contract preserved 1:1 with the legacy table cell (same glyph,
- * same Message keys, same status-complete / status-error / status-cancelled
+ * same Message keys, same sv-status-complete / sv-status-error / sv-status-cancelled
  * CSS hooks). The pill is presentation-only — `findScenarioStatus` is the
  * only logic dependency.
  *
@@ -36,14 +36,14 @@ const ScenarioStatusPill = ({scenario, compact}) => {
     case 'building':
         return (
             <span className={"scenario-status-pill status-building" + (compact ? " is-compact" : "")}>
-                <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
+                <span className="glyphicon glyphicon-refresh glyphicon-spin sv-status-icon" />
                 <Message msgId="hydrata.anuga.statusBuilding" />
             </span>
         );
     case 'queued':
         return (
             <span className={"scenario-status-pill status-queued" + (compact ? " is-compact" : "")}>
-                <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
+                <span className="glyphicon glyphicon-refresh glyphicon-spin sv-status-icon" />
                 <Message msgId="hydrata.anuga.statusQueued" />
             </span>
         );
@@ -56,7 +56,7 @@ const ScenarioStatusPill = ({scenario, compact}) => {
             // the legacy spinner with a thin 2px progress sliver UNDER the pulse
             // so the rail row still gives at-a-glance progress feedback.
             return (
-                <span className="scenario-status-pill status-computing is-compact">
+                <span className="scenario-status-pill sv-status-computing is-compact">
                     <span className="scenario-status-mini-pulse" aria-hidden="true" />
                     <span className="scenario-status-mini-label">
                         <Message msgId="hydrata.anuga.statusComputing" />
@@ -70,7 +70,7 @@ const ScenarioStatusPill = ({scenario, compact}) => {
             );
         }
         return (
-            <span className="scenario-status-pill status-computing">
+            <span className="scenario-status-pill sv-status-computing">
                 <span className="scenario-status-progress-track">
                     <span
                         className="scenario-status-progress-fill"
@@ -87,14 +87,14 @@ const ScenarioStatusPill = ({scenario, compact}) => {
     case 'processing':
         return (
             <span className={"scenario-status-pill status-processing" + (compact ? " is-compact" : "")}>
-                <span className="glyphicon glyphicon-refresh glyphicon-spin status-icon" />
+                <span className="glyphicon glyphicon-refresh glyphicon-spin sv-status-icon" />
                 <Message msgId="hydrata.anuga.statusProcessing" />
             </span>
         );
     case 'complete':
         return (
-            <span className={"scenario-status-pill status-complete" + (compact ? " is-compact" : "")}>
-                <span className="glyphicon glyphicon-ok status-icon" />
+            <span className={"scenario-status-pill sv-status-complete" + (compact ? " is-compact" : "")}>
+                <span className="glyphicon glyphicon-ok sv-status-icon" />
                 <Message msgId="hydrata.anuga.statusComplete" />
             </span>
         );
@@ -110,7 +110,7 @@ const ScenarioStatusPill = ({scenario, compact}) => {
             : undefined;
         return (
             <span
-                className={"scenario-status-pill status-error" + (compact ? " is-compact" : "")}
+                className={"scenario-status-pill sv-status-error" + (compact ? " is-compact" : "")}
                 title={tooltip}
             >
                 <Message msgId="hydrata.anuga.statusError" />
@@ -127,13 +127,13 @@ const ScenarioStatusPill = ({scenario, compact}) => {
     }
     case 'cancelled':
         return (
-            <span className={"scenario-status-pill status-cancelled" + (compact ? " is-compact" : "")}>
+            <span className={"scenario-status-pill sv-status-cancelled" + (compact ? " is-compact" : "")}>
                 <Message msgId="hydrata.anuga.statusCancelled" />
             </span>
         );
     case 'built':
         return (
-            <span className={"scenario-status-pill status-built" + (compact ? " is-compact" : "")}>
+            <span className={"scenario-status-pill sv-status-built" + (compact ? " is-compact" : "")}>
                 <Message msgId="hydrata.anuga.statusBuilt" />
             </span>
         );

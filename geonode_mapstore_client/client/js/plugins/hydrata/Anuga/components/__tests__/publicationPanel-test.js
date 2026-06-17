@@ -8,10 +8,10 @@
  * create-figure for viewer" cannot pass silently.
  *
  * Buttons under test:
- *   .publication-edit-btn     — Edit Publication (canEditLayer-gated)
+ *   .sv-publication-edit-btn     — Edit Publication (canEditLayer-gated)
  *   .publication-delete-btn   — Delete Publication (canDeleteLayer-gated)
- *   .publication-create-btn   — Create Figure (canEditLayer-gated)
- *   .publication-figure-btn   — Open Figure (always, read action — not gated)
+ *   .sv-publication-create-btn   — Create Figure (canEditLayer-gated)
+ *   .sv-publication-figure-btn   — Open Figure (always, read action — not gated)
  *
  * The expected matrix follows the V2P-02 helper rules in selectorsAnuga.js:
  *   owner / manager / editor : full edit + delete (full set)
@@ -121,10 +121,10 @@ describe('V2P-22 publicationPanel role-gated buttons', () => {
 
     function readButtonSet() {
         const buttons = [];
-        if (container.querySelector('[data-testid="publication-edit-btn"]')) buttons.push('edit');
+        if (container.querySelector('[data-testid="sv-publication-edit-btn"]')) buttons.push('edit');
         if (container.querySelector('[data-testid="publication-delete-btn"]')) buttons.push('delete');
-        if (container.querySelector('[data-testid="publication-create-btn"]')) buttons.push('create');
-        const figureBtns = container.querySelectorAll('[data-testid="publication-figure-btn"]');
+        if (container.querySelector('[data-testid="sv-publication-create-btn"]')) buttons.push('create');
+        const figureBtns = container.querySelectorAll('[data-testid="sv-publication-figure-btn"]');
         for (let i = 0; i < figureBtns.length; i++) {
             buttons.push('figure');
         }
@@ -142,10 +142,10 @@ describe('V2P-22 publicationPanel role-gated buttons', () => {
 
     it('renders one edit-btn per publication when owner has 3 publications', () => {
         return mountPanel({ role: 'owner', publicationCount: 3 }).then(() => {
-            expect(container.querySelectorAll('[data-testid="publication-edit-btn"]').length).toBe(3);
-            expect(container.querySelectorAll('[data-testid="publication-create-btn"]').length).toBe(3);
+            expect(container.querySelectorAll('[data-testid="sv-publication-edit-btn"]').length).toBe(3);
+            expect(container.querySelectorAll('[data-testid="sv-publication-create-btn"]').length).toBe(3);
             // 2 figures per publication × 3 publications
-            expect(container.querySelectorAll('[data-testid="publication-figure-btn"]').length).toBe(6);
+            expect(container.querySelectorAll('[data-testid="sv-publication-figure-btn"]').length).toBe(6);
         });
     });
 });

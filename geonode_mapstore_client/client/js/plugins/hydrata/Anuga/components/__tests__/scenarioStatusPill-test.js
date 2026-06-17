@@ -66,7 +66,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-computing with progress bar and pct', (done) => {
+        it('renders sv-status-computing with progress bar and pct', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{
                     status: 'computing',
@@ -75,7 +75,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 container,
                 () => {
                     const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-computing');
+                    expect(pill.className).toInclude('sv-status-computing');
                     const fill = container.querySelector('.scenario-status-progress-fill');
                     expect(fill).toExist();
                     expect(fill.style.width).toBe('38%');
@@ -89,7 +89,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-computing with zero pct + no eta when latest_run absent', (done) => {
+        it('renders sv-status-computing with zero pct + no eta when latest_run absent', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'computing'}} />,
                 container,
@@ -116,20 +116,20 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-complete with green check', (done) => {
+        it('renders sv-status-complete with green check', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'complete'}} />,
                 container,
                 () => {
                     const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-complete');
+                    expect(pill.className).toInclude('sv-status-complete');
                     expect(container.querySelector('.glyphicon-ok')).toExist();
                     done();
                 }
             );
         });
 
-        it('renders status-error with truncated error_message tooltip', (done) => {
+        it('renders sv-status-error with truncated error_message tooltip', (done) => {
             const longMsg = 'a'.repeat(50);
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{
@@ -139,7 +139,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 container,
                 () => {
                     const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-error');
+                    expect(pill.className).toInclude('sv-status-error');
                     const detail = container.querySelector('.scenario-status-error-detail');
                     expect(detail).toExist();
                     expect(detail.getAttribute('title')).toBe(longMsg);
@@ -151,7 +151,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-error without detail span when error_message absent', (done) => {
+        it('renders sv-status-error without detail span when error_message absent', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'error'}} />,
                 container,
@@ -162,25 +162,25 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
             );
         });
 
-        it('renders status-cancelled', (done) => {
+        it('renders sv-status-cancelled', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'cancelled'}} />,
                 container,
                 () => {
                     const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-cancelled');
+                    expect(pill.className).toInclude('sv-status-cancelled');
                     done();
                 }
             );
         });
 
-        it('renders status-built', (done) => {
+        it('renders sv-status-built', (done) => {
             ReactDOM.render(
                 <ScenarioStatusPill scenario={{status: 'built'}} />,
                 container,
                 () => {
                     const pill = container.querySelector('.scenario-status-pill');
-                    expect(pill.className).toInclude('status-built');
+                    expect(pill.className).toInclude('sv-status-built');
                     done();
                 }
             );
@@ -321,7 +321,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill.is-compact.status-error');
+                    const pill = container.querySelector('.scenario-status-pill.is-compact.sv-status-error');
                     expect(pill).toExist();
                     expect(pill.getAttribute('title')).toBe(msg);
                     done();
@@ -338,7 +338,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill.is-compact.status-error');
+                    const pill = container.querySelector('.scenario-status-pill.is-compact.sv-status-error');
                     const title = pill.getAttribute('title');
                     expect(title.length).toBe(203);
                     expect(title.endsWith('...')).toBe(true);
@@ -352,7 +352,7 @@ describe('TASK-C ScenarioStatusPill primitive (W1)', () => {
                 <ScenarioStatusPill scenario={{status: 'error'}} compact />,
                 container,
                 () => {
-                    const pill = container.querySelector('.scenario-status-pill.is-compact.status-error');
+                    const pill = container.querySelector('.scenario-status-pill.is-compact.sv-status-error');
                     expect(pill.getAttribute('title')).toBe(null);
                     done();
                 }

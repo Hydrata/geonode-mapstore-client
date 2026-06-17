@@ -51,12 +51,14 @@
  *   HGeval       → remove: hgeval            (~15)
  *   Swamm        → remove: swamm, bmp, filter (~50)
  *   Hydrology    → remove: hydrology, idf, ds, design, hyetograph, temporal, networks (~200)
- *   Anuga        → remove: anuga, scenario, membership, publication, run, status, badge, network (~330)
- *                  ⚠ terrain- is SHARED with epic/1587 (TerrainWorkbench / TASK-1765) —
- *                    rename only AFTER the 1587→5.x merge to avoid cross-epic conflict.
+ *   Anuga        → DONE (Anuga-only): membership, publication, run, status, badge, network, add, chart.
+ *                  ⚠ DEFERRED: anuga, scenario, terrain — SHARED with epic/1587's TerrainWorkbench
+ *                    (terrainWorkbench.css has anuga- / scenario- / terrain- override rules; 1587
+ *                    actively commits to that dir). Renaming on 1758 desyncs TerrainWorkbench styling
+ *                    (a visual break on the parent epic, NOT a mergeable text conflict). Do WITH 1587.
  *   Shared (simpleView.css) → remove: menu, legend, glyph, save, subheading,
- *                  uploader, dataset, measure, data, introduction, status, run, modal
- *                  (q-7 "do it now" — discrete, carefully-tested sub-step).
+ *                  uploader, dataset, measure, data, introduction (q-7 "do it now").
+ *                  ⚠ menu/data also appear in TerrainWorkbench.css — coordinate with 1587.
  *
  * NO NEW DEPENDENCY: uses only Node.js built-ins (fs, path).
  *
@@ -96,6 +98,7 @@ const ALLOWED_PREFIXES = new Set([
                    // .terrain-bbox-error.alert-danger) during the W3 conform (TASK-1758).
     'recharts',    // recharts charting library — .recharts-* survive in the IDF-curve modal
                    // (hydrology.css, TASK-1754). Light chart surface is an intentional carve-out.
+    'modal',       // Bootstrap/MapStore modal — anuga.css overrides #mapstore-export.modal-dialog-container.
     // Third-party / upstream overrides:
     'gn',          // .gn-brand-navbar override in simpleView.css
     'mapstore',    // .mapstore-slider override in simpleView.css
@@ -108,10 +111,14 @@ const ALLOWED_PREFIXES = new Set([
     // 'tm' RATCHETED OUT (TASK-1680): TaskMonitor fully migrated; taskMonitor.css is sv-/simple- only.
     // 'hyrdology' RATCHETED OUT (TASK-1678): the .hyrdology-textarea typo was fixed to .hydrology-textarea.
     // -- panel namespaces --
+    // ⚠ anuga/scenario DEFERRED (TASK-1766 W2): SHARED with epic/1587's TerrainWorkbench
+    //   (terrainWorkbench.css defines .anuga-*/.scenario-* override rules; 1587 actively
+    //   commits to that dir). Renaming on 1758 would desync TerrainWorkbench styling — a
+    //   visual break on the parent epic, not a mergeable text conflict. Rename WITH/AFTER 1587.
     'anuga',
     'scenario',
-    'membership',
-    'publication',
+    // 'membership' RATCHETED OUT (TASK-1766 W2): Anuga membership-* -> sv-* (Anuga-only).
+    // 'publication' RATCHETED OUT (TASK-1766 W2): Anuga publication-* -> sv-* (Anuga-only).
     // 'hgeval' RATCHETED OUT (TASK-1766 W2): HGeval panel renamed hgeval-* -> sv-hgeval-* (CSS + JS); the only test hook (.hgeval-alert-sm) is a negative .toNotExist() assertion (class never rendered).
     // 'hydrology' RATCHETED OUT (TASK-1766 W2): Hydrology renamed hydrology-/idf-/ds-/design-/hyetograph-/temporal-/networks- -> sv-* (hydrology.css + Hydrology JS incl. tests, 125 classes/378 refs). recharts- KEPT (cat-2 carve-out). Dynamic ds-pattern-toggle-/ds-derive-tick- are ids, idf-provenance-/hydrology-category-rail- are a filename/analytics string (not classNames).
     // 'swamm' RATCHETED OUT (TASK-1766 W2): Swamm panel renamed swamm-/bmp-/filter-/non-* -> sv-* (swamm.css + Swamm JS); 0 test pins. IDs (#swamm-bmp-filters, #bmp-type-toggle-box-*) are out of the class-guard's scope and intentionally kept.
@@ -121,26 +128,24 @@ const ALLOWED_PREFIXES = new Set([
     // 'vector' RATCHETED OUT (TASK-1766 W2): VectorDraw renamed all 12 vector-draw-* classes -> sv-* (vectorDrawPopup.css + VectorDraw JS incl. tests; pins are positive assertions, renamed in lock-step per the operator-authorized parity-track in-intent test updates). TASK-784 FontUniformity test walks inline font attrs, unaffected.
     // -- feature namespaces within panels --
     // idf/ds/design/hyetograph/temporal/networks RATCHETED OUT (TASK-1766 W2, with Hydrology above).
-    'terrain',     // ⚠ SHARED with epic/1587 (TerrainWorkbench) — rename AFTER 1587→5.x merge.
-    'network',     // Anuga (singular; Hydrology's plural 'networks' is retired).
-    'badge',
+    'terrain',     // ⚠ DEFERRED — SHARED with epic/1587 (TerrainWorkbench). Rename WITH/AFTER 1587.
+    // 'network' RATCHETED OUT (TASK-1766 W2): Anuga network-* -> sv-* (Anuga-only singular; Hydrology's plural 'networks' already retired).
+    // 'badge' RATCHETED OUT (TASK-1766 W2): Anuga badge-role -> sv- (Anuga-only).
     // -- hydrata "shared structural" prefixes in simpleView.css (q-7 "do it now") --
-    'menu',
+    // status/run RATCHETED OUT (TASK-1766 W2): Anuga-only (status-error, run-polling-paused-*) -> sv-*.
+    'menu',        // ⚠ DEFERRED — in simpleView.css (49) + anuga.css + swamm.css + TerrainWorkbench. Shared pass.
     'subheading',
     'legend',
     'save',
-    'status',
-    'run',
-    'data',
+    'data',        // ⚠ DEFERRED — in simpleView.css + anuga.css + TerrainWorkbench. Shared pass.
     'dataset',
     'glyph',
-    'modal',
     'uploader',
     'introduction',
     'measure',
-    'chart',
+    // 'chart' RATCHETED OUT (TASK-1766 W2): Anuga chart-footer/-header/-mainbody/-sidebar -> sv-* (Anuga-only chart-card layout; NOT the recharts surface, which stays cat-2).
     // -- misc one-offs in the baseline --
-    'add',
+    // 'add' RATCHETED OUT (TASK-1766 W2): .add-data-input -> sv- (Anuga-only).
     // 'custom' RATCHETED OUT (TASK-1766 W2): .custom-pattern-* (Hydrology) + .custom-tooltip-label (Swamm) all -> sv-*. custom-curve etc. are unstyled JS markers.
     'with'         // .with-tooltip in simpleView.css
 ]);
