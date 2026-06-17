@@ -22,13 +22,13 @@
  * finding #1). PanelShell's inline chrome (bg/blur/border/radius/padding/color)
  * is token-identical to `.simple-view-panel`, so the chrome is unchanged.
  *
- * The header (sv-tm-header + .legend-close close chip) and the inner content
+ * The header (sv-tm-header + .sv-legend-close close chip) and the inner content
  * (process-row list, subtask list, detail sections) are intentionally LEFT
  * bespoke for W1 — their visual treatment lives entirely in the SHARED
  * simpleView.css sv-tm-* rules (lines ~1211-1385) which W1 must NOT touch
  * (that namespace cleanup is W2/TASK-1766). Adopting PanelHeader/Section/Table/
  * Card on those surfaces would layer competing inline styles over the shared
- * CSS (and break the .legend-close pinned test) → visual drift, the opposite of
+ * CSS (and break the .sv-legend-close pinned test) → visual drift, the opposite of
  * the parity target. See the TASK-1784 gaps_flagged report.
  */
 
@@ -88,7 +88,7 @@ class TaskMonitorPanel extends React.Component {
                 style={DRAWER_STYLE}
             >
                 {/* Header LEFT bespoke for W1: the close chip is pinned to
-                    .legend-close by taskMonitorComponents-test, which PanelHeader
+                    .sv-legend-close by taskMonitorComponents-test, which PanelHeader
                     cannot emit (it uses .sv-panel-header-close). Conforming the
                     header is deferred to W2 alongside the test update. */}
                 <div className="sv-tm-header">
@@ -96,7 +96,7 @@ class TaskMonitorPanel extends React.Component {
                         <Message msgId="hydrata.taskMonitor.title" />
                     </h5>
                     <span
-                        className="glyphicon glyphicon-remove legend-close"
+                        className="glyphicon glyphicon-remove sv-legend-close"
                         onClick={onClose}
                         title="Close"
                     />

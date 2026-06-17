@@ -224,7 +224,7 @@ class MenuRowsClass extends React.Component {
 
     renderSingleSubHeadingFallback(subHeading) {
         // Legacy accordion path used when there's exactly 1 subheading.
-        // Keeps the original .subheading-row markup verbatim so
+        // Keeps the original .sv-subheading-row markup verbatim so
         // simpleViewGlyphClasses-test.js continues to pass and the
         // localStorage collapse helpers stay exercised. Miller rail+pane
         // activates at 2+ subheadings where a 1-button rail would be a
@@ -234,7 +234,7 @@ class MenuRowsClass extends React.Component {
         const chevronGlyph = collapsed ? 'glyphicon-chevron-right' : 'glyphicon-chevron-down';
         return (
             <React.Fragment key={subHeading}>
-                <div className="subheading-row">
+                <div className="sv-subheading-row">
                     <span
                         className={"btn glyphicon menu-row-glyph " + tristateGlyph(allVisible, noneVisible)}
                         onClick={() => {
@@ -243,7 +243,7 @@ class MenuRowsClass extends React.Component {
                         }}
                     />
                     <h5
-                        className={"subheading-text subheading-text-clickable"}
+                        className={"sv-subheading-text sv-subheading-text-clickable"}
                         onClick={() => this.toggleCollapsed(subHeading)}
                         role="button"
                         tabIndex={0}
@@ -258,7 +258,7 @@ class MenuRowsClass extends React.Component {
                         {subHeading}
                     </h5>
                     <span
-                        className={"btn glyphicon menu-row-glyph glyph-collapse " + chevronGlyph}
+                        className={"btn glyphicon menu-row-glyph sv-glyph-collapse " + chevronGlyph}
                         onClick={() => this.toggleCollapsed(subHeading)}
                         aria-label={collapsed ? "Expand group" : "Collapse group"}
                     />

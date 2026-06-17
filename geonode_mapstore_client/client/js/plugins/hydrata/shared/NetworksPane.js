@@ -249,7 +249,7 @@ class NetworksPaneClass extends React.Component {
         const actions = (
             <React.Fragment>
                 <span
-                    className={'btn glyphicon menu-row-glyph glyph-settings glyphicon-cog'}
+                    className={'btn glyphicon menu-row-glyph sv-glyph-settings glyphicon-cog'}
                     title="Network settings"
                     onClick={() => {
                         this.props.setNetworkMenu(true);
@@ -260,7 +260,7 @@ class NetworksPaneClass extends React.Component {
                 {canEdit ? (
                     <React.Fragment>
                         <span
-                            className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            className={`btn glyphicon menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                             onClick={this._handleCreateClick}
                             aria-label={inputVisible ? 'Save' : 'Add new'}
                         />

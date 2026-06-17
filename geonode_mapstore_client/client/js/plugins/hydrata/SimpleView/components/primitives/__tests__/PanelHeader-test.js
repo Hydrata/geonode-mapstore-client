@@ -88,9 +88,9 @@ describe('SimpleView PanelHeader chassis primitive (TASK-1759)', () => {
         });
 
         it('CRITICAL: close chip has position:static in inline style (cascade-trap safety)', (done) => {
-            // The .legend-close CSS rule has position:absolute which causes a cascade trap:
+            // The .sv-legend-close CSS rule has position:absolute which causes a cascade trap:
             // an absolutely-positioned close chip escapes the flex row and overlaps the title.
-            // PanelHeader uses sv-panel-header-close (not legend-close) AND sets position:static
+            // PanelHeader uses sv-panel-header-close (not sv-legend-close) AND sets position:static
             // via inline style so the trap is blocked at two levels.
             ReactDOM.render(<PanelHeader title="T" onClose={() => {}} />, container, () => {
                 const btn = container.querySelector('.sv-panel-header-close');
@@ -102,10 +102,10 @@ describe('SimpleView PanelHeader chassis primitive (TASK-1759)', () => {
             });
         });
 
-        it('close chip does NOT have class legend-close (avoids cascade trap at class level)', (done) => {
+        it('close chip does NOT have class sv-legend-close (avoids cascade trap at class level)', (done) => {
             ReactDOM.render(<PanelHeader title="T" onClose={() => {}} />, container, () => {
                 const btn = container.querySelector('.sv-panel-header-close');
-                expect(btn.className).toNotInclude('legend-close');
+                expect(btn.className).toNotInclude('sv-legend-close');
                 done();
             });
         });

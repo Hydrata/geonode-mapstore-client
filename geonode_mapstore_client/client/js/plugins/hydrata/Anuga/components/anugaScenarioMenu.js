@@ -243,7 +243,7 @@ class AnugaScenarioMenuClass extends React.Component {
   // (lines 138-148) already toggles setAnugaScenarioMenu + start/stopAnugaScenarioPolling
   // when the user clicks the same tab again or switches to another top-tab,
   // so panel-level close is redundant. stopAnugaScenarioPolling + handleClose
-  // are dropped here; the legend-close <span> in renderHeader is dropped too.
+  // are dropped here; the sv-legend-close <span> in renderHeader is dropped too.
   // setAnugaScenarioMenu + stopAnugaScenarioPolling props are preserved in
   // propTypes/mapDispatchToProps because they are still needed by the run-now
   // chain (handleRunClick → setAnugaScenarioMenu(false)).

@@ -34,7 +34,7 @@ import {
     bboxDimsKm
 } from './terrainBboxEstimate';
 // TASK-1764 (epic-1758 W1) — CHROME-ONLY re-skin of the panel header onto the
-// chassis PanelHeader (cascade-safe close chip, replaces the .legend-close
+// chassis PanelHeader (cascade-safe close chip, replaces the .sv-legend-close
 // span). TASK-1587 terrain behaviour/layout intent is unchanged: the close
 // chip still fires handleCancel; the terrain-bbox-* testids + draw/review flow
 // are untouched.
@@ -202,9 +202,9 @@ export class TerrainBboxPanelClass extends React.Component {
     render() {
         if (!this.props.visible) return null;
         return (
-            <div className={'simple-view-panel uploader-panel'} data-testid="terrain-bbox-panel">
+            <div className={'simple-view-panel sv-uploader-panel'} data-testid="terrain-bbox-panel">
                 <PanelHeader
-                    extraClassName="h4 legend-heading"
+                    extraClassName="h4 sv-legend-heading"
                     title={<Message msgId="hydrata.anuga.terrainBboxPanelTitle" />}
                     onClose={this.handleCancel}
                 />

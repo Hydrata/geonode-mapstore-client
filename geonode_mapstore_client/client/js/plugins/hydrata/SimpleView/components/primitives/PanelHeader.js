@@ -9,12 +9,12 @@ import PropTypes from 'prop-types';
  *   - `.anuga-pane-toolbar` / `.anuga-pane-head-title` (anuga.css): flex, gap:6px,
  *     padding 6px 8px, border-bottom rgba(255,255,255,0.18), dim bg rgba(0,0,0,0.10)
  *   - `.sv-tm-header` / `.sv-tm-title` (simpleView.css): TaskMonitor header
- *   - `.legend-header` (simpleView.css): flex, justify-content:space-between
+ *   - `.sv-legend-header` (simpleView.css): flex, justify-content:space-between
  *   - `.hgeval-header` (hgeval.css): flex, justify-content:space-between
  *   - `.hydrology-miller-header` (hydrology.css): 44px flex, border-bottom
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
- *   1. SimpleView         — .simple-view-panel-header / .legend-header
+ *   1. SimpleView         — .simple-view-panel-header / .sv-legend-header
  *   2. Anuga/Scenarios    — .anuga-pane-toolbar + .anuga-pane-head-title
  *   3. Hydrology          — .hydrology-miller-header
  *   4. HGeval             — .hgeval-header
@@ -25,14 +25,14 @@ import PropTypes from 'prop-types';
  * Total: 8 consumers.
  *
  * CRITICAL — close chip position:static safety:
- *   The surviving `.legend-close` rule in simpleView.css has `position:absolute`,
+ *   The surviving `.sv-legend-close` rule in simpleView.css has `position:absolute`,
  *   which causes a CASCADE TRAP: any close button that inadvertently picks up
- *   `.legend-close` will escape the flex row and overlap the title text.
+ *   `.sv-legend-close` will escape the flex row and overlap the title text.
  *   This primitive renders the close chip via inline style with `position:'static'`
  *   (explicit, not relying on flex default) so the cascade trap cannot bite.
  *   The stable `.sv-panel-header-close` class is also emitted, but it carries NO
- *   positional CSS in simpleView.css — only the `.legend-close` rule does, and
- *   that only applies when the class is literally "legend-close". As long as
+ *   positional CSS in simpleView.css — only the `.sv-legend-close` rule does, and
+ *   that only applies when the class is literally "sv-legend-close". As long as
  *   PanelHeader uses sv-panel-header-close, the trap is avoided at the DOM level.
  *
  * Cascade-proof self-styling via inline styles (same principle as ErrorStrip):
@@ -78,10 +78,10 @@ const actionsStyle = {
     marginLeft: 8
 };
 
-// CRITICAL: position:static (explicit) prevents the .legend-close{position:absolute}
+// CRITICAL: position:static (explicit) prevents the .sv-legend-close{position:absolute}
 // cascade trap. The close chip is ALWAYS a flex sibling, never absolutely positioned.
 const closeStyle = {
-    position: 'static',   // safe: explicit override even if .legend-close somehow applies
+    position: 'static',   // safe: explicit override even if .sv-legend-close somehow applies
     flexShrink: 0,
     cursor: 'pointer',
     color: '#fff',

@@ -16,7 +16,7 @@ import PropTypes from 'prop-types';
  * `{glyph, onClick, ariaLabel?, className?, ariaDisabled?}`; the primitive
  * stamps `btn glyphicon menu-row-glyph ${glyph}` and merges optional
  * `className` overrides at the end so callers can layer on
- * `glyph-active` / `glyph-delete` / `glyph-disabled` etc.
+ * `sv-glyph-active` / `sv-glyph-delete` / `sv-glyph-disabled` etc.
  *
  * Custom-content escape hatch (for the delete-confirm overlay which is
  * itself a `<span>` sibling, not a glyph): if a secondary entry includes
@@ -43,24 +43,24 @@ const LayerActionToolbar = ({
         <React.Fragment>
             <div className={"menu-row-toolbar"}>
                 <span
-                    className={`${MENU_ROW_GLYPH} ${layer?.visibility ? "glyphicon-ok glyph-active" : "glyphicon-remove glyph-inactive"}`}
+                    className={`${MENU_ROW_GLYPH} ${layer?.visibility ? "glyphicon-ok sv-glyph-active" : "glyphicon-remove sv-glyph-inactive"}`}
                     onClick={onToggleVisibility}
                 />
                 <span
-                    className={`${MENU_ROW_GLYPH} glyphicon-zoom-to glyph-zoom`}
+                    className={`${MENU_ROW_GLYPH} glyphicon-zoom-to sv-glyph-zoom`}
                     onClick={onZoom}
                 />
                 {
                     canEdit ?
                         <span
-                            className={`${MENU_ROW_GLYPH} glyphicon-pencil glyph-edit`}
+                            className={`${MENU_ROW_GLYPH} glyphicon-pencil sv-glyph-edit`}
                             onClick={onEdit}
                         /> : null
                 }
                 {
                     canDownload ?
                         <span
-                            className={`${MENU_ROW_GLYPH} glyphicon-download glyph-active`}
+                            className={`${MENU_ROW_GLYPH} glyphicon-download sv-glyph-active`}
                             onClick={onDownload}
                         /> : null
                 }

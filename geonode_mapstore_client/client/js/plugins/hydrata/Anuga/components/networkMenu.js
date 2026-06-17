@@ -12,7 +12,7 @@ import {
 import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
 // TASK-1764 (epic-1758 W1) — chassis PanelHeader (cascade-safe close chip,
-// replaces the bespoke .legend-close span) + chassis Table (dark-glass surface,
+// replaces the bespoke .sv-legend-close span) + chassis Table (dark-glass surface,
 // .sv-network-table rides extraClassName). No test pins the networkMenu DOM.
 import {PanelHeader, Table as ChassisTable} from '../../SimpleView/components/primitives';
 

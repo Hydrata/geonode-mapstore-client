@@ -20,10 +20,10 @@
  *   - With the TASK-1004 rail+pane Miller layout (W3/W4-plus), only one
  *     category pane is visible at a time. The test navigates the rail to
  *     each role-gated category (boundaries / inflows / rainfalls) and
- *     reads the `.anuga-pane-toolbar` for `.glyph-active.glyphicon-plus`.
+ *     reads the `.anuga-pane-toolbar` for `.sv-glyph-active.glyphicon-plus`.
  *     The same canEditAnugaMap gate is shared by every InputSection-style
  *     pane, so probing those three is sufficient to pin the matrix.
- *   - Each create button uses class .glyph-active per renderCreateControls.
+ *   - Each create button uses class .sv-glyph-active per renderCreateControls.
  */
 import expect from 'expect';
 import React from 'react';
@@ -115,7 +115,7 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
         // pane is visible at a time (the one matching rail-state
         // selectedCategory). Walk each role-gated rail item, click it to
         // mount the pane, and probe the visible .anuga-pane-toolbar for the
-        // `.glyph-active.glyphicon-plus` create button.
+        // `.sv-glyph-active.glyphicon-plus` create button.
         const targets = [
             {railId: 'boundaries', label: 'boundary-create'},
             {railId: 'inflows', label: 'inflow-create'},
@@ -128,7 +128,7 @@ describe('V2P-22 anugaInputMenu role-gated create buttons', () => {
             rail.click(); // React 16 setState in event handler flushes synchronously
             const toolbar = container.querySelector('.anuga-pane-toolbar');
             if (!toolbar) continue;
-            if (toolbar.querySelector('.glyph-active.glyphicon-plus')) {
+            if (toolbar.querySelector('.sv-glyph-active.glyphicon-plus')) {
                 buttons.push(t.label);
             }
         }

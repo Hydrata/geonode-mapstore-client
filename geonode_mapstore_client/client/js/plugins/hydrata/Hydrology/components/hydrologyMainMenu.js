@@ -20,7 +20,7 @@ import {NetworksPane} from '../../shared/NetworksPane';
 // TASK-1760 (epic-1758 W1): chassis primitives — the panel shell + header now
 // compose from PanelShell/PanelHeader so the dark-glass chrome is shared and
 // the close chip is the cascade-safe sv-panel-header-close (NOT the
-// position:absolute .legend-close that overlapped the title — red-team item 4).
+// position:absolute .sv-legend-close that overlapped the title — red-team item 4).
 import {PanelShell, PanelHeader} from '../../SimpleView/components/primitives';
 
 /**
@@ -81,7 +81,7 @@ class HydrologyMainMenuClass extends React.Component {
             >
                 {/* Header — PanelHeader renders a cascade-SAFE close chip
                     (sv-panel-header-close, position:static), closing the
-                    .legend-close{position:absolute} trap the old miller header hit. */}
+                    .sv-legend-close{position:absolute} trap the old miller header hit. */}
                 <PanelHeader
                     title={<Message msgId="hydrata.hydrology.hydrology" />}
                     onClose={() => {

@@ -55,11 +55,11 @@ export class simpleViewUploaderPanel extends React.Component {
 
     render() {
         return this.props.visibleUploaderPanel ?
-            <div className={'simple-view-panel uploader-panel'}>
-                <div className={"row h4 legend-heading"}>
+            <div className={'simple-view-panel sv-uploader-panel'}>
+                <div className={"row h4 sv-legend-heading"}>
                     Upload {this.props?.config?.title} File ({this.props?.config?.filetype})
                     <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
+                        className={"btn glyphicon glyphicon-remove sv-legend-close"}
                         onClick={() => {
                             this.props.setVisibleUploaderPanel(false);
                             trackEvent('button', `click`, `simpleview-uploader-close`);

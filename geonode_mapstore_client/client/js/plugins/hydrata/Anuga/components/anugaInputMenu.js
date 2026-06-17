@@ -1683,7 +1683,7 @@ class AnugaInputMenuClass extends React.Component {
         return (
             <React.Fragment>
                 <span
-                    className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                    className={`btn glyphicon menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                     onClick={() => this.handleCreateClick(catId, titleKey, createFn, trackEventName)}
                     aria-label={inputVisible ? "Save" : "Add new"}
                 />
@@ -1920,7 +1920,7 @@ class AnugaInputMenuClass extends React.Component {
             <React.Fragment>
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.globalDemTooltip" /></Tooltip>}>
                     <span
-                        className={"btn glyphicon menu-row-glyph glyph-active glyphicon-globe"}
+                        className={"btn glyphicon menu-row-glyph sv-glyph-active glyphicon-globe"}
                         data-testid="anuga-terrain-global-dem-button"
                         onClick={() => {
                             this.props.setVisibleTerrainBboxPanel(true);
@@ -1930,7 +1930,7 @@ class AnugaInputMenuClass extends React.Component {
                 </OverlayTrigger>
                 <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadTerrainTooltip" /></Tooltip>}>
                     <span
-                        className={"btn glyphicon menu-row-glyph glyph-active glyphicon-upload"}
+                        className={"btn glyphicon menu-row-glyph sv-glyph-active glyphicon-upload"}
                         data-testid="anuga-terrain-upload-button"
                         onClick={() => {
                             // TASK-1729 (W1.7): direct-to-S3 presigned-PUT upload —
@@ -2153,7 +2153,7 @@ class AnugaInputMenuClass extends React.Component {
         const actions = (
             <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.uploadFrictionRasterTooltip" /></Tooltip>}>
                 <span
-                    className={"btn glyphicon menu-row-glyph glyph-active glyphicon-upload"}
+                    className={"btn glyphicon menu-row-glyph sv-glyph-active glyphicon-upload"}
                     onClick={() => {
                         this.props.setVisibleUploaderPanel(true, "friction_raster", null);
                         trackEvent('button', 'click', 'anuga-input-menu-show-friction-raster-uploader');

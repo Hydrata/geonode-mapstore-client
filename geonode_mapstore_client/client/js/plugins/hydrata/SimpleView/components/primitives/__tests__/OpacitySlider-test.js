@@ -7,9 +7,9 @@ import {OpacitySlider} from '../OpacitySlider';
  * TASK-1007 W3 primitive, tested in W4 (TASK-1008).
  *
  * Covers the contract of the presentation-only `OpacitySlider`:
- *   A. Mounts cleanly with no props (default opacity, no `glyph-hidden`).
+ *   A. Mounts cleanly with no props (default opacity, no `sv-glyph-hidden`).
  *   B. `opacity` prop maps to the nouislider `start` via (opacity ?? 1) * 100.
- *   C. `hidden` prop toggles the `glyph-hidden` class (R04 always-mounted —
+ *   C. `hidden` prop toggles the `sv-glyph-hidden` class (R04 always-mounted —
  *      the nouislider instance is NEVER unmounted, only CSS-hidden).
  *   D. `onChange` is wired through to nouislider AND receives an *array*
  *      (nouislider's native callback shape, not a 0..1 numeric).
@@ -55,15 +55,15 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
             expect(wrapper).toExist();
             const cls = wrapper.className;
             expect(cls).toInclude('mapstore-slider');
-            expect(cls).toInclude('dataset-transparency');
+            expect(cls).toInclude('sv-dataset-transparency');
             expect(cls).toInclude('with-tooltip');
             expect(cls).toInclude('menu-row-slider-subrow');
         });
 
-        it('wrapper does NOT have glyph-hidden when hidden prop is absent', () => {
+        it('wrapper does NOT have sv-glyph-hidden when hidden prop is absent', () => {
             ReactDOM.render(<OpacitySlider />, container);
             const wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
         });
 
         it('default opacity of 1 -> nouislider start at 100', () => {
@@ -109,32 +109,32 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
         });
     });
 
-    describe('C. hidden prop toggles glyph-hidden class (R04 always-mounted)', () => {
+    describe('C. hidden prop toggles sv-glyph-hidden class (R04 always-mounted)', () => {
 
-        it('hidden=true appends glyph-hidden to the wrapper class', () => {
+        it('hidden=true appends sv-glyph-hidden to the wrapper class', () => {
             ReactDOM.render(<OpacitySlider hidden />, container);
             const wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toInclude('glyph-hidden');
+            expect(wrapper.className).toInclude('sv-glyph-hidden');
         });
 
-        it('hidden=false leaves glyph-hidden off the wrapper class', () => {
+        it('hidden=false leaves sv-glyph-hidden off the wrapper class', () => {
             ReactDOM.render(<OpacitySlider hidden={false} />, container);
             const wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
         });
 
         it('flipping hidden across re-renders flips the class (always-mounted)', () => {
             ReactDOM.render(<OpacitySlider hidden={false} opacity={0.4} />, container);
             let wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
             // Re-render into the SAME container — primitive remains mounted
             ReactDOM.render(<OpacitySlider hidden opacity={0.4} />, container);
             wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toInclude('glyph-hidden');
+            expect(wrapper.className).toInclude('sv-glyph-hidden');
             // And flip back — confirms it is a CSS toggle, not a remount
             ReactDOM.render(<OpacitySlider hidden={false} opacity={0.4} />, container);
             wrapper = container.querySelector('.menu-row-slider-subrow');
-            expect(wrapper.className).toNotInclude('glyph-hidden');
+            expect(wrapper.className).toNotInclude('sv-glyph-hidden');
         });
 
         it('the slider (.noUi-target) is in the DOM regardless of hidden', () => {

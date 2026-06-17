@@ -17,9 +17,9 @@ const MENU_ROW_GLYPH = "btn glyphicon menu-row-glyph";
  * formula as the rail.
  */
 export function tristateGlyph(allVisible, noneVisible) {
-    if (allVisible) return "glyphicon-ok glyph-active";
-    if (noneVisible) return "glyphicon-remove glyph-inactive";
-    return "glyphicon-minus glyph-partial";
+    if (allVisible) return "glyphicon-ok sv-glyph-active";
+    if (noneVisible) return "glyphicon-remove sv-glyph-inactive";
+    return "glyphicon-minus sv-glyph-partial";
 }
 
 const CategoryRail = ({

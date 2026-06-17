@@ -286,8 +286,8 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                         expect(toolbar).toExist();
                         const glyphs = toolbar.querySelectorAll('.menu-row-glyph');
                         expect(glyphs.length >= 2).toBe(true);
-                        expect(glyphs[0].className).toInclude('glyph-active');
-                        expect(glyphs[1].className).toInclude('glyph-zoom');
+                        expect(glyphs[0].className).toInclude('sv-glyph-active');
+                        expect(glyphs[1].className).toInclude('sv-glyph-zoom');
                         expect(glyphs[1].className).toInclude('glyphicon-zoom-to');
                         doneCb();
                     }, 0);
@@ -374,7 +374,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
 
     // E. Single-subheading fallback
     describe('E. Single-subheading legacy accordion fallback', () => {
-        it('with 1 subheading renders .subheading-row and NOT the rail', (done) => {
+        it('with 1 subheading renders .sv-subheading-row and NOT the rail', (done) => {
             const layers = [
                 makeLayer('t1', true, 'grp.Terrain'),
                 makeLayer('t2', true, 'grp.Terrain')
@@ -387,7 +387,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                 <Provider store={store}><MenuRows /></Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.subheading-row')).toExist();
+                    expect(container.querySelector('.sv-subheading-row')).toExist();
                     expect(container.querySelector('.sv-category-rail')).toNotExist();
                     expect(container.querySelector('.sv-rail-pane-shell')).toNotExist();
                     done();
@@ -409,7 +409,7 @@ describe('SimpleView Miller-columns rail+pane integration (TASK-1008 W4)', () =>
                 () => {
                     expect(container.querySelector('.menu-rows-container')).toExist();
                     expect(container.querySelector('.sv-category-rail')).toNotExist();
-                    expect(container.querySelector('.subheading-row')).toNotExist();
+                    expect(container.querySelector('.sv-subheading-row')).toNotExist();
                     done();
                 }
             );

@@ -503,9 +503,9 @@ class MenuRowClass extends React.Component {
             secondaryActions.push({
                 key: 'delete',
                 glyph: 'glyphicon-trash',
-                className: 'glyph-delete'
-                    + (deleting ? ' glyph-disabled' : '')
-                    + (this.state.deleteConfirmVisible ? ' glyph-hidden' : ''),
+                className: 'sv-glyph-delete'
+                    + (deleting ? ' sv-glyph-disabled' : '')
+                    + (this.state.deleteConfirmVisible ? ' sv-glyph-hidden' : ''),
                 onClick: deleting ? undefined : this.handleDeleteClick,
                 ariaDisabled: !!deleting
             });
@@ -554,7 +554,7 @@ class MenuRowClass extends React.Component {
             secondaryActions.push({
                 key: 'upload',
                 glyph: 'glyphicon-upload',
-                className: 'glyph-active',
+                className: 'sv-glyph-active',
                 onClick: () => {
                     this.props.setVisibleUploaderPanel(true, "erosion", this.props.layer?.importerTargetObjectId);
                     trackEvent('button', `click`, `simpleview-menu-row-upload-${this.props.layer.title}`);
@@ -604,7 +604,7 @@ class MenuRowClass extends React.Component {
                                 />
                                 {this.props.layer?.title === this.state.newTitle ? null :
                                     <span
-                                        className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk glyph-save"}
+                                        className={"btn glyphicon menu-row-glyph glyphicon-floppy-disk sv-glyph-save"}
                                         onClick={
                                             () => {
                                                 this.props.updateDatasetTitle(this.props.layer.name, this.state.newTitle);

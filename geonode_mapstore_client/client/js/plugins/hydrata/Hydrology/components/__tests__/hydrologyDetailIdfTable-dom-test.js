@@ -264,7 +264,7 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
             // Modal mounted in document.body (portal), with a header + chart.
             const overlay = document.body.querySelector('.sv-idf-curve-modal-overlay');
             expect(overlay).toExist();
-            expect(overlay.querySelector('.legend-close')).toExist();
+            expect(overlay.querySelector('.sv-legend-close')).toExist();
             expect(overlay.querySelector('.recharts-responsive-container')).toExist();
         } finally {
             unmount();
@@ -279,7 +279,7 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
         });
         try {
             fireEvent.click(container.querySelector('.sv-idf-curve-open-btn'));
-            const close = document.body.querySelector('.sv-idf-curve-modal-overlay .legend-close');
+            const close = document.body.querySelector('.sv-idf-curve-modal-overlay .sv-legend-close');
             expect(close).toExist();
             fireEvent.click(close);
             expect(document.body.querySelector('.sv-idf-curve-modal-overlay')).toNotExist();

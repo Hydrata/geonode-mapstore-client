@@ -42,7 +42,7 @@ class SimpleViewAttributeResultClass extends React.Component {
                         <Message msgId="hydrata.simpleView.importResult" />
                     </div>
                     <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
+                        className={"btn glyphicon glyphicon-remove sv-legend-close"}
                         onClick={() => {
                             this.props.setVisibleSimpleViewAttributeResult(false);
                         }}

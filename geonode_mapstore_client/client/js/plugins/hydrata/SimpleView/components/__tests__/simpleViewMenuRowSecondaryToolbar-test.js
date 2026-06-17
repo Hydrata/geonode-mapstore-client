@@ -116,7 +116,7 @@ describe('TASK-1010 simpleViewMenuRow — primary/secondary toolbar swap', () =>
                 const primary = container.querySelector('.menu-row-toolbar');
                 expect(primary).toExist();
                 expect(primary.querySelector('.glyphicon-trash')).toNotExist();
-                expect(primary.querySelector('.glyph-delete')).toNotExist();
+                expect(primary.querySelector('.sv-glyph-delete')).toNotExist();
                 expect(primary.querySelector('.menu-row-delete-confirm')).toNotExist();
             });
         });
@@ -129,7 +129,7 @@ describe('TASK-1010 simpleViewMenuRow — primary/secondary toolbar swap', () =>
                 expect(secondary).toExist();
                 const trash = secondary.querySelector('.menu-row-glyph.glyphicon-trash');
                 expect(trash).toExist();
-                expect(trash.className).toInclude('glyph-delete');
+                expect(trash.className).toInclude('sv-glyph-delete');
             });
         });
 
@@ -184,13 +184,13 @@ describe('TASK-1010 simpleViewMenuRow — primary/secondary toolbar swap', () =>
                 expect(glyphs[2].className).toInclude('glyphicon-pencil');
                 expect(glyphs[3].className).toInclude('glyphicon-download');
                 expect(glyphs[4].className).toInclude('glyphicon-trash');
-                expect(glyphs[4].className).toInclude('glyph-delete');
+                expect(glyphs[4].className).toInclude('sv-glyph-delete');
             });
         });
     });
 
     describe('Disabled state on trash propagates from layer.deleting (R03 invariant)', () => {
-        it('adds glyph-disabled + aria-disabled when terrain resource.deleting=true', () => {
+        it('adds sv-glyph-disabled + aria-disabled when terrain resource.deleting=true', () => {
             const { MenuRow } = require('../simpleViewMenuRow');
             const store = createMockStore({
                 anuga: {
@@ -207,7 +207,7 @@ describe('TASK-1010 simpleViewMenuRow — primary/secondary toolbar swap', () =>
                     () => {
                         const trash = container.querySelector('.menu-row-toolbar-secondary .menu-row-glyph.glyphicon-trash');
                         expect(trash).toExist();
-                        expect(trash.className).toInclude('glyph-disabled');
+                        expect(trash.className).toInclude('sv-glyph-disabled');
                         expect(trash.getAttribute('aria-disabled')).toBe('true');
                         resolve();
                     }

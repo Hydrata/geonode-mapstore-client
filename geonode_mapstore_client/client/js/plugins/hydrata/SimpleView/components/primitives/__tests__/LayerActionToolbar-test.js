@@ -74,7 +74,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 () => {
                     const glyphs = container.querySelectorAll('.menu-row-glyph');
                     expect(glyphs.length).toBe(3);
-                    expect(container.querySelector('.glyph-edit')).toNotExist();
+                    expect(container.querySelector('.sv-glyph-edit')).toNotExist();
                     done();
                 }
             );
@@ -87,7 +87,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 () => {
                     const glyphs = container.querySelectorAll('.menu-row-glyph');
                     expect(glyphs.length).toBe(2);
-                    expect(container.querySelector('.glyph-edit')).toNotExist();
+                    expect(container.querySelector('.sv-glyph-edit')).toNotExist();
                     expect(container.querySelector('.glyphicon-download')).toNotExist();
                     done();
                 }
@@ -139,29 +139,29 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
     });
 
     describe('Visibility glyph', () => {
-        it('renders glyphicon-ok + glyph-active when layer.visibility === true', (done) => {
+        it('renders glyphicon-ok + sv-glyph-active when layer.visibility === true', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer({visibility: true})} canEdit canDownload />,
                 container,
                 () => {
                     const glyph = container.querySelectorAll('.menu-row-glyph')[0];
                     expect(glyph.className).toInclude('glyphicon-ok');
-                    expect(glyph.className).toInclude('glyph-active');
-                    expect(glyph.className).toNotInclude('glyph-inactive');
+                    expect(glyph.className).toInclude('sv-glyph-active');
+                    expect(glyph.className).toNotInclude('sv-glyph-inactive');
                     done();
                 }
             );
         });
 
-        it('renders glyphicon-remove + glyph-inactive when layer.visibility === false', (done) => {
+        it('renders glyphicon-remove + sv-glyph-inactive when layer.visibility === false', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer({visibility: false})} canEdit canDownload />,
                 container,
                 () => {
                     const glyph = container.querySelectorAll('.menu-row-glyph')[0];
                     expect(glyph.className).toInclude('glyphicon-remove');
-                    expect(glyph.className).toInclude('glyph-inactive');
-                    expect(glyph.className).toNotInclude('glyph-active');
+                    expect(glyph.className).toInclude('sv-glyph-inactive');
+                    expect(glyph.className).toNotInclude('sv-glyph-active');
                     done();
                 }
             );
@@ -189,12 +189,12 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
     });
 
     describe('Zoom glyph', () => {
-        it('always renders with glyphicon-zoom-to + glyph-zoom', (done) => {
+        it('always renders with glyphicon-zoom-to + sv-glyph-zoom', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit={false} canDownload={false} />,
                 container,
                 () => {
-                    const zoom = container.querySelector('.glyph-zoom');
+                    const zoom = container.querySelector('.sv-glyph-zoom');
                     expect(zoom).toExist();
                     expect(zoom.className).toInclude('glyphicon-zoom-to');
                     expect(zoom.className).toInclude('menu-row-glyph');
@@ -215,7 +215,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 />,
                 container,
                 () => {
-                    container.querySelector('.glyph-zoom').click();
+                    container.querySelector('.sv-glyph-zoom').click();
                     expect(zooms).toBe(1);
                     done();
                 }
@@ -224,12 +224,12 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
     });
 
     describe('Edit glyph (pencil)', () => {
-        it('renders glyphicon-pencil + glyph-edit when canEdit=true', (done) => {
+        it('renders glyphicon-pencil + sv-glyph-edit when canEdit=true', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit canDownload={false} />,
                 container,
                 () => {
-                    const edit = container.querySelector('.glyph-edit');
+                    const edit = container.querySelector('.sv-glyph-edit');
                     expect(edit).toExist();
                     expect(edit.className).toInclude('glyphicon-pencil');
                     expect(edit.className).toInclude('menu-row-glyph');
@@ -238,12 +238,12 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
             );
         });
 
-        it('does NOT render any .glyph-edit when canEdit=false', (done) => {
+        it('does NOT render any .sv-glyph-edit when canEdit=false', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit={false} canDownload />,
                 container,
                 () => {
-                    expect(container.querySelector('.glyph-edit')).toNotExist();
+                    expect(container.querySelector('.sv-glyph-edit')).toNotExist();
                     expect(container.querySelector('.glyphicon-pencil')).toNotExist();
                     done();
                 }
@@ -262,7 +262,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                 />,
                 container,
                 () => {
-                    container.querySelector('.glyph-edit').click();
+                    container.querySelector('.sv-glyph-edit').click();
                     expect(edits).toBe(1);
                     done();
                 }
@@ -271,7 +271,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
     });
 
     describe('Download glyph (TASK-1010 — swapped in for trash)', () => {
-        it('renders glyphicon-download + glyph-active when canDownload=true', (done) => {
+        it('renders glyphicon-download + sv-glyph-active when canDownload=true', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit={false} canDownload />,
                 container,
@@ -279,7 +279,7 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
                     const download = container.querySelector('.glyphicon-download');
                     expect(download).toExist();
                     expect(download.className).toInclude('menu-row-glyph');
-                    expect(download.className).toInclude('glyph-active');
+                    expect(download.className).toInclude('sv-glyph-active');
                     done();
                 }
             );
@@ -317,12 +317,12 @@ describe('SimpleView LayerActionToolbar primitive (TASK-1007 W3, tested in W4)',
     });
 
     describe('Primitive no longer renders delete glyph or confirm overlay (TASK-1010 — moved to simpleViewMenuRow)', () => {
-        it('never renders .glyph-delete inside the primitive (now lives in secondary toolbar)', (done) => {
+        it('never renders .sv-glyph-delete inside the primitive (now lives in secondary toolbar)', (done) => {
             ReactDOM.render(
                 <LayerActionToolbar layer={makeLayer()} canEdit canDownload />,
                 container,
                 () => {
-                    expect(container.querySelector('.glyph-delete')).toNotExist();
+                    expect(container.querySelector('.sv-glyph-delete')).toNotExist();
                     expect(container.querySelector('.glyphicon-trash')).toNotExist();
                     done();
                 }

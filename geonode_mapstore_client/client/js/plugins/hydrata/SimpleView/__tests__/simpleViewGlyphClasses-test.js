@@ -7,8 +7,8 @@ import { Provider } from 'react-redux';
  * TASK-427: Render tests for CSS glyph classes on SimpleView components.
  *
  * Verifies the visibility-toggle glyphs use the correct classes:
- *   - MenuRow:  glyph-active / glyph-inactive
- *   - MenuRows: glyph-active / glyph-inactive / glyph-partial (group toggle)
+ *   - MenuRow:  sv-glyph-active / sv-glyph-inactive
+ *   - MenuRows: sv-glyph-active / sv-glyph-inactive / sv-glyph-partial (group toggle)
  */
 
 // ── Helpers ──
@@ -66,7 +66,7 @@ describe('SimpleView Glyph Classes', () => {
             setTimeout(done);
         });
 
-        it('applies glyph-active class when layer is visible', (done) => {
+        it('applies sv-glyph-active class when layer is visible', (done) => {
             const { MenuRow } = require('../components/simpleViewMenuRow');
             const store = createMockStore();
             const layer = makeLayer('vis1', true);
@@ -79,15 +79,15 @@ describe('SimpleView Glyph Classes', () => {
                 () => {
                     const glyph = container.querySelector('.menu-row-glyph');
                     expect(glyph).toExist();
-                    expect(glyph.className).toInclude('glyph-active');
-                    expect(glyph.className).toNotInclude('glyph-inactive');
+                    expect(glyph.className).toInclude('sv-glyph-active');
+                    expect(glyph.className).toNotInclude('sv-glyph-inactive');
                     expect(glyph.className).toInclude('glyphicon-ok');
                     done();
                 }
             );
         });
 
-        it('applies glyph-inactive class when layer is not visible', (done) => {
+        it('applies sv-glyph-inactive class when layer is not visible', (done) => {
             const { MenuRow } = require('../components/simpleViewMenuRow');
             const store = createMockStore();
             const layer = makeLayer('hid1', false);
@@ -100,8 +100,8 @@ describe('SimpleView Glyph Classes', () => {
                 () => {
                     const glyph = container.querySelector('.menu-row-glyph');
                     expect(glyph).toExist();
-                    expect(glyph.className).toInclude('glyph-inactive');
-                    expect(glyph.className).toNotInclude('glyph-active');
+                    expect(glyph.className).toInclude('sv-glyph-inactive');
+                    expect(glyph.className).toNotInclude('sv-glyph-active');
                     expect(glyph.className).toInclude('glyphicon-remove');
                     done();
                 }
@@ -126,7 +126,7 @@ describe('SimpleView Glyph Classes', () => {
             setTimeout(done);
         });
 
-        it('applies glyph-active when all group layers are visible', (done) => {
+        it('applies sv-glyph-active when all group layers are visible', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('a1', true, 'grp.sub'),
@@ -143,20 +143,20 @@ describe('SimpleView Glyph Classes', () => {
                 </Provider>,
                 container,
                 () => {
-                    const subheadingRow = container.querySelector('.subheading-row');
+                    const subheadingRow = container.querySelector('.sv-subheading-row');
                     expect(subheadingRow).toExist();
                     const glyph = subheadingRow.querySelector('.menu-row-glyph');
                     expect(glyph).toExist();
-                    expect(glyph.className).toInclude('glyph-active');
-                    expect(glyph.className).toNotInclude('glyph-inactive');
-                    expect(glyph.className).toNotInclude('glyph-partial');
+                    expect(glyph.className).toInclude('sv-glyph-active');
+                    expect(glyph.className).toNotInclude('sv-glyph-inactive');
+                    expect(glyph.className).toNotInclude('sv-glyph-partial');
                     expect(glyph.className).toInclude('glyphicon-ok');
                     done();
                 }
             );
         });
 
-        it('applies glyph-inactive when no group layers are visible', (done) => {
+        it('applies sv-glyph-inactive when no group layers are visible', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('b1', false, 'grp.sub'),
@@ -173,20 +173,20 @@ describe('SimpleView Glyph Classes', () => {
                 </Provider>,
                 container,
                 () => {
-                    const subheadingRow = container.querySelector('.subheading-row');
+                    const subheadingRow = container.querySelector('.sv-subheading-row');
                     expect(subheadingRow).toExist();
                     const glyph = subheadingRow.querySelector('.menu-row-glyph');
                     expect(glyph).toExist();
-                    expect(glyph.className).toInclude('glyph-inactive');
-                    expect(glyph.className).toNotInclude('glyph-active');
-                    expect(glyph.className).toNotInclude('glyph-partial');
+                    expect(glyph.className).toInclude('sv-glyph-inactive');
+                    expect(glyph.className).toNotInclude('sv-glyph-active');
+                    expect(glyph.className).toNotInclude('sv-glyph-partial');
                     expect(glyph.className).toInclude('glyphicon-remove');
                     done();
                 }
             );
         });
 
-        it('applies glyph-partial when group layers have mixed visibility', (done) => {
+        it('applies sv-glyph-partial when group layers have mixed visibility', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('c1', true, 'grp.sub'),
@@ -203,13 +203,13 @@ describe('SimpleView Glyph Classes', () => {
                 </Provider>,
                 container,
                 () => {
-                    const subheadingRow = container.querySelector('.subheading-row');
+                    const subheadingRow = container.querySelector('.sv-subheading-row');
                     expect(subheadingRow).toExist();
                     const glyph = subheadingRow.querySelector('.menu-row-glyph');
                     expect(glyph).toExist();
-                    expect(glyph.className).toInclude('glyph-partial');
-                    expect(glyph.className).toNotInclude('glyph-active');
-                    expect(glyph.className).toNotInclude('glyph-inactive');
+                    expect(glyph.className).toInclude('sv-glyph-partial');
+                    expect(glyph.className).toNotInclude('sv-glyph-active');
+                    expect(glyph.className).toNotInclude('sv-glyph-inactive');
                     expect(glyph.className).toInclude('glyphicon-minus');
                     done();
                 }

@@ -89,7 +89,7 @@ const InputSection = ({
                 {canEdit ?
                     <React.Fragment>
                         <span
-                            className={`btn glyphicon menu-row-glyph glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
+                            className={`btn glyphicon menu-row-glyph sv-glyph-active ${inputVisible ? 'glyphicon-ok' : 'glyphicon-plus'}`}
                             style={{
                                 fontSize: "smaller",
                                 textAlign: "right",
@@ -129,7 +129,7 @@ const InputSection = ({
                 }
                 {collapsible && (
                     <span
-                        className={`btn glyphicon menu-row-glyph glyph-collapse ${collapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
+                        className={`btn glyphicon menu-row-glyph sv-glyph-collapse ${collapsed ? "glyphicon-chevron-right" : "glyphicon-chevron-down"}`}
                         style={{ fontSize: "smaller", marginLeft: "auto", marginRight: "8px" }}
                         onClick={onToggleCollapse}
                         aria-label={collapsed ? "Expand section" : "Collapse section"}

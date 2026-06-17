@@ -241,7 +241,7 @@
     right: var(--sv-widget-right, 65px) !important;
 }
 
-.legend-panel {
+.sv-legend-panel {
     top: 11px;
     right: var(--sv-widget-right, 65px);
     left: unset;
@@ -255,7 +255,7 @@
     min-width: 200px;
 }
 
-.legend-header {
+.sv-legend-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -264,26 +264,26 @@
     flex-shrink: 0;
 }
 
-.legend-header h4 {
+.sv-legend-header h4 {
     margin: 0;
     font-size: 16px;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.legend-body {
+.sv-legend-body {
     overflow-y: auto;
     flex: 1;
     padding: 8px;
 }
 
-.legend-row {
+.sv-legend-row {
     padding: 10px;
     margin: 0 0 8px 0;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
 }
 
-.legend-footer {
+.sv-legend-footer {
     padding: 8px 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.3);
     display: flex;
@@ -291,7 +291,7 @@
     flex-shrink: 0;
 }
 
-.legend-background {
+.sv-legend-background {
     background-color: var(--sv-chart-surface, #ffffff);
     padding: 3px;
     border-radius: 3px;
@@ -299,25 +299,25 @@
     justify-content: flex-end;
 }
 
-.legend-image {
+.sv-legend-image {
     display: block;
     max-width: 80%;
 }
 
-.legend-text-label {
+.sv-legend-text-label {
     text-align: left;
 }
 
-.legend-heading {
+.sv-legend-heading {
     text-align: center;
 }
 
-.legend-layer-title {
+.sv-legend-layer-title {
     text-align: left;
     margin-bottom: 4px;
 }
 
-.legend-close {
+.sv-legend-close {
     position: absolute;
     right: 0;
     /* TASK-1758 W3: text -> --sv-text. Coral-red close fill now tokenised
@@ -337,12 +337,12 @@
 }
 
 /* Inside legend header, use flex positioning instead of absolute */
-.legend-header .legend-close {
+.sv-legend-header .sv-legend-close {
     position: static;
     flex-shrink: 0;
 }
 
-.legend-close:hover {
+.sv-legend-close:hover {
     background-color: var(--sv-close-bg-hover, #b5403a);
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
@@ -362,7 +362,7 @@
     border-color: rgba(255, 255, 255, 0.7);
 }
 
-.uploader-panel {
+.sv-uploader-panel {
     position: fixed;
     top: 70px;
     right: 10px;
@@ -374,7 +374,7 @@
     max-width: 800px;
 }
 
-.uploader-panel>tbody {
+.sv-uploader-panel>tbody {
     background-color: transparent;
 }
 
@@ -402,7 +402,7 @@
     scrollbar-color: var(--sv-input-blue, #5178af) transparent; /* TASK-1677 */
 }
 
-.subheading-row {
+.sv-subheading-row {
     display: flex;
     align-items: center;
     margin-top: 8px;
@@ -412,35 +412,35 @@
     padding: 3px 4px;
 }
 
-.subheading-row:first-child {
+.sv-subheading-row:first-child {
     margin-top: 0;
 }
 
-.subheading-row .menu-row-glyph {
+.sv-subheading-row .menu-row-glyph {
     flex-shrink: 0;
 }
 
-.subheading-text {
+.sv-subheading-text {
     margin: 0;
     text-align: left;
     flex: 1;
 }
 
-.subheading-text-clickable {
+.sv-subheading-text-clickable {
     cursor: pointer;
     user-select: none;
 }
 
-.subheading-text-clickable:hover {
+.sv-subheading-text-clickable:hover {
     text-decoration: underline;
 }
 
-.menu-row-glyph.glyph-collapse {
+.menu-row-glyph.sv-glyph-collapse {
     color: var(--sv-glyph-chip-bg, #ffffff);
     background: transparent;
 }
 
-.menu-row-glyph.glyph-collapse:hover {
+.menu-row-glyph.sv-glyph-collapse:hover {
     background: rgba(255, 255, 255, 0.15);
 }
 
@@ -486,15 +486,15 @@ span.menu-row-glyph {
     justify-content: center;
 }
 
-.menu-row-glyph.glyph-active { color: var(--sv-glyph-active, limegreen); }
-.menu-row-glyph.glyph-inactive { color: var(--sv-glyph-inactive, red); }
-.menu-row-glyph.glyph-partial { color: var(--sv-glyph-partial, orange); }
-.menu-row-glyph.glyph-zoom { color: var(--sv-glyph-zoom, #4dabf7); }
-.menu-row-glyph.glyph-edit { color: var(--sv-glyph-edit, grey); }
-.menu-row-glyph.glyph-delete { color: var(--sv-glyph-delete, darkred); }
-.menu-row-glyph.glyph-save { color: var(--sv-glyph-save, limegreen); }
-.menu-row-glyph.glyph-settings { color: var(--sv-glyph-settings, #325f93); }
-.menu-row-glyph.glyph-disabled {
+.menu-row-glyph.sv-glyph-active { color: var(--sv-glyph-active, limegreen); }
+.menu-row-glyph.sv-glyph-inactive { color: var(--sv-glyph-inactive, red); }
+.menu-row-glyph.sv-glyph-partial { color: var(--sv-glyph-partial, orange); }
+.menu-row-glyph.sv-glyph-zoom { color: var(--sv-glyph-zoom, #4dabf7); }
+.menu-row-glyph.sv-glyph-edit { color: var(--sv-glyph-edit, grey); }
+.menu-row-glyph.sv-glyph-delete { color: var(--sv-glyph-delete, darkred); }
+.menu-row-glyph.sv-glyph-save { color: var(--sv-glyph-save, limegreen); }
+.menu-row-glyph.sv-glyph-settings { color: var(--sv-glyph-settings, #325f93); }
+.menu-row-glyph.sv-glyph-disabled {
     opacity: 0.45;
     cursor: not-allowed;
     pointer-events: none;
@@ -552,7 +552,7 @@ span.menu-row-glyph {
     margin: 1px;
 }
 
-.dataset-transparency {
+.sv-dataset-transparency {
 }
 
 .data-title-input {
@@ -569,7 +569,7 @@ span.menu-row-glyph {
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.mapstore-slider.with-tooltip.dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
+.mapstore-slider.with-tooltip.sv-dataset-transparency .noUi-target.noUi-horizontal .noUi-base .noUi-origin .noUi-handle {
     width: 18px;
     height: 18px;
     left: -9px;
@@ -582,7 +582,7 @@ span.menu-row-glyph {
     cursor: pointer;
 }
 
-.mapstore-slider.with-tooltip.dataset-transparency .noUi-target {
+.mapstore-slider.with-tooltip.sv-dataset-transparency .noUi-target {
     box-shadow: none;
     border: 1px solid rgba(255, 255, 255, 0.68);
     background-color: var(--sv-chrome-deep, #335781);
@@ -592,7 +592,7 @@ span.menu-row-glyph {
     background-color: white !important;
 }
 
-.introduction-modal {
+.sv-introduction-modal {
     background-color: var(--sv-chrome-deep, #335781);
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     opacity: 0.95;
@@ -688,8 +688,8 @@ span.menu-row-glyph {
 /* Pair with .menu-row-delete-confirm.is-open: hide trash + opacity slider
  * on the same row while the dialog is open so the dialog visually replaces
  * them at top-right. */
-.menu-row-glyph.glyph-hidden,
-.mapstore-slider.glyph-hidden {
+.menu-row-glyph.sv-glyph-hidden,
+.mapstore-slider.sv-glyph-hidden {
     visibility: hidden;
 }
 
@@ -739,7 +739,7 @@ span.menu-row-glyph {
         font-size: 14px;
     }
 
-    .legend-panel {
+    .sv-legend-panel {
         max-width: 250px;
         max-height: calc(100vh - 31px);
     }
@@ -788,12 +788,12 @@ span.menu-row-glyph {
         font-size: 13px;
     }
 
-    .legend-panel {
+    .sv-legend-panel {
         max-width: calc(100% - 80px);
         max-height: calc(100vh - 31px);
     }
 
-    .uploader-panel {
+    .sv-uploader-panel {
         max-width: calc(100% - 20px);
         right: 10px;
     }
@@ -806,7 +806,7 @@ span.menu-row-glyph {
    Two-pane shell shown inside .menu-rows-container when openMenuGroupId
    has 2+ subheadings. Scoped under .simple-view-panel--miller; all new
    classes use the sv- prefix and never modify existing .menu-row,
-   .menu-rows-container, or .subheading-row rules (R01 mitigation).
+   .menu-rows-container, or .sv-subheading-row rules (R01 mitigation).
 
    The legacy accordion path (single-subheading fallback in
    simpleViewMenuRows.js) is preserved verbatim so the existing

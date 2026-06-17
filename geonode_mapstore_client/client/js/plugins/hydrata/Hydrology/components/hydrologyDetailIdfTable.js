@@ -325,7 +325,7 @@ const IdfCurveModal = ({chartData, onClose, closeLabel}) => {
                     <span><Message msgId="hydrata.hydrology.idfCurveModalTitle" /></span>
                     <button
                         type="button"
-                        className="legend-close"
+                        className="sv-legend-close"
                         style={{position: 'static'}}
                         onClick={onClose}
                         title={closeLabel}

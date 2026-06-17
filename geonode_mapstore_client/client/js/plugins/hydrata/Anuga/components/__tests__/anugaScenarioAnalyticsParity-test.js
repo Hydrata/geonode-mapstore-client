@@ -133,18 +133,18 @@ describe('anugaScenarioMenu — Umami analytics parity (TASK-C W4)', () => {
 
         // Wave 3C C3: Close X removed per operator decision D3 — Option A
         // exits via the top-tab switch on anugaContainer.js. The
-        // .legend-close element no longer renders and the
+        // .sv-legend-close element no longer renders and the
         // 'anuga-scenario-menu-close' Umami label is no longer fired from
         // this surface. The top-tab analytics event
         // 'anuga-scenario-menu-toggle' (on anugaContainer.js) is the
         // replacement signal — exercised by anugaContainer's own coverage.
-        it('does NOT render .legend-close (Wave 3C C3 regression guard)', () => {
+        it('does NOT render .sv-legend-close (Wave 3C C3 regression guard)', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
                 container
             );
-            expect(container.querySelector('.legend-close')).toNotExist();
+            expect(container.querySelector('.sv-legend-close')).toNotExist();
             expect(labelsFired()).toNotInclude('anuga-scenario-menu-close');
         });
 

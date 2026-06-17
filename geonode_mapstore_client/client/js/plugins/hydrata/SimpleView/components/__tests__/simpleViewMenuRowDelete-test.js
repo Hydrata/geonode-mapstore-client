@@ -742,7 +742,7 @@ describe('V2P-714 simpleViewMenuRow cascade-delete', () => {
             </Provider>,
             container,
             () => {
-                // .glyph-delete is the interactive trash; .glyphicon-trash alone
+                // .sv-glyph-delete is the interactive trash; .glyphicon-trash alone
                 // also matches the decorative trash inside the always-rendered
                 // confirm dialog so we narrow with the menu-row class.
                 const trash = container.querySelector('.menu-row-glyph.glyphicon-trash');

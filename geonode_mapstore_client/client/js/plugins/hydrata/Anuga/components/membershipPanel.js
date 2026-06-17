@@ -31,7 +31,7 @@ import {
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 // TASK-1764 (epic-1758 W1) — chassis PanelHeader for the panel header
-// (cascade-safe sv-panel-header-close ×-chip, replaces the .legend-close span).
+// (cascade-safe sv-panel-header-close ×-chip, replaces the .sv-legend-close span).
 // The 3-radio visibility group + the react-bootstrap member/invitation Tables
 // stay bespoke (flagged gaps). No test pins the close button class; the
 // #membership-panel id + inner row classes the tests query are untouched.

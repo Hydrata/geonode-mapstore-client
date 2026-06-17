@@ -17,7 +17,7 @@
  *     dialog when clicked with one.
  *   - Wave 3C C3: Close X removed per operator decision D3 — top-tab
  *     switch on anugaContainer.js handles panel close + polling stop. The
- *     panel header MUST NOT render a .legend-close element.
+ *     panel header MUST NOT render a .sv-legend-close element.
  *   - Category rail regression: 4 items, no `.anuga-scenario-category-section-label`.
  *
  * Memory pin guardrails:
@@ -395,7 +395,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
     // Close X removed (Wave 3C C3) — regression guard
     // ----------------------------------------------------------------
     describe('Close X regression (Wave 3C C3)', () => {
-        it('does NOT render a .legend-close element in the panel header', () => {
+        it('does NOT render a .sv-legend-close element in the panel header', () => {
             const store = makeStore();
             ReactDOM.render(
                 <Provider store={store}><AnugaScenarioMenu /></Provider>,
@@ -404,7 +404,7 @@ describe('anugaScenarioMenu — header strip wiring', () => {
             // Operator decision D3: panel exits via top-tab switch on
             // anugaContainer.js, which already toggles
             // setAnugaScenarioMenu + start/stopAnugaScenarioPolling.
-            const closeBtn = container.querySelector('.legend-close');
+            const closeBtn = container.querySelector('.sv-legend-close');
             expect(closeBtn).toNotExist();
         });
     });

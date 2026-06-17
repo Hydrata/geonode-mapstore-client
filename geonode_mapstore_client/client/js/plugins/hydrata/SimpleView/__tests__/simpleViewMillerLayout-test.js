@@ -9,11 +9,11 @@ import { Provider } from 'react-redux';
  *   - AC#1 rail+pane structure renders at >=2 subheadings
  *   - AC#3 selectedSubHeading defaults to the first subheading on mount
  *   - AC#5 tri-state visibility glyph reuses the exact existing classes
- *     (glyphicon-ok glyph-active / glyphicon-remove glyph-inactive /
- *     glyphicon-minus glyph-partial)
- *   - AC#6 zoom glyph removed from rail items (no glyphicon-zoom-to / glyph-zoom)
+ *     (glyphicon-ok sv-glyph-active / glyphicon-remove sv-glyph-inactive /
+ *     glyphicon-minus sv-glyph-partial)
+ *   - AC#6 zoom glyph removed from rail items (no glyphicon-zoom-to / sv-glyph-zoom)
  *   - AC#7 basemaps short-circuit and empty fallback preserved
- *   - AC#8 single-subheading legacy accordion preserved (.subheading-row
+ *   - AC#8 single-subheading legacy accordion preserved (.sv-subheading-row
  *     + collapse-chevron glyph)
  *   - AC#10 rail is data-driven (one rail item per distinct subheading
  *     from props.layerSubheadings)
@@ -156,7 +156,7 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
     });
 
     describe('Tri-state visibility glyph in rail items (AC#5)', () => {
-        it('renders glyph-active when all rail-group layers are visible', (done) => {
+        it('renders sv-glyph-active when all rail-group layers are visible', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('t1', true, 'grp.Terrain'),
@@ -176,14 +176,14 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                     const firstRailItem = container.querySelector('.sv-category-rail-item');
                     const tristateGlyph = firstRailItem.querySelector('.sv-category-rail-item-tristate');
                     expect(tristateGlyph).toExist();
-                    expect(tristateGlyph.className).toInclude('glyph-active');
+                    expect(tristateGlyph.className).toInclude('sv-glyph-active');
                     expect(tristateGlyph.className).toInclude('glyphicon-ok');
                     done();
                 }
             );
         });
 
-        it('renders glyph-inactive when no rail-group layers are visible', (done) => {
+        it('renders sv-glyph-inactive when no rail-group layers are visible', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('t1', false, 'grp.Terrain'),
@@ -202,14 +202,14 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                 () => {
                     const firstRailItem = container.querySelector('.sv-category-rail-item');
                     const tristateGlyph = firstRailItem.querySelector('.sv-category-rail-item-tristate');
-                    expect(tristateGlyph.className).toInclude('glyph-inactive');
+                    expect(tristateGlyph.className).toInclude('sv-glyph-inactive');
                     expect(tristateGlyph.className).toInclude('glyphicon-remove');
                     done();
                 }
             );
         });
 
-        it('renders glyph-partial when rail-group layers have mixed visibility', (done) => {
+        it('renders sv-glyph-partial when rail-group layers have mixed visibility', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('t1', true, 'grp.Terrain'),
@@ -228,7 +228,7 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                 () => {
                     const firstRailItem = container.querySelector('.sv-category-rail-item');
                     const tristateGlyph = firstRailItem.querySelector('.sv-category-rail-item-tristate');
-                    expect(tristateGlyph.className).toInclude('glyph-partial');
+                    expect(tristateGlyph.className).toInclude('sv-glyph-partial');
                     expect(tristateGlyph.className).toInclude('glyphicon-minus');
                     done();
                 }
@@ -305,7 +305,7 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
     });
 
     describe('Single-subheading legacy accordion preserved (AC#8)', () => {
-        it('renders .subheading-row + collapse-chevron when exactly 1 subheading', (done) => {
+        it('renders .sv-subheading-row + collapse-chevron when exactly 1 subheading', (done) => {
             const { MenuRows } = require('../components/simpleViewMenuRows');
             const layers = [
                 makeLayer('t1', true, 'grp.Terrain'),
@@ -321,8 +321,8 @@ describe('SimpleView Miller-columns rail+pane layout (TASK-1005 W1)', () => {
                 </Provider>,
                 container,
                 () => {
-                    expect(container.querySelector('.subheading-row')).toExist();
-                    expect(container.querySelector('.glyph-collapse')).toExist();
+                    expect(container.querySelector('.sv-subheading-row')).toExist();
+                    expect(container.querySelector('.sv-glyph-collapse')).toExist();
                     expect(container.querySelector('.sv-rail-pane-shell')).toNotExist();
                     expect(container.querySelector('.sv-category-rail-item')).toNotExist();
                     done();

@@ -41,7 +41,7 @@
  * bespoke organisms bespoke-but-tokenised), its migration commit should:
  *   1. Rename all of the panel's classes to sv-* (or remove them if
  *      subsumed by primitives), preserving any test-PINNED classes via
- *      extraClassName (e.g. .anuga-pane-toolbar, .legend-close, sv-tm-*).
+ *      extraClassName (e.g. .anuga-pane-toolbar, .sv-legend-close, sv-tm-*).
  *   2. Delete the migrated panel's prefix(es) from category 3 below.
  *   3. The guard then rejects any NEW class with the old prefix.
  *
@@ -99,6 +99,7 @@ const ALLOWED_PREFIXES = new Set([
     'recharts',    // recharts charting library — .recharts-* survive in the IDF-curve modal
                    // (hydrology.css, TASK-1754). Light chart surface is an intentional carve-out.
     'modal',       // Bootstrap/MapStore modal — anuga.css overrides #mapstore-export.modal-dialog-container.
+    'measure',     // MapStore measure tool — simpleView.css overrides .measure-container (no hydrata JS sets it).
     // Third-party / upstream overrides:
     'gn',          // .gn-brand-navbar override in simpleView.css
     'mapstore',    // .mapstore-slider override in simpleView.css
@@ -133,16 +134,13 @@ const ALLOWED_PREFIXES = new Set([
     // 'badge' RATCHETED OUT (TASK-1766 W2): Anuga badge-role -> sv- (Anuga-only).
     // -- hydrata "shared structural" prefixes in simpleView.css (q-7 "do it now") --
     // status/run RATCHETED OUT (TASK-1766 W2): Anuga-only (status-error, run-polling-paused-*) -> sv-*.
-    'menu',        // ⚠ DEFERRED — in simpleView.css (49) + anuga.css + swamm.css + TerrainWorkbench. Shared pass.
-    'subheading',
-    'legend',
-    'save',
-    'data',        // ⚠ DEFERRED — in simpleView.css + anuga.css + TerrainWorkbench. Shared pass.
-    'dataset',
-    'glyph',
-    'uploader',
-    'introduction',
-    'measure',
+    // legend/glyph/dataset/uploader/introduction/subheading RATCHETED OUT (TASK-1766 W2):
+    //   renamed -> sv-* in simpleView.css + all consumer-panel JS + pinned tests (28 classes/194 refs;
+    //   pins sv-legend-close/sv-glyph-active/-collapse/-delete/sv-subheading-row/sv-uploader-panel kept in lock-step).
+    //   These are TerrainWorkbench-free (no terrainWorkbench.css/JS use).
+    'menu',        // ⚠ DEFERRED — in simpleView.css (49) + anuga.css + swamm.css + TerrainWorkbench. Rename WITH 1587.
+    'save',        // ⚠ DEFERRED — TerrainWorkbench JS uses a save- class. Rename WITH 1587.
+    'data',        // ⚠ DEFERRED — in simpleView.css + anuga.css + TerrainWorkbench. Rename WITH 1587.
     // 'chart' RATCHETED OUT (TASK-1766 W2): Anuga chart-footer/-header/-mainbody/-sidebar -> sv-* (Anuga-only chart-card layout; NOT the recharts surface, which stays cat-2).
     // -- misc one-offs in the baseline --
     // 'add' RATCHETED OUT (TASK-1766 W2): .add-data-input -> sv- (Anuga-only).

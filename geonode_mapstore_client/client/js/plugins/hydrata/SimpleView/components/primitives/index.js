@@ -25,7 +25,7 @@ export {EmptyState} from './EmptyState';
 //
 //   PanelShell   7 consumers: SimpleView, Anuga, Hydrology, Swamm, HGeval,
 //                             TaskMonitor, VectorDraw
-//   PanelHeader  8 consumers: SimpleView(legend-header), Anuga(pane-toolbar),
+//   PanelHeader  8 consumers: SimpleView(sv-legend-header), Anuga(pane-toolbar),
 //                             Hydrology(miller-header), HGeval, TaskMonitor(sv-tm-header),
 //                             VectorDraw, Swamm, TerrainWorkbench
 //   Section      8 consumers: Anuga(section+pane-section), Hydrology(idf-derive-step),

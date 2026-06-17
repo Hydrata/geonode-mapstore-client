@@ -216,8 +216,8 @@ class SimpleViewReferencePanel extends React.Component {
                             <PanelHeader title="Legend" />
                         </div>
                     </Row>
-                    <Note type="do">PanelHeader close chip is always position:static (never absolute) — avoids the .legend-close cascade trap.</Note>
-                    <Note type="dont">Don{"'"}t add class="legend-close" to the close button — that CSS rule has position:absolute which breaks flex layout.</Note>
+                    <Note type="do">PanelHeader close chip is always position:static (never absolute) — avoids the .sv-legend-close cascade trap.</Note>
+                    <Note type="dont">Don{"'"}t add class="sv-legend-close" to the close button — that CSS rule has position:absolute which breaks flex layout.</Note>
                 </Section>
 
                 <Section title="Chassis: Section (sv-section)">

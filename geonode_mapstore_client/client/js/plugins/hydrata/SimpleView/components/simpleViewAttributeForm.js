@@ -125,7 +125,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                         <Message msgId="hydrata.simpleView.importAttributeMapping" />
                     </div>
                     <span
-                        className={"btn glyphicon glyphicon-remove legend-close"}
+                        className={"btn glyphicon glyphicon-remove sv-legend-close"}
                         onClick={() => {
                             this.props.setVisibleSimpleViewAttributeForm(false);
                         }}

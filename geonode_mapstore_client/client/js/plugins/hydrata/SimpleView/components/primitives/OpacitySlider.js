@@ -15,8 +15,8 @@ const OpacitySlider = ({opacity, onChange, hidden}) => {
     return (
         <div
             className={
-                "mapstore-slider dataset-transparency with-tooltip menu-row-slider-subrow"
-                + (hidden ? " glyph-hidden" : "")
+                "mapstore-slider sv-dataset-transparency with-tooltip menu-row-slider-subrow"
+                + (hidden ? " sv-glyph-hidden" : "")
             }
             onClick={(e) => { e.stopPropagation(); }}
             style={{ width: "150px", marginBottom: "0", marginTop: "2px" }}

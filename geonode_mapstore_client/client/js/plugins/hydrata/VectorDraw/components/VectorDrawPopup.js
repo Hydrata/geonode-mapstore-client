@@ -9,7 +9,7 @@ import FormField from './FormField';
 // empty chrome now flows from the design system instead of inline JSX.
 // TASK-1763 — adopt the PanelHeader chassis primitive for the popup header +
 // cascade-safe close chip (replaces the bespoke .simple-view-panel-header +
-// .legend-close span in every phase). PanelHeader is token-backed/self-styled,
+// .sv-legend-close span in every phase). PanelHeader is token-backed/self-styled,
 // so its <h4>+chrome are exempt from the TASK-784 font-uniformity walk (the
 // test's primitive-subtree exemption now includes .sv-panel-header).
 import { ErrorStrip, EmptyState, PanelHeader } from '../../SimpleView/components/primitives';

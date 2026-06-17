@@ -12,7 +12,7 @@ import {
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
 // TASK-1764 (epic-1758 W1) — chassis PanelHeader replaces the bespoke
-// .legend-close span (cascade-safe sv-panel-header-close ×-chip). No test
+// .sv-legend-close span (cascade-safe sv-panel-header-close ×-chip). No test
 // pins the publication close button class; the close handler is preserved.
 import {PanelHeader} from '../../SimpleView/components/primitives';
 // V2P-22 — gate per-publication "Edit Publication" / "Create Figure" actions

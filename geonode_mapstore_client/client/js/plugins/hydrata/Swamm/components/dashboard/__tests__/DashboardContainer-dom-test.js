@@ -133,9 +133,9 @@ describe('TASK-743 DashboardContainer DOM', () => {
     });
 
     // TASK-1761 — the dashboard header is now the PanelHeader chassis primitive.
-    // Pin the cascade-safe close chip (sv-panel-header-close, NOT legend-close)
+    // Pin the cascade-safe close chip (sv-panel-header-close, NOT sv-legend-close)
     // so the chassis adoption can't silently regress to the absolute-positioned
-    // .legend-close that overlapped the title.
+    // .sv-legend-close that overlapped the title.
     it('renders the dashboard header via PanelHeader with a cascade-safe close chip', () => {
         const target = makeTarget(9, 'Header Target');
         const { container } = mountWithProviders(<SwammBmpChart />, {
@@ -143,9 +143,9 @@ describe('TASK-743 DashboardContainer DOM', () => {
         });
         const header = container.querySelector('.sv-panel-header.sv-swamm-bmp-chart-header');
         expect(header).toExist();
-        // The header close chip is the chassis-safe one, never .legend-close.
+        // The header close chip is the chassis-safe one, never .sv-legend-close.
         expect(header.querySelector('.sv-panel-header-close')).toExist();
-        expect(header.querySelector('.legend-close')).toNotExist();
+        expect(header.querySelector('.sv-legend-close')).toNotExist();
     });
 
     it('dispatches HIDE_SWAMM_BMP_CHART when the footer Close button is clicked', () => {
