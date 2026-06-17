@@ -117,7 +117,7 @@
    comes from <Card variant="chart"> (--sv-chart-surface) — TASK-1758 carve-out.
    The bespoke white-background id rules were removed (dead). */
 
-.swamm-bmp-chart-legend-row {
+.sv-swamm-bmp-chart-legend-row {
     display: inline-flex;
     justify-content: left;
     margin-top: 4px;
@@ -136,29 +136,29 @@
     margin-top: auto;
 }
 
-.swamm-bmp-chart-heading {
+.sv-swamm-bmp-chart-heading {
     font-size: medium;
     text-align: center;
     margin-bottom: 5px;
 }
 
-.swamm-bmp-chart-graph-container {
+.sv-swamm-bmp-chart-graph-container {
     margin-bottom: 15px;
 }
 
-.swamm-bmp-chart-graph-box {
+.sv-swamm-bmp-chart-graph-box {
     display: flex;
     height: 100px;
 }
 
-.swamm-bmp-chart-pie-group {
+.sv-swamm-bmp-chart-pie-group {
     margin-top: 10px;
     margin-left: 10px;
     width: 200px;
     display: inline-block;
 }
 
-.swamm-bmp-chart-bar-group {
+.sv-swamm-bmp-chart-bar-group {
     margin-top: 10px;
     margin-right: 10px;
     width: 100%;
@@ -221,32 +221,32 @@
     margin-top: auto;
 }
 
-.swamm-target-row {
+.sv-swamm-target-row {
     display: flex;
     flex-direction: row;
     margin-bottom: 10px
 }
 
-.swamm-target-select {
+.sv-swamm-target-select {
     width: 80%;
 }
 
-.swamm-target-select option:checked {
+.sv-swamm-target-select option:checked {
     color: white;
     background-color: darkgreen;
 }
 
-.swamm-target-form-heading {
+.sv-swamm-target-form-heading {
     margin-bottom: 10px;
 }
 
 /* ── Target form accordion (replaces <select multiple>) ── */
 
-.swamm-target-accordion-section {
+.sv-swamm-target-accordion-section {
     margin-bottom: 4px;
 }
 
-.swamm-target-accordion-header {
+.sv-swamm-target-accordion-header {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -258,33 +258,33 @@
     user-select: none;
 }
 
-.swamm-target-accordion-header:hover {
+.sv-swamm-target-accordion-header:hover {
     background-color: var(--sv-button-bg-hover, rgba(0, 60, 136, 0.8));
 }
 
-.swamm-target-accordion-header-open {
+.sv-swamm-target-accordion-header-open {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
 }
 
-.swamm-target-accordion-arrow {
+.sv-swamm-target-accordion-arrow {
     margin-right: 8px;
     font-size: 10px;
     flex-shrink: 0;
 }
 
-.swamm-target-accordion-title {
+.sv-swamm-target-accordion-title {
     flex: 1;
 }
 
-.swamm-target-accordion-count {
+.sv-swamm-target-accordion-count {
     font-size: 11px;
     opacity: 0.8;
     margin-left: 8px;
     white-space: nowrap;
 }
 
-.swamm-target-accordion-body {
+.sv-swamm-target-accordion-body {
     max-height: 200px;
     overflow-y: auto;
     border: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
@@ -295,7 +295,7 @@
     background-color: var(--sv-button-bg, rgba(0, 60, 136, 0.6));
 }
 
-.swamm-target-checkbox-row {
+.sv-swamm-target-checkbox-row {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -305,26 +305,26 @@
     font-weight: normal;
 }
 
-.swamm-target-checkbox-row input[type="checkbox"] {
+.sv-swamm-target-checkbox-row input[type="checkbox"] {
     margin-right: 8px;
     flex-shrink: 0;
     cursor: pointer;
 }
 
-.swamm-target-checkbox-row span {
+.sv-swamm-target-checkbox-row span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.custom-tooltip-label {
+.sv-custom-tooltip-label {
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
     background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.88));
     border-radius: var(--sv-card-radius, 4px);
     padding: 2px;
 }
 
-.bmp-type-group-glyph {
+.sv-bmp-type-group-glyph {
     font-size: smaller;
     vertical-align: bottom;
     margin-left: 10px;
@@ -335,15 +335,15 @@
     height: 22px;
 }
 
-.bmp-type-group-glyph:hover {
+.sv-bmp-type-group-glyph:hover {
     background: #73a4e8;
 }
 
-.bmp-type-group-bottom-margin {
+.sv-bmp-type-group-bottom-margin {
     margin-bottom: 10px;
 }
 
-.bmp-type-group-name {
+.sv-bmp-type-group-name {
     vertical-align: top;
     margin-top: 5px;
 }
@@ -367,7 +367,7 @@
     border-radius: 4px;
 }
 
-.bmp-filter-group-expanded-panel {
+.sv-bmp-filter-group-expanded-panel {
     height: 100%;
     width: 100%;
     margin-top: 50px;
@@ -376,7 +376,7 @@
 
 }
 
-.bmp-filter-group-selector-row {
+.sv-bmp-filter-group-selector-row {
     margin-left: 30px;
 }
 
@@ -387,15 +387,15 @@
     text-align: left;
 }
 
-.bmp-filter-type-row {
+.sv-bmp-filter-type-row {
     display: flex;
 }
 
-.bmp-filter-type-heading-last-item {
+.sv-bmp-filter-type-heading-last-item {
   margin-left: auto;
 }
 
-.bmp-filter-group-heading {
+.sv-bmp-filter-group-heading {
     text-align: left;
     margin-left: 35px;
     margin-bottom: 3px;
@@ -403,7 +403,7 @@
     flex-direction: column
 }
 
-.bmp-filter-group-glyph {
+.sv-bmp-filter-group-glyph {
     font-size: smaller;
     vertical-align: bottom;
     margin-left: 10px;
@@ -415,11 +415,11 @@
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.bmp-filter-group-glyph:hover {
+.sv-bmp-filter-group-glyph:hover {
     background: #73a4e8;
 }
 
-.bmp-progress-button-danger {
+.sv-bmp-progress-button-danger {
     top: 80px;
     left: 20px;
     min-width: 135px;
@@ -429,7 +429,7 @@
     background-color: inherit;
 }
 
-.bmp-progress-button-success {
+.sv-bmp-progress-button-success {
     top: 80px;
     left: 20px;
     min-width: 135px;
@@ -439,7 +439,7 @@
     background-color: inherit;
 }
 
-.bmp-loading-button {
+.sv-bmp-loading-button {
     position: absolute;
     top: 200px;
     left: 50%;
@@ -455,7 +455,7 @@
     z-index: 10000;
 }
 
-.swamm-button {
+.sv-swamm-button {
     border-radius: var(--sv-card-radius, 4px);
     border: 1px solid var(--sv-button-border, rgba(255, 255, 255, 0.5));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
@@ -467,12 +467,12 @@
     min-width: 100px;
 }
 
-.swamm-button-disabled {
+.sv-swamm-button-disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }
 
-.non-savable-group-profile {
+.sv-non-savable-group-profile {
     background-color: var(--sv-disabled-bg, rgba(220, 53, 69, 0.18));
     color: var(--sv-text-dim, rgba(255, 255, 255, 0.68));
 }
@@ -492,7 +492,7 @@
     width: 100%;
 }
 
-.filter-row {
+.sv-filter-row {
     width: 240px;
     font-size: 14px;
     text-align: left;
@@ -526,7 +526,7 @@
 }
 
 /*Override recharts default that causes bar to go grey on hover*/
-.swamm-bmp-chart-bar-group-responsive > div > svg > path {
+.sv-swamm-bmp-chart-bar-group-responsive > div > svg > path {
     fill: none;
 }
 
@@ -637,7 +637,7 @@
         width: 100%;
     }
 
-    .filter-row {
+    .sv-filter-row {
         width: 100%;
     }
 
@@ -672,26 +672,26 @@
 
     /* TASK-1758 W1 simplify-pass: the dashboard + target-form headers migrated to
        the PanelHeader chassis primitive (TASK-1761), which emits a CLASS
-       (.swamm-bmp-chart-header / .swamm-target-form-header) not an id. These
+       (.sv-swamm-bmp-chart-header / .sv-swamm-target-form-header) not an id. These
        id selectors were dead post-migration; converted to class selectors so the
        mobile responsive sizing re-attaches to the new PanelHeader. */
-    .swamm-bmp-chart-header,
-    .swamm-target-form-header {
+    .sv-swamm-bmp-chart-header,
+    .sv-swamm-target-form-header {
         font-size: large;
         min-height: 36px;
     }
 
-    .swamm-button {
+    .sv-swamm-button {
         min-width: 80px;
         margin: 5px;
         font-size: 12px;
     }
 
-    .swamm-target-select {
+    .sv-swamm-target-select {
         width: 100%;
     }
 
-    .bmp-loading-button {
+    .sv-bmp-loading-button {
         width: 160px;
         margin-left: -80px;
     }
@@ -706,12 +706,12 @@
     #swamm-bmp-chart-body { flex-direction: column; }
     #swamm-bmp-chart-col-one { width: 100%; flex-direction: row; flex-wrap: wrap; }
     #swamm-bmp-chart-col-three { width: 100%; }
-    .swamm-bmp-chart-pie-group { width: 150px; }
+    .sv-swamm-bmp-chart-pie-group { width: 150px; }
     #swamm-bmp-chart-panel button { min-height: 44px; min-width: 44px; }
 }
 
 @media (max-width: 480px) {
     #swamm-bmp-chart-panel { width: 100%; height: 100%; }
     #swamm-bmp-chart-col-three { display: none; }
-    .swamm-bmp-chart-graph-box { flex-direction: column; }
+    .sv-swamm-bmp-chart-graph-box { flex-direction: column; }
 }

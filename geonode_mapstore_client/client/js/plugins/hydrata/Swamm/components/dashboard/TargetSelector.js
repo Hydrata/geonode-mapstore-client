@@ -27,13 +27,13 @@ const TargetSelector = ({
 }) => (
     <div id={"swamm-bmp-chart-col-one"}>
         <div id={"swamm-bmp-chart-targets"}>
-            <div className={"swamm-bmp-chart-heading"}>Targets</div>
+            <div className={"sv-swamm-bmp-chart-heading"}>Targets</div>
             {targets.map((target) => {
                 const isSelected = target.id === selectedTargetId;
                 return (
                     <button
                         key={target.id}
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         aria-label={"Select target: " + target.name}
                         aria-pressed={isSelected}
                         style={{
@@ -45,26 +45,26 @@ const TargetSelector = ({
                 );
             })}
             <button
-                className={"swamm-button"}
+                className={"sv-swamm-button"}
                 style={{marginTop: "10px"}}
                 onClick={() => showTargetForm(null)}>
                 New Target
             </button>
             <button
-                className={"swamm-button"}
+                className={"sv-swamm-button"}
                 style={{marginTop: "10px", marginBottom: "10px"}}
                 onClick={() => showTargetForm(selectedTarget)}>
                 Edit Target
             </button>
         </div>
         <div id={"swamm-bmp-chart-filter"}>
-            <div className={"swamm-bmp-chart-heading"}>
+            <div className={"sv-swamm-bmp-chart-heading"}>
                 Sort Data By:
             </div>
             <div role="radiogroup" aria-label="Group data by">
                 <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-type">{FILTER_TOOLTIPS.type}</Tooltip>}>
                     <button
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         role="radio"
                         aria-checked={bmpFilterMode === 'type'}
                         style={{
@@ -77,7 +77,7 @@ const TargetSelector = ({
                 </OverlayTrigger>
                 <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-status">{FILTER_TOOLTIPS.status}</Tooltip>}>
                     <button
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         role="radio"
                         aria-checked={bmpFilterMode === 'status'}
                         style={{
@@ -90,7 +90,7 @@ const TargetSelector = ({
                 </OverlayTrigger>
                 <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-org">{FILTER_TOOLTIPS.group_profile}</Tooltip>}>
                     <button
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         role="radio"
                         aria-checked={bmpFilterMode === 'group_profile'}
                         style={{
@@ -103,7 +103,7 @@ const TargetSelector = ({
                 </OverlayTrigger>
                 <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-subwatershed">{FILTER_TOOLTIPS.swamm_engine}</Tooltip>}>
                     <button
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         role="radio"
                         aria-checked={bmpFilterMode === 'swamm_engine'}
                         style={{
@@ -117,25 +117,25 @@ const TargetSelector = ({
             </div>
         </div>
         <div id={"swamm-bmp-chart-normalize"} style={{marginBottom: '20px'}}>
-            <div className={"swamm-bmp-chart-heading"}>
+            <div className={"sv-swamm-bmp-chart-heading"}>
                 Normalize:
             </div>
             <button
-                className={"swamm-button"}
+                className={"sv-swamm-button"}
                 style={{ backgroundColor: normalizationMode === 'total' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))' }}
                 onClick={() => setNormalizationMode && setNormalizationMode('total')}
             >
                 Total
             </button>
             <button
-                className={"swamm-button"}
+                className={"sv-swamm-button"}
                 style={{ backgroundColor: normalizationMode === 'per_acre' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))' }}
                 onClick={() => setNormalizationMode && setNormalizationMode('per_acre')}
             >
                 Per Acre
             </button>
             <button
-                className={"swamm-button"}
+                className={"sv-swamm-button"}
                 style={{ backgroundColor: normalizationMode === 'per_dollar' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))' }}
                 onClick={() => setNormalizationMode && setNormalizationMode('per_dollar')}
             >
@@ -143,12 +143,12 @@ const TargetSelector = ({
             </button>
         </div>
         <div id={"swamm-bmp-chart-download"}>
-            <div className={"swamm-bmp-chart-heading"}>
+            <div className={"sv-swamm-bmp-chart-heading"}>
                 Download target data:
             </div>
             <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-download">{DOWNLOAD_TOOLTIP}</Tooltip>}>
                 <button
-                    className={"swamm-button"}
+                    className={"sv-swamm-button"}
                     onClick={() => downloadTargetData(projectId, selectedTargetId)}
                 >
                     *.xlsx
@@ -156,7 +156,7 @@ const TargetSelector = ({
             </OverlayTrigger>
             <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-csv">Download summary as CSV</Tooltip>}>
                 <button
-                    className={"swamm-button"}
+                    className={"sv-swamm-button"}
                     onClick={() => downloadSummaryCSV && downloadSummaryCSV(selectedTarget?.speedDialData, selectedTarget?.name)}
                 >
                     CSV
@@ -164,7 +164,7 @@ const TargetSelector = ({
             </OverlayTrigger>
             <OverlayTrigger placement="right" overlay={<Tooltip id="tooltip-pdf">Download target report as PDF</Tooltip>}>
                 <button
-                    className={"swamm-button"}
+                    className={"sv-swamm-button"}
                     onClick={() => downloadTargetPdf && downloadTargetPdf(projectId, selectedTargetId)}
                 >
                     PDF

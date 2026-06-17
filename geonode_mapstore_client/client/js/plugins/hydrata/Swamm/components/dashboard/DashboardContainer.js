@@ -66,13 +66,13 @@ class SwammBmpChartClass extends React.Component {
                 aria-label="SWAMM Dashboard"
             >
                 <PanelHeader
-                    extraClassName="swamm-bmp-chart-header"
+                    extraClassName="sv-swamm-bmp-chart-header"
                     title={<span>Dashboard: {this.props.selectedTarget?.name}</span>}
                     onClose={() => this.props.hideSwammBmpChart()}
                     closeLabel="Close dashboard"
                 >
                     <button
-                        className="swamm-button"
+                        className="sv-swamm-button"
                         style={{
                             fontSize: 'small',
                             backgroundColor: !isTableView ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))'
@@ -82,7 +82,7 @@ class SwammBmpChartClass extends React.Component {
                         Chart
                     </button>
                     <button
-                        className="swamm-button"
+                        className="sv-swamm-button"
                         style={{
                             fontSize: 'small',
                             backgroundColor: isTableView ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))'
@@ -161,7 +161,7 @@ class SwammBmpChartClass extends React.Component {
                 </div>
                 <div id={"swamm-bmp-chart-footer"}>
                     <button
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         aria-label="Close dashboard"
                         onClick={() => this.props.hideSwammBmpChart()}>
                         Close

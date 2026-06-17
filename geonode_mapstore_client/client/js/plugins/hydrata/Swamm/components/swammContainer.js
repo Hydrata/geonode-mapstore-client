@@ -167,7 +167,7 @@ class SwammContainer extends React.Component {
                         {toolbarTarget ? ReactDOM.createPortal(this.renderToolbarButtons(), toolbarTarget) : null}
                         {this.props.storedBmpForm && !this.props.visibleBmpForm && !this.props.vectorDrawActive ?
                             <Button
-                                className={'simple-view-menu-button bmp-progress-button-success'}
+                                className={'simple-view-menu-button sv-bmp-progress-button-success'}
                                 style={{left: 30, top: 80, width: 120, backgroundColor: "darkgreen"}}
                                 bsStyle={"success"}
                                 onClick={() => this.props.showBmpForm()}
@@ -197,7 +197,7 @@ class SwammContainer extends React.Component {
                             : null
                         }
                         {this.props.loadingBmp ?
-                            <button className={'simple-view-menu-button bmp-loading-button'}>
+                            <button className={'simple-view-menu-button sv-bmp-loading-button'}>
                                 <div style={{marginBottom: "10px"}}><Message msgId="hydrata.swamm.loadingBmpData" /></div>
                                 <span><Spinner color="white" style={{display: "inline-block"}} spinnerName="circle" noFadeIn/></span>
                             </button>

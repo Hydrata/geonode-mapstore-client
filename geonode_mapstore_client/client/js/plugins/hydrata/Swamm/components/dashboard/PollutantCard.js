@@ -52,7 +52,7 @@ const CustomTooltipTwo = ({ active, payload, label: _label, tooltipKey }) => {
                 const loadKey = tooltipKeys[2];
                 return (
                     <div className="custom-tooltip">
-                        <div className="custom-tooltip-label">
+                        <div className="sv-custom-tooltip-label">
                             {formatTooltipLabel(bar?.name, barValue, barEntry, loadKey)}
                         </div>
                         <br/>
@@ -84,7 +84,7 @@ const PollutantCard = ({
     return (
         <Card
             variant="chart"
-            extraClassName="swamm-bmp-chart-graph-container"
+            extraClassName="sv-swamm-bmp-chart-graph-container"
             title={`${pollutant.title}${suffix}`}
             style={{
                 margin: '10px',
@@ -98,9 +98,9 @@ const PollutantCard = ({
             >
                 <div
                     id={`swamm-bmp-chart-${pollutant.name.toLowerCase()}-graph-box`}
-                    className={"swamm-bmp-chart-graph-box"}
+                    className={"sv-swamm-bmp-chart-graph-box"}
                 >
-                    <div className={"swamm-bmp-chart-pie-group"}>
+                    <div className={"sv-swamm-bmp-chart-pie-group"}>
                         <PieChart
                             width={circleSize * 1.5}
                             height={circleSize * 1.5}
@@ -174,11 +174,11 @@ const PollutantCard = ({
                             }
                         </PieChart>
                     </div>
-                    <div className={"swamm-bmp-chart-bar-group"}>
+                    <div className={"sv-swamm-bmp-chart-bar-group"}>
                         <ResponsiveContainer
                             width={'95%'}
                             height={100}
-                            className={'swamm-bmp-chart-bar-group-responsive'}
+                            className={'sv-swamm-bmp-chart-bar-group-responsive'}
                         >
                             <BarChart
                                 data={chartData}

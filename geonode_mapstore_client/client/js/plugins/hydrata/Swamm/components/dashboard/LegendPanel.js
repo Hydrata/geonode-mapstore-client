@@ -8,7 +8,7 @@ const LegendPanel = ({ selectedTarget, bmpFilterMode, colours }) => (
                 {
                     selectedTarget?.barChartData?.[bmpFilterMode]?.map((bar, index) => {
                         return (
-                            <div className={"swamm-bmp-chart-legend-row"} key={`legend-${index}`}>
+                            <div className={"sv-swamm-bmp-chart-legend-row"} key={`legend-${index}`}>
                                 <div>
                                     <svg width="30px" height="15px">
                                         <rect

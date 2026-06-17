@@ -49,7 +49,7 @@ class SwammTargetFormClass extends React.Component {
                 className={'simple-view-panel menu-rows-container'}
             >
                 <PanelHeader
-                    extraClassName="swamm-target-form-header"
+                    extraClassName="sv-swamm-target-form-header"
                     title={this.props.targetForm.id ?
                         <React.Fragment><Message msgId="hydrata.swamm.editTargetPrefix" /> {this.props.targetForm?.name}</React.Fragment> :
                         <Message msgId="hydrata.swamm.createNewTarget" />
@@ -60,7 +60,7 @@ class SwammTargetFormClass extends React.Component {
                 />
                 <div id={"swamm-target-form-body"}>
                     <div id={"swamm-target-form-col-one"}>
-                        <div className={"swamm-target-row"}>
+                        <div className={"sv-swamm-target-row"}>
                             <div
                                 style={{marginRight: "15px"}}
                             >
@@ -78,12 +78,12 @@ class SwammTargetFormClass extends React.Component {
                                 onChange={this.handleChange}
                             />
                         </div>
-                        <div className={"swamm-target-row"}>
+                        <div className={"sv-swamm-target-row"}>
                             <div>
                                 <Message msgId="hydrata.swamm.description" />:
                             </div>
                         </div>
-                        <div className={"swamm-target-row"}>
+                        <div className={"sv-swamm-target-row"}>
                             <textarea
                                 id={'swamm-target-description-textarea'}
                                 style={{boderRadius: "4px", marginBottom: "15px"}}
@@ -95,10 +95,10 @@ class SwammTargetFormClass extends React.Component {
                             />
                         </div>
                         <div id={"swamm-target-percentages"}>
-                            <div className={"swamm-target-form-heading"}>
+                            <div className={"sv-swamm-target-form-heading"}>
                                 <Message msgId="hydrata.swamm.setTargets" />:
                             </div>
-                            <div className={"swamm-target-row"}>
+                            <div className={"sv-swamm-target-row"}>
                                 <div
                                     style={{width: "90px"}}
                                 >
@@ -117,7 +117,7 @@ class SwammTargetFormClass extends React.Component {
                                     <Message msgId="hydrata.swamm.percentReduction" />
                                 </div>
                             </div>
-                            <div className={"swamm-target-row"}>
+                            <div className={"sv-swamm-target-row"}>
                                 <div
                                     style={{width: "90px"}}
                                 >
@@ -136,7 +136,7 @@ class SwammTargetFormClass extends React.Component {
                                     <Message msgId="hydrata.swamm.percentReduction" />
                                 </div>
                             </div>
-                            <div className={"swamm-target-row"}>
+                            <div className={"sv-swamm-target-row"}>
                                 <div
                                     style={{width: "90px"}}
                                 >
@@ -190,13 +190,13 @@ class SwammTargetFormClass extends React.Component {
                 </div>
                 <div id={"swamm-target-form-footer"}>
                     <button
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         onClick={() => this.props.hideTargetForm()}
                     >
                         <Message msgId="hydrata.swamm.close" />
                     </button>
                     <button
-                        className={"swamm-button"}
+                        className={"sv-swamm-button"}
                         style={{backgroundColor: "var(--sv-btn-save, rgba(40,167,69,0.85))"}}
                         onClick={() => {
                             this.props.submitTargetForm(this.props.targetForm, this.props.projectId);
@@ -209,7 +209,7 @@ class SwammTargetFormClass extends React.Component {
                         this.props.targetForm?.id ?
                             this.state.deleteConfirmVisible ? (
                                 <ConfirmOverlay
-                                    buttonClassName="swamm-button"
+                                    buttonClassName="sv-swamm-button"
                                     confirmClassName="swamm-target-delete-confirm-btn"
                                     onCancel={() => this.setState({deleteConfirmVisible: false})}
                                     onConfirm={() => {
@@ -220,7 +220,7 @@ class SwammTargetFormClass extends React.Component {
                                 />
                             ) : (
                                 <button
-                                    className={"swamm-button"}
+                                    className={"sv-swamm-button"}
                                     style={{backgroundColor: "var(--sv-btn-danger, darkred)"}}
                                     onClick={() => this.setState({deleteConfirmVisible: true})}
                                 >
@@ -239,26 +239,26 @@ class SwammTargetFormClass extends React.Component {
         const selectedCount = selectedValues.length;
 
         return (
-            <div className="swamm-target-accordion-section">
+            <div className="sv-swamm-target-accordion-section">
                 <div
-                    className={"swamm-target-accordion-header" + (isOpen ? " swamm-target-accordion-header-open" : "")}
+                    className={"sv-swamm-target-accordion-header" + (isOpen ? " sv-swamm-target-accordion-header-open" : "")}
                     onClick={() => this.setState({openSection: isOpen ? null : fieldName})}
                 >
-                    <span className="swamm-target-accordion-arrow">{isOpen ? '\u25BC' : '\u25B6'}</span>
-                    <span className="swamm-target-accordion-title">{title}</span>
-                    <span className="swamm-target-accordion-count">
+                    <span className="sv-swamm-target-accordion-arrow">{isOpen ? '\u25BC' : '\u25B6'}</span>
+                    <span className="sv-swamm-target-accordion-title">{title}</span>
+                    <span className="sv-swamm-target-accordion-count">
                         {selectedCount > 0 ? `(${selectedCount} selected)` : ''}
                     </span>
                 </div>
                 {isOpen && (
-                    <div className="swamm-target-accordion-body">
+                    <div className="sv-swamm-target-accordion-body">
                         {items.map((item) => {
                             const value = getValueFn(item);
                             const label = getLabelFn(item);
                             // eslint-disable-next-line eqeqeq
                             const isChecked = selectedValues.some(v => v == value);
                             return (
-                                <label key={value} className="swamm-target-checkbox-row">
+                                <label key={value} className="sv-swamm-target-checkbox-row">
                                     <input
                                         type="checkbox"
                                         checked={isChecked}

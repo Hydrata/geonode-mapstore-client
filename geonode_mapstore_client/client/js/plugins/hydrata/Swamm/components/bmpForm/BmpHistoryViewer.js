@@ -254,7 +254,7 @@ const BmpHistoryViewer = ({ records, loading, nextCursor, projectId, bmpId, onCl
                     {nextCursor && (
                         <div style={{ textAlign: 'center', padding: '8px 0' }}>
                             <button
-                                className="swamm-button"
+                                className="sv-swamm-button"
                                 disabled={loading}
                                 onClick={() => onLoadMore(projectId, bmpId, nextCursor)}
                             >

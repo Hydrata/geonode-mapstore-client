@@ -27,14 +27,14 @@ const BmpTypeSelector = ({
                     >
                         <span
                             style={{marginLeft: "15px"}}
-                            className={"btn glyphicon bmp-type-group-glyph" + (expandedBmpTypeGroupName === group[0] ? " glyphicon-chevron-down bmp-type-group-bottom-margin" : " glyphicon-chevron-right")}
+                            className={"btn glyphicon sv-bmp-type-group-glyph" + (expandedBmpTypeGroupName === group[0] ? " glyphicon-chevron-down sv-bmp-type-group-bottom-margin" : " glyphicon-chevron-right")}
                             onClick={
                                 expandedBmpTypeGroupName === group[0] ?
                                     () => setExpandedBmpTypeGroupName(null) :
                                     () => setExpandedBmpTypeGroupName(group[0])
                             }
                         />
-                        <span className="bmp-type-group-name">
+                        <span className="sv-bmp-type-group-name">
                             {group[1]}
                         </span>
                         {
@@ -74,7 +74,7 @@ const BmpTypeSelector = ({
         {changingBmpType ?
             <button
                 type={'button'}
-                className={'swamm-button'}
+                className={'sv-swamm-button'}
                 style={{marginTop: "20px", backgroundColor: "darkgreen"}}
                 onClick={() => setChangingBmpType(false)}
             >

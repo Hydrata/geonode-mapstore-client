@@ -83,34 +83,34 @@ class SwammBmpFiltersClass extends React.Component {
                     <div className={'menu-rows-container'}>
                         <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
+                                className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "bmpType" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('bmpType');}}
                             />
                             <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpType" /></div></span>
                         </div>
                         { this.props.expandedFilter === "bmpType" ?
-                            <div className="bmp-filter-group-expanded-panel">
+                            <div className="sv-bmp-filter-group-expanded-panel">
                                 {this.props.bmpTypeGroups?.map((group) => {
                                     return (
                                         <div
                                             key={`group-${group}`}
-                                            className={"bmp-filter-group-heading"}
+                                            className={"sv-bmp-filter-group-heading"}
                                         >
-                                            <div className={"bmp-filter-type-row"}>
+                                            <div className={"sv-bmp-filter-type-row"}>
                                                 <span
                                                     style={{marginLeft: "15px"}}
-                                                    className={"btn glyphicon bmp-type-group-glyph" + (this.props.expandedBmpTypeGroupName === group[0] ? " glyphicon-chevron-down bmp-type-group-bottom-margin" : " glyphicon-chevron-right")}
+                                                    className={"btn glyphicon sv-bmp-type-group-glyph" + (this.props.expandedBmpTypeGroupName === group[0] ? " glyphicon-chevron-down sv-bmp-type-group-bottom-margin" : " glyphicon-chevron-right")}
                                                     onClick={
                                                         this.props.expandedBmpTypeGroupName === group[0] ?
                                                             () => this.props.setExpandedBmpTypeGroupName(null) :
                                                             () => this.props.setExpandedBmpTypeGroupName(group[0])
                                                     }
                                                 />
-                                                <span className="bmp-type-group-name">
+                                                <span className="sv-bmp-type-group-name">
                                                     {group[1]}
                                                 </span>
                                                 <span
-                                                    className={"btn glyphicon menu-row-glyph bmp-filter-type-heading-last-item" + (group?.[2] ? " glyphicon-ok" : " glyphicon-remove")}
+                                                    className={"btn glyphicon menu-row-glyph sv-bmp-filter-type-heading-last-item" + (group?.[2] ? " glyphicon-ok" : " glyphicon-remove")}
                                                     style={{"color": group?.[2] ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                     onClick={() => {
                                                         this.props.toggleBmpTypeGroup(group);
@@ -125,7 +125,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                             return (
                                                                 <div
                                                                     key={`bmpType-${bmpType?.name}`}
-                                                                    className={"bmp-filter-group-selector-row"}
+                                                                    className={"sv-bmp-filter-group-selector-row"}
                                                                 >
                                                                     <span
                                                                         id={`bmp-type-toggle-box-${bmpType?.name}`}
@@ -154,18 +154,18 @@ class SwammBmpFiltersClass extends React.Component {
                         }
                         <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "priority" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
+                                className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "priority" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('priority');}}
                             />
                             <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpPriority" /></div></span>
                         </div>
                         { this.props.expandedFilter === "priority" ?
-                            <div className="bmp-filter-group-expanded-panel">
+                            <div className="sv-bmp-filter-group-expanded-panel">
                                 {this.props.priorities?.map((priority, index) => {
                                     return (
                                         <div
                                             key={`priority-${priority}`}
-                                            className={"bmp-filter-group-selector-row filter-row " + (index % 2 ? "filter-row-odd" : '')}
+                                            className={"sv-bmp-filter-group-selector-row sv-filter-row " + (index % 2 ? "filter-row-odd" : '')}
                                         >
                                             <span
                                                 id={`bmp-type-toggle-box-${priority?.label}`}
@@ -189,20 +189,20 @@ class SwammBmpFiltersClass extends React.Component {
                         }
                         <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "status" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
+                                className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "status" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('status');}}
                             />
                             <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByBmpStatus" /></div></span>
                         </div>
                         {
                             this.props.expandedFilter === "status" ?
-                                <div className="bmp-filter-group-expanded-panel">
+                                <div className="sv-bmp-filter-group-expanded-panel">
                                     {
                                         this.props.statuses.map((status, index) => {
                                             return (
                                                 <div
                                                     key={`status-${status}`}
-                                                    className={"bmp-filter-group-selector-row filter-row " + (index % 2 ? "filter-row-odd" : '')}
+                                                    className={"sv-bmp-filter-group-selector-row sv-filter-row " + (index % 2 ? "filter-row-odd" : '')}
                                                 >
                                                     <span
                                                         id={`bmp-type-toggle-box-${status?.name}`}
@@ -227,20 +227,20 @@ class SwammBmpFiltersClass extends React.Component {
                         }
                         <div className={"row menu-row menu-row-bmp-filter pull-left"}>
                             <span
-                                className={"inline btn glyphicon bmp-filter-group-glyph " + (this.props.expandedFilter === "groupProfile" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
+                                className={"inline btn glyphicon sv-bmp-filter-group-glyph " + (this.props.expandedFilter === "groupProfile" ? "glyphicon-chevron-down" : "glyphicon-chevron-right")}
                                 onClick={() => {this.props.setExpandedFilter('groupProfile');}}
                             />
                             <span className="menu-row-text"><div><Message msgId="hydrata.swamm.filterByOrganization" /></div></span>
                         </div>
                         {
                             this.props.expandedFilter === "groupProfile" ?
-                                <div className="bmp-filter-group-expanded-panel">
+                                <div className="sv-bmp-filter-group-expanded-panel">
                                     {
                                         this.props.groupProfiles.map((groupProfile, index) => {
                                             return (
                                                 <div
                                                     key={`groupProfile-${groupProfile?.title}`}
-                                                    className={"bmp-filter-group-selector-row filter-row " + (index < ((this.props.groupProfiles?.length / 2) + 1) ? "filter-row-odd" : '')}
+                                                    className={"sv-bmp-filter-group-selector-row sv-filter-row " + (index < ((this.props.groupProfiles?.length / 2) + 1) ? "filter-row-odd" : '')}
                                                 >
                                                     <span
                                                         id={`bmp-type-toggle-box-${groupProfile?.title}`}

@@ -34,21 +34,21 @@ const BmpActionButtons = ({
                         complexBmpForm ?
                             <button
                                 type={'button'}
-                                className={'swamm-button'}
+                                className={'sv-swamm-button'}
                                 onClick={() => setComplexBmpForm(false)}>
                             Simple
                             </button>
                             :
                             <button
                                 type={'button'}
-                                className={'swamm-button'}
+                                className={'sv-swamm-button'}
                                 onClick={() => setComplexBmpForm(true)}>
                             Advanced
                             </button>
                     }
                     <button
                         type={'button'}
-                        className={'swamm-button'}
+                        className={'sv-swamm-button'}
                         onClick={() => {
                             downloadBmpReport(storedBmpForm?.id);
                             trackEvent('button', 'click', `bmp-download-pdf-${storedBmpForm?.id}`);
@@ -57,7 +57,7 @@ const BmpActionButtons = ({
                     </button>
                     <button
                         type={'button'}
-                        className={'swamm-button'}
+                        className={'sv-swamm-button'}
                         onClick={() => {
                             fetchBmpHistory(projectId, storedBmpForm?.id);
                             trackEvent('button', 'click', `bmp-history-${storedBmpForm?.id}`);
@@ -68,7 +68,7 @@ const BmpActionButtons = ({
                 : null}
             <button
                 type={'button'}
-                className={'swamm-button'}
+                className={'sv-swamm-button'}
                 onClick={() => {
                     hideBmpForm();
                     onRefreshBmpLayers();
@@ -80,7 +80,7 @@ const BmpActionButtons = ({
                     {/* TASK-1438: shared ConfirmOverlay replaces the inline copy-paste. */}
                     {deleteConfirmVisible ? (
                         <ConfirmOverlay
-                            buttonClassName="swamm-button"
+                            buttonClassName="sv-swamm-button"
                             confirmClassName="swamm-bmp-delete-confirm-btn"
                             onCancel={() => setDeleteConfirmVisible(false)}
                             onConfirm={() => {
@@ -92,7 +92,7 @@ const BmpActionButtons = ({
                     ) : (
                         <button
                             type={'button'}
-                            className={'swamm-button'}
+                            className={'sv-swamm-button'}
                             style={{backgroundColor: "var(--sv-btn-danger, darkred)"}}
                             onClick={() => setDeleteConfirmVisible(true)}>
                         Delete
@@ -102,7 +102,7 @@ const BmpActionButtons = ({
             }
             <button
                 type={'button'}
-                className={hasGeometry ? 'swamm-button' : 'swamm-button disabled'}
+                className={hasGeometry ? 'sv-swamm-button' : 'sv-swamm-button disabled'}
                 style={{
                     backgroundColor: "var(--sv-btn-save, rgba(40,167,69,0.85))"
                 }}

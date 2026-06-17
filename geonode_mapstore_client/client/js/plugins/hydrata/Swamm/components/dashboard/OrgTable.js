@@ -68,7 +68,7 @@ const OrgTable = ({ barChartData, bmpFilterMode = 'group_profile' }) => {
             title={
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>{groupLabel} Contributions</span>
-                    <button className="swamm-button" onClick={handleCopy} style={{ fontSize: 'small', marginTop: 0 }}>
+                    <button className="sv-swamm-button" onClick={handleCopy} style={{ fontSize: 'small', marginTop: 0 }}>
                         Copy
                     </button>
                 </div>

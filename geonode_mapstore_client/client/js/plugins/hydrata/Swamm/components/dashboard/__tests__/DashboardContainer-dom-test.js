@@ -122,9 +122,9 @@ describe('TASK-743 DashboardContainer DOM', () => {
         expect(container.querySelector('#swamm-bmp-chart-col-two')).toExist();
         // The toggle buttons exist; "Table" button reflects the active state.
         // TASK-1761: header migrated to the PanelHeader chassis primitive
-        // (class .sv-panel-header.swamm-bmp-chart-header) — the Chart/Table
+        // (class .sv-panel-header.sv-swamm-bmp-chart-header) — the Chart/Table
         // toggles ride PanelHeader's action-chip slot.
-        const header = container.querySelector('.sv-panel-header.swamm-bmp-chart-header');
+        const header = container.querySelector('.sv-panel-header.sv-swamm-bmp-chart-header');
         expect(header).toExist();
         const buttons = Array.from(header.querySelectorAll('button'));
         const labels = buttons.map(b => b.textContent.trim());
@@ -141,7 +141,7 @@ describe('TASK-743 DashboardContainer DOM', () => {
         const { container } = mountWithProviders(<SwammBmpChart />, {
             state: { swamm: { targets: [target], selectedTargetId: 9, dashboardView: 'chart' } }
         });
-        const header = container.querySelector('.sv-panel-header.swamm-bmp-chart-header');
+        const header = container.querySelector('.sv-panel-header.sv-swamm-bmp-chart-header');
         expect(header).toExist();
         // The header close chip is the chassis-safe one, never .legend-close.
         expect(header.querySelector('.sv-panel-header-close')).toExist();

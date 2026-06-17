@@ -414,7 +414,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                     <div style={{marginTop: '8px'}}>
                         <button
                             type="button"
-                            className="swamm-button"
+                            className="sv-swamm-button"
                             style={{
                                 fontSize: '12px',
                                 padding: '4px 10px',

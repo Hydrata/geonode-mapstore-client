@@ -114,7 +114,10 @@ const ALLOWED_PREFIXES = new Set([
     'publication',
     // 'hgeval' RATCHETED OUT (TASK-1766 W2): HGeval panel renamed hgeval-* -> sv-hgeval-* (CSS + JS); the only test hook (.hgeval-alert-sm) is a negative .toNotExist() assertion (class never rendered).
     'hydrology',
-    'swamm',
+    // 'swamm' RATCHETED OUT (TASK-1766 W2): Swamm panel renamed swamm-/bmp-/filter-/non-* -> sv-* (swamm.css + Swamm JS); 0 test pins. IDs (#swamm-bmp-filters, #bmp-type-toggle-box-*) are out of the class-guard's scope and intentionally kept.
+    // 'bmp' RATCHETED OUT (TASK-1766 W2): with Swamm above.
+    // 'filter' RATCHETED OUT (TASK-1766 W2): .filter-row -> .sv-filter-row in swamm.css (Swamm-only). .filter-row-odd is an unstyled JS marker.
+    // 'non' RATCHETED OUT (TASK-1766 W2): .non-savable-group-profile -> sv- (Swamm-only). non-null/non-operational are JS values, not classes.
     'vector',
     // -- feature namespaces within panels --
     'idf',
@@ -123,7 +126,6 @@ const ALLOWED_PREFIXES = new Set([
     'hyetograph',
     'temporal',
     'terrain',     // ⚠ SHARED with epic/1587 (TerrainWorkbench) — rename AFTER 1587→5.x merge.
-    'bmp',
     'networks',
     'network',
     'badge',
@@ -141,12 +143,10 @@ const ALLOWED_PREFIXES = new Set([
     'uploader',
     'introduction',
     'measure',
-    'filter',
     'chart',
     // -- misc one-offs in the baseline --
     'add',
-    'custom',
-    'non',
+    'custom',      // still in hydrology.css (.custom-pattern-*) — drop after Hydrology pass; Swamm's .custom-tooltip-label already sv-.
     'with'         // .with-tooltip in simpleView.css
 ]);
 
