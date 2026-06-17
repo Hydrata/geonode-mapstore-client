@@ -46,7 +46,7 @@ const parseFieldName = (fieldName) => {
     return null;
 };
 
-const PINNED_BORDER = '3px solid rgba(120,220,180,0.6)';
+const PINNED_BORDER = '3px solid var(--sv-pin-accent, rgba(120,220,180,0.6))';
 const PINNED_TOOLTIP = 'Load manually set. Enter a new percentage to recalculate.';
 
 const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootprint, updateBmpForm, submitBmpForm, projectId }) => {
@@ -147,8 +147,8 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                         style={{
                             width: '100%',
                             textAlign: 'right',
-                            background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.5)',
+                            background: 'var(--sv-input-bg, rgba(255,255,255,0.22))',
+                            border: '1px solid var(--sv-button-border, rgba(255,255,255,0.5))',
                             color: 'inherit',
                             padding: '1px 4px',
                             fontSize: 'inherit'
@@ -214,12 +214,12 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                     className={"text-right"}
                     style={{
                         tableLayout: "fixed",
-                        border: "solid 1px rgb(255, 255, 255, 0.2)",
-                        borderRadius: "2px"
+                        border: "solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6))",
+                        borderRadius: "var(--sv-card-radius, 4px)"
                     }}
                 >
                     <thead>
-                        <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
+                        <tr style={{borderTop: "solid 3px var(--sv-section-border, rgba(255, 255, 255, 0.6))"}}>
                             <th style={{"width": "30%"}}>Results</th>
                             <th style={{"width": "13%"}}>Surface</th>
                             <th style={{"width": "13%"}}>Tiled</th>
@@ -238,7 +238,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                     </thead>
                     <tbody>
                         {/* Nitrogen previous */}
-                        <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
+                        <tr style={{borderTop: "solid 3px var(--sv-section-border, rgba(255, 255, 255, 0.6))"}}>
                             <td>Nitrogen load previous: </td>
                             {renderEditableCell('surface_previous_n_load', storedBmpForm?.surface_previous_n_load)}
                             {renderEditableCell('tiled_previous_n_load', storedBmpForm?.tiled_previous_n_load)}
@@ -283,7 +283,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             <td className={"text-left"}>lbs/<wbr/>year</td>
                         </tr>
                         {/* Phosphorus previous */}
-                        <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
+                        <tr style={{borderTop: "solid 3px var(--sv-section-border, rgba(255, 255, 255, 0.6))"}}>
                             <td>Phosphorus load previous: </td>
                             {renderEditableCell('surface_previous_p_load', storedBmpForm?.surface_previous_p_load)}
                             {renderEditableCell('tiled_previous_p_load', storedBmpForm?.tiled_previous_p_load)}
@@ -328,7 +328,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             <td className={"text-left"}>lbs/<wbr/>year</td>
                         </tr>
                         {/* Sediment previous */}
-                        <tr style={{borderTop: "solid 3px rgb(255, 255, 255, 1)"}}>
+                        <tr style={{borderTop: "solid 3px var(--sv-section-border, rgba(255, 255, 255, 0.6))"}}>
                             <td>Sediment load previous: </td>
                             {renderEditableCell('surface_previous_s_load', storedBmpForm?.surface_previous_s_load)}
                             {renderEditableCell('tiled_previous_s_load', storedBmpForm?.tiled_previous_s_load)}
@@ -358,7 +358,7 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
                             <td className={"text-left"}>tons/<wbr/>year</td>
                         </tr>
                         {/* Sediment new */}
-                        <tr style={{borderBottom: "solid 3px rgb(255, 255, 255, 1)"}}>
+                        <tr style={{borderBottom: "solid 3px var(--sv-section-border, rgba(255, 255, 255, 0.6))"}}>
                             <td>Sediment load new: </td>
                             {renderEditableCell('surface_new_s_load', storedBmpForm?.surface_new_s_load)}
                             {renderEditableCell('tiled_new_s_load', storedBmpForm?.tiled_new_s_load)}
@@ -444,8 +444,8 @@ const BmpReductionDisplay = ({ storedBmpForm, complexBmpForm, watershedIsFootpri
             responsive="sm"
             style={{
                 tableLayout: "fixed",
-                border: "solid 1px rgb(255, 255, 255, 0.2)",
-                borderRadius: "2px"
+                border: "solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6))",
+                borderRadius: "var(--sv-card-radius, 4px)"
             }}
             className={"text-right"}
         >

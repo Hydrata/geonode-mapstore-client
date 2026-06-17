@@ -111,7 +111,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                 </span>
                                                 <span
                                                     className={"btn glyphicon menu-row-glyph bmp-filter-type-heading-last-item" + (group?.[2] ? " glyphicon-ok" : " glyphicon-remove")}
-                                                    style={{"color": group?.[2] ? "limegreen" : "red"}}
+                                                    style={{"color": group?.[2] ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                     onClick={() => {
                                                         this.props.toggleBmpTypeGroup(group);
                                                     }}
@@ -130,7 +130,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                                     <span
                                                                         id={`bmp-type-toggle-box-${bmpType?.name}`}
                                                                         className={"btn glyphicon menu-row-glyph " + (bmpType?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                                                                        style={{"color": bmpType?.visibility ? "limegreen" : "red"}}
+                                                                        style={{"color": bmpType?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                                         onClick={() => {
                                                                             this.props.toggleBmpTypeVisibility(bmpType);
                                                                         }}
@@ -170,7 +170,7 @@ class SwammBmpFiltersClass extends React.Component {
                                             <span
                                                 id={`bmp-type-toggle-box-${priority?.label}`}
                                                 className={"btn glyphicon menu-row-glyph " + (priority?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                                                style={{"color": priority?.visibility ? "limegreen" : "red"}}
+                                                style={{"color": priority?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                 onClick={() => {
                                                     this.props.toggleBmpPriorityVisibility(priority);
                                                 }}
@@ -207,7 +207,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                     <span
                                                         id={`bmp-type-toggle-box-${status?.name}`}
                                                         className={"btn glyphicon menu-row-glyph " + (status?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                                                        style={{"color": status?.visibility ? "limegreen" : "red"}}
+                                                        style={{"color": status?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                         onClick={() => {
                                                             this.props.toggleBmpStatusVisibility(status);
                                                         }}
@@ -245,7 +245,7 @@ class SwammBmpFiltersClass extends React.Component {
                                                     <span
                                                         id={`bmp-type-toggle-box-${groupProfile?.title}`}
                                                         className={"btn glyphicon menu-row-glyph " + (groupProfile?.visibility ? "glyphicon-ok" : "glyphicon-remove")}
-                                                        style={{"color": groupProfile?.visibility ? "limegreen" : "red"}}
+                                                        style={{"color": groupProfile?.visibility ? "var(--sv-glyph-active, limegreen)" : "var(--sv-glyph-inactive, red)"}}
                                                         onClick={() => {
                                                             this.props.toggleBmpGroupProfileVisibility(groupProfile);
                                                         }}

@@ -81,7 +81,7 @@ const BmpGeometryControls = ({
                             </button> :
                             <button
                                 type={'button'}
-                                style={{backgroundColor: "darkgreen"}}
+                                style={{backgroundColor: "var(--sv-btn-save, rgba(40,167,69,0.85))"}}
                                 disabled={(!storedBmpForm?.group_profile_id || !storedBmpForm.bmpName)}
                                 className="swamm-button default"
                                 onClick={() => {
@@ -121,7 +121,7 @@ const BmpGeometryControls = ({
                                 type={'button'}
                                 disabled={!requiresFootprint || !storedBmpForm?.group_profile_id || !storedBmpForm.bmpName}
                                 className="swamm-button default"
-                                style={{backgroundColor: requiresFootprint ? "darkgreen" : undefined}}
+                                style={{backgroundColor: requiresFootprint ? "var(--sv-btn-save, rgba(40,167,69,0.85))" : undefined}}
                                 title={!requiresFootprint ? "This BMP type does not need a footprint area" : undefined}
                                 onClick={() => {
                                     toggleLayer(bmpFootprintLayer?.id, true);
@@ -154,7 +154,7 @@ const BmpGeometryControls = ({
                             <button
                                 disabled={!requiresWatershed || watershedIsFootprint || !storedBmpForm?.group_profile_id || !storedBmpForm.bmpName}
                                 className="swamm-button default"
-                                style={{backgroundColor: requiresWatershed && !watershedIsFootprint ? "darkgreen" : undefined}}
+                                style={{backgroundColor: requiresWatershed && !watershedIsFootprint ? "var(--sv-btn-save, rgba(40,167,69,0.85))" : undefined}}
                                 title={!requiresWatershed
                                     ? "This BMP type does not need a watershed area"
                                     : watershedIsFootprint

@@ -197,7 +197,7 @@ class SwammTargetFormClass extends React.Component {
                     </button>
                     <button
                         className={"swamm-button"}
-                        style={{backgroundColor: "darkgreen"}}
+                        style={{backgroundColor: "var(--sv-btn-save, rgba(40,167,69,0.85))"}}
                         onClick={() => {
                             this.props.submitTargetForm(this.props.targetForm, this.props.projectId);
                         }}
@@ -221,7 +221,7 @@ class SwammTargetFormClass extends React.Component {
                             ) : (
                                 <button
                                     className={"swamm-button"}
-                                    style={{backgroundColor: "darkred"}}
+                                    style={{backgroundColor: "var(--sv-btn-danger, darkred)"}}
                                     onClick={() => this.setState({deleteConfirmVisible: true})}
                                 >
                                     <Message msgId="hydrata.swamm.deleteTarget" />

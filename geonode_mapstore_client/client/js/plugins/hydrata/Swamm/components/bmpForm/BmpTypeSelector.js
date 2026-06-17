@@ -21,8 +21,8 @@ const BmpTypeSelector = ({
                             marginLeft: 0,
                             marginBottom: "3px",
                             padding: "3px",
-                            border: "1px solid white",
-                            borderRadius: "3px"
+                            border: "1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))",
+                            borderRadius: "var(--sv-card-radius, 4px)"
                         }}
                     >
                         <span

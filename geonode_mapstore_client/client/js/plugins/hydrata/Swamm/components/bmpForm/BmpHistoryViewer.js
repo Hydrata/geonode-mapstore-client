@@ -96,9 +96,9 @@ const OverrideFlagChips = ({ flags }) => {
                     style={{
                         fontSize: '0.8em',
                         padding: '1px 6px',
-                        borderRadius: 3,
-                        backgroundColor: 'rgba(120,220,180,0.25)',
-                        border: '1px solid rgba(120,220,180,0.5)'
+                        borderRadius: 'var(--sv-card-radius, 4px)',
+                        backgroundColor: 'var(--sv-pin-accent, rgba(120,220,180,0.6))',
+                        border: '1px solid var(--sv-pin-accent, rgba(120,220,180,0.6))'
                     }}
                 >
                     {chip.label}
@@ -116,7 +116,7 @@ const SnapshotTable = ({ data, labels }) => {
         <table style={{ width: '100%', fontSize: '0.85em', borderCollapse: 'collapse' }}>
             <tbody>
                 {entries.map(([key, val]) => (
-                    <tr key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <tr key={key} style={{ borderBottom: '1px solid var(--sv-divider, rgba(255,255,255,0.08))' }}>
                         <td style={{ padding: '2px 6px', opacity: 0.8 }}>{labels[key] || key}</td>
                         <td style={{ padding: '2px 6px', textAlign: 'right' }}>{formatValue(val)}</td>
                     </tr>
@@ -129,8 +129,8 @@ const SnapshotTable = ({ data, labels }) => {
 const HistoryRecord = ({ record, expanded, onToggle }) => (
     <div style={{
         marginBottom: 6,
-        borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 'var(--sv-card-radius, 4px)',
+        backgroundColor: 'var(--sv-divider, rgba(255,255,255,0.08))',
         overflow: 'hidden'
     }}>
         <div
@@ -142,7 +142,7 @@ const HistoryRecord = ({ record, expanded, onToggle }) => (
                 alignItems: 'center'
             }}
             onClick={onToggle}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg, rgba(255,255,255,0.10))'; }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
         >
             <div>
@@ -156,9 +156,10 @@ const HistoryRecord = ({ record, expanded, onToggle }) => (
                             marginLeft: 8,
                             fontSize: '0.8em',
                             padding: '1px 6px',
-                            borderRadius: 3,
-                            backgroundColor: 'rgba(255,165,0,0.3)',
-                            border: '1px solid rgba(255,165,0,0.5)'
+                            borderRadius: 'var(--sv-card-radius, 4px)',
+                            backgroundColor: 'var(--sv-warning-bg, rgba(252,248,227,0.12))',
+                            border: '1px solid var(--sv-warning-border, rgba(250,235,204,0.4))',
+                            color: 'var(--sv-warning-color, #fcf8e3)'
                         }}>manual override</span>
                     )}
                 </div>
@@ -176,7 +177,7 @@ const HistoryRecord = ({ record, expanded, onToggle }) => (
         {expanded && (
             <div style={{
                 padding: '8px 12px',
-                borderTop: '1px solid rgba(255,255,255,0.1)',
+                borderTop: '1px solid var(--sv-divider, rgba(255,255,255,0.08))',
                 backgroundColor: 'rgba(0,0,0,0.15)'
             }}>
                 {record.load_snapshot && Object.keys(record.load_snapshot).length > 0 && (
@@ -225,7 +226,6 @@ const BmpHistoryViewer = ({ records, loading, nextCursor, projectId, bmpId, onCl
                     maxWidth: 600,
                     maxHeight: '80vh',
                     padding: 0,
-                    backgroundColor: '#063167',
                     display: 'flex',
                     flexDirection: 'column'
                 }}

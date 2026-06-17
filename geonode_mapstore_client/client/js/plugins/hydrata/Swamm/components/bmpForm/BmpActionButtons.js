@@ -93,7 +93,7 @@ const BmpActionButtons = ({
                         <button
                             type={'button'}
                             className={'swamm-button'}
-                            style={{backgroundColor: "darkred"}}
+                            style={{backgroundColor: "var(--sv-btn-danger, darkred)"}}
                             onClick={() => setDeleteConfirmVisible(true)}>
                         Delete
                         </button>
@@ -104,7 +104,7 @@ const BmpActionButtons = ({
                 type={'button'}
                 className={hasGeometry ? 'swamm-button' : 'swamm-button disabled'}
                 style={{
-                    backgroundColor: "darkgreen"
+                    backgroundColor: "var(--sv-btn-save, rgba(40,167,69,0.85))"
                 }}
                 onClick={() => {
                     submitBmpForm(storedBmpForm, projectId);
