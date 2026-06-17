@@ -211,9 +211,9 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                 container,
                 () => {
                     expect(container.querySelector('.sv-scenario-menu-header')).toExist();
-                    // Option A: header has #sv-scenario-header-actions instead of
+                    // Option A: header has #scenario-header-actions instead of
                     // the legacy #scenario-tab-button-group.
-                    expect(container.querySelector('#sv-scenario-header-actions')).toExist();
+                    expect(container.querySelector('#scenario-header-actions')).toExist();
                     expect(container.querySelector('#scenario-tab-button-group')).toNotExist();
                     done();
                 }
@@ -336,7 +336,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                         expect(container.querySelector('#resolution')).toExist();
                         expect(container.querySelector('#duration')).toExist();
                         // TASK-1415: compute_backend hidden unless isSuperuser (default=false in store)
-                        expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
+                        expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
                         expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                         expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
                         done();
@@ -359,7 +359,7 @@ describe('ANUGA Scenarios Miller-columns integration', () => {
                     const items = container.querySelectorAll('.sv-anuga-scenario-category-item');
                     items[2].click(); // run (merged)
                     setTimeout(() => {
-                        expect(container.querySelector('.anuga-scenario-pane-rows-run')).toExist();
+                        expect(container.querySelector('.sv-anuga-scenario-pane-rows-run')).toExist();
                         expect(container.querySelector('.sv-anuga-scenario-status-card')).toExist();
                         expect(container.querySelector('.sv-scenario-action-toolbar')).toExist();
                         done();
