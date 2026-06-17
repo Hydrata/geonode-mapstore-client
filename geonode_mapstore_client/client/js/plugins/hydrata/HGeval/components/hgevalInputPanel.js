@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import { ErrorStrip, FormRow, Card } from '../../SimpleView/components/primitives';
+import HGevalPanelFooter from './hgevalPanelFooter';
 
 const SECTOR_OPTIONS = [
     { value: '', msgId: 'hydrata.hgeval.sectorSelectPrompt' },
@@ -148,7 +149,7 @@ const HGevalInputPanel = ({
             </details>
             <ErrorStrip message={validationError} />
             <ErrorStrip message={error} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))', marginTop: '4px' }}>
+            <HGevalPanelFooter>
                 <button className="btn btn-default btn-sm" onClick={onCancel}><Message msgId="hydrata.hgeval.cancel" /></button>
                 <button
                     className="btn btn-primary btn-sm"
@@ -157,7 +158,7 @@ const HGevalInputPanel = ({
                 >
                     <Message msgId="hydrata.hgeval.generateReport" />
                 </button>
-            </div>
+            </HGevalPanelFooter>
         </div>
     );
 };

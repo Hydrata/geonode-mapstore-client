@@ -4,6 +4,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 import { getMessageById } from '@mapstore/framework/utils/LocaleUtils';
 import { Section, Table, Card } from '../../SimpleView/components/primitives';
 import HGevalSignupForm from './hgevalSignupForm';
+import HGevalPanelFooter from './hgevalPanelFooter';
 
 const DataRow = ({ label, value, fallback }) => (
     <tr>
@@ -248,7 +249,7 @@ const HGevalReportDisplay = ({
                 />
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6))', marginTop: '4px' }}>
+            <HGevalPanelFooter>
                 <button className="btn btn-default btn-sm" onClick={onNewReport}>
                     <Message msgId="hydrata.hgeval.newEvaluation" />
                 </button>
@@ -272,7 +273,7 @@ const HGevalReportDisplay = ({
                         </button>
                     </div>
                 )}
-            </div>
+            </HGevalPanelFooter>
         </div>
     );
 };
