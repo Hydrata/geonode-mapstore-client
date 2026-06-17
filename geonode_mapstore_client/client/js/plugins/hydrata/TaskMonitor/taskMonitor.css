@@ -37,7 +37,14 @@
    .simple-view-panel base rule (0,1,0) regardless of stylesheet load order —
    the single-class form lost the cascade to simpleView.css (loaded later) and
    the panel inherited position:absolute; left:20px inside the right-anchored
-   #task-monitor-container, rendering off-screen (UAT 2026-06-12 finding #1). */
+   #task-monitor-container, rendering off-screen (UAT 2026-06-12 finding #1).
+
+   TASK-1784 (epic-1758 W1): the panel now renders through the PanelShell chassis
+   primitive, which governs geometry via cascade-proof INLINE styles (see
+   TaskMonitorPanel.jsx DRAWER_STYLE — reproduces this rule verbatim). Inline
+   wins over this stylesheet rule, so the inline copy is now authoritative; this
+   rule is retained as the documented source-of-truth + a defensive fallback
+   should the panel ever render without the inline style. Keep the two in sync. */
 .simple-view-panel.sv-tm-container {
     position: fixed;
     top: var(--sv-panel-top, 65px);
