@@ -7,7 +7,12 @@ import FormField from './FormField';
 // replaces the hand-rolled italic "No features match" picker placeholder.
 // Both are token-backed (--sv-*) and self-styled, so the popup's danger /
 // empty chrome now flows from the design system instead of inline JSX.
-import { ErrorStrip, EmptyState } from '../../SimpleView/components/primitives';
+// TASK-1763 — adopt the PanelHeader chassis primitive for the popup header +
+// cascade-safe close chip (replaces the bespoke .simple-view-panel-header +
+// .legend-close span in every phase). PanelHeader is token-backed/self-styled,
+// so its <h4>+chrome are exempt from the TASK-784 font-uniformity walk (the
+// test's primitive-subtree exemption now includes .sv-panel-header).
+import { ErrorStrip, EmptyState, PanelHeader } from '../../SimpleView/components/primitives';
 import {
     cancelVectorDraw,
     submitForm,
@@ -225,18 +230,7 @@ export const PickerView = ({
             maxWidth: 380,
             padding: 0
         }}>
-            <div className="simple-view-panel-header" style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 12px'
-            }}>
-                <span>{headerTitle}</span>
-                <span
-                    className="btn glyphicon glyphicon-remove legend-close"
-                    onClick={onCancel}
-                />
-            </div>
+            <PanelHeader title={headerTitle} onClose={onCancel} />
             {/* TASK-1409 — inline delete-confirm overlay replaces window.confirm.
                 Rendered over the picker list when pendingDeleteFeature is set;
                 the guarded onDeleteFeature fires ONLY on the Confirm button. */}
@@ -463,18 +457,7 @@ const VectorDrawPopup = ({
                 maxWidth: showInlineForm ? 380 : 350,
                 padding: 0
             }}>
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px'
-                }}>
-                    <span>{headerLabel}</span>
-                    <span
-                        className="btn glyphicon glyphicon-remove legend-close"
-                        onClick={handleCancel}
-                    />
-                </div>
+                <PanelHeader title={headerLabel} onClose={handleCancel} />
                 {/* TASK-1409 — discard-confirm overlay replaces window.confirm */}
                 {discardConfirmOverlay || (
                     <div style={{padding: '12px'}}>
@@ -559,18 +542,7 @@ const VectorDrawPopup = ({
                 maxWidth: 380,
                 padding: 0
             }}>
-                <div className="simple-view-panel-header" style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px'
-                }}>
-                    <span>{formConfig.title || 'Feature Attributes'}</span>
-                    <span
-                        className="btn glyphicon glyphicon-remove legend-close"
-                        onClick={handleCancel}
-                    />
-                </div>
+                <PanelHeader title={formConfig.title || 'Feature Attributes'} onClose={handleCancel} />
                 {/* TASK-1409 — discard-confirm overlay replaces window.confirm */}
                 {discardConfirmOverlay || (
                     <div style={{padding: '12px'}}>

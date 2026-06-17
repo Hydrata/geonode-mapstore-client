@@ -129,7 +129,12 @@ const FORBIDDEN_TAGS = ['STRONG', 'B', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'EM']
 // still pins VectorDraw's hand-rolled markup while the primitives stay
 // self-styled. The exemption is scoped (closest ancestor lookup) so a
 // regression in VectorDraw's own JSX is still caught.
-const PRIMITIVE_SUBTREE_SELECTOR = '.sv-error-strip, .sv-empty-state';
+// TASK-1763 — PanelHeader is now the popup header (token-backed chassis
+// primitive: an <h4> title + an inline-styled .sv-panel-header-close chip).
+// Like ErrorStrip / EmptyState it legitimately owns its typographic chrome,
+// so its `.sv-panel-header` subtree is exempt from the walk too. The contract
+// still pins VectorDraw's OWN bespoke JSX (everything outside the primitives).
+const PRIMITIVE_SUBTREE_SELECTOR = '.sv-error-strip, .sv-empty-state, .sv-panel-header';
 const isInsidePrimitive = (el) =>
     !!(el.closest && el.closest(PRIMITIVE_SUBTREE_SELECTOR));
 

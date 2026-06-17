@@ -126,7 +126,9 @@ describe('TASK-795 review I8 / TASK-1409 popup Cancel discard-confirm wiring (Re
     };
 
     const clickHeaderX = () => {
-        const x = container.querySelector('.glyphicon-remove');
+        // TASK-1763 — the header close is now PanelHeader's cascade-safe
+        // .sv-panel-header-close chip (was the bespoke .glyphicon-remove span).
+        const x = container.querySelector('.sv-panel-header-close');
         expect(x).toExist();
         x.click();
     };
