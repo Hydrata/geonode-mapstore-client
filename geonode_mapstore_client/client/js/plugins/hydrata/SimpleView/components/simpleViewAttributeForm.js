@@ -48,8 +48,8 @@ class SimpleViewAttributeFormClass extends React.Component {
             return (
                 <input
                     style={{
-                        color: "white",
-                        borderRadius: "4px",
+                        color: "var(--sv-text, rgba(255, 255, 255, 0.85))",
+                        borderRadius: "var(--sv-card-radius, 4px)",
                         textAlign: "right"
                     }}
                     name={key}
@@ -62,8 +62,8 @@ class SimpleViewAttributeFormClass extends React.Component {
             return (
                 <input
                     style={{
-                        color: "white",
-                        borderRadius: "4px",
+                        color: "var(--sv-text, rgba(255, 255, 255, 0.85))",
+                        borderRadius: "var(--sv-card-radius, 4px)",
                         textAlign: "right"
                     }}
                     name={key}
@@ -76,8 +76,8 @@ class SimpleViewAttributeFormClass extends React.Component {
             return (
                 <input
                     style={{
-                        color: "white",
-                        borderRadius: "4px",
+                        color: "var(--sv-text, rgba(255, 255, 255, 0.85))",
+                        borderRadius: "var(--sv-card-radius, 4px)",
                         textAlign: "right"
                     }}
                     name={key}
@@ -142,10 +142,10 @@ class SimpleViewAttributeFormClass extends React.Component {
                             display: "flex",
                             marginBottom: "5px"
                         }}>
-                            <h2 style={{width: "150px", textAlign: "center"}}>{this.props.headings?.[0]}</h2>
-                            <h2 style={{width: "450px", textAlign: "center"}}>{this.props.headings?.[1]}</h2>
-                            <h2 style={{width: "250px", textAlign: "center"}}>{this.props.headings?.[2]}</h2>
-                            <h2 style={{width: "450px", textAlign: "center"}}>{this.props.headings?.[3]}</h2>
+                            <h2 style={{width: "150px", textAlign: "center", fontSize: "var(--sv-header-font-size, 14px)"}}>{this.props.headings?.[0]}</h2>
+                            <h2 style={{width: "450px", textAlign: "center", fontSize: "var(--sv-header-font-size, 14px)"}}>{this.props.headings?.[1]}</h2>
+                            <h2 style={{width: "250px", textAlign: "center", fontSize: "var(--sv-header-font-size, 14px)"}}>{this.props.headings?.[2]}</h2>
+                            <h2 style={{width: "450px", textAlign: "center", fontSize: "var(--sv-header-font-size, 14px)"}}>{this.props.headings?.[3]}</h2>
                         </div>
                         {
                             Object.keys(this.props.simpleViewAttributeForm).map(key => {
@@ -157,8 +157,8 @@ class SimpleViewAttributeFormClass extends React.Component {
                                     <div style={{
                                         position: "relative",
                                         top: `${attribute?.position * 14}px`,
-                                        border: "solid 1px #ffffff96",
-                                        borderRadius: "3px",
+                                        border: "solid 1px var(--sv-section-border, rgba(255, 255, 255, 0.6))",
+                                        borderRadius: "var(--sv-card-radius, 4px)",
                                         padding: "5px",
                                         paddingBottom: "2px"
                                     }}>
@@ -171,7 +171,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                                             </div>
                                             <div style={{
                                                 width: "450px",
-                                                color: key.toLowerCase() === "external_id" ? "red" : "white"
+                                                color: key.toLowerCase() === "external_id" ? "var(--sv-text-danger, #ffb3b3)" : "var(--sv-text, rgba(255, 255, 255, 0.85))"
                                             }}>
                                                 {key}
                                             </div>
@@ -179,8 +179,8 @@ class SimpleViewAttributeFormClass extends React.Component {
                                                 style={{
                                                     height: attribute?.override_widget === 'multi-select' ? "150px" : null,
                                                     width: "250px",
-                                                    color: "#2b5994",
-                                                    borderRadius: "4px"
+                                                    color: "var(--sv-input-blue, #5178af)",
+                                                    borderRadius: "var(--sv-card-radius, 4px)"
                                                 }}
                                                 name={key}
                                                 multiple={attribute?.override_widget === 'multi-select'}
@@ -244,7 +244,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                                 <button
                                     type={'button'}
                                     className={'swamm-button'}
-                                    style={{backgroundColor: "darkgreen"}}
+                                    style={{backgroundColor: "var(--sv-btn-save, rgba(40, 167, 69, 0.85))"}}
                                 >
                                     <span>
                                         <Spinner
@@ -262,7 +262,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                                 <button
                                     type={'button'}
                                     className={'swamm-button'}
-                                    style={{backgroundColor: "darkgreen"}}
+                                    style={{backgroundColor: "var(--sv-btn-save, rgba(40, 167, 69, 0.85))"}}
                                     onClick={() => {
                                         this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
                                         this.props.setProcessingSimpleViewAttributeForm(true);
@@ -272,7 +272,7 @@ class SimpleViewAttributeFormClass extends React.Component {
                             <button
                                 type={'button'}
                                 className={'swamm-button'}
-                                style={{backgroundColor: "darkgreen"}}
+                                style={{backgroundColor: "var(--sv-btn-save, rgba(40, 167, 69, 0.85))"}}
                                 onClick={() => {
                                     this.props.submitSimpleViewAttributeForm(this.props.simpleViewAttributeForm, this.props.projectId, this.props.simpleViewImporterSessionId);
                                 }}>
