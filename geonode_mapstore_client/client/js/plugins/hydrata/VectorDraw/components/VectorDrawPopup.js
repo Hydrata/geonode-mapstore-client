@@ -187,15 +187,19 @@ export const PickerView = ({
         cursor: 'pointer',
         padding: '8px',
         marginBottom: 4,
-        borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 'var(--sv-card-radius)',
+        backgroundColor: 'var(--sv-row-hover-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '8px'
+        gap: 'var(--sv-form-row-gap)'
     };
+    // TASK-1758 W3 — resting row surface is the tokenised --sv-row-hover-bg
+    // (rgba 255,255,255,0.1). The deepen-on-hover (0.2) has no exact token yet,
+    // so the hover handlers keep the raw literal; resting is restored via the
+    // CSS var on leave.
     const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
-    const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; };
+    const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg)'; };
     // TASK-1409 — Trash icon click opens the inline React confirm overlay
     // instead of window.confirm. stopPropagation prevents the row's onClick
     // (select-feature) from firing alongside the delete path.
@@ -215,7 +219,7 @@ export const PickerView = ({
     const trashStyle = {
         cursor: 'pointer',
         padding: '4px 6px',
-        borderRadius: 3,
+        borderRadius: 'var(--sv-card-radius)',
         opacity: 0.7,
         flexShrink: 0
     };

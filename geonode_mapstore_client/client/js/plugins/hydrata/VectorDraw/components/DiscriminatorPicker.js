@@ -208,11 +208,15 @@ export const DiscriminatorPicker = ({ field, value, onChange, projectId }) => {
 
     return (
         <div className="discriminator-picker">
-            <div className="discriminator-picker-radios" style={{display: 'flex', gap: 12, marginBottom: 6}}>
+            <div className="discriminator-picker-radios" style={{display: 'flex', gap: 'var(--sv-form-row-gap)', marginBottom: 6}}>
                 {choices.map(c => (
+                    // TASK-1758 W3 — dropped the inline fontWeight:'normal'; the
+                    // vectorDrawPopup.css `* { font-weight: normal }` reset already
+                    // covers it, and inline font* on a non-primitive element trips
+                    // the popup FontUniformity walk.
                     <label
                         key={c.kind}
-                        style={{display: 'flex', alignItems: 'center', gap: 4, marginBottom: 0, fontWeight: 'normal'}}
+                        style={{display: 'flex', alignItems: 'center', gap: 4, marginBottom: 0}}
                     >
                         <input
                             type="radio"

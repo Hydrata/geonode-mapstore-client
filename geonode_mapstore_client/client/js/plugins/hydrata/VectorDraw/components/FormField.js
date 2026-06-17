@@ -4,6 +4,7 @@ import axios from '../../../../../MapStore2/web/client/libs/ajax';
 import { getProjectId } from '../../Anuga/selectorsAnuga';
 import { register, get } from '../widgetRegistry';
 import { DiscriminatorPicker } from './DiscriminatorPicker';
+import { ErrorStrip } from '../../SimpleView/components/primitives';
 
 // TASK-784 polish — all font / size / weight rules live in
 // vectorDrawPopup.css (`.vector-draw-popup *` resets to inherit,
@@ -194,11 +195,12 @@ export const TimeSeriesSelect = ({ value, onChange, options, loading, error }) =
                     <option key={ts.id} value={ts.id}>{ts.name}</option>
                 ))}
             </select>
-            {error ? (
-                <p style={{color: 'red', margin: '4px 0 0 0', fontSize: '0.9em'}}>
-                    {error}
-                </p>
-            ) : null}
+            {/* TASK-1758 W3 — the bespoke inline-red <p> is replaced by the
+                shared ErrorStrip primitive (token-backed --sv-text-danger,
+                role="alert"); its subtree owns its own typographic chrome and
+                is exempt from the popup font-uniformity walk. */}
+            <ErrorStrip message={error} style={{margin: '4px 0 0 0'}} />
+            {/* ErrorStrip self-hides when message is empty/null. */}
         </React.Fragment>
     );
 };

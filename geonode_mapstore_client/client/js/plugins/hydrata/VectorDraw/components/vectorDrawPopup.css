@@ -30,11 +30,13 @@
     font-weight: normal;
 }
 
-/* The popup root inherits font-family from the document (Montserrat) but
-   we explicitly fix the size so the smaller floating popup matches the
-   SimpleView panel's body text rather than its larger headline. */
+/* TASK-1758 W3 — self-anchor the popup typography to the design tokens
+   instead of relying on document inheritance + a hardcoded 12px. Any control
+   that doesn't inherit the popup root (portal-rendered, pre-stylesheet mount)
+   now still lands on the panel font. */
 .vector-draw-popup {
-    font-size: 12px;
+    font-family: var(--sv-font-family);
+    font-size: var(--sv-font-size);
     line-height: 1.5;
 }
 
@@ -69,12 +71,12 @@
    block on FormField.js's <select> provided. Layout (flex / margin) stays
    inline in JSX since it's positional, not chrome. */
 .vector-draw-popup select {
-    border: 1px solid #ccc;
-    border-radius: 3px;
+    border: 1px solid var(--sv-section-border);
+    border-radius: var(--sv-card-radius);
     padding: 4px 8px;
     height: 28px;
-    background-color: #fff;
-    color: #333;
+    background-color: var(--sv-input-bg);
+    color: var(--sv-text);
     cursor: pointer;
 }
 
@@ -84,12 +86,12 @@
    keeps the form visually uniform across browsers. */
 .vector-draw-popup input[type="text"],
 .vector-draw-popup input[type="number"] {
-    border: 1px solid #ccc;
-    border-radius: 3px;
+    border: 1px solid var(--sv-section-border) !important;
+    border-radius: var(--sv-card-radius);
     padding: 4px 8px;
     height: 28px;
-    background-color: #fff;
-    color: #333;
+    background-color: var(--sv-input-bg) !important;
+    color: var(--sv-text) !important;
 }
 
 /* Bootstrap buttons inside the popup. Bootstrap's `.btn-sm` and the
