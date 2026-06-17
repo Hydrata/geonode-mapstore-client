@@ -453,7 +453,11 @@ class MenuRowClass extends React.Component {
         // TASK-784 polish — close the AnugaInputMenu side panel during
         // VectorDraw edit so the popup is the focus. The toolbar buttons
         // (rendered by AnugaContainer in a portal) stay visible.
-        setAnugaInputMenu: PropTypes.func
+        setAnugaInputMenu: PropTypes.func,
+        // UAT 2026-06-17 (TASK-1587) — optional extra toolbar entries rendered to
+        // the RIGHT of the per-layer controls (before the title). Each entry is
+        // {key, render}; the terrain DEM row uses it for the Mode/Contours toggles.
+        extraToolbarActions: PropTypes.array
     };
 
     constructor(props) {
@@ -570,6 +574,21 @@ class MenuRowClass extends React.Component {
                         onDownload={onDownload}
                         secondaryActions={secondaryActions}
                     />
+
+                    {/* UAT 2026-06-17 (TASK-1587): optional extra-toolbar slot rendered
+                        immediately AFTER the per-layer controls and BEFORE the title, so a
+                        caller (the terrain DEM row) can place row-specific toggles to the
+                        RIGHT of tick/glass/delete. Additive + generic — each entry is
+                        {key, render}; non-terrain rows pass nothing and nothing renders. */}
+                    {(this.props.extraToolbarActions && this.props.extraToolbarActions.length > 0) ? (
+                        <span className={"menu-row-toolbar-extra"}>
+                            {this.props.extraToolbarActions.map((a, i) => (
+                                <React.Fragment key={a.key || `extra-${i}`}>
+                                    {a.render ? a.render() : null}
+                                </React.Fragment>
+                            ))}
+                        </span>
+                    ) : null}
 
                     <div className={"menu-row-title"}>
                         {canEdit ? (
