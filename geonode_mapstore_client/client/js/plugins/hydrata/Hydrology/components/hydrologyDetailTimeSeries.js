@@ -244,27 +244,29 @@ const PreviewCard = ({preview, isFocused, onFocus, onAttach, attachInFlight, rai
                     {durationHr}
                 </span>
                 {preview.total_depth_mm !== undefined && (
+                    // TASK-1758 W3 conform — dark-glass chip (was light #e8f0fe pill).
                     <span style={{
                         display: 'inline-block',
                         marginLeft: 8,
-                        background: '#e8f0fe',
+                        background: 'rgba(255, 255, 255, 0.06)',
                         borderRadius: 3,
                         padding: '1px 5px',
                         fontSize: '0.8rem',
-                        color: '#3c5a9a'
+                        color: 'var(--sv-text)'
                     }}>
                         {Number(preview.total_depth_mm).toFixed(1)} mm
                     </span>
                 )}
                 {preview.persisted === false && (
+                    // TASK-1758 W3 conform — lime-tinted "preview" chip (was light #f0f5e8).
                     <span style={{
                         display: 'inline-block',
                         marginLeft: 6,
-                        background: '#f0f5e8',
+                        background: 'rgba(202, 227, 59, 0.18)',
                         borderRadius: 3,
                         padding: '1px 5px',
                         fontSize: '0.78rem',
-                        color: '#4a7c28'
+                        color: 'var(--sv-accent-lime)'
                     }}>
                         preview
                     </span>
@@ -520,10 +522,11 @@ const DesignStormsBrowser = ({
 
             {/* Status / stale banner */}
             {stale && !inFlight && (
-                <div style={{
-                    padding: '6px 10px', marginBottom: 8, background: '#fff8e1',
-                    border: '1px solid #ffe082', borderRadius: 3, fontSize: '0.82rem', color: '#7a6000'
-                }}>
+                // TASK-1758 W3 conform — dark-glass amber warning (was light #fff8e1).
+                <div
+                    className="idf-derive-banner idf-derive-banner--warning"
+                    style={{margin: '0 0 8px', fontSize: '0.82rem'}}
+                >
                     IDF or pattern changed — previews will refresh.
                     <button className="btn btn-xs btn-default" style={{marginLeft: 8}} onClick={handleRefresh}>
                         Refresh now
@@ -565,6 +568,9 @@ const DesignStormsBrowser = ({
                             title={focusedPreview.name || focusedPreview.source || 'Design Storm'}
                         />
                         {focusedPreview.source && (
+                            // TASK-1758 W3: this source line lives INSIDE the white
+                            // chart Card body (design-storm-chart-card, variant="chart"),
+                            // so #666 dark-on-white is correct chart-card carve-out — keep.
                             <p style={{fontSize: '0.78rem', color: '#666', marginTop: 4, marginBottom: 0}}>
                                 Source: {focusedPreview.source}
                             </p>
@@ -651,7 +657,7 @@ const ManualEntryForm = ({
                 style={{maxWidth: 700, marginBottom: 16}}
                 bodyStyle={{padding: '12px 16px'}}
             >
-                <h4 style={{marginTop: 0, marginBottom: 12, fontSize: '0.95rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.95)'}}>
+                <h4 style={{marginTop: 0, marginBottom: 12, fontSize: '0.95rem', fontWeight: 700, color: 'var(--sv-text)'}}>
                     Manual Design Storm Derive
                 </h4>
 
@@ -1199,7 +1205,8 @@ const DesignStormDerive = ({
                                     disabled={ticked.size === 0 || saveInFlight}
                                     onClick={handleSave}
                                     style={{
-                                        backgroundColor: ticked.size > 0 && !saveInFlight ? 'rgba(39,202,59,1)' : 'rgba(39,202,59,0.4)',
+                                        // TASK-1758 W3 conform — tokenised active/save green.
+                                        backgroundColor: ticked.size > 0 && !saveInFlight ? 'var(--sv-accent-green)' : 'rgba(39,202,59,0.4)',
                                         minWidth: 120
                                     }}
                                 >
@@ -1209,7 +1216,7 @@ const DesignStormDerive = ({
                                     }
                                 </button>
                                 {lastSavedCount !== null && (
-                                    <span className="ds-derive-saved-toast" style={{fontSize: '0.82rem', color: '#cae33b'}}>
+                                    <span className="ds-derive-saved-toast" style={{fontSize: '0.82rem', color: 'var(--sv-accent-lime)'}}>
                                         <Message msgId="hydrata.hydrology.deriveSavedToast" msgParams={{n: lastSavedCount.created}} />
                                         {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
                                     </span>

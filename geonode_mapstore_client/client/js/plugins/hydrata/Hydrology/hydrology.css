@@ -1,23 +1,17 @@
-#hydrology-container {
-    width:100%;
-    height:100%;
-    display: flex;
-    justify-content: center;
-    margin: 10px;
-    border: 1px solid #fff;
-    background-color: #ffffff;
-}
+/* TASK-1758 W3 conform: #hydrology-container (white) and
+   #hydrology-list-detail-col-three (light #155481-on-white) were dead — neither
+   id is rendered by the current container (render() emits col-one/col-two only).
+   Removed rather than tokenised. */
 
 #hydrology-list-detail-panel {
     top: 70px;
     display: flex;
     flex-direction: column;
-    background-color: #063167;
+    background-color: var(--sv-panel-bg);
     text-align: left;
     width: 95%;
     height: 80%;
     font-size: small;
-    background-color: rgba(43, 89, 148);
 }
 
 #hydrology-list-detail-container {
@@ -39,8 +33,8 @@
     margin-right: 20px;
     max-height: 100%;
     overflow-y: auto;
-    border: solid 1px rgba(53, 133, 176);
-    border-radius: 4px;
+    border: solid 1px var(--sv-section-border);
+    border-radius: var(--sv-card-radius);
     text-align: center;
 
 }
@@ -51,28 +45,12 @@
     max-height: 100%;
     width: 100%;
     overflow-y: auto;
-    border: solid 1px rgba(53, 133, 176);
-    border-radius: 4px;
-}
-
-#hydrology-list-detail-col-three {
-    color: #155481;
-    background-color: white;
-    margin: 10px;
-    display: flex;
-    flex-direction: column;
-    max-width: 200px;
-    margin-right: auto;
-    margin-left: 20px;
-    padding: 10px;
-    max-height: 100%;
-    overflow-y: auto;
-    border: solid 1px rgba(53, 133, 176);
-    border-radius: 4px;
+    border: solid 1px var(--sv-section-border);
+    border-radius: var(--sv-card-radius);
 }
 
 #hydrology-list-detail-footer {
-    border-top: solid 1px #3585b0;
+    border-top: solid 1px var(--sv-accent-border);
     width: 100%;
     padding: 6px;
     display: flex;
@@ -90,10 +68,10 @@
 
 .hydrology-button,
 .hydrology-button-disabled {
-    border-radius: 4px;
-    border: 1px solid white;
+    border-radius: var(--sv-card-radius);
+    border: 1px solid var(--sv-button-border);
     color: white;
-    background: rgb(82, 121, 176);
+    background: var(--sv-input-blue);
     margin-left: 10px;
     margin-right: 10px;
     margin-top: 10px;
@@ -137,8 +115,8 @@
     margin-left: 6px;
     margin-top: 2px;
     padding: 0;
-    border-radius: 4px;
-    border: 1px solid white;
+    border-radius: var(--sv-card-radius);
+    border: 1px solid var(--sv-button-border);
     background: rgba(139, 0, 0, 0.6);
     color: white;
     cursor: pointer;
@@ -166,9 +144,9 @@
     flex: 0 0 auto;
     margin-left: 6px;
     padding: 0 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: rgba(82, 121, 176, 0.6);
+    border-radius: var(--sv-card-radius);
+    border: 1px solid var(--sv-section-border);
+    background: rgba(81, 120, 175, 0.6);
     color: white;
     cursor: pointer;
     line-height: 1.6;
@@ -176,16 +154,16 @@
 
 .hydrology-filter-toggle:hover,
 .hydrology-filter-toggle.is-open {
-    background: rgba(82, 121, 176, 1);
+    background: var(--sv-input-blue);
 }
 
 .hydrology-filter-input {
     margin: 8px 10px 0 10px;
     padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    background: white;
-    color: #333;
+    border-radius: var(--sv-card-radius);
+    border: 1px solid var(--sv-section-border);
+    background: var(--sv-input-bg);
+    color: var(--sv-text);
 }
 
 /* Inline per-row delete confirm (shared ConfirmOverlay) — wraps within the
@@ -196,17 +174,17 @@
     align-items: center;
     margin: 10px 10px 0 10px;
     padding: 6px;
-    border: 1px solid white;
-    border-radius: 4px;
+    border: 1px solid var(--sv-button-border);
+    border-radius: var(--sv-card-radius);
     background: rgba(139, 0, 0, 0.25);
-    font-size: 12px;
+    font-size: var(--sv-font-size);
 }
 
 .hydrology-textarea {
     color: white;
-    border: solid 1px rgba(53, 133, 176);
-    border-radius: 4px;
-    background: #5178af;
+    border: solid 1px var(--sv-section-border);
+    border-radius: var(--sv-card-radius);
+    background: var(--sv-input-blue);
 }
 
 .idf-table {
@@ -331,7 +309,7 @@
     border-right: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #5178af transparent;
+    scrollbar-color: var(--sv-input-blue) transparent;
 }
 
 .hydrology-category-item {
@@ -360,7 +338,7 @@
 
 .hydrology-category-item.is-active {
     background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
-    border-left-color: #cae33b;
+    border-left-color: var(--sv-accent-lime);
 }
 
 .hydrology-category-item-glyph {
@@ -432,7 +410,7 @@
 .hydrology-idf-segment.is-active {
     background: rgba(0, 60, 136, 0.9);
     color: #ffffff;
-    border-color: #cae33b;
+    border-color: var(--sv-accent-lime);
 }
 
 /* ── TASK-1452 (W5) — IDF Derive vertical stepper ────────────────────── */
@@ -480,8 +458,8 @@
     height: 20px;
     border-radius: 50%;
     background: rgba(202, 227, 59, 0.25);
-    border: 1px solid #cae33b;
-    color: #cae33b;
+    border: 1px solid var(--sv-accent-lime);
+    color: var(--sv-accent-lime);
     font-size: 11px;
     font-weight: 700;
     display: flex;
@@ -517,9 +495,9 @@
 }
 
 .idf-derive-banner--warning {
-    background-color: rgba(252, 248, 227, 0.12);
-    border: 1px solid rgba(250, 235, 204, 0.4);
-    color: #fcf8e3;
+    background-color: var(--sv-warning-bg);
+    border: 1px solid var(--sv-warning-border);
+    color: var(--sv-warning-color);
 }
 
 .idf-derive-banner-glyph {
@@ -638,10 +616,13 @@
     cursor: wait;
 }
 
-/* Issue 8 — Preset-picker cards: hover state on non-selected cards */
+/* Issue 8 — Preset-picker cards: hover state on non-selected cards.
+   TASK-1758 W3 conform — the card is now dark-glass (see the inline base style
+   in hydrologyDetailTemporalPattern.js); the hover lightens the translucent-
+   white tint slightly rather than flipping to a light surface. */
 .hydrology-preset-card:hover:not(.is-selected) {
-    background: #f0f5fb !important;
-    border-color: #9ab5d8 !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: var(--sv-section-border) !important;
 }
 
 /* Issue 9 — Curve preview container: add a small top margin so the toggle
@@ -706,54 +687,54 @@
     padding: 4px 0 2px 0;
 }
 
-/* ── UAT 9-B — Custom Cumulative Curve editor: white card + contrast ────────
-   The editor mounts on the dark-navy Hydrology detail panel where its dark
-   heading (#1a3c66) / muted subtitle (#6b7a90) / dark grid text would read
-   white-on-navy (near invisible). Wrapping the whole editor body in a white
-   card restores dark-on-white legibility — same treatment the recharts cards
-   use to stay readable on the navy plugin theme. */
+/* ── TASK-1758 W3 conform — Custom Cumulative Curve editor: DARK-GLASS card ──
+   The (t,cum%) entry grid is an editable FORM table, NOT a recharts surface, so
+   it gets the dark-glass treatment (mirroring .design-storm-card) rather than
+   the old light-on-white card. Only the embedded recharts live-preview
+   (#temporal-pattern-curve-preview, set white separately below) stays a chart
+   carve-out (TASK-1534). */
 .custom-pattern-editor-card {
-    background: #fff;
-    border: 1px solid #cdd6e2;
-    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--sv-section-border);
+    border-radius: var(--sv-card-radius);
     padding: 14px 16px;
     margin-top: 8px;
-    color: #1f2d3d;
+    color: var(--sv-text);
     box-sizing: border-box;
 }
 
 .custom-pattern-heading {
-    color: #1a3c66;
+    color: var(--sv-text);
     font-weight: 700;
     font-size: 1rem;
 }
 
 .custom-pattern-subtitle {
-    color: #6b7a90;
+    color: var(--sv-text-dim);
     font-size: 0.8rem;
 }
 
 .custom-pattern-preview-caption {
-    color: #6b7a90;
+    color: var(--sv-text-dim);
     font-size: 0.8rem;
     margin-bottom: 4px;
 }
 
-/* (t, cum%) entry grid — clean dark-on-white table on the card. */
+/* (t, cum%) entry grid — dark-glass form table on the card. */
 .custom-pattern-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.82rem;
-    color: #1f2d3d;
+    color: var(--sv-text);
 }
 
 .custom-pattern-table thead th {
     padding: 4px 6px;
     text-align: left;
-    background: #eef2f7;
-    color: #1f2d3d;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--sv-text);
     font-weight: 600;
-    border-bottom: 1px solid #cdd6e2;
+    border-bottom: 1px solid var(--sv-section-border);
 }
 
 .custom-pattern-table tbody td {
@@ -761,27 +742,26 @@
     vertical-align: middle;
 }
 
-/* Explicit clean input style so the t / cum% cells read on the white card
-   (no inherited odd box from the dark panel theme). */
+/* Dark-glass entry input so the t / cum% cells read on the dark card. */
 .custom-pattern-input {
     width: 70px;
     padding: 2px 5px;
     font-size: 0.8rem;
-    background: #fff;
-    color: #1f2d3d;
-    border: 1px solid #cdd6e2;
+    background: var(--sv-input-bg);
+    color: var(--sv-text);
+    border: 1px solid var(--sv-section-border);
     border-radius: 3px;
     box-sizing: border-box;
 }
 
 .custom-pattern-input:focus {
     outline: none;
-    border-color: #5178af;
+    border-color: var(--sv-input-blue);
 }
 
 .custom-pattern-input[readonly] {
-    background: #f0f3f7;
-    color: #6b7a90;
+    background: var(--sv-input-readonly-bg);
+    color: var(--sv-text-dim);
 }
 
 /* Issue 14a — Networks tab: match the other Hydrology tools for text contrast,
@@ -1125,19 +1105,18 @@
     background: #fff;
 }
 
-/* UAT 9-B — same cascade trap as the idf-matrix-input fix above: the generic
-   `.simple-view-panel input` rule (white-on-blue, 0,1,1) outranks the plain
-   `.custom-pattern-input` (0,1,0), which on the white editor card would render
-   the (t, cum%) entries white-on-blue. Re-scope into panel + element (0,2,1) so
-   the dark-on-white entry wins without `!important`. */
+/* TASK-1758 W3 conform — same cascade trap as the idf-matrix-input fix above:
+   the generic `.simple-view-panel input` rule (0,1,1) outranks the plain
+   `.custom-pattern-input` (0,1,0). Re-scope into panel + element (0,2,1) so the
+   dark-glass entry wins without `!important` (the card is now dark, not white). */
 .simple-view-panel input.custom-pattern-input {
-    color: #1f2d3d;
-    background: #fff;
+    color: var(--sv-text);
+    background: var(--sv-input-bg);
 }
 
 .simple-view-panel input.custom-pattern-input[readonly] {
-    color: #6b7a90;
-    background: #f0f3f7;
+    color: var(--sv-text-dim);
+    background: var(--sv-input-readonly-bg);
 }
 
 /* type=text already suppresses spinners; guard webkit number spinners too. */
@@ -1196,7 +1175,7 @@
     width: 80vw;
     max-width: 1000px;
     padding: 0;
-    background-color: #063167;
+    background-color: var(--sv-panel-bg);
     display: flex;
     flex-direction: column;
 }
@@ -1442,7 +1421,7 @@
 .ds-derive-tick {
     flex-shrink: 0;
     cursor: pointer;
-    accent-color: #cae33b;
+    accent-color: var(--sv-accent-lime);
     width: 16px;
     height: 16px;
 }
@@ -1458,7 +1437,7 @@
 
 .ds-derive-saved-toast {
     font-size: 0.82rem;
-    color: #cae33b;
+    color: var(--sv-accent-lime);
 }
 
 /* Stale badge — amber warning icon next to the item name in the list. */

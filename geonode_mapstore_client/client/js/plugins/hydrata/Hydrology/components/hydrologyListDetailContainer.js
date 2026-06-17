@@ -280,7 +280,9 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                     // TASK-1528 — existing items use the base plugin BLUE
                                                     // (selected full-opacity, others lighter); the green is
                                                     // now reserved for the "New Item" / Save buttons.
-                                                    backgroundColor: isActive ? "rgba(82,121,176,1)" : "rgba(82,121,176,0.6)"
+                                                    // TASK-1758 W3 conform — tokenised to the canonical
+                                                    // --sv-input-blue (#5178af); inactive rows dim to 0.6.
+                                                    backgroundColor: isActive ? "var(--sv-input-blue)" : "rgba(81,120,175,0.6)"
                                                 }}
                                                 onClick={() => selectItem(item)}
                                             >
@@ -358,7 +360,8 @@ class HydrologyListDetailContainerClass extends React.Component {
                             className={"hydrology-button"}
                             // TASK-1528 — "New Item" gets the GREEN accent (was the
                             // inherited base blue); existing items are now blue.
-                            style={{marginTop: "10px", backgroundColor: "rgba(39,202,59,1)"}}
+                            // TASK-1758 W3 conform — tokenised to --sv-accent-green.
+                            style={{marginTop: "10px", backgroundColor: "var(--sv-accent-green)"}}
                             onClick={createItem}
                         >
                             <Message msgId="hydrata.hydrology.newItem" />
@@ -568,7 +571,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                     ) : (
                         <button
                             className={"hydrology-button"}
-                            style={{backgroundColor: "darkred"}}
+                            style={{backgroundColor: "var(--sv-glyph-delete)"}}
                             onClick={() => this.setState({deleteConfirmVisible: true})}
                         >
                             <Message msgId="hydrata.hydrology.delete" />
@@ -576,7 +579,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                     ))}
                     <button
                         className={(this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "hydrology-button" : "hydrology-button-disabled"}
-                        style={{backgroundColor: (this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "rgba(39,202,59,1)" : "rgba(39,202,59,0.6)"}}
+                        style={{backgroundColor: (this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "var(--sv-accent-green)" : "rgba(39,202,59,0.6)"}}
                         disabled={!!customCurveError}
                         title={customCurveError ? `Fix validation errors first: ${customCurveError}` : undefined}
                         onClick={() => {
