@@ -153,7 +153,7 @@ const ManualPasteGrid = ({activeHydrologyItem, dispatchUpdateRowData, dispatchRe
                     id="name"
                     key="name-paste"
                     type="text"
-                    className="hydrology-text-input"
+                    className="sv-hydrology-text-input"
                     style={{textAlign: 'left'}}
                     value={''}
                     readOnly

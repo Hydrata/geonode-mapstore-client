@@ -113,21 +113,16 @@ const ALLOWED_PREFIXES = new Set([
     'membership',
     'publication',
     // 'hgeval' RATCHETED OUT (TASK-1766 W2): HGeval panel renamed hgeval-* -> sv-hgeval-* (CSS + JS); the only test hook (.hgeval-alert-sm) is a negative .toNotExist() assertion (class never rendered).
-    'hydrology',
+    // 'hydrology' RATCHETED OUT (TASK-1766 W2): Hydrology renamed hydrology-/idf-/ds-/design-/hyetograph-/temporal-/networks- -> sv-* (hydrology.css + Hydrology JS incl. tests, 125 classes/378 refs). recharts- KEPT (cat-2 carve-out). Dynamic ds-pattern-toggle-/ds-derive-tick- are ids, idf-provenance-/hydrology-category-rail- are a filename/analytics string (not classNames).
     // 'swamm' RATCHETED OUT (TASK-1766 W2): Swamm panel renamed swamm-/bmp-/filter-/non-* -> sv-* (swamm.css + Swamm JS); 0 test pins. IDs (#swamm-bmp-filters, #bmp-type-toggle-box-*) are out of the class-guard's scope and intentionally kept.
     // 'bmp' RATCHETED OUT (TASK-1766 W2): with Swamm above.
     // 'filter' RATCHETED OUT (TASK-1766 W2): .filter-row -> .sv-filter-row in swamm.css (Swamm-only). .filter-row-odd is an unstyled JS marker.
     // 'non' RATCHETED OUT (TASK-1766 W2): .non-savable-group-profile -> sv- (Swamm-only). non-null/non-operational are JS values, not classes.
     // 'vector' RATCHETED OUT (TASK-1766 W2): VectorDraw renamed all 12 vector-draw-* classes -> sv-* (vectorDrawPopup.css + VectorDraw JS incl. tests; pins are positive assertions, renamed in lock-step per the operator-authorized parity-track in-intent test updates). TASK-784 FontUniformity test walks inline font attrs, unaffected.
     // -- feature namespaces within panels --
-    'idf',
-    'ds',
-    'design',
-    'hyetograph',
-    'temporal',
+    // idf/ds/design/hyetograph/temporal/networks RATCHETED OUT (TASK-1766 W2, with Hydrology above).
     'terrain',     // ⚠ SHARED with epic/1587 (TerrainWorkbench) — rename AFTER 1587→5.x merge.
-    'networks',
-    'network',
+    'network',     // Anuga (singular; Hydrology's plural 'networks' is retired).
     'badge',
     // -- hydrata "shared structural" prefixes in simpleView.css (q-7 "do it now") --
     'menu',
@@ -146,7 +141,7 @@ const ALLOWED_PREFIXES = new Set([
     'chart',
     // -- misc one-offs in the baseline --
     'add',
-    'custom',      // still in hydrology.css (.custom-pattern-*) — drop after Hydrology pass; Swamm's .custom-tooltip-label already sv-.
+    // 'custom' RATCHETED OUT (TASK-1766 W2): .custom-pattern-* (Hydrology) + .custom-tooltip-label (Swamm) all -> sv-*. custom-curve etc. are unstyled JS markers.
     'with'         // .with-tooltip in simpleView.css
 ]);
 

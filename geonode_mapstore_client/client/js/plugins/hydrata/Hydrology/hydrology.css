@@ -66,8 +66,8 @@
     justify-content: space-between;
 }
 
-.hydrology-button,
-.hydrology-button-disabled {
+.sv-hydrology-button,
+.sv-hydrology-button-disabled {
     border-radius: var(--sv-card-radius);
     border: 1px solid var(--sv-button-border);
     color: white;
@@ -78,25 +78,25 @@
     min-width: 100px;
 }
 
-.hydrology-button-disabled {
+.sv-hydrology-button-disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }
 
 /* Left-justify the label ONLY on list-view instance rows (for scannability);
-   action buttons that share .hydrology-button — "New Item", Save, Delete —
+   action buttons that share .sv-hydrology-button — "New Item", Save, Delete —
    keep their default centring. (TASK-1552 originally left-justified the base
    class, which also shifted those action buttons.)
    align-items:flex-start keeps the delete / regenerate icon buttons pinned to
    the TOP of the row so they don't drift to the vertical centre when the item
    name wraps to multiple lines. */
-.hydrology-item-row {
+.sv-hydrology-item-row {
     display: flex;
     align-items: flex-start;
     margin: 10px 10px 0 10px;
 }
 
-.hydrology-item-button {
+.sv-hydrology-item-button {
     flex: 1 1 auto;
     text-align: left;
     /* the row supplies the outer margin; the button sits flush to the trash */
@@ -108,7 +108,7 @@
    Fixed 20×20px square; the row's align-items:flex-start pins it to the
    top of the row so it never drifts when the item name wraps. A small
    margin-top nudges it level with the first text line. */
-.hydrology-item-delete-btn {
+.sv-hydrology-item-delete-btn {
     flex: none;
     width: 20px;
     height: 20px;
@@ -125,7 +125,7 @@
     justify-content: center;
 }
 
-.hydrology-item-delete-btn:hover {
+.sv-hydrology-item-delete-btn:hover {
     background: rgba(139, 0, 0, 1);
 }
 
@@ -133,14 +133,14 @@
    carries the search toggle on its right; the input drops in below when open.
    Padding insets the label and toggle away from the rail border so they don't
    sit flush against the #hydrology-list-detail-col-one edge. */
-.hydrology-items-heading {
+.sv-hydrology-items-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 8px 10px 4px;
 }
 
-.hydrology-filter-toggle {
+.sv-hydrology-filter-toggle {
     flex: 0 0 auto;
     margin-left: 6px;
     padding: 0 8px;
@@ -152,12 +152,12 @@
     line-height: 1.6;
 }
 
-.hydrology-filter-toggle:hover,
-.hydrology-filter-toggle.is-open {
+.sv-hydrology-filter-toggle:hover,
+.sv-hydrology-filter-toggle.is-open {
     background: var(--sv-input-blue);
 }
 
-.hydrology-filter-input {
+.sv-hydrology-filter-input {
     margin: 8px 10px 0 10px;
     padding: 4px 8px;
     border-radius: var(--sv-card-radius);
@@ -168,7 +168,7 @@
 
 /* Inline per-row delete confirm (shared ConfirmOverlay) — wraps within the
    narrow Items rail. */
-.hydrology-item-delete-confirm {
+.sv-hydrology-item-delete-confirm {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -180,14 +180,14 @@
     font-size: var(--sv-font-size);
 }
 
-.hydrology-textarea {
+.sv-hydrology-textarea {
     color: white;
     border: solid 1px var(--sv-section-border);
     border-radius: var(--sv-card-radius);
     background: var(--sv-input-blue);
 }
 
-.idf-table {
+.sv-idf-table {
     width: 100%;
     border-collapse: collapse;
     border-radius: 3px;
@@ -196,20 +196,20 @@
     color: black;
 }
 
-.idf-table thead th {
+.sv-idf-table thead th {
     background-color: #5178af;
     color: white;
     text-align: center;
     padding: 2px;
 }
 
-.idf-table tbody td {
+.sv-idf-table tbody td {
     padding: 2px;
     vertical-align: top;
     border: solid 1px rgba(53, 133, 176);
 }
 
-.idf-table input {
+.sv-idf-table input {
     background-color: white;
     color: black;
     text-align: center;
@@ -217,7 +217,7 @@
     padding-left: 18px
 }
 
-.temporal-pattern-table {
+.sv-temporal-pattern-table {
     width: 100%;
     border-collapse: collapse;
     border-radius: 3px;
@@ -226,20 +226,20 @@
     color: black;
 }
 
-.temporal-pattern-table thead th {
+.sv-temporal-pattern-table thead th {
     background-color: #5178af;
     color: white;
     text-align: center;
     padding: 2px;
 }
 
-.temporal-pattern-table tbody td {
+.sv-temporal-pattern-table tbody td {
     padding: 2px;
     vertical-align: top;
     border: solid 1px rgba(53, 133, 176);
 }
 
-.temporal-pattern-table input {
+.sv-temporal-pattern-table input {
     background-color: white;
     color: black;
     text-align: center;
@@ -284,13 +284,13 @@
 
 /* TASK-1760 (epic-1758 W1) — the panel shell + header migrated to the
    <PanelShell>/<PanelHeader> chassis primitives (hydrologyMainMenu.js), so the
-   bespoke .hydrology-miller-panel / -header / -title / -close layout rules are
+   bespoke .sv-hydrology-miller-panel / -header / -title / -close layout rules are
    dead and removed. PanelShell carries the dark-glass box chrome (with the
    miller box overrides on its style prop); PanelHeader carries the title row +
    the cascade-safe close chip. The body flex row below stays bespoke. */
 
 /* Body: LHS rail + RHS detail pane */
-.hydrology-miller-body {
+.sv-hydrology-miller-body {
     display: flex;
     flex-direction: row;
     flex: 1;
@@ -299,7 +299,7 @@
 }
 
 /* LHS vertical category rail */
-.hydrology-category-rail {
+.sv-hydrology-category-rail {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -312,7 +312,7 @@
     scrollbar-color: var(--sv-input-blue) transparent;
 }
 
-.hydrology-category-item {
+.sv-hydrology-category-item {
     display: flex;
     align-items: center;
     gap: 9px;
@@ -327,21 +327,21 @@
     outline: none;
 }
 
-.hydrology-category-item:hover:not(.is-active) {
+.sv-hydrology-category-item:hover:not(.is-active) {
     background-color: rgba(255, 255, 255, 0.06);
 }
 
-.hydrology-category-item:focus-visible {
+.sv-hydrology-category-item:focus-visible {
     background-color: rgba(255, 255, 255, 0.06);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
-.hydrology-category-item.is-active {
+.sv-hydrology-category-item.is-active {
     background-color: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
     border-left-color: var(--sv-accent-lime);
 }
 
-.hydrology-category-item-glyph {
+.sv-hydrology-category-item-glyph {
     width: 16px;
     height: 16px;
     font-size: 14px;
@@ -351,7 +351,7 @@
     background: transparent;
 }
 
-.hydrology-category-item-label {
+.sv-hydrology-category-item-label {
     flex: 1;
     font-size: 12px;
     font-weight: 500;
@@ -361,7 +361,7 @@
 }
 
 /* RHS detail pane */
-.hydrology-detail-pane {
+.sv-hydrology-detail-pane {
     flex: 1;
     min-width: 0;
     overflow-y: auto;
@@ -370,7 +370,7 @@
 
 /* ── TASK-1452 (W5) — IDF segmented control (Manual | Derive) ────────── */
 /* Replaces the W1 minimal Button pair; pill-style with lime active border. */
-.hydrology-idf-subtoggle {
+.sv-hydrology-idf-subtoggle {
     display: flex;
     gap: 0;
     padding: 8px 12px 6px;
@@ -378,7 +378,7 @@
     align-items: center;
 }
 
-.hydrology-idf-segment {
+.sv-hydrology-idf-segment {
     flex: 1;
     max-width: 120px;
     padding: 4px 14px;
@@ -393,21 +393,21 @@
     transition: background 0.12s, color 0.12s;
 }
 
-.hydrology-idf-segment:first-child {
+.sv-hydrology-idf-segment:first-child {
     border-radius: 4px 0 0 4px;
     border-right: none;
 }
 
-.hydrology-idf-segment:last-child {
+.sv-hydrology-idf-segment:last-child {
     border-radius: 0 4px 4px 0;
 }
 
-.hydrology-idf-segment:hover:not(.is-active) {
+.sv-hydrology-idf-segment:hover:not(.is-active) {
     background: rgba(81, 120, 175, 0.55);
     color: #ffffff;
 }
 
-.hydrology-idf-segment.is-active {
+.sv-hydrology-idf-segment.is-active {
     background: rgba(0, 60, 136, 0.9);
     color: #ffffff;
     border-color: var(--sv-accent-lime);
@@ -416,44 +416,44 @@
 /* ── TASK-1452 (W5) — IDF Derive vertical stepper ────────────────────── */
 
 /* Container: fills the detail pane, flex-column so head + body stack */
-.idf-derive-panel {
+.sv-idf-derive-panel {
     display: flex;
     flex-direction: column;
     height: 100%;
 }
 
 /* Scrollable body under the head title */
-.idf-derive-body {
+.sv-idf-derive-body {
     flex: 1;
     overflow-y: auto;
     padding: 0 0 16px;
 }
 
 /* Derive tab fills the width of the detail pane (no extra padding) */
-.idf-derive-container {
+.sv-idf-derive-container {
     width: 100%;
 }
 
 /* Each numbered step block */
-.idf-derive-step {
+.sv-idf-derive-step {
     border-bottom: 1px solid rgba(255, 255, 255, 0.10);
     padding-bottom: 6px;
     margin-bottom: 0;
 }
 
-.idf-derive-step:last-child {
+.sv-idf-derive-step:last-child {
     border-bottom: none;
 }
 
 /* Step numbered header: badge + title */
-.idf-derive-step-head {
+.sv-idf-derive-step-head {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 10px 12px 6px;
 }
 
-.idf-derive-step-badge {
+.sv-idf-derive-step-badge {
     width: 20px;
     height: 20px;
     border-radius: 50%;
@@ -469,7 +469,7 @@
     line-height: 1;
 }
 
-.idf-derive-step-title {
+.sv-idf-derive-step-title {
     font-size: 12px;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
@@ -478,13 +478,13 @@
 }
 
 /* Wide input for comma-list fields (durations / return-periods) */
-.idf-derive-wide-input {
+.sv-idf-derive-wide-input {
     width: 100%;
     max-width: 420px;
 }
 
 /* Sub-daily / info banner */
-.idf-derive-banner {
+.sv-idf-derive-banner {
     display: flex;
     align-items: flex-start;
     gap: 8px;
@@ -494,23 +494,23 @@
     font-size: 11.5px;
 }
 
-.idf-derive-banner--warning {
+.sv-idf-derive-banner--warning {
     background-color: var(--sv-warning-bg);
     border: 1px solid var(--sv-warning-border);
     color: var(--sv-warning-color);
 }
 
-.idf-derive-banner-glyph {
+.sv-idf-derive-banner-glyph {
     flex-shrink: 0;
     margin-top: 1px;
 }
 
 /* idf-derive validation + backend error blocks now render via the shared
    SimpleView <ErrorStrip> primitive (TASK-1667 conform-migration); the bespoke
-   .idf-derive-validation-errors / .idf-derive-error rules were removed. */
+   .sv-idf-derive-validation-errors / .sv-idf-derive-error rules were removed. */
 
 /* In-flight progress row */
-.idf-derive-progress {
+.sv-idf-derive-progress {
     color: rgba(255, 255, 255, 0.85);
     font-size: 11.5px;
     padding: 4px 12px 6px;
@@ -525,13 +525,13 @@
     to { transform: rotate(360deg); }
 }
 
-.idf-derive-spin {
+.sv-idf-derive-spin {
     display: inline-block;
     animation: idf-spin 1s linear infinite;
 }
 
 /* Unavailable notice (celery off) */
-.idf-derive-unavailable {
+.sv-idf-derive-unavailable {
     color: rgba(255, 255, 255, 0.65);
     font-size: 11.5px;
     background: rgba(94, 94, 94, 0.35);
@@ -541,24 +541,24 @@
 }
 
 /* Derive button block — primary action aligned right */
-.idf-derive-step-actions {
+.sv-idf-derive-step-actions {
     display: flex;
     justify-content: flex-end;
     padding: 6px 12px 8px;
 }
 
 /* Results section */
-.idf-derive-results {
+.sv-idf-derive-results {
     padding: 4px 12px 8px;
 }
 
-.idf-derive-results-table-wrap {
+.sv-idf-derive-results-table-wrap {
     overflow-x: auto;
     max-width: 100%;
     margin-bottom: 8px;
 }
 
-.idf-derive-results-actions {
+.sv-idf-derive-results-actions {
     display: flex;
     gap: 8px;
     margin-bottom: 8px;
@@ -566,11 +566,11 @@
 }
 
 /* Provenance collapsible block */
-.idf-derive-provenance {
+.sv-idf-derive-provenance {
     margin-top: 4px;
 }
 
-.idf-derive-provenance-toggle {
+.sv-idf-derive-provenance-toggle {
     background: none;
     border: none;
     color: rgba(255, 255, 255, 0.75);
@@ -582,11 +582,11 @@
     gap: 4px;
 }
 
-.idf-derive-provenance-toggle:hover {
+.sv-idf-derive-provenance-toggle:hover {
     color: #ffffff;
 }
 
-.idf-derive-provenance-pre {
+.sv-idf-derive-provenance-pre {
     background: rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 3px;
@@ -620,7 +620,7 @@
    TASK-1758 W3 conform — the card is now dark-glass (see the inline base style
    in hydrologyDetailTemporalPattern.js); the hover lightens the translucent-
    white tint slightly rather than flipping to a light surface. */
-.hydrology-preset-card:hover:not(.is-selected) {
+.sv-hydrology-preset-card:hover:not(.is-selected) {
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: var(--sv-section-border) !important;
 }
@@ -628,7 +628,7 @@
 /* Issue 9 — Curve preview container: add a small top margin so the toggle
    buttons and chart don't crowd the section heading.
    TASK-1530 (UAT2) — the recharts SVG has no background fill, so the dark-navy
-   panel (.hydrology-miller-panel) showed through the transparent chart and the
+   panel (.sv-hydrology-miller-panel) showed through the transparent chart and the
    light-surface foreground palette (grid #c8d4e0, labels #444, line #3a6aa8)
    read poorly on navy. Give the container a solid white background + border so
    the chart sits on a light surface. One id rule covers both the preset preview
@@ -642,17 +642,17 @@
 }
 
 /* Issue 8 (UAT polish) — Temporal Pattern chart axis-unit titles.
-   Mirrors .idf-curve-chart-layout / .hyetograph-chart-layout — HTML titles
+   Mirrors .sv-idf-curve-chart-layout / .sv-hyetograph-chart-layout — HTML titles
    around the SVG because recharts 0.22.4 silently ignores the axis `label`
    object prop. Dark text: the chart sits on the white #temporal-pattern-curve-preview
    surface. Applies to BOTH the preset CurvePreview and the custom editor chart. */
-.temporal-pattern-chart-layout {
+.sv-temporal-pattern-chart-layout {
     display: flex;
     width: 100%;
     height: 100%;
 }
 
-.temporal-pattern-yaxis-title {
+.sv-temporal-pattern-yaxis-title {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     align-self: center;
@@ -664,14 +664,14 @@
     flex-shrink: 0;
 }
 
-.temporal-pattern-plot-area {
+.sv-temporal-pattern-plot-area {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     min-width: 0;
 }
 
-.temporal-pattern-plot {
+.sv-temporal-pattern-plot {
     flex: 1 1 auto;
     min-height: 0;
     border: 1px solid #cdd6e2;
@@ -679,7 +679,7 @@
     box-sizing: border-box;
 }
 
-.temporal-pattern-xaxis-title {
+.sv-temporal-pattern-xaxis-title {
     text-align: center;
     color: #063167;
     font-size: 12px;
@@ -689,11 +689,11 @@
 
 /* ── TASK-1758 W3 conform — Custom Cumulative Curve editor: DARK-GLASS card ──
    The (t,cum%) entry grid is an editable FORM table, NOT a recharts surface, so
-   it gets the dark-glass treatment (mirroring .design-storm-card) rather than
+   it gets the dark-glass treatment (mirroring .sv-design-storm-card) rather than
    the old light-on-white card. Only the embedded recharts live-preview
    (#temporal-pattern-curve-preview, set white separately below) stays a chart
    carve-out (TASK-1534). */
-.custom-pattern-editor-card {
+.sv-custom-pattern-editor-card {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--sv-section-border);
     border-radius: var(--sv-card-radius);
@@ -703,32 +703,32 @@
     box-sizing: border-box;
 }
 
-.custom-pattern-heading {
+.sv-custom-pattern-heading {
     color: var(--sv-text);
     font-weight: 700;
     font-size: 1rem;
 }
 
-.custom-pattern-subtitle {
+.sv-custom-pattern-subtitle {
     color: var(--sv-text-dim);
     font-size: 0.8rem;
 }
 
-.custom-pattern-preview-caption {
+.sv-custom-pattern-preview-caption {
     color: var(--sv-text-dim);
     font-size: 0.8rem;
     margin-bottom: 4px;
 }
 
 /* (t, cum%) entry grid — dark-glass form table on the card. */
-.custom-pattern-table {
+.sv-custom-pattern-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.82rem;
     color: var(--sv-text);
 }
 
-.custom-pattern-table thead th {
+.sv-custom-pattern-table thead th {
     padding: 4px 6px;
     text-align: left;
     background: rgba(255, 255, 255, 0.06);
@@ -737,13 +737,13 @@
     border-bottom: 1px solid var(--sv-section-border);
 }
 
-.custom-pattern-table tbody td {
+.sv-custom-pattern-table tbody td {
     padding: 2px 4px;
     vertical-align: middle;
 }
 
 /* Dark-glass entry input so the t / cum% cells read on the dark card. */
-.custom-pattern-input {
+.sv-custom-pattern-input {
     width: 70px;
     padding: 2px 5px;
     font-size: 0.8rem;
@@ -754,12 +754,12 @@
     box-sizing: border-box;
 }
 
-.custom-pattern-input:focus {
+.sv-custom-pattern-input:focus {
     outline: none;
     border-color: var(--sv-input-blue);
 }
 
-.custom-pattern-input[readonly] {
+.sv-custom-pattern-input[readonly] {
     background: var(--sv-input-readonly-bg);
     color: var(--sv-text-dim);
 }
@@ -767,14 +767,14 @@
 /* Issue 14a — Networks tab: match the other Hydrology tools for text contrast,
    panel borders/cards and spacing. The pane re-uses anuga-pane styles which
    have dark/navy backgrounds; normalise here for the hydrology context.
-   Scope to .hydrology-networks-pane so anuga contexts are unaffected. */
-.hydrology-networks-pane .networks-terrain-selector {
+   Scope to .sv-hydrology-networks-pane so anuga contexts are unaffected. */
+.sv-hydrology-networks-pane .sv-networks-terrain-selector {
     padding: 10px 12px 8px;
     margin-bottom: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.hydrology-networks-pane .networks-terrain-step-heading {
+.sv-hydrology-networks-pane .sv-networks-terrain-step-heading {
     font-size: 12px;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.92);
@@ -782,7 +782,7 @@
     margin-bottom: 6px;
 }
 
-.hydrology-networks-pane .networks-terrain-mirror-row {
+.sv-hydrology-networks-pane .sv-networks-terrain-mirror-row {
     font-size: 11.5px;
     color: rgba(255, 255, 255, 0.80);
     margin-bottom: 6px;
@@ -792,32 +792,32 @@
     gap: 4px;
 }
 
-.hydrology-networks-pane .networks-terrain-mirror-label {
+.sv-hydrology-networks-pane .sv-networks-terrain-mirror-label {
     color: rgba(255, 255, 255, 0.65);
     font-size: 11px;
 }
 
-.hydrology-networks-pane .networks-terrain-mirror-value {
+.sv-hydrology-networks-pane .sv-networks-terrain-mirror-value {
     color: rgba(255, 255, 255, 0.90);
     font-weight: 500;
 }
 
-.hydrology-networks-pane .networks-terrain-mirror-none {
+.sv-hydrology-networks-pane .sv-networks-terrain-mirror-none {
     color: rgba(255, 255, 255, 0.50);
 }
 
-.hydrology-networks-pane .networks-terrain-manage-link {
+.sv-hydrology-networks-pane .sv-networks-terrain-manage-link {
     color: #7fb3e0;
     font-size: 11px;
     text-decoration: none;
 }
 
-.hydrology-networks-pane .networks-terrain-manage-link:hover {
+.sv-hydrology-networks-pane .sv-networks-terrain-manage-link:hover {
     color: #aed4f5;
     text-decoration: underline;
 }
 
-.hydrology-networks-pane .networks-terrain-override-row {
+.sv-hydrology-networks-pane .sv-networks-terrain-override-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -825,7 +825,7 @@
     margin-bottom: 6px;
 }
 
-.hydrology-networks-pane .networks-terrain-override-label {
+.sv-hydrology-networks-pane .sv-networks-terrain-override-label {
     font-size: 11px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.75);
@@ -833,7 +833,7 @@
     margin-bottom: 0;
 }
 
-.hydrology-networks-pane .networks-terrain-select {
+.sv-hydrology-networks-pane .sv-networks-terrain-select {
     font-size: 11.5px;
     max-width: 220px;
     height: 26px;
@@ -844,7 +844,7 @@
     color: rgba(255, 255, 255, 0.90);
 }
 
-.hydrology-networks-pane .networks-terrain-override-badge {
+.sv-hydrology-networks-pane .sv-networks-terrain-override-badge {
     font-size: 10.5px;
     padding: 1px 6px;
     background: rgba(202, 227, 59, 0.20);
@@ -853,13 +853,13 @@
     color: #cae33b;
 }
 
-.hydrology-networks-pane .networks-terrain-empty-hint {
+.sv-hydrology-networks-pane .sv-networks-terrain-empty-hint {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.50);
     margin-bottom: 4px;
 }
 
-.hydrology-networks-pane .networks-delineation-placeholder {
+.sv-hydrology-networks-pane .sv-networks-delineation-placeholder {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.50);
     padding: 6px 0 2px;
@@ -870,7 +870,7 @@
 
 /* ── TASK-1500 (W3) — IDF derive-params duration×RP boolean matrix ──────── */
 
-.idf-matrix-wrapper {
+.sv-idf-matrix-wrapper {
     overflow-x: auto;
     margin: 6px 0 4px;
 }
@@ -878,11 +878,11 @@
 /* TASK-1524 — the manual Input IDF table can hold many duration rows. Give its
    wrapper its OWN vertical scroll region so the lower rows are never clipped off
    the bottom (the old fixed-600px inner box clipped them with no scrollbar). A
-   dedicated --input modifier (not the shared .idf-matrix-wrapper) keeps the
-   Derive grid — which already scrolls via its .idf-derive-body — free of a
+   dedicated --input modifier (not the shared .sv-idf-matrix-wrapper) keeps the
+   Derive grid — which already scrolls via its .sv-idf-derive-body — free of a
    double-scrollbar. The 600px max-height shows the seeded 5-row table without a
    scrollbar; taller tables scroll inside the wrapper. */
-.idf-matrix-wrapper--input {
+.sv-idf-matrix-wrapper--input {
     max-height: 600px;
     overflow-y: auto;
 }
@@ -894,11 +894,11 @@
    width and the data columns inherit the col-header widths, so we size those two
    explicitly (below) to fit the widest labels — '4320 min' (row header) and
    '500yr' (col header) at 11px — without clipping. The row-header column width is
-   dictated by the .idf-matrix-corner first cell under table-layout:fixed.
+   dictated by the .sv-idf-matrix-corner first cell under table-layout:fixed.
    width:max-content + the
    wrapper's overflow-x:auto keep narrow panels scrollable; min-width:100% fills
    a wide panel. Shared by the Derive matrix and the manual Input table. */
-.idf-matrix-table {
+.sv-idf-matrix-table {
     border-collapse: collapse;
     font-size: 11px;
     width: max-content;
@@ -909,16 +909,16 @@
 /* Corner cell sets the row-header column width under table-layout:fixed. Must
    fit the widest duration label '4320 min' at 11px + the row-header's 12px
    horizontal padding (3px 8px 3px 4px) without clipping. */
-.idf-matrix-corner {
+.sv-idf-matrix-corner {
     width: 76px;
     min-width: 76px;
 }
 
-.idf-matrix-col-header {
+.sv-idf-matrix-col-header {
     /* TASK-1523 — col-headers set the data-column widths under
        table-layout:fixed. 56px fits the widest ARI label ('500yr' at 11px +
        12px padding) and comfortably holds the Input table's float cell (its
-       .idf-matrix-input has min-width:46px inside a cell with 4px padding). */
+       .sv-idf-matrix-input has min-width:46px inside a cell with 4px padding). */
     width: 56px;
     padding: 4px 6px;
     text-align: center;
@@ -932,17 +932,17 @@
     transition: background 0.1s;
 }
 
-.idf-matrix-col-header:hover,
-.idf-matrix-col-header--selected:hover {
+.sv-idf-matrix-col-header:hover,
+.sv-idf-matrix-col-header--selected:hover {
     background: rgba(255, 255, 255, 0.14);
 }
 
-.idf-matrix-col-header.idf-matrix-header--selected {
+.sv-idf-matrix-col-header.sv-idf-matrix-header--selected {
     color: rgba(255, 255, 255, 0.95);
     background: rgba(80, 160, 80, 0.25);
 }
 
-.idf-matrix-row-header {
+.sv-idf-matrix-row-header {
     padding: 3px 8px 3px 4px;
     text-align: right;
     font-weight: 600;
@@ -956,16 +956,16 @@
     transition: background 0.1s;
 }
 
-.idf-matrix-row-header:hover {
+.sv-idf-matrix-row-header:hover {
     background: rgba(255, 255, 255, 0.14);
 }
 
-.idf-matrix-row-header.idf-matrix-header--selected {
+.sv-idf-matrix-row-header.sv-idf-matrix-header--selected {
     color: rgba(255, 255, 255, 0.95);
     background: rgba(80, 160, 80, 0.25);
 }
 
-.idf-matrix-cell {
+.sv-idf-matrix-cell {
     padding: 2px 4px;
     text-align: center;
     cursor: pointer;
@@ -974,23 +974,23 @@
     user-select: none;
 }
 
-.idf-matrix-cell:hover {
+.sv-idf-matrix-cell:hover {
     background: rgba(255, 255, 255, 0.10);
 }
 
-.idf-matrix-cell--on {
+.sv-idf-matrix-cell--on {
     background: rgba(50, 140, 50, 0.18);
 }
 
-.idf-matrix-cell--off {
+.sv-idf-matrix-cell--off {
     background: rgba(180, 60, 60, 0.10);
 }
 
 /* TASK-1497 (UAT note-2) — green tick / red cross sit on a tight WHITE square
    so they read clearly against the dark tinted cell backgrounds. Glyph colours
    darkened slightly for AA contrast on white. */
-.idf-matrix-tick,
-.idf-matrix-cross {
+.sv-idf-matrix-tick,
+.sv-idf-matrix-cross {
     display: inline-block;
     width: 16px;
     height: 16px;
@@ -1003,29 +1003,29 @@
 }
 
 /* Green tick — matches layer-visibility "on" glyph colour */
-.idf-matrix-tick {
+.sv-idf-matrix-tick {
     color: #2e7d32;
 }
 
 /* Red cross — matches layer-visibility "off" glyph colour */
-.idf-matrix-cross {
+.sv-idf-matrix-cross {
     color: #c62828;
 }
 
 /* Disabled (non-derivable) headers + cells — sub-hourly durations / sub-annual
    ARIs the ERA5 annual-maxima GEV fit can't produce. Greyed and inert; these
    stay available in the manual IDF table. */
-.idf-matrix-col-header.idf-matrix-header--disabled,
-.idf-matrix-row-header.idf-matrix-header--disabled,
-.idf-matrix-col-header.idf-matrix-header--disabled:hover,
-.idf-matrix-row-header.idf-matrix-header--disabled:hover {
+.sv-idf-matrix-col-header.sv-idf-matrix-header--disabled,
+.sv-idf-matrix-row-header.sv-idf-matrix-header--disabled,
+.sv-idf-matrix-col-header.sv-idf-matrix-header--disabled:hover,
+.sv-idf-matrix-row-header.sv-idf-matrix-header--disabled:hover {
     color: rgba(255, 255, 255, 0.28);
     background: rgba(255, 255, 255, 0.02);
     cursor: not-allowed;
 }
 
-.idf-matrix-cell.idf-matrix-cell--disabled,
-.idf-matrix-cell.idf-matrix-cell--disabled:hover {
+.sv-idf-matrix-cell.sv-idf-matrix-cell--disabled,
+.sv-idf-matrix-cell.sv-idf-matrix-cell--disabled:hover {
     cursor: not-allowed;
     background: repeating-linear-gradient(
         45deg,
@@ -1036,16 +1036,16 @@
     );
 }
 
-.idf-matrix-disabled-mark {
+.sv-idf-matrix-disabled-mark {
     color: rgba(255, 255, 255, 0.25);
     font-size: 11px;
 }
 
 /* ── TASK-1497 (UAT note-1) — manual Input IDF table float-entry cells ──────
-   The Input table reuses the .idf-matrix-* grid. Unlike the Derive matrix's
+   The Input table reuses the .sv-idf-matrix-* grid. Unlike the Derive matrix's
    inert non-derivable cells, an "empty" (disabled) Input cell is CLICKABLE to
    enable, and an enabled cell holds a compact white float input (no spinner). */
-.idf-matrix-cell.idf-matrix-cell--empty {
+.sv-idf-matrix-cell.sv-idf-matrix-cell--empty {
     cursor: pointer;
     background: repeating-linear-gradient(
         45deg,
@@ -1056,18 +1056,18 @@
     );
 }
 
-.idf-matrix-cell.idf-matrix-cell--empty:hover {
+.sv-idf-matrix-cell.sv-idf-matrix-cell--empty:hover {
     background: rgba(255, 255, 255, 0.14);
 }
 
-.idf-matrix-cell.idf-matrix-cell--input,
-.idf-matrix-cell.idf-matrix-cell--input:hover {
+.sv-idf-matrix-cell.sv-idf-matrix-cell--input,
+.sv-idf-matrix-cell.sv-idf-matrix-cell--input:hover {
     padding: 1px 2px;
     cursor: text;
     background: rgba(255, 255, 255, 0.04);
 }
 
-.idf-matrix-input {
+.sv-idf-matrix-input {
     width: 100%;
     min-width: 46px;
     box-sizing: border-box;
@@ -1080,14 +1080,14 @@
     padding: 1px 2px;
 }
 
-.idf-matrix-input:focus {
+.sv-idf-matrix-input:focus {
     outline: none;
     border-color: #5cb85c;
     background: #fff;
 }
 
 /* TASK-1550 — the generic `.simple-view-panel input` theme rule (white text on
-   the blue panel; specificity 0,1,1) outranked `.idf-matrix-input` (0,1,0), so
+   the blue panel; specificity 0,1,1) outranked `.sv-idf-matrix-input` (0,1,0), so
    the float-entry text rendered WHITE. At rest that was white-on-blue; on focus
    the `:focus` rule turns the cell white, leaving white-on-white (invisible)
    while typing — the reported bug. Re-scope the input colour into the panel +
@@ -1095,39 +1095,39 @@
    `!important`, restoring the intended dark-on-light entry the base rule above
    already sets. (The build prepends `.msgapi` to every selector, adding one
    class to each, so the relative ordering is unchanged.) */
-.simple-view-panel input.idf-matrix-input {
+.simple-view-panel input.sv-idf-matrix-input {
     color: #111;
     background: rgba(255, 255, 255, 0.92);
 }
 
-.simple-view-panel input.idf-matrix-input:focus {
+.simple-view-panel input.sv-idf-matrix-input:focus {
     color: #111;
     background: #fff;
 }
 
-/* TASK-1758 W3 conform — same cascade trap as the idf-matrix-input fix above:
+/* TASK-1758 W3 conform — same cascade trap as the sv-idf-matrix-input fix above:
    the generic `.simple-view-panel input` rule (0,1,1) outranks the plain
-   `.custom-pattern-input` (0,1,0). Re-scope into panel + element (0,2,1) so the
+   `.sv-custom-pattern-input` (0,1,0). Re-scope into panel + element (0,2,1) so the
    dark-glass entry wins without `!important` (the card is now dark, not white). */
-.simple-view-panel input.custom-pattern-input {
+.simple-view-panel input.sv-custom-pattern-input {
     color: var(--sv-text);
     background: var(--sv-input-bg);
 }
 
-.simple-view-panel input.custom-pattern-input[readonly] {
+.simple-view-panel input.sv-custom-pattern-input[readonly] {
     color: var(--sv-text-dim);
     background: var(--sv-input-readonly-bg);
 }
 
 /* type=text already suppresses spinners; guard webkit number spinners too. */
-.idf-matrix-input::-webkit-outer-spin-button,
-.idf-matrix-input::-webkit-inner-spin-button {
+.sv-idf-matrix-input::-webkit-outer-spin-button,
+.sv-idf-matrix-input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
 
 /* Hours/minutes unit toggle row */
-.idf-matrix-unit-toggle-row {
+.sv-idf-matrix-unit-toggle-row {
     margin-bottom: 4px;
     /* TASK-1551 — the row inherited the panel's text-align:center, centring the
        inline checkbox+label on BOTH surfaces that reuse this class (the Derive
@@ -1136,7 +1136,7 @@
     text-align: left;
 }
 
-.idf-matrix-unit-label {
+.sv-idf-matrix-unit-label {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
@@ -1146,8 +1146,8 @@
 
 /* TASK-1526 — the IDF curve is an on-demand pop-up. A disabled trigger button
    reads as inert (no pointer, dimmed) when the table has no non-zero data. */
-.idf-curve-open-btn:disabled,
-.idf-curve-open-btn[disabled] {
+.sv-idf-curve-open-btn:disabled,
+.sv-idf-curve-open-btn[disabled] {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -1158,7 +1158,7 @@
    inside that wrapper's stacking context, so a lower value (the old 1100) left
    the chart painted BEHIND the IDF matrix panel and invisible. 100000 is the
    codebase ceiling for body-level overlays (see _media-viewer.less). */
-.idf-curve-modal-overlay {
+.sv-idf-curve-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -1171,7 +1171,7 @@
     justify-content: center;
 }
 
-.idf-curve-modal-panel {
+.sv-idf-curve-modal-panel {
     width: 80vw;
     max-width: 1000px;
     padding: 0;
@@ -1180,7 +1180,7 @@
     flex-direction: column;
 }
 
-.idf-curve-modal-header {
+.sv-idf-curve-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1189,7 +1189,7 @@
 
 /* recharts ResponsiveContainer measures its parent; an explicit pixel height
    is mandatory inside the modal or the chart renders 0-tall (blank). */
-.idf-curve-modal-body {
+.sv-idf-curve-modal-body {
     width: 100%;
     height: 600px;
     background: white;
@@ -1201,13 +1201,13 @@
 /* IDF curve layout: a rotated Y-axis title on the left, the plot, and the
    X-axis title beneath. Titles are HTML (recharts 0.22.4 ignores the axis
    `label` object form). Dark text — the chart body is white. */
-.idf-curve-chart-layout {
+.sv-idf-curve-chart-layout {
     display: flex;
     width: 100%;
     height: 100%;
 }
 
-.idf-curve-yaxis-title {
+.sv-idf-curve-yaxis-title {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     align-self: center;
@@ -1218,7 +1218,7 @@
     white-space: nowrap;
 }
 
-.idf-curve-plot-area {
+.sv-idf-curve-plot-area {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
@@ -1226,12 +1226,12 @@
 }
 
 /* flex:1 + min-height:0 gives ResponsiveContainer a concrete pixel height. */
-.idf-curve-plot {
+.sv-idf-curve-plot {
     flex: 1 1 auto;
     min-height: 0;
 }
 
-.idf-curve-xaxis-title {
+.sv-idf-curve-xaxis-title {
     text-align: center;
     color: #063167;
     font-size: 13px;
@@ -1240,25 +1240,25 @@
 }
 
 /* ── TASK-1754 — readable IDF-curve legend + series labels ───────────────────
-   The IDF curve sits on a WHITE chart body (.idf-curve-modal-body). recharts
+   The IDF curve sits on a WHITE chart body (.sv-idf-curve-modal-body). recharts
    colours each legend entry's TEXT with that series' fill, and the viridis
    palette's bright end (#b8de29 / #fde725) is illegible on white. Force the
    legend text and the axis tick labels to the SimpleView panel-blue (--sv-glyph-
    settings #325f93, a WCAG-AA dark navy on white) so every ARI label reads
    regardless of its line colour; the coloured swatch still keys each entry to
    its line. Scoped to the modal body so it never bleeds into other recharts. */
-.idf-curve-modal-body .recharts-legend-item-text {
+.sv-idf-curve-modal-body .recharts-legend-item-text {
     color: var(--sv-glyph-settings, #325f93) !important;
     font-size: 13px;
     font-weight: 600;
 }
 
-.idf-curve-modal-body .recharts-default-legend {
+.sv-idf-curve-modal-body .recharts-default-legend {
     padding-left: 6px;
 }
 
 /* Axis tick labels (durations / intensities) — same readable navy on white. */
-.idf-curve-modal-body .recharts-cartesian-axis-tick-value {
+.sv-idf-curve-modal-body .recharts-cartesian-axis-tick-value {
     fill: #063167;
     font-size: 12px;
 }
@@ -1266,15 +1266,15 @@
 /* ── TASK-1534 (UAT2) — Design Storms detail view: dark-navy theme ──────────
    The Design Storms browser (former Timeseries) was the only Hydrology detail
    view using ad-hoc light/white inline cards (#f7f9fb / #fff / #f0f5ff). It
-   mounts in .hydrology-detail-pane, which inherits color:white from the navy
+   mounts in .sv-hydrology-detail-pane, which inherits color:white from the navy
    .simple-view-panel / #hydrology-list-detail-panel — so its uncoloured labels
    read white-on-light. These classes re-theme the NON-chart cards to the
-   plugin's dark-navy convention (mirroring .idf-derive-*: transparent/tinted
+   plugin's dark-navy convention (mirroring .sv-idf-derive-*: transparent/tinted
    navy panels with rgba(255,255,255,…) text). The recharts hyetograph cards
-   STAY white (.design-storm-chart-card) and keep their dark-on-white text. */
+   STAY white (.sv-design-storm-chart-card) and keep their dark-on-white text. */
 
 /* Filters card + manual-entry form card — tinted navy panel, light text */
-.design-storm-card {
+.sv-design-storm-card {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
@@ -1283,7 +1283,7 @@
 
 /* Field label — explicit light themed colour (was fontWeight-only → white
    inherited, illegible on the old light card). */
-.design-storm-label {
+.sv-design-storm-label {
     display: block;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
@@ -1291,41 +1291,41 @@
 
 /* Inline hint text beside a label (e.g. "e.g. 1 = 1-in-100") — dimmer but
    still AA (rgba 0.7 on the navy panel ≈ 5.4:1). */
-.design-storm-hint {
+.sv-design-storm-hint {
     font-weight: normal;
     color: rgba(255, 255, 255, 0.7);
 }
 
 /* Secondary / muted body text (counts, "select an IDF table…", spinners). */
-.design-storm-muted {
+.sv-design-storm-muted {
     color: rgba(255, 255, 255, 0.7);
 }
 
 /* Preview card in the gallery — tinted navy, light text. Focused = lime-ish
    accent border matching the rest of the plugin. */
-.design-storm-preview-card {
+.sv-design-storm-preview-card {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: rgba(255, 255, 255, 0.9);
 }
 
-.design-storm-preview-card.focused {
+.sv-design-storm-preview-card.focused {
     background: rgba(81, 120, 175, 0.30);
     border-color: #cae33b;
 }
 
-.design-storm-preview-title {
+.sv-design-storm-preview-title {
     font-weight: 600;
     color: rgba(255, 255, 255, 0.95);
 }
 
-.design-storm-preview-meta {
+.sv-design-storm-preview-meta {
     color: rgba(255, 255, 255, 0.7);
 }
 
 /* Chart card — the recharts hyetograph stays on white so axes/grid read
    (KEEP white per spec). Its inner <p> titles use dark-on-white colours. */
-.design-storm-chart-card {
+.sv-design-storm-chart-card {
     background: #fff;
     border: 2px solid #5178af;
     border-radius: 4px;
@@ -1337,11 +1337,11 @@
    CONTRAST. HyetographChart now owns its OWN white card so the LIVE bare caller
    (HydrologyTimeSeries detail) reads on the dark-navy MapStore panel with no
    wrapper change. The (dead, TASK-1567) DesignStormsBrowser / ManualEntryForm
-   callers already wrap it in .design-storm-chart-card (white + 2px navy border);
+   callers already wrap it in .sv-design-storm-chart-card (white + 2px navy border);
    the descendant rule below cancels the inner card there so they keep a SINGLE
    border. Axis-unit titles are HTML around the SVG because recharts 0.22.4
-   silently ignores the axis `label` object prop — same mechanism as .idf-curve-*. */
-.hyetograph-chart-card {
+   silently ignores the axis `label` object prop — same mechanism as .sv-idf-curve-*. */
+.sv-hyetograph-chart-card {
     background: #fff;
     border: 2px solid #5178af;
     border-radius: 4px;
@@ -1352,7 +1352,7 @@
 }
 
 /* Strip the inner card when nested inside the dead callers' wrapper. */
-.design-storm-chart-card #design-storm-hyetograph.hyetograph-chart-card {
+.sv-design-storm-chart-card #design-storm-hyetograph.sv-hyetograph-chart-card {
     background: transparent;
     border: none;
     border-radius: 0;
@@ -1360,13 +1360,13 @@
     margin-top: 0;
 }
 
-/* Axis-title layout — mirrors .idf-curve-chart-layout. */
-.hyetograph-chart-layout {
+/* Axis-title layout — mirrors .sv-idf-curve-chart-layout. */
+.sv-hyetograph-chart-layout {
     display: flex;
     width: 100%;
 }
 
-.hyetograph-yaxis-title {
+.sv-hyetograph-yaxis-title {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     align-self: center;
@@ -1378,7 +1378,7 @@
     flex-shrink: 0;
 }
 
-.hyetograph-plot-area {
+.sv-hyetograph-plot-area {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
@@ -1387,11 +1387,11 @@
 
 /* ResponsiveContainer carries an explicit pixel height={260}, so the plot box
    only needs full width (a fixed height avoids the recharts 0-tall trap). */
-.hyetograph-plot {
+.sv-hyetograph-plot {
     width: 100%;
 }
 
-.hyetograph-xaxis-title {
+.sv-hyetograph-xaxis-title {
     text-align: center;
     color: #063167;
     font-size: 13px;
@@ -1402,10 +1402,10 @@
 /* The text inputs / selects in the Design Storms cards had NO CSS rule, so
    they fell back to browser defaults (light box, hard to see on navy). Give
    them the same white-field treatment the rest of the plugin uses. Scope to
-   the Design Storms surfaces so other .hydrology-text-input uses are untouched. */
-#design-storms-browser .hydrology-text-input,
-#manual-entry-form .hydrology-text-input,
-#design-storm-derive-shell .hydrology-text-input {
+   the Design Storms surfaces so other .sv-hydrology-text-input uses are untouched. */
+#design-storms-browser .sv-hydrology-text-input,
+#manual-entry-form .sv-hydrology-text-input,
+#design-storm-derive-shell .sv-hydrology-text-input {
     background-color: #fff;
     color: #111;
     border: 1px solid rgba(255, 255, 255, 0.25);
@@ -1414,11 +1414,11 @@
 }
 
 /* TASK-1561 (W3b) — Derive tab: tick checkbox row */
-.ds-derive-preview-row {
+.sv-ds-derive-preview-row {
     padding: 2px 0;
 }
 
-.ds-derive-tick {
+.sv-ds-derive-tick {
     flex-shrink: 0;
     cursor: pointer;
     accent-color: var(--sv-accent-lime);
@@ -1427,7 +1427,7 @@
 }
 
 /* Save these N button — reuses the green accent of "New Item" / Save. */
-.ds-derive-save-btn {
+.sv-ds-derive-save-btn {
     padding: 4px 12px;
     border-radius: 3px;
     font-size: 0.85rem;
@@ -1435,22 +1435,22 @@
     border: none;
 }
 
-.ds-derive-saved-toast {
+.sv-ds-derive-saved-toast {
     font-size: 0.82rem;
     color: var(--sv-accent-lime);
 }
 
 /* Stale badge — amber warning icon next to the item name in the list. */
-.ds-stale-badge {
+.sv-ds-stale-badge {
     color: #f5a623;
     font-size: 0.82rem;
     vertical-align: middle;
 }
 
 /* Regenerate button — compact icon-only square beside the item row.
-   Fixed 20×20px to match .hydrology-item-delete-btn; the row's
+   Fixed 20×20px to match .sv-hydrology-item-delete-btn; the row's
    align-items:flex-start pins it to the top when the item name wraps. */
-.ds-regenerate-btn {
+.sv-ds-regenerate-btn {
     flex: none;
     width: 20px;
     height: 20px;
@@ -1468,7 +1468,7 @@
     line-height: 1;
 }
 
-.ds-regenerate-btn:hover {
+.sv-ds-regenerate-btn:hover {
     background: rgba(245,166,35,0.15);
     border-color: #f5a623;
 }

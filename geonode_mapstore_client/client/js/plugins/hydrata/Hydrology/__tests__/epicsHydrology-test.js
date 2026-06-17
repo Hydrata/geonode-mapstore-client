@@ -1,7 +1,7 @@
 /**
  * V2P-79 — Hydrology epics V1 → V2 cutover regression guards.
  *
- * The V1 paths /anuga/api/{pid}/{idf-table|time-series|temporal-pattern}/
+ * The V1 paths /anuga/api/{pid}/{sv-idf-table|time-series|temporal-pattern}/
  * are migrated to V2 nested routes:
  *   /api/v2/anuga/projects/{pid}/idf-tables/
  *   /api/v2/anuga/projects/{pid}/time-series/         (already plural)
@@ -145,7 +145,7 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
     it('saveHydrologyItemEpic PATCHes V2 plural for existing item (with numeric id)', (done) => {
         const action$ = mockActions([{
             type: SAVE_HYDROLOGY_ITEM,
-            activeHydrologyPage: 'idf-table',
+            activeHydrologyPage: 'sv-idf-table',
             item: { id: 99, name: 'X', data: [] }
         }]);
         const sub = saveHydrologyItemEpic(action$, store).subscribe(
@@ -871,9 +871,9 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
             { type: FETCH_HYDROLOGY_IDF_TABLE_DATA },
             { type: FETCH_HYDROLOGY_TIME_SERIES_DATA },
             { type: FETCH_HYDROLOGY_TEMPORAL_PATTERN_DATA },
-            { type: SAVE_HYDROLOGY_ITEM, activeHydrologyPage: 'idf-table', item: { name: 'A' } },
-            { type: SAVE_HYDROLOGY_ITEM, activeHydrologyPage: 'idf-table', item: { id: 1, name: 'A' } },
-            { type: DELETE_HYDROLOGY_ITEM, activeHydrologyPage: 'idf-table', item: { id: 1 } }
+            { type: SAVE_HYDROLOGY_ITEM, activeHydrologyPage: 'sv-idf-table', item: { name: 'A' } },
+            { type: SAVE_HYDROLOGY_ITEM, activeHydrologyPage: 'sv-idf-table', item: { id: 1, name: 'A' } },
+            { type: DELETE_HYDROLOGY_ITEM, activeHydrologyPage: 'sv-idf-table', item: { id: 1 } }
         ]);
         const subs = [
             fetchIdfTableEpic(action$, store).subscribe(),

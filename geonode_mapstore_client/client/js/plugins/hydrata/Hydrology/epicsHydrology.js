@@ -58,7 +58,7 @@ import {deriveIdf, getIdfTable, deriveDesignStorm, attachDesignStorm} from './ap
 import {getAnugaConfig} from '../Anuga/api/anugaApi';
 
 // V2P-79 / V2P-77 — V1 hydrology routes were /anuga/api/{pid}/<endpoint>/
-// where <endpoint> was 'time-series' / 'temporal-pattern' / 'idf-table'
+// where <endpoint> was 'time-series' / 'temporal-pattern' / 'sv-idf-table'
 // (singular, the V1 route segments). V2 paths nest under projects with
 // pluralised segments per /opt/hydrata/apps/gn_anuga/urls.py:
 //   * /api/v2/anuga/projects/{pid}/idf-tables/
@@ -71,7 +71,7 @@ import {getAnugaConfig} from '../Anuga/api/anugaApi';
 const V1_TO_V2_HYDROLOGY = {
     'time-series': 'time-series',
     'temporal-pattern': 'temporal-patterns',
-    'idf-table': 'idf-tables'
+    'sv-idf-table': 'idf-tables'
 };
 
 const v2Hydrology = (page) => V1_TO_V2_HYDROLOGY[page] || page;
@@ -155,7 +155,7 @@ export const fetchIdfTableEpic = (action$, store) =>
             let response;
             try {
                 const projectId = store.getState()?.anuga?.projects?.data?.id;
-                const endpoint = "idf-table";
+                const endpoint = "sv-idf-table";
                 const dispatchFunction = setHydrologyIdfTableData;
                 const errorFunction = errorHydrologyIdfTableData;
                 response = fetchAndDispatch(projectId, endpoint, dispatchFunction, errorFunction);
@@ -627,13 +627,13 @@ export const previewDesignStormsEpic = (action$, store) =>
         });
 
 // TASK-1501 (W4b) — Reactive reprojection on IDF/pattern save (AC5).
-// On SAVE_HYDROLOGY_ITEM_SUCCESS for 'idf-table' or 'temporal-pattern',
+// On SAVE_HYDROLOGY_ITEM_SUCCESS for 'sv-idf-table' or 'temporal-pattern',
 // mark the projection stale so the browser re-fetches previews.
 export const reprojectOnSaveEpic = (action$, store) =>
     action$
         .ofType(SAVE_HYDROLOGY_ITEM_SUCCESS)
         .filter(action =>
-            action.activeHydrologyPage === 'idf-table' ||
+            action.activeHydrologyPage === 'sv-idf-table' ||
             action.activeHydrologyPage === 'temporal-pattern'
         )
         .mergeMap(() => {

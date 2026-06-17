@@ -139,7 +139,7 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
     // Convert mm/hr intensity × (timestep/60) = mm depth per interval for total
     const totalDepth = data.reduce((s, d) => s + d.intensity * (ts / 60), 0).toFixed(1);
     return (
-        <div id="design-storm-hyetograph" className="hyetograph-chart-card">
+        <div id="design-storm-hyetograph" className="sv-hyetograph-chart-card">
             {title && (
                 <p style={{fontSize: '0.9rem', fontWeight: 700, marginBottom: 4, color: '#333'}}>
                     {title}
@@ -148,13 +148,13 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
             <p style={{fontSize: '0.85rem', color: '#555', marginBottom: 6}}>
                 Estimated total depth: <strong>{totalDepth} mm</strong>
             </p>
-            {/* HTML axis-title layout — mirrors IdfCurveChart (.idf-curve-*) because
+            {/* HTML axis-title layout — mirrors IdfCurveChart (.sv-idf-curve-*) because
                 recharts 0.22.4 silently IGNORES the YAxis/XAxis `label` object prop,
                 so axis units must be HTML around the SVG, not a recharts <Label>. */}
-            <div className="hyetograph-chart-layout">
-                <div className="hyetograph-yaxis-title">Intensity (mm/hr)</div>
-                <div className="hyetograph-plot-area">
-                    <div className="hyetograph-plot">
+            <div className="sv-hyetograph-chart-layout">
+                <div className="sv-hyetograph-yaxis-title">Intensity (mm/hr)</div>
+                <div className="sv-hyetograph-plot-area">
+                    <div className="sv-hyetograph-plot">
                         <ResponsiveContainer width="100%" height={260}>
                             <BarChart
                                 data={data}
@@ -184,7 +184,7 @@ const HyetographChart = ({rowData, timestepMin, title}) => {
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                    <div className="hyetograph-xaxis-title">Time from start (h:mm)</div>
+                    <div className="sv-hyetograph-xaxis-title">Time from start (h:mm)</div>
                 </div>
             </div>
         </div>
@@ -219,7 +219,7 @@ const PreviewCard = ({preview, isFocused, onFocus, onAttach, attachInFlight, rai
     return (
         <div
             id={`preview-card-${key}`}
-            className={`design-storm-preview-card${isFocused ? ' focused' : ''}`}
+            className={`sv-design-storm-preview-card${isFocused ? ' focused' : ''}`}
             style={{
                 borderRadius: 4,
                 padding: '8px 12px',
@@ -234,13 +234,13 @@ const PreviewCard = ({preview, isFocused, onFocus, onAttach, attachInFlight, rai
             onClick={() => onFocus(key)}
         >
             <div style={{flex: 1, minWidth: 200}}>
-                <span className="design-storm-preview-title" style={{fontSize: '0.88rem', marginRight: 6}}>
+                <span className="sv-design-storm-preview-title" style={{fontSize: '0.88rem', marginRight: 6}}>
                     {preview.pattern}
                 </span>
-                <span className="design-storm-preview-meta" style={{fontSize: '0.82rem', marginRight: 6}}>
+                <span className="sv-design-storm-preview-meta" style={{fontSize: '0.82rem', marginRight: 6}}>
                     {ariLabel}
                 </span>
-                <span className="design-storm-preview-meta" style={{fontSize: '0.82rem'}}>
+                <span className="sv-design-storm-preview-meta" style={{fontSize: '0.82rem'}}>
                     {durationHr}
                 </span>
                 {preview.total_depth_mm !== undefined && (
@@ -406,10 +406,10 @@ const DesignStormsBrowser = ({
     return (
         <div id="design-storms-browser" style={{maxWidth: 720}}>
             {/* FILTERS row — TASK-1760: chassis Card (default dark-glass). The
-                design-storm-card class rides extraClassName so the nested
-                .design-storm-label/-hint/-muted text rules still apply. */}
+                sv-design-storm-card class rides extraClassName so the nested
+                .sv-design-storm-label/-hint/-muted text rules still apply. */}
             <Card
-                extraClassName="design-storm-card"
+                extraClassName="sv-design-storm-card"
                 style={{marginBottom: 12}}
                 bodyStyle={{padding: '10px 14px'}}
             >
@@ -417,12 +417,12 @@ const DesignStormsBrowser = ({
                     <div style={{display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start'}}>
                         {/* IDF Variant picker */}
                         <div style={{flex: '1 1 180px'}}>
-                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                            <label className="sv-design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             IDF Table
                             </label>
                             <select
                                 id="ds-browser-idf-table"
-                                className="hydrology-text-input"
+                                className="sv-hydrology-text-input"
                                 style={{width: '100%'}}
                                 value={selectedIdfTableId ?? ''}
                                 onChange={e => onSpecChange({
@@ -438,12 +438,12 @@ const DesignStormsBrowser = ({
 
                         {/* RP view filter (AC2) */}
                         <div style={{flex: '1 1 120px'}}>
-                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                            <label className="sv-design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             RP filter (yr)
                             </label>
                             <select
                                 id="ds-browser-ari-filter"
-                                className="hydrology-text-input"
+                                className="sv-hydrology-text-input"
                                 style={{width: '100%'}}
                                 value={viewFilter?.ari ?? ''}
                                 onChange={e => onViewFilterChange({ari: e.target.value ? Number(e.target.value) : null})}
@@ -457,12 +457,12 @@ const DesignStormsBrowser = ({
 
                         {/* Duration view filter (AC2) */}
                         <div style={{flex: '1 1 120px'}}>
-                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                            <label className="sv-design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             Duration filter
                             </label>
                             <select
                                 id="ds-browser-duration-filter"
-                                className="hydrology-text-input"
+                                className="sv-hydrology-text-input"
                                 style={{width: '100%'}}
                                 value={viewFilter?.durationMin ?? ''}
                                 onChange={e => onViewFilterChange({durationMin: e.target.value ? Number(e.target.value) : null})}
@@ -478,13 +478,13 @@ const DesignStormsBrowser = ({
 
                         {/* Timestep */}
                         <div style={{flex: '0 0 90px'}}>
-                            <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
+                            <label className="sv-design-storm-label" style={{fontSize: '0.82rem', marginBottom: 3}}>
                             Timestep (min)
                             </label>
                             <input
                                 id="ds-browser-timestep"
                                 type="number"
-                                className="hydrology-text-input"
+                                className="sv-hydrology-text-input"
                                 style={{width: '100%'}}
                                 value={timestepMin || 60}
                                 min={1}
@@ -496,7 +496,7 @@ const DesignStormsBrowser = ({
 
                     {/* Pattern multi-select (AC8 — data-driven, not hardcoded) */}
                     <div style={{marginTop: 10}}>
-                        <label className="design-storm-label" style={{fontSize: '0.82rem', marginBottom: 4}}>
+                        <label className="sv-design-storm-label" style={{fontSize: '0.82rem', marginBottom: 4}}>
                         Patterns (all = no filter)
                         </label>
                         <div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
@@ -524,7 +524,7 @@ const DesignStormsBrowser = ({
             {stale && !inFlight && (
                 // TASK-1758 W3 conform — dark-glass amber warning (was light #fff8e1).
                 <div
-                    className="idf-derive-banner idf-derive-banner--warning"
+                    className="sv-idf-derive-banner sv-idf-derive-banner--warning"
                     style={{margin: '0 0 8px', fontSize: '0.82rem'}}
                 >
                     IDF or pattern changed — previews will refresh.
@@ -535,7 +535,7 @@ const DesignStormsBrowser = ({
             )}
 
             {inFlight && (
-                <div className="design-storm-muted" style={{padding: '8px 0', fontSize: '0.85rem'}}>
+                <div className="sv-design-storm-muted" style={{padding: '8px 0', fontSize: '0.85rem'}}>
                     <span className="glyphicon glyphicon-refresh" style={{marginRight: 6}} />
                     Computing previews…
                 </div>
@@ -557,7 +557,7 @@ const DesignStormsBrowser = ({
             {focusedPreview && (
                 <Card
                     variant="chart"
-                    extraClassName="design-storm-chart-card"
+                    extraClassName="sv-design-storm-chart-card"
                     style={{marginBottom: 14}}
                     bodyStyle={{padding: '12px 16px'}}
                 >
@@ -569,7 +569,7 @@ const DesignStormsBrowser = ({
                         />
                         {focusedPreview.source && (
                             // TASK-1758 W3: this source line lives INSIDE the white
-                            // chart Card body (design-storm-chart-card, variant="chart"),
+                            // chart Card body (sv-design-storm-chart-card, variant="chart"),
                             // so #666 dark-on-white is correct chart-card carve-out — keep.
                             <p style={{fontSize: '0.78rem', color: '#666', marginTop: 4, marginBottom: 0}}>
                                 Source: {focusedPreview.source}
@@ -582,7 +582,7 @@ const DesignStormsBrowser = ({
             {/* Gallery of preview cards */}
             {filteredPreviews.length > 0 && (
                 <div id="design-storm-gallery" style={{marginBottom: 12}}>
-                    <p className="design-storm-muted" style={{fontSize: '0.82rem', marginBottom: 6}}>
+                    <p className="sv-design-storm-muted" style={{fontSize: '0.82rem', marginBottom: 6}}>
                         {filteredPreviews.length} preview{filteredPreviews.length !== 1 ? 's' : ''}
                         {previews.length !== filteredPreviews.length
                             ? ` (${previews.length} total, filtered)`
@@ -653,7 +653,7 @@ const ManualEntryForm = ({
     return (
         <div id="manual-entry-form">
             <Card
-                extraClassName="design-storm-card"
+                extraClassName="sv-design-storm-card"
                 style={{maxWidth: 700, marginBottom: 16}}
                 bodyStyle={{padding: '12px 16px'}}
             >
@@ -665,14 +665,14 @@ const ManualEntryForm = ({
                 <div style={{marginBottom: 10}}>
                     <label
                         htmlFor="ds-idf-table"
-                        className="design-storm-label"
+                        className="sv-design-storm-label"
                         style={{fontSize: '0.85rem', marginBottom: 3}}
                     >
                         IDF Table
                     </label>
                     <select
                         id="ds-idf-table"
-                        className="hydrology-text-input"
+                        className="sv-hydrology-text-input"
                         style={{width: '100%'}}
                         value={idfTableId ?? ''}
                         onChange={e => onFieldChange('idfTableId', e.target.value ? Number(e.target.value) : null)}
@@ -688,14 +688,14 @@ const ManualEntryForm = ({
                 <div style={{marginBottom: 10}}>
                     <label
                         htmlFor="ds-pattern"
-                        className="design-storm-label"
+                        className="sv-design-storm-label"
                         style={{fontSize: '0.85rem', marginBottom: 3}}
                     >
                         Temporal Pattern
                     </label>
                     <select
                         id="ds-pattern"
-                        className="hydrology-text-input"
+                        className="sv-hydrology-text-input"
                         style={{width: '100%'}}
                         value={patternKey}
                         onChange={e => onFieldChange('patternKey', e.target.value)}
@@ -711,18 +711,18 @@ const ManualEntryForm = ({
                     <div style={{flex: 1}}>
                         <label
                             htmlFor="ds-aep"
-                            className="design-storm-label"
+                            className="sv-design-storm-label"
                             style={{fontSize: '0.85rem', marginBottom: 3}}
                         >
                             AEP (%)
-                            <span className="design-storm-hint" style={{marginLeft: 4, fontSize: '0.8rem'}}>
+                            <span className="sv-design-storm-hint" style={{marginLeft: 4, fontSize: '0.8rem'}}>
                                 e.g. 1 = 1-in-100
                             </span>
                         </label>
                         <input
                             id="ds-aep"
                             type="number"
-                            className="hydrology-text-input"
+                            className="sv-hydrology-text-input"
                             style={{width: '100%'}}
                             value={aep}
                             min={0}
@@ -737,18 +737,18 @@ const ManualEntryForm = ({
                     <div style={{flex: 1}}>
                         <label
                             htmlFor="ds-ari"
-                            className="design-storm-label"
+                            className="sv-design-storm-label"
                             style={{fontSize: '0.85rem', marginBottom: 3}}
                         >
                             ARI (years)
-                            <span className="design-storm-hint" style={{marginLeft: 4, fontSize: '0.8rem'}}>
+                            <span className="sv-design-storm-hint" style={{marginLeft: 4, fontSize: '0.8rem'}}>
                                 e.g. 100
                             </span>
                         </label>
                         <input
                             id="ds-ari"
                             type="number"
-                            className="hydrology-text-input"
+                            className="sv-hydrology-text-input"
                             style={{width: '100%'}}
                             value={ari}
                             min={0}
@@ -766,7 +766,7 @@ const ManualEntryForm = ({
                     <div style={{flex: 1}}>
                         <label
                             htmlFor="ds-duration"
-                            className="design-storm-label"
+                            className="sv-design-storm-label"
                             style={{fontSize: '0.85rem', marginBottom: 3}}
                         >
                             Duration (min)
@@ -774,7 +774,7 @@ const ManualEntryForm = ({
                         <input
                             id="ds-duration"
                             type="number"
-                            className="hydrology-text-input"
+                            className="sv-hydrology-text-input"
                             style={{width: '100%'}}
                             value={durationMin}
                             min={1}
@@ -785,7 +785,7 @@ const ManualEntryForm = ({
                     <div style={{flex: 1}}>
                         <label
                             htmlFor="ds-timestep"
-                            className="design-storm-label"
+                            className="sv-design-storm-label"
                             style={{fontSize: '0.85rem', marginBottom: 3}}
                         >
                             Timestep (min)
@@ -793,7 +793,7 @@ const ManualEntryForm = ({
                         <input
                             id="ds-timestep"
                             type="number"
-                            className="hydrology-text-input"
+                            className="sv-hydrology-text-input"
                             style={{width: '100%'}}
                             value={timestepMin}
                             min={1}
@@ -808,18 +808,18 @@ const ManualEntryForm = ({
                     <div style={{marginBottom: 10}}>
                         <label
                             htmlFor="ds-peak-position"
-                            className="design-storm-label"
+                            className="sv-design-storm-label"
                             style={{fontSize: '0.85rem', marginBottom: 3}}
                         >
                             Peak position (0–1)
-                            <span className="design-storm-hint" style={{marginLeft: 4, fontSize: '0.8rem'}}>
+                            <span className="sv-design-storm-hint" style={{marginLeft: 4, fontSize: '0.8rem'}}>
                                 0.5 = centre, 0.33 = early peak
                             </span>
                         </label>
                         <input
                             id="ds-peak-position"
                             type="number"
-                            className="hydrology-text-input"
+                            className="sv-hydrology-text-input"
                             style={{width: '100%'}}
                             value={peakPosition}
                             min={0}
@@ -834,15 +834,15 @@ const ManualEntryForm = ({
                 <div style={{marginBottom: 12}}>
                     <label
                         htmlFor="ds-name"
-                        className="design-storm-label"
+                        className="sv-design-storm-label"
                         style={{fontSize: '0.85rem', marginBottom: 3}}
                     >
-                        Name <span className="design-storm-hint">(optional — auto-generated if blank)</span>
+                        Name <span className="sv-design-storm-hint">(optional — auto-generated if blank)</span>
                     </label>
                     <input
                         id="ds-name"
                         type="text"
-                        className="hydrology-text-input"
+                        className="sv-hydrology-text-input"
                         style={{width: '100%'}}
                         value={name}
                         onChange={e => onFieldChange('name', e.target.value)}
@@ -875,7 +875,7 @@ const ManualEntryForm = ({
             {derivedRowData && derivedRowData.length > 0 && (
                 <Card
                     variant="chart"
-                    extraClassName="design-storm-chart-card"
+                    extraClassName="sv-design-storm-chart-card"
                     style={{maxWidth: 700, marginBottom: 16}}
                     bodyStyle={{padding: '12px 16px'}}
                 >
@@ -954,7 +954,7 @@ const HydrologyTimeSeries = ({activeHydrologyItem}) => {
                     title={activeHydrologyItem?.name || 'Design Storm'}
                 />
             ) : (
-                <p className="design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
+                <p className="sv-design-storm-muted" style={{fontSize: '0.85rem', padding: '8px 0'}}>
                     <Message msgId="hydrata.hydrology.noTimeSeriesData" />
                 </p>
             )}
@@ -1115,19 +1115,19 @@ const DesignStormDerive = ({
 
     return (
         <Card
-            extraClassName="design-storm-card"
+            extraClassName="sv-design-storm-card"
             style={{maxWidth: 700}}
             bodyStyle={{padding: '12px 16px'}}
         >
             <div id="design-storm-derive-shell">
                 {/* IDF table picker */}
                 <div style={{marginBottom: 10}}>
-                    <label htmlFor="ds-derive-idf-table" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
+                    <label htmlFor="ds-derive-idf-table" className="sv-design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
                         <Message msgId="hydrata.hydrology.idfTable" />
                     </label>
                     <select
                         id="ds-derive-idf-table"
-                        className="hydrology-text-input"
+                        className="sv-hydrology-text-input"
                         style={{width: '100%'}}
                         value={selectedIdfTableId ?? ''}
                         onChange={e => onChange({selectedIdfTableId: e.target.value ? Number(e.target.value) : null})}
@@ -1141,12 +1141,12 @@ const DesignStormDerive = ({
 
                 {/* Temporal-pattern picker */}
                 <div style={{marginBottom: 10}}>
-                    <label htmlFor="ds-derive-pattern" className="design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
+                    <label htmlFor="ds-derive-pattern" className="sv-design-storm-label" style={{fontSize: '0.85rem', marginBottom: 3}}>
                         <Message msgId="hydrata.hydrology.temporalPattern" />
                     </label>
                     <select
                         id="ds-derive-pattern"
-                        className="hydrology-text-input"
+                        className="sv-hydrology-text-input"
                         style={{width: '100%'}}
                         value={selectedPattern ?? ALTERNATING_BLOCK}
                         onChange={e => onChange({selectedPattern: e.target.value})}
@@ -1162,7 +1162,7 @@ const DesignStormDerive = ({
                     {noSelection ? (
                         <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
                     ) : previewInFlight ? (
-                        <p className="design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
+                        <p className="sv-design-storm-muted" style={{margin: 0, fontSize: '0.85rem', padding: '14px', textAlign: 'center'}}>
                             <span className="glyphicon glyphicon-refresh" style={{marginRight: 6}} />
                         Loading previews…
                         </p>
@@ -1170,17 +1170,17 @@ const DesignStormDerive = ({
                         <EmptyState heading={<Message msgId="hydrata.hydrology.deriveNoPreviews" />} />
                     ) : (
                         <div>
-                            <p className="design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
+                            <p className="sv-design-storm-hint" style={{marginBottom: 6, fontSize: '0.82rem'}}>
                                 <Message msgId="hydrata.hydrology.deriveTickToSave" />
                             </p>
                             {patternPreviews.map(preview => {
                                 const key = previewKey(preview);
                                 const checked = ticked.has(key);
                                 return (
-                                    <div key={key} className="ds-derive-preview-row" style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
+                                    <div key={key} className="sv-ds-derive-preview-row" style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
                                         <input
                                             type="checkbox"
-                                            className="ds-derive-tick"
+                                            className="sv-ds-derive-tick"
                                             checked={checked}
                                             onChange={() => toggleTick(key)}
                                             id={`ds-derive-tick-${key}`}
@@ -1199,9 +1199,9 @@ const DesignStormDerive = ({
                             {/* Save these N button */}
                             <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 10}}>
                                 <button
-                                    id="ds-derive-save-btn"
+                                    id="sv-ds-derive-save-btn"
                                     type="button"
-                                    className={ticked.size > 0 && !saveInFlight ? 'hydrology-button ds-derive-save-btn' : 'hydrology-button-disabled ds-derive-save-btn'}
+                                    className={ticked.size > 0 && !saveInFlight ? 'sv-hydrology-button sv-ds-derive-save-btn' : 'sv-hydrology-button-disabled sv-ds-derive-save-btn'}
                                     disabled={ticked.size === 0 || saveInFlight}
                                     onClick={handleSave}
                                     style={{
@@ -1216,7 +1216,7 @@ const DesignStormDerive = ({
                                     }
                                 </button>
                                 {lastSavedCount !== null && (
-                                    <span className="ds-derive-saved-toast" style={{fontSize: '0.82rem', color: 'var(--sv-accent-lime)'}}>
+                                    <span className="sv-ds-derive-saved-toast" style={{fontSize: '0.82rem', color: 'var(--sv-accent-lime)'}}>
                                         <Message msgId="hydrata.hydrology.deriveSavedToast" msgParams={{n: lastSavedCount.created}} />
                                         {lastSavedCount.replaced > 0 ? ` (replaced ${lastSavedCount.replaced})` : ''}
                                     </span>
@@ -1280,11 +1280,11 @@ const DesignStormCreatePanel = ({
     return (
         <div id="design-storm-create-panel">
             {/* Segmented Input | Derive toggle — mirrors the IDF sub-toggle markup. */}
-            <div className="hydrology-idf-subtoggle" role="group" aria-label="Create mode">
+            <div className="sv-hydrology-idf-subtoggle" role="group" aria-label="Create mode">
                 <button
                     id="ds-create-tab-input"
                     type="button"
-                    className={'hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
+                    className={'sv-hydrology-idf-segment' + (tab === 'input' ? ' is-active' : '')}
                     onClick={() => onTabChange('input')}
                 >
                     <Message msgId="hydrata.hydrology.idfModeManual" />
@@ -1292,7 +1292,7 @@ const DesignStormCreatePanel = ({
                 <button
                     id="ds-create-tab-derive"
                     type="button"
-                    className={'hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
+                    className={'sv-hydrology-idf-segment' + (tab === 'derive' ? ' is-active' : '')}
                     onClick={() => onTabChange('derive')}
                 >
                     <Message msgId="hydrata.hydrology.idfModeDerive" />

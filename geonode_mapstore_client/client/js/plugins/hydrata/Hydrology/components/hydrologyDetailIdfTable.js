@@ -16,7 +16,7 @@ import {formatDuration} from './hydrologyDetailIdfDerive';
 // ---------------------------------------------------------------------------
 // TASK-1497 (UAT note-1) — the manual Input IDF table now mirrors the Derive
 // step-2 matrix: durations as ROW headers, return periods as COLUMN headers,
-// using the shared .idf-matrix-* styling. The difference from the Derive
+// using the shared .sv-idf-matrix-* styling. The difference from the Derive
 // matrix is the cell content: instead of a green-tick / red-cross toggle,
 // each ENABLED cell is a plain keyboard float entry (max 2 decimals, no
 // up/down spinner). DISABLED cells are greyed + inert and excluded from the
@@ -177,7 +177,7 @@ const IdfInputCell = ({value, onCommit}) => {
     }, [value]);
     return (
         <input
-            className="idf-matrix-input"
+            className="sv-idf-matrix-input"
             type="text"
             inputMode="decimal"
             value={text}
@@ -209,10 +209,10 @@ const CURVE_COLOURS = ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#
 // honour the `label={{value, position}}` object form, so the axes shipped
 // unlabelled. HTML titles render the units reliably and are version-proof.
 const IdfCurveChart = ({chartData}) => (
-    <div className="idf-curve-chart-layout">
-        <div className="idf-curve-yaxis-title">Intensity (mm/hr)</div>
-        <div className="idf-curve-plot-area">
-            <div className="idf-curve-plot">
+    <div className="sv-idf-curve-chart-layout">
+        <div className="sv-idf-curve-yaxis-title">Intensity (mm/hr)</div>
+        <div className="sv-idf-curve-plot-area">
+            <div className="sv-idf-curve-plot">
                 <ResponsiveContainer
                     width="100%"
                     height="100%"
@@ -293,7 +293,7 @@ const IdfCurveChart = ({chartData}) => (
                     </ScatterChart>
                 </ResponsiveContainer>
             </div>
-            <div className="idf-curve-xaxis-title">Duration (min)</div>
+            <div className="sv-idf-curve-xaxis-title">Duration (min)</div>
         </div>
     </div>
 );
@@ -314,14 +314,14 @@ const IdfCurveModal = ({chartData, onClose, closeLabel}) => {
     if (typeof document === 'undefined') return null;
     return ReactDOM.createPortal(
         <div
-            className="idf-curve-modal-overlay"
+            className="sv-idf-curve-modal-overlay"
             onClick={onClose}
         >
             <div
-                className="simple-view-panel idf-curve-modal-panel"
+                className="simple-view-panel sv-idf-curve-modal-panel"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="simple-view-panel-header idf-curve-modal-header">
+                <div className="simple-view-panel-header sv-idf-curve-modal-header">
                     <span><Message msgId="hydrata.hydrology.idfCurveModalTitle" /></span>
                     <button
                         type="button"
@@ -332,7 +332,7 @@ const IdfCurveModal = ({chartData, onClose, closeLabel}) => {
                         aria-label={closeLabel}
                     >&times;</button>
                 </div>
-                <div className="idf-curve-modal-body">
+                <div className="sv-idf-curve-modal-body">
                     <IdfCurveChart chartData={chartData} />
                 </div>
             </div>
@@ -472,14 +472,14 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
     return (
         <div style={{display: 'flex', flexDirection: flexDirection, boxSizing: 'border-box'}}>
             {/* TASK-1524 — drop the fixed inner height:'600px' (it clipped the
-                lower duration rows with no scrollbar); the .idf-matrix-wrapper--input
+                lower duration rows with no scrollbar); the .sv-idf-matrix-wrapper--input
                 modifier below now owns a (max-height + overflow-y:auto) scroll
                 region so EVERY duration row stays reachable. */}
             <div style={{padding: '10px', minWidth: '600px', maxWidth: '800px', marginBottom: '60px'}}>
                 <h3 style={{marginTop: 0}}><Message msgId="hydrata.hydrology.intensityMmHr" /></h3>
 
                 {/* Hours/minutes read-aid — stored durations stay in minutes. */}
-                <div className="idf-matrix-unit-toggle-row">
+                <div className="sv-idf-matrix-unit-toggle-row">
                     <input
                         id="idf-input-show-hours"
                         type="checkbox"
@@ -487,22 +487,22 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                         onChange={() => setShowHours(h => !h)}
                     />
                     {' '}
-                    <label htmlFor="idf-input-show-hours" className="idf-matrix-unit-label">
+                    <label htmlFor="idf-input-show-hours" className="sv-idf-matrix-unit-label">
                         Display in hours
                     </label>
                 </div>
 
-                <div className="idf-matrix-wrapper idf-matrix-wrapper--input">
-                    <table className="idf-matrix-table">
+                <div className="sv-idf-matrix-wrapper sv-idf-matrix-wrapper--input">
+                    <table className="sv-idf-matrix-table">
                         <thead>
                             <tr>
-                                <th className="idf-matrix-corner" />
+                                <th className="sv-idf-matrix-corner" />
                                 {ARI_COLUMNS.map(col => {
                                     const colSelected = selectedCols.has(col.key);
                                     return (
                                         <th
                                             key={col.key}
-                                            className={`idf-matrix-col-header${colSelected ? ' idf-matrix-header--selected' : ''}`}
+                                            className={`sv-idf-matrix-col-header${colSelected ? ' sv-idf-matrix-header--selected' : ''}`}
                                             onClick={() => toggleCol(col.key)}
                                             title={`Select the ${col.label} ARI column (a cell is editable only when its row is also selected)`}
                                         >
@@ -518,7 +518,7 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                                 return (
                                     <tr key={rowIndex}>
                                         <td
-                                            className={`idf-matrix-row-header${rowSelected ? ' idf-matrix-header--selected' : ''}`}
+                                            className={`sv-idf-matrix-row-header${rowSelected ? ' sv-idf-matrix-header--selected' : ''}`}
                                             onClick={() => toggleRow(rowIndex)}
                                             title={`Select all return periods for ${formatDuration(row.duration, false)} (a cell is editable only when its column is also selected)`}
                                         >
@@ -530,13 +530,13 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                                                 return (
                                                     <td
                                                         key={col.key}
-                                                        className="idf-matrix-cell idf-matrix-cell--empty"
+                                                        className="sv-idf-matrix-cell sv-idf-matrix-cell--empty"
                                                         title={`${formatDuration(row.duration, false)} / ${col.label}: select both this duration row and ARI column to enter an intensity (mm/hr)`}
                                                     />
                                                 );
                                             }
                                             return (
-                                                <td key={col.key} className="idf-matrix-cell idf-matrix-cell--input">
+                                                <td key={col.key} className="sv-idf-matrix-cell sv-idf-matrix-cell--input">
                                                     <IdfInputCell
                                                         value={row[col.key]}
                                                         onCommit={(raw) => commitCell(rowIndex, col.key, raw)}
@@ -565,7 +565,7 @@ const HydrologyDetailIdfTable = ({ activeHydrologyItem, updateIdfRowData }, cont
                     valid data the chart is GONE and the button is disabled. */}
                 <button
                     type="button"
-                    className="btn btn-primary idf-curve-open-btn"
+                    className="btn btn-primary sv-idf-curve-open-btn"
                     disabled={!hasValidData}
                     title={hasValidData
                         ? 'View the IDF curve in a pop-up over the map'

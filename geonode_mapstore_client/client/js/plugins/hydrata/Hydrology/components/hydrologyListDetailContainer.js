@@ -66,7 +66,7 @@ import {canManageAnugaMap} from "@js/plugins/hydrata/Anuga/selectorsAnuga";
 // es/fr/ht users. Resolved in the component (which has the i18n context) and
 // passed into createHydrologyForm; the reducer keeps an English fallback map.
 const hydrologyAutoNameMsgId = {
-    'idf-table': 'hydrata.hydrology.idfTable',
+    'sv-idf-table': 'hydrata.hydrology.idfTable',
     'temporal-pattern': 'hydrata.hydrology.temporalPattern',
     'time-series': 'hydrata.hydrology.timeSeries'
 };
@@ -150,7 +150,7 @@ class HydrologyListDetailContainerClass extends React.Component {
     }
 
     // TASK-1497 (UAT note-5) — the "Items" column renders on BOTH the Manual
-    // (idf-table) and Derive (idf-derive) pages so the left rail stays present
+    // (sv-idf-table) and Derive (idf-derive) pages so the left rail stays present
     // when switching IDF modes. On the Derive page it lists the existing IDF
     // tables; selecting one (or "New Item") jumps to the Manual editor with
     // that item active, since Derive is a one-shot form that has no active item.
@@ -170,12 +170,12 @@ class HydrologyListDetailContainerClass extends React.Component {
                 this.setState({tsCreateMode: false});
             }
             this.props.setActiveHydrologyItem(item);
-            if (onDerive) this.props.setActiveHydrologyPage('idf-table');
+            if (onDerive) this.props.setActiveHydrologyPage('sv-idf-table');
         };
         // Delete targets the resource page, not the literal active page: on the
         // Derive page the listed items are IDF tables, so deletes route to
-        // 'idf-table' (mirrors selectItem's page switch).
-        const deletePage = onDerive ? 'idf-table' : this.props.activeHydrologyPage;
+        // 'sv-idf-table' (mirrors selectItem's page switch).
+        const deletePage = onDerive ? 'sv-idf-table' : this.props.activeHydrologyPage;
         const messages = (this.context && this.context.messages) || {};
         const resolvedDelete = getMessageById(messages, 'hydrata.hydrology.delete');
         const deleteTitle = (resolvedDelete && resolvedDelete !== 'hydrata.hydrology.delete')
@@ -193,8 +193,8 @@ class HydrologyListDetailContainerClass extends React.Component {
         // confirm) is hidden for non-managers; the BE 403s them anyway.
         const canManageHydrology = this.props.canManageHydrology;
         const createItem = () => {
-            const page = onDerive ? 'idf-table' : this.props.activeHydrologyPage;
-            if (onDerive) this.props.setActiveHydrologyPage('idf-table');
+            const page = onDerive ? 'sv-idf-table' : this.props.activeHydrologyPage;
+            if (onDerive) this.props.setActiveHydrologyPage('sv-idf-table');
             // TASK-1538 — resolve the locale base label here (the reducer has no
             // i18n context). getMessageById returns the msgId unchanged when the
             // key is missing, so leave it undefined in that case to let the
@@ -213,7 +213,7 @@ class HydrologyListDetailContainerClass extends React.Component {
             <div id={"hydrology-list-detail-col-one"}>
                 <div id={"hydrology-list-detail-items"}>
                     <div id={"top-buttons"} style={{display: "flex", flexDirection: "column"}}>
-                        <div className={"hydrology-list-detail-heading hydrology-items-heading"}>
+                        <div className={"hydrology-list-detail-heading sv-hydrology-items-heading"}>
                             <Message msgId="hydrata.hydrology.items" />
                             {/* TASK-1557 (W2) — toggle the name-search filter. The
                                 magnifier flips the collapsed state; a tiny clear
@@ -221,7 +221,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                             <button
                                 type="button"
                                 className={
-                                    'hydrology-filter-toggle'
+                                    'sv-hydrology-filter-toggle'
                                     + (this.state.filtersCollapsed ? '' : ' is-open')
                                 }
                                 title={filterTitle}
@@ -240,7 +240,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                         {!this.state.filtersCollapsed && (
                             <input
                                 type="text"
-                                className={"hydrology-filter-input"}
+                                className={"sv-hydrology-filter-input"}
                                 placeholder={filterPlaceholder}
                                 aria-label={filterPlaceholder}
                                 value={this.state.filterText}
@@ -256,14 +256,14 @@ class HydrologyListDetailContainerClass extends React.Component {
                             const confirming = canManageHydrology
                                 && this.state.deleteConfirmItemId === item.id;
                             return (
-                                <div key={item.id} className={"hydrology-item-row"}>
+                                <div key={item.id} className={"sv-hydrology-item-row"}>
                                     {confirming ? (
                                         // Per-row delete confirm — reuses the shared
                                         // ConfirmOverlay (NOT window.confirm), same as the
                                         // footer delete. Default copy ("…are you sure?").
                                         <ConfirmOverlay
-                                            wrapperClassName="hydrology-item-delete-confirm"
-                                            buttonClassName="hydrology-button"
+                                            wrapperClassName="sv-hydrology-item-delete-confirm"
+                                            buttonClassName="sv-hydrology-button"
                                             confirmClassName="hydrology-delete-confirm-btn"
                                             onCancel={() => this.setState({deleteConfirmItemId: null})}
                                             onConfirm={() => {
@@ -275,7 +275,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                     ) : (
                                         <React.Fragment>
                                             <button
-                                                className={"hydrology-button hydrology-item-button"}
+                                                className={"sv-hydrology-button sv-hydrology-item-button"}
                                                 style={{
                                                     // TASK-1528 — existing items use the base plugin BLUE
                                                     // (selected full-opacity, others lighter); the green is
@@ -290,7 +290,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 {/* TASK-1561 (W3b) — stale badge for auto-derived rows */}
                                                 {item?.is_stale && (
                                                     <span
-                                                        className="ds-stale-badge"
+                                                        className="sv-ds-stale-badge"
                                                         title={getMessageById(messages, 'hydrata.hydrology.deriveStaleBadge')}
                                                         aria-label={getMessageById(messages, 'hydrata.hydrology.deriveStaleBadge')}
                                                         style={{marginLeft: 6}}
@@ -304,7 +304,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             {item?.is_stale && item?.is_auto_derived && (
                                                 <button
                                                     type="button"
-                                                    className="ds-regenerate-btn"
+                                                    className="sv-ds-regenerate-btn"
                                                     title={getMessageById(messages, 'hydrata.hydrology.deriveRegenerate')}
                                                     aria-label={getMessageById(messages, 'hydrata.hydrology.deriveRegenerate')}
                                                     onClick={() => {
@@ -341,7 +341,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             {canManageHydrology && (
                                                 <button
                                                     type="button"
-                                                    className={"hydrology-item-delete-btn"}
+                                                    className={"sv-hydrology-item-delete-btn"}
                                                     title={deleteTitle}
                                                     aria-label={deleteTitle}
                                                     onClick={() => this.setState({deleteConfirmItemId: item.id})}
@@ -357,7 +357,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                     </div>
                     <div id={"bottom-buttons"}>
                         <button
-                            className={"hydrology-button"}
+                            className={"sv-hydrology-button"}
                             // TASK-1528 — "New Item" gets the GREEN accent (was the
                             // inherited base blue); existing items are now blue.
                             // TASK-1758 W3 conform — tokenised to --sv-accent-green.
@@ -374,9 +374,9 @@ class HydrologyListDetailContainerClass extends React.Component {
 
     render() {
         // TASK-1448 (W1) + TASK-1452 (W5) — IDF segmented control:
-        // "Manual" (idf-table editable grid) | "Derive" (idf-derive stepper).
+        // "Manual" (sv-idf-table editable grid) | "Derive" (idf-derive stepper).
         // Opens on Derive (the common path). Polished pill segmented control.
-        const isIdfPage = this.props.activeHydrologyPage === 'idf-table'
+        const isIdfPage = this.props.activeHydrologyPage === 'sv-idf-table'
             || this.props.activeHydrologyPage === 'idf-derive';
         // TASK-1509 — block Save when the active custom temporal-pattern curve
         // is invalid (the BE clean() would reject it with a 400 otherwise).
@@ -385,21 +385,21 @@ class HydrologyListDetailContainerClass extends React.Component {
         // per-row trash gate); the BE 403s a non-manager regardless.
         const canManageHydrology = this.props.canManageHydrology;
         const IdfSubToggle = isIdfPage ? (
-            <div className={"hydrology-idf-subtoggle"} role="group" aria-label="IDF mode">
+            <div className={"sv-hydrology-idf-subtoggle"} role="group" aria-label="IDF mode">
                 <button
                     id="idf-mode-manual"
                     className={
-                        'hydrology-idf-segment'
-                        + (this.props.activeHydrologyPage === 'idf-table' ? ' is-active' : '')
+                        'sv-hydrology-idf-segment'
+                        + (this.props.activeHydrologyPage === 'sv-idf-table' ? ' is-active' : '')
                     }
-                    onClick={() => this.props.setActiveHydrologyPage('idf-table')}
+                    onClick={() => this.props.setActiveHydrologyPage('sv-idf-table')}
                 >
                     <Message msgId="hydrata.hydrology.idfModeManual" />
                 </button>
                 <button
                     id="idf-mode-derive"
                     className={
-                        'hydrology-idf-segment'
+                        'sv-hydrology-idf-segment'
                         + (this.props.activeHydrologyPage === 'idf-derive' ? ' is-active' : '')
                     }
                     onClick={() => this.props.setActiveHydrologyPage('idf-derive')}
@@ -420,7 +420,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                     <div id={"hydrology-list-detail-body"}>
                         {this.renderItemsColumn()}
                         <div id={"hydrology-list-detail-col-two"}>
-                            <div id={"hydrology-idf-derive-container"} className="idf-derive-container">
+                            <div id={"hydrology-idf-derive-container"} className="sv-idf-derive-container">
                                 <HydrologyDetailIdfDerive/>
                             </div>
                         </div>
@@ -453,7 +453,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 id={'name'}
                                                 key={`name-${this.props.activeHydrologyItem.id}`}
                                                 type={"text"}
-                                                className={'hydrology-text-input'}
+                                                className={'sv-hydrology-text-input'}
                                                 style={{textAlign: "left"}}
                                                 value={this.props.activeHydrologyItem.name}
                                                 onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
@@ -469,7 +469,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                 // TASK-1556 (W2) — on the Design Storms (time-series) page the
                                                 // detail is a SLIM record view: source is provenance, shown
                                                 // READ-ONLY. Empty / the placeholder default reads "Manual
-                                                // entry". The idf-table/temporal-pattern pages keep an editable
+                                                // entry". The sv-idf-table/temporal-pattern pages keep an editable
                                                 // <input> (out of scope), so this branch is page-gated.
                                                 <p
                                                     id={'source'}
@@ -503,7 +503,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                                     id={'source'}
                                                     key={`source-${this.props.activeHydrologyItem.id}`}
                                                     type={"text"}
-                                                    className={'hydrology-text-input'}
+                                                    className={'sv-hydrology-text-input'}
                                                     style={{textAlign: "left"}}
                                                     value={this.props.activeHydrologyItem.source}
                                                     onChange={(e) => this.handleTextChange(e, this.props.activeHydrologyItem)}
@@ -519,7 +519,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                             <textarea
                                                 id={'description'}
                                                 key={`description-${this.props.activeHydrologyItem.id}`}
-                                                className={'hydrology-text-input hydrology-textarea'}
+                                                className={'sv-hydrology-text-input sv-hydrology-textarea'}
                                                 rows={1}
                                                 style={{textAlign: "left", resize: "vertical", width: "685px"}}
                                                 value={this.props.activeHydrologyItem.description}
@@ -528,7 +528,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                                         </div>
                                         {(() => {
                                             switch (this.props.activeHydrologyPage) {
-                                            case 'idf-table':
+                                            case 'sv-idf-table':
                                                 return <HydrologyDetailIdfTable/>;
                                             case 'temporal-pattern':
                                                 return <HydrologyDetailTemporalPattern/>;
@@ -559,7 +559,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                     {canManageHydrology && (this.state.deleteConfirmVisible ? (
                         <ConfirmOverlay
                             wrapperClassName="hydrology-delete-confirm"
-                            buttonClassName="hydrology-button"
+                            buttonClassName="sv-hydrology-button"
                             confirmClassName="hydrology-delete-confirm-btn"
                             onCancel={() => this.setState({deleteConfirmVisible: false})}
                             onConfirm={() => {
@@ -570,7 +570,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                         />
                     ) : (
                         <button
-                            className={"hydrology-button"}
+                            className={"sv-hydrology-button"}
                             style={{backgroundColor: "var(--sv-glyph-delete)"}}
                             onClick={() => this.setState({deleteConfirmVisible: true})}
                         >
@@ -578,7 +578,7 @@ class HydrologyListDetailContainerClass extends React.Component {
                         </button>
                     ))}
                     <button
-                        className={(this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "hydrology-button" : "hydrology-button-disabled"}
+                        className={(this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "sv-hydrology-button" : "sv-hydrology-button-disabled"}
                         style={{backgroundColor: (this.props.activeHydrologyItem?.unsaved && !customCurveError) ? "var(--sv-accent-green)" : "rgba(39,202,59,0.6)"}}
                         disabled={!!customCurveError}
                         title={customCurveError ? `Fix validation errors first: ${customCurveError}` : undefined}

@@ -91,12 +91,12 @@ class HydrologyMainMenuClass extends React.Component {
                     }}
                 />
                 {/* Body: LHS rail + RHS detail */}
-                <div className={"hydrology-miller-body"}>
+                <div className={"sv-hydrology-miller-body"}>
                     <HydrologyCategoryRail
                         activeHydrologyPage={this.props.activeHydrologyPage}
                         onSelectCategory={this.handleSelectCategory}
                     />
-                    <div className={"hydrology-detail-pane"}>
+                    <div className={"sv-hydrology-detail-pane"}>
                         {isNetworksTab
                             ? (
                                 <div id={"hydrology-networks-tab-body"} style={{padding: '10px', overflowY: 'auto', height: '100%'}}>

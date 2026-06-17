@@ -141,14 +141,14 @@ const CurvePreview = ({ patternKey }) => {
                 </button>
             </div>
             {/* HTML axis titles — recharts 0.22.4 ignores the axis label prop;
-                mirrors the .idf-curve-* / .hyetograph-* pattern. TASK-1760: the
+                mirrors the .sv-idf-curve-* / .hyetograph-* pattern. TASK-1760: the
                 recharts surface is framed by chassis Card variant="chart" (light
                 body inside a dark-glass frame, TASK-1534 carve-out). */}
             <Card variant="chart" style={{margin: 0}} bodyStyle={{padding: '8px 10px'}}>
-                <div className="temporal-pattern-chart-layout">
-                    <div className="temporal-pattern-yaxis-title">{yLabel}</div>
-                    <div className="temporal-pattern-plot-area">
-                        <div className="temporal-pattern-plot" style={{ height: 210 }}>
+                <div className="sv-temporal-pattern-chart-layout">
+                    <div className="sv-temporal-pattern-yaxis-title">{yLabel}</div>
+                    <div className="sv-temporal-pattern-plot-area">
+                        <div className="sv-temporal-pattern-plot" style={{ height: 210 }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart
                                     data={chartData}
@@ -183,7 +183,7 @@ const CurvePreview = ({ patternKey }) => {
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
+                        <div className="sv-temporal-pattern-xaxis-title">Time (% of duration)</div>
                     </div>
                 </div>
             </Card>
@@ -356,13 +356,13 @@ const CustomPatternEditor = ({ rows, onChange }) => {
         // white colour reads on the dark-navy plugin panel (mirrors how the
         // recharts cards stay white). The heading, subtitle, validation banner,
         // grid and live preview all live INSIDE this card.
-        <div id="custom-pattern-editor" className="custom-pattern-editor-card">
+        <div id="custom-pattern-editor" className="sv-custom-pattern-editor-card">
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                <span className="custom-pattern-heading">
+                <span className="sv-custom-pattern-heading">
                     Custom Cumulative Curve
                 </span>
-                <span className="custom-pattern-subtitle">
+                <span className="sv-custom-pattern-subtitle">
                     (time-fraction 0→1, cumulative-% 0→100)
                 </span>
             </div>
@@ -375,9 +375,9 @@ const CustomPatternEditor = ({ rows, onChange }) => {
             )}
             {pasteError && (
                 // TASK-1758 W3 conform — dark-glass amber warning (was a light
-                // #fff8e0 cream banner). Reuses the tokenised .idf-derive-banner
+                // #fff8e0 cream banner). Reuses the tokenised .sv-idf-derive-banner
                 // --warning surface.
-                <div className="idf-derive-banner idf-derive-banner--warning" style={{ margin: '0 0 10px', fontSize: '0.8rem' }}>
+                <div className="sv-idf-derive-banner sv-idf-derive-banner--warning" style={{ margin: '0 0 10px', fontSize: '0.8rem' }}>
                     {pasteError}
                 </div>
             )}
@@ -409,8 +409,8 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                         </button>
                     </div>
                     <table
-                        id="custom-pattern-table"
-                        className="custom-pattern-table"
+                        id="sv-custom-pattern-table"
+                        className="sv-custom-pattern-table"
                     >
                         <thead>
                             <tr>
@@ -424,7 +424,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                                 <tr key={i}>
                                     <td>
                                         <input
-                                            className="custom-pattern-input"
+                                            className="sv-custom-pattern-input"
                                             type="number"
                                             min="0" max="1" step="0.01"
                                             value={row.t}
@@ -434,7 +434,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                                     </td>
                                     <td>
                                         <input
-                                            className="custom-pattern-input"
+                                            className="sv-custom-pattern-input"
                                             type="number"
                                             min="0" max="100" step="0.1"
                                             value={row.cum}
@@ -471,7 +471,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
 
                 {/* Below: caption + live preview chart (full width) + status line */}
                 <div>
-                    <div className="custom-pattern-preview-caption">
+                    <div className="sv-custom-pattern-preview-caption">
                         Live preview — drag a point to adjust
                     </div>
                     <div
@@ -479,11 +479,11 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                         ref={chartRef}
                     >
                         {/* HTML axis titles — recharts 0.22.4 ignores the axis label prop;
-                            mirrors the .idf-curve-* / .hyetograph-* pattern. */}
-                        <div className="temporal-pattern-chart-layout">
-                            <div className="temporal-pattern-yaxis-title">Cumulative depth (%)</div>
-                            <div className="temporal-pattern-plot-area">
-                                <div className="temporal-pattern-plot" style={{ height: 240 }}>
+                            mirrors the .sv-idf-curve-* / .hyetograph-* pattern. */}
+                        <div className="sv-temporal-pattern-chart-layout">
+                            <div className="sv-temporal-pattern-yaxis-title">Cumulative depth (%)</div>
+                            <div className="sv-temporal-pattern-plot-area">
+                                <div className="sv-temporal-pattern-plot" style={{ height: 240 }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart
                                             data={chartData}
@@ -524,7 +524,7 @@ const CustomPatternEditor = ({ rows, onChange }) => {
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
-                                <div className="temporal-pattern-xaxis-title">Time (% of duration)</div>
+                                <div className="sv-temporal-pattern-xaxis-title">Time (% of duration)</div>
                             </div>
                         </div>
                     </div>
@@ -618,7 +618,7 @@ const PresetPicker = ({ selectedKey, onChange }) => (
             <label
                 key={family.id}
                 id={`preset-option-${family.id}`}
-                className={`hydrology-preset-card${selectedKey === family.id ? ' is-selected' : ''}`}
+                className={`sv-hydrology-preset-card${selectedKey === family.id ? ' is-selected' : ''}`}
                 style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -628,7 +628,7 @@ const PresetPicker = ({ selectedKey, onChange }) => (
                     borderRadius: 4,
                     cursor: 'pointer',
                     // TASK-1758 W3 conform — dark-glass radio card (mirrors
-                    // .design-storm-card / .design-storm-preview-card.focused):
+                    // .sv-design-storm-card / .sv-design-storm-preview-card.focused):
                     // tinted navy with a lime selected border, replacing the old
                     // light #fafcfe/#edf4fd/#c8d4e0 surfaces.
                     background: selectedKey === family.id

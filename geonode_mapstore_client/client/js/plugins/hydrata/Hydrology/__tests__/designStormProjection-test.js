@@ -7,7 +7,7 @@
  *    SET_FOCUSED_PREVIEW, ATTACH_*, MARK_PROJECTION_STALE
  * 3. previewDesignStormsEpic: batch preview request (mode='preview'), empty
  *    cells short-circuit, missing projectId guard
- * 4. reprojectOnSaveEpic: marks stale/re-runs on idf-table and temporal-pattern
+ * 4. reprojectOnSaveEpic: marks stale/re-runs on sv-idf-table and temporal-pattern
  *    saves; ignores time-series saves
  * 5. attachDesignStormEpic: POSTs to attach-design-storm, dispatches SUCCESS +
  *    fetchHydrologyTimeSeriesData; missing projectId guard
@@ -378,10 +378,10 @@ describe('TASK-1501 W4b — projection browser', () => {
     // 4. reprojectOnSaveEpic (AC5)
     // ---------------------------------------------------------------------------
     describe('reprojectOnSaveEpic', () => {
-        it('dispatches markProjectionStale when idf-table saved and no projection spec', (done) => {
+        it('dispatches markProjectionStale when sv-idf-table saved and no projection spec', (done) => {
             const action$ = mockActions([{
                 type: SAVE_HYDROLOGY_ITEM_SUCCESS,
-                activeHydrologyPage: 'idf-table',
+                activeHydrologyPage: 'sv-idf-table',
                 item: {id: 5, name: 'IDF A'}
             }]);
             const store = makeStore(null, [], 64);
@@ -397,7 +397,7 @@ describe('TASK-1501 W4b — projection browser', () => {
             );
         });
 
-        it('dispatches PREVIEW_DESIGN_STORMS_REQUEST when idf-table saved and projection is active', (done) => {
+        it('dispatches PREVIEW_DESIGN_STORMS_REQUEST when sv-idf-table saved and projection is active', (done) => {
             const idfTable = {
                 id: 5,
                 data: {
@@ -413,7 +413,7 @@ describe('TASK-1501 W4b — projection browser', () => {
             };
             const action$ = mockActions([{
                 type: SAVE_HYDROLOGY_ITEM_SUCCESS,
-                activeHydrologyPage: 'idf-table',
+                activeHydrologyPage: 'sv-idf-table',
                 item: {id: 5, name: 'IDF A'}
             }]);
             const store = makeStore(projection, [idfTable], 64);

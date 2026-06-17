@@ -77,7 +77,7 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
         // TASK-1452 (W5): the button is always present but disabled; the
         // unavailable notice sits above it (no longer hidden entirely).
         mount({celeryAnugaEnabled: false});
-        const unavailable = container.querySelector('#idf-derive-unavailable');
+        const unavailable = container.querySelector('#sv-idf-derive-unavailable');
         const btn = container.querySelector('#idf-derive-button');
         expect(unavailable).toExist();
         expect(btn).toExist();
@@ -149,18 +149,18 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
 
     it('renders error message inline when error is set', () => {
         mount({error: 'BE said 503'});
-        const err = container.querySelector('#idf-derive-error');
+        const err = container.querySelector('#sv-idf-derive-error');
         expect(err).toExist();
         expect(err.textContent.indexOf('503')).toBeGreaterThan(-1);
     });
 
-    // TASK-1667 conform-migration: the bespoke .idf-derive-error box is now the
+    // TASK-1667 conform-migration: the bespoke .sv-idf-derive-error box is now the
     // shared SimpleView <ErrorStrip> primitive (token-backed dark-glass danger
-    // strip, role="alert"). The #idf-derive-error id wrapper is preserved so the
+    // strip, role="alert"). The #sv-idf-derive-error id wrapper is preserved so the
     // existing test/behaviour hooks above keep working.
     it('idf-derive error block composes the shared ErrorStrip primitive', () => {
         mount({error: 'BE said 503'});
-        const err = container.querySelector('#idf-derive-error');
+        const err = container.querySelector('#sv-idf-derive-error');
         const strip = err.querySelector('.sv-error-strip[role="alert"]');
         expect(strip).toExist();
         expect(strip.textContent.indexOf('503')).toBeGreaterThan(-1);
@@ -168,13 +168,13 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
 
     it('renders progress message when inFlight + processId set', () => {
         mount({inFlight: true, processId: 99, processName: 'IDF derive @ (-37.8,144.9)'});
-        const progress = container.querySelector('#idf-derive-progress');
+        const progress = container.querySelector('#sv-idf-derive-progress');
         expect(progress).toExist();
     });
 
     it('renders results table when result is set', () => {
         // TASK-1452 (W5): provenance is collapsed by default; the toggle button
-        // is present in the #idf-derive-provenance div but the <pre> is hidden
+        // is present in the #sv-idf-derive-provenance div but the <pre> is hidden
         // until the user clicks the toggle. Check for the div + toggle, not the
         // raw provenance text (which is now behind a collapsible).
         const result = {
@@ -187,12 +187,12 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
             provenance: {source: 'ERA5-Land', period_of_record: '1981-2024'}
         };
         mount({result});
-        const resultsDiv = container.querySelector('#idf-derive-results');
+        const resultsDiv = container.querySelector('#sv-idf-derive-results');
         expect(resultsDiv).toExist();
-        const provenance = container.querySelector('#idf-derive-provenance');
+        const provenance = container.querySelector('#sv-idf-derive-provenance');
         expect(provenance).toExist();
         // The provenance toggle button is visible; the text is behind it.
-        const toggle = container.querySelector('.idf-derive-provenance-toggle');
+        const toggle = container.querySelector('.sv-idf-derive-provenance-toggle');
         expect(toggle).toExist();
     });
 
@@ -339,7 +339,7 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
                 />,
                 matrixContainer
             );
-            const rowHeaders = matrixContainer.querySelectorAll('.idf-matrix-row-header');
+            const rowHeaders = matrixContainer.querySelectorAll('.sv-idf-matrix-row-header');
             expect(rowHeaders.length).toBe(13);
         });
 
@@ -354,7 +354,7 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
                 />,
                 matrixContainer
             );
-            const colHeaders = matrixContainer.querySelectorAll('.idf-matrix-col-header');
+            const colHeaders = matrixContainer.querySelectorAll('.sv-idf-matrix-col-header');
             expect(colHeaders.length).toBe(9);
         });
 
@@ -369,7 +369,7 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
                 />,
                 matrixContainer
             );
-            const ticks = matrixContainer.querySelectorAll('.idf-matrix-tick');
+            const ticks = matrixContainer.querySelectorAll('.sv-idf-matrix-tick');
             expect(ticks.length).toBeGreaterThan(0);
         });
 
@@ -401,7 +401,7 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
                 />,
                 matrixContainer
             );
-            const rowHeaders = matrixContainer.querySelectorAll('.idf-matrix-row-header');
+            const rowHeaders = matrixContainer.querySelectorAll('.sv-idf-matrix-row-header');
             // First row header is now 60 min (sub-hourly rows hidden by the floor fix).
             ReactTestUtils.Simulate.click(rowHeaders[0]);
             expect(called).toExist();
@@ -420,7 +420,7 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
                 />,
                 matrixContainer
             );
-            const colHeaders = matrixContainer.querySelectorAll('.idf-matrix-col-header');
+            const colHeaders = matrixContainer.querySelectorAll('.sv-idf-matrix-col-header');
             // colHeaders[0] is the 0.5yr column — DISABLED by the floor fix (inert).
             // colHeaders[1] is 1yr, the first derivable column.
             ReactTestUtils.Simulate.click(colHeaders[1]);
@@ -440,8 +440,8 @@ describe('TASK-934 HydrologyDetailIdfDerive panel', () => {
                 />,
                 matrixContainer
             );
-            const colHeaders = matrixContainer.querySelectorAll('.idf-matrix-col-header');
-            expect(colHeaders[0].className).toInclude('idf-matrix-header--disabled');
+            const colHeaders = matrixContainer.querySelectorAll('.sv-idf-matrix-col-header');
+            expect(colHeaders[0].className).toInclude('sv-idf-matrix-header--disabled');
             ReactTestUtils.Simulate.click(colHeaders[0]);
             expect(called).toBe(null); // click does nothing
         });

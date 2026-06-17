@@ -141,7 +141,7 @@ const initialState = {
 };
 
 export const hydrologyKeyMap = {
-    "idf-table": "idfTables",
+    "sv-idf-table": "idfTables",
     "temporal-pattern": "temporalPatterns",
     "time-series": "timeSeriess"
 };
@@ -150,7 +150,7 @@ export const hydrologyKeyMap = {
 // is the label for the timeseries type (see TASK-1533). Used to build the
 // auto-numbered default name in CREATE_HYDROLOGY_FORM.
 const hydrologyAutoNameLabel = {
-    "idf-table": "IDF Table",
+    "sv-idf-table": "IDF Table",
     "temporal-pattern": "Temporal Pattern",
     "time-series": "Design Storm"
 };
@@ -315,7 +315,7 @@ export default ( state = initialState, action) => {
     case CREATE_HYDROLOGY_FORM: {
         const pageName = hydrologyKeyMap[action.activeHydrologyPage];
         let newHydrologyItem;
-        if (action.activeHydrologyPage === 'idf-table') {
+        if (action.activeHydrologyPage === 'sv-idf-table') {
             newHydrologyItem = new IdfTable();
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             newHydrologyItem = new TemporalPattern();
@@ -346,7 +346,7 @@ export default ( state = initialState, action) => {
     case SAVE_HYDROLOGY_ITEM_SUCCESS: {
         const pageName = hydrologyKeyMap[action.activeHydrologyPage];
         let updatedActiveHydrologyItem;
-        if (action.activeHydrologyPage === 'idf-table') {
+        if (action.activeHydrologyPage === 'sv-idf-table') {
             updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             updatedActiveHydrologyItem = createTemporalPatternFromJson(action.item);
@@ -368,7 +368,7 @@ export default ( state = initialState, action) => {
     case CREATE_HYDROLOGY_ITEM_SUCCESS: {
         const pageName = hydrologyKeyMap[action.activeHydrologyPage];
         let updatedActiveHydrologyItem;
-        if (action.activeHydrologyPage === 'idf-table') {
+        if (action.activeHydrologyPage === 'sv-idf-table') {
             updatedActiveHydrologyItem = createIdfTableFromJson(action.item);
         } else if (action.activeHydrologyPage === 'temporal-pattern') {
             updatedActiveHydrologyItem = createTemporalPatternFromJson(action.item);

@@ -42,7 +42,7 @@ import Message from '@mapstore/framework/components/I18N/Message';
 // TASK-1760 (epic-1758 W1) — chassis primitives. FormRow conforms the Location
 // step's label+field rows; Table (surface="light") conforms the Results table to
 // the white chart-adjacent surface. The interactive boolean matrix
-// (.idf-matrix-*) stays bespoke — an irreducible organism (flagged gap).
+// (.sv-idf-matrix-*) stays bespoke — an irreducible organism (flagged gap).
 import { ErrorStrip, FormRow, Table } from '../../SimpleView/components/primitives';
 
 import {
@@ -222,18 +222,18 @@ const IdfDeriveMatrix = ({
     };
 
     return (
-        <div className="idf-matrix-wrapper">
-            <table className="idf-matrix-table">
+        <div className="sv-idf-matrix-wrapper">
+            <table className="sv-idf-matrix-table">
                 <thead>
                     <tr>
                         {/* Top-left corner cell — empty */}
-                        <th className="idf-matrix-corner" />
+                        <th className="sv-idf-matrix-corner" />
                         {CANONICAL_RETURN_PERIODS_YR.map(rp => {
                             const rpDerivable = isDerivableRP(rp);
                             return (
                                 <th
                                     key={rp}
-                                    className={`idf-matrix-col-header${rpSet.has(rp) ? ' idf-matrix-header--selected' : ''}${rpDerivable ? '' : ' idf-matrix-header--disabled'}`}
+                                    className={`sv-idf-matrix-col-header${rpSet.has(rp) ? ' sv-idf-matrix-header--selected' : ''}${rpDerivable ? '' : ' sv-idf-matrix-header--disabled'}`}
                                     onClick={rpDerivable ? () => toggleCol(rp) : undefined}
                                     title={rpDerivable
                                         ? `Toggle all durations for ${rp}-yr ARI`
@@ -255,7 +255,7 @@ const IdfDeriveMatrix = ({
                         return (
                             <tr key={dur}>
                                 <td
-                                    className={`idf-matrix-row-header${durSelected ? ' idf-matrix-header--selected' : ''}`}
+                                    className={`sv-idf-matrix-row-header${durSelected ? ' sv-idf-matrix-header--selected' : ''}`}
                                     onClick={() => toggleRow(dur)}
                                     title={`Toggle all return periods for ${formatDuration(dur, false)}`}
                                 >
@@ -267,17 +267,17 @@ const IdfDeriveMatrix = ({
                                     return (
                                         <td
                                             key={rp}
-                                            className={`idf-matrix-cell${!cellDerivable ? ' idf-matrix-cell--disabled' : (cellOn ? ' idf-matrix-cell--on' : ' idf-matrix-cell--off')}`}
+                                            className={`sv-idf-matrix-cell${!cellDerivable ? ' sv-idf-matrix-cell--disabled' : (cellOn ? ' sv-idf-matrix-cell--on' : ' sv-idf-matrix-cell--off')}`}
                                             onClick={cellDerivable ? () => toggleCell(dur, rp) : undefined}
                                             title={cellDerivable
                                                 ? `${formatDuration(dur, false)} / ${rp}-yr: ${cellOn ? 'selected' : 'not selected'}`
                                                 : 'Not derivable from ERA5 (annual maxima needs ≥ 1 yr) — use the manual IDF table'}
                                         >
                                             {!cellDerivable
-                                                ? <span className="idf-matrix-disabled-mark" aria-hidden="true">–</span>
+                                                ? <span className="sv-idf-matrix-disabled-mark" aria-hidden="true">–</span>
                                                 : (cellOn
-                                                    ? <span className="glyphicon glyphicon-ok idf-matrix-tick" aria-hidden="true" />
-                                                    : <span className="glyphicon glyphicon-remove idf-matrix-cross" aria-hidden="true" />)
+                                                    ? <span className="glyphicon glyphicon-ok sv-idf-matrix-tick" aria-hidden="true" />
+                                                    : <span className="glyphicon glyphicon-remove sv-idf-matrix-cross" aria-hidden="true" />)
                                             }
                                         </td>
                                     );
@@ -376,12 +376,12 @@ const ResultsTable = ({idfTable}) => {
         getCoreRowModel: getCoreRowModel()
     });
     return (
-        <div className="idf-derive-results-table-wrap">
+        <div className="sv-idf-derive-results-table-wrap">
             {/* TASK-1760 — the IDF result table conforms to the Table chassis on
-                the LIGHT chart-adjacent surface (idf-table is a Table source). The
-                .idf-table class rides extraClassName so the existing white-surface
+                the LIGHT chart-adjacent surface (sv-idf-table is a Table source). The
+                .sv-idf-table class rides extraClassName so the existing white-surface
                 rules + the TanStack flexRender children stay intact. */}
-            <Table surface="light" extraClassName="idf-table">
+            <Table surface="light" extraClassName="sv-idf-table">
                 <thead>
                     {table.getHeaderGroups().map(headerGroup => (
                         <tr key={headerGroup.id}>
@@ -443,9 +443,9 @@ const downloadProvenanceJson = (idfTable) => {
  * Shows a circular step number badge + a title label.
  */
 const IdfDeriveStepHeader = ({step, titleMsgId}) => (
-    <div className="idf-derive-step-head">
-        <span className="idf-derive-step-badge">{step}</span>
-        <span className="idf-derive-step-title">
+    <div className="sv-idf-derive-step-head">
+        <span className="sv-idf-derive-step-badge">{step}</span>
+        <span className="sv-idf-derive-step-title">
             <Message msgId={titleMsgId} />
         </span>
     </div>
@@ -577,7 +577,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
         const deriveDisabled = !this.props.celeryAnugaEnabled || errors.length > 0 || isInFlight;
 
         return (
-            <div id={'hydrology-idf-derive-panel'} className="idf-derive-panel">
+            <div id={'hydrology-idf-derive-panel'} className="sv-idf-derive-panel">
                 {/* Head title — pane idiom */}
                 <div className="anuga-scenario-pane-detail-head">
                     <span className="anuga-scenario-pane-detail-head-title">
@@ -586,12 +586,12 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                 </div>
 
                 {/* Scrollable body */}
-                <div className="anuga-scenario-pane-detail-body idf-derive-body">
+                <div className="anuga-scenario-pane-detail-body sv-idf-derive-body">
 
                     {/* ── STEP 1: LOCATION ────────────────────────────── */}
                     <div
                         id="idf-derive-step-location"
-                        className="idf-derive-step"
+                        className="sv-idf-derive-step"
                     >
                         <IdfDeriveStepHeader step={1} titleMsgId="hydrata.hydrology.idfDeriveStepLocation" />
 
@@ -606,7 +606,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                             <input
                                 id={'idf-derive-lat'}
                                 type={'number'}
-                                className={'hydrology-text-input'}
+                                className={'sv-hydrology-text-input'}
                                 // eslint-disable-next-line no-eq-null, eqeqeq
                                 value={this.props.lat == null ? '' : this.props.lat}
                                 onChange={(e) => this.props.setIdfDeriveLat(
@@ -622,7 +622,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                             <input
                                 id={'idf-derive-lon'}
                                 type={'number'}
-                                className={'hydrology-text-input'}
+                                className={'sv-hydrology-text-input'}
                                 // eslint-disable-next-line no-eq-null, eqeqeq
                                 value={this.props.lon == null ? '' : this.props.lon}
                                 onChange={(e) => this.props.setIdfDeriveLon(
@@ -651,15 +651,15 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                     {/* ── STEP 2: PARAMETERS (matrix) ─────────────────── */}
                     <div
                         id="idf-derive-step-parameters"
-                        className="idf-derive-step"
+                        className="sv-idf-derive-step"
                     >
                         <IdfDeriveStepHeader step={2} titleMsgId="hydrata.hydrology.idfDeriveStepParameters" />
 
                         {/* Hours display toggle — read-aid only; stored values stay minutes.
-                            Flat .idf-matrix-unit-toggle-row markup (TASK-1527) so the
+                            Flat .sv-idf-matrix-unit-toggle-row markup (TASK-1527) so the
                             checkbox sits flush-left next to its label, matching the Input
                             sub-view (no .anuga-scenario-pane-label 130px gutter). */}
-                        <div className="idf-matrix-unit-toggle-row">
+                        <div className="sv-idf-matrix-unit-toggle-row">
                             <input
                                 id="idf-matrix-show-hours"
                                 type="checkbox"
@@ -667,7 +667,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                                 onChange={this.toggleShowHours}
                             />
                             {' '}
-                            <label htmlFor="idf-matrix-show-hours" className="idf-matrix-unit-label">
+                            <label htmlFor="idf-matrix-show-hours" className="sv-idf-matrix-unit-label">
                                 Display in hours
                             </label>
                         </div>
@@ -683,9 +683,9 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         {showSubDailyBanner && (
                             <div
                                 id={'idf-derive-sub-daily-banner'}
-                                className="idf-derive-banner idf-derive-banner--warning"
+                                className="sv-idf-derive-banner sv-idf-derive-banner--warning"
                             >
-                                <span className={'glyphicon glyphicon-warning-sign idf-derive-banner-glyph'}/>
+                                <span className={'glyphicon glyphicon-warning-sign sv-idf-derive-banner-glyph'}/>
                                 <Message msgId="hydrata.hydrology.idfDeriveSubDailyBanner" />
                             </div>
                         )}
@@ -694,28 +694,28 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                     {/* ── STEP 3: DERIVE ──────────────────────────────── */}
                     <div
                         id="idf-derive-step-derive"
-                        className="idf-derive-step"
+                        className="sv-idf-derive-step"
                     >
                         <IdfDeriveStepHeader step={3} titleMsgId="hydrata.hydrology.idfDeriveStepDerive" />
 
                         {errors.length > 0 && (
-                            <div id={'idf-derive-validation-errors'}>
+                            <div id={'sv-idf-derive-validation-errors'}>
                                 <ErrorStrip message={errors.join('; ')} />
                             </div>
                         )}
 
                         {this.props.error && (
-                            <div id={'idf-derive-error'}>
+                            <div id={'sv-idf-derive-error'}>
                                 <ErrorStrip message={this.props.error} />
                             </div>
                         )}
 
                         {isInFlight && (
                             <div
-                                id={'idf-derive-progress'}
-                                className="idf-derive-progress"
+                                id={'sv-idf-derive-progress'}
+                                className="sv-idf-derive-progress"
                             >
-                                <span className={'glyphicon glyphicon-refresh idf-derive-spin'}/>
+                                <span className={'glyphicon glyphicon-refresh sv-idf-derive-spin'}/>
                                 {' '}
                                 {this.props.processName || 'Deriving IDF...'}
                             </div>
@@ -724,15 +724,15 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                         {/* Disabled-reason shown below button when celery off */}
                         {!this.props.celeryAnugaEnabled && (
                             <div
-                                id={'idf-derive-unavailable'}
-                                className="idf-derive-unavailable"
+                                id={'sv-idf-derive-unavailable'}
+                                className="sv-idf-derive-unavailable"
                             >
                                 <Message msgId="hydrata.hydrology.idfDeriveUnavailable" />
                             </div>
                         )}
 
                         {/* Primary Derive button — bottom-right of step block */}
-                        <div className="idf-derive-step-actions">
+                        <div className="sv-idf-derive-step-actions">
                             <Button
                                 id={'idf-derive-button'}
                                 bsStyle={'success'}
@@ -749,13 +749,13 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                     {this.props.result && (
                         <div
                             id={'idf-derive-step-results'}
-                            className="idf-derive-step"
+                            className="sv-idf-derive-step"
                         >
                             <IdfDeriveStepHeader step={4} titleMsgId="hydrata.hydrology.idfDeriveStepResults" />
 
-                            <div id={'idf-derive-results'} className="idf-derive-results">
+                            <div id={'sv-idf-derive-results'} className="sv-idf-derive-results">
                                 <ResultsTable idfTable={this.props.result}/>
-                                <div className="idf-derive-results-actions">
+                                <div className="sv-idf-derive-results-actions">
                                     <Button
                                         id={'idf-derive-download-json'}
                                         bsSize={'small'}
@@ -776,9 +776,9 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                                     </Button>
                                 </div>
 
-                                <div id={'idf-derive-provenance'} className="idf-derive-provenance">
+                                <div id={'sv-idf-derive-provenance'} className="sv-idf-derive-provenance">
                                     <button
-                                        className="idf-derive-provenance-toggle"
+                                        className="sv-idf-derive-provenance-toggle"
                                         onClick={this.toggleProvenance}
                                         aria-expanded={this.state.provenanceOpen}
                                     >
@@ -795,7 +795,7 @@ class HydrologyDetailIdfDeriveClass extends React.Component {
                                         <Message msgId="hydrata.hydrology.idfDeriveProvenance" />
                                     </button>
                                     {this.state.provenanceOpen && (
-                                        <pre className="idf-derive-provenance-pre">
+                                        <pre className="sv-idf-derive-provenance-pre">
                                             {JSON.stringify(this.props.result.provenance || {}, null, 2)}
                                         </pre>
                                     )}

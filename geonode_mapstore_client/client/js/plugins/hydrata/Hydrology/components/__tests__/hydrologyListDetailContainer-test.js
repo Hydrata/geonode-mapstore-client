@@ -11,7 +11,7 @@
  * activeHydrologyPage === 'idf-derive' the class renders HydrologyDetailIdfDerive
  * which IS a connected child component — those cases wrap in a minimal Provider.
  *
- * For the 'idf-table' page the HydrologyDetailIdfTable child is also connected,
+ * For the 'sv-idf-table' page the HydrologyDetailIdfTable child is also connected,
  * so we pass activeHydrologyItem=null to take the "select an item" branch and
  * avoid rendering connected children.
  */
@@ -36,7 +36,7 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
     const noop = () => {};
 
     const defaultProps = {
-        activeHydrologyPage: 'idf-table',
+        activeHydrologyPage: 'sv-idf-table',
         activeHydrologyItems: [],
         activeHydrologyItem: null,   // null → "select an item" branch; avoids connected detail children
         setActiveHydrologyItem: noop,
@@ -81,22 +81,22 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         });
     }
 
-    it('renders the IDF sub-toggle when activeHydrologyPage is idf-table', () => {
+    it('renders the IDF sub-toggle when activeHydrologyPage is sv-idf-table', () => {
         // Use no-Provider render since activeHydrologyItem=null skips connected children
         ReactTestUtils.act(() => {
             ReactDOM.render(
-                <HydrologyListDetailContainerClass {...defaultProps} activeHydrologyPage="idf-table" />,
+                <HydrologyListDetailContainerClass {...defaultProps} activeHydrologyPage="sv-idf-table" />,
                 container
             );
         });
-        const subToggle = container.querySelector('.hydrology-idf-subtoggle');
+        const subToggle = container.querySelector('.sv-hydrology-idf-subtoggle');
         expect(subToggle).toExist();
     });
 
     it('renders the IDF sub-toggle when activeHydrologyPage is idf-derive', () => {
         // idf-derive branch renders HydrologyDetailIdfDerive (connected) → needs Provider
         renderWithProvider({ activeHydrologyPage: 'idf-derive' });
-        const subToggle = container.querySelector('.hydrology-idf-subtoggle');
+        const subToggle = container.querySelector('.sv-hydrology-idf-subtoggle');
         expect(subToggle).toExist();
     });
 
@@ -107,11 +107,11 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
                 container
             );
         });
-        const subToggle = container.querySelector('.hydrology-idf-subtoggle');
+        const subToggle = container.querySelector('.sv-hydrology-idf-subtoggle');
         expect(subToggle).toNotExist();
     });
 
-    it('clicking "IDF Tables" button calls setActiveHydrologyPage("idf-table")', () => {
+    it('clicking "IDF Tables" button calls setActiveHydrologyPage("sv-idf-table")', () => {
         // Start on idf-derive so both buttons are visible and the active page differs
         let calledWith = null;
         renderWithProvider({
@@ -119,30 +119,30 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             setActiveHydrologyPage: (page) => { calledWith = page; }
         });
 
-        const buttons = container.querySelectorAll('.hydrology-idf-subtoggle button');
+        const buttons = container.querySelectorAll('.sv-hydrology-idf-subtoggle button');
         // First button = IDF Tables
         expect(buttons.length).toBe(2);
         ReactTestUtils.act(() => {
             buttons[0].click();
         });
-        expect(calledWith).toBe('idf-table');
+        expect(calledWith).toBe('sv-idf-table');
     });
 
     it('clicking "IDF Derive" button calls setActiveHydrologyPage("idf-derive")', () => {
-        // Start on idf-table (no Provider needed since activeHydrologyItem=null)
+        // Start on sv-idf-table (no Provider needed since activeHydrologyItem=null)
         let calledWith = null;
         ReactTestUtils.act(() => {
             ReactDOM.render(
                 <HydrologyListDetailContainerClass
                     {...defaultProps}
-                    activeHydrologyPage="idf-table"
+                    activeHydrologyPage="sv-idf-table"
                     setActiveHydrologyPage={(page) => { calledWith = page; }}
                 />,
                 container
             );
         });
 
-        const buttons = container.querySelectorAll('.hydrology-idf-subtoggle button');
+        const buttons = container.querySelectorAll('.sv-hydrology-idf-subtoggle button');
         // Second button = IDF Derive
         expect(buttons.length).toBe(2);
         ReactTestUtils.act(() => {
@@ -160,11 +160,11 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
         });
         const colOne = container.querySelector('#hydrology-list-detail-col-one');
         expect(colOne).toExist();
-        // Each item row renders its label button (.hydrology-item-button) plus a
-        // trash delete button (.hydrology-item-delete-btn).
-        const itemButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons .hydrology-item-button');
+        // Each item row renders its label button (.sv-hydrology-item-button) plus a
+        // trash delete button (.sv-hydrology-item-delete-btn).
+        const itemButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons .sv-hydrology-item-button');
         expect(itemButtons.length).toBe(2);
-        const trashButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons .hydrology-item-delete-btn');
+        const trashButtons = container.querySelectorAll('#hydrology-list-detail-items #top-buttons .sv-hydrology-item-delete-btn');
         expect(trashButtons.length).toBe(2);
         expect(colOne.textContent).toInclude('Table A');
         expect(colOne.textContent).toInclude('Table B');
@@ -179,18 +179,18 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             setActiveHydrologyItem: (item) => { activatedItem = item; },
             setActiveHydrologyPage: (page) => { switchedTo = page; }
         });
-        const itemButton = container.querySelector('#hydrology-list-detail-items #top-buttons .hydrology-item-button');
+        const itemButton = container.querySelector('#hydrology-list-detail-items #top-buttons .sv-hydrology-item-button');
         ReactTestUtils.act(() => {
             itemButton.click();
         });
         expect(activatedItem).toExist();
         expect(activatedItem.id).toBe(7);
-        expect(switchedTo).toBe('idf-table');
+        expect(switchedTo).toBe('sv-idf-table');
     });
 
     // Per-row trash button → inline ConfirmOverlay → deleteHydrologyItem.
     // On the Derive page the listed items are IDF tables, so the delete routes
-    // to the 'idf-table' page (not the literal 'idf-derive' active page).
+    // to the 'sv-idf-table' page (not the literal 'idf-derive' active page).
     it('per-row trash button confirms then dispatches deleteHydrologyItem for the row', () => {
         let deleted = null;
         renderWithProvider({
@@ -199,19 +199,19 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             deleteHydrologyItem: (page, item) => { deleted = { page, item }; }
         });
         // Clicking trash on row 2 opens the confirm (no delete yet).
-        const trashButtons = container.querySelectorAll('#top-buttons .hydrology-item-delete-btn');
+        const trashButtons = container.querySelectorAll('#top-buttons .sv-hydrology-item-delete-btn');
         expect(trashButtons.length).toBe(2);
         ReactTestUtils.act(() => { trashButtons[1].click(); });
         expect(deleted).toBe(null);
-        const confirm = container.querySelector('.hydrology-item-delete-confirm');
+        const confirm = container.querySelector('.sv-hydrology-item-delete-confirm');
         expect(confirm).toExist();
-        // Confirm → dispatch delete for item 8 against the idf-table page.
+        // Confirm → dispatch delete for item 8 against the sv-idf-table page.
         const confirmBtn = confirm.querySelector('.hydrology-delete-confirm-btn');
         expect(confirmBtn).toExist();
         ReactTestUtils.act(() => { confirmBtn.click(); });
         expect(deleted).toExist();
         expect(deleted.item.id).toBe(8);
-        expect(deleted.page).toBe('idf-table');
+        expect(deleted.page).toBe('sv-idf-table');
     });
 
     // TASK-1557 (W2) — the per-row delete affordance is MANAGER-gated. A
@@ -223,9 +223,9 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             idfTables: [{ id: 7, name: 'Table A' }, { id: 8, name: 'Table B' }],
             canManageHydrology: false
         });
-        const itemButtons = container.querySelectorAll('#top-buttons .hydrology-item-button');
+        const itemButtons = container.querySelectorAll('#top-buttons .sv-hydrology-item-button');
         expect(itemButtons.length).toBe(2);
-        const trashButtons = container.querySelectorAll('#top-buttons .hydrology-item-delete-btn');
+        const trashButtons = container.querySelectorAll('#top-buttons .sv-hydrology-item-delete-btn');
         expect(trashButtons.length).toBe(0);
     });
 
@@ -237,17 +237,17 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             idfTables: [{ id: 7, name: 'Alpha storm' }, { id: 8, name: 'Beta storm' }]
         });
         // Both rows render before any filter is applied.
-        expect(container.querySelectorAll('#top-buttons .hydrology-item-button').length).toBe(2);
+        expect(container.querySelectorAll('#top-buttons .sv-hydrology-item-button').length).toBe(2);
         // Open the filter, type a query that matches only the second row.
-        const toggle = container.querySelector('.hydrology-filter-toggle');
+        const toggle = container.querySelector('.sv-hydrology-filter-toggle');
         expect(toggle).toExist();
         ReactTestUtils.act(() => { toggle.click(); });
-        const input = container.querySelector('.hydrology-filter-input');
+        const input = container.querySelector('.sv-hydrology-filter-input');
         expect(input).toExist();
         ReactTestUtils.act(() => {
             ReactTestUtils.Simulate.change(input, { target: { value: 'BETA' } });
         });
-        const filtered = container.querySelectorAll('#top-buttons .hydrology-item-button');
+        const filtered = container.querySelectorAll('#top-buttons .sv-hydrology-item-button');
         expect(filtered.length).toBe(1);
         expect(filtered[0].textContent).toBe('Beta storm');
     });
@@ -260,7 +260,7 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
             ReactDOM.render(
                 <HydrologyListDetailContainerClass
                     {...defaultProps}
-                    activeHydrologyPage="idf-table"
+                    activeHydrologyPage="sv-idf-table"
                     setActiveHydrologyPage={(page) => page}
                 />,
                 container
@@ -269,7 +269,7 @@ describe('TASK-1448 IDF sub-toggle — setActiveHydrologyPage wiring', () => {
 
         try {
             ReactTestUtils.act(() => {
-                const buttons = container.querySelectorAll('.hydrology-idf-subtoggle button');
+                const buttons = container.querySelectorAll('.sv-hydrology-idf-subtoggle button');
                 buttons[1].click(); // IDF Derive
             });
         } catch (e) {

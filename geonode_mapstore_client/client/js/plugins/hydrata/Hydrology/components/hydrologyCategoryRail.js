@@ -9,7 +9,7 @@ import {trackEvent} from "@js/utils/analytics";
  * no progress tags). Drives activeHydrologyPage (Redux) as selected-id.
  *
  * Rail items:
- *   IDF             → 'idf'         (consolidates idf-table + idf-derive)
+ *   IDF             → 'idf'         (consolidates sv-idf-table + idf-derive)
  *   Temporal Patterns → 'temporal-pattern'
  *   Timeseries      → 'time-series'
  *   Networks        → 'networks'
@@ -46,7 +46,7 @@ const CATEGORY_GLYPHS = {
 
 // Map rail category ids → activeHydrologyPage values.
 // TASK-1452 (W5): idf-derive is the default (common path) when entering the
-// IDF category. Users can switch to idf-table (Manual) via the sub-toggle.
+// IDF category. Users can switch to sv-idf-table (Manual) via the sub-toggle.
 const CATEGORY_TO_PAGE = {
     'idf': 'idf-derive',
     'temporal-pattern': 'temporal-pattern',
@@ -56,7 +56,7 @@ const CATEGORY_TO_PAGE = {
 
 // Map activeHydrologyPage → rail category id (reverse lookup).
 export const pageToCategory = (page) => {
-    if (page === 'idf-table' || page === 'idf-derive') return 'idf';
+    if (page === 'sv-idf-table' || page === 'idf-derive') return 'idf';
     return page || 'idf';
 };
 
@@ -72,14 +72,14 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
 
     return (
         <div
-            className="hydrology-category-rail"
+            className="sv-hydrology-category-rail"
             role="tablist"
             aria-label="Hydrology categories"
         >
             {CATEGORIES.map(cat => {
                 const isActive = cat.id === selectedCategoryId;
                 const className = [
-                    'hydrology-category-item',
+                    'sv-hydrology-category-item',
                     isActive ? 'is-active' : ''
                 ].filter(Boolean).join(' ');
                 return (
@@ -99,12 +99,12 @@ const HydrologyCategoryRail = ({activeHydrologyPage, onSelectCategory}) => {
                     >
                         <span
                             className={
-                                'hydrology-category-item-glyph glyphicon '
+                                'sv-hydrology-category-item-glyph glyphicon '
                                 + (CATEGORY_GLYPHS[cat.id] || 'glyphicon-record')
                             }
                             aria-hidden="true"
                         />
-                        <span className="hydrology-category-item-label">
+                        <span className="sv-hydrology-category-item-label">
                             <Message msgId={cat.msgId} />
                         </span>
                     </div>

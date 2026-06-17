@@ -3,11 +3,11 @@
  *
  * The default export is the Redux-CONNECTED HydrologyDetailIdfTable. It reads
  * `state.hydrology.activeHydrologyItem` (an IdfTable instance) and renders the
- * manual Input IDF table as a derive-matrix-style grid (.idf-matrix-table):
+ * manual Input IDF table as a derive-matrix-style grid (.sv-idf-matrix-table):
  * durations as ROW headers, the 9 canonical ARI return periods as COLUMN
  * headers. Each cell is either:
- *   • DISABLED  (value 0 / empty) → .idf-matrix-cell--empty, click to enable
- *   • ENABLED   (non-zero value)  → holds a .idf-matrix-input float entry
+ *   • DISABLED  (value 0 / empty) → .sv-idf-matrix-cell--empty, click to enable
+ *   • ENABLED   (non-zero value)  → holds a .sv-idf-matrix-input float entry
  * TASK-1525 (UAT round-2): strict two-axis AND-gating. A cell is editable IFF
  * BOTH its duration ROW header and its ARI COLUMN header are selected. A
  * single-axis click selects/highlights that header but reveals NO inputs on
@@ -41,25 +41,25 @@ function recordingStore(preloadedState) {
 
 describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
 
-    it('renders the .idf-matrix-table: corner + 9 ARI column headers, one body row per rowData entry', () => {
+    it('renders the .sv-idf-matrix-table: corner + 9 ARI column headers, one body row per rowData entry', () => {
         const item = new IdfTable();
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const table = container.querySelector('table.idf-matrix-table');
+        const table = container.querySelector('table.sv-idf-matrix-table');
         expect(table).toExist();
 
         // 1 empty corner + 9 ARI column headers
         const headerCells = table.querySelectorAll('thead th');
         expect(headerCells.length).toBe(10);
-        expect(table.querySelectorAll('thead th.idf-matrix-col-header').length).toBe(9);
+        expect(table.querySelectorAll('thead th.sv-idf-matrix-col-header').length).toBe(9);
 
         // one <tr> per rowData entry; each with a row-header + 9 cells
         const bodyRows = table.querySelectorAll('tbody tr');
         expect(bodyRows.length).toBe(item.rowData.length);
         const firstRow = bodyRows[0];
-        expect(firstRow.querySelectorAll('td.idf-matrix-row-header').length).toBe(1);
-        expect(firstRow.querySelectorAll('td.idf-matrix-cell').length).toBe(9);
+        expect(firstRow.querySelectorAll('td.sv-idf-matrix-row-header').length).toBe(1);
+        expect(firstRow.querySelectorAll('td.sv-idf-matrix-cell').length).toBe(9);
     });
 
     it('column headers show the ARI labels (0.5yr ... 500yr)', () => {
@@ -67,7 +67,7 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const headText = container.querySelector('table.idf-matrix-table thead').textContent;
+        const headText = container.querySelector('table.sv-idf-matrix-table thead').textContent;
         expect(headText).toInclude('0.5yr');
         expect(headText).toInclude('100yr');
         expect(headText).toInclude('500yr');
@@ -78,8 +78,8 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
-        expect(container.querySelectorAll('.idf-matrix-cell--empty').length)
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
+        expect(container.querySelectorAll('.sv-idf-matrix-cell--empty').length)
             .toBe(item.rowData.length * 9);
     });
 
@@ -89,7 +89,7 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const inputs = container.querySelectorAll('.idf-matrix-input');
+        const inputs = container.querySelectorAll('.sv-idf-matrix-input');
         expect(inputs.length).toBe(1);
         expect(inputs[0].getAttribute('type')).toBe('text'); // text, not number → no spinner
         expect(inputs[0].value).toBe('12.5');
@@ -102,10 +102,10 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
-        const firstEmpty = container.querySelector('.idf-matrix-cell--empty');
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
+        const firstEmpty = container.querySelector('.sv-idf-matrix-cell--empty');
         fireEvent.click(firstEmpty);
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
     });
 
     // TASK-1525 acceptance: col-header only selected → no cell in that column editable.
@@ -114,11 +114,11 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const firstColHeader = container.querySelector('thead th.idf-matrix-col-header');
+        const firstColHeader = container.querySelector('thead th.sv-idf-matrix-col-header');
         fireEvent.click(firstColHeader);
         // header is marked selected, but no row is selected → 0 inputs
-        expect(firstColHeader.className).toInclude('idf-matrix-header--selected');
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
+        expect(firstColHeader.className).toInclude('sv-idf-matrix-header--selected');
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
     });
 
     // TASK-1525 acceptance: row-header only selected → no cell in that row editable.
@@ -127,10 +127,10 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const firstRowHeader = container.querySelector('tbody td.idf-matrix-row-header');
+        const firstRowHeader = container.querySelector('tbody td.sv-idf-matrix-row-header');
         fireEvent.click(firstRowHeader);
-        expect(firstRowHeader.className).toInclude('idf-matrix-header--selected');
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
+        expect(firstRowHeader.className).toInclude('sv-idf-matrix-header--selected');
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
     });
 
     // TASK-1525 acceptance: row + col both selected → exactly the intersection
@@ -140,30 +140,30 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const firstRowHeader = container.querySelector('tbody td.idf-matrix-row-header');
-        const firstColHeader = container.querySelector('thead th.idf-matrix-col-header');
+        const firstRowHeader = container.querySelector('tbody td.sv-idf-matrix-row-header');
+        const firstColHeader = container.querySelector('thead th.sv-idf-matrix-col-header');
 
         // select the row alone → still 0 inputs
         fireEvent.click(firstRowHeader);
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
 
         // now also select the column → exactly 1 input at the intersection
         fireEvent.click(firstColHeader);
-        const inputs = container.querySelectorAll('.idf-matrix-input');
+        const inputs = container.querySelectorAll('.sv-idf-matrix-input');
         expect(inputs.length).toBe(1);
         // and it sits in the first body row, first ARI column
         const firstBodyRow = container.querySelector('tbody tr');
-        expect(firstBodyRow.querySelectorAll('.idf-matrix-input').length).toBe(1);
+        expect(firstBodyRow.querySelectorAll('.sv-idf-matrix-input').length).toBe(1);
 
         // deselect the column → input gone
         fireEvent.click(firstColHeader);
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
 
         // re-select column, then deselect the row → input gone again
         fireEvent.click(firstColHeader);
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(1);
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(1);
         fireEvent.click(firstRowHeader);
-        expect(container.querySelectorAll('.idf-matrix-input').length).toBe(0);
+        expect(container.querySelectorAll('.sv-idf-matrix-input').length).toBe(0);
     });
 
     it('dispatches UPDATE_IDF_ROW_DATA(tableId, rowIndex, columnId, value) on cell blur', () => {
@@ -174,7 +174,7 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         });
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, { store });
 
-        const input = container.querySelector('.idf-matrix-input');
+        const input = container.querySelector('.sv-idf-matrix-input');
         expect(input).toExist();
         fireEvent.change(input, { target: { value: '15.5' } });
         fireEvent.blur(input);
@@ -195,7 +195,7 @@ describe('TASK-743/1497 hydrologyDetailIdfTable DOM (matrix grid)', () => {
         });
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, { store });
 
-        const input = container.querySelector('.idf-matrix-input');
+        const input = container.querySelector('.sv-idf-matrix-input');
         fireEvent.change(input, { target: { value: '12.345' } });
         expect(input.value).toBe('12.34'); // 3rd+ decimal stripped on change
         fireEvent.blur(input);
@@ -232,7 +232,7 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
         // No inline chart anywhere (the recharts wrapper is gone with all-zero data).
         expect(container.querySelector('.recharts-responsive-container')).toNotExist();
         // Trigger button present but disabled, with an explanatory title.
-        const btn = container.querySelector('.idf-curve-open-btn');
+        const btn = container.querySelector('.sv-idf-curve-open-btn');
         expect(btn).toExist();
         expect(btn.disabled).toBe(true);
         expect(btn.getAttribute('title')).toExist();
@@ -245,7 +245,7 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const btn = container.querySelector('.idf-curve-open-btn');
+        const btn = container.querySelector('.sv-idf-curve-open-btn');
         expect(btn).toExist();
         expect(btn.disabled).toBe(false);
     });
@@ -258,11 +258,11 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
         });
         try {
             // No modal before the click.
-            expect(document.body.querySelector('.idf-curve-modal-overlay')).toNotExist();
-            const btn = container.querySelector('.idf-curve-open-btn');
+            expect(document.body.querySelector('.sv-idf-curve-modal-overlay')).toNotExist();
+            const btn = container.querySelector('.sv-idf-curve-open-btn');
             fireEvent.click(btn);
             // Modal mounted in document.body (portal), with a header + chart.
-            const overlay = document.body.querySelector('.idf-curve-modal-overlay');
+            const overlay = document.body.querySelector('.sv-idf-curve-modal-overlay');
             expect(overlay).toExist();
             expect(overlay.querySelector('.legend-close')).toExist();
             expect(overlay.querySelector('.recharts-responsive-container')).toExist();
@@ -278,11 +278,11 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
             state: { hydrology: { activeHydrologyItem: item } }
         });
         try {
-            fireEvent.click(container.querySelector('.idf-curve-open-btn'));
-            const close = document.body.querySelector('.idf-curve-modal-overlay .legend-close');
+            fireEvent.click(container.querySelector('.sv-idf-curve-open-btn'));
+            const close = document.body.querySelector('.sv-idf-curve-modal-overlay .legend-close');
             expect(close).toExist();
             fireEvent.click(close);
-            expect(document.body.querySelector('.idf-curve-modal-overlay')).toNotExist();
+            expect(document.body.querySelector('.sv-idf-curve-modal-overlay')).toNotExist();
         } finally {
             unmount();
         }
@@ -295,17 +295,17 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
             state: { hydrology: { activeHydrologyItem: item } }
         });
         try {
-            fireEvent.click(container.querySelector('.idf-curve-open-btn'));
-            const overlay = document.body.querySelector('.idf-curve-modal-overlay');
+            fireEvent.click(container.querySelector('.sv-idf-curve-open-btn'));
+            const overlay = document.body.querySelector('.sv-idf-curve-modal-overlay');
             expect(overlay).toExist();
             // Clicking the inner panel must NOT close (stopPropagation).
             const panel = overlay.querySelector('.simple-view-panel');
             expect(panel).toExist();
             fireEvent.click(panel);
-            expect(document.body.querySelector('.idf-curve-modal-overlay')).toExist();
+            expect(document.body.querySelector('.sv-idf-curve-modal-overlay')).toExist();
             // Clicking the backdrop (overlay itself) closes it.
             fireEvent.click(overlay);
-            expect(document.body.querySelector('.idf-curve-modal-overlay')).toNotExist();
+            expect(document.body.querySelector('.sv-idf-curve-modal-overlay')).toNotExist();
         } finally {
             unmount();
         }
@@ -315,10 +315,10 @@ describe('TASK-1526 hydrologyDetailIdfTable IDF-curve modal', () => {
 // ---------------------------------------------------------------------------
 // TASK-1524 (UAT round-2) — the manual Input IDF table must not clip its lower
 // duration rows. The old layout wrapped the table in an outer div with a fixed
-// inline `height:'600px'` and `.idf-matrix-wrapper` had only overflow-x:auto
+// inline `height:'600px'` and `.sv-idf-matrix-wrapper` had only overflow-x:auto
 // (no vertical scroll), so when rowData held more durations than fit in 600px
 // the bottom rows were clipped off with no scrollbar. The fix gives the Input
-// matrix wrapper its own scroll region (a dedicated `.idf-matrix-wrapper--input`
+// matrix wrapper its own scroll region (a dedicated `.sv-idf-matrix-wrapper--input`
 // modifier with max-height + overflow-y:auto) and drops the fixed inner height,
 // so EVERY duration row is in the DOM and reachable via the wrapper's own
 // vertical scrollbar.
@@ -338,7 +338,7 @@ describe('TASK-1524 hydrologyDetailIdfTable no-clip (all durations reachable)', 
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const rowHeaders = container.querySelectorAll('tbody td.idf-matrix-row-header');
+        const rowHeaders = container.querySelectorAll('tbody td.sv-idf-matrix-row-header');
         // One row-header per duration — including the LAST (longest) duration row.
         expect(rowHeaders.length).toBe(item.rowData.length);
         const lastDuration = item.rowData[item.rowData.length - 1].duration;
@@ -351,12 +351,12 @@ describe('TASK-1524 hydrologyDetailIdfTable no-clip (all durations reachable)', 
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        const wrapper = container.querySelector('.idf-matrix-wrapper');
+        const wrapper = container.querySelector('.sv-idf-matrix-wrapper');
         expect(wrapper).toExist();
         // The Input variant gets a dedicated modifier so its scroll region is
-        // separate from the shared (Derive) .idf-matrix-wrapper, avoiding a
-        // double-scrollbar inside the Derive grid's own .idf-derive-body.
-        expect(wrapper.className).toInclude('idf-matrix-wrapper--input');
+        // separate from the shared (Derive) .sv-idf-matrix-wrapper, avoiding a
+        // double-scrollbar inside the Derive grid's own .sv-idf-derive-body.
+        expect(wrapper.className).toInclude('sv-idf-matrix-wrapper--input');
     });
 
     it('the table-side outer box no longer hard-codes a fixed clipping height', () => {
@@ -364,10 +364,10 @@ describe('TASK-1524 hydrologyDetailIdfTable no-clip (all durations reachable)', 
         const { container } = mountWithProviders(<HydrologyDetailIdfTable />, {
             state: { hydrology: { activeHydrologyItem: item } }
         });
-        // The outer box wrapping the table (the one holding the .idf-matrix-wrapper)
+        // The outer box wrapping the table (the one holding the .sv-idf-matrix-wrapper)
         // must not impose a fixed `height` that clips overflow; the wrapper itself
         // owns the (max-height + overflow-y) scroll region.
-        const wrapper = container.querySelector('.idf-matrix-wrapper');
+        const wrapper = container.querySelector('.sv-idf-matrix-wrapper');
         const outerBox = wrapper.parentElement;
         expect(outerBox.style.height).toNotEqual('600px');
     });

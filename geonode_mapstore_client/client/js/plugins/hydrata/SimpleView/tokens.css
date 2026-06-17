@@ -143,7 +143,7 @@
     /* ── Dark-glass warning surface — replaces light cream banners ──────────
        (Hydrology paste-error #fff8e0 / design-storm stale, Anuga
        runPollingPaused #fff7e6, HGeval .hgeval-warnings). Mirrors the already
-       dark-glass .idf-derive-banner--warning. */
+       dark-glass .sv-idf-derive-banner--warning. */
     --sv-warning-bg:     rgba(252, 248, 227, 0.12);
     --sv-warning-border: rgba(250, 235, 204, 0.4);
     --sv-warning-color:  #fcf8e3;
