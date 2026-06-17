@@ -35,6 +35,11 @@ import React from 'react';
 const PropTypes = require('prop-types');
 import { buildMeshTriangleLayer } from '../gwcTileRouting';
 import { getToken } from '../../../../../MapStore2/web/client/utils/SecurityUtils';
+// TASK-1764 (epic-1758 W1) — chassis Table frames the built-mesh roster.
+// The .anuga-built-mesh-roster-table class rides extraClassName; the
+// data-testid="built-mesh-roster-table" anchor (queried by meshWorkflow-test)
+// is preserved on a wrapper so it only exists in the meshes-present branch.
+import { Table } from '../../SimpleView/components/primitives';
 
 // Inline Spinner from React-Spinner (already a MapStore2 dep via anugaInputMenu).
 // We lazily require it so this file does not add a new npm dep.
@@ -322,24 +327,26 @@ export function BuiltMeshRoster({builtMeshes}) {
                     {'No built meshes yet'}
                 </div>
             ) : (
-                <table className="anuga-built-mesh-roster-table" data-testid="built-mesh-roster-table">
-                    <thead>
-                        <tr>
-                            <th>{'Date'}</th>
-                            <th>{'Triangles'}</th>
-                            <th>{'Nodes'}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {builtMeshes.map(mr => (
-                            <tr key={mr.id} data-testid={'built-mesh-row-' + mr.id}>
-                                <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
-                                <td>{(mr.element_count || 0).toLocaleString()}</td>
-                                <td>{(mr.node_count || 0).toLocaleString()}</td>
+                <div data-testid="built-mesh-roster-table">
+                    <Table surface="dark" extraClassName="anuga-built-mesh-roster-table">
+                        <thead>
+                            <tr>
+                                <th>{'Date'}</th>
+                                <th>{'Triangles'}</th>
+                                <th>{'Nodes'}</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {builtMeshes.map(mr => (
+                                <tr key={mr.id} data-testid={'built-mesh-row-' + mr.id}>
+                                    <td>{mr.created_at ? new Date(mr.created_at).toLocaleDateString() : '—'}</td>
+                                    <td>{(mr.element_count || 0).toLocaleString()}</td>
+                                    <td>{(mr.node_count || 0).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </Table>
+                </div>
             )}
         </div>
     );

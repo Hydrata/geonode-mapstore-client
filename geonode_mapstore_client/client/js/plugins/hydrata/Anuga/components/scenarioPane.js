@@ -8,6 +8,14 @@ import {ScenarioCategoryRail} from './scenarioCategoryRail';
 import {ScenarioResourceSummary, summariseResource} from './scenarioResourceSummary';
 import {ScenarioStatusCard} from './scenarioStatusCard';
 import {ScenarioErrorStrip} from './scenarioErrorStrip';
+// TASK-1764 (epic-1758 W1) — chassis FormRow frames the scenario-detail
+// label/field rows (Inputs / Advanced / Run). The legacy
+// .anuga-scenario-pane-section row class rides extraClassName so the
+// existing chrome + the scenarioPane test's
+// .anuga-scenario-pane-field.is-readonly / #id assertions stay intact; the
+// .anuga-scenario-pane-field wrapper (carrying .is-readonly) is preserved as
+// the FormRow child so the readonly-count contract holds.
+import {FormRow} from '../../SimpleView/components/primitives';
 
 /**
  * Per-category pane renderer for the Miller-columns scenarios panel. The
@@ -125,10 +133,15 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
     // and the cursor flips to not-allowed via CSS.
     const fieldClass = 'anuga-scenario-pane-field' + (disabled ? ' is-readonly' : '');
     return (
-        <div className="anuga-scenario-pane-section" key={id}>
-            <label className="anuga-scenario-pane-label" htmlFor={id}>
-                <Message msgId={label} />
-            </label>
+        <FormRow
+            key={id}
+            extraClassName="anuga-scenario-pane-section"
+            label={
+                <label className="anuga-scenario-pane-label" htmlFor={id}>
+                    <Message msgId={label} />
+                </label>
+            }
+        >
             <div className={fieldClass}>
                 <select
                     id={id}
@@ -148,7 +161,7 @@ function renderSelectField(id, label, value, options, disabled, onChange) {
                     ))}
                 </select>
             </div>
-        </div>
+        </FormRow>
     );
 }
 
@@ -190,10 +203,14 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
     const nameFieldClass = 'anuga-scenario-pane-field' + (!canEdit ? ' is-readonly' : '');
     return (
         <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-inputs">
-            <div className="anuga-scenario-pane-section">
-                <label className="anuga-scenario-pane-label" htmlFor="name">
-                    <Message msgId="hydrata.anuga.name" />
-                </label>
+            <FormRow
+                extraClassName="anuga-scenario-pane-section"
+                label={
+                    <label className="anuga-scenario-pane-label" htmlFor="name">
+                        <Message msgId="hydrata.anuga.name" />
+                    </label>
+                }
+            >
                 <div className={nameFieldClass}>
                     <input
                         id="name"
@@ -204,7 +221,7 @@ function renderInputsPane({scenario, canEdit, onUpdateScenario, terrain, boundar
                         onChange={(e) => handleField({name: e.target.value})}
                     />
                 </div>
-            </div>
+            </FormRow>
             {renderSelectField('terrain', 'hydrata.anuga.terrain', scenario?.terrain, terrain, !canEdit, handleField)}
             {renderResourceSummary(scenario, 'terrain', terrain)}
             {renderSelectField('boundary', 'hydrata.anuga.boundary', scenario?.boundary, boundaries, !canEdit, handleField)}
@@ -277,10 +294,14 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
 
     return (
         <div className="anuga-scenario-pane-rows anuga-scenario-pane-rows-run-config">
-            <div className="anuga-scenario-pane-section">
-                <label className="anuga-scenario-pane-label" htmlFor="resolution">
-                    <Message msgId="hydrata.anuga.resolutionM2" />
-                </label>
+            <FormRow
+                extraClassName="anuga-scenario-pane-section"
+                label={
+                    <label className="anuga-scenario-pane-label" htmlFor="resolution">
+                        <Message msgId="hydrata.anuga.resolutionM2" />
+                    </label>
+                }
+            >
                 <div className={unitFieldClass}>
                     <input
                         id="resolution"
@@ -294,11 +315,15 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                         Formula: triangles ≈ area / (resolution² / 2) confirms linear m. */}
                     <span className="anuga-scenario-pane-field-unit">m</span>
                 </div>
-            </div>
-            <div className="anuga-scenario-pane-section">
-                <label className="anuga-scenario-pane-label" htmlFor="duration">
-                    <Message msgId="hydrata.anuga.duration" />
-                </label>
+            </FormRow>
+            <FormRow
+                extraClassName="anuga-scenario-pane-section"
+                label={
+                    <label className="anuga-scenario-pane-label" htmlFor="duration">
+                        <Message msgId="hydrata.anuga.duration" />
+                    </label>
+                }
+            >
                 <div className={unitFieldClass}>
                     <input
                         id="duration"
@@ -312,16 +337,20 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                     {/* TASK-1414: duration stored in seconds, displayed as hh:mm */}
                     <span className="anuga-scenario-pane-field-unit">hh:mm</span>
                 </div>
-            </div>
+            </FormRow>
             {/* TASK-1415: compute selector is superuser-only (FE advisory gate;
                   server-side enforcement is in StartRunView.post). Non-superusers
                   never see this field — the backend ignores their compute_backend
                   and always uses ANUGA_DEFAULT_COMPUTE_BACKEND. */}
             {isSuperuser ? (
-                <div className="anuga-scenario-pane-section">
-                    <label className="anuga-scenario-pane-label" htmlFor="compute_backend">
-                        <Message msgId="hydrata.anuga.computeBackend" />
-                    </label>
+                <FormRow
+                    extraClassName="anuga-scenario-pane-section"
+                    label={
+                        <label className="anuga-scenario-pane-label" htmlFor="compute_backend">
+                            <Message msgId="hydrata.anuga.computeBackend" />
+                        </label>
+                    }
+                >
                     <div className={selectFieldClass}>
                         <select
                             id="compute_backend"
@@ -350,7 +379,7 @@ function renderRunConfigPane({scenario, canEdit, onUpdateScenario, computeInstan
                             }
                         </select>
                     </div>
-                </div>
+                </FormRow>
             ) : null}
             <div className="anuga-scenario-pane-section anuga-scenario-pane-section--help">
                 <span className="anuga-scenario-pane-help">

@@ -1,5 +1,11 @@
 import React from "react";
 const PropTypes = require('prop-types');
+// TASK-1764 (epic-1758 W1) — chassis Card frames the per-resource summary.
+// The .anuga-scenario-resource-summary[+--kind][+is-empty] classes ride
+// extraClassName so the legacy chrome + the test class assertions stay
+// intact; the inner glyph/body/meta flex row moves onto the Card body via
+// bodyStyle so the layout is preserved.
+import {Card} from '../../SimpleView/components/primitives';
 
 /**
  * TASK-C-scenarios-miller Wave 3A — per-resource summary card. Rendered
@@ -57,7 +63,11 @@ const ScenarioResourceSummary = ({kind, body, meta, extraClassName}) => {
         extraClassName || ''
     ].filter(Boolean).join(' ');
     return (
-        <div className={className}>
+        <Card
+            extraClassName={className}
+            style={{margin: '4px 10px 8px'}}
+            bodyStyle={{display: 'flex', alignItems: 'center', gap: '8px'}}
+        >
             <span
                 className={'anuga-scenario-resource-summary-glyph glyphicon ' + glyph}
                 aria-hidden="true"
@@ -68,7 +78,7 @@ const ScenarioResourceSummary = ({kind, body, meta, extraClassName}) => {
             {meta != null ? ( // eslint-disable-line no-eq-null, eqeqeq
                 <span className="anuga-scenario-resource-summary-meta">{meta}</span>
             ) : null}
-        </div>
+        </Card>
     );
 };
 

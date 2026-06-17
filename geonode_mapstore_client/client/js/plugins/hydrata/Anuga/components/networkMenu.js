@@ -9,8 +9,12 @@ import {
     saveNetwork,
     runNetwork
 } from "../actionsAnuga";
-import {Table, Button} from "react-bootstrap";
+import {Button} from "react-bootstrap";
 import Message from '@mapstore/framework/components/I18N/Message';
+// TASK-1764 (epic-1758 W1) — chassis PanelHeader (cascade-safe close chip,
+// replaces the bespoke .legend-close span) + chassis Table (dark-glass surface,
+// .network-table rides extraClassName). No test pins the networkMenu DOM.
+import {PanelHeader, Table as ChassisTable} from '../../SimpleView/components/primitives';
 
 class NetworkMenuClass extends React.Component {
     static propTypes = {
@@ -39,16 +43,16 @@ class NetworkMenuClass extends React.Component {
         return (
             <div id={'anuga-network-container'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row menu-row-header"}>
-                        <h3><Message msgId="hydrata.anuga.hydrology" /></h3>
-                        <span
-                            className={"btn glyphicon glyphicon-remove legend-close"}
-                            onClick={() => {
-                                this.props.setNetworkMenu(false);
-                            }}
-                        />
+                    <PanelHeader
+                        extraClassName="menu-row-header"
+                        title={<Message msgId="hydrata.anuga.hydrology" />}
+                        onClose={() => {
+                            this.props.setNetworkMenu(false);
+                        }}
+                    />
+                    <div className={"row"}>
                         <div>
-                            <Table className={"network-table"}>
+                            <ChassisTable surface="dark" extraClassName="network-table">
                                 <thead>
                                     <tr className={"network-table-header"}>
                                         <th><Message msgId="hydrata.anuga.id" /></th>
@@ -185,7 +189,7 @@ class NetworkMenuClass extends React.Component {
                                         })
                                     }
                                 </tbody>
-                            </Table>
+                            </ChassisTable>
                         </div>
                     </div>
                 </div>

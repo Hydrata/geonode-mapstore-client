@@ -11,6 +11,10 @@ import {
 } from "../actionsAnuga";
 import {trackEvent} from "@js/utils/analytics";
 import Message from '@mapstore/framework/components/I18N/Message';
+// TASK-1764 (epic-1758 W1) — chassis PanelHeader replaces the bespoke
+// .legend-close span (cascade-safe sv-panel-header-close ×-chip). No test
+// pins the publication close button class; the close handler is preserved.
+import {PanelHeader} from '../../SimpleView/components/primitives';
 // V2P-22 — gate per-publication "Edit Publication" / "Create Figure" actions
 // on canEditLayer/canDeleteLayer. Each publication row carries a `perms`
 // array (V2P-12a/V2P-21) and is read through the V2P-02 helpers so that
@@ -49,17 +53,13 @@ class PublicationPanelClass extends React.Component {
         return (
             <div id={'publication-panel'} className={'simple-view-panel anuga-panel'}>
                 <div className={'menu-rows-container'}>
-                    <div className={"row publication-close-row"}>
-                        <span
-                            className={"btn glyphicon glyphicon-remove legend-close"}
-                            onClick={
-                                () => {
-                                    this.props.setPublicationPanel(false);
-                                    trackEvent('button', `click`, `anuga-publication-menu-close`);
-                                }
-                            }
-                        />
-                    </div>
+                    <PanelHeader
+                        extraClassName="publication-close-row"
+                        onClose={() => {
+                            this.props.setPublicationPanel(false);
+                            trackEvent('button', `click`, `anuga-publication-menu-close`);
+                        }}
+                    />
                     {
                         this.props.publications?.map(publication => {
                             // Tag with resourceType so the V2P-02 helper resolves

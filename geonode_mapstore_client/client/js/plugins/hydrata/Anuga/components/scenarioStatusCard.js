@@ -3,6 +3,12 @@ const PropTypes = require('prop-types');
 import Message from '@mapstore/framework/components/I18N/Message';
 import {findScenarioStatus} from './scenarioHelpers';
 import {ScenarioStatusPill} from './scenarioStatusPill';
+// TASK-1764 (epic-1758 W1) — chassis Card frames the Status-and-actions
+// status card. The .anuga-scenario-status-card[+--status] classes ride
+// extraClassName so the existing dark-glass chrome + the test's
+// .anuga-scenario-status-card--<status> assertions stay intact; the Card
+// frame style is neutralised (the legacy CSS owns margin/padding/border).
+import {Card} from '../../SimpleView/components/primitives';
 
 /**
  * TASK-C-scenarios-miller Wave 3A — large status card for the Status and
@@ -60,7 +66,10 @@ const ScenarioStatusCard = ({scenario}) => {
     }
 
     return (
-        <div className={'anuga-scenario-status-card anuga-scenario-status-card--' + status}>
+        <Card
+            extraClassName={'anuga-scenario-status-card anuga-scenario-status-card--' + status}
+            style={{margin: '6px 10px 12px'}}
+        >
             <div className="anuga-scenario-status-card-row">
                 <ScenarioStatusPill scenario={scenario} />
                 {trailingMeta}
@@ -90,7 +99,7 @@ const ScenarioStatusCard = ({scenario}) => {
                     ) : null}
                 </div>
             ) : null}
-        </div>
+        </Card>
     );
 };
 
