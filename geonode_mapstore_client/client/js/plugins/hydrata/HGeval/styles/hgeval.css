@@ -61,8 +61,8 @@
     align-items: flex-start;
     padding: 6px 10px;
     font-size: 12px;
-    background: rgba(240, 173, 78, 0.12);
-    border-color: rgba(240, 173, 78, 0.3);
+    background: var(--sv-warning-bg, rgba(240, 173, 78, 0.12));
+    border-color: var(--sv-warning-border, rgba(240, 173, 78, 0.3));
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
