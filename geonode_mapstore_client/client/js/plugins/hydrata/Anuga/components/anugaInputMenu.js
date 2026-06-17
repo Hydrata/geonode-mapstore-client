@@ -196,10 +196,10 @@ function TWSeamQAPanel({ enforcementLog }) {
     const offset = typeof enforcementLog.applied_bias_m === 'number' ? enforcementLog.applied_bias_m.toFixed(3) : null;
     if (!maxSeam && !offset) return null;
     return (
-        <div className="tw-seam-qa" data-testid="seam-qa-panel">
-            <div className="tw-label">Seam QA</div>
-            {maxSeam !== null && <div className="tw-seam-qa-row"><span>Max seam step:</span><strong>{maxSeam} m</strong></div>}
-            {offset !== null && <div className="tw-seam-qa-row"><span>Vertical offset applied:</span><strong>{offset} m</strong></div>}
+        <div className="sv-tw-seam-qa" data-testid="seam-qa-panel">
+            <div className="sv-tw-label tw-label">Seam QA</div>
+            {maxSeam !== null && <div className="sv-tw-seam-qa-row"><span>Max seam step:</span><strong>{maxSeam} m</strong></div>}
+            {offset !== null && <div className="sv-tw-seam-qa-row"><span>Vertical offset applied:</span><strong>{offset} m</strong></div>}
         </div>
     );
 }
@@ -261,11 +261,11 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
     const available = terrains.filter(t => !inputs.find(d => d.terrain_id === t.id));
     const baseIdx = inputs.length - 1;
     return (
-        <div className="tw-design-inputs">
+        <div className="sv-tw-design-inputs tw-design-inputs">
             {/* #15 (re-UAT): user-facing label is the normal-case "Merge terrains".
                 The internal/domain term stays "DEM priority stack". */}
-            <label className="tw-label tw-label-normalcase">
-                Merge terrains <span className="tw-label-sub">(top = highest priority, bottom = base)</span>
+            <label className="sv-tw-label tw-label sv-tw-label-normalcase tw-label-normalcase">
+                Merge terrains <span className="sv-tw-label-sub">(top = highest priority, bottom = base)</span>
             </label>
             {inputs.map((inp, idx) => {
                 const t = terrains.find(x => x.id === inp.terrain_id);
@@ -282,11 +282,11 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
                 // For the base row the effective "modifiable" state is always true.
                 const isModifiable = isBase ? true : !inp.unmodified;
                 return (
-                    <div key={inp.terrain_id} className="tw-design-input-row" data-testid={`dem-stack-row-${inp.terrain_id}`}>
-                        <span className="tw-priority-badge" title={isTop ? 'Highest priority' : isBase ? 'Base' : `Priority ${idx + 1}`}>
+                    <div key={inp.terrain_id} className="sv-tw-design-input-row" data-testid={`dem-stack-row-${inp.terrain_id}`}>
+                        <span className="sv-tw-priority-badge tw-priority-badge" title={isTop ? 'Highest priority' : isBase ? 'Base' : `Priority ${idx + 1}`}>
                             {badgeLabel}
                         </span>
-                        <span className="tw-input-title">{t ? (t.title || t.name) : `Terrain #${inp.terrain_id}`}</span>
+                        <span className="sv-tw-input-title">{t ? (t.title || t.name) : `Terrain #${inp.terrain_id}`}</span>
                         <OverlayTrigger
                             placement="top"
                             overlay={
@@ -299,7 +299,7 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
                         >
                             <button
                                 type="button"
-                                className={`tw-icon-btn tw-pencil-toggle${isModifiable ? ' tw-modifiable-on' : ''}`}
+                                className={`sv-tw-icon-btn sv-tw-pencil-toggle tw-pencil-toggle${isModifiable ? ' sv-tw-modifiable-on tw-modifiable-on' : ''}`}
                                 onClick={() => toggleUnmodified(idx)}
                                 disabled={disabled || isBase}
                                 title={isBase ? 'modifiable (locked)' : inp.unmodified ? 'unmodified' : 'modifiable'}
@@ -310,20 +310,20 @@ function TWDemStackPicker({ terrains, inputs, onChange, disabled }) {
                                 <span className="glyphicon glyphicon-pencil" aria-hidden="true" />
                             </button>
                         </OverlayTrigger>
-                        <button type="button" className="tw-icon-btn" onClick={() => moveUp(idx)} disabled={disabled || idx === 0} title="Move up">↑</button>
-                        <button type="button" className="tw-icon-btn tw-icon-btn-danger" onClick={() => remove(idx)} disabled={disabled} title="Remove">×</button>
+                        <button type="button" className="sv-tw-icon-btn" onClick={() => moveUp(idx)} disabled={disabled || idx === 0} title="Move up">↑</button>
+                        <button type="button" className="sv-tw-icon-btn sv-tw-icon-btn-danger" onClick={() => remove(idx)} disabled={disabled} title="Remove">×</button>
                     </div>
                 );
             })}
             {available.length > 0 && (
-                <select className="tw-select" value="" onChange={(e) => addTerrain(e.target.value)} disabled={disabled} data-testid="dem-stack-add-select">
+                <select className="sv-tw-select" value="" onChange={(e) => addTerrain(e.target.value)} disabled={disabled} data-testid="dem-stack-add-select">
                     <option value="">+ Add DEM to stack…</option>
                     {available.map(t => <option key={t.id} value={t.id}>{t.title || t.name}</option>)}
                 </select>
             )}
-            {inputs.length === 0 && <div className="tw-validation-hint">At least one DEM is required.</div>}
+            {inputs.length === 0 && <div className="sv-tw-validation-hint">At least one DEM is required.</div>}
             {inputs.length > 0 && inputs.every(d => d.unmodified) && (
-                <div className="tw-validation-hint">At least one DEM must be modifiable (not unmodified).</div>
+                <div className="sv-tw-validation-hint">At least one DEM must be modifiable (not unmodified).</div>
             )}
         </div>
     );
@@ -341,34 +341,34 @@ function TWDeriveConfirmDialog({ sizeEstimate, onConfirm, onCancel }) {
             : `~${sizeEstimate.estimatedGB.toFixed(1)} GB`
         : null;
     return (
-        <div className="tw-derive-confirm-overlay" data-testid="derive-confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirm derive">
-            <div className="tw-derive-confirm-box">
+        <div className="sv-tw-derive-confirm-overlay" data-testid="derive-confirm-dialog" role="dialog" aria-modal="true" aria-label="Confirm derive">
+            <div className="sv-tw-derive-confirm-box">
                 {tooLarge ? (
                     <React.Fragment>
-                        <div className="tw-derive-confirm-title tw-derive-confirm-title--error">
+                        <div className="sv-tw-derive-confirm-title sv-tw-derive-confirm-title--error">
                             Cannot derive — estimated output too large
                         </div>
-                        <div className="tw-derive-confirm-body">
+                        <div className="sv-tw-derive-confirm-body">
                             Estimated output size {gbStr} exceeds the 10 GB limit.
                             Reduce the DEM stack extent or increase Target resolution (m).
                         </div>
-                        <div className="tw-derive-confirm-actions">
-                            <button type="button" className="tw-save-btn" onClick={onCancel} data-testid="derive-confirm-cancel">Close</button>
+                        <div className="sv-tw-derive-confirm-actions">
+                            <button type="button" className="sv-tw-save-btn" onClick={onCancel} data-testid="derive-confirm-cancel">Close</button>
                         </div>
                     </React.Fragment>
                 ) : (
                     <React.Fragment>
-                        <div className="tw-derive-confirm-title">Confirm derive</div>
-                        <div className="tw-derive-confirm-body">
+                        <div className="sv-tw-derive-confirm-title">Confirm derive</div>
+                        <div className="sv-tw-derive-confirm-body">
                             {gbStr
                                 ? <React.Fragment>Estimated output size: <strong>{gbStr}</strong>. Proceed?</React.Fragment>
                                 : 'Proceed with derive?'}
                         </div>
-                        <div className="tw-derive-confirm-actions">
-                            <Button bsStyle="primary" bsSize="small" className="tw-derive-btn" onClick={onConfirm} data-testid="derive-confirm-ok">
+                        <div className="sv-tw-derive-confirm-actions">
+                            <Button bsStyle="primary" bsSize="small" className="sv-tw-derive-btn" onClick={onConfirm} data-testid="derive-confirm-ok">
                                 Derive
                             </Button>
-                            <button type="button" className="tw-save-btn" onClick={onCancel} data-testid="derive-confirm-cancel">Cancel</button>
+                            <button type="button" className="sv-tw-save-btn" onClick={onCancel} data-testid="derive-confirm-cancel">Cancel</button>
                         </div>
                     </React.Fragment>
                 )}
@@ -498,7 +498,7 @@ class TWRecipeBuilder extends React.Component {
         const canDerive = this._canDerive();
         const allUnmodified = inputs.length > 0 && inputs.every(d => d.unmodified);
         return (
-            <div className="tw-recipe-builder" data-testid="recipe-builder">
+            <div className="sv-tw-recipe-builder" data-testid="recipe-builder">
                 {/* TASK-1671: single DEM stack (replaces TWDesignInputPicker + regional terrain picker) */}
                 <TWDemStackPicker
                     terrains={terrains}
@@ -507,25 +507,25 @@ class TWRecipeBuilder extends React.Component {
                     disabled={saving || deriving}
                 />
                 {allUnmodified && (
-                    <div className="tw-validation-hint" data-testid="all-unmodified-hint">
+                    <div className="sv-tw-validation-hint" data-testid="all-unmodified-hint">
                         At least one DEM must be modifiable (not set to unmodified).
                     </div>
                 )}
                 {/* TASK-1671: Parameters section — NO Save parameters button.
                     #10 (re-UAT): the "PARAMETERS" sub-heading was redundant with the
                     collapsible panel title and is removed. */}
-                <div className="tw-params-section">
-                    <div className="tw-param-grid">
+                <div className="sv-tw-params-section tw-params-section">
+                    <div className="sv-tw-param-grid">
                         <label>Use culverts</label>
                         <input type="checkbox" checked={!!use_culverts} onChange={(e) => this.handleParam('use_culverts', e.target.checked)} disabled={saving || deriving} data-testid="use-culverts-check"/>
                         <label>Feather width (m)</label>
-                        <input type="number" className="tw-number-input" value={feather_width_m} min="1" onChange={(e) => this.handleParam('feather_width_m', e.target.value)} disabled={saving || deriving} data-testid="feather-width-input"/>
+                        <input type="number" className="sv-tw-number-input" value={feather_width_m} min="1" onChange={(e) => this.handleParam('feather_width_m', e.target.value)} disabled={saving || deriving} data-testid="feather-width-input"/>
                         <label>Target resolution (m)</label>
-                        <input type="number" className="tw-number-input" value={target_resolution_m} min="0.1" step="0.1" onChange={(e) => this.handleParam('target_resolution_m', e.target.value)} disabled={saving || deriving} data-testid="target-res-input"/>
+                        <input type="number" className="sv-tw-number-input" value={target_resolution_m} min="0.1" step="0.1" onChange={(e) => this.handleParam('target_resolution_m', e.target.value)} disabled={saving || deriving} data-testid="target-res-input"/>
                         <label>Breach max cost</label>
-                        <input type="number" className="tw-number-input" value={breach_max_cost} min="0" onChange={(e) => this.handleParam('breach_max_cost', e.target.value)} disabled={saving || deriving} data-testid="breach-max-cost-input"/>
+                        <input type="number" className="sv-tw-number-input" value={breach_max_cost} min="0" onChange={(e) => this.handleParam('breach_max_cost', e.target.value)} disabled={saving || deriving} data-testid="breach-max-cost-input"/>
                         <label>Breach search dist</label>
-                        <input type="number" className="tw-number-input" value={breach_search_dist} min="1" onChange={(e) => this.handleParam('breach_search_dist', e.target.value)} disabled={saving || deriving} data-testid="breach-search-dist-input"/>
+                        <input type="number" className="sv-tw-number-input" value={breach_search_dist} min="1" onChange={(e) => this.handleParam('breach_search_dist', e.target.value)} disabled={saving || deriving} data-testid="breach-search-dist-input"/>
                     </div>
                     {/* TASK-1671: Save parameters button REMOVED — params saved atomically on derive */}
                 </div>
@@ -535,15 +535,15 @@ class TWRecipeBuilder extends React.Component {
                     forward arbitrary DOM props, hence the wrapper carries the testid. */}
                 {saveError && (
                     <div data-testid="save-error">
-                        <ErrorStrip message={saveError} extraClassName="tw-error"/>
+                        <ErrorStrip message={saveError} extraClassName="sv-tw-error tw-error"/>
                     </div>
                 )}
                 {/* TASK-1671: Derive section — single button triggers confirm dialog */}
-                <div className="tw-derive-section">
+                <div className="sv-tw-derive-section">
                     <Button
                         bsStyle="primary"
                         bsSize="small"
-                        className="tw-derive-btn"
+                        className="sv-tw-derive-btn"
                         onClick={this.handleDeriveClick}
                         disabled={!canDerive}
                         data-testid="derive-btn"
@@ -551,11 +551,11 @@ class TWRecipeBuilder extends React.Component {
                         {/* #9 (re-UAT): "Derive terrain" renamed to "Create". */}
                         {deriving ? 'Creating…' : 'Create'}
                     </Button>
-                    {deriving && <div className="tw-derive-progress" data-testid="derive-progress">Processing — watch the Task Monitor for progress.</div>}
+                    {deriving && <div className="sv-tw-derive-progress" data-testid="derive-progress">Processing — watch the Task Monitor for progress.</div>}
                     {/* TASK-1674: tw-error -> shared ErrorStrip (testid kept on the wrapper). */}
                     {deriveError && (
                         <div data-testid="derive-error">
-                            <ErrorStrip message={deriveError} extraClassName="tw-error"/>
+                            <ErrorStrip message={deriveError} extraClassName="sv-tw-error tw-error"/>
                         </div>
                     )}
                 </div>
@@ -611,12 +611,12 @@ class TWSurfaceListItem extends React.Component {
         const { surface, selected, saving, onSelect, onDelete } = this.props;
         return (
             <div
-                className={`tw-surface-item${selected ? ' selected' : ''}`}
+                className={`sv-tw-surface-item${selected ? ' selected' : ''}`}
                 onClick={() => onSelect(surface.id)}
                 data-testid={`surface-item-${surface.id}`}
             >
                 <input
-                    className="tw-surface-title-input"
+                    className="sv-tw-surface-title-input"
                     value={this.state.draft}
                     placeholder={`Surface #${surface.id}`}
                     title="Click to rename this analysis surface"
@@ -640,7 +640,7 @@ class TWSurfaceListItem extends React.Component {
                 <TWStaleBadge isStale={!!surface.is_stale && !!surface.output_terrain}/>
                 <button
                     type="button"
-                    className="tw-icon-btn tw-icon-btn-danger tw-surface-delete"
+                    className="sv-tw-icon-btn sv-tw-icon-btn-danger sv-tw-surface-delete"
                     onClick={(e) => { e.stopPropagation(); onDelete(surface.id); }}
                     disabled={saving}
                     title="Delete this analysis surface"
@@ -654,22 +654,22 @@ class TWSurfaceListItem extends React.Component {
 
 function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onNew, saving, createError }) {
     return (
-        <div className="tw-surface-list">
+        <div className="sv-tw-surface-list">
             {/* #10 (re-UAT): the "ANALYSIS SURFACES" sub-heading was redundant with the
                 collapsible panel title above; only the "+ New" action remains in the header. */}
-            <div className="tw-surface-list-header tw-surface-list-header--no-label">
-                <button type="button" className="tw-new-btn" onClick={onNew} disabled={saving} data-testid="new-surface-btn">+ New analysis surface</button>
+            <div className="sv-tw-surface-list-header tw-surface-list-header sv-tw-surface-list-header--no-label tw-surface-list-header--no-label">
+                <button type="button" className="sv-tw-new-btn" onClick={onNew} disabled={saving} data-testid="new-surface-btn">+ New analysis surface</button>
             </div>
             {/* TASK-1658: a failed create has no selectedSurface, so the recipe-form
                 error would be invisible — surface it here at the list level. */}
             {/* TASK-1674: tw-error -> shared ErrorStrip; tw-empty-hint -> shared EmptyState. */}
             {createError && (
                 <div data-testid="create-error">
-                    <ErrorStrip message={createError} extraClassName="tw-error"/>
+                    <ErrorStrip message={createError} extraClassName="sv-tw-error tw-error"/>
                 </div>
             )}
             {surfaces.length === 0 && (
-                <EmptyState extraClassName="tw-empty-hint">
+                <EmptyState extraClassName="sv-tw-empty-hint tw-empty-hint">
                     No analysis surfaces yet. Create one with <strong>+ New analysis surface</strong>.
                 </EmptyState>
             )}
@@ -971,7 +971,7 @@ class TerrainHierarchyRow extends React.Component {
                         visibility/zoom controls would have nowhere to live. */}
                     {hasDerivatives ? (
                         <span
-                            className="terrain-parent-title"
+                            className="sv-tw-terrain-parent-title terrain-parent-title"
                             data-testid="terrain-parent-title"
                             style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
                             onClick={handleRowSelect}
@@ -987,7 +987,7 @@ class TerrainHierarchyRow extends React.Component {
                             <MenuRow layer={demLayer} />
                         </div>
                     ) : (
-                        <span className="terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 12}}>
+                        <span className="sv-tw-terrain-pending-name terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 12}}>
                             {terrain.title || terrain.name || 'Terrain'}
                             <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
                         </span>
@@ -1014,7 +1014,7 @@ class TerrainHierarchyRow extends React.Component {
                                     glass / delete) on the LEFT, the Mode (⚙) + Contours (◷) toggles
                                     to their RIGHT via the MenuRow extra-toolbar slot (between the
                                     controls and the title). Decorative photo glyph removed earlier. */}
-                                <div className="terrain-derivative-row terrain-dem-row" data-testid="terrain-dem-row">
+                                <div className="terrain-derivative-row sv-tw-terrain-dem-row terrain-dem-row" data-testid="terrain-dem-row">
                                     <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
                                     <div style={{flex: 1, minWidth: 0}}>
                                         <MenuRow layer={demLayer} extraToolbarActions={demExtraActions} />
@@ -1026,7 +1026,7 @@ class TerrainHierarchyRow extends React.Component {
                             empty extra-toolbar slot (same fixed width) so its controls + title line
                             up in columns with the DEM row above. */}
                         {hillshadeLayer ? (
-                            <div className="terrain-derivative-row terrain-hillshade-row">
+                            <div className="terrain-derivative-row sv-tw-terrain-hillshade-row">
                                 <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
                                 <div style={{flex: 1, minWidth: 0}}>
                                     <MenuRow layer={hillshadeLayer} extraToolbarActions={hillshadeExtraActions} />
@@ -2027,11 +2027,11 @@ class AnugaInputMenuClass extends React.Component {
                         </div>
                         {twSurfaceSectionOpen && (
                             <div className="anuga-terrain-recipe-body">
-                                {twLoading && <div className="tw-loading">Loading…</div>}
+                                {twLoading && <div className="sv-tw-loading">Loading…</div>}
                                 {/* TASK-1674: tw-error -> shared ErrorStrip (testid kept on the wrapper). */}
                                 {twError && (
                                     <div data-testid="tw-load-error">
-                                        <ErrorStrip message={twError} extraClassName="tw-error"/>
+                                        <ErrorStrip message={twError} extraClassName="sv-tw-error tw-error"/>
                                     </div>
                                 )}
                                 {!twLoading && !twError && (

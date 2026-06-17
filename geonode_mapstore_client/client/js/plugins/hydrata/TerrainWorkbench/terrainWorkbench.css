@@ -4,8 +4,13 @@
  *
  * TASK-1657: the standalone TerrainWorkbench panel shell was dissolved (TASK-1645)
  * and its dead chrome rules (.terrain-workbench-panel / -nav / -body / -stub) were
- * removed. The .tw-* and .anuga-terrain-recipe-* rules below remain LIVE — they
+ * removed. The .sv-tw-* and .anuga-terrain-recipe-* rules below remain LIVE — they
  * style the recipe builder re-homed into the Anuga Inputs pane.
+ *
+ * TASK-1765 (W1.9, epic/1587): tw-/terrain- prefixes migrated to sv-tw- to conform
+ * with the SimpleView sv-* namespace. anuga-/scenario-/menu-/save-/data- class
+ * references are untouched (deferred to TASK-1766 coupled cross-panel rename).
+ * Test-pinned class names kept via extraClassName dual-class pattern in JS.
  */
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -25,6 +30,11 @@
  * WCAG-AA corrections (TASK-1664: dim text 0.55 → 0.68 over a bright map). Colours
  * with no proof-capped token (the lime accent, success green, warn orange, the
  * danger strip) stay literal until the full sv-* namespace migration (TASK-1673).
+ *
+ * TASK-1765 token pass: --sv-accent-lime replaces rgb(202,227,59)/#cae33b lime accent;
+ * --sv-font-family applied on every text surface; --sv-text-danger for error text.
+ * Bootstrap amber rgb(240,173,78) kept literal (no sv-* token covers it yet — the
+ * closest --sv-status-warn/#f0e08a is lighter; --sv-warning-color/#fcf8e3 is cream text).
  * ────────────────────────────────────────────────────────────────────────── */
 
 /* Expander: "Analysis Surfaces" collapsible section under the terrain layers.
@@ -35,6 +45,7 @@
     margin-top: 4px;
     flex-shrink: 0;
     text-align: left;
+    font-family: var(--sv-font-family);
 }
 
 .anuga-terrain-recipe-toggle {
@@ -43,6 +54,7 @@
     gap: 4px;
     padding: 8px 10px;
     font-size: 13px;
+    font-family: var(--sv-font-family);
     font-weight: 600;
     color: #fff;
     cursor: pointer;
@@ -68,14 +80,16 @@
     padding: 8px 10px 14px;
     max-height: 60vh;
     overflow-y: auto;
+    font-family: var(--sv-font-family);
+    font-size: var(--sv-font-size);
 }
 
 /* ── Surface list ──────────────────────────────────────────────────────── */
-.tw-surface-list {
+.sv-tw-surface-list {
     margin-bottom: 10px;
 }
 
-.tw-surface-list-header {
+.sv-tw-surface-list-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -83,21 +97,22 @@
     margin-bottom: 6px;
 }
 
-.tw-surface-list-header .tw-label {
+.sv-tw-surface-list-header .sv-tw-label {
     margin-bottom: 0;
 }
 
 /* TASK-1750 (W1.8) #10: the redundant "ANALYSIS SURFACES" sub-heading was removed —
  * with only the "+ New analysis surface" action left, keep it flush right so the
  * header layout matches the old (label-left / button-right) rhythm. */
-.tw-surface-list-header--no-label {
+.sv-tw-surface-list-header--no-label {
     justify-content: flex-end;
 }
 
 /* "+ New analysis surface" — green, mirrors the Scenarios "New Scenario" button */
-.tw-new-btn {
+.sv-tw-new-btn {
     padding: 2px 10px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     font-weight: 400;
     line-height: 1.5;
     border-radius: 2px;
@@ -109,43 +124,44 @@
     flex-shrink: 0;
 }
 
-.tw-new-btn:hover:not(:disabled) {
+.sv-tw-new-btn:hover:not(:disabled) {
     background-color: #4cae4c;
 }
 
-.tw-new-btn:disabled {
+.sv-tw-new-btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
 
 /* Surface rows — mirror .scenario-rail-item (dark, lime active marker) */
-.tw-surface-item {
+.sv-tw-surface-item {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 6px 9px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     color: #fff;
     cursor: pointer;
     border-left: 3px solid transparent;
     border-radius: 0 2px 2px 0;
 }
 
-.tw-surface-item:hover:not(.selected) {
+.sv-tw-surface-item:hover:not(.selected) {
     background: rgba(255, 255, 255, 0.04);
 }
 
-.tw-surface-item:focus-visible {
+.sv-tw-surface-item:focus-visible {
     outline: none;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 
-.tw-surface-item.selected {
+.sv-tw-surface-item.selected {
     background: var(--sv-panel-bg, rgba(0, 60, 136, 0.8));
-    border-left-color: rgb(202, 227, 59);
+    border-left-color: var(--sv-accent-lime, rgb(202, 227, 59));
 }
 
-.tw-surface-title {
+.sv-tw-surface-title {
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -157,10 +173,11 @@
 /* Inline-rename field — reads as plain text until hovered/focused, then shows an
  * editable underline. !important beats .simple-view-panel input's dark fill so
  * the resting state stays transparent (echoes the Scenarios .data-title-input). */
-.tw-surface-title-input {
+.sv-tw-surface-title-input {
     flex: 1;
     min-width: 0;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     font-weight: 500;
     color: #fff !important;
     background: transparent !important;
@@ -172,52 +189,54 @@
     text-overflow: ellipsis;
 }
 
-.tw-surface-title-input::placeholder {
+.sv-tw-surface-title-input::placeholder {
     color: rgba(255, 255, 255, 0.45);
 }
 
-.tw-surface-title-input:hover:not(:focus):not(:disabled) {
+.sv-tw-surface-title-input:hover:not(:focus):not(:disabled) {
     border-bottom-color: rgba(255, 255, 255, 0.25) !important;
 }
 
-.tw-surface-title-input:focus {
+.sv-tw-surface-title-input:focus {
     outline: none;
     background: rgba(0, 0, 0, 0.25) !important;
     border-bottom-color: rgba(255, 255, 255, 0.6) !important;
 }
 
-.tw-surface-title-input:disabled {
+.sv-tw-surface-title-input:disabled {
     cursor: default;
 }
 
 /* Per-row delete — only revealed on hover / when the row is selected, to keep
  * the list clean and guard against accidental deletes. */
-.tw-surface-delete {
+.sv-tw-surface-delete {
     opacity: 0;
     transition: opacity 0.12s;
 }
 
-.tw-surface-item:hover .tw-surface-delete,
-.tw-surface-item.selected .tw-surface-delete,
-.tw-surface-delete:focus {
+.sv-tw-surface-item:hover .sv-tw-surface-delete,
+.sv-tw-surface-item.selected .sv-tw-surface-delete,
+.sv-tw-surface-delete:focus {
     opacity: 1;
 }
 
-.tw-empty-hint {
+.sv-tw-empty-hint {
     font-size: 11.5px;
+    font-family: var(--sv-font-family);
     color: var(--sv-text-dim);
     padding: 10px 4px;
     text-align: center;
     line-height: 1.4;
 }
 
-.tw-empty-hint strong {
+.sv-tw-empty-hint strong {
     color: rgba(255, 255, 255, 0.8);
 }
 
 /* ── Stale pill — mirrors .anuga-scenario-category-item-tag.is-warn ──────── */
-.tw-stale-badge {
+.sv-tw-stale-badge {
     font-size: 10px;
+    font-family: var(--sv-font-family);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.02em;
@@ -232,14 +251,14 @@
 }
 
 /* ── Recipe builder ────────────────────────────────────────────────────── */
-.tw-recipe-builder {
+.sv-tw-recipe-builder {
     border-top: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
     margin-top: 6px;
     padding-top: 4px;
 }
 
 /* Header — mirrors .anuga-scenario-pane-detail-head */
-.tw-recipe-header {
+.sv-tw-recipe-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -248,10 +267,11 @@
     border-bottom: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
 }
 
-.tw-title-input {
+.sv-tw-title-input {
     flex: 1;
     min-width: 0;
     font-size: 14px;
+    font-family: var(--sv-font-family);
     font-weight: 600;
     color: #fff;
     background: transparent;
@@ -261,20 +281,21 @@
     padding: 2px 4px;
 }
 
-.tw-title-input:focus {
+.sv-tw-title-input:focus {
     outline: none;
     border-bottom-color: rgba(255, 255, 255, 0.55);
     background: transparent;
 }
 
-.tw-title-input::placeholder {
+.sv-tw-title-input::placeholder {
     color: rgba(255, 255, 255, 0.45);
 }
 
 /* Section labels — mirror .anuga-scenario-category-section-label (uppercase, dim) */
-.tw-label {
+.sv-tw-label {
     display: block;
     font-size: 10px;
+    font-family: var(--sv-font-family);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -284,79 +305,82 @@
 
 /* TASK-1750 (W1.8) #15: the user-facing "Merge terrains" heading reads normal-case,
  * not the all-caps section-label treatment (the internal/domain term stays
- * "DEM priority stack"). Overrides .tw-label's text-transform:uppercase. */
-.tw-label-normalcase {
+ * "DEM priority stack"). Overrides .sv-tw-label's text-transform:uppercase. */
+.sv-tw-label-normalcase {
     text-transform: none;
     letter-spacing: 0.02em;
 }
 
-.tw-label-sub {
+.sv-tw-label-sub {
     font-weight: 400;
     text-transform: none;
     letter-spacing: 0;
     color: rgba(255, 255, 255, 0.4);
 }
 
-.tw-field {
+.sv-tw-field {
     margin-bottom: 12px;
 }
 
 /* Selects/inputs — dark glass, mirrors .simple-view-panel inputs + scenario-select */
-.tw-select {
+.sv-tw-select {
     width: 100%;
     padding: 5px 8px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     color: #fff;
     background-color: var(--sv-input-blue);
     border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 3px;
 }
 
-.tw-select:focus {
+.sv-tw-select:focus {
     outline: none;
     border-color: rgba(255, 255, 255, 0.6);
 }
 
-.tw-select:disabled {
+.sv-tw-select:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
 
 /* Native option list renders on the OS popup surface — keep it readable. */
-.tw-select option {
+.sv-tw-select option {
     color: #1f2d3d;
     background: #fff;
 }
 
 /* Design-DEM ordered list */
-.tw-design-inputs {
+.sv-tw-design-inputs {
     margin-bottom: 8px;
 }
 
-.tw-design-input-row {
+.sv-tw-design-input-row {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 5px 8px;
     margin-bottom: 4px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     color: #fff;
     background: rgba(0, 0, 0, 0.18);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 3px;
 }
 
-.tw-priority-badge {
+.sv-tw-priority-badge {
     font-size: 10px;
+    font-family: var(--sv-font-family);
     font-weight: 700;
-    color: rgb(202, 227, 59);
+    color: var(--sv-accent-lime, rgb(202, 227, 59));
     min-width: 16px;
     text-align: center;
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
 }
 
-.tw-input-title {
+.sv-tw-input-title {
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -365,13 +389,14 @@
 }
 
 /* Reorder / remove icon buttons */
-.tw-icon-btn {
+.sv-tw-icon-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-width: 22px;
     padding: 1px 6px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     line-height: 1.4;
     color: #fff;
     background: rgba(255, 255, 255, 0.08);
@@ -381,64 +406,69 @@
     flex-shrink: 0;
 }
 
-.tw-icon-btn:hover:not(:disabled) {
+.sv-tw-icon-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.16);
 }
 
-.tw-icon-btn:disabled {
+.sv-tw-icon-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
 }
 
-.tw-icon-btn-danger {
+.sv-tw-icon-btn-danger {
     background: rgba(98, 43, 43, 0.65);
     border-color: rgba(217, 83, 79, 0.5);
-    color: rgb(244, 185, 183);
+    color: var(--sv-text-danger, rgb(244, 185, 183));
 }
 
-.tw-icon-btn-danger:hover:not(:disabled) {
+.sv-tw-icon-btn-danger:hover:not(:disabled) {
     background: rgb(98, 43, 43);
 }
 
-.tw-validation-hint {
+.sv-tw-validation-hint {
     font-size: 11px;
+    font-family: var(--sv-font-family);
+    /* Bootstrap amber warning -- no exact sv-* token yet (--sv-status-warn is lighter yellow;
+     * --sv-warning-color is the light cream banner text). Kept literal per W1.9 scope. */
     color: rgb(240, 173, 78);
     margin-top: 4px;
 }
 
 /* Parameter rows — label + value rhythm (echoes .anuga-scenario-pane-section) */
-.tw-params-section {
+.sv-tw-params-section {
     margin-bottom: 12px;
 }
 
-.tw-param-grid {
+.sv-tw-param-grid {
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 8px 10px;
     align-items: center;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     margin-bottom: 10px;
 }
 
-.tw-param-grid > label {
+.sv-tw-param-grid > label {
     color: var(--sv-text);
     font-weight: 400;
     margin: 0;
 }
 
-.tw-param-grid > input[type="checkbox"] {
+.sv-tw-param-grid > input[type="checkbox"] {
     justify-self: end;
     width: 16px;
     height: 16px;
     margin: 0;
-    accent-color: rgb(202, 227, 59);
+    accent-color: var(--sv-accent-lime, rgb(202, 227, 59));
 }
 
-.tw-number-input {
+.sv-tw-number-input {
     width: 88px;
     justify-self: end;
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     text-align: right;
     color: #fff;
     background-color: var(--sv-input-blue);
@@ -446,20 +476,21 @@
     border-radius: 3px;
 }
 
-.tw-number-input:focus {
+.sv-tw-number-input:focus {
     outline: none;
     border-color: rgba(255, 255, 255, 0.6);
 }
 
-.tw-number-input:disabled {
+.sv-tw-number-input:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
 
 /* Secondary "Save" buttons — mirror .anuga-btn-compare (muted blue) */
-.tw-save-btn {
+.sv-tw-save-btn {
     padding: 3px 12px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     line-height: 1.5;
     color: #fff;
     background-color: rgb(96, 133, 181);
@@ -468,47 +499,49 @@
     cursor: pointer;
 }
 
-.tw-save-btn:hover:not(:disabled) {
+.sv-tw-save-btn:hover:not(:disabled) {
     background-color: rgb(114, 151, 197);
 }
 
-.tw-save-btn:disabled {
+.sv-tw-save-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
 /* Derive — primary green action (mirrors the success buttons) */
-.tw-derive-section {
+.sv-tw-derive-section {
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.18));
 }
 
-.tw-derive-btn.btn {
+.sv-tw-derive-btn.btn {
     background-color: #5cb85c;
     border-color: #4cae4c;
     color: #fff;
     font-weight: 500;
+    font-family: var(--sv-font-family);
     margin-bottom: 6px;
 }
 
-.tw-derive-btn.btn:hover:not([disabled]),
-.tw-derive-btn.btn:focus {
+.sv-tw-derive-btn.btn:hover:not([disabled]),
+.sv-tw-derive-btn.btn:focus {
     background-color: #4cae4c;
     border-color: #449d44;
     color: #fff;
 }
 
-.tw-derive-btn.btn[disabled],
-.tw-derive-btn.btn.disabled {
+.sv-tw-derive-btn.btn[disabled],
+.sv-tw-derive-btn.btn.disabled {
     background-color: rgba(92, 184, 92, 0.4);
     border-color: transparent;
     color: rgba(255, 255, 255, 0.6);
 }
 
 /* Derive in-progress note — info strip (echoes .anuga-scenario-pane-readonly-hint) */
-.tw-derive-progress {
+.sv-tw-derive-progress {
     font-size: 11.5px;
+    font-family: var(--sv-font-family);
     color: rgba(255, 255, 255, 0.8);
     margin-top: 6px;
     padding: 6px 10px;
@@ -518,36 +551,38 @@
 }
 
 /* Seam QA — mirrors .anuga-scenario-resource-summary / status card */
-.tw-seam-qa {
+.sv-tw-seam-qa {
     margin-top: 12px;
     padding: 8px 10px;
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 3px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     color: var(--sv-text);
 }
 
-.tw-seam-qa .tw-label {
+.sv-tw-seam-qa .sv-tw-label {
     margin-bottom: 6px;
 }
 
-.tw-seam-qa-row {
+.sv-tw-seam-qa-row {
     display: flex;
     gap: 8px;
     justify-content: space-between;
     padding: 2px 0;
 }
 
-.tw-seam-qa-row strong {
+.sv-tw-seam-qa-row strong {
     color: #fff;
     font-variant-numeric: tabular-nums;
 }
 
 /* Error strip — mirrors .anuga-scenario-error-strip */
-.tw-error {
+.sv-tw-error {
     font-size: 11.5px;
-    color: rgb(244, 185, 183);
+    font-family: var(--sv-font-family);
+    color: var(--sv-text-danger, rgb(244, 185, 183));
     background: rgba(217, 83, 79, 0.14);
     border: 1px solid rgba(217, 83, 79, 0.3);
     border-left: 3px solid #d9534f;
@@ -557,8 +592,9 @@
     line-height: 1.45;
 }
 
-.tw-loading {
-    font-size: 12px;
+.sv-tw-loading {
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     color: rgba(255, 255, 255, 0.6);
     padding: 16px 0;
     text-align: center;
@@ -570,7 +606,7 @@
  * datum anchor — byte-exact pass-through). The pencil turns GREEN when clicked to
  * mark the entry "modifiable" (feather-merge may reconcile it). The base entry
  * carries the same pencil for visual consistency but is locked-on (modifiable). */
-.tw-pencil-toggle {
+.sv-tw-pencil-toggle {
     min-width: 24px;
     font-size: 13px;
     /* default (unmodified) — greyed pencil */
@@ -580,29 +616,29 @@
 }
 
 /* GREEN pencil = modifiable. */
-.tw-pencil-toggle.tw-modifiable-on {
+.sv-tw-pencil-toggle.sv-tw-modifiable-on {
     color: rgb(92, 184, 92);
     background: rgba(92, 184, 92, 0.14);
     border-color: rgba(92, 184, 92, 0.45);
 }
 
-.tw-pencil-toggle:hover:not(:disabled) {
+.sv-tw-pencil-toggle:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.12);
 }
 
-.tw-pencil-toggle.tw-modifiable-on:hover:not(:disabled) {
+.sv-tw-pencil-toggle.sv-tw-modifiable-on:hover:not(:disabled) {
     background: rgba(92, 184, 92, 0.22);
 }
 
 /* Base row is locked-on (modifiable, disabled) — keep the green so the constraint
  * (base can never be unmodified) reads as an intentional locked-on state, not a
  * generic greyed-out disabled control. */
-.tw-pencil-toggle.tw-modifiable-on:disabled {
+.sv-tw-pencil-toggle.sv-tw-modifiable-on:disabled {
     opacity: 0.7;
     color: rgb(92, 184, 92);
 }
 
-.tw-pencil-toggle .glyphicon {
+.sv-tw-pencil-toggle .glyphicon {
     top: 1px;
     font-size: 11px;
 }
@@ -610,43 +646,44 @@
 /* ── TASK-1671: Derive confirm dialog ─────────────────────────────────────── */
 
 /* Inline confirm box rendered inside the recipe builder (not a full modal).
- * Positioned below the Derive button within the .tw-derive-section flow. */
-.tw-derive-confirm-overlay {
+ * Positioned below the Derive button within the .sv-tw-derive-section flow. */
+.sv-tw-derive-confirm-overlay {
     margin-top: 10px;
     padding: 0;
 }
 
-.tw-derive-confirm-box {
+.sv-tw-derive-confirm-box {
     padding: 12px 14px;
     background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
-    font-size: 12px;
+    font-size: var(--sv-font-size);
+    font-family: var(--sv-font-family);
     color: rgba(255, 255, 255, 0.9);
 }
 
-.tw-derive-confirm-title {
+.sv-tw-derive-confirm-title {
     font-weight: 600;
     font-size: 13px;
     margin-bottom: 8px;
     color: #fff;
 }
 
-.tw-derive-confirm-title--error {
-    color: rgb(244, 185, 183);
+.sv-tw-derive-confirm-title--error {
+    color: var(--sv-text-danger, rgb(244, 185, 183));
 }
 
-.tw-derive-confirm-body {
+.sv-tw-derive-confirm-body {
     margin-bottom: 12px;
     line-height: 1.45;
     color: var(--sv-text);
 }
 
-.tw-derive-confirm-body strong {
+.sv-tw-derive-confirm-body strong {
     color: #fff;
 }
 
-.tw-derive-confirm-actions {
+.sv-tw-derive-confirm-actions {
     display: flex;
     gap: 8px;
     align-items: center;
@@ -672,9 +709,10 @@
 
 /* #13: left-justify the terrain item heading (parent identity title) — overrides
  * .simple-view-panel's inherited text-align:center. */
-.terrain-parent-title,
-.terrain-pending-name {
+.sv-tw-terrain-parent-title,
+.sv-tw-terrain-pending-name {
     text-align: left;
+    font-family: var(--sv-font-family);
 }
 
 /* #4: Mode + Contours toggles live in the MenuRow EXTRA-TOOLBAR slot, to the RIGHT
@@ -683,8 +721,8 @@
  * Hillshade row renders the same (empty) slot, so the controls + titles line up in
  * columns across both rows. Scoped to terrain rows — non-terrain MenuRows pass no
  * extra actions, so .menu-row-toolbar-extra never renders for them. */
-.terrain-dem-row .menu-row-toolbar-extra,
-.terrain-hillshade-row .menu-row-toolbar-extra {
+.sv-tw-terrain-dem-row .menu-row-toolbar-extra,
+.sv-tw-terrain-hillshade-row .menu-row-toolbar-extra {
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
@@ -715,7 +753,7 @@
  * decorative photo glyph LEFT of the title (now done in anugaInputMenu.js), not
  * these controls. Titles stay left-justified (#13) — the rule still overrides
  * .simple-view-panel's inherited text-align:center. */
-.terrain-dem-row .menu-row-title,
-.terrain-hillshade-row .menu-row-title {
+.sv-tw-terrain-dem-row .menu-row-title,
+.sv-tw-terrain-hillshade-row .menu-row-title {
     text-align: left;
 }
