@@ -178,7 +178,7 @@ const HistoryRecord = ({ record, expanded, onToggle }) => (
             <div style={{
                 padding: '8px 12px',
                 borderTop: '1px solid var(--sv-divider, rgba(255,255,255,0.08))',
-                backgroundColor: 'rgba(0,0,0,0.15)'
+                backgroundColor: 'var(--sv-inset-bg, rgba(0,0,0,0.15))'
             }}>
                 {record.load_snapshot && Object.keys(record.load_snapshot).length > 0 && (
                     <div style={{ marginBottom: 8 }}>

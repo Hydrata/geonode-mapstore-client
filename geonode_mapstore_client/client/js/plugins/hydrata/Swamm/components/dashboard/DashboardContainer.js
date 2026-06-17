@@ -75,7 +75,7 @@ class SwammBmpChartClass extends React.Component {
                         className="swamm-button"
                         style={{
                             fontSize: 'small',
-                            backgroundColor: !isTableView ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'rgba(39,202,59,0.6)'
+                            backgroundColor: !isTableView ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))'
                         }}
                         onClick={() => this.props.setDashboardView('chart')}
                     >
@@ -85,7 +85,7 @@ class SwammBmpChartClass extends React.Component {
                         className="swamm-button"
                         style={{
                             fontSize: 'small',
-                            backgroundColor: isTableView ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'rgba(39,202,59,0.6)'
+                            backgroundColor: isTableView ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))'
                         }}
                         onClick={() => this.props.setDashboardView('table')}
                     >

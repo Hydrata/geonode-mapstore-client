@@ -37,7 +37,7 @@ const TargetSelector = ({
                         aria-label={"Select target: " + target.name}
                         aria-pressed={isSelected}
                         style={{
-                            backgroundColor: isSelected ? "var(--sv-accent-green, rgba(39,202,59,1))" : "rgba(39,202,59,0.6)"
+                            backgroundColor: isSelected ? "var(--sv-accent-green, rgba(39,202,59,1))" : "var(--sv-accent-green-dim, rgba(39,202,59,0.6))"
                         }}
                         onClick={() => selectSwammTargetId(target?.id)}>
                         {target?.name}
@@ -68,7 +68,7 @@ const TargetSelector = ({
                         role="radio"
                         aria-checked={bmpFilterMode === 'type'}
                         style={{
-                            backgroundColor: bmpFilterMode === 'type' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "rgba(39,202,59,0.6)"
+                            backgroundColor: bmpFilterMode === 'type' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "var(--sv-accent-green-dim, rgba(39,202,59,0.6))"
                         }}
                         onClick={() => setBmpFilterMode('type')}
                     >
@@ -81,7 +81,7 @@ const TargetSelector = ({
                         role="radio"
                         aria-checked={bmpFilterMode === 'status'}
                         style={{
-                            backgroundColor: bmpFilterMode === 'status' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "rgba(39,202,59,0.6)"
+                            backgroundColor: bmpFilterMode === 'status' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "var(--sv-accent-green-dim, rgba(39,202,59,0.6))"
                         }}
                         onClick={() => setBmpFilterMode('status')}
                     >
@@ -94,7 +94,7 @@ const TargetSelector = ({
                         role="radio"
                         aria-checked={bmpFilterMode === 'group_profile'}
                         style={{
-                            backgroundColor: bmpFilterMode === 'group_profile' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "rgba(39,202,59,0.6)"
+                            backgroundColor: bmpFilterMode === 'group_profile' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "var(--sv-accent-green-dim, rgba(39,202,59,0.6))"
                         }}
                         onClick={() => setBmpFilterMode('group_profile')}
                     >
@@ -107,7 +107,7 @@ const TargetSelector = ({
                         role="radio"
                         aria-checked={bmpFilterMode === 'swamm_engine'}
                         style={{
-                            backgroundColor: bmpFilterMode === 'swamm_engine' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "rgba(39,202,59,0.6)"
+                            backgroundColor: bmpFilterMode === 'swamm_engine' ? "var(--sv-accent-green, rgba(39,202,59,1))" : "var(--sv-accent-green-dim, rgba(39,202,59,0.6))"
                         }}
                         onClick={() => setBmpFilterMode('swamm_engine')}
                     >
@@ -122,21 +122,21 @@ const TargetSelector = ({
             </div>
             <button
                 className={"swamm-button"}
-                style={{ backgroundColor: normalizationMode === 'total' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'rgba(39,202,59,0.6)' }}
+                style={{ backgroundColor: normalizationMode === 'total' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))' }}
                 onClick={() => setNormalizationMode && setNormalizationMode('total')}
             >
                 Total
             </button>
             <button
                 className={"swamm-button"}
-                style={{ backgroundColor: normalizationMode === 'per_acre' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'rgba(39,202,59,0.6)' }}
+                style={{ backgroundColor: normalizationMode === 'per_acre' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))' }}
                 onClick={() => setNormalizationMode && setNormalizationMode('per_acre')}
             >
                 Per Acre
             </button>
             <button
                 className={"swamm-button"}
-                style={{ backgroundColor: normalizationMode === 'per_dollar' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'rgba(39,202,59,0.6)' }}
+                style={{ backgroundColor: normalizationMode === 'per_dollar' ? 'var(--sv-accent-green, rgba(39,202,59,1))' : 'var(--sv-accent-green-dim, rgba(39,202,59,0.6))' }}
                 onClick={() => setNormalizationMode && setNormalizationMode('per_dollar')}
             >
                 Per Dollar

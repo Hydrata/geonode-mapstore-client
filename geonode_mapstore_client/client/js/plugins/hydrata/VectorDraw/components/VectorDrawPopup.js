@@ -195,10 +195,10 @@ export const PickerView = ({
         gap: 'var(--sv-form-row-gap)'
     };
     // TASK-1758 W3 — resting row surface is the tokenised --sv-row-hover-bg
-    // (rgba 255,255,255,0.1). The deepen-on-hover (0.2) has no exact token yet,
-    // so the hover handlers keep the raw literal; resting is restored via the
-    // CSS var on leave.
-    const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'; };
+    // (rgba 255,255,255,0.1). The deepen-on-hover (0.2) is now tokenised as
+    // --sv-row-hover-bg-strong (second token round); resting is restored via the
+    // --sv-row-hover-bg CSS var on leave.
+    const onRowEnter = (e) => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg-strong, rgba(255,255,255,0.2))'; };
     const onRowLeave = (e) => { e.currentTarget.style.backgroundColor = 'var(--sv-row-hover-bg)'; };
     // TASK-1409 — Trash icon click opens the inline React confirm overlay
     // instead of window.confirm. stopPropagation prevents the row's onClick
@@ -302,7 +302,7 @@ export const PickerView = ({
                             const isLastSaved = !!lastSavedFid
                                 && feature.id === lastSavedFid;
                             const highlightedRowStyle = isLastSaved
-                                ? { ...rowStyle, backgroundColor: 'rgba(80, 200, 120, 0.25)' }
+                                ? { ...rowStyle, backgroundColor: 'var(--sv-row-bg-success, rgba(80, 200, 120, 0.25))' }
                                 : rowStyle;
                             return (
                                 <div

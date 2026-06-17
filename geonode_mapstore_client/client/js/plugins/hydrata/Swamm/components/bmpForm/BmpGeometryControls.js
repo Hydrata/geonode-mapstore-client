@@ -44,7 +44,7 @@ const BmpGeometryControls = ({
                                 <button
                                     type={'button'}
                                     className={'swamm-button swamm-type-change-confirm-btn'}
-                                    style={{backgroundColor: "darkorange"}}
+                                    style={{backgroundColor: "var(--sv-btn-warn, darkorange)"}}
                                     onClick={() => {
                                         setTypeChangeConfirmVisible(false);
                                         setChangingBmpType(true);

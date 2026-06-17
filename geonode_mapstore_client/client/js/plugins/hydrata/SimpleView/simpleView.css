@@ -320,10 +320,10 @@
 .legend-close {
     position: absolute;
     right: 0;
-    /* TASK-1758 W3: text -> --sv-text. The coral-red close fill (#c9544d) has no
-       matching token (no --sv-close-bg exists); deferred to a tokens.css add. */
+    /* TASK-1758 W3: text -> --sv-text. Coral-red close fill now tokenised
+       (--sv-close-bg / --sv-close-bg-hover, second token round). */
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
-    background-color: #c9544d;
+    background-color: var(--sv-close-bg, #c9544d);
     border: none;
     border-radius: 3px;
     width: var(--sv-icon-size);
@@ -343,7 +343,7 @@
 }
 
 .legend-close:hover {
-    background-color: #b5403a;
+    background-color: var(--sv-close-bg-hover, #b5403a);
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
@@ -1334,7 +1334,7 @@ span.menu-row-glyph {
 
 .sv-tm-process-detail {
     padding: 8px 12px 12px 36px;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--sv-inset-bg, rgba(0, 0, 0, 0.15));
     /* TASK-1758 W3: tokenised translucent row divider. */
     border-bottom: 1px solid var(--sv-divider, rgba(255, 255, 255, 0.08));
     text-align: left; /* override inherited .simple-view-panel text-align:center */

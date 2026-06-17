@@ -173,4 +173,14 @@
     --sv-btn-save:    rgba(40, 167, 69, 0.85);  /* canonical success/save button fill */
     --sv-btn-danger:  darkred;                  /* canonical danger/delete button fill (aligns with --sv-glyph-delete) */
     --sv-disabled-bg: rgba(220, 53, 69, 0.18);  /* dark-glass disabled/non-savable surface (was light #f8a9a9) */
+
+    /* ── Second token round (TASK-1758 W3 re-aim deferrals) ─────────────────
+       Surfaced while applying the conform sweep — literals with no prior token. */
+    --sv-close-bg:           #c9544d;                  /* close-button coral fill (.legend-close) */
+    --sv-close-bg-hover:     #b5403a;                  /* close-button coral hover */
+    --sv-inset-bg:           rgba(0, 0, 0, 0.15);      /* recessed detail/expand-body inset (TaskMonitor ProcessDetail, Swamm BmpHistoryViewer) */
+    --sv-row-bg-success:     rgba(80, 200, 120, 0.25); /* just-saved/success row tint (VectorDraw picker) */
+    --sv-row-hover-bg-strong:rgba(255, 255, 255, 0.20);/* deeper row hover (VectorDraw picker onRowEnter) */
+    --sv-accent-green-dim:   rgba(39, 202, 59, 0.6);   /* dim/inactive variant of --sv-accent-green (Swamm dashboard) */
+    --sv-btn-warn:           darkorange;               /* warn/secondary-action button fill (Swamm add-geometry) */
 }
