@@ -200,7 +200,7 @@ describe('TASK-804 NIT-6: PickerView highlights the lastSavedFid row', () => {
             />,
             container
         );
-        const highlighted = container.querySelectorAll('.vector-draw-picker-row-just-saved');
+        const highlighted = container.querySelectorAll('.sv-vector-draw-picker-row-just-saved');
         // Exactly one row matches.
         expect(highlighted.length).toBe(1);
         expect(highlighted[0].textContent).toMatch(/Just-saved/);
@@ -223,7 +223,7 @@ describe('TASK-804 NIT-6: PickerView highlights the lastSavedFid row', () => {
             />,
             container
         );
-        const highlighted = container.querySelectorAll('.vector-draw-picker-row-just-saved');
+        const highlighted = container.querySelectorAll('.sv-vector-draw-picker-row-just-saved');
         expect(highlighted.length).toBe(0);
     });
 });

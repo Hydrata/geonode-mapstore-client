@@ -72,23 +72,23 @@ describe('TASK-803 PickerView text filter', () => {
 
     it('with fewer features than threshold → filter input is NOT rendered', () => {
         render(makeFeatures(PICKER_FILTER_THRESHOLD - 1));
-        expect(container.querySelector('.vector-draw-picker-filter')).toBe(null);
+        expect(container.querySelector('.sv-vector-draw-picker-filter')).toBe(null);
     });
 
     it('with feature count == threshold → filter input IS rendered', () => {
         render(makeFeatures(PICKER_FILTER_THRESHOLD));
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         expect(input).toExist();
         expect(input.tagName).toBe('INPUT');
     });
 
     it('with many features (50) → filter input is rendered AND all rows visible by default', () => {
         render(makeFeatures(50));
-        expect(container.querySelector('.vector-draw-picker-filter')).toExist();
+        expect(container.querySelector('.sv-vector-draw-picker-filter')).toExist();
         // Each row gets a className from the picker template; count rows
         // excluding the "+ Add new" item (which has its own className).
         const allRows = container.querySelectorAll('.simple-view-panel-item-row');
-        const addNewRow = container.querySelector('.vector-draw-picker-add-new');
+        const addNewRow = container.querySelector('.sv-vector-draw-picker-add-new');
         expect(addNewRow).toExist();
         // 50 features + 1 "+ Add new" row.
         expect(allRows.length).toBe(51);
@@ -100,7 +100,7 @@ describe('TASK-803 PickerView text filter', () => {
         features.push({ id: 'lyr.99', properties: { title: 'NorthOutlet' } });
         features.push({ id: 'lyr.100', properties: { title: 'EastTide' } });
         render(features);
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         Simulate.change(input, { target: { value: 'tide' } });
         const rows = container.querySelectorAll('.simple-view-panel-item-row');
         // 1 matching row + 1 "+ Add new" row = 2 total
@@ -108,12 +108,12 @@ describe('TASK-803 PickerView text filter', () => {
         const labels = Array.from(rows).map(r => r.textContent);
         expect(labels.some(l => /EastTide/.test(l))).toBe(true);
         // "+ Add new" still present
-        expect(container.querySelector('.vector-draw-picker-add-new')).toExist();
+        expect(container.querySelector('.sv-vector-draw-picker-add-new')).toExist();
     });
 
     it('case-insensitive matching: "INLET" matches "Inlet_03"', () => {
         render(makeFeatures(15, 'Inlet'));
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         Simulate.change(input, { target: { value: 'INLET_03' } });
         const rows = container.querySelectorAll('.simple-view-panel-item-row');
         // 1 matching row + "+ Add new"
@@ -122,24 +122,24 @@ describe('TASK-803 PickerView text filter', () => {
 
     it('filter with no matches → renders the empty-state placeholder', () => {
         render(makeFeatures(15, 'Inlet'));
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         Simulate.change(input, { target: { value: 'zzz_no_match' } });
-        const empty = container.querySelector('.vector-draw-picker-empty');
+        const empty = container.querySelector('.sv-vector-draw-picker-empty');
         expect(empty).toExist();
         expect(empty.textContent).toMatch(/No features match/);
         // "+ Add new" still rendered (creating new isn't blocked by filter)
-        expect(container.querySelector('.vector-draw-picker-add-new')).toExist();
+        expect(container.querySelector('.sv-vector-draw-picker-add-new')).toExist();
     });
 
     // TASK-1669 — the empty placeholder is now the shared EmptyState primitive.
-    // The legacy `.vector-draw-picker-empty` hook is preserved via extraClassName
+    // The legacy `.sv-vector-draw-picker-empty` hook is preserved via extraClassName
     // (so the test above + any scoped CSS still match) AND the primitive's own
     // `.sv-empty-state` class is present, proving the conform-migration landed.
     it('the no-match placeholder is the shared EmptyState primitive (sv-empty-state) carrying the legacy hook', () => {
         render(makeFeatures(15, 'Inlet'));
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         Simulate.change(input, { target: { value: 'zzz_no_match' } });
-        const empty = container.querySelector('.vector-draw-picker-empty');
+        const empty = container.querySelector('.sv-vector-draw-picker-empty');
         expect(empty).toExist();
         // Same element carries the shared primitive class.
         expect(empty.classList.contains('sv-empty-state')).toBe(true);
@@ -150,7 +150,7 @@ describe('TASK-803 PickerView text filter', () => {
 
     it('clearing the filter restores the full list', () => {
         render(makeFeatures(15, 'Inlet'));
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         Simulate.change(input, { target: { value: 'Inlet_05' } });
         let rows = container.querySelectorAll('.simple-view-panel-item-row');
         expect(rows.length).toBe(2);
@@ -164,7 +164,7 @@ describe('TASK-803 PickerView text filter', () => {
     it('clicking a filtered row still dispatches onSelectFeature with that fid', () => {
         const features = makeFeatures(15, 'Inlet');
         render(features);
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         Simulate.change(input, { target: { value: 'Inlet_07' } });
         const rows = container.querySelectorAll('.simple-view-panel-item-row');
         // First non-"+ Add new" row is the only filtered match.
@@ -176,7 +176,7 @@ describe('TASK-803 PickerView text filter', () => {
 
     it('whitespace-only filter text is treated as empty (full list shown)', () => {
         render(makeFeatures(15));
-        const input = container.querySelector('.vector-draw-picker-filter');
+        const input = container.querySelector('.sv-vector-draw-picker-filter');
         Simulate.change(input, { target: { value: '   ' } });
         const rows = container.querySelectorAll('.simple-view-panel-item-row');
         // 15 + "+ Add new"

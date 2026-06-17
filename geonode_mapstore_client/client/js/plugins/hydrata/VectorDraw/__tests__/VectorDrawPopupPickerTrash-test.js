@@ -2,10 +2,10 @@
  * TASK-784 picker-delete / TASK-1409 React confirm overlay.
  *
  * TASK-1409 replaced window.confirm in the picker trash handler with an
- * inline React confirm overlay (className vector-draw-delete-confirm). The
+ * inline React confirm overlay (className sv-vector-draw-delete-confirm). The
  * overlay shows feature label + Delete/Cancel buttons:
  *   - Cancel (.btn-default or just bsStyle not danger) → no dispatch
- *   - Delete (.vector-draw-delete-confirm-btn bsStyle=danger) → DELETE_FEATURE
+ *   - Delete (.sv-vector-draw-delete-confirm-btn bsStyle=danger) → DELETE_FEATURE
  *
  * Asserts:
  *   1. Each existing-feature row renders a .glyphicon-trash icon.
@@ -69,7 +69,7 @@ describe('TASK-784 / TASK-1409 VectorDrawPopup picker trash icon (React confirm 
 
     it('renders a trash icon on each existing-feature row', () => {
         render();
-        const popup = container.querySelector('.vector-draw-popup');
+        const popup = container.querySelector('.sv-vector-draw-popup');
         expect(popup).toExist();
         const trashes = popup.querySelectorAll('.glyphicon-trash');
         expect(trashes.length).toBe(2);
@@ -77,7 +77,7 @@ describe('TASK-784 / TASK-1409 VectorDrawPopup picker trash icon (React confirm 
 
     it('does NOT render a trash icon on the "+ Add new" row', () => {
         render();
-        const popup = container.querySelector('.vector-draw-popup');
+        const popup = container.querySelector('.sv-vector-draw-popup');
         const rows = popup.querySelectorAll('.simple-view-panel-item-row');
         // First row is "+ Add new", rest are features.
         const addNewRow = rows[0];
@@ -91,7 +91,7 @@ describe('TASK-784 / TASK-1409 VectorDrawPopup picker trash icon (React confirm 
         const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
         trash.dispatchEvent(evt);
         // Overlay must appear.
-        expect(container.querySelector('.vector-draw-delete-confirm')).toExist();
+        expect(container.querySelector('.sv-vector-draw-delete-confirm')).toExist();
         // No dispatch yet — user hasn't confirmed.
         expect(dispatched.find(a => a && a.type === DELETE_FEATURE)).toBe(undefined);
     });
@@ -112,7 +112,7 @@ describe('TASK-784 / TASK-1409 VectorDrawPopup picker trash icon (React confirm 
         trash.dispatchEvent(evt);
 
         // Now click Delete in the overlay.
-        const deleteBtn = container.querySelector('.vector-draw-delete-confirm-btn');
+        const deleteBtn = container.querySelector('.sv-vector-draw-delete-confirm-btn');
         expect(deleteBtn).toExist();
         deleteBtn.click();
 
@@ -128,7 +128,7 @@ describe('TASK-784 / TASK-1409 VectorDrawPopup picker trash icon (React confirm 
         trash.dispatchEvent(evt);
 
         // Find Cancel button (not the Delete button).
-        const overlay = container.querySelector('.vector-draw-delete-confirm');
+        const overlay = container.querySelector('.sv-vector-draw-delete-confirm');
         expect(overlay).toExist();
         const buttons = overlay.querySelectorAll('button');
         const cancelBtn = Array.from(buttons).find(b => /^cancel$/i.test(b.textContent));
@@ -184,7 +184,7 @@ describe('TASK-784 / TASK-1409 VectorDrawPopup picker trash icon (React confirm 
             const evt = new MouseEvent('click', { bubbles: true, cancelable: true });
             trash.dispatchEvent(evt);
             // Overlay appears for row 1.
-            expect(container.querySelector('.vector-draw-delete-confirm')).toExist();
+            expect(container.querySelector('.sv-vector-draw-delete-confirm')).toExist();
         });
 
         it('updates the trash title to "Deleting..." mid-flight for clarity', () => {

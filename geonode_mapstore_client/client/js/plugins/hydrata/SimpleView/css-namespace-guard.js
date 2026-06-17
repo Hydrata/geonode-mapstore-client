@@ -118,7 +118,7 @@ const ALLOWED_PREFIXES = new Set([
     // 'bmp' RATCHETED OUT (TASK-1766 W2): with Swamm above.
     // 'filter' RATCHETED OUT (TASK-1766 W2): .filter-row -> .sv-filter-row in swamm.css (Swamm-only). .filter-row-odd is an unstyled JS marker.
     // 'non' RATCHETED OUT (TASK-1766 W2): .non-savable-group-profile -> sv- (Swamm-only). non-null/non-operational are JS values, not classes.
-    'vector',
+    // 'vector' RATCHETED OUT (TASK-1766 W2): VectorDraw renamed all 12 vector-draw-* classes -> sv-* (vectorDrawPopup.css + VectorDraw JS incl. tests; pins are positive assertions, renamed in lock-step per the operator-authorized parity-track in-intent test updates). TASK-784 FontUniformity test walks inline font attrs, unaffected.
     // -- feature namespaces within panels --
     'idf',
     'ds',

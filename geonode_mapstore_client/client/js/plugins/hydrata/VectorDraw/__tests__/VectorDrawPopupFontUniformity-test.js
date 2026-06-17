@@ -3,7 +3,7 @@
  * across all five phases (picking / drawing / form / saving / error).
  *
  * Strategy: render the connected component for each phase + form-bearing
- * variant, then walk every descendant inside .vector-draw-popup and
+ * variant, then walk every descendant inside .sv-vector-draw-popup and
  * assert NONE of them carry an inline fontSize / fontWeight / fontFamily
  * style override. Inline overrides were the documented root cause of the
  * inconsistency the user reported.
@@ -147,14 +147,14 @@ describe('TASK-784 VectorDraw popup font uniformity', () => {
 
             beforeEach(() => {
                 container = render(STATES[phaseName]);
-                popup = container.querySelector('.vector-draw-popup');
+                popup = container.querySelector('.sv-vector-draw-popup');
             });
 
             afterEach(() => {
                 teardown(container);
             });
 
-            it('renders a .vector-draw-popup root', () => {
+            it('renders a .sv-vector-draw-popup root', () => {
                 expect(popup).toExist();
             });
 
@@ -203,7 +203,7 @@ describe('TASK-1669 VectorDraw error phase uses the shared ErrorStrip primitive'
 
     it('renders an .sv-error-strip with role=alert carrying the save-failed copy', () => {
         container = render(STATES.error);
-        const strip = container.querySelector('.vector-draw-popup .sv-error-strip');
+        const strip = container.querySelector('.sv-vector-draw-popup .sv-error-strip');
         expect(strip).toExist();
         expect(strip.getAttribute('role')).toBe('alert');
         expect(strip.textContent).toMatch(/Save failed/);
@@ -211,7 +211,7 @@ describe('TASK-1669 VectorDraw error phase uses the shared ErrorStrip primitive'
 
     it('no longer renders a bespoke inline-red <p> for the failure message', () => {
         container = render(STATES.error);
-        const reds = Array.from(container.querySelectorAll('.vector-draw-popup p'))
+        const reds = Array.from(container.querySelectorAll('.sv-vector-draw-popup p'))
             .filter(p => p.style && p.style.color === 'red');
         expect(reds.length).toBe(0);
     });

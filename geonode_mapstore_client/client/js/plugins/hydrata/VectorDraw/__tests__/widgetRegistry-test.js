@@ -107,7 +107,7 @@ describe('VectorDraw widgetRegistry (TASK-812 W1.1)', () => {
 
         beforeEach(() => {
             container = document.createElement('div');
-            container.className = 'vector-draw-popup';
+            container.className = 'sv-vector-draw-popup';
             document.body.appendChild(container);
         });
 

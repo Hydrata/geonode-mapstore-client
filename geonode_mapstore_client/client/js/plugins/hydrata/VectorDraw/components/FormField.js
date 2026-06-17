@@ -7,7 +7,7 @@ import { DiscriminatorPicker } from './DiscriminatorPicker';
 import { ErrorStrip } from '../../SimpleView/components/primitives';
 
 // TASK-784 polish — all font / size / weight rules live in
-// vectorDrawPopup.css (`.vector-draw-popup *` resets to inherit,
+// vectorDrawPopup.css (`.sv-vector-draw-popup *` resets to inherit,
 // and select/input/button get `font: inherit`). Inline styles below
 // are pure layout (flex / spacing) only — no fonts, no colors.
 //

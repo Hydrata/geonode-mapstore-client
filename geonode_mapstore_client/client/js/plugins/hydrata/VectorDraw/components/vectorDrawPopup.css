@@ -16,7 +16,7 @@
  *      with the panel's color.
  *   3. Bootstrap <Button bsSize="small"> applies its own font-size and
  *      may bold the text on some bootswatch overrides. Pin font: inherit
- *      and font-weight: normal on .vector-draw-popup .btn so all action
+ *      and font-weight: normal on .sv-vector-draw-popup .btn so all action
  *      buttons match the surrounding text.
  *
  * Rule of thumb: NO inline font/size/weight overrides in the JSX. All
@@ -24,8 +24,8 @@
  * and matches the rest of the SimpleView UI.
  */
 
-.vector-draw-popup,
-.vector-draw-popup * {
+.sv-vector-draw-popup,
+.sv-vector-draw-popup * {
     font-family: inherit;
     font-weight: normal;
 }
@@ -34,7 +34,7 @@
    instead of relying on document inheritance + a hardcoded 12px. Any control
    that doesn't inherit the popup root (portal-rendered, pre-stylesheet mount)
    now still lands on the panel font. */
-.vector-draw-popup {
+.sv-vector-draw-popup {
     font-family: var(--sv-font-family);
     font-size: var(--sv-font-size);
     line-height: 1.5;
@@ -46,10 +46,10 @@
    `.legend-close` position workaround (formerly at the foot of this file)
    are removed: PanelHeader owns its own header chrome inline. */
 
-.vector-draw-popup p,
-.vector-draw-popup span,
-.vector-draw-popup label,
-.vector-draw-popup div {
+.sv-vector-draw-popup p,
+.sv-vector-draw-popup span,
+.sv-vector-draw-popup label,
+.sv-vector-draw-popup div {
     font-size: inherit;
     font-weight: inherit;
     line-height: inherit;
@@ -57,10 +57,10 @@
 
 /* Native controls (select / input / textarea) drop back to user-agent
    font defaults unless we tell them not to. */
-.vector-draw-popup select,
-.vector-draw-popup input,
-.vector-draw-popup textarea,
-.vector-draw-popup button {
+.sv-vector-draw-popup select,
+.sv-vector-draw-popup input,
+.sv-vector-draw-popup textarea,
+.sv-vector-draw-popup button {
     font: inherit;
     font-weight: normal;
 }
@@ -70,7 +70,7 @@
    padding, height, background, and cursor that the previous inline-style
    block on FormField.js's <select> provided. Layout (flex / margin) stays
    inline in JSX since it's positional, not chrome. */
-.vector-draw-popup select {
+.sv-vector-draw-popup select {
     border: 1px solid var(--sv-section-border);
     border-radius: var(--sv-card-radius);
     padding: 4px 8px;
@@ -84,8 +84,8 @@
    consistently inside the same form. The user-agent default border on
    <input type="text"> looks close enough to #ccc but pinning explicitly
    keeps the form visually uniform across browsers. */
-.vector-draw-popup input[type="text"],
-.vector-draw-popup input[type="number"] {
+.sv-vector-draw-popup input[type="text"],
+.sv-vector-draw-popup input[type="number"] {
     border: 1px solid var(--sv-section-border) !important;
     border-radius: var(--sv-card-radius);
     padding: 4px 8px;
@@ -97,8 +97,8 @@
 /* Bootstrap buttons inside the popup. Bootstrap's `.btn-sm` and the
    default `.btn` rule both set their own font-size; force inherit so
    the action buttons match the surrounding 12px Montserrat text. */
-.vector-draw-popup .btn,
-.vector-draw-popup .btn-sm {
+.sv-vector-draw-popup .btn,
+.sv-vector-draw-popup .btn-sm {
     font-size: inherit;
     font-weight: normal;
     line-height: 1.5;
@@ -107,7 +107,7 @@
 /* Picker rows in the "Choose feature" phase — left-aligned text; the
    parent .simple-view-panel sets text-align: center which is wrong for
    a list. */
-.vector-draw-popup .simple-view-panel-item-row {
+.sv-vector-draw-popup .simple-view-panel-item-row {
     text-align: left;
     height: auto;
     border: none;
@@ -116,7 +116,7 @@
 /* Trash icon on each picker row. Inline opacity:0.7 in JSX is the
    resting state; deepen to full on hover so users get a clear affordance
    that the icon is interactive. */
-.vector-draw-popup .vector-draw-trash:hover {
+.sv-vector-draw-popup .sv-vector-draw-trash:hover {
     opacity: 1 !important;
     background-color: rgba(255, 255, 255, 0.15);
 }
@@ -125,7 +125,7 @@
    the unit slightly back from the input value as a subtle subdued
    affordance; color stays inherited from the popup (white) so it reads
    on the dark-blue panel. The font-family/weight reset above already
-   handles inheritance from .vector-draw-popup. */
-.vector-draw-popup .time-data-picker-constant-unit {
+   handles inheritance from .sv-vector-draw-popup. */
+.sv-vector-draw-popup .time-data-picker-constant-unit {
     font-size: 0.9em;
 }

@@ -9,14 +9,14 @@
  * looking broken inside the popup.
  *
  * Fix: chrome moved into vectorDrawPopup.css, scoped to
- * `.vector-draw-popup select` so the SimpleView baseline (Montserrat /
+ * `.sv-vector-draw-popup select` so the SimpleView baseline (Montserrat /
  * 12px / inherited from the popup) is preserved while the visible
  * border + padding + height are restored.
  *
  * This file asserts:
  *   1. FormField.js's <select> JSX inline style block does NOT
  *      reintroduce any of the chrome properties (regression guard).
- *   2. The rendered select sits inside the .vector-draw-popup
+ *   2. The rendered select sits inside the .sv-vector-draw-popup
  *      ancestor chain so the scoped CSS rule is in scope.
  */
 import expect from 'expect';
@@ -48,10 +48,10 @@ describe('VectorDraw FormField dropdown chrome (regression for 30b24fe6d Item 3)
 
     beforeEach(() => {
         container = document.createElement('div');
-        // Wrap in .vector-draw-popup so the scoped CSS would apply
+        // Wrap in .sv-vector-draw-popup so the scoped CSS would apply
         // in a real DOM (kept here as documentation; jsdom won't actually
         // resolve the imported CSS, so we don't assert computed styles).
-        container.className = 'vector-draw-popup';
+        container.className = 'sv-vector-draw-popup';
         document.body.appendChild(container);
     });
 
@@ -69,7 +69,7 @@ describe('VectorDraw FormField dropdown chrome (regression for 30b24fe6d Item 3)
     it('select inline style is layout-only (flex + marginLeft) — no chrome regression', () => {
         ReactDOM.render(<FormField field={SELECT_FIELD} value="a" onChange={() => {}} />, container);
         const sel = container.querySelector('select');
-        // Chrome must come from .vector-draw-popup select in vectorDrawPopup.css,
+        // Chrome must come from .sv-vector-draw-popup select in vectorDrawPopup.css,
         // NOT from inline style. If any of these reappear inline it means
         // someone re-introduced the regression.
         const inlineChromeProps = [
