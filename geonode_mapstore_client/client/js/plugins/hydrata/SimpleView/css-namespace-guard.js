@@ -13,22 +13,50 @@
  * use an existing sv-* / panel prefix or update the allowlist via a
  * reviewed PR.
  *
+ * WHAT THIS GUARD ENFORCES (and what it does NOT) — grill q-7 (TASK-1758)
+ * ----------------------------------------------------------------------
+ * It enforces NAMESPACE HYGIENE + the ratchet: it checks only the FIRST
+ * hyphen-segment of each class against the allowlist. It is BLIND to
+ * property values — it cannot tell a dark-glass token from a light hex,
+ * and the FontUniformity test only walks one popup — so "no new bespoke
+ * PREFIXES" is the guarantee; sv-namespaced styling drift still needs code
+ * review. (A value-aware guard that flags non-token light hex / non-token
+ * font declarations is a recommended follow-up — see TASK-1758 finding
+ * w3-process-gap.)
+ *
+ * END-STATE (grill q-7): ALLOWED_PREFIXES collapses to TWO categories —
+ *   (1) SimpleView system        : sv, simple
+ *   (2) upstream/override survivors with one-line notes
+ *       (btn/form/table/is/noUi/progress/glyphicon/list/text/ol/time =
+ *        Bootstrap/OL; alert = Bootstrap alert variants; recharts =
+ *        charting library; gn/mapstore = upstream overrides; sk = spinkit).
+ * Everything else (the panel + feature + hydrata "shared structural"
+ * prefixes in category 3 below) RENAMES to sv-/sv-<panel>- and is removed
+ * here. No per-agent judgment on the rename target.
+ *
  * RATCHET PROTOCOL
  * ----------------
- * As each panel is migrated to sv-* in the rollout epic (TASK-1673),
- * its migration PR should:
- *   1. Move all classes to sv-* (or remove them if subsumed by primitives).
- *   2. Delete the migrated panel's prefix(es) from ALLOWED_PREFIXES below.
+ * As each panel's bespoke classes are renamed to sv-/sv-<panel>- (the
+ * TASK-1766 W2 ratchet — separate from the dark-glass conform, which left
+ * bespoke organisms bespoke-but-tokenised), its migration commit should:
+ *   1. Rename all of the panel's classes to sv-* (or remove them if
+ *      subsumed by primitives), preserving any test-PINNED classes via
+ *      extraClassName (e.g. .anuga-pane-toolbar, .legend-close, sv-tm-*).
+ *   2. Delete the migrated panel's prefix(es) from category 3 below.
  *   3. The guard then rejects any NEW class with the old prefix.
  *
- * Rollout order (lowest effort first, per DESIGN-SYSTEM-AUDIT.md § Part E):
- *   VectorDraw   → remove: vector
- *   TaskMonitor  → remove: tm
- *   HGeval       → remove: hgeval
- *   Swamps       → remove: chart (shared), swamps/swamps-related
- *   Swamm        → remove: swamm, bmp, filter, swamm-target
- *   Hydrology    → remove: hydrology, idf, ds, design, hyetograph, temporal
- *   Anuga        → remove: anuga, scenario, membership, publication, terrain
+ * Rename order (lowest effort / lowest pin-risk first):
+ *   VectorDraw   → remove: vector            (~20 CSS occ.)
+ *   TaskMonitor  → remove: tm                (DONE, TASK-1680 — already sv-only)
+ *   HGeval       → remove: hgeval            (~15)
+ *   Swamm        → remove: swamm, bmp, filter (~50)
+ *   Hydrology    → remove: hydrology, idf, ds, design, hyetograph, temporal, networks (~200)
+ *   Anuga        → remove: anuga, scenario, membership, publication, run, status, badge, network (~330)
+ *                  ⚠ terrain- is SHARED with epic/1587 (TerrainWorkbench / TASK-1765) —
+ *                    rename only AFTER the 1587→5.x merge to avoid cross-epic conflict.
+ *   Shared (simpleView.css) → remove: menu, legend, glyph, save, subheading,
+ *                  uploader, dataset, measure, data, introduction, status, run, modal
+ *                  (q-7 "do it now" — discrete, carefully-tested sub-step).
  *
  * NO NEW DEPENDENCY: uses only Node.js built-ins (fs, path).
  *
@@ -41,19 +69,45 @@ const fs = require('fs');
 const path = require('path');
 
 // ── Allowlist: first-segment prefixes that are permitted in the panel CSS files ──
-// These are the EXACT prefixes present on day one (W1 baseline).
-// Delete a prefix here when its panel has been fully migrated to sv-* (ratchet).
-//
-// NOTE: generic Bootstrap / MapStore utility prefixes (btn-, form-, table-,
-// is-, noUi-, progress-, glyphicon-) are included because they appear in the
-// current panel CSS files and removing them would break existing panels.
-// Over time they should be wrapped by sv-* primitives and removed here too.
+// Organised into the grill-q-7 end-state categories. Categories 1 & 2 are the
+// PERMANENT allowlist; category 3 is the shrinking set of ratchet targets that
+// the TASK-1766 W2 rename retires one panel at a time.
 const ALLOWED_PREFIXES = new Set([
-    // ── SimpleView system ──
+    // ══ Category 1 — SimpleView system (permanent) ══
     'sv',
     'simple',
 
-    // ── Panel namespaces (ratchet these out on migration) ──
+    // ══ Category 2 — upstream / override survivors (permanent) ══
+    // Bootstrap / OpenLayers utility prefixes (wrapped by sv-* primitives over
+    // time but kept while raw library markup still renders in the panels):
+    'btn',
+    'form',
+    'table',
+    'is',
+    'noUi',
+    'progress',
+    'glyphicon',
+    'list',
+    'text',
+    'ol',
+    'time',
+    'alert',       // Bootstrap .alert-info/-warning/-danger — re-skinned dark-glass in place
+                   // via compound selectors (.membership-perms-warning.alert-warning,
+                   // .terrain-bbox-error.alert-danger) during the W3 conform (TASK-1758).
+    'recharts',    // recharts charting library — .recharts-* survive in the IDF-curve modal
+                   // (hydrology.css, TASK-1754). Light chart surface is an intentional carve-out.
+    // Third-party / upstream overrides:
+    'gn',          // .gn-brand-navbar override in simpleView.css
+    'mapstore',    // .mapstore-slider override in simpleView.css
+    'sk',          // .sk-circle (spinkit spinner) in simpleView.css
+
+    // ══ Category 3 — RATCHET TARGETS (rename to sv-/sv-<panel>-, then delete here) ══
+    // Each prefix below leaves the allowlist the moment its panel's classes are
+    // renamed (TASK-1766 W2). The dark-glass conform (W1/W3) deliberately left
+    // these bespoke-but-tokenised, so they still appear in the CSS today.
+    // 'tm' RATCHETED OUT (TASK-1680): TaskMonitor fully migrated; taskMonitor.css is sv-/simple- only.
+    // 'hyrdology' RATCHETED OUT (TASK-1678): the .hyrdology-textarea typo was fixed to .hydrology-textarea.
+    // -- panel namespaces --
     'anuga',
     'scenario',
     'membership',
@@ -61,22 +115,19 @@ const ALLOWED_PREFIXES = new Set([
     'hgeval',
     'hydrology',
     'swamm',
-    // 'tm' RATCHETED OUT (TASK-1680): TaskMonitor fully migrated; taskMonitor.css is sv-/simple- only.
     'vector',
-
-    // ── Feature namespaces within panels ──
+    // -- feature namespaces within panels --
     'idf',
     'ds',
     'design',
     'hyetograph',
     'temporal',
-    'terrain',
+    'terrain',     // ⚠ SHARED with epic/1587 (TerrainWorkbench) — rename AFTER 1587→5.x merge.
     'bmp',
     'networks',
     'network',
     'badge',
-
-    // ── Shared structural classes used across panels ──
+    // -- hydrata "shared structural" prefixes in simpleView.css (q-7 "do it now") --
     'menu',
     'subheading',
     'legend',
@@ -92,29 +143,11 @@ const ALLOWED_PREFIXES = new Set([
     'measure',
     'filter',
     'chart',
-
-    // ── Misc one-offs that exist in the baseline ──
+    // -- misc one-offs in the baseline --
     'add',
     'custom',
     'non',
-    // 'hyrdology' RATCHETED OUT (TASK-1678): the .hyrdology-textarea typo was fixed to .hydrology-textarea.
-    'sk',          // .sk-circle in simpleView.css
-    'gn',          // .gn-brand-navbar override in simpleView.css
-    'mapstore',    // .mapstore-slider override in simpleView.css
-    'with',        // .with-tooltip in simpleView.css
-
-    // ── Bootstrap / MapStore utility prefixes (appear in panel CSS) ──
-    'btn',
-    'form',
-    'table',
-    'is',
-    'noUi',
-    'progress',
-    'glyphicon',
-    'list',
-    'text',
-    'ol',
-    'time'
+    'with'         // .with-tooltip in simpleView.css
 ]);
 
 // ── The 7 hydrata panel CSS files to scan ──
