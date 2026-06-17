@@ -482,7 +482,7 @@ class MenuRowClass extends React.Component {
         // Locked 4-icon toolbar order is now: vis | zoom | edit | download.
         // Trash + delete-confirm overlay moved to the secondary toolbar
         // (alongside upload). The delete-confirm overlay stays a sibling of
-        // the trash glyph so `.menu-row-delete-confirm .save-confirm-btn.danger`
+        // the trash glyph so `.menu-row-delete-confirm .sv-save-confirm-btn.danger`
         // continues to resolve (R03).
         const canEdit = this.props.canEditMap && this.canEditLayer(this.props.layer);
         const canDelete = this.props.canEditMap && this.canDeleteLayer(this.props.layer);
@@ -528,14 +528,14 @@ class MenuRowClass extends React.Component {
                         </span>
                         <button
                             type="button"
-                            className="save-confirm-btn danger"
+                            className="sv-save-confirm-btn danger"
                             onClick={this.performDelete}
                         >
                             <Message msgId="hydrata.simpleView.delete"/>
                         </button>
                         <button
                             type="button"
-                            className="save-confirm-btn cancel"
+                            className="sv-save-confirm-btn cancel"
                             onClick={this.cancelDelete}
                         >
                             <Message msgId="hydrata.simpleView.cancel"/>
@@ -596,7 +596,7 @@ class MenuRowClass extends React.Component {
                                 <input
                                     id={`input-${this.props.layer.name}`}
                                     key={`input-key-${this.props.layer.name}`}
-                                    className={'data-title-input'}
+                                    className={'sv-data-title-input'}
                                     style={{"width": "160px"}}
                                     type={'text'}
                                     value={this.state.newTitle}

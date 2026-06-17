@@ -85,7 +85,7 @@ export class simpleViewUploaderPanel extends React.Component {
                                             <input
                                                 id={'newTitle'}
                                                 key={'newTitle'}
-                                                className={'data-title-input'}
+                                                className={'sv-data-title-input'}
                                                 type={'text'}
                                                 value={this.state.newTitle || file.name.split('.').slice(0)[0]}
                                                 onChange={(e) => this.setState({newTitle: e.target.value})}

@@ -110,7 +110,7 @@ describe('TASK-930 TerrainBboxPanel', () => {
         });
     });
 
-    // TASK-1647 dissolved the separate confirm popup (.terrain-bbox-confirm-dialog
+    // TASK-1647 dissolved the separate confirm popup (.sv-terrain-bbox-confirm-dialog
     // / is-open) into an INLINE review section that appears in the panel body once
     // a bbox is drawn (presence-gated on terrainBbox, not on a confirmVisible flag).
     // This test was pre-existing-RED against the popup DOM that no longer exists;

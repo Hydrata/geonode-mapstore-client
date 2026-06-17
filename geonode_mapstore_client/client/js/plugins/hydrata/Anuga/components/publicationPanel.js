@@ -126,7 +126,7 @@ class PublicationPanelClass extends React.Component {
                                             <input
                                                 id={'figure-input'}
                                                 key={'figure-input'}
-                                                className={'data-title-input sv-publication-figure-input'}
+                                                className={'sv-data-title-input sv-publication-figure-input'}
                                                 type={'text'}
                                                 value={this.state.figureTitle}
                                                 onChange={(e) => this.setState({figureTitle: e.target.value})}

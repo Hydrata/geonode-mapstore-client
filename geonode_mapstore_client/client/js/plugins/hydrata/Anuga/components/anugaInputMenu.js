@@ -53,7 +53,7 @@ import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 // TASK-1674 (1673 rollout, Phase C): conform the Terrain recipe builder onto the
 // SimpleView shared primitives — the error blocks (tw-error), the empty hint
-// (tw-empty-hint) and the stale pill (terrain-workbench-stale-badge) are now the
+// (tw-empty-hint) and the stale pill (sv-terrain-workbench-stale-badge) are now the
 // token-backed ErrorStrip / EmptyState / StatusBadge, so the panel stops
 // hand-rolling dark-glass chrome. Markup was already reworked (BUG-4 UAT); this
 // is a styling conform only.
@@ -175,12 +175,12 @@ function estimateOutputSize(selectedInputs, terrains, targetResolutionM) {
 
 function TWStaleBadge({ isStale }) {
     if (!isStale) return null;
-    // TASK-1674: the bespoke (and CSS-orphaned) terrain-workbench-stale-badge span is
+    // TASK-1674: the bespoke (and CSS-orphaned) sv-terrain-workbench-stale-badge span is
     // now the shared amber StatusBadge — "stale" reads as a pending/needs-attention
     // pill, exactly the .is-warn palette the old .tw-stale-badge rule chased.
     return (
         <span
-            className="terrain-workbench-stale-badge"
+            className="sv-terrain-workbench-stale-badge"
             title="Recipe inputs have changed since last derive — re-derive to update"
         >
             <StatusBadge status="pending" label="stale" compact />
@@ -933,7 +933,7 @@ class TerrainHierarchyRow extends React.Component {
 
         return (
             <div
-                className={`terrain-hierarchy-item ${dragging ? 'terrain-dragging' : ''} ${dragOver ? 'terrain-drag-over' : ''}`}
+                className={`sv-terrain-hierarchy-item ${dragging ? 'sv-terrain-dragging' : ''} ${dragOver ? 'sv-terrain-drag-over' : ''}`}
                 draggable
                 onDragStart={onDragStart}
                 onDragOver={(e) => { e.preventDefault(); onDragOver && onDragOver(e); }}
@@ -943,16 +943,16 @@ class TerrainHierarchyRow extends React.Component {
                 {/* Parent row (BUG-4, UAT): DEM IDENTITY ONLY — the expand chevron and a
                     lightweight DEM title label so the modeller can tell which DEM this is
                     while collapsed. UAT 2026-06-17: the glyphicon-move "pan" drag handle was
-                    removed (the whole .terrain-hierarchy-item stays draggable for reorder).
+                    removed (the whole .sv-terrain-hierarchy-item stays draggable for reorder).
                     The DEM MenuRow itself (visibility / zoom / per-layer controls) is NOT
                     here — per the finding it lives INSIDE the collapsible derivatives section
                     below, alongside Hillshade, so the top level stays a clean identity-only
                     header. Clicking the title toggles expansion too (the whole header acts as
                     the disclosure control). */}
-                <div className="terrain-parent-row">
+                <div className="sv-terrain-parent-row">
                     {hasDerivatives ? (
                         <span
-                            className={`terrain-expand-btn glyphicon ${expanded ? 'glyphicon-chevron-down' : 'glyphicon-chevron-right'}`}
+                            className={`sv-terrain-expand-btn glyphicon ${expanded ? 'glyphicon-chevron-down' : 'glyphicon-chevron-right'}`}
                             role="button"
                             tabIndex={0}
                             aria-expanded={expanded}
@@ -971,7 +971,7 @@ class TerrainHierarchyRow extends React.Component {
                         visibility/zoom controls would have nowhere to live. */}
                     {hasDerivatives ? (
                         <span
-                            className="sv-tw-terrain-parent-title terrain-parent-title"
+                            className="sv-tw-terrain-parent-title sv-terrain-parent-title"
                             data-testid="terrain-parent-title"
                             style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
                             onClick={handleRowSelect}
@@ -987,7 +987,7 @@ class TerrainHierarchyRow extends React.Component {
                             <MenuRow layer={demLayer} />
                         </div>
                     ) : (
-                        <span className="sv-tw-terrain-pending-name terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 12}}>
+                        <span className="sv-tw-terrain-pending-name sv-terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 12}}>
                             {terrain.title || terrain.name || 'Terrain'}
                             <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
                         </span>
@@ -997,25 +997,25 @@ class TerrainHierarchyRow extends React.Component {
                     decision 2026-06-16-q-4 REVISING ADR#9): the parent row above is DEM
                     IDENTITY ONLY. Inside the collapsible section the DEM now OWNS its two
                     sub-options — Rendering mode and Contours both DERIVE from DEM elevation
-                    so they are NESTED under the DEM (terrain-dem-group). Hillshade is a
+                    so they are NESTED under the DEM (sv-terrain-dem-group). Hillshade is a
                     SEPARATE sibling row with NO sub-options (it is just a display
                     derivative). Mode + Contours are icon-only, left-justified buttons.
                     data-testids are preserved from the 5.x→epic merge (TASK-1720/1721) so
                     the existing tests/selectors keep working. */}
                 {expanded ? (
-                    <div className="terrain-derivatives">
+                    <div className="sv-terrain-derivatives">
                         {/* ⛰ DEM group: the DEM MenuRow carries the Mode + Contours toggles in
                             its extra-toolbar slot — to the RIGHT of the per-layer controls (UAT
                             2026-06-17). */}
                         {demLayer ? (
-                            <div className="terrain-dem-group">
+                            <div className="sv-terrain-dem-group">
                                 {/* DEM layer row (BUG-4): the full DEM MenuRow, folded into the
                                     collapsible section. UAT 2026-06-17: per-layer controls (tick /
                                     glass / delete) on the LEFT, the Mode (⚙) + Contours (◷) toggles
                                     to their RIGHT via the MenuRow extra-toolbar slot (between the
                                     controls and the title). Decorative photo glyph removed earlier. */}
-                                <div className="terrain-derivative-row sv-tw-terrain-dem-row terrain-dem-row" data-testid="terrain-dem-row">
-                                    <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                <div className="sv-terrain-derivative-row sv-tw-terrain-dem-row sv-terrain-dem-row" data-testid="terrain-dem-row">
+                                    <span className="sv-terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
                                     <div style={{flex: 1, minWidth: 0}}>
                                         <MenuRow layer={demLayer} extraToolbarActions={demExtraActions} />
                                     </div>
@@ -1026,8 +1026,8 @@ class TerrainHierarchyRow extends React.Component {
                             empty extra-toolbar slot (same fixed width) so its controls + title line
                             up in columns with the DEM row above. */}
                         {hillshadeLayer ? (
-                            <div className="terrain-derivative-row sv-tw-terrain-hillshade-row">
-                                <span className="terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                            <div className="sv-terrain-derivative-row sv-tw-terrain-hillshade-row">
+                                <span className="sv-terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
                                 <div style={{flex: 1, minWidth: 0}}>
                                     <MenuRow layer={hillshadeLayer} extraToolbarActions={hillshadeExtraActions} />
                                 </div>
@@ -1095,7 +1095,7 @@ class TerrainListWithDragDrop extends React.Component {
         const localContours = localContoursEnabled || {};
 
         return (
-            <div className="terrain-hierarchy-list">
+            <div className="sv-terrain-hierarchy-list">
                 {terrainGroups.map((group, idx) => {
                     const demLayer = group.demLayer;
                     // TASK-1721 (W4): derive contour-overlay enabled state — local optimistic
@@ -1693,7 +1693,7 @@ class AnugaInputMenuClass extends React.Component {
                     <input
                         id={inputId}
                         key={inputId}
-                        className={'data-title-input'}
+                        className={'sv-data-title-input'}
                         type={'text'}
                         value={this.state[titleKey]}
                         onChange={(e) => this.setState({[titleKey]: e.target.value})}

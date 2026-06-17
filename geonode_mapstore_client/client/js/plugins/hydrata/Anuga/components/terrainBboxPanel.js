@@ -154,28 +154,28 @@ export class TerrainBboxPanelClass extends React.Component {
         const maxStr = MAX_AREA_KM2.toLocaleString('en-US');
 
         return (
-            <div className="terrain-bbox-inline-review" data-testid="terrain-bbox-inline-review">
-                <div className="terrain-bbox-confirm-heading">
+            <div className="sv-terrain-bbox-inline-review" data-testid="terrain-bbox-inline-review">
+                <div className="sv-terrain-bbox-confirm-heading">
                     <Message msgId="hydrata.anuga.terrainBboxConfirmHeading" />
                 </div>
                 {tooLarge ? (
-                    <div className="terrain-bbox-confirm-toolarge" data-testid="terrain-bbox-confirm-toolarge">
+                    <div className="sv-terrain-bbox-confirm-toolarge" data-testid="terrain-bbox-confirm-toolarge">
                         <Message msgId="hydrata.anuga.terrainBboxConfirmTooLarge" msgParams={{max: maxStr}} />
                     </div>
                 ) : (
                     <React.Fragment>
-                        <div className="terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-area">
+                        <div className="sv-terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-area">
                             <Message msgId="hydrata.anuga.terrainBboxConfirmArea" msgParams={{areaKm2: areaStr, widthKm: dims.widthKm, heightKm: dims.heightKm}} />
                         </div>
-                        <div className="terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-cells">
+                        <div className="sv-terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-cells">
                             <Message msgId="hydrata.anuga.terrainBboxConfirmCells" msgParams={{cells: cellsStr}} />
                         </div>
-                        <div className="terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-time">
+                        <div className="sv-terrain-bbox-confirm-stat" data-testid="terrain-bbox-confirm-time">
                             <Message msgId="hydrata.anuga.terrainBboxConfirmTime" msgParams={{time: timeStr}} />
                         </div>
                     </React.Fragment>
                 )}
-                <div className="terrain-bbox-inline-review-actions">
+                <div className="sv-terrain-bbox-inline-review-actions">
                     <Button
                         data-testid="terrain-bbox-confirm-accept"
                         bsStyle="success"
@@ -217,7 +217,7 @@ export class TerrainBboxPanelClass extends React.Component {
                         <input
                             id="terrain-bbox-title-input"
                             data-testid="terrain-bbox-title-input"
-                            className={'data-title-input'}
+                            className={'sv-data-title-input'}
                             type={'text'}
                             value={this.state.title}
                             onChange={(e) => this.setState({title: e.target.value})}
@@ -226,7 +226,7 @@ export class TerrainBboxPanelClass extends React.Component {
                     </div>
 
                     {/* TASK-1647: area guidance sentence */}
-                    <div className="terrain-bbox-area-guidance" data-testid="terrain-bbox-area-guidance" style={{marginBottom: "12px"}}>
+                    <div className="sv-terrain-bbox-area-guidance" data-testid="terrain-bbox-area-guidance" style={{marginBottom: "12px"}}>
                         <Message msgId="hydrata.anuga.terrainBboxAreaGuidance" />
                     </div>
 
@@ -246,7 +246,7 @@ export class TerrainBboxPanelClass extends React.Component {
                     {/* Error inline */}
                     {this.props.error ?
                         <div
-                            className={"alert alert-danger terrain-bbox-error"}
+                            className={"alert alert-danger sv-terrain-bbox-error"}
                             data-testid="terrain-bbox-error"
                             style={{padding: "6px 10px", marginBottom: "10px"}}
                         >

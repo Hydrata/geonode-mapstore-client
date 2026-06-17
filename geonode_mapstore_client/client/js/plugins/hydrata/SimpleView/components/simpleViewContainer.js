@@ -233,11 +233,11 @@ export class SimpleViewContainer extends React.Component {
                     }
                 </div>
                 {this.state.saveConfirmVisible ?
-                    <div className="save-confirm-overlay">
+                    <div className="sv-save-confirm-overlay">
                         <Glyphicon glyph="floppy-disk" style={{fontSize: 14}} />
                         <span><Message msgId="hydrata.simpleView.saveConfirm" /></span>
                         <button
-                            className="save-confirm-btn confirm"
+                            className="sv-save-confirm-btn confirm"
                             onClick={() => {
                                 this.props.onSave();
                                 this.setState({ saveConfirmVisible: false });
@@ -245,7 +245,7 @@ export class SimpleViewContainer extends React.Component {
                             <Message msgId="hydrata.simpleView.save" />
                         </button>
                         <button
-                            className="save-confirm-btn cancel"
+                            className="sv-save-confirm-btn cancel"
                             onClick={() => this.setState({ saveConfirmVisible: false })}>
                             <Message msgId="hydrata.simpleView.cancel" />
                         </button>

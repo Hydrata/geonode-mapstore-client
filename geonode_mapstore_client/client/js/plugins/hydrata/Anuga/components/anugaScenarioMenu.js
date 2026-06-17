@@ -508,7 +508,7 @@ class AnugaScenarioMenuClass extends React.Component {
               </span>
               <button
                   type="button"
-                  className="save-confirm-btn confirm"
+                  className="sv-save-confirm-btn confirm"
                   onClick={this.performConfirm}
               >
                   {confirmLabelMsgId
@@ -517,7 +517,7 @@ class AnugaScenarioMenuClass extends React.Component {
               </button>
               <button
                   type="button"
-                  className="save-confirm-btn cancel"
+                  className="sv-save-confirm-btn cancel"
                   onClick={this.cancelConfirm}
               >
                   <Message msgId="hydrata.anuga.cancel" />
@@ -546,7 +546,7 @@ class AnugaScenarioMenuClass extends React.Component {
               </span>
               <button
                   type="button"
-                  className="save-confirm-btn confirm"
+                  className="sv-save-confirm-btn confirm"
                   onClick={this.dismissBuildValidation}
               >
                   <Message msgId="hydrata.anuga.ok" />

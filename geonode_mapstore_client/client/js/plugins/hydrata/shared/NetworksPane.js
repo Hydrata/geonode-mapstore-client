@@ -270,7 +270,7 @@ class NetworksPaneClass extends React.Component {
                             <input
                                 id="networks-pane-network-input"
                                 key="networks-pane-network-input"
-                                className={'data-title-input'}
+                                className={'sv-data-title-input'}
                                 type={'text'}
                                 value={networkTitle}
                                 onChange={(e) => this.setState({networkTitle: e.target.value})}

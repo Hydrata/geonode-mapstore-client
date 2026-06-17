@@ -96,12 +96,12 @@ const baseLayer = (overrides = {}) => ({
 // under Karma+JSDOM. Production UX is unchanged: clicking trash flips a
 // `.is-open` class via setState, CSS reveals the dialog.
 const confirmDelete = (c) => {
-    const btn = c.querySelector('.menu-row-delete-confirm .save-confirm-btn.danger');
+    const btn = c.querySelector('.menu-row-delete-confirm .sv-save-confirm-btn.danger');
     if (!btn) throw new Error('confirm dialog Delete button not found in row DOM');
     Simulate.click(btn);
 };
 const cancelDelete = (c) => {
-    const btn = c.querySelector('.menu-row-delete-confirm .save-confirm-btn.cancel');
+    const btn = c.querySelector('.menu-row-delete-confirm .sv-save-confirm-btn.cancel');
     if (!btn) throw new Error('confirm dialog Cancel button not found in row DOM');
     Simulate.click(btn);
 };

@@ -172,7 +172,7 @@
 
 /* Inline-rename field — reads as plain text until hovered/focused, then shows an
  * editable underline. !important beats .simple-view-panel input's dark fill so
- * the resting state stays transparent (echoes the Scenarios .data-title-input). */
+ * the resting state stays transparent (echoes the Scenarios .sv-data-title-input). */
 .sv-tw-surface-title-input {
     flex: 1;
     min-width: 0;

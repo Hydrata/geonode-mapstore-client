@@ -13,7 +13,7 @@ import PropTypes from 'prop-types';
  *   - `.anuga-starter-card` (anuga.css): bg rgba(255,255,255,0.08), dashed border
  *   - `.design-storm-card` (hydrology.css): bg rgba(255,255,255,0.04),
  *     border rgba(255,255,255,0.15), border-radius:4px
- *   - `.terrain-bbox-inline-review` (anuga.css): bg rgba(255,255,255,0.06), full border
+ *   - `.sv-terrain-bbox-inline-review` (anuga.css): bg rgba(255,255,255,0.06), full border
  *   - `.anuga-mesh-preview-too-large` (anuga.css): amber-left-border card
  *   - `.hgeval-selected-coords` info-card (hgeval.css)
  *
@@ -29,7 +29,7 @@ import PropTypes from 'prop-types';
  *
  * Rule-of-three consumers (>= 3 across the 8 panels):
  *   1. Anuga/Scenarios    — anuga-scenario-status-card, anuga-scenario-resource-summary,
- *                           anuga-starter-card, terrain-bbox-inline-review
+ *                           anuga-starter-card, sv-terrain-bbox-inline-review
  *   2. Hydrology          — design-storm-card, design-storm-preview-card,
  *                           design-storm-chart-card (→ variant="chart"),
  *                           custom-pattern-editor-card
@@ -176,7 +176,7 @@ Card.propTypes = {
      *   - 'default' (default): standard dark-glass card (anuga-scenario-status-card)
      *   - 'chart': dark frame + LIGHT body (--sv-chart-surface) for recharts — TASK-1534
      *   - 'dashed': dashed border + lighter bg (anuga-starter-card style)
-     *   - 'info': tinted info card (terrain-bbox-inline-review style)
+     *   - 'info': tinted info card (sv-terrain-bbox-inline-review style)
      */
     variant: PropTypes.oneOf(['default', 'chart', 'dashed', 'info']),
     /** Inline style pass-through on the card FRAME. */

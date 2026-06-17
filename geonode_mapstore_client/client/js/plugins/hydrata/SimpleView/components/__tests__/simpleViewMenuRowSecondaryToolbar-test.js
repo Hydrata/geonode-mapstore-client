@@ -149,8 +149,8 @@ describe('TASK-1010 simpleViewMenuRow — primary/secondary toolbar swap', () =>
             return mount(baseLayer()).then(() => {
                 const secondary = container.querySelector('.menu-row-toolbar-secondary');
                 const overlay = secondary.querySelector('.menu-row-delete-confirm');
-                expect(overlay.querySelector('.save-confirm-btn.danger')).toExist();
-                expect(overlay.querySelector('.save-confirm-btn.cancel')).toExist();
+                expect(overlay.querySelector('.sv-save-confirm-btn.danger')).toExist();
+                expect(overlay.querySelector('.sv-save-confirm-btn.cancel')).toExist();
                 expect(overlay.querySelector('.menu-row-delete-confirm-text')).toExist();
             });
         });

@@ -107,7 +107,7 @@ const InputSection = ({
                                 <input
                                     id={inputId}
                                     key={inputId}
-                                    className={'data-title-input'}
+                                    className={'sv-data-title-input'}
                                     style={{marginTop: "3px", marginRight: "5px"}}
                                     type={'text'}
                                     value={titleValue}

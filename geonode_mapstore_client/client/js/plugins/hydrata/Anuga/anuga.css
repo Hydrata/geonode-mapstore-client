@@ -365,7 +365,7 @@
 /* Flatten the create-input visual chrome inside the ANUGA pane head so the
    title input visually matches the rail/menu labels. The element stays a
    real <input type="text"> for accessibility; only the styling is muted. */
-.anuga-panel .anuga-pane-head-actions .data-title-input {
+.anuga-panel .anuga-pane-head-actions .sv-data-title-input {
     background: transparent;
     border: 0;
     border-radius: 0;
@@ -375,7 +375,7 @@
     padding: 2px 4px;
 }
 
-.anuga-panel .anuga-pane-head-actions .data-title-input:focus {
+.anuga-panel .anuga-pane-head-actions .sv-data-title-input:focus {
     outline: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.55);
 }
@@ -739,9 +739,9 @@ div that holds the feature-grid */
 }
 
 /* Terrain-bbox inline error — was Bootstrap .alert-danger (light pink); re-skin
- * onto the sv error tokens, mirroring the conformed .terrain-bbox-confirm-toolarge
+ * onto the sv error tokens, mirroring the conformed .sv-terrain-bbox-confirm-toolarge
  * chip. Scoped to the terrain-bbox panel via the data-testid'd error element. */
-.terrain-bbox-error.alert-danger {
+.sv-terrain-bbox-error.alert-danger {
     background-color: var(--sv-delete-error-bg, rgba(220, 53, 69, 0.1));
     border-color: var(--sv-delete-error-border, #dc3545);
     color: var(--sv-text-danger, #ffb3b3);
@@ -1787,10 +1787,10 @@ div that holds the feature-grid */
    illegible on the navy glass. These rules give the inline review the
    SimpleView look — light text on the panel's translucent navy, tinted stat
    card, sv-token error chip — so it matches the other SimpleView dialogs.
-   The dead popup-shell classes (.terrain-bbox-confirm-dialog / -body / -note /
+   The dead popup-shell classes (.sv-terrain-bbox-confirm-dialog / -body / -note /
    -actions / -hint) are removed; only the inline classes the JSX still emits
    remain. */
-.terrain-bbox-inline-review {
+.sv-terrain-bbox-inline-review {
     margin-top: 12px;
     padding: 10px 12px;
     text-align: left;
@@ -1800,14 +1800,14 @@ div that holds the feature-grid */
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
 }
 
-.terrain-bbox-confirm-heading {
+.sv-terrain-bbox-confirm-heading {
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 8px;
     color: #fff;
 }
 
-.terrain-bbox-confirm-stat {
+.sv-terrain-bbox-confirm-stat {
     margin-bottom: 4px;
     line-height: 1.4;
     color: var(--sv-text, rgba(255, 255, 255, 0.85));
@@ -1815,7 +1815,7 @@ div that holds the feature-grid */
 
 /* Too-large warning chip — sv error tokens (red text/border over a faint red
    tint) so it reads on the navy glass like every other SimpleView error. */
-.terrain-bbox-confirm-toolarge {
+.sv-terrain-bbox-confirm-toolarge {
     margin: 4px 0 0 0;
     padding: 6px 10px;
     font-size: 12px;
@@ -1825,7 +1825,7 @@ div that holds the feature-grid */
     color: var(--sv-text-danger, #ffb3b3);
 }
 
-.terrain-bbox-inline-review-actions {
+.sv-terrain-bbox-inline-review-actions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -1834,7 +1834,7 @@ div that holds the feature-grid */
 
 /* Area-limit guidance line under the Draw button — dimmer light text, reads on
    the navy glass (was an undefined-class plain inherit before). */
-.terrain-bbox-area-guidance {
+.sv-terrain-bbox-area-guidance {
     font-size: 11px;
     line-height: 1.4;
     text-align: left;
@@ -2133,61 +2133,61 @@ div that holds the feature-grid */
 
 /* ── TASK-1652 (W1.5): Terrain hierarchy drag-and-drop list ── */
 
-.terrain-hierarchy-list {
+.sv-terrain-hierarchy-list {
     width: 100%;
 }
 
-.terrain-hierarchy-item {
+.sv-terrain-hierarchy-item {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     transition: opacity 0.15s;
     user-select: none;
 }
 
-.terrain-hierarchy-item.terrain-dragging {
+.sv-terrain-hierarchy-item.sv-terrain-dragging {
     opacity: 0.45;
     cursor: grabbing;
 }
 
-.terrain-hierarchy-item.terrain-drag-over {
+.sv-terrain-hierarchy-item.sv-terrain-drag-over {
     border-top: 2px solid rgba(255, 255, 255, 0.5);
 }
 
-.terrain-parent-row {
+.sv-terrain-parent-row {
     display: flex;
     align-items: center;
     padding: 0;
 }
 
 /* Allow the MenuRow inside the parent row to fill available width. */
-.terrain-parent-row > div {
+.sv-terrain-parent-row > div {
     min-width: 0;
     flex: 1;
 }
 
-.terrain-derivatives {
+.sv-terrain-derivatives {
     padding-left: 14px;
     background: rgba(0, 0, 0, 0.08);
 }
 
-.terrain-derivative-row {
+.sv-terrain-derivative-row {
     display: flex;
     align-items: center;
     padding: 0;
 }
 
-.terrain-derivative-row > div {
+.sv-terrain-derivative-row > div {
     flex: 1;
     min-width: 0;
 }
 
-/* .terrain-drag-handle removed UAT 2026-06-17 — the parent-row "pan" glyph is
- * gone; the whole .terrain-hierarchy-item remains draggable for reorder. */
+/* .sv-terrain-drag-handle removed UAT 2026-06-17 — the parent-row "pan" glyph is
+ * gone; the whole .sv-terrain-hierarchy-item remains draggable for reorder. */
 
-.terrain-expand-btn {
+.sv-terrain-expand-btn {
     flex: 0 0 auto;
 }
 
-.terrain-pending-name {
+.sv-terrain-pending-name {
     display: flex;
     align-items: center;
     font-size: 11px;

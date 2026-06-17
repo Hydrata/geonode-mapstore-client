@@ -525,7 +525,7 @@ describe('TASK-1587 B2 terrain row select-on-expand-only', () => {
 
         // 1) Row starts collapsed. Clicking the title/chevron EXPANDS it.
         renderRow(false, handlers);
-        container.querySelector('.terrain-parent-title').click();
+        container.querySelector('.sv-terrain-parent-title').click();
         expect(toggled).toEqual([42]);          // expansion toggled
         expect(selectCalls).toBe(1);            // recipe-load fired on expand
         expect(lastSelectedId).toBe(42);
@@ -533,7 +533,7 @@ describe('TASK-1587 B2 terrain row select-on-expand-only', () => {
         // 2) Parent flips `expanded` to true; clicking again COLLAPSES it.
         //    Selection must NOT fire again.
         renderRow(true, handlers);
-        container.querySelector('.terrain-parent-title').click();
+        container.querySelector('.sv-terrain-parent-title').click();
         expect(toggled).toEqual([42, 42]);      // collapse toggled
         expect(selectCalls).toBe(1);            // NO re-dispatch on collapse
     });
@@ -689,7 +689,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
                     // TASK-1587 (grill 2026-06-15): the Mode + Contours toggles moved OUT
                     // of the parent row INTO the expanded zone, so the row must be EXPANDED
                     // before the contour toggle button exists. Click the expand chevron.
-                    const expandBtn = container.querySelector('.terrain-expand-btn');
+                    const expandBtn = container.querySelector('.sv-terrain-expand-btn');
                     expect(expandBtn).toExist('terrain row must be expandable (a real terrain model)');
                     expandBtn.click();
 
@@ -738,7 +738,7 @@ describe('TASK-1721 anugaInputMenu contours toggle reload-desync (FIX D)', () =>
 // BUG-4 (UAT 2026-06-16): fold DEM & Hillshade into the collapsible section.
 //
 // The DEM and Hillshade rows must live INSIDE the collapsible derivatives zone
-// (.terrain-derivatives), not at the top-level parent row. The parent row stays
+// (.sv-terrain-derivatives), not at the top-level parent row. The parent row stays
 // DEM IDENTITY ONLY (expand chevron + drag handle + a lightweight title), so it
 // must NOT contain the full DEM MenuRow (.menu-row).
 // ---------------------------------------------------------------------------
@@ -819,13 +819,13 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                 () => {
                     setTimeout(() => {
                         try {
-                            const parentRow = container.querySelector('.terrain-parent-row');
+                            const parentRow = container.querySelector('.sv-terrain-parent-row');
                             expect(parentRow).toExist('terrain parent row must render');
                             // Parent row holds the identity title, NOT the full MenuRow.
-                            expect(parentRow.querySelector('.terrain-parent-title')).toExist('parent row shows identity title');
+                            expect(parentRow.querySelector('.sv-terrain-parent-title')).toExist('parent row shows identity title');
                             expect(parentRow.querySelector('.menu-row')).toNotExist('parent row must NOT contain the DEM MenuRow (identity-only)');
                             // Collapsed → no derivatives zone yet.
-                            expect(container.querySelector('.terrain-derivatives')).toNotExist('derivatives zone hidden while collapsed');
+                            expect(container.querySelector('.sv-terrain-derivatives')).toNotExist('derivatives zone hidden while collapsed');
                             resolve();
                         } catch (err) { reject(err); }
                     }, 0);
@@ -842,15 +842,15 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                 <Provider store={mockStore}><AnugaInputMenuClass {...props} /></Provider>,
                 container,
                 () => {
-                    const expandBtn = container.querySelector('.terrain-expand-btn');
+                    const expandBtn = container.querySelector('.sv-terrain-expand-btn');
                     expect(expandBtn).toExist('terrain row must be expandable');
                     expandBtn.click();
                     setTimeout(() => {
                         try {
-                            const derivatives = container.querySelector('.terrain-derivatives');
+                            const derivatives = container.querySelector('.sv-terrain-derivatives');
                             expect(derivatives).toExist('derivatives zone must render when expanded');
                             // BUG-4: the DEM MenuRow now lives inside the collapsible zone.
-                            const demRow = derivatives.querySelector('.terrain-dem-row');
+                            const demRow = derivatives.querySelector('.sv-terrain-dem-row');
                             expect(demRow).toExist('DEM row must be inside the collapsible derivatives zone');
                             expect(demRow.querySelector('.menu-row')).toExist('DEM MenuRow renders inside the collapsible zone');
                             // UAT 2026-06-17: the decorative photo glyph LEFT of the title was
@@ -859,12 +859,12 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
                             // being re-introduced on the DEM or Hillshade rows.
                             expect(derivatives.querySelector('.glyphicon-picture')).toNotExist('no decorative photo glyph on terrain rows');
                             // Hillshade MenuRow is also inside the collapsible zone:
-                            // expect at least 2 MenuRows (DEM + Hillshade) under .terrain-derivatives.
+                            // expect at least 2 MenuRows (DEM + Hillshade) under .sv-terrain-derivatives.
                             const menuRows = derivatives.querySelectorAll('.menu-row');
                             expect(menuRows.length >= 2).toBe(true,
                                 'both DEM and Hillshade MenuRows render inside the collapsible zone');
                             // And the top-level parent row still holds NO MenuRow.
-                            const parentRow = container.querySelector('.terrain-parent-row');
+                            const parentRow = container.querySelector('.sv-terrain-parent-row');
                             expect(parentRow.querySelector('.menu-row')).toNotExist('parent row stays identity-only when expanded');
                             resolve();
                         } catch (err) { reject(err); }
@@ -914,7 +914,7 @@ describe('TASK-1674 terrain recipe builder conformed onto SimpleView primitives'
         expect(badge.className).toContain('is-pending'); // amber warn palette
         expect(badge.textContent).toContain('stale');
         // The tooltip-bearing wrapper hook survives so the title/selector is intact.
-        expect(container.querySelector('.terrain-workbench-stale-badge')).toExist('stale wrapper hook preserved');
+        expect(container.querySelector('.sv-terrain-workbench-stale-badge')).toExist('stale wrapper hook preserved');
 
         ReactDOM.unmountComponentAtNode(container);
         ReactDOM.render(<TWStaleBadge isStale={false} />, container);

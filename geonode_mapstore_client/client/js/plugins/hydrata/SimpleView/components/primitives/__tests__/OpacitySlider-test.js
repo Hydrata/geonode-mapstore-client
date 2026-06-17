@@ -56,7 +56,7 @@ describe('SimpleView OpacitySlider primitive (TASK-1007 W3, tested in W4)', () =
             const cls = wrapper.className;
             expect(cls).toInclude('mapstore-slider');
             expect(cls).toInclude('sv-dataset-transparency');
-            expect(cls).toInclude('with-tooltip');
+            expect(cls).toInclude('sv-with-tooltip');
             expect(cls).toInclude('menu-row-slider-subrow');
         });
 

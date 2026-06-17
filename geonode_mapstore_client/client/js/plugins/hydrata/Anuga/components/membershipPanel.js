@@ -276,7 +276,7 @@ class MembershipPanelClass extends React.Component {
                 <div className="sv-membership-add-form-row">
                     <input
                         type="email"
-                        className="data-title-input sv-membership-search-input invite-email-input"
+                        className="sv-data-title-input sv-membership-search-input invite-email-input"
                         placeholder="Email address"
                         value={this.state.inviteEmail}
                         disabled={formDisabled}
