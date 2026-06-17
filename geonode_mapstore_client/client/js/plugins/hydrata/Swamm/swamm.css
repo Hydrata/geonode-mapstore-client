@@ -671,8 +671,13 @@
         max-width: 60px;
     }
 
-    #swamm-bmp-chart-header,
-    #swamm-target-form-header {
+    /* TASK-1758 W1 simplify-pass: the dashboard + target-form headers migrated to
+       the PanelHeader chassis primitive (TASK-1761), which emits a CLASS
+       (.swamm-bmp-chart-header / .swamm-target-form-header) not an id. These
+       id selectors were dead post-migration; converted to class selectors so the
+       mobile responsive sizing re-attaches to the new PanelHeader. */
+    .swamm-bmp-chart-header,
+    .swamm-target-form-header {
         font-size: large;
         min-height: 36px;
     }
