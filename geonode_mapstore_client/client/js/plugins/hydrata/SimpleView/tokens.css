@@ -126,4 +126,51 @@
        See docs/reports/2026-06-17-q-1-chart-surface-carveout.html for the full decision.
        ──────────────────────────────────────────────────────────────────────── */
     --sv-chart-surface: #ffffff;
+
+    /* ── Typography — TASK-1758 W3 conform re-aim ───────────────────────────
+       tokens.css previously declared only --sv-header-font-size; there was no
+       font-family or body/label size token, and .simple-view-panel set no
+       font-family, so EVERY label/input/heading in all 6 panels inherited the
+       Bootstrap base font (the operator's wrong-font miss). These tokens are
+       the single source of truth for panel typography; --sv-font-family is
+       applied on the panel root (simpleView.css) so all descendants inherit.
+       Value = the document Montserrat the conformed popups already rely on.
+       ──────────────────────────────────────────────────────────────────────── */
+    --sv-font-family:     'Montserrat', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --sv-font-size:       12px;   /* body / control text */
+    --sv-font-size-label: 14px;   /* slightly-larger row labels (.menu-row-text, FilterBar) */
+
+    /* ── Dark-glass warning surface — replaces light cream banners ──────────
+       (Hydrology paste-error #fff8e0 / design-storm stale, Anuga
+       runPollingPaused #fff7e6, HGeval .hgeval-warnings). Mirrors the already
+       dark-glass .idf-derive-banner--warning. */
+    --sv-warning-bg:     rgba(252, 248, 227, 0.12);
+    --sv-warning-border: rgba(250, 235, 204, 0.4);
+    --sv-warning-color:  #fcf8e3;
+
+    /* ── Active / selected accents (rule-of-three repeated literals) ── */
+    --sv-accent-lime:  #cae33b;              /* lime active accent (ds-derive toast, category-rail active, preset selected) */
+    --sv-accent-green: rgba(39, 202, 59, 1); /* bright save/active green (Hydrology, Swamm dashboard, shared) */
+    --sv-on-accent:    #1f3a1f;              /* dark legible text ON a lime/green accent chip */
+
+    /* ── Row / divider surfaces (converge per-panel translucent-white literals) ── */
+    --sv-row-hover-bg:  rgba(255, 255, 255, 0.10); /* row hover/active (TaskMonitor, VectorDraw picker, Swamm) */
+    --sv-row-active-bg: rgba(30, 126, 52, 0.7);    /* active/selected row green (shared menu/rail) */
+    --sv-divider:       rgba(255, 255, 255, 0.08); /* translucent row divider */
+
+    /* ── Shared chrome blues (de-dup raw literals) ── */
+    --sv-chrome-deep:   #335781; /* opacity-slider track / introduction-modal / gn-brand-navbar */
+    --sv-accent-border: #3585b0; /* col-one/footer divider teal-blue (was #3585b0 + rgba(53,133,176)) */
+    --sv-glyph-chip-bg: #ffffff; /* intentional white legibility-mat behind action glyphs */
+
+    /* ── StatusBadge text colours (WCAG-AA on dark glass; promote raw hex) ── */
+    --sv-status-ok:   #a8e6a8; /* is-ok */
+    --sv-status-warn: #f0e08a; /* is-pending */
+    --sv-status-info: #7cd3ec; /* is-running */
+
+    /* ── Swamm / button semantics (replace darkgreen/darkred/darkorange keywords + light-pink) ── */
+    --sv-pin-accent:  rgba(120, 220, 180, 0.6); /* Swamm pinned-override mint chip/border */
+    --sv-btn-save:    rgba(40, 167, 69, 0.85);  /* canonical success/save button fill */
+    --sv-btn-danger:  darkred;                  /* canonical danger/delete button fill (aligns with --sv-glyph-delete) */
+    --sv-disabled-bg: rgba(220, 53, 69, 0.18);  /* dark-glass disabled/non-savable surface (was light #f8a9a9) */
 }

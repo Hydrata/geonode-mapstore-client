@@ -114,6 +114,10 @@
 .simple-view-panel {
     position: absolute;
     z-index: 1025;
+    /* TASK-1758 W3 conform: tokenise the panel font-family so every descendant
+       label/input/heading inherits one canonical family instead of the app
+       base (the wrong-font drift source). */
+    font-family: var(--sv-font-family);
     top: var(--sv-panel-top, 65px);
     left: 20px;
     min-width: 500px;
@@ -518,7 +522,12 @@ span.menu-row-glyph {
 }
 
 .menu-row-text {
-    font-size: 14px;
+    /* TASK-1758 W3 conform: was font-size:14px with no weight (inherited 400),
+       so feature-row labels (e.g. "Boundary 01") read thinner than the 500/600
+       siblings around them. Tokenise size + set the medium weight that matches
+       the category-rail labels. */
+    font-size: var(--sv-font-size-label);
+    font-weight: 500;
     white-space: nowrap;
     padding-left: 3px;
     vertical-align: middle;
