@@ -269,6 +269,8 @@
         "uploadFrictionRasterTooltip": "Upload a friction raster GeoTIFF (Manning's-n)",
         "uploadTerrainTooltip": "Subir un nuevo archivo *.tiff de Terrain",
         "globalDemTooltip": "Añadir un Terrain desde el MDE mundial Copernicus GLO-30 (dibujo de bbox)",
+        "mergeTerrainsTooltip": "Combinar terrenos",
+        "mergeTerrainsPanelTitle": "Combinar terrenos",
         "terrainBboxPanelTitle": "MDE mundial Copernicus GLO-30",
         "terrainBboxTitleLabel": "Título",
         "terrainBboxDefaultTitle": "MDE Copernicus GLO-30",

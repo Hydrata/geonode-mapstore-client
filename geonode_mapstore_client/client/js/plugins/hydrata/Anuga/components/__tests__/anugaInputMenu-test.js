@@ -418,14 +418,15 @@ describe('TASK-1652 _buildTerrainGroups terrain hierarchy grouping', () => {
 });
 
 // ---------------------------------------------------------------------------
-// TASK-1753 (W1.8): selecting a derived terrain row populates the Analysis
-// Surfaces recipe builder with that terrain's source AnalysisSurface.
-// _handleSelectTerrainRow opens the recipe section, loads the data, and
-// dispatches twSelectSurfaceForTerrain(terrainId) (the epic resolves + selects
-// the source surface). This test constructs the unconnected class and invokes
-// the handler directly (mirrors the TASK-1728 makeInstance pattern).
+// TASK-1753 (W1.8) + TASK-1800 (W1.9 UAT): selecting a derived terrain row
+// populates the recipe builder with that terrain's source AnalysisSurface.
+// TASK-1800: the recipe builder is now the stand-alone "Merge terrains" side
+// panel, so _handleSelectTerrainRow OPENS that panel (onOpenMergeTerrainsPanel),
+// loads the data (onTwLoadData) and dispatches twSelectSurfaceForTerrain(terrainId)
+// (the epic resolves + selects the source surface). This test constructs the
+// unconnected class and invokes the handler directly (TASK-1728 makeInstance pattern).
 // ---------------------------------------------------------------------------
-describe('TASK-1753 _handleSelectTerrainRow populates the recipe builder', () => {
+describe('TASK-1753/1800 _handleSelectTerrainRow opens the Merge terrains panel', () => {
     function makeInstance(props) {
         const instance = new AnugaInputMenuClass(props);
         instance.props = props;
@@ -436,50 +437,37 @@ describe('TASK-1753 _handleSelectTerrainRow populates the recipe builder', () =>
         return instance;
     }
 
-    it('dispatches twSelectSurfaceForTerrain and opens the recipe section', () => {
+    it('opens the Merge terrains panel, loads data, and selects the source recipe', () => {
         let selectedForTerrain = null;
+        let opened = false;
         let loaded = false;
         const instance = makeInstance({
+            onOpenMergeTerrainsPanel: () => { opened = true; },
             onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
             onTwLoadData: () => { loaded = true; }
         });
-        // Section starts closed.
-        instance.state = Object.assign({}, instance.state, { twSurfaceSectionOpen: false });
 
         instance._handleSelectTerrainRow(7);
 
+        // The stand-alone panel is opened and its data loaded.
+        expect(opened).toBe(true);
+        expect(loaded).toBe(true);
         // The source recipe of terrain 7 is requested.
         expect(selectedForTerrain).toBe(7);
-        // Section opened so the populated builder is visible, and data was loaded.
-        expect(instance.state.twSurfaceSectionOpen).toBe(true);
-        expect(loaded).toBe(true);
-    });
-
-    it('does not re-load when the recipe section is already open', () => {
-        let selectedForTerrain = null;
-        let loadCalls = 0;
-        const instance = makeInstance({
-            onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
-            onTwLoadData: () => { loadCalls += 1; }
-        });
-        instance.state = Object.assign({}, instance.state, { twSurfaceSectionOpen: true });
-
-        instance._handleSelectTerrainRow(12);
-
-        expect(selectedForTerrain).toBe(12);
-        // Already open → no redundant load.
-        expect(loadCalls).toBe(0);
     });
 
     it('no-ops on a null/undefined terrain id (orphan row)', () => {
         let selectedForTerrain = 'untouched';
+        let opened = false;
         const instance = makeInstance({
+            onOpenMergeTerrainsPanel: () => { opened = true; },
             onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
             onTwLoadData: () => {}
         });
         instance._handleSelectTerrainRow(null);
         instance._handleSelectTerrainRow(undefined);
         expect(selectedForTerrain).toBe('untouched');
+        expect(opened).toBe(false);
     });
 });
 
@@ -1193,9 +1181,12 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         expect(container.querySelector('.sv-status-badge')).toNotExist('no stale pill when fresh');
     });
 
-    // #1: with ZERO terrains, the whole Analysis Surfaces section is absent.
-    //     Walk the React-element tree returned by renderTerrainPane (avoids a full
-    //     connected mount) looking for the .sv-anuga-terrain-recipe-section node.
+    // TASK-1800 (W1.9 UAT): the inline "Analysis Surfaces" recipe section was
+    //   REMOVED — the recipe builder is now the stand-alone "Merge terrains" side
+    //   panel. The Terrain pane therefore (a) never renders
+    //   .sv-anuga-terrain-recipe-section, and (b) ALWAYS shows the "Merge terrains"
+    //   header button (data-testid anuga-terrain-merge-panel-button) regardless of
+    //   terrain count. Walk the React-element tree returned by renderTerrainPane.
     function findClassInTree(el, cls) {
         if (!el || typeof el !== 'object') return false;
         if (Array.isArray(el)) return el.some(c => findClassInTree(c, cls));
@@ -1203,6 +1194,13 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         if (typeof cn === 'string' && cn.split(/\s+/).indexOf(cls) !== -1) return true;
         const children = el.props && el.props.children;
         return findClassInTree(children, cls);
+    }
+    function findTestIdInTree(el, testid) {
+        if (!el || typeof el !== 'object') return false;
+        if (Array.isArray(el)) return el.some(c => findTestIdInTree(c, testid));
+        if (el.props && el.props['data-testid'] === testid) return true;
+        const children = el.props && el.props.children;
+        return findTestIdInTree(children, testid);
     }
 
     function renderTerrainPaneTree(twTerrains) {
@@ -1215,13 +1213,16 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
             twDeriving: false, twDeriveError: null,
             onTwLoadData: () => {}, onTwSelectSurface: () => {}, onTwCreateSurface: () => {},
             onTwUpdateSurface: () => {}, onTwDeleteSurface: () => {}, onTwDerive: () => {},
+            onOpenMergeTerrainsPanel: () => {},
             setVisibleTerrainBboxPanel: () => {}
         };
         instance.state = {
-            twSurfaceSectionOpen: false, expandedTerrainIds: new Set(), contoursEnabled: {}
+            expandedTerrainIds: new Set(), contoursEnabled: {}
         };
-        // Stub the heavy helpers renderTerrainPane delegates to.
-        instance.renderPaneHead = () => null;
+        // Stub the heavy helpers renderTerrainPane delegates to. renderPaneHead is
+        // NOT stubbed so the actions fragment (with the Merge terrains button) is
+        // walkable in the returned element tree.
+        instance.renderPaneHead = (catId, actions) => actions;
         instance.renderTerrainEmpty = () => null;
         instance._buildTerrainGroups = () => [];
         instance._terrainFileInputRef = { current: null };
@@ -1232,14 +1233,56 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         return instance.renderTerrainPane();
     }
 
-    it('#1: Analysis Surfaces section is ABSENT with zero terrains, PRESENT with >=1', () => {
+    it('#1 (TASK-1800): inline recipe section is GONE; Merge terrains button is always present', () => {
         const treeZero = renderTerrainPaneTree([]);
-        expect(findClassInTree(treeZero, 'sv-anuga-terrain-recipe-section'))
-            .toBe(false, 'recipe section must not render with zero terrains');
-
         const treeOne = renderTerrainPaneTree([{ id: 11, title: 'Top DEM' }]);
+
+        // The inline expandable recipe section no longer renders in either case.
+        expect(findClassInTree(treeZero, 'sv-anuga-terrain-recipe-section'))
+            .toBe(false, 'inline recipe section must be removed (zero terrains)');
         expect(findClassInTree(treeOne, 'sv-anuga-terrain-recipe-section'))
-            .toBe(true, 'recipe section renders once at least one terrain exists');
+            .toBe(false, 'inline recipe section must be removed (>=1 terrain)');
+
+        // The header "Merge terrains" button is present regardless of terrain count.
+        expect(findTestIdInTree(treeZero, 'anuga-terrain-merge-panel-button'))
+            .toBe(true, 'Merge terrains button present with zero terrains');
+        expect(findTestIdInTree(treeOne, 'anuga-terrain-merge-panel-button'))
+            .toBe(true, 'Merge terrains button present with >=1 terrain');
+    });
+
+    it('#2 (TASK-1800): the Merge terrains button opens the panel and loads data', () => {
+        let opened = false;
+        let loaded = false;
+        const instance = Object.create(AnugaInputMenuClass.prototype);
+        instance.props = {
+            terrainLayers: [], canEditAnugaMap: true, flatLayers: [], projectId: 42,
+            twTerrains: [], setVisibleTerrainBboxPanel: () => {},
+            onOpenMergeTerrainsPanel: () => { opened = true; },
+            onTwLoadData: () => { loaded = true; }
+        };
+        instance.state = { expandedTerrainIds: new Set(), contoursEnabled: {} };
+        instance.renderPaneHead = (catId, actions) => actions;
+        instance.renderTerrainEmpty = () => null;
+        instance._buildTerrainGroups = () => [];
+        instance._terrainFileInputRef = { current: null };
+        instance._openTerrainFilePicker = () => {};
+        instance._onTerrainFileSelected = () => {};
+        instance._handleTerrainStylingModeChange = () => {};
+        instance._handleContoursToggle = () => {};
+        const tree = instance.renderTerrainPane();
+
+        // Locate the button element and invoke its onClick.
+        let btn = null;
+        (function find(el) {
+            if (btn || !el || typeof el !== 'object') return;
+            if (Array.isArray(el)) { el.forEach(find); return; }
+            if (el.props && el.props['data-testid'] === 'anuga-terrain-merge-panel-button') { btn = el; return; }
+            find(el.props && el.props.children);
+        })(tree);
+        expect(btn).toExist('Merge terrains button element found');
+        btn.props.onClick();
+        expect(opened).toBe(true, 'clicking opens the Merge terrains panel');
+        expect(loaded).toBe(true, 'clicking loads the recipe data');
     });
 });
 

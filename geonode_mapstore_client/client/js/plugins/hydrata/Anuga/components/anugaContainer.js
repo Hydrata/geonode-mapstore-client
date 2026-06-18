@@ -24,6 +24,12 @@ import {AnugaInputMenu} from './anugaInputMenu';
 // stuck in BBOX draw mode with no panel to return to (the "freeze"). Mounting it
 // here keeps it alive across the menu close; it self-gates on terrainBboxPanelVisible.
 import {TerrainBboxPanel} from './terrainBboxPanel';
+// TASK-1800 (W1.9 UAT): the Analysis-Surface recipe builder is now the
+// stand-alone "Merge terrains" side panel. Like TerrainBboxPanel it is mounted
+// at the CONTAINER level (NOT inside AnugaInputMenu) and self-gates on
+// terrainWorkbench.visible, so closing the Inputs menu can't unmount it
+// mid-edit (TASK-1648 lesson).
+import {MergeTerrainsPanel} from '../../TerrainWorkbench/components/MergeTerrainsPanel';
 import {AnugaScenarioMenu} from './anugaScenarioMenu';
 import {PublicationPanel} from './publicationPanel';
 import {NetworkMenu} from "./networkMenu";
@@ -228,6 +234,11 @@ export class AnugaContainer extends React.Component {
                         import area' does) does NOT unmount it mid-draw. It self-gates
                         on terrainBboxPanelVisible, so it renders null until opened. */}
                     <TerrainBboxPanel/>
+                    {/* TASK-1800 (W1.9 UAT): stand-alone "Merge terrains" recipe
+                        panel, mounted at container level alongside TerrainBboxPanel
+                        so closing the Inputs menu does NOT unmount it mid-edit. It
+                        self-gates on terrainWorkbench.visible (null until opened). */}
+                    <MergeTerrainsPanel/>
                     {/* W7 (TASK-1045) — paused-polling banner. Always
                         mounted under isAnugaProject so the connected
                         component can react to pollingTimeoutFor without

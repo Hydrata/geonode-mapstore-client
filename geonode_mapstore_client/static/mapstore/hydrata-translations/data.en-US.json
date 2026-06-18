@@ -269,6 +269,8 @@
         "uploadFrictionRasterTooltip": "Upload a friction raster GeoTIFF (Manning's-n)",
         "uploadTerrainTooltip": "Upload a new *.tiff terrain",
         "globalDemTooltip": "Add a Terrain from global Copernicus GLO-30 DEM (bbox draw)",
+        "mergeTerrainsTooltip": "Merge terrains",
+        "mergeTerrainsPanelTitle": "Merge terrains",
         "terrainBboxPanelTitle": "Import terrain from Copernicus GLO-30",
         "terrainBboxTitleLabel": "Title",
         "terrainBboxDefaultTitle": "Copernicus GLO-30 DEM",

@@ -37,49 +37,17 @@
  * closest --sv-status-warn/#f0e08a is lighter; --sv-warning-color/#fcf8e3 is cream text).
  * ────────────────────────────────────────────────────────────────────────── */
 
-/* Expander: "Analysis Surfaces" collapsible section under the terrain layers.
- * text-align:left overrides .simple-view-panel's inherited center for the whole
- * recipe builder (labels, hints, buttons) — matches the Scenarios pane. */
-.sv-anuga-terrain-recipe-section {
-    border-top: 1px solid var(--sv-section-border, rgba(255, 255, 255, 0.6));
-    margin-top: 4px;
-    flex-shrink: 0;
-    text-align: left;
-    font-family: var(--sv-font-family);
-}
-
-.sv-anuga-terrain-recipe-toggle {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 8px 10px;
-    font-size: 13px;
-    font-family: var(--sv-font-family);
-    font-weight: 600;
-    color: #fff;
-    cursor: pointer;
-    user-select: none;
-    background: rgba(0, 0, 0, 0.1);
-    outline: none;
-}
-
-.sv-anuga-terrain-recipe-toggle:hover {
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.sv-anuga-terrain-recipe-toggle:focus-visible {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-}
-
-.sv-anuga-terrain-recipe-toggle .glyphicon {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.6);
-}
-
-.sv-anuga-terrain-recipe-body {
+/* TASK-1800 (W1.9 UAT): the inline "Analysis Surfaces" expandable section was
+ * removed from the Inputs->Terrain pane — the recipe builder is now the
+ * stand-alone "Merge terrains" side panel (MergeTerrainsPanel). The dead
+ * .sv-anuga-terrain-recipe-section / -toggle / -body rules were dropped; the
+ * scrollable recipe body now lives on .sv-merge-terrains-body. text-align:left
+ * overrides .simple-view-panel's inherited center for the whole recipe builder
+ * (labels, hints, buttons) — matches the Scenarios pane. */
+.sv-merge-terrains-body {
     padding: 8px 10px 14px;
-    max-height: 60vh;
     overflow-y: auto;
+    text-align: left;
     font-family: var(--sv-font-family);
     font-size: var(--sv-font-size);
 }
