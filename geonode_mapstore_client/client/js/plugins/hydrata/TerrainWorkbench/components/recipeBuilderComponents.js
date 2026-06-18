@@ -16,7 +16,7 @@ import React from "react";
 import { OverlayTrigger, Tooltip, Button } from 'react-bootstrap';
 const PropTypes = require('prop-types');
 
-import {ErrorStrip, EmptyState, StatusBadge} from "../../SimpleView/components/primitives";
+import {ErrorStrip, StatusBadge} from "../../SimpleView/components/primitives";
 
 // ── TASK-1645 (W1.5) / TASK-1671 (W1.6): AnalysisSurface recipe builder ────
 
@@ -492,122 +492,12 @@ class TWRecipeBuilder extends React.Component {
     }
 }
 
-// One surface row — the name is edited INLINE here (click and type) rather than
-// in a separate field; commits on blur / Enter via onRename (a title-only
-// PATCH), Esc reverts. The row also owns selection and delete.
-class TWSurfaceListItem extends React.Component {
-    static propTypes = {
-        surface: PropTypes.object.isRequired,
-        selected: PropTypes.bool,
-        saving: PropTypes.bool,
-        onSelect: PropTypes.func.isRequired,
-        onRename: PropTypes.func.isRequired,
-        onDelete: PropTypes.func.isRequired,
-    };
-    static defaultProps = { selected: false, saving: false };
-
-    constructor(props) {
-        super(props);
-        this.state = { draft: props.surface.title || '' };
-    }
-
-    componentDidUpdate(prevProps) {
-        // Resync the editable draft when the row switches surface or the server
-        // title changes elsewhere (e.g. another save).
-        if (prevProps.surface.id !== this.props.surface.id ||
-            prevProps.surface.title !== this.props.surface.title) {
-            this.setState({ draft: this.props.surface.title || '' });
-        }
-    }
-
-    commit = () => {
-        const title = (this.state.draft || '').trim();
-        if (!title) { this.setState({ draft: this.props.surface.title || '' }); return; }
-        if (title !== this.props.surface.title) this.props.onRename(this.props.surface.id, title);
-    };
-
-    render() {
-        const { surface, selected, saving, onSelect, onDelete } = this.props;
-        return (
-            <div
-                className={`sv-tw-surface-item${selected ? ' selected' : ''}`}
-                onClick={() => onSelect(surface.id)}
-                data-testid={`surface-item-${surface.id}`}
-            >
-                <input
-                    className="sv-tw-surface-title-input"
-                    value={this.state.draft}
-                    placeholder={`Surface #${surface.id}`}
-                    title="Click to rename this analysis surface"
-                    aria-label="Analysis surface name"
-                    disabled={saving}
-                    onChange={(e) => this.setState({ draft: e.target.value })}
-                    onClick={(e) => { e.stopPropagation(); onSelect(surface.id); }}
-                    onBlur={this.commit}
-                    onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
-                        else if (e.key === 'Escape') { this.setState({ draft: surface.title || '' }, () => this.input && this.input.blur()); }
-                    }}
-                    ref={(el) => { this.input = el; }}
-                    data-testid={`surface-title-${surface.id}`}
-                />
-                {/* #11 (re-UAT): never show "stale" on a surface that has never been
-                    derived. is_stale is True both when no output exists yet AND when a
-                    derived output's inputs have since changed — only the latter is a real
-                    "stale" state. Gate on output_terrain existing (a derived output). */}
-                <TWStaleBadge isStale={!!surface.is_stale && !!surface.output_terrain}/>
-                <button
-                    type="button"
-                    className="sv-tw-icon-btn sv-tw-icon-btn-danger sv-tw-surface-delete"
-                    onClick={(e) => { e.stopPropagation(); onDelete(surface.id); }}
-                    disabled={saving}
-                    title="Delete this analysis surface"
-                    aria-label="Delete analysis surface"
-                    data-testid={`surface-delete-${surface.id}`}
-                >×</button>
-            </div>
-        );
-    }
-}
-
-function TWSurfaceList({ surfaces, selectedId, onSelect, onRename, onDelete, onNew, saving, createError }) {
-    return (
-        <div className="sv-tw-surface-list">
-            {/* #10 (re-UAT): the "ANALYSIS SURFACES" sub-heading was redundant with the
-                collapsible panel title above; only the "+ New" action remains in the header. */}
-            <div className="sv-tw-surface-list-header tw-surface-list-header sv-tw-surface-list-header--no-label tw-surface-list-header--no-label">
-                <button type="button" className="sv-tw-new-btn" onClick={onNew} disabled={saving} data-testid="new-surface-btn">+ New analysis surface</button>
-            </div>
-            {/* TASK-1658: a failed create has no selectedSurface, so the recipe-form
-                error would be invisible — surface it here at the list level. */}
-            {/* TASK-1674: tw-error -> shared ErrorStrip; tw-empty-hint -> shared EmptyState. */}
-            {createError && (
-                <div data-testid="create-error">
-                    <ErrorStrip message={createError} extraClassName="sv-tw-error tw-error"/>
-                </div>
-            )}
-            {surfaces.length === 0 && (
-                <EmptyState extraClassName="sv-tw-empty-hint tw-empty-hint">
-                    No analysis surfaces yet. Create one with <strong>+ New analysis surface</strong>.
-                </EmptyState>
-            )}
-            {surfaces.map(s => (
-                <TWSurfaceListItem
-                    key={s.id}
-                    surface={s}
-                    selected={selectedId === s.id}
-                    saving={saving}
-                    onSelect={onSelect}
-                    onRename={onRename}
-                    onDelete={onDelete}
-                />
-            ))}
-        </div>
-    );
-}
-TWSurfaceList.propTypes = { surfaces: PropTypes.array.isRequired, selectedId: PropTypes.number, onSelect: PropTypes.func.isRequired, onRename: PropTypes.func.isRequired, onDelete: PropTypes.func.isRequired, onNew: PropTypes.func.isRequired, saving: PropTypes.bool, createError: PropTypes.string };
-TWSurfaceList.defaultProps = { selectedId: null, saving: false, createError: null };
+// TASK-1800 (W1.9 UAT r2): the surface LIST (TWSurfaceList / TWSurfaceListItem),
+// the "+ New analysis surface" button, the per-row delete and the inline rename
+// were REMOVED. A project owns a SINGLE combined surface — the panel edits exactly
+// one (MergeTerrainsPanel.pickCombinedSurface), so there is no list to render and
+// no name to edit. The AnalysisSurface model / API / 'terrainWorkbench' slice are
+// unchanged; only the panel UI dropped the multi-surface chrome.
 
 // ── end TASK-1645 recipe builder components ──────────────────────────────────
 
@@ -618,7 +508,5 @@ export {
     TWSeamQAPanel,
     TWDemStackPicker,
     TWDeriveConfirmDialog,
-    TWRecipeBuilder,
-    TWSurfaceListItem,
-    TWSurfaceList
+    TWRecipeBuilder
 };

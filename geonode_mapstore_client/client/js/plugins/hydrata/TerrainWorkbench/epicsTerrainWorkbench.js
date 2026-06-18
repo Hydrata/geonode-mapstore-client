@@ -56,6 +56,8 @@ import {
     deriveAnalysisSurface,
     getAnalysisSurface,
 } from './api/terrainWorkbenchApi';
+// TASK-1800 (W1.9 UAT r2): TW_PARAM_DEFAULTS seed the lazily-created combined surface.
+import { TW_PARAM_DEFAULTS } from './components/recipeBuilderComponents';
 
 // Maximum 2s-tick polling attempts for a derive (5-min cap, matches IDF derive).
 const TW_DERIVE_POLL_MAX = 150;
@@ -261,16 +263,52 @@ export const twDeriveEpic = (action$, store) =>
             // TASK-1671: action.body = { inputs:[{terrain_id,priority,unmodified}],
             //   feather_width_m, target_resolution_m, breach_max_cost,
             //   breach_search_dist, use_culverts }
-            return Rx.Observable
-                .from(deriveAnalysisSurface(projectId, action.surfaceId, action.body || {}))
-                .switchMap(resp => Rx.Observable.from([
-                    // TASK-1649: open Tasks Panel so derive progress is visible.
-                    toggleTaskMonitorPanel(true),
-                    twDeriveSuccess(action.surfaceId, resp?.data?.process_id),
-                ]))
-                .catch(err =>
-                    Rx.Observable.of(twDeriveError(extractTwError(err, 'Derive failed')))
-                );
+
+            // TASK-1800 (W1.9 UAT r2): a project owns a SINGLE combined surface and
+            // the panel no longer surfaces a "+ New" affordance. When the project has
+            // ZERO AnalysisSurface rows the user still builds + derives one — the panel
+            // edits a synthetic in-memory surface (id absent). At derive time we LAZILY
+            // materialise exactly one row (POST), then derive against its new id. This
+            // keeps create-on-first-need (no data litter from merely opening the panel)
+            // and preserves the W1.6 atomic save-on-derive flow. The created row is
+            // unnamed (no list/name is shown); a deterministic title keeps it legible
+            // in the admin/API. surfaceId present (existing surface) → derive directly.
+            const deriveWithId = (surfaceId, extraActions = []) =>
+                Rx.Observable
+                    .from(deriveAnalysisSurface(projectId, surfaceId, action.body || {}))
+                    .switchMap(resp => Rx.Observable.from([
+                        ...extraActions,
+                        // TASK-1649: open Tasks Panel so derive progress is visible.
+                        toggleTaskMonitorPanel(true),
+                        twDeriveSuccess(surfaceId, resp?.data?.process_id),
+                    ]))
+                    .catch(err =>
+                        Rx.Observable.of(twDeriveError(extractTwError(err, 'Derive failed')))
+                    );
+
+            if (action.surfaceId === null || action.surfaceId === undefined) {
+                // Lazily create the single combined surface, then derive against it.
+                return Rx.Observable
+                    .from(createAnalysisSurface(projectId, {
+                        title: 'Combined surface',
+                        use_culverts: false,
+                        ...TW_PARAM_DEFAULTS
+                    }))
+                    .switchMap(createResp => {
+                        const surface = createResp.data;
+                        // Register the row in state + select it so the builder binds to
+                        // its real id, then derive.
+                        return deriveWithId(surface.id, [
+                            twCreateSurfaceSuccess(surface),
+                            twSelectSurface(surface.id)
+                        ]);
+                    })
+                    .catch(err =>
+                        Rx.Observable.of(twDeriveError(extractTwError(err, 'Create failed')))
+                    );
+            }
+
+            return deriveWithId(action.surfaceId);
         });
 
 // ── Derive-complete watcher ────────────────────────────────────────────────

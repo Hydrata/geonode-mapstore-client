@@ -279,7 +279,7 @@ describe('TASK-1728 terrain upload — no inline strip, surfaces on Tasks Panel'
 //   • Unmatched layers (analysis surface outputs, etc.) → { terrain:null, demLayer, hillshadeLayer:null }
 // TASK-1674: TW* presentational pieces are imported here too (single import to
 // satisfy no-duplicate-imports) for the SimpleView-primitive conform specs below.
-import { AnugaInputMenuClass, TWStaleBadge, TWSurfaceList, TWRecipeBuilder, TerrainHierarchyRow } from '../anugaInputMenu';
+import { AnugaInputMenuClass, TWStaleBadge, TWRecipeBuilder, TerrainHierarchyRow } from '../anugaInputMenu';
 
 function buildGroupsWithProps({ terrainLayers = [], terrainModels = [] } = {}) {
     // Directly invoke the instance method with a mock `this.props`.
@@ -870,8 +870,8 @@ describe('BUG-4 anugaInputMenu DEM + Hillshade folded into collapsible section',
 // TW pieces in isolation and assert: (a) the SimpleView primitive class hooks
 // are emitted, (b) the per-panel tw-* variant hooks survive (extraClassName), and
 // (c) the stable data-testids are preserved.
-// (TWStaleBadge / TWSurfaceList / TWRecipeBuilder imported alongside
-//  AnugaInputMenuClass above to satisfy no-duplicate-imports.)
+// (TWStaleBadge / TWRecipeBuilder imported alongside AnugaInputMenuClass above to
+//  satisfy no-duplicate-imports. TASK-1800 r2: TWSurfaceList removed.)
 
 describe('TASK-1674 terrain recipe builder conformed onto SimpleView primitives', () => {
     let container;
@@ -909,64 +909,11 @@ describe('TASK-1674 terrain recipe builder conformed onto SimpleView primitives'
         expect(container.querySelector('.sv-status-badge')).toNotExist('fresh surface renders no badge');
     });
 
-    it('TWSurfaceList empty state is the shared EmptyState (sv-empty-state + tw-empty-hint hook)', () => {
-        ReactDOM.render(
-            <TWSurfaceList
-                surfaces={[]}
-                selectedId={null}
-                onSelect={() => {}}
-                onRename={() => {}}
-                onDelete={() => {}}
-                onNew={() => {}}
-            />,
-            container
-        );
-        const empty = container.querySelector('.sv-empty-state');
-        expect(empty).toExist('empty surfaces use the shared EmptyState primitive');
-        expect(empty.className).toContain('tw-empty-hint'); // per-panel variant hook preserved
-        expect(empty.textContent).toContain('No analysis surfaces yet');
-        // The "+ New analysis surface" emphasis survives as the EmptyState subcopy.
-        expect(empty.querySelector('strong')).toExist('the "+ New analysis surface" emphasis survives');
-    });
-
-    it('TWSurfaceList create error renders the shared ErrorStrip under the create-error testid', () => {
-        ReactDOM.render(
-            <TWSurfaceList
-                surfaces={[]}
-                selectedId={null}
-                createError={'Boom: create failed'}
-                onSelect={() => {}}
-                onRename={() => {}}
-                onDelete={() => {}}
-                onNew={() => {}}
-            />,
-            container
-        );
-        const wrap = container.querySelector('[data-testid="create-error"]');
-        expect(wrap).toExist('create-error testid is preserved');
-        const strip = wrap.querySelector('.sv-error-strip');
-        expect(strip).toExist('create error uses the shared ErrorStrip primitive');
-        expect(strip.className).toContain('tw-error'); // per-panel variant hook preserved
-        expect(strip.getAttribute('role')).toBe('alert');
-        expect(strip.textContent).toContain('Boom: create failed');
-    });
-
-    it('TWSurfaceList renders NO create-error wrapper / ErrorStrip on the happy path', () => {
-        ReactDOM.render(
-            <TWSurfaceList
-                surfaces={[]}
-                selectedId={null}
-                createError={null}
-                onSelect={() => {}}
-                onRename={() => {}}
-                onDelete={() => {}}
-                onNew={() => {}}
-            />,
-            container
-        );
-        expect(container.querySelector('[data-testid="create-error"]')).toNotExist('no error wrapper when createError is falsy');
-        expect(container.querySelector('.sv-error-strip')).toNotExist('no ErrorStrip on the happy path');
-    });
+    // TASK-1800 (W1.9 UAT r2): the surface LIST (TWSurfaceList) was REMOVED — a
+    // project owns a SINGLE combined surface, so there is no list, "+ New" button,
+    // per-row delete or create-error surface. The TWSurfaceList ErrorStrip/EmptyState
+    // conform specs that pinned it are gone; the shared-primitive conform is still
+    // covered by the TWRecipeBuilder + TWStaleBadge specs below.
 
     it('TWRecipeBuilder save + derive errors are shared ErrorStrips under their testids', () => {
         ReactDOM.render(
@@ -1125,59 +1072,33 @@ describe('TASK-1750 Analysis Surfaces recipe panel — labels/badges/pencil/head
         expect(labels.length).toBe(0);
     });
 
-    // #10: the redundant "ANALYSIS SURFACES" sub-heading (surface-list header) is removed.
-    it('#10: the redundant "Analysis Surfaces" sub-heading is gone from the list header', () => {
-        ReactDOM.render(
-            <TWSurfaceList
-                surfaces={[]}
-                selectedId={null}
-                onSelect={() => {}}
-                onRename={() => {}}
-                onDelete={() => {}}
-                onNew={() => {}}
-            />,
-            container
-        );
-        const header = container.querySelector('.tw-surface-list-header');
-        expect(header).toExist('the header (with the + New action) survives');
-        expect(header.querySelector('.tw-label')).toNotExist('no sub-heading label in the header');
-        expect(header.className).toContain('tw-surface-list-header--no-label');
-        // The + New action is still present.
-        expect(container.querySelector('[data-testid="new-surface-btn"]')).toExist();
-    });
+    // #10 (TASK-1800 r2): the surface-list header (and its "+ New" action) was
+    // REMOVED — a project owns a SINGLE combined surface, so there is no list header
+    // left to assert. The "Parameters" sub-heading removal above is still pinned.
 
-    // #11: never show "stale" on a surface that has never been derived.
+    // #11: never show "stale" on a surface that has never been derived. The stale
+    // gate (is_stale && output_terrain) lives in TWStaleBadge — pin it directly now
+    // that the surface row that used to carry it is gone (TASK-1800 r2).
     it('#11: stale badge hidden when never derived (no output_terrain), shown once derived + stale', () => {
-        const base = {
-            id: 9, title: 'Surf', inputs_ordered: [], use_culverts: false,
-            feather_width_m: 10, target_resolution_m: 1, breach_max_cost: 100, breach_search_dist: 50
-        };
-        const renderList = (s) => ReactDOM.render(
-            <TWSurfaceList
-                surfaces={[s]}
-                selectedId={null}
-                onSelect={() => {}}
-                onRename={() => {}}
-                onDelete={() => {}}
-                onNew={() => {}}
-            />,
-            container
-        );
+        // The component-level gate is in the row/builder; TWStaleBadge renders the
+        // pill iff isStale is true. Replicate the row gate: is_stale && output_terrain.
+        const gate = (s) => !!s.is_stale && !!s.output_terrain;
+        const base = { is_stale: true, output_terrain: null };
 
-        // Never derived: is_stale true (BE returns true with no output), output_terrain null.
-        renderList({ ...base, is_stale: true, output_terrain: null });
+        // Never derived: gate false → no pill.
+        ReactDOM.render(<TWStaleBadge isStale={gate(base)} />, container);
         expect(container.querySelector('.sv-status-badge')).toNotExist('no stale pill before any derive');
 
-        // Derived but inputs changed since: a derived output exists AND is_stale.
+        // Derived but inputs changed since: gate true → pill shows.
         ReactDOM.unmountComponentAtNode(container);
-        renderList({ ...base, is_stale: true, output_terrain: 1234 });
+        ReactDOM.render(<TWStaleBadge isStale={gate({ is_stale: true, output_terrain: 1234 })} />, container);
         const badge = container.querySelector('.sv-status-badge');
         expect(badge).toExist('stale pill shows once a derived output exists and inputs changed');
         expect(badge.textContent).toContain('stale');
 
-        // Derived and fresh: no stale pill.
+        // Derived and fresh: gate false → no pill.
         ReactDOM.unmountComponentAtNode(container);
-        renderList({ ...base, is_stale: false, output_terrain: 1234 });
+        ReactDOM.render(<TWStaleBadge isStale={gate({ is_stale: false, output_terrain: 1234 })} />, container);
         expect(container.querySelector('.sv-status-badge')).toNotExist('no stale pill when fresh');
     });
 

@@ -106,12 +106,13 @@ import CoordinatesUtils from "../../../../../MapStore2/web/client/utils/Coordina
 //
 // TASK-1800 (W1.9 UAT): the recipe-builder components (TW*) + estimator were
 // EXTRACTED VERBATIM to TerrainWorkbench/components/recipeBuilderComponents.js so
-// the new stand-alone "Merge terrains" side panel and this legacy pane share one
-// definition. Re-exported below (export {TWStaleBadge, TWSurfaceList,
-// TWRecipeBuilder}) so existing test imports from this module keep resolving.
+// the stand-alone "Combined surface" side panel and this legacy pane share one
+// definition. Re-exported below (export {TWStaleBadge, TWRecipeBuilder}) so
+// existing test imports from this module keep resolving.
+// TASK-1800 (r2): the surface LIST (TWSurfaceList) was removed — a project owns a
+// SINGLE combined surface, so there is no list to render or re-export.
 import {
     TWStaleBadge,
-    TWSurfaceList,
     TWRecipeBuilder
 } from '../../TerrainWorkbench/components/recipeBuilderComponents';
 
@@ -1346,13 +1347,13 @@ class AnugaInputMenuClass extends React.Component {
         const canEdit = this.props.canEditAnugaMap;
         const actions = (
             <React.Fragment>
-                {/* TASK-1800 (W1.9 UAT): "Merge terrains" — opens the stand-alone
+                {/* TASK-1800 (W1.9 UAT): "Combined surface" — opens the stand-alone
                     recipe-builder side panel. First child so it sits LEFT of the
                     globe (GLO-30) + upload icons. Custom layered-mountain + cog SVG
                     (no glyphicon class); sv-glyph-active colours it limegreen via
                     currentColor and sv-menu-row-glyph centres the svg. NOT gated by
                     canEdit, matching the globe/upload icons. */}
-                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.mergeTerrainsTooltip" /></Tooltip>}>
+                <OverlayTrigger placement="bottom" overlay={<Tooltip><Message msgId="hydrata.anuga.combinedSurfaceTooltip" /></Tooltip>}>
                     <span
                         className={"btn sv-menu-row-glyph sv-glyph-active"}
                         data-testid="anuga-terrain-merge-panel-button"
@@ -1860,7 +1861,7 @@ export {AnugaInputMenu, AnugaInputMenuClass};
 // TASK-1674: export the presentational TW pieces so the SimpleView-primitive
 // conform (ErrorStrip / EmptyState / StatusBadge substitution) can be unit-tested
 // in isolation without standing up the connected menu + a mock store.
-export {TWStaleBadge, TWSurfaceList, TWRecipeBuilder};
+export {TWStaleBadge, TWRecipeBuilder};
 // TASK-1587 (W1.8 P1.7, B2): export the terrain hierarchy row so the
 // select-on-expand-only behaviour (collapsing must NOT re-dispatch selection)
 // can be unit-tested directly.
