@@ -552,6 +552,12 @@
 .sv-tw-terrain-pending-name {
     text-align: left;
     font-family: var(--sv-font-family);
+    /* TASK-1800 (W1.9 UAT r3): match the standard layer row (.sv-menu-row-text)
+       — 14px / weight 500 — instead of the old inline fontSize:12 (now dropped
+       from anugaInputMenu.js). Keeps the terrain hierarchy + indent (Option C);
+       only the typography is normalised. */
+    font-size: var(--sv-font-size-label);
+    font-weight: 500;
 }
 
 /* #4: Mode + Contours toggles live in the MenuRow EXTRA-TOOLBAR slot, to the RIGHT
@@ -582,7 +588,12 @@
 }
 
 .sv-anuga-terrain-icon-btn.btn .glyphicon {
-    font-size: 12px;
+    /* TASK-1800 (W1.9 UAT r3): match the standard row glyph size (14px == the
+       .sv-menu-row-glyph font-size). 14px fits the existing 26x24 button (the
+       standard glyph chip is 14px inside 24x24), so the button + the 58px
+       reserved extra-toolbar slot are UNCHANGED — DEM/Hillshade columns stay
+       aligned. */
+    font-size: 14px;
     top: 0;
 }
 

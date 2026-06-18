@@ -397,7 +397,11 @@ class TerrainHierarchyRow extends React.Component {
                         <span
                             className="sv-tw-terrain-parent-title sv-terrain-parent-title"
                             data-testid="terrain-parent-title"
-                            style={{flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
+                            /* TASK-1800: font-size/weight now live in the
+                               .sv-tw-terrain-parent-title CSS rule (14px/500) to MATCH
+                               the standard .sv-menu-row-text; inline keeps only colour/
+                               ellipsis/cursor. */
+                            style={{flex: 1, minWidth: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
                             onClick={handleRowSelect}
                             title={demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
                         >
@@ -411,7 +415,7 @@ class TerrainHierarchyRow extends React.Component {
                             <MenuRow layer={demLayer} />
                         </div>
                     ) : (
-                        <span className="sv-tw-terrain-pending-name sv-terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 12}}>
+                        <span className="sv-tw-terrain-pending-name sv-terrain-pending-name" style={{flex: 1, color: 'rgba(255,255,255,0.6)'}}>
                             {terrain.title || terrain.name || 'Terrain'}
                             <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
                         </span>

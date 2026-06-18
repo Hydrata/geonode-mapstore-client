@@ -2190,7 +2190,10 @@ div that holds the feature-grid */
 .sv-terrain-pending-name {
     display: flex;
     align-items: center;
-    font-size: 11px;
+    /* TASK-1800 (W1.9 UAT r3): was 11px — bump to the standard label size
+       (14px == var(--sv-font-size-label)) to match .sv-menu-row-text and the
+       parent identity title. */
+    font-size: var(--sv-font-size-label);
     padding: 6px 4px;
 }
 
