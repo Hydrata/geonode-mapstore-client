@@ -26,7 +26,10 @@ const {
     idfDeriveMapPickEpic,
     hydrologyIdfPickManagerEpic,
     loadAnugaConfigEpic,
-    IDF_DERIVE_TIMEOUT_MESSAGE
+    IDF_DERIVE_TIMEOUT_MESSAGE,
+    // TASK-1789 — year-range constants
+    ERA5_MAX_YEAR,
+    IDF_YEAR_RANGE
 } = require('../epicsHydrology');
 
 const reducer = require('../reducersHydrology').default;
@@ -350,6 +353,18 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                 ...idfDeriveState(slice),
                 taskMonitor: { processes: { byId: tmByid || {} } }
             })
+        });
+
+        // TASK-1789 — sanity checks for exported constants
+        it('TASK-1789 ERA5_MAX_YEAR is 2026', () => {
+            expect(ERA5_MAX_YEAR).toBe(2026);
+        });
+
+        it('TASK-1789 IDF_YEAR_RANGE has 10yr and 75yr entries', () => {
+            expect(IDF_YEAR_RANGE['10yr']).toExist();
+            expect(IDF_YEAR_RANGE['75yr']).toExist();
+            expect(IDF_YEAR_RANGE['10yr'].start_year).toBe(ERA5_MAX_YEAR - 9);
+            expect(IDF_YEAR_RANGE['75yr'].start_year).toBe(1950);
         });
 
         it('deriveIdfEpic POSTs to /idf-tables/derive/ and dispatches SET_IDF_DERIVE_PROCESS_ID', (done) => {
@@ -704,6 +719,126 @@ describe('V2P-79 Hydrology epics → V2 cutover', () => {
                     expect(collected.length).toBe(0);
                     if (sub) sub.unsubscribe();
                     done();
+                }
+            );
+        });
+
+        // ── TASK-1789 — GPEX fast-path (200) + year-range payload ──────────
+
+        it('TASK-1789 deriveIdfEpic sends start_year/end_year in the POST payload (10yr mode)', (done) => {
+            mockAxios.reset();
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(202, {task_id: 'celery-uuid', process_id: 77});
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60, 1440', rpsText: '2, 100',
+                yearRangeMode: '10yr'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    try {
+                        expect(mockAxios.history.post.length).toBe(1);
+                        const body = JSON.parse(mockAxios.history.post[0].data);
+                        expect(body.start_year).toBe(2017); // ERA5_MAX_YEAR - 9 = 2026 - 9
+                        expect(body.end_year).toBe(2026);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    } catch (e) { done(e); }
+                }
+            );
+        });
+
+        it('TASK-1789 deriveIdfEpic sends start_year=1950/end_year=2026 in 75yr mode', (done) => {
+            mockAxios.reset();
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(202, {task_id: 'celery-uuid', process_id: 77});
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60, 1440', rpsText: '2, 100',
+                yearRangeMode: '75yr'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                () => {},
+                err => done(err),
+                () => {
+                    try {
+                        const body = JSON.parse(mockAxios.history.post[0].data);
+                        expect(body.start_year).toBe(1950);
+                        expect(body.end_year).toBe(2026);
+                        if (sub) sub.unsubscribe();
+                        done();
+                    } catch (e) { done(e); }
+                }
+            );
+        });
+
+        it('TASK-1789 deriveIdfEpic HTTP 200 + tier:gpex → fetches table and dispatches SET_IDF_DERIVE_RESULT', (done) => {
+            mockAxios.reset();
+            const idftableId = 42;
+            // GPEX fast-path: 200 + tier:gpex
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(200, {tier: 'gpex', idftable_id: idftableId, process_id: 55});
+            // The GET for the IDF table
+            mockAxios.onGet(`/api/v2/anuga/projects/${projectId}/idf-tables/${idftableId}/`)
+                .reply(200, {id: idftableId, provenance: {grade: 'screening', source_key: 'gpex_mev_v4'}});
+            const slice = {
+                lat: 24.33, lon: 56.39,
+                durationsText: '60, 1440', rpsText: '2, 100',
+                yearRangeMode: '10yr'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => {
+                    collected.push(a);
+                    if (collected.some(c => c.type === SET_IDF_DERIVE_RESULT)) {
+                        try {
+                            const result = collected.find(c => c.type === SET_IDF_DERIVE_RESULT);
+                            expect(result.idfTable.id).toBe(idftableId);
+                            expect(result.idfTable.provenance.grade).toBe('screening');
+                            // Must NOT dispatch SET_IDF_DERIVE_PROCESS_ID for GPEX fast-path
+                            const pidAction = collected.find(c => c.type === SET_IDF_DERIVE_PROCESS_ID);
+                            expect(pidAction).toNotExist();
+                            if (sub) sub.unsubscribe();
+                            done();
+                        } catch (e) { done(e); }
+                    }
+                },
+                err => done(err)
+            );
+        });
+
+        it('TASK-1789 deriveIdfEpic HTTP 200 without tier:gpex falls through to 202 path', (done) => {
+            // A plain 200 without tier:gpex (e.g. sync compute) should go through
+            // the normal setIdfDeriveProcessId path with null ids.
+            mockAxios.reset();
+            mockAxios.onPost(`/api/v2/anuga/projects/${projectId}/idf-tables/derive/`)
+                .reply(200, {task_id: null, process_id: null}); // no tier:gpex
+            const slice = {
+                lat: -37.8, lon: 144.9,
+                durationsText: '60, 1440', rpsText: '2, 100',
+                yearRangeMode: '10yr'
+            };
+            const action$ = mockActions([{type: DERIVE_IDF_REQUEST}]);
+            const collected = [];
+            const sub = deriveIdfEpic(action$, idfDeriveStore(slice)).subscribe(
+                a => collected.push(a),
+                err => done(err),
+                () => {
+                    try {
+                        // No SET_IDF_DERIVE_RESULT (no table fetched)
+                        const resultAction = collected.find(c => c.type === SET_IDF_DERIVE_RESULT);
+                        expect(resultAction).toNotExist();
+                        // Falls through to process-id path
+                        const pidAction = collected.find(c => c.type === SET_IDF_DERIVE_PROCESS_ID);
+                        expect(pidAction).toExist();
+                        if (sub) sub.unsubscribe();
+                        done();
+                    } catch (e) { done(e); }
                 }
             );
         });

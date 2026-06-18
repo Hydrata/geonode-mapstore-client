@@ -109,7 +109,11 @@ describe('Hydrology i18n', () => {
             'hydrata.hydrology.idfDeriveUnavailable',
             'hydrata.hydrology.idfDeriveDownloadJson',
             'hydrata.hydrology.idfDeriveDownloadCsv',
-            'hydrata.hydrology.idfDeriveProvenance'
+            'hydrata.hydrology.idfDeriveProvenance',
+            // TASK-1789 — tiered IDF FE keys
+            'hydrata.hydrology.idfDeriveYearRangeLabel',
+            'hydrata.hydrology.idfDeriveYearRangeTooltip',
+            'hydrata.hydrology.idfDeriveScreeningDisclaimer'
         ];
         [['en', enMessages], ['es', esMessages], ['fr', frMessages], ['ht', htMessages]].forEach(([locale, msgs]) => {
             idfDeriveKeys.forEach(key => {

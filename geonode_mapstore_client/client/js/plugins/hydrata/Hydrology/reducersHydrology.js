@@ -26,6 +26,8 @@ import {
     SET_IDF_DERIVE_ERROR,
     SET_IDF_DERIVE_RESULT,
     SET_CELERY_ANUGA_ENABLED,
+    // TASK-1789 — year-range mode
+    SET_IDF_DERIVE_YEAR_RANGE_MODE,
     DERIVE_DESIGN_STORM_REQUEST,
     DERIVE_DESIGN_STORM_SUCCESS,
     DERIVE_DESIGN_STORM_FAILURE,
@@ -127,7 +129,10 @@ const initialIdfDerive = {
     // Optimistic default — overridden once /api/v2/anuga/config/ resolves.
     // Sites with celery_anuga_enabled=false hit the 503 branch in the epic.
     celeryAnugaEnabled: true,
-    inFlight: false
+    inFlight: false,
+    // TASK-1789 — '10yr' (quick, ERA5_MAX-9..ERA5_MAX) or '75yr' (full, 1950..ERA5_MAX).
+    // GPEX-covered points return instantly regardless of this setting.
+    yearRangeMode: '10yr'
 };
 
 const initialState = {
@@ -602,6 +607,12 @@ export default ( state = initialState, action) => {
         return {
             ...state,
             idfDerive: {...(state.idfDerive || initialIdfDerive), celeryAnugaEnabled: action.enabled}
+        };
+    // TASK-1789 — year-range mode toggle ('10yr' | '75yr').
+    case SET_IDF_DERIVE_YEAR_RANGE_MODE:
+        return {
+            ...state,
+            idfDerive: {...(state.idfDerive || initialIdfDerive), yearRangeMode: action.mode}
         };
     // TASK-1501 (W4b) — Projection browser slice.
     case SET_PROJECTION_SPEC:

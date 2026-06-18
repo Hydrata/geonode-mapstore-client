@@ -204,7 +204,7 @@
         "memberUser": "Itilizatè",
         "members": "Manm",
         "permsUnavailable": {
-            "message": "Pa ka chaje pèmisyon yo. Lis manm nan an lekti sèlman jiskaske pèmisyon yo disponib ankò."
+          "message": "Pa ka chaje pèmisyon yo. Lis manm nan an lekti sèlman jiskaske pèmisyon yo disponib ankò."
         },
         "mesh": "May",
         "meshRegions": "Rejyon May",
@@ -415,7 +415,10 @@
         "networksScenarioTerrain": "Tèren sèn",
         "networksStep1Terrain": "Etap 1: Chwazi tèren pou delineation rezo",
         "networksTerrainOverride": "Ranplase tèren:",
-        "networksTerrainOverrideActive": "ranplasman tèren sèn"
+        "networksTerrainOverrideActive": "ranplasman tèren sèn",
+        "idfDeriveYearRangeLabel": "Longè dosye",
+        "idfDeriveYearRangeTooltip": "10yr itilize 10 dènye ane ERA5 (vit); 75yr itilize 1950–2026 (peryòd retounen pi solid). Pwen GPEX kouvri retounen tousuit.",
+        "idfDeriveScreeningDisclaimer": "Nivo depistaj GPEX — pou itilizasyon pre-konsepsyon sèlman. Rezilta derive nan nivo retounen global pre-kalkile (GPEX MEV v4, CC-BY). Valide ak done joj lokal anvan itilize nan konsepsyon."
       },
       "hgeval": {
         "annualPrecipitation": "Presipitasyon anyèl",

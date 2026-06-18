@@ -204,7 +204,7 @@
         "memberUser": "Usuario",
         "members": "Miembros",
         "permsUnavailable": {
-            "message": "No se pudieron cargar los permisos. La lista de miembros es de solo lectura hasta que los permisos esten disponibles."
+          "message": "No se pudieron cargar los permisos. La lista de miembros es de solo lectura hasta que los permisos esten disponibles."
         },
         "mesh": "Mesh",
         "meshRegions": "Mesh Regions",
@@ -415,7 +415,10 @@
         "networksScenarioTerrain": "Terreno del escenario",
         "networksStep1Terrain": "Paso 1: Seleccionar terreno para delineación de red",
         "networksTerrainOverride": "Anular terreno:",
-        "networksTerrainOverrideActive": "anulando terreno del escenario"
+        "networksTerrainOverrideActive": "anulando terreno del escenario",
+        "idfDeriveYearRangeLabel": "Longitud del registro",
+        "idfDeriveYearRangeTooltip": "10yr usa los últimos 10 años de ERA5 (rápido); 75yr usa 1950–2026 (períodos de retorno más robustos). Los puntos cubiertos por GPEX responden al instante.",
+        "idfDeriveScreeningDisclaimer": "Grado de detección GPEX — solo para uso previo al diseño. Resultados derivados de niveles de retorno globales precomputados (GPEX MEV v4, CC-BY). Validar contra datos de estaciones locales antes de usar en diseño."
       },
       "hgeval": {
         "annualPrecipitation": "Precipitación anual",
