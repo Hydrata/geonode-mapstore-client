@@ -418,68 +418,26 @@ describe('TASK-1652 _buildTerrainGroups terrain hierarchy grouping', () => {
 });
 
 // ---------------------------------------------------------------------------
-// TASK-1753 (W1.8) + TASK-1800 (W1.9 UAT): selecting a derived terrain row
-// populates the recipe builder with that terrain's source AnalysisSurface.
-// TASK-1800: the recipe builder is now the stand-alone "Merge terrains" side
-// panel, so _handleSelectTerrainRow OPENS that panel (onOpenMergeTerrainsPanel),
-// loads the data (onTwLoadData) and dispatches twSelectSurfaceForTerrain(terrainId)
-// (the epic resolves + selects the source surface). This test constructs the
-// unconnected class and invokes the handler directly (TASK-1728 makeInstance pattern).
+// TASK-1800 (W1.9 UAT live-fix 2026-06-18): the former _handleSelectTerrainRow
+// (open the Merge-terrains panel + load + select-source-surface on terrain-row
+// EXPAND, TASK-1753) was REMOVED. Expanding a terrain group is now PURE
+// DISCLOSURE; the "Combined surface" panel is opened ONLY by its own header
+// button (anuga-terrain-merge-panel-button). The expand-is-disclosure contract
+// is covered by the regression test below.
 // ---------------------------------------------------------------------------
-describe('TASK-1753/1800 _handleSelectTerrainRow opens the Merge terrains panel', () => {
-    function makeInstance(props) {
-        const instance = new AnugaInputMenuClass(props);
-        instance.props = props;
-        instance.setState = (updater) => {
-            const patch = typeof updater === 'function' ? updater(instance.state) : updater;
-            instance.state = Object.assign({}, instance.state, patch);
-        };
-        return instance;
-    }
-
-    it('opens the Merge terrains panel, loads data, and selects the source recipe', () => {
-        let selectedForTerrain = null;
-        let opened = false;
-        let loaded = false;
-        const instance = makeInstance({
-            onOpenMergeTerrainsPanel: () => { opened = true; },
-            onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
-            onTwLoadData: () => { loaded = true; }
-        });
-
-        instance._handleSelectTerrainRow(7);
-
-        // The stand-alone panel is opened and its data loaded.
-        expect(opened).toBe(true);
-        expect(loaded).toBe(true);
-        // The source recipe of terrain 7 is requested.
-        expect(selectedForTerrain).toBe(7);
-    });
-
-    it('no-ops on a null/undefined terrain id (orphan row)', () => {
-        let selectedForTerrain = 'untouched';
-        let opened = false;
-        const instance = makeInstance({
-            onOpenMergeTerrainsPanel: () => { opened = true; },
-            onTwSelectSurfaceForTerrain: (id) => { selectedForTerrain = id; },
-            onTwLoadData: () => {}
-        });
-        instance._handleSelectTerrainRow(null);
-        instance._handleSelectTerrainRow(undefined);
-        expect(selectedForTerrain).toBe('untouched');
-        expect(opened).toBe(false);
-    });
-});
 
 // ---------------------------------------------------------------------------
-// TASK-1587 (W1.8 P1.7 fix B2): the recipe-load (onSelectTerrain) must fire on
-// the EXPAND transition only. COLLAPSING a derived terrain row must NOT
-// re-dispatch selection (which previously re-opened the Analysis Surfaces
-// section + re-fired twSelectSurfaceForTerrain — surprising UX + redundant).
-// TerrainHierarchyRow reads `expanded` as a prop, so the parent's toggle is
-// simulated by re-rendering with the flipped value after each click.
+// TASK-1800 (W1.9 UAT live-fix 2026-06-18): expanding / collapsing a terrain row
+// is PURE DISCLOSURE — it fires onToggleExpand and nothing else. It must NOT
+// trigger any "select source surface / open Combined surface panel" side effect
+// (the TASK-1753 select-on-expand behaviour was removed because it popped the
+// stand-alone panel open on every expand — UAT finding). We pass an onSelectTerrain
+// spy that the row no longer reads, proving the side effect is gone:
+// re-introducing the call would fail this test. TerrainHierarchyRow reads
+// `expanded` as a prop, so the parent's toggle is simulated by re-rendering with
+// the flipped value after each click.
 // ---------------------------------------------------------------------------
-describe('TASK-1587 B2 terrain row select-on-expand-only', () => {
+describe('TASK-1800 terrain row expand is pure disclosure', () => {
     let container;
     beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
     afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); container = undefined; });
@@ -502,28 +460,87 @@ describe('TASK-1587 B2 terrain row select-on-expand-only', () => {
         );
     }
 
-    it('fires onSelectTerrain on EXPAND but NOT on collapse', () => {
+    it('toggles expansion on click and never fires a select/open side effect', () => {
         const toggled = [];
         let selectCalls = 0;
-        let lastSelectedId = null;
         const handlers = {
             onToggleExpand: (id) => toggled.push(id),
-            onSelectTerrain: (id) => { selectCalls += 1; lastSelectedId = id; }
+            // The row no longer reads onSelectTerrain — the spy proves it is never called.
+            onSelectTerrain: () => { selectCalls += 1; }
         };
 
         // 1) Row starts collapsed. Clicking the title/chevron EXPANDS it.
         renderRow(false, handlers);
         container.querySelector('.sv-terrain-parent-title').click();
-        expect(toggled).toEqual([42]);          // expansion toggled
-        expect(selectCalls).toBe(1);            // recipe-load fired on expand
-        expect(lastSelectedId).toBe(42);
+        expect(toggled).toEqual([42]);          // disclosure toggle fired
 
         // 2) Parent flips `expanded` to true; clicking again COLLAPSES it.
-        //    Selection must NOT fire again.
         renderRow(true, handlers);
         container.querySelector('.sv-terrain-parent-title').click();
-        expect(toggled).toEqual([42, 42]);      // collapse toggled
-        expect(selectCalls).toBe(1);            // NO re-dispatch on collapse
+        expect(toggled).toEqual([42, 42]);      // disclosure toggle fired again
+
+        // No select-source-surface / open-panel side effect on either transition.
+        expect(selectCalls).toBe(0);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-1800 (W1.9 UAT 2026-06-18): the parent terrain row carries MASTER
+// controls — a "toggle all children" visibility tick (green=all on / red=all
+// off / orange=mixed) + a master transparency slider that drives every child
+// layer at once via onChangeTerrainLayerProperties. Rendered with expanded=false
+// so only the parent row mounts (no connected child MenuRows → no Provider).
+// ---------------------------------------------------------------------------
+describe('TASK-1800 parent row master controls', () => {
+    let container;
+    beforeEach(() => { container = document.createElement('div'); document.body.appendChild(container); });
+    afterEach(() => { ReactDOM.unmountComponentAtNode(container); document.body.removeChild(container); container = undefined; });
+
+    const TERRAIN = { id: 7, title: 'My Terrain' };
+    function renderParent(demVis, hsVis, onChange) {
+        ReactDOM.render(
+            <TerrainHierarchyRow
+                terrain={TERRAIN}
+                terrainModel={TERRAIN}
+                demLayer={{ id: 'dem1', title: 'DEM', visibility: demVis, opacity: 1 }}
+                hillshadeLayer={{ id: 'hs1', title: 'Hillshade', visibility: hsVis, opacity: 1 }}
+                expanded={false}
+                onChangeTerrainLayerProperties={onChange || (() => {})}
+            />,
+            container
+        );
+    }
+
+    it('renders a master visibility tick + a master transparency slider', () => {
+        renderParent(true, true);
+        expect(container.querySelector('[data-testid="terrain-parent-toggle-all"]')).toExist('master visibility tick renders');
+        expect(container.querySelector('.sv-terrain-parent-row .sv-menu-row-slider-subrow')).toExist('master transparency slider renders');
+    });
+
+    it('master tick is green (all on) / red (all off) / orange (mixed)', () => {
+        renderParent(true, true);
+        expect(container.querySelector('[data-testid="terrain-parent-toggle-all"]').className).toContain('sv-glyph-active');
+        renderParent(false, false);
+        expect(container.querySelector('[data-testid="terrain-parent-toggle-all"]').className).toContain('sv-glyph-inactive');
+        renderParent(true, false);
+        expect(container.querySelector('[data-testid="terrain-parent-toggle-all"]').className).toContain('sv-glyph-partial');
+    });
+
+    it('clicking the master tick HIDES all children when all are visible', () => {
+        const calls = [];
+        renderParent(true, true, (id, props) => calls.push({ id, props }));
+        container.querySelector('[data-testid="terrain-parent-toggle-all"]').click();
+        expect(calls.length).toBe(2);                                   // both children driven
+        expect(calls.map(c => c.id).sort()).toEqual(['dem1', 'hs1']);
+        expect(calls.every(c => c.props.visibility === false)).toBe(true);
+    });
+
+    it('clicking the master tick SHOWS all children when some are hidden', () => {
+        const calls = [];
+        renderParent(true, false, (id, props) => calls.push({ id, props })); // mixed
+        container.querySelector('[data-testid="terrain-parent-toggle-all"]').click();
+        expect(calls.length).toBe(2);
+        expect(calls.every(c => c.props.visibility === true)).toBe(true);  // not-all-visible → show all
     });
 });
 

@@ -606,9 +606,13 @@ span.sv-menu-row-glyph {
     width: 18px;
     height: 18px;
     left: -9px;
-    /* origin is zero-height at the rail TOP; nudge down to the rail centre
-       (4px/2 = 2px), then pull up half the thumb height (18px/2 = 9px). */
-    top: 2px;
+    /* TASK-1800 (W1.9 UAT live-fix 2026-06-18): the round-3 top:2px was derived
+       from a wrong assumption ("origin is zero-height at the rail top"). Measured
+       live against the 4px rail, the 18px handle centre landed 8.3px ABOVE the
+       rail centre — the handle anchors ~8px higher than assumed. top:10px drops
+       the thumb centre onto the rail centre (verified live: handle cy == rail cy).
+       margin-top:-9px still pulls up half the 18px thumb. */
+    top: 10px;
     margin-top: -9px;
     background: var(--sv-input-blue, #5178af);
     border: 2px solid var(--sv-text, rgba(255, 255, 255, 0.85));

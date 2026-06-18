@@ -2164,8 +2164,23 @@ div that holds the feature-grid */
     flex: 1;
 }
 
+/* TASK-1800 (W1.9 UAT 2026-06-18): the parent row now carries MASTER controls
+   (visibility tick + identity title + transparency slider) matching the child
+   rows, with the extra expand chevron prefixed. The `> div { flex:1 }` rule
+   above would stretch the master slider, so pin it to its intrinsic width like
+   on the child rows. */
+.sv-terrain-parent-row > .sv-menu-row-slider-subrow {
+    flex: 0 0 auto;
+}
+
 .sv-terrain-derivatives {
-    padding-left: 14px;
+    /* TASK-1800 (W1.9 UAT live-fix 2026-06-18): trimmed 14px -> 8px (and the
+       per-row 28px .sv-terrain-derivative-indent spacer was removed in
+       anugaInputMenu.js) so the child DEM / Hillshade rows shift LEFT to sit
+       just under the parent identity title — the UAT wanted the buttons + text
+       pulled out of the deep indent. The 8px inset + subtle tint still reads as
+       a nested zone. */
+    padding-left: 8px;
     background: rgba(0, 0, 0, 0.08);
 }
 

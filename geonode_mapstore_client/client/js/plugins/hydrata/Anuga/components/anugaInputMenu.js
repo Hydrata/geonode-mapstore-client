@@ -53,6 +53,9 @@ import {
 // carries its own connect() and is rendered in the Hydrology panel.
 
 import {MenuRow} from "../../SimpleView/components/simpleViewMenuRow";
+// TASK-1800 (W1.9 UAT 2026-06-18): the parent terrain row reuses the same
+// transparency slider primitive as the child rows, driven as a MASTER control.
+import {OpacitySlider} from "../../SimpleView/components/primitives";
 import {UploaderPanel} from "../../SimpleView/components/simpleViewUploader";
 // TASK-1800 (W1.9 UAT): the recipe-builder components that consumed the shared
 // ErrorStrip / EmptyState / StatusBadge primitives moved to
@@ -252,9 +255,6 @@ class TerrainHierarchyRow extends React.Component {
         hillshadeLayer: PropTypes.object,
         expanded: PropTypes.bool,
         onToggleExpand: PropTypes.func,
-        // TASK-1753 (W1.8): selecting a DERIVED terrain row populates the recipe
-        // builder with its source AnalysisSurface. (terrainModel id passed up.)
-        onSelectTerrain: PropTypes.func,
         // Drag-and-drop props (passed by TerrainListWithDragDrop)
         dragging: PropTypes.bool,
         dragOver: PropTypes.bool,
@@ -268,26 +268,53 @@ class TerrainHierarchyRow extends React.Component {
         contoursEnabled: PropTypes.bool,
         onStylingModeChange: PropTypes.func,   // (terrainModel, demLayer, newMode)
         onContoursToggle: PropTypes.func,      // (demLayerName, currentlyEnabled)
+        // TASK-1800 (W1.9 UAT live-fix 2026-06-18): master visibility + opacity for
+        // the parent row — toggles / sets ALL child layers via changeLayerProperties.
+        onChangeTerrainLayerProperties: PropTypes.func // (layerId, {visibility?|opacity?})
     };
 
     render() {
         const {
-            terrain, demLayer, hillshadeLayer, expanded, onToggleExpand, onSelectTerrain,
+            terrain, demLayer, hillshadeLayer, expanded, onToggleExpand,
             dragging, dragOver, onDragStart, onDragOver, onDragEnd, onDrop,
             // Merge (5.x→epic 2026-06-15): TASK-1720/1721 per-DEM rendering-mode + contour toggles.
-            terrainModel, canEdit, contoursEnabled, onStylingModeChange, onContoursToggle
+            terrainModel, canEdit, contoursEnabled, onStylingModeChange, onContoursToggle,
+            onChangeTerrainLayerProperties
         } = this.props;
-        // TASK-1753 (W1.8): clicking a terrain identity row toggles its derivatives
-        // AND, when it is a real terrain model, asks the recipe builder to load that
-        // terrain's source AnalysisSurface (a no-op for plain uploads with no recipe).
-        // TASK-1587 (W1.8 P1.7 fix B2): only populate-on-select on the EXPAND
-        // transition. COLLAPSING a row must neither re-open the Analysis Surfaces
-        // section nor re-dispatch selection — `expanded` is the pre-toggle state, so
-        // the row is being expanded when it was previously collapsed.
+        // TASK-1800 (W1.9 UAT live-fix 2026-06-18): expanding / collapsing a terrain
+        // group is PURE DISCLOSURE — it only shows / hides the DEM + Hillshade child
+        // rows. It must NOT open the stand-alone "Combined surface" panel: that panel
+        // is opened solely by its own header button (anuga-terrain-merge-panel-button).
+        // The former select-on-expand side effect (TASK-1753) auto-opened that panel +
+        // ran a background load + surface-select on every expand, which the UAT flagged
+        // as intrusive — removed now that the recipe builder is a stand-alone panel.
         const handleRowSelect = () => {
-            const willExpand = !expanded;
             if (onToggleExpand) onToggleExpand(terrain.id);
-            if (willExpand && onSelectTerrain && terrainModel?.id) onSelectTerrain(terrainModel.id);
+        };
+
+        // TASK-1800 (W1.9 UAT 2026-06-18): parent-row MASTER controls. The parent row
+        // carries a "toggle all" visibility tick + a master transparency slider that
+        // drive EVERY child layer at once (the DEM + its Hillshade). Aggregate state is
+        // read from the live child layer objects (state.layers.flat); actions fan out
+        // via onChangeTerrainLayerProperties (changeLayerProperties per child).
+        const childLayers = [demLayer, hillshadeLayer].filter(Boolean);
+        const childVisibleCount = childLayers.filter(l => l.visibility).length;
+        const allChildrenVisible = childLayers.length > 0 && childVisibleCount === childLayers.length;
+        const noChildrenVisible = childVisibleCount === 0;
+        // green tick = all on · red cross = all off · orange "adjust" = mixed
+        const masterVisGlyph = allChildrenVisible
+            ? 'glyphicon-ok sv-glyph-active'
+            : noChildrenVisible ? 'glyphicon-remove sv-glyph-inactive' : 'glyphicon-adjust sv-glyph-partial';
+        const masterOpacity = childLayers.length
+            ? childLayers.reduce((s, l) => s + (l.opacity ?? 1), 0) / childLayers.length
+            : 1;
+        const toggleAllChildren = () => {
+            const next = !allChildrenVisible; // all visible -> hide all; otherwise -> show all
+            childLayers.forEach(l => onChangeTerrainLayerProperties && onChangeTerrainLayerProperties(l.id, { visibility: next }));
+        };
+        const setAllChildrenOpacity = (values) => {
+            const v = parseFloat(Array.isArray(values) ? values[0] : values);
+            if (!isNaN(v)) childLayers.forEach(l => onChangeTerrainLayerProperties && onChangeTerrainLayerProperties(l.id, { opacity: v * 0.01 }));
         };
 
         // TASK-1587 (grill 2026-06-15): the expanded zone now ALWAYS holds the
@@ -394,22 +421,54 @@ class TerrainHierarchyRow extends React.Component {
                         zone, so they keep the full DEM MenuRow inline here — otherwise their
                         visibility/zoom controls would have nowhere to live. */}
                     {hasDerivatives ? (
-                        <span
-                            className="sv-tw-terrain-parent-title sv-terrain-parent-title"
-                            data-testid="terrain-parent-title"
-                            /* TASK-1800: font-size/weight now live in the
-                               .sv-tw-terrain-parent-title CSS rule (14px/500) to MATCH
-                               the standard .sv-menu-row-text; inline keeps only colour/
-                               ellipsis/cursor. */
-                            style={{flex: 1, minWidth: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
-                            onClick={handleRowSelect}
-                            title={demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
-                        >
-                            {demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
-                            {!demLayer && (
+                        childLayers.length > 0 ? (
+                            /* TASK-1800 (W1.9 UAT 2026-06-18): the parent row now MATCHES the
+                               child row style — a master visibility tick (toggles ALL children)
+                               + the identity title + a master transparency slider (sets ALL
+                               children's opacity) — with the extra expand chevron above. The
+                               .sv-menu-row-* primitive classes make it line up with the child
+                               rows automatically. */
+                            <React.Fragment>
+                                <div className="sv-menu-row-left">
+                                    <div className="sv-menu-row-toolbar">
+                                        <span
+                                            className={`btn glyphicon sv-menu-row-glyph ${masterVisGlyph}`}
+                                            role="button"
+                                            tabIndex={0}
+                                            data-testid="terrain-parent-toggle-all"
+                                            aria-label={allChildrenVisible ? 'Hide all terrain layers' : 'Show all terrain layers'}
+                                            title={allChildrenVisible ? 'Hide all terrain layers' : 'Show all terrain layers'}
+                                            onClick={(e) => { e.stopPropagation(); toggleAllChildren(); }}
+                                        />
+                                    </div>
+                                    <div className="sv-menu-row-title">
+                                        <span
+                                            className="sv-menu-row-text sv-tw-terrain-parent-title sv-terrain-parent-title"
+                                            data-testid="terrain-parent-title"
+                                            style={{cursor: 'pointer'}}
+                                            onClick={handleRowSelect}
+                                            title={demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
+                                        >
+                                            {demLayer ? (demLayer.title || demLayer.name) : (terrain.title || terrain.name || 'Terrain')}
+                                        </span>
+                                    </div>
+                                </div>
+                                <OpacitySlider opacity={masterOpacity} onChange={setAllChildrenOpacity} />
+                            </React.Fragment>
+                        ) : (
+                            /* Pending: terrain still processing, no child layers yet — identity
+                               title + hourglass, no master controls (nothing to drive yet). */
+                            <span
+                                className="sv-tw-terrain-parent-title sv-terrain-parent-title"
+                                data-testid="terrain-parent-title"
+                                style={{flex: 1, minWidth: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
+                                onClick={handleRowSelect}
+                                title={terrain.title || terrain.name || 'Terrain'}
+                            >
+                                {terrain.title || terrain.name || 'Terrain'}
                                 <span className="glyphicon glyphicon-hourglass" style={{marginLeft: 6, fontSize: 10}} />
-                            )}
-                        </span>
+                            </span>
+                        )
                     ) : demLayer ? (
                         <div style={{flex: 1, minWidth: 0}}>
                             <MenuRow layer={demLayer} />
@@ -443,7 +502,10 @@ class TerrainHierarchyRow extends React.Component {
                                     to their RIGHT via the MenuRow extra-toolbar slot (between the
                                     controls and the title). Decorative photo glyph removed earlier. */}
                                 <div className="sv-terrain-derivative-row sv-tw-terrain-dem-row sv-terrain-dem-row" data-testid="terrain-dem-row">
-                                    <span className="sv-terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                    {/* TASK-1800 (W1.9 UAT live-fix 2026-06-18): the 28px
+                                        .sv-terrain-derivative-indent spacer was removed so the row's
+                                        buttons + text shift LEFT to sit just under the parent title
+                                        (the deep indent left a dead column the UAT flagged). */}
                                     <div style={{flex: 1, minWidth: 0}}>
                                         <MenuRow layer={demLayer} extraToolbarActions={demExtraActions} />
                                     </div>
@@ -455,7 +517,8 @@ class TerrainHierarchyRow extends React.Component {
                             up in columns with the DEM row above. */}
                         {hillshadeLayer ? (
                             <div className="sv-terrain-derivative-row sv-tw-terrain-hillshade-row">
-                                <span className="sv-terrain-derivative-indent" style={{display: 'inline-block', width: 28}} />
+                                {/* TASK-1800 (W1.9 UAT live-fix 2026-06-18): 28px indent spacer
+                                    removed (matches the DEM row above) — content shifts left. */}
                                 <div style={{flex: 1, minWidth: 0}}>
                                     <MenuRow layer={hillshadeLayer} extraToolbarActions={hillshadeExtraActions} />
                                 </div>
@@ -473,9 +536,6 @@ class TerrainListWithDragDrop extends React.Component {
         terrainGroups: PropTypes.array.isRequired,  // [{terrain, demLayer, hillshadeLayer}]
         expandedIds: PropTypes.instanceOf(Set),
         onToggleExpand: PropTypes.func,
-        // TASK-1753 (W1.8): forwarded to each row so selecting a derived terrain
-        // populates the Analysis Surfaces recipe builder.
-        onSelectTerrain: PropTypes.func,
         onReorder: PropTypes.func,  // (fromIndex, toIndex)
         // TASK-1720/1721 rendering-mode + contour toggles (merged 5.x→epic 2026-06-15)
         canEdit: PropTypes.bool,
@@ -483,6 +543,7 @@ class TerrainListWithDragDrop extends React.Component {
         localContoursEnabled: PropTypes.object, // {demLayerName: bool} local optimistic toggle state
         onStylingModeChange: PropTypes.func,
         onContoursToggle: PropTypes.func,
+        onChangeTerrainLayerProperties: PropTypes.func // master vis/opacity → each child layer
     };
 
     constructor(props) {
@@ -515,9 +576,9 @@ class TerrainListWithDragDrop extends React.Component {
 
     render() {
         const {
-            terrainGroups, expandedIds, onToggleExpand, onSelectTerrain,
+            terrainGroups, expandedIds, onToggleExpand,
             canEdit, flatLayers, localContoursEnabled,
-            onStylingModeChange, onContoursToggle
+            onStylingModeChange, onContoursToggle, onChangeTerrainLayerProperties
         } = this.props;
         const { dragFromIndex, dragOverIndex } = this.state;
         const localContours = localContoursEnabled || {};
@@ -542,11 +603,11 @@ class TerrainListWithDragDrop extends React.Component {
                             hillshadeLayer={group.hillshadeLayer}
                             expanded={!!(expandedIds && expandedIds.has(group.terrain?.id))}
                             onToggleExpand={onToggleExpand}
-                            onSelectTerrain={onSelectTerrain}
                             canEdit={canEdit}
                             contoursEnabled={contoursEnabled}
                             onStylingModeChange={onStylingModeChange}
                             onContoursToggle={onContoursToggle}
+                            onChangeTerrainLayerProperties={onChangeTerrainLayerProperties}
                             dragging={dragFromIndex === idx}
                             dragOver={dragOverIndex === idx && dragFromIndex !== idx}
                             onDragStart={() => this.handleDragStart(idx)}
@@ -646,7 +707,7 @@ class AnugaInputMenuClass extends React.Component {
     };
 
     static defaultProps = {
-        // TASK-1800: the header button + _handleSelectTerrainRow call these
+        // TASK-1800: the "Combined surface" header button calls these
         // unconditionally; default to no-ops so an unconnected/test mount is safe.
         onOpenMergeTerrainsPanel: () => {},
         onTwLoadData: () => {}
@@ -1209,25 +1270,12 @@ class AnugaInputMenuClass extends React.Component {
         return groups;
     }
 
-    // TASK-1753 (W1.8): selecting a DERIVED terrain row populates the Analysis
-    // Surfaces recipe builder with that terrain's source AnalysisSurface (its DEM
-    // priority stack, params, unmodified flags, feather/target-resolution), so the
-    // modeller can inspect / edit / re-derive instead of starting empty.
-    //
-    // TASK-1800 (W1.9 UAT): the recipe builder is now the stand-alone "Merge
-    // terrains" side panel (no longer an inline section). Open that panel
-    // (setTerrainWorkbenchVisible(true)), load its data (onTwLoadData), and
-    // dispatch twSelectSurfaceForTerrain — the epic resolves the source surface
-    // from the already-loaded list or the BE ?output_terrain=<id> filter, then
-    // selects it. A plain upload with no source recipe is a no-op in the epic.
-    _handleSelectTerrainRow = (terrainId) => {
-        if (terrainId === undefined || terrainId === null) return;
-        if (this.props.onOpenMergeTerrainsPanel) this.props.onOpenMergeTerrainsPanel();
-        if (this.props.onTwLoadData) this.props.onTwLoadData();
-        if (this.props.onTwSelectSurfaceForTerrain) {
-            this.props.onTwSelectSurfaceForTerrain(terrainId);
-        }
-    };
+    // TASK-1800 (W1.9 UAT live-fix 2026-06-18): the former _handleSelectTerrainRow
+    // (open the Merge-terrains panel + load + select-source-surface on terrain-row
+    // expand, TASK-1753) was REMOVED. Expanding a terrain group is now pure
+    // disclosure (see TerrainHierarchyRow.handleRowSelect); the "Combined surface"
+    // panel is opened only by its header button (renderTerrainPane, below), which
+    // dispatches onOpenMergeTerrainsPanel() + onTwLoadData() itself.
 
     // TASK-1720 (W3): Toggle Dynamic/Traditional styling mode for a single terrain.
     // 1. AWAIT the BE PATCH so we know whether to proceed.
@@ -1407,7 +1455,7 @@ class AnugaInputMenuClass extends React.Component {
         // TASK-1800 (W1.9 UAT): the recipe-builder state/dispatch props are no
         // longer read here — the recipe builder is the stand-alone "Merge terrains"
         // side panel (MergeTerrainsPanel, mounted at the anugaContainer level). The
-        // Terrain pane now only opens it (header button / _handleSelectTerrainRow).
+        // Terrain pane now only opens it (the "Combined surface" header button).
 
         // TASK-1652 (W1.5): build terrain groups for hierarchical rendering.
         const terrainGroups = this._buildTerrainGroups();
@@ -1429,9 +1477,6 @@ class AnugaInputMenuClass extends React.Component {
                                 this.setState({ expandedTerrainIds: next });
                             }}
                             onReorder={this.props.onReorderTerrainLayers}
-                            /* TASK-1753 (W1.8): selecting a derived terrain populates the
-                               Analysis Surfaces recipe builder with its source recipe. */
-                            onSelectTerrain={this._handleSelectTerrainRow}
                             /* Merge (5.x→epic 2026-06-15): TASK-1720/1721 per-DEM Mode +
                                Contours toggles, folded into the hierarchy rows — they used
                                to live on the flat layers.map list that TASK-1652 replaced. */
@@ -1440,6 +1485,7 @@ class AnugaInputMenuClass extends React.Component {
                             localContoursEnabled={this.state.contoursEnabled}
                             onStylingModeChange={this._handleTerrainStylingModeChange}
                             onContoursToggle={this._handleContoursToggle}
+                            onChangeTerrainLayerProperties={this.props.onChangeTerrainLayerProperties}
                         />
                     ) : null}
                     {layers.length === 0 ? this.renderTerrainEmpty() : null}

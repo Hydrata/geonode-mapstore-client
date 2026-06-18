@@ -561,10 +561,15 @@
 }
 
 /* #4: Mode + Contours toggles live in the MenuRow EXTRA-TOOLBAR slot, to the RIGHT
- * of the per-layer controls (UAT 2026-06-17). FIXED-WIDTH column: 58px = two 26px
- * icon buttons + one 6px gap. The DEM row fills it with the two toggles; the
- * Hillshade row renders the same (empty) slot, so the controls + titles line up in
- * columns across both rows. Scoped to terrain rows — non-terrain MenuRows pass no
+ * of the per-layer controls (UAT 2026-06-17). The DEM row fills it with the two
+ * toggles (Mode cog + Contours hamburger); the Hillshade row carries none.
+ *
+ * TASK-1800 (W1.9 UAT live-fix 2026-06-18): the slot is now CONTENT-SIZED, not a
+ * fixed 58px column. The old fixed width reserved an empty 58px column on the
+ * Hillshade row, pushing its title out so the buttons + text read mis-aligned with
+ * a big gap after the controls. Sizing to content (and collapsing the empty slot,
+ * below) lets the title hug the control cluster on each row — the left-aligned
+ * layout the UAT asked for. Scoped to terrain rows — non-terrain MenuRows pass no
  * extra actions, so .sv-menu-row-toolbar-extra never renders for them. */
 .sv-tw-terrain-dem-row .sv-menu-row-toolbar-extra,
 .sv-tw-terrain-hillshade-row .sv-menu-row-toolbar-extra {
@@ -572,9 +577,21 @@
     align-items: center;
     justify-content: flex-start;
     flex: 0 0 auto;
-    width: 58px;
     gap: 6px;
     margin-left: 4px;
+    /* TASK-1800 (W1.9 UAT live-fix 2026-06-18): render the Mode/Contours slot
+       AFTER the title (flex order) instead of before it, so the DEM + Hillshade
+       titles both start at the SAME left x (right after the shared control
+       cluster). Previously the DEM toggles sat between the controls and the
+       title, pushing the DEM title ~64px right of the Hillshade title. */
+    order: 1;
+}
+
+/* Collapse the slot entirely when a row carries no Mode/Contours toggles (the
+ * Hillshade row) so the title hugs the control cluster instead of an empty column. */
+.sv-tw-terrain-dem-row .sv-menu-row-toolbar-extra:empty,
+.sv-tw-terrain-hillshade-row .sv-menu-row-toolbar-extra:empty {
+    display: none;
 }
 
 /* #5: icon-only Mode + Contours buttons. Square, glyph-centred, no text label. */
@@ -606,4 +623,9 @@
 .sv-tw-terrain-dem-row .sv-menu-row-title,
 .sv-tw-terrain-hillshade-row .sv-menu-row-title {
     text-align: left;
+    /* TASK-1800 (W1.9 UAT live-fix 2026-06-18): don't grow (the base
+       .sv-menu-row-title is flex:1) so the title is content-width and the
+       order:1 Mode/Contours toggles sit immediately to its right rather than
+       being pushed to the far edge by a growing title box. */
+    flex: 0 1 auto;
 }
