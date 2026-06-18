@@ -13,6 +13,8 @@
  */
 
 import expect from 'expect';
+import Rx from 'rxjs';
+import { ActionsObservable } from 'redux-observable';
 import MockAdapter from 'axios-mock-adapter';
 import axios from '@mapstore/framework/libs/ajax';
 import { testEpic } from '@mapstore/framework/epics/__tests__/epicTestUtils';
@@ -324,7 +326,7 @@ describe('TerrainWorkbench action creators', () => {
 // TASK-1658 — extractTwError: map the BE {success:false, errors:[...]} shape
 // ---------------------------------------------------------------------------
 
-import { extractTwError, twSelectSurfaceForTerrainEpic } from '../epicsTerrainWorkbench';
+import { extractTwError, twSelectSurfaceForTerrainEpic, twDeriveEpic } from '../epicsTerrainWorkbench';
 
 describe('TASK-1658 extractTwError', () => {
     it('joins an errors array of plain strings', () => {
@@ -408,6 +410,172 @@ describe('TASK-1753 twSelectSurfaceForTerrainEpic', () => {
                 done();
             },
             makeState([])
+        );
+    });
+});
+
+// ---------------------------------------------------------------------------
+// TASK-1800 (W1.9 UAT r2) — twDeriveEpic lazy create-then-derive:
+// register the created Combined surface on CREATE success, independent of the
+// derive outcome, so a failed derive does not orphan a fresh row on retry.
+// ---------------------------------------------------------------------------
+
+describe('TASK-1800 twDeriveEpic lazy create-then-derive', () => {
+    const projectState = { anuga: { projects: { data: { id: 42 } } } };
+    const deriveBody = {
+        inputs: [{ terrain_id: 5, priority: 0, unmodified: true }],
+        feather_width_m: 50,
+        target_resolution_m: 5,
+        breach_max_cost: 20,
+        breach_search_dist: 100,
+        use_culverts: false,
+    };
+
+    it('registers the created surface on create-success even when the derive FAILS', (done) => {
+        // null surfaceId → lazy create. Create succeeds (returns id 77), derive 500s.
+        // The created row MUST be registered (twCreateSurfaceSuccess + twSelectSurface)
+        // BEFORE the derive error — otherwise the panel keeps surface=null and the
+        // retry creates a duplicate row (the orphan-row bug this fix closes).
+        const mockAxios = new MockAdapter(axios);
+        let createCalls = 0;
+        mockAxios.onPost(/analysis-surfaces\/$/).reply(() => {
+            createCalls += 1;
+            return [201, { id: 77, title: 'Combined surface', is_stale: true }];
+        });
+        mockAxios.onPost(/analysis-surfaces\/77\/derive\/$/).reply(500, {
+            success: false, errors: ['boom'],
+        });
+        // 3 actions expected: twCreateSurfaceSuccess, twSelectSurface, twDeriveError.
+        testEpic(
+            twDeriveEpic,
+            3,
+            twDerive(null, deriveBody),
+            (actions) => {
+                try {
+                    expect(actions.length).toBe(3);
+                    expect(actions[0].type).toBe(TW_CREATE_SURFACE_SUCCESS);
+                    expect(actions[0].surface.id).toBe(77);
+                    expect(actions[1].type).toBe(TW_SELECT_SURFACE);
+                    expect(actions[1].surfaceId).toBe(77);
+                    // The derive failure surfaces as an error, NOT a success — and the
+                    // task-monitor panel is NOT opened (no derive in flight).
+                    expect(actions[2].type).toBe(TW_DERIVE_ERROR);
+                    // Only ONE create POST despite the failed derive.
+                    expect(createCalls).toBe(1);
+                } finally {
+                    mockAxios.restore();
+                }
+                done();
+            },
+            projectState
+        );
+    });
+
+    it('a retry after a failed derive hits the EXISTING-id path — no duplicate create', (done) => {
+        // Simulate the real two-attempt sequence: attempt 1 creates id 77 then the
+        // derive fails; the row is now registered + selected, so the panel re-binds
+        // to id 77 and the retry dispatches twDerive(77, body) (non-null) — which
+        // takes the deriveWithId existing-id branch and does NOT POST create again.
+        //
+        // We drive the epic by hand (rather than via testEpic's synchronous array
+        // form) because twDeriveEpic uses switchMap: dispatching both twDerive
+        // actions back-to-back would CANCEL attempt 1's in-flight create/derive when
+        // attempt 2 arrives. The real UI only fires the retry AFTER the first derive
+        // resolved (the button re-enables on TW_DERIVE_ERROR), so we mirror that —
+        // dispatch attempt 2 only once attempt 1's three actions have settled.
+        const mockAxios = new MockAdapter(axios);
+        let createCalls = 0;
+        mockAxios.onPost(/analysis-surfaces\/$/).reply(() => {
+            createCalls += 1;
+            return [201, { id: 77, title: 'Combined surface', is_stale: true }];
+        });
+        // First derive (after lazy create) fails; the retry derive succeeds (202).
+        let deriveCalls = 0;
+        mockAxios.onPost(/analysis-surfaces\/77\/derive\/$/).reply(() => {
+            deriveCalls += 1;
+            return deriveCalls === 1
+                ? [500, { success: false, errors: ['boom'] }]
+                : [202, { detail: 'queued', process_id: 'pid-9' }];
+        });
+
+        const actions$ = new Rx.Subject();
+        const emitted = [];
+        let secondDispatched = false;
+        const sub = twDeriveEpic(
+            new ActionsObservable(actions$),
+            { getState: () => projectState }
+        ).subscribe((a) => {
+            emitted.push(a);
+            // After attempt 1 settles (its 3rd action, the derive error) fire the retry
+            // against the now-registered id 77 — the existing-id branch.
+            if (!secondDispatched && a.type === TW_DERIVE_ERROR) {
+                secondDispatched = true;
+                actions$.next(twDerive(77, deriveBody));
+            }
+            // Attempt 2's terminal action is the derive-success — assert and finish.
+            if (a.type === TW_DERIVE_SUCCESS) {
+                try {
+                    // Attempt 1 — lazy create then failed derive.
+                    expect(emitted[0].type).toBe(TW_CREATE_SURFACE_SUCCESS);
+                    expect(emitted[0].surface.id).toBe(77);
+                    expect(emitted[1].type).toBe(TW_SELECT_SURFACE);
+                    expect(emitted[1].surfaceId).toBe(77);
+                    expect(emitted[2].type).toBe(TW_DERIVE_ERROR);
+                    // Attempt 2 — existing-id derive succeeds.
+                    expect(a.surfaceId).toBe(77);
+                    expect(a.processId).toBe('pid-9');
+                    // createAnalysisSurface called EXACTLY ONCE across both attempts —
+                    // the retry did NOT orphan a second Combined surface row.
+                    expect(createCalls).toBe(1);
+                    // Attempt 2 took the existing-id branch, so it never re-registered.
+                    expect(emitted.filter(x => x.type === TW_CREATE_SURFACE_SUCCESS).length).toBe(1);
+                    sub.unsubscribe();
+                    mockAxios.restore();
+                    done();
+                } catch (e) {
+                    sub.unsubscribe();
+                    mockAxios.restore();
+                    done(e);
+                }
+            }
+        }, (err) => {
+            mockAxios.restore();
+            done(err);
+        });
+        // Kick off attempt 1.
+        actions$.next(twDerive(null, deriveBody));
+    });
+
+    it('the existing-id path derives directly without any create POST', (done) => {
+        // A project that already owns a surface (non-null surfaceId) must NOT create.
+        const mockAxios = new MockAdapter(axios);
+        let createCalls = 0;
+        mockAxios.onPost(/analysis-surfaces\/$/).reply(() => {
+            createCalls += 1;
+            return [201, { id: 99 }];
+        });
+        mockAxios.onPost(/analysis-surfaces\/11\/derive\/$/).reply(202, {
+            detail: 'queued', process_id: 'pid-1',
+        });
+        // toggleTaskMonitorPanel(true) + twDeriveSuccess = 2 actions.
+        testEpic(
+            twDeriveEpic,
+            2,
+            twDerive(11, deriveBody),
+            (actions) => {
+                try {
+                    const successAction = actions.find(a => a.type === TW_DERIVE_SUCCESS);
+                    expect(successAction).toExist();
+                    expect(successAction.surfaceId).toBe(11);
+                    expect(successAction.processId).toBe('pid-1');
+                    // No lazy create on the existing-id path.
+                    expect(createCalls).toBe(0);
+                } finally {
+                    mockAxios.restore();
+                }
+                done();
+            },
+            projectState
         );
     });
 });

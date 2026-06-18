@@ -296,12 +296,21 @@ export const twDeriveEpic = (action$, store) =>
                     }))
                     .switchMap(createResp => {
                         const surface = createResp.data;
-                        // Register the row in state + select it so the builder binds to
-                        // its real id, then derive.
-                        return deriveWithId(surface.id, [
+                        // TASK-1800 (W1.9 UAT r2 — adversarial-review fix): register the
+                        // created row in Redux + select it the MOMENT create succeeds,
+                        // INDEPENDENT of the derive outcome. Previously these two actions
+                        // were passed as deriveWithId's extraActions, which only emit on
+                        // the derive SUCCESS branch — so a create-succeeds / derive-fails
+                        // sequence left the persisted row UNREGISTERED (panel still saw
+                        // surface=null), and the user's retry POSTed createAnalysisSurface
+                        // AGAIN, orphaning a fresh "Combined surface" row per failed retry.
+                        // startWith-ing the registration means a failed derive leaves the
+                        // row registered + selected, so the retry hits the EXISTING-id
+                        // derive path (deriveWithId) instead of creating a duplicate.
+                        return deriveWithId(surface.id).startWith(
                             twCreateSurfaceSuccess(surface),
                             twSelectSurface(surface.id)
-                        ]);
+                        );
                     })
                     .catch(err =>
                         Rx.Observable.of(twDeriveError(extractTwError(err, 'Create failed')))
